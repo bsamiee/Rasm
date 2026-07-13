@@ -37,20 +37,33 @@
 [PUBLIC_TYPE_SCOPE]: dtype hierarchy
 - rail: compute
 
-| [INDEX] | [SYMBOL]                                                                                    | [TYPE_FAMILY]    | [RAIL]                                                                                                                                                                        |
-| :-----: | :------------------------------------------------------------------------------------------ | :--------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `generic`                                                                                   | scalar base      | root of all scalar types                                                                                                                                                      |
-|  [02]   | `bool_`                                                                                     | boolean          | numpy boolean scalar                                                                                                                                                          |
-|  [03]   | `int8`/`int16`/`int32`/`int64`                                                              | signed int       | fixed-width integers                                                                                                                                                          |
-|  [04]   | `uint8`..`uint64`                                                                           | unsigned int     | fixed-width unsigned ints                                                                                                                                                     |
-|  [05]   | `float16`/`float32`/`float64`                                                               | float            | IEEE 754 float scalars                                                                                                                                                        |
-|  [06]   | `complex64`/`complex128`                                                                    | complex          | complex scalar types                                                                                                                                                          |
-|  [07]   | `datetime64`                                                                                | datetime scalar  | ns-resolution datetime                                                                                                                                                        |
-|  [08]   | `timedelta64`                                                                               | timedelta scalar | duration scalar                                                                                                                                                               |
-|  [09]   | `str_`                                                                                      | Unicode string   | fixed-width Unicode scalar                                                                                                                                                    |
-|  [10]   | `bytes_`                                                                                    | byte string      | fixed-width bytes scalar                                                                                                                                                      |
-|  [11]   | `number`/`integer`/`signedinteger`/`unsignedinteger`/`inexact`/`floating`/`complexfloating` | abstract scalar  | abstract dtype-hierarchy bases between `generic` and the concrete scalars — the `issubdtype(dtype, np.integer)` test targets and the `NDArray[np.floating]` annotation bounds |
-|  [12]   | `intp`/`uintp`                                                                              | index int        | pointer-sized signed/unsigned integer; the platform index dtype (`astype(np.intp)` on index arrays)                                                                           |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]    | [RAIL]                                                                 |
+| :-----: | :----------------------------- | :--------------- | :--------------------------------------------------------------------- |
+|  [01]   | `generic`                      | scalar base      | root of all scalar types                                               |
+|  [02]   | `bool_`                        | boolean          | numpy boolean scalar                                                   |
+|  [03]   | `int8`/`int16`/`int32`/`int64` | signed int       | fixed-width integers                                                   |
+|  [04]   | `uint8`..`uint64`              | unsigned int     | fixed-width unsigned ints                                              |
+|  [05]   | `float16`/`float32`/`float64`  | float            | IEEE 754 float scalars                                                 |
+|  [06]   | `complex64`/`complex128`       | complex          | complex scalar types                                                   |
+|  [07]   | `datetime64`                   | datetime scalar  | ns-resolution datetime                                                 |
+|  [08]   | `timedelta64`                  | timedelta scalar | duration scalar                                                        |
+|  [09]   | `str_`                         | Unicode string   | fixed-width Unicode scalar                                             |
+|  [10]   | `bytes_`                       | byte string      | fixed-width bytes scalar                                               |
+|  [11]   | `intp`/`uintp`                 | index int        | pointer-sized platform index dtype (`astype(np.intp)` on index arrays) |
+
+[PUBLIC_TYPE_SCOPE]: abstract scalar bases
+- rail: compute
+- hierarchy bases between `generic` and the concrete scalars; the `issubdtype(dtype, base)` targets and `NDArray[base]` annotation bounds
+
+| [INDEX] | [SYMBOL]          | [PARENT]  | [ROLE]                         |
+| :-----: | :---------------- | :-------- | :----------------------------- |
+|  [01]   | `number`          | `generic` | numeric scalar base            |
+|  [02]   | `integer`         | `number`  | signed + unsigned integer base |
+|  [03]   | `signedinteger`   | `integer` | signed integer base            |
+|  [04]   | `unsignedinteger` | `integer` | unsigned integer base          |
+|  [05]   | `inexact`         | `number`  | float + complex base           |
+|  [06]   | `floating`        | `inexact` | real float base                |
+|  [07]   | `complexfloating` | `inexact` | complex float base             |
 
 [PUBLIC_TYPE_SCOPE]: info and error types
 - rail: compute
@@ -79,88 +92,89 @@
 [ENTRYPOINT_SCOPE]: array creation
 - rail: compute
 
-| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [RAIL]                                                                                                                                    |
-| :-----: | :--------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `zeros(shape, dtype)`                                            | creation       | zero-filled array                                                                                                                         |
-|  [02]   | `ones(shape, dtype)`                                             | creation       | one-filled array                                                                                                                          |
-|  [03]   | `empty(shape, dtype)`                                            | creation       | uninitialized array                                                                                                                       |
-|  [04]   | `full(shape, fill_value)`                                        | creation       | constant-filled array                                                                                                                     |
-|  [05]   | `zeros_like(a)`/`ones_like(a)`/`empty_like(a)`/`full_like(a, v)` | creation       | shape/dtype-matched fill of an existing array (the `out=` seed for a branchless ufunc, e.g. `divide(d, n, out=zeros_like(d), where=...)`) |
-|  [06]   | `fromiter(iterable, dtype, count)`                               | creation       | build a 1-D array from an iterable in one pass (no intermediate list), the per-row candidate gather                                       |
-|  [07]   | `array(object, dtype=None, *, copy=True, order='K', ndmin=0)`    | creation       | construct a NEW array, copying by default (vs `asarray` no-copy intake); the explicit-copy / `ndmin`-promoting constructor                |
-|  [08]   | `arange(start, stop, step)`                                      | range creation | evenly spaced integers/floats                                                                                                             |
-|  [09]   | `linspace(start, stop, num)`                                     | range creation | evenly spaced floats                                                                                                                      |
-|  [10]   | `logspace(start, stop, num)`                                     | range creation | log-spaced floats                                                                                                                         |
-|  [11]   | `eye(N, M, k)`                                                   | creation       | identity / shifted diagonal                                                                                                               |
-|  [12]   | `meshgrid(*xi)`                                                  | creation       | coordinate grid from 1-D axes                                                                                                             |
-|  [13]   | `asarray(a, dtype, *, copy)`                                     | conversion     | array-like to `ndarray`, no copy when already conforming                                                                                  |
-|  [14]   | `ascontiguousarray(a)`                                           | conversion     | force C-contiguous layout for kernel/FFI hand-off                                                                                         |
-|  [15]   | `frombuffer(buffer, dtype)`                                      | zero-copy      | wrap a bytes buffer as an `ndarray` view (no copy)                                                                                        |
-|  [16]   | `load(file)`                                                     | I/O            | load `.npy`/`.npz` from path                                                                                                              |
-|  [17]   | `save(file, arr)` / `savez(file, *arrays)`                       | I/O            | write `.npy` / `.npz` archive                                                                                                             |
-|  [18]   | `loadtxt(fname)`                                                 | I/O            | load text-file array                                                                                                                      |
+| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [RAIL]                                           |
+| :-----: | :--------------------------------------------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `zeros(shape, dtype)`                                            | creation       | zero-filled array                                |
+|  [02]   | `ones(shape, dtype)`                                             | creation       | one-filled array                                 |
+|  [03]   | `empty(shape, dtype)`                                            | creation       | uninitialized array                              |
+|  [04]   | `full(shape, fill_value)`                                        | creation       | constant-filled array                            |
+|  [05]   | `zeros_like(a)`/`ones_like(a)`/`empty_like(a)`/`full_like(a, v)` | creation       | shape/dtype-matched fill of an existing array    |
+|  [06]   | `fromiter(iterable, dtype, count)`                               | creation       | 1-D array from an iterable, no temp list         |
+|  [07]   | `array(object, dtype=None, *, copy=True, order='K', ndmin=0)`    | creation       | new copied array (vs `asarray` no-copy intake)   |
+|  [08]   | `arange(start, stop, step)`                                      | range creation | evenly spaced integers/floats                    |
+|  [09]   | `linspace(start, stop, num)`                                     | range creation | evenly spaced floats                             |
+|  [10]   | `logspace(start, stop, num)`                                     | range creation | log-spaced floats                                |
+|  [11]   | `eye(N, M, k)`                                                   | creation       | identity / shifted diagonal                      |
+|  [12]   | `meshgrid(*xi)`                                                  | creation       | coordinate grid from 1-D axes                    |
+|  [13]   | `asarray(a, dtype, *, copy)`                                     | conversion     | array-like to `ndarray`, no copy when conforming |
+|  [14]   | `ascontiguousarray(a)`                                           | conversion     | force C-contiguous layout for kernel/FFI         |
+|  [15]   | `frombuffer(buffer, dtype)`                                      | zero-copy      | wrap a bytes buffer as an `ndarray` view         |
+|  [16]   | `load(file)`                                                     | I/O            | load `.npy`/`.npz` from path                     |
+|  [17]   | `save(file, arr)` / `savez(file, *arrays)`                       | I/O            | write `.npy` / `.npz` archive                    |
+|  [18]   | `loadtxt(fname)`                                                 | I/O            | load text-file array                             |
 
 [ENTRYPOINT_SCOPE]: shape and manipulation
 - rail: compute
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [RAIL]                                                                               |
-| :-----: | :-------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `reshape(a, newshape)`                                          | shape          | change array shape                                                                   |
-|  [02]   | `ravel(a)`                                                      | shape          | 1-D contiguous view                                                                  |
-|  [03]   | `transpose(a, axes)`                                            | shape          | permute axes                                                                         |
-|  [04]   | `swapaxes(a, ax1, ax2)`                                         | shape          | swap two axes                                                                        |
-|  [05]   | `moveaxis(a, source, dest)`                                     | shape          | move axis to new position                                                            |
-|  [06]   | `expand_dims(a, axis)`                                          | shape          | insert a new axis                                                                    |
-|  [07]   | `squeeze(a, axis)`                                              | shape          | remove size-1 axes                                                                   |
-|  [08]   | `concatenate(arrays, axis)`                                     | join           | join arrays along existing axis                                                      |
-|  [09]   | `stack(arrays, axis)`                                           | join           | stack arrays along new axis                                                          |
-|  [10]   | `hstack`/`vstack`/`dstack`                                      | join           | horizontal/vertical/depth join                                                       |
-|  [11]   | `split(a, indices, axis)`                                       | split          | split into sub-arrays                                                                |
-|  [12]   | `broadcast_to(a, shape)` / `broadcast_arrays(*arrays)`          | broadcast      | explicit broadcast view(s) without copy                                              |
-|  [13]   | `lib.stride_tricks.sliding_window_view(x, window_shape, axis)`  | window view    | strided rolling-window view (no copy)                                                |
-|  [14]   | `lib.stride_tricks.as_strided(x, shape, strides)`               | strided view   | raw stride view (unsafe; bounds not checked)                                         |
-|  [15]   | `pad(array, pad_width, mode)`                                   | pad            | bordered/edge-padded copy                                                            |
-|  [16]   | `atleast_1d(*arys)` / `atleast_2d(*arys)` / `atleast_3d(*arys)` | dims           | promote inputs to at-least 1/2/3-D (the 2-D conditioning before a matrix kernel)     |
-|  [17]   | `column_stack(tup)`                                             | join           | stack 1-D arrays as columns of a 2-D array (1-D `hstack` joins along axis 0 instead) |
-|  [18]   | `append(arr, values, axis)`                                     | join           | concatenated copy with `values` appended (flattens both when `axis=None`)            |
-|  [19]   | `delete(arr, obj, axis)`                                        | edit           | copy with the elements/subarrays at `obj` indices removed                            |
-|  [20]   | `roll(a, shift, axis)`                                          | shift          | cyclic shift along axis (wraps; no fill)                                             |
+| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [RAIL]                                       |
+| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------- |
+|  [01]   | `reshape(a, newshape)`                                          | shape          | change array shape                           |
+|  [02]   | `ravel(a)`                                                      | shape          | 1-D contiguous view                          |
+|  [03]   | `transpose(a, axes)`                                            | shape          | permute axes                                 |
+|  [04]   | `swapaxes(a, ax1, ax2)`                                         | shape          | swap two axes                                |
+|  [05]   | `moveaxis(a, source, dest)`                                     | shape          | move axis to new position                    |
+|  [06]   | `expand_dims(a, axis)`                                          | shape          | insert a new axis                            |
+|  [07]   | `squeeze(a, axis)`                                              | shape          | remove size-1 axes                           |
+|  [08]   | `concatenate(arrays, axis)`                                     | join           | join arrays along existing axis              |
+|  [09]   | `stack(arrays, axis)`                                           | join           | stack arrays along new axis                  |
+|  [10]   | `hstack`/`vstack`/`dstack`                                      | join           | horizontal/vertical/depth join               |
+|  [11]   | `split(a, indices, axis)`                                       | split          | split into sub-arrays                        |
+|  [12]   | `broadcast_to(a, shape)` / `broadcast_arrays(*arrays)`          | broadcast      | explicit broadcast view(s) without copy      |
+|  [13]   | `lib.stride_tricks.sliding_window_view(x, window_shape, axis)`  | window view    | strided rolling-window view (no copy)        |
+|  [14]   | `lib.stride_tricks.as_strided(x, shape, strides)`               | strided view   | raw stride view (unsafe; bounds not checked) |
+|  [15]   | `pad(array, pad_width, mode)`                                   | pad            | bordered/edge-padded copy                    |
+|  [16]   | `atleast_1d(*arys)` / `atleast_2d(*arys)` / `atleast_3d(*arys)` | dims           | promote inputs to at-least 1/2/3-D           |
+|  [17]   | `column_stack(tup)`                                             | join           | stack 1-D arrays as columns of a 2-D array   |
+|  [18]   | `append(arr, values, axis)`                                     | join           | concatenated copy with `values` appended     |
+|  [19]   | `delete(arr, obj, axis)`                                        | edit           | copy with elements at `obj` indices removed  |
+|  [20]   | `roll(a, shift, axis)`                                          | shift          | cyclic shift along axis (wraps; no fill)     |
 
 [ENTRYPOINT_SCOPE]: math and reduction
 - rail: compute
 
-| [INDEX] | [SURFACE]                                                             | [ENTRY_FAMILY]  | [RAIL]                                                                                                                                                                 |
-| :-----: | :-------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `sum`/`prod`/`cumsum`/`cumprod`                                       | reduction       | aggregation along axes                                                                                                                                                 |
-|  [02]   | `mean`/`std`/`var`                                                    | statistics      | mean, std dev, variance                                                                                                                                                |
-|  [03]   | `min`/`max`/`argmin`/`argmax`                                         | reduction       | extrema and their indices                                                                                                                                              |
-|  [04]   | `dot(a, b)`                                                           | linear alg      | vector/matrix dot product                                                                                                                                              |
-|  [05]   | `matmul(x1, x2)`                                                      | linear alg      | matrix multiplication (`@`)                                                                                                                                            |
-|  [06]   | `inner`/`outer`/`tensordot`                                           | linear alg      | inner, outer, tensor contractions                                                                                                                                      |
-|  [07]   | `einsum(subscripts, *operands, optimize)`                             | linear alg      | Einstein-summation contraction, the general reduction/contraction owner                                                                                                |
-|  [08]   | `diagonal(a, offset, axis1, axis2)` / `trace(a)`                      | extraction      | extract diagonal / sum of diagonal                                                                                                                                     |
-|  [09]   | `where(cond, x, y)`                                                   | selection       | conditional element selection (1-arg form returns indices)                                                                                                             |
-|  [10]   | `nonzero(a)` / `flatnonzero(a)`                                       | selection       | indices of nonzero elements                                                                                                                                            |
-|  [11]   | `clip(a, a_min, a_max)`                                               | elementwise     | bound values to interval                                                                                                                                               |
-|  [12]   | `isfinite(x)` / `isnan(x)` / `isinf(x)`                               | predicate ufunc | element-wise finiteness / NaN / inf mask                                                                                                                               |
-|  [13]   | `allclose(a, b, rtol, atol)` / `isclose(...)`                         | predicate       | tolerant equality (scalar / element-wise)                                                                                                                              |
-|  [14]   | `nan_to_num(x, nan, posinf, neginf)`                                  | sanitize        | replace non-finite values with finite substitutes                                                                                                                      |
-|  [15]   | `sort(a, axis)`/`argsort`/`lexsort(keys)`                             | sort            | sort, sort indices, or stable multi-key lexicographic sort indices (last key primary)                                                                                  |
-|  [16]   | `unique(ar, return_counts, return_index)`                             | set ops         | unique elements with optional counts/indices                                                                                                                           |
-|  [17]   | `exp`/`log`/`sqrt`/`power`/`divide`                                   | ufunc           | exponential/logarithm/power; `divide(x1, x2, out=, where=)` branchless safe division over the masked `out` buffer                                                      |
-|  [18]   | `sin`/`cos`/`tan`/`arctan2`                                           | ufunc           | trigonometric operations                                                                                                                                               |
-|  [19]   | `abs`/`sign`/`round`/`floor`/`ceil`                                   | ufunc           | absolute, rounding operations                                                                                                                                          |
-|  [20]   | `nansum`/`nanmean`/`nanstd`/`nanmax`                                  | nan-aware       | reductions skipping non-finite entries                                                                                                                                 |
-|  [21]   | `angle(z, deg)` / `conj(x)` / `conjugate(x)`                          | complex ufunc   | phase angle and complex conjugate (analytic-signal phase estimator)                                                                                                    |
-|  [22]   | `maximum(x1, x2)` / `minimum(x1, x2)`                                 | binary ufunc    | element-wise pairwise extrema (NaN-propagating; distinct from the `max`/`min` axis reductions) — the branchless clamp half                                             |
-|  [23]   | `add`/`subtract`/`multiply`, `bitwise_or`/`bitwise_and`/`bitwise_xor` | binary ufunc    | arithmetic/bitwise binary ufuncs carrying `.reduce`/`.accumulate`/`.outer`/`.at` (e.g. `subtract.outer(a, b)` outer difference, `bitwise_or.reduce(codes)` flag union) |
-|  [24]   | `median(a, axis)`                                                     | statistics      | median along axis (`nanmedian` skips non-finite)                                                                                                                       |
-|  [25]   | `count_nonzero(a, axis, keepdims)`                                    | reduction       | count of nonzero/`True` elements (the boolean-mask population count)                                                                                                   |
-|  [26]   | `interp(x, xp, fp, left, right, period)`                              | interpolation   | 1-D piecewise-linear interpolation against monotonic `xp`/`fp`                                                                                                         |
-|  [27]   | `gradient(f, *varargs, axis, edge_order)`                             | calculus        | central-difference numerical gradient (per-axis spacing via `varargs`)                                                                                                 |
-|  [28]   | `diff(a, n, axis)`                                                    | calculus        | n-th discrete difference along axis                                                                                                                                    |
-|  [29]   | `trapezoid(y, x, dx, axis)`                                           | calculus        | trapezoidal integral along axis (NumPy 2.0 name; supersedes `trapz`)                                                                                                   |
-|  [30]   | `issubdtype(arg1, arg2)`                                              | dtype query     | dtype subclass test against an abstract scalar base (`issubdtype(a.dtype, np.integer)`)                                                                                |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY]  | [RAIL]                                                         |
+| :-----: | :----------------------------------------------- | :-------------- | :------------------------------------------------------------- |
+|  [01]   | `sum`/`prod`/`cumsum`/`cumprod`                  | reduction       | aggregation along axes                                         |
+|  [02]   | `mean`/`std`/`var`                               | statistics      | mean, std dev, variance                                        |
+|  [03]   | `min`/`max`/`argmin`/`argmax`                    | reduction       | extrema and their indices                                      |
+|  [04]   | `dot(a, b)`                                      | linear alg      | vector/matrix dot product                                      |
+|  [05]   | `matmul(x1, x2)`                                 | linear alg      | matrix multiplication (`@`)                                    |
+|  [06]   | `inner`/`outer`/`tensordot`                      | linear alg      | inner, outer, tensor contractions                              |
+|  [07]   | `einsum(subscripts, *operands, optimize)`        | linear alg      | Einstein-summation contraction owner                           |
+|  [08]   | `diagonal(a, offset, axis1, axis2)` / `trace(a)` | extraction      | extract diagonal / sum of diagonal                             |
+|  [09]   | `where(cond, x, y)`                              | selection       | conditional element selection (1-arg form returns indices)     |
+|  [10]   | `nonzero(a)` / `flatnonzero(a)`                  | selection       | indices of nonzero elements                                    |
+|  [11]   | `clip(a, a_min, a_max)`                          | elementwise     | bound values to interval                                       |
+|  [12]   | `isfinite(x)` / `isnan(x)` / `isinf(x)`          | predicate ufunc | element-wise finiteness / NaN / inf mask                       |
+|  [13]   | `allclose(a, b, rtol, atol)` / `isclose(...)`    | predicate       | tolerant equality (scalar / element-wise)                      |
+|  [14]   | `nan_to_num(x, nan, posinf, neginf)`             | sanitize        | replace non-finite values with finite substitutes              |
+|  [15]   | `sort(a, axis)`/`argsort`/`lexsort(keys)`        | sort            | sort, argsort, or stable multi-key `lexsort`                   |
+|  [16]   | `unique(ar, return_counts, return_index)`        | set ops         | unique elements with optional counts/indices                   |
+|  [17]   | `exp`/`log`/`sqrt`/`power`/`divide`              | ufunc           | exponential/logarithm/power; masked `divide(out=, where=)`     |
+|  [18]   | `sin`/`cos`/`tan`/`arctan2`                      | ufunc           | trigonometric operations                                       |
+|  [19]   | `abs`/`sign`/`round`/`floor`/`ceil`              | ufunc           | absolute, rounding operations                                  |
+|  [20]   | `nansum`/`nanmean`/`nanstd`/`nanmax`             | nan-aware       | reductions skipping non-finite entries                         |
+|  [21]   | `angle(z, deg)` / `conj(x)` / `conjugate(x)`     | complex ufunc   | phase angle and complex conjugate                              |
+|  [22]   | `maximum(x1, x2)` / `minimum(x1, x2)`            | binary ufunc    | element-wise pairwise extrema (vs `max`/`min` reductions)      |
+|  [23]   | `add`/`subtract`/`multiply`                      | binary ufunc    | arithmetic binary ufuncs                                       |
+|  [24]   | `bitwise_or`/`bitwise_and`/`bitwise_xor`         | binary ufunc    | bitwise binary ufuncs (`bitwise_or.reduce` unions flags)       |
+|  [25]   | `median(a, axis)`                                | statistics      | median along axis (`nanmedian` skips non-finite)               |
+|  [26]   | `count_nonzero(a, axis, keepdims)`               | reduction       | count of nonzero/`True` elements                               |
+|  [27]   | `interp(x, xp, fp, left, right, period)`         | interpolation   | 1-D piecewise-linear interpolation against monotonic `xp`/`fp` |
+|  [28]   | `gradient(f, *varargs, axis, edge_order)`        | calculus        | central-difference numerical gradient                          |
+|  [29]   | `diff(a, n, axis)`                               | calculus        | n-th discrete difference along axis                            |
+|  [30]   | `trapezoid(y, x, dx, axis)`                      | calculus        | trapezoidal integral (supersedes `trapz`)                      |
+|  [31]   | `issubdtype(arg1, arg2)`                         | dtype query     | dtype subclass test vs an abstract scalar base                 |
 
 [ENTRYPOINT_SCOPE]: top-level constants
 - rail: compute
@@ -174,19 +188,19 @@
 [ENTRYPOINT_SCOPE]: linalg submodule
 - rail: compute
 
-| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                                                                                                                                 |
-| :-----: | :----------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `linalg.solve(a, b)`                             | linear solver  | exact solution to `Ax = b`                                                                                                             |
-|  [02]   | `linalg.inv(a)`                                  | inversion      | matrix inverse                                                                                                                         |
-|  [03]   | `linalg.det(a)`                                  | determinant    | matrix determinant                                                                                                                     |
-|  [04]   | `linalg.eig(a)`/`eigh(a)`                        | eigen          | eigenvalues and eigenvectors                                                                                                           |
-|  [05]   | `linalg.svd(a)`/`svdvals`                        | decomposition  | singular value decomposition                                                                                                           |
-|  [06]   | `linalg.qr(a)`                                   | decomposition  | QR factorisation                                                                                                                       |
-|  [07]   | `linalg.cholesky(a)`                             | decomposition  | Cholesky factorisation                                                                                                                 |
-|  [08]   | `linalg.norm(x, ord, axis)`                      | norm           | vector and matrix norms                                                                                                                |
-|  [09]   | `linalg.lstsq(a, b)`                             | least squares  | minimum-norm least-squares                                                                                                             |
-|  [10]   | `linalg.pinv(a)`                                 | pseudo-inverse | Moore-Penrose pseudo-inverse                                                                                                           |
-|  [11]   | `linalg.eigvalsh(a, UPLO)` / `linalg.eigvals(a)` | eigenvalues    | eigenvalues-only (Hermitian / general) — the cheaper path when eigenvectors are unused (SDP feasibility margin via the min eigenvalue) |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                                                  |
+| :-----: | :----------------------------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `linalg.solve(a, b)`                             | linear solver  | exact solution to `Ax = b`                              |
+|  [02]   | `linalg.inv(a)`                                  | inversion      | matrix inverse                                          |
+|  [03]   | `linalg.det(a)`                                  | determinant    | matrix determinant                                      |
+|  [04]   | `linalg.eig(a)`/`eigh(a)`                        | eigen          | eigenvalues and eigenvectors                            |
+|  [05]   | `linalg.svd(a)`/`svdvals`                        | decomposition  | singular value decomposition                            |
+|  [06]   | `linalg.qr(a)`                                   | decomposition  | QR factorisation                                        |
+|  [07]   | `linalg.cholesky(a)`                             | decomposition  | Cholesky factorisation                                  |
+|  [08]   | `linalg.norm(x, ord, axis)`                      | norm           | vector and matrix norms                                 |
+|  [09]   | `linalg.lstsq(a, b)`                             | least squares  | minimum-norm least-squares                              |
+|  [10]   | `linalg.pinv(a)`                                 | pseudo-inverse | Moore-Penrose pseudo-inverse                            |
+|  [11]   | `linalg.eigvalsh(a, UPLO)` / `linalg.eigvals(a)` | eigenvalues    | eigenvalues-only (Hermitian / general), no eigenvectors |
 
 [ENTRYPOINT_SCOPE]: fft submodule
 - rail: compute

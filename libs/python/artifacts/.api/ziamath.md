@@ -22,73 +22,73 @@
 [RENDER_TYPE_SCOPE]: the bounded `Math`/`Latex`/`Text` render trio
 - rail: figure
 
-The three render owners are the closed entry algebra a figure/diagram/document consumer dispatches over: `Math` takes presentation MathML (`str` or `ET.Element`), `Latex` IS-A `Math` specialized on a single LaTeX expression, and `Text` is the standalone mixed-content paragraph owner (text interleaved with `$inline$`/`$$display$$` math, multi-line, rotatable). A consumer constructs one of the three with its source string, then reads the same egress surface (`svg`/`svgxml`/`drawon`/`save`/`getsize`) off the result — there is no per-output-format render family. `Latex` subclasses `Math`, so a LaTeX equation IS a `Math` and shares its entire egress; `Text` is independent (it owns its own line-breaking layout) but mirrors the egress names.
+The three render owners are the closed entry algebra a figure/diagram/document consumer dispatches over: `Math(mathml, size=None, font=None, title=None, number=None, margin=1.0)` takes presentation MathML (`str` or `ET.Element`), `Latex` IS-A `Math` specialized on a single LaTeX expression, and `Text` is the standalone mixed-content paragraph owner (text interleaved with `$inline$`/`$$display$$` math, multi-line, rotatable) — the `Latex`/`Text` constructor signatures are spelled in the LaTeX-and-mixed-content scope below. A consumer constructs one of the three with its source string, then reads the same egress surface (`svg`/`svgxml`/`drawon`/`save`/`getsize`) off the result — no per-output-format render family. `Latex` subclasses `Math`, so a LaTeX equation IS a `Math` and shares its entire egress; `Text` is independent (its own line-breaking layout) but mirrors the egress names.
 
-| [INDEX] | [TYPE]  | [KIND]          | [ROLE]                                                                                                                                                                                                                   |
-| :-----: | :------ | :-------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Math`  | MathML renderer | `Math(mathml, size=None, font=None, title=None, number=None, margin=1.0)` — presentation-MathML -> laid-out node tree -> SVG                                                                                             |
-|  [02]   | `Latex` | LaTeX renderer  | `Latex(latex, size=None, mathstyle=None, font=None, color=None, inline=False, title=None, number=None, margin=1.0)` — IS-A `Math`; converts via `latex2mathml`                                                           |
-|  [03]   | `Text`  | mixed paragraph | `Text(s, textfont=None, mathfont=None, mathstyle=None, size=None, linespacing=None, color=None, halign='left', valign='base', rotation=0, rotation_mode='anchor', title=None)` — text + `$..$`/`$$..$$` math, multi-line |
+| [INDEX] | [TYPE]  | [KIND]          | [ROLE]                                                       |
+| :-----: | :------ | :-------------- | :----------------------------------------------------------- |
+|  [01]   | `Math`  | MathML renderer | `Math(mathml, …)` — presentation-MathML -> node tree -> SVG  |
+|  [02]   | `Latex` | LaTeX renderer  | `Latex(latex, …)` — IS-A `Math`; converts via `latex2mathml` |
+|  [03]   | `Text`  | mixed paragraph | `Text(s, …)` — text + `$..$`/`$$..$$` math, multi-line       |
 
 [RENDER_TYPE_SCOPE]: layout-geometry value types
 - rail: figure
 
 `Halign`/`Valign` are the closed alignment literals threaded through `drawon`; `getsize`/`getyofst` expose the laid-out bounding-box geometry the diagram/document owner needs to position the equation (the bbox is a `ziafont.fonttypes.BBox` over the node tree). The vertical-alignment vocabulary is richer than plain text — `axis` aligns to the math axis (minus-sign height above baseline), `base` to the first text element's baseline — which the AEC annotation plane needs to seat an inline equation correctly against a leader or dimension line.
 
-| [INDEX] | [TYPE_MEMBER]                                                 | [KIND]   | [ROLE]                                                            |
-| :-----: | :------------------------------------------------------------ | :------- | :---------------------------------------------------------------- |
-|  [01]   | `Halign = Literal['left', 'center', 'right']`                 | align    | horizontal anchor for `drawon`                                    |
-|  [02]   | `Valign = Literal['top', 'center', 'base', 'axis', 'bottom']` | align    | vertical anchor; `axis` = math-axis, `base` = first-text baseline |
-|  [03]   | `<renderer>.getsize() -> tuple[float, float]`                 | geometry | laid-out `(width, height)` in SVG px (bbox extent)                |
-|  [04]   | `<renderer>.getyofst() -> float`                              | geometry | y-shift from bbox bottom to baseline (`bbox.ymin`) for seating    |
+| [INDEX] | [TYPE_MEMBER]                                                 | [KIND]   | [ROLE]                                                        |
+| :-----: | :------------------------------------------------------------ | :------- | :------------------------------------------------------------ |
+|  [01]   | `Halign = Literal['left', 'center', 'right']`                 | align    | horizontal anchor for `drawon`                                |
+|  [02]   | `Valign = Literal['top', 'center', 'base', 'axis', 'bottom']` | align    | vertical anchor; `axis`=math-axis, `base`=first-text baseline |
+|  [03]   | `<renderer>.getsize() -> tuple[float, float]`                 | geometry | laid-out `(width, height)` in SVG px (bbox extent)            |
+|  [04]   | `<renderer>.getyofst() -> float`                              | geometry | y-shift from bbox bottom to baseline (`bbox.ymin`)            |
 
 ## [03]-[EGRESS]
 
 [ENTRYPOINT_SCOPE]: SVG document and in-place draw egress
 - rail: figure
 
-Every renderer exposes one egress family: `svg()` returns the standalone SVG string (the durable artifact), `svgxml()` returns the same as an `ET.Element` tree (for in-process composition without a parse round-trip), `drawon(svg, x, y, halign, valign)` draws the laid-out equation onto a CALLER-PROVIDED `ET.Element` at an aligned anchor and returns the inserted `<g>` group, and `save(fname)` writes the SVG file. `drawon` is the load-bearing composition seam: a diagram or document owner that builds its own `xml.etree` SVG tree threads the equation in directly, no string concatenation, no temp file. `Math.mathml2svg(mathml, size, font)` is the one-shot classmethod shortcut (construct + `svg()` in one call). The string egress is what the figure owner records under the content-key and what downstream rasterizers consume.
+Every renderer exposes one egress family: `svg()` returns the standalone SVG string (the durable artifact), `svgxml()` returns the same as an `ET.Element` tree (for in-process composition without a parse round-trip), `drawon(svg, x=0, y=0, halign='left', valign='base') -> ET.Element` draws the laid-out equation onto a CALLER-PROVIDED `ET.Element` at an aligned anchor and returns the inserted `<g>` group, and `save(fname)` writes the SVG file. `drawon` is the load-bearing composition seam: a diagram or document owner that builds its own `xml.etree` SVG tree threads the equation in directly, no string concatenation, no temp file. `Math.mathml2svg(mathml, size, font)` is the one-shot classmethod shortcut (construct + `svg()` in one call). The string egress is what the figure owner records under the content-key and what downstream rasterizers consume.
 
-| [INDEX] | [MEMBER]                                                                       | [KIND]     | [ROLE]                                                           |
-| :-----: | :----------------------------------------------------------------------------- | :--------- | :--------------------------------------------------------------- |
-|  [01]   | `<renderer>.svg() -> str`                                                      | serialize  | standalone SVG string — the durable figure artifact              |
-|  [02]   | `<renderer>.svgxml() -> ET.Element`                                            | serialize  | standalone SVG as `ElementTree` (in-process compose, no reparse) |
-|  [03]   | `<renderer>.drawon(svg, x=0, y=0, halign='left', valign='base') -> ET.Element` | compose    | draw onto a caller `ET.Element`; returns the inserted `<g>`      |
-|  [04]   | `<renderer>.save(fname)`                                                       | serialize  | write the SVG string to a file path                              |
-|  [05]   | `Math.mathml2svg(mathml, size=None, font=None) -> str`                         | serialize  | classmethod one-shot: construct + `svg()`                        |
-|  [06]   | `Math.mathmlstr() -> str`                                                      | introspect | the (possibly LaTeX-derived) MathML source as a string           |
-|  [07]   | `<renderer>._repr_svg_() -> str`                                               | notebook   | Jupyter inline SVG (notebook boundary only)                      |
+| [INDEX] | [MEMBER]                                               | [KIND]     | [ROLE]                                                           |
+| :-----: | :----------------------------------------------------- | :--------- | :--------------------------------------------------------------- |
+|  [01]   | `<renderer>.svg() -> str`                              | serialize  | standalone SVG string — the durable figure artifact              |
+|  [02]   | `<renderer>.svgxml() -> ET.Element`                    | serialize  | standalone SVG as `ElementTree` (in-process compose, no reparse) |
+|  [03]   | `<renderer>.drawon(svg, x, y, halign, valign)`         | compose    | draw onto a caller `ET.Element`; returns the inserted `<g>`      |
+|  [04]   | `<renderer>.save(fname)`                               | serialize  | write the SVG string to a file path                              |
+|  [05]   | `Math.mathml2svg(mathml, size=None, font=None) -> str` | serialize  | classmethod one-shot: construct + `svg()`                        |
+|  [06]   | `Math.mathmlstr() -> str`                              | introspect | the (possibly LaTeX-derived) MathML source as a string           |
+|  [07]   | `<renderer>._repr_svg_() -> str`                       | notebook   | Jupyter inline SVG (notebook boundary only)                      |
 
 [ENTRYPOINT_SCOPE]: LaTeX and mixed-content constructors
 - rail: figure
 
-`Latex(latex, ...)` is the primary LaTeX path (block mode by default, `inline=True` for inline mode); it also extracts a `\tag{...}` equation label inline. `Math.fromlatex` is the equivalent classmethod on `Math`. `Text` parses `$inline$`/`$$display$$` delimiters out of a multi-line string and renders each math run through `Math.fromlatex` and each text run through the math font's `\text{}` mode (or a caller `textfont` via `ziafont.Text`), composing one SVG with line spacing, alignment, and optional rotation. `Math.fromlatextext` is DEPRECATED (it warns) — the brief-correct mixed-content owner is `Text`.
+`Latex(latex, size=None, mathstyle=None, font=None, color=None, inline=False, title=None, number=None, margin=1.0)` is the primary LaTeX path (block by default, `inline=True` for inline mode), extracting a `\tag{...}` label inline; `Math.fromlatex(latex, size=None, mathstyle=None, font=None, color=None, inline=False, margin=1.0)` is its classmethod twin. `Text(s, textfont=None, mathfont=None, mathstyle=None, size=None, linespacing=None, color=None, halign='left', valign='base', rotation=0, rotation_mode='anchor', title=None)` parses `$inline$`/`$$display$$` out of a multi-line string, rendering each math run through `Math.fromlatex` and each text run through the math font's `\text{}` mode (or a caller `textfont` via `ziafont.Text`), composing one SVG with line spacing, alignment, and optional rotation. `Math.fromlatextext` is DEPRECATED (it warns) — the mixed-content owner is `Text`.
 
-| [INDEX] | [MEMBER]                                                                                                                                                                       | [KIND]    | [ROLE]                                                     |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------- | :--------------------------------------------------------- |
-|  [01]   | `Latex(latex, size=None, mathstyle=None, font=None, color=None, inline=False, title=None, number=None, margin=1.0)`                                                            | construct | single LaTeX expression -> `Math`; `tag{...}` -> eq number |
-|  [02]   | `Math.fromlatex(latex, size=None, mathstyle=None, font=None, color=None, inline=False, margin=1.0)`                                                                            | construct | classmethod twin of `Latex`                                |
-|  [03]   | `Text(s, textfont=None, mathfont=None, mathstyle=None, size=None, linespacing=None, color=None, halign='left', valign='base', rotation=0, rotation_mode='anchor', title=None)` | construct | mixed multi-line text + `$..$`/`$$..$$` math               |
-|  [04]   | `Math.fromlatextext(latex, ...)`                                                                                                                                               | construct | [DEPRECATED] warns; use `Text` for mixed content           |
+| [INDEX] | [MEMBER]                         | [KIND]    | [ROLE]                                                |
+| :-----: | :------------------------------- | :-------- | :---------------------------------------------------- |
+|  [01]   | `Latex(latex, …)`                | construct | single LaTeX expr -> `Math`; `\tag{...}` -> eq number |
+|  [02]   | `Math.fromlatex(latex, …)`       | construct | classmethod twin of `Latex`                           |
+|  [03]   | `Text(s, …)`                     | construct | mixed multi-line text + `$..$`/`$$..$$` math          |
+|  [04]   | `Math.fromlatextext(latex, ...)` | construct | [DEPRECATED] warns; use `Text` for mixed content      |
 
 ## [04]-[CONFIG_AND_STYLE]
 
 [CONFIG_SCOPE]: the global `config` singleton
 - rail: figure
 
-`config` is a module-level `Config` singleton (one process-wide owner) — NOT a per-call argument bag. It carries default math/text style, equation-numbering policy, debug overlays, and SVG-version/precision settings. The render trio reads `config.math.fontsize`/`config.math.mathfont`/`config.text.*`/`config.numbering.*` when the corresponding constructor argument is `None`, so a document sets the house defaults ONCE on `config` and every subsequent render inherits them. `config.svg2` is the load-bearing egress control: it toggles SVG 2.0 output (compact, uses `<symbol>` glyph reuse) versus SVG 1.1 (larger, maximal browser/consumer compatibility) — it delegates to the underlying `ziafont.config.svg2`, mirroring the SVG-version concern the `drawsvg` owner also exposes, so the diagram and the embedded equation emit at one consistent SVG profile. Because `config` is global mutable state, any render that overrides it must do so under the serialized `to_thread` offload lane, never concurrently across the event loop.
+`config` is a module-level `Config` singleton (one process-wide owner) — NOT a per-call argument bag. It carries default math/text style, equation-numbering policy, debug overlays, and SVG-version/precision settings. The render trio reads `config.math.fontsize`/`config.math.mathfont`/`config.text.*`/`config.numbering.*` when the corresponding constructor argument is `None`, so a document sets the house defaults ONCE on `config` and every subsequent render inherits them. `config.svg2` is the load-bearing egress control: it toggles SVG 2.0 output (compact, uses `<symbol>` glyph reuse) versus SVG 1.1 (larger, maximal browser/consumer compatibility) — it delegates to the underlying `ziafont.config.svg2`, mirroring the SVG-version concern the `drawsvg` owner also exposes, so the diagram and the embedded equation emit at one consistent SVG profile. Because `config` is global mutable state, any render that overrides it must do so under the serialized `to_thread` offload lane, never concurrently across the event loop. The `config.math` `MathStyle` defaults `mathfont`/`variant`/`fontsize`/`color`/`background`/`bold_font`/`italic_font`/`bolditalic_font`, the `config.text` `TextStyle` defaults `textfont`/`variant`/`fontsize`/`color`/`linespacing`, and `config.precision` delegates `ziafont.config`.
 
-| [INDEX] | [MEMBER]                                                 | [KIND] | [ROLE]                                                                                                    |
-| :-----: | :------------------------------------------------------- | :----- | :-------------------------------------------------------------------------------------------------------- |
-|  [01]   | `config` (`Config` singleton)                            | config | the one process-wide style/numbering/render-policy owner                                                  |
-|  [02]   | `config.math` (`MathStyle`)                              | config | `mathfont`/`variant`/`fontsize`/`color`/`background`/`bold_font`/`italic_font`/`bolditalic_font` defaults |
-|  [03]   | `config.text` (`TextStyle`)                              | config | `textfont`/`variant`/`fontsize`/`color`/`linespacing` defaults                                            |
-|  [04]   | `config.svg2 -> bool` (delegates `ziafont.config.svg2`)  | egress | SVG 2.0 (compact, `<symbol>` reuse) vs SVG 1.1 (max compat)                                               |
-|  [05]   | `config.precision -> float` (delegates `ziafont.config`) | egress | SVG coordinate decimal precision                                                                          |
-|  [06]   | `config.minsizefraction` (`float = 0.3`)                 | layout | floor for nested script sizes (sub/superscript)                                                           |
-|  [07]   | `config.decimal_separator` (`'.'` / `','`)               | layout | LaTeX decimal separator (affects number parsing)                                                          |
-|  [08]   | `config.debug` (`DebugConfig`)                           | debug  | `.baseline`/`.bbox` overlays; `.on()`/`.off()` toggles                                                    |
-|  [09]   | `config.numbering` (`NumberingStyle`)                    | number | `autonumber`/`format='({0})'`/`format_func`/`columnwidth`; `.getlabel(i)`                                 |
+| [INDEX] | [MEMBER]                                   | [KIND] | [ROLE]                                                                    |
+| :-----: | :----------------------------------------- | :----- | :------------------------------------------------------------------------ |
+|  [01]   | `config` (`Config` singleton)              | config | the one process-wide style/numbering/render-policy owner                  |
+|  [02]   | `config.math` (`MathStyle`)                | config | math font/variant/size/color/background/weight defaults                   |
+|  [03]   | `config.text` (`TextStyle`)                | config | text font/variant/size/color/linespacing defaults                         |
+|  [04]   | `config.svg2 -> bool`                      | egress | SVG 2.0 (compact, `<symbol>` reuse) vs SVG 1.1 (max compat)               |
+|  [05]   | `config.precision -> float`                | egress | SVG coordinate decimal precision                                          |
+|  [06]   | `config.minsizefraction` (`float = 0.3`)   | layout | floor for nested script sizes (sub/superscript)                           |
+|  [07]   | `config.decimal_separator` (`'.'` / `','`) | layout | LaTeX decimal separator (affects number parsing)                          |
+|  [08]   | `config.debug` (`DebugConfig`)             | debug  | `.baseline`/`.bbox` overlays; `.on()`/`.off()` toggles                    |
+|  [09]   | `config.numbering` (`NumberingStyle`)      | number | `autonumber`/`format='({0})'`/`format_func`/`columnwidth`; `.getlabel(i)` |
 
 [NUMBERING_SCOPE]: equation numbering
 - rail: figure
@@ -105,32 +105,32 @@ Equation auto-numbering is a global counter driven by `config.numbering`: set `c
 [STYLE_SCOPE]: unicode math-variant styling
 - rail: figure
 
-`styledchr(char, variant)` maps an ASCII `[A-Za-z0-9]` to its unicode math-variant codepoint (bold/italic/script/fraktur/double-struck/mono/sans) per the MathML `mathvariant` algebra — the mechanism behind `\mathbb`/`\mathfrak`/`\mathcal`. `styledstr` applies it across a string. `MathVariant` is the style descriptor (`style`/`italic`/`bold`/`normal`); the `mathstyle=` constructor argument and the MathML `mathvariant` attribute both resolve through it. These are the styling hooks a custom symbol owner reaches when composing math glyph runs directly.
+`styledchr(char, variant)` maps an ASCII `[A-Za-z0-9]` to its unicode math-variant codepoint (bold/italic/script/fraktur/double-struck/mono/sans) per the MathML `mathvariant` algebra — the mechanism behind `\mathbb`/`\mathfrak`/`\mathcal`. `styledstr` applies it across a string. `MathVariant(style='serif', italic=False, bold=False, normal=False)` is the style descriptor the `mathstyle=` constructor argument and the MathML `mathvariant` attribute both resolve through. These are the styling hooks a custom symbol owner reaches when composing math glyph runs directly.
 
-| [INDEX] | [MEMBER]                                                             | [KIND] | [ROLE]                                                           |
-| :-----: | :------------------------------------------------------------------- | :----- | :--------------------------------------------------------------- |
-|  [01]   | `styledchr(char, variant: MathVariant) -> str`                       | style  | ASCII -> unicode math-variant codepoint                          |
-|  [02]   | `styledstr(st, variant: MathVariant) -> str`                         | style  | `styledchr` across a string                                      |
-|  [03]   | `MathVariant(style='serif', italic=False, bold=False, normal=False)` | style  | the math-variant descriptor `mathstyle`/`mathvariant` resolve to |
-|  [04]   | `auto_italic(char) -> bool`                                          | style  | whether a single-char identifier auto-italicizes (MathML rule)   |
+| [INDEX] | [MEMBER]                                       | [KIND] | [ROLE]                                                           |
+| :-----: | :--------------------------------------------- | :----- | :--------------------------------------------------------------- |
+|  [01]   | `styledchr(char, variant: MathVariant) -> str` | style  | ASCII -> unicode math-variant codepoint                          |
+|  [02]   | `styledstr(st, variant: MathVariant) -> str`   | style  | `styledchr` across a string                                      |
+|  [03]   | `MathVariant(style='serif', …)`                | style  | the math-variant descriptor `mathstyle`/`mathvariant` resolve to |
+|  [04]   | `auto_italic(char) -> bool`                    | style  | whether a single-char identifier auto-italicizes (MathML rule)   |
 
 ## [05]-[FONT_AND_MATH_TABLE]
 
 [FONT_SCOPE]: `MathFont` and the OpenType MATH table
 - rail: figure
 
-`MathFont(fname, basesize=24)` extends the `ziafont` `Font` with the OpenType MATH-table machinery; pass `font=<path>` to any renderer to typeset against a custom MATH font (the bundled STIX Two Math is the default). `MathTable` is the parsed MATH table — it exposes the italic-correction superscript/subscript kerning (`kernsuper`/`kernsub`), the glyph-variant ladders for stretchy delimiters and big operators (`listvariants`/`variant`/`variant_minmax`), the stretchy-delimiter assembly from glyph parts (`MathAssembly.assemble`), and the `MathConstants` record (axis height, script scale-down, limit gaps, fraction/stack rules) that governs every layout decision. A consumer rarely touches `MathTable` directly — `Math` walks it internally — but the math constants and variant selection are the deep substrate that makes the output true math typesetting rather than naive glyph placement, and the API is here for a font-engineering or QA owner that needs to inspect or validate a MATH font's coverage.
+`MathFont(fname, basesize=24)` extends the `ziafont` `Font` with the OpenType MATH-table machinery; pass `font=<path>` to any renderer to typeset against a custom MATH font (the bundled STIX Two Math is the default). `MathTable` is the parsed MATH table — it exposes the italic-correction superscript/subscript kerning (`kernsuper`/`kernsub`), the glyph-variant ladders for stretchy delimiters and big operators (`listvariants`/`variant`/`variant_minmax(glyphid, height/ymin, ymax, vert=True)`), the stretchy-delimiter assembly from glyph parts (`MathAssembly.assemble`), and the `MathConstants` record (axis height, script scale-down, limit gaps, fraction/stack rules) that governs every layout decision. A consumer rarely touches `MathTable` directly — `Math` walks it internally — but the math constants and variant selection are the deep substrate that makes the output true math typesetting rather than naive glyph placement, and the API is here for a font-engineering or QA owner that needs to inspect or validate a MATH font's coverage.
 
-| [INDEX] | [MEMBER]                                                                    | [KIND] | [ROLE]                                                          |
-| :-----: | :-------------------------------------------------------------------------- | :----- | :-------------------------------------------------------------- |
-|  [01]   | `MathFont(fname, basesize=24)`                                              | font   | `ziafont.Font` + MATH table; the renderer font owner            |
-|  [02]   | `MathFont.findglyph(char, variant: MathVariant) -> SimpleGlyph`             | font   | resolve a styled char to a glyph (self or alt bold/italic font) |
-|  [03]   | `MathFont.language(script, language)`                                       | font   | enable `ssty` math script variants for a script/lang            |
-|  [04]   | `MathTable` (`font.math`)                                                   | table  | parsed OpenType MATH table                                      |
-|  [05]   | `MathTable.consts` (`MathConstants`)                                        | table  | axis height, script scale, limit/fraction gaps — layout law     |
-|  [06]   | `MathTable.kernsuper / kernsub(g1, g2) -> tuple[int, int]`                  | table  | italic-correction script kerning                                |
-|  [07]   | `MathTable.variant / variant_minmax(glyphid, height/ymin, ymax, vert=True)` | table  | stretchy glyph-variant selection by target size                 |
-|  [08]   | `MathTable.listvariants(glyphid, vert=True) -> dict[int, int]`              | table  | the available variant ladder for a glyph                        |
+| [INDEX] | [MEMBER]                                                        | [KIND] | [ROLE]                                                      |
+| :-----: | :-------------------------------------------------------------- | :----- | :---------------------------------------------------------- |
+|  [01]   | `MathFont(fname, basesize=24)`                                  | font   | `ziafont.Font` + MATH table; the renderer font owner        |
+|  [02]   | `MathFont.findglyph(char, variant: MathVariant) -> SimpleGlyph` | font   | styled char -> glyph (self or alt bold/italic font)         |
+|  [03]   | `MathFont.language(script, language)`                           | font   | enable `ssty` math script variants for a script/lang        |
+|  [04]   | `MathTable` (`font.math`)                                       | table  | parsed OpenType MATH table                                  |
+|  [05]   | `MathTable.consts` (`MathConstants`)                            | table  | axis height, script scale, limit/fraction gaps — layout law |
+|  [06]   | `MathTable.kernsuper / kernsub(g1, g2) -> tuple[int, int]`      | table  | italic-correction script kerning                            |
+|  [07]   | `MathTable.variant / variant_minmax(glyphid, …)`                | table  | stretchy glyph-variant selection by target size             |
+|  [08]   | `MathTable.listvariants(glyphid, vert=True) -> dict[int, int]`  | table  | the available variant ladder for a glyph                    |
 
 [TEX_HOOK_SCOPE]: LaTeX operator extension and conversion
 - rail: figure
@@ -149,12 +149,12 @@ Equation auto-numbering is a global counter driven by `config.numbering`: set `c
 
 `Math` builds a `Drawable` node tree (`nodes.Mnode.fromelement`) mirroring the MathML element structure — `Mrow`/`Mfrac`/`Msqrt`/`Mroot`/`Msub`/`Msup`/`Msubsup`/`Mmultiscripts`/`Munder`/`Mover`/`Munderover`/`Mfenced`/`Menclose`/`Mtable`/`Moperator`/`Midentifier`/`Mnumber`/`Mtext`/`Mspace`/`Mpadded`/`Mphantom` — each a `Drawable` with a `bbox` and a `draw(x, y, svg)` method. The `drawable` primitive shapes (`Glyph`/`HLine`/`VLine`/`Box`/`Diagonal`/`Ellipse`) are the leaf marks the node tree composes (fraction bars, radical lines, `menclose` boxes/strikes). This tree is internal layout machinery — a consumer reads `Math.node.bbox` for geometry and otherwise never constructs nodes — but it is the bounded grammar that makes the layout a true MathML renderer, documented here so a font/layout QA owner can introspect it.
 
-| [INDEX] | [MEMBER]                                                                                                                                                                     | [KIND] | [ROLE]                                                              |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----- | :------------------------------------------------------------------ |
-|  [01]   | `Math.node` (`nodes.Mnode`)                                                                                                                                                  | tree   | the root laid-out math node (carries `.bbox`)                       |
-|  [02]   | `nodes.Mnode.fromelement(element, parent) -> Mnode`                                                                                                                          | tree   | build the node tree from a MathML `ET.Element`                      |
-|  [03]   | `nodes.{Mrow,Mfrac,Msqrt,Mroot,Msub,Msup,Msubsup,Mmultiscripts,Munder,Mover,Munderover,Mfenced,Menclose,Mtable,Moperator,Midentifier,Mnumber,Mtext,Mspace,Mpadded,Mphantom}` | tree   | the closed MathML-element node family                               |
-|  [04]   | `drawable.{Glyph,HLine,VLine,Box,Diagonal,Ellipse}`                                                                                                                          | leaf   | primitive marks the node tree composes (bars, radicals, enclosures) |
+| [INDEX] | [MEMBER]                                                     | [KIND] | [ROLE]                                                         |
+| :-----: | :----------------------------------------------------------- | :----- | :------------------------------------------------------------- |
+|  [01]   | `Math.node` (`nodes.Mnode`)                                  | tree   | the root laid-out math node (carries `.bbox`)                  |
+|  [02]   | `nodes.Mnode.fromelement(element, parent) -> Mnode`          | tree   | build the node tree from a MathML `ET.Element`                 |
+|  [03]   | `nodes.{Mrow, Mfrac, Msqrt, …, Mphantom}` (lead rosters all) | tree   | the closed MathML-element node family                          |
+|  [04]   | `drawable.{Glyph,HLine,VLine,Box,Diagonal,Ellipse}`          | leaf   | primitive marks the tree composes (bars, radicals, enclosures) |
 
 ## [07]-[IMPLEMENTATION_LAW]
 

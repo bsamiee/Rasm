@@ -20,118 +20,167 @@
 
 [PUBLIC_TYPE_SCOPE]: document, page, render, and matrix roots
 - rail: pdf
+- call: `PdfBitmap` allocators are `new_native`/`new_foreign`/`from_pil`/`from_raw`.
+- call: `PdfMatrix` builders are `scale`/`rotate`/`translate`/`skew`/`mirror`/`multiply`; application is `on_point`/`on_rect`.
+- call: `PdfColorScheme` overrides `path_fill`/`path_stroke`/`text_fill`/`text_stroke` and exposes `convert(rev_byteorder)`.
+- call: `PdfColorScheme(path_fill, path_stroke, text_fill, text_stroke)` constructs the override.
+- call: `PdfPosConv` exposes `to_page(bitmap_x, bitmap_y)`/`to_bitmap(page_x, page_y)` from `PdfBitmap.get_posconv(page)`.
 
-| [INDEX] | [SYMBOL]          | [PACKAGE_ROLE]  | [CAPABILITY]                                                                                                                           |
-| :-----: | :---------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `PdfDocument`     | document root   | open/new/save a PDF; page access/insert/delete, metadata, TOC, attachments, forms, page-as-XObject                                     |
-|  [02]   | `PdfPage`         | page unit       | render, text page, object enumeration/insert/remove, the full box family (media/crop/bleed/trim/art), rotation, flatten                |
-|  [03]   | `PdfBitmap`       | render buffer   | rasterized bitmap with PIL/NumPy bridges, fill, posconv, and `new_native`/`new_foreign`/`from_pil`/`from_raw` allocators               |
-|  [04]   | `PdfTextPage`     | text model      | char/rect/range/bounded text extraction, per-char geometry, text-object lookup, and search                                             |
-|  [05]   | `PdfTextSearcher` | search cursor   | forward/backward text search state (`get_next`/`get_prev`)                                                                             |
-|  [06]   | `PdfMatrix`       | affine algebra  | transform value object with `scale`/`rotate`/`translate`/`skew`/`mirror`/`multiply` builders + `on_point`/`on_rect` apply              |
-|  [07]   | `PdfColorScheme`  | render colors   | render color override (`path_fill`/`path_stroke`/`text_fill`/`text_stroke`) + `convert(rev_byteorder)`                                 |
-|  [08]   | `PdfPosConv`      | coord converter | page<->bitmap coordinate conversion via `to_page(bitmap_x, bitmap_y)`/`to_bitmap(page_x, page_y)` (from `PdfBitmap.get_posconv(page)`) |
+| [INDEX] | [SYMBOL]          | [PACKAGE_ROLE]  | [CAPABILITY]                                                                                 |
+| :-----: | :---------------- | :-------------- | :------------------------------------------------------------------------------------------- |
+|  [01]   | `PdfDocument`     | document root   | open/new/save; page access/insert/delete, metadata, TOC, attachments, forms, page-as-XObject |
+|  [02]   | `PdfPage`         | page unit       | render/text; object edits; all PDF boxes, rotation, flatten                                  |
+|  [03]   | `PdfBitmap`       | render buffer   | raster buffer; PIL/NumPy bridges, fill, posconv, allocator families                          |
+|  [04]   | `PdfTextPage`     | text model      | char/rect/range/bounded extraction, geometry, object lookup, search                          |
+|  [05]   | `PdfTextSearcher` | search cursor   | forward/backward state via `get_next`/`get_prev`                                             |
+|  [06]   | `PdfMatrix`       | affine algebra  | transform builders and point/rect application                                                |
+|  [07]   | `PdfColorScheme`  | render colors   | path/text fill/stroke override with byte-order conversion                                    |
+|  [08]   | `PdfPosConv`      | coord converter | page-to-bitmap and bitmap-to-page conversion                                                 |
 
 [PUBLIC_TYPE_SCOPE]: page-content objects, fonts, outline, and attachments
 - rail: pdf
+- call: `PdfObject` exposes `get_matrix`/`set_matrix`/`transform`/`get_bounds`/`get_quad_points`.
+- call: `PdfImage` exposes `extract`/`get_bitmap`/`get_data`/`get_px_size`/`get_metadata`/`get_filters`/`set_bitmap`/`load_jpeg`/`new` and `SIMPLE_FILTERS`.
+- call: `PdfTextObj` exposes `get_font`/`get_font_size`/`extract` plus the `PdfObject` geometry surface.
+- call: `PdfFont` exposes `load_standard`/`get_base_name`/`get_family_name`/`get_weight`/`is_embedded` and `STANDARD_FONTS`.
+- call: `PdfBookmark` exposes `get_title`/`get_count`/`get_dest`; `PdfDest` exposes `get_index`/`get_view`.
+- call: `PdfAttachment` exposes `get_data`/`set_data`/`get_name`/`has_key`/`get_value_type`/`get_str_value`/`set_str_value`.
 
-| [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE] | [CAPABILITY]                                                                                                                                  |
-| :-----: | :------------------------ | :------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `PdfObject`               | page object    | base content object (path/image/text); `get_matrix`/`set_matrix`/`transform`/`get_bounds`/`get_quad_points`                                   |
-|  [02]   | `PdfImage`                | image object   | embedded image: `extract`/`get_bitmap`/`get_data`/`get_px_size`/`get_metadata`/`get_filters`/`set_bitmap`/`load_jpeg`/`new`; `SIMPLE_FILTERS` |
-|  [03]   | `PdfTextObj`              | text object    | a text page-object: `get_font`/`get_font_size`/`extract` + the `PdfObject` geometry surface                                                   |
-|  [04]   | `PdfFont`                 | font handle    | inserted-text font: `load_standard`/`get_base_name`/`get_family_name`/`get_weight`/`is_embedded`; `STANDARD_FONTS`                            |
-|  [05]   | `PdfXObject`              | form xobject   | reusable page-as-XObject; `as_pageobject()` mints the stampable `PdfObject`                                                                   |
-|  [06]   | `PdfBookmark` / `PdfDest` | outline        | bookmark node (`get_title`/`get_count`/`get_dest`) and its destination (`get_index`/`get_view`)                                               |
-|  [07]   | `PdfFormEnv`              | form env       | interactive AcroForm/XFA environment handle (`close()`)                                                                                       |
-|  [08]   | `PdfAttachment`           | attachment     | embedded-file attachment (`get_data`/`set_data`/`get_name`/`has_key`/`get_value_type`/`get_str_value`/`set_str_value`)                        |
+| [INDEX] | [SYMBOL]        | [PACKAGE_ROLE] | [CAPABILITY]                                                |
+| :-----: | :-------------- | :------------- | :---------------------------------------------------------- |
+|  [01]   | `PdfObject`     | page object    | path/image/text geometry and matrix transforms              |
+|  [02]   | `PdfImage`      | image object   | embedded-image authoring, extraction, metadata, filters     |
+|  [03]   | `PdfTextObj`    | text object    | text/font inspection plus inherited object geometry         |
+|  [04]   | `PdfFont`       | font handle    | inserted-text standard-font loading and metadata            |
+|  [05]   | `PdfXObject`    | form xobject   | page reuse; `as_pageobject()` mints a stampable `PdfObject` |
+|  [06]   | `PdfBookmark`   | outline node   | title, signed child count, destination                      |
+|  [07]   | `PdfDest`       | destination    | page index and view                                         |
+|  [08]   | `PdfFormEnv`    | form env       | interactive AcroForm/XFA handle with `close()`              |
+|  [09]   | `PdfAttachment` | attachment     | embedded-file data, name, typed parameters, mutation        |
 
 [PUBLIC_TYPE_SCOPE]: headless font substitution and unsupported-feature handling
 - rail: pdf
+- call: `PdfSysfontBase` is the `FPDF_SYSFONTINFO` subclass base (`MapFont`/`GetFont`/`GetFontData`/…); `setup(reusable=False)` installs it and `SINGLETON` holds the active handler.
+- call: `PdfUnspHandler.setup(add_default=True)` installs the unsupported-feature callback and `SINGLETON` holds it.
+- call: the handler installation member is `setup(add_default=True)`.
 
 Process-singleton handlers for deterministic headless rendering — installed once at boundary setup so a missing embedded font or an unsupported PDF feature resolves predictably instead of failing the raster.
 
-| [INDEX] | [SYMBOL]           | [PACKAGE_ROLE]      | [CAPABILITY]                                                                                                                                   |
-| :-----: | :----------------- | :------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `PdfSysfontBase`   | font-substitution   | `FPDF_SYSFONTINFO` subclass base (`MapFont`/`GetFont`/`GetFontData`/…); `setup(reusable=False)` installs, `SINGLETON` holds the active handler |
-|  [02]   | `PdfDefaultTTFMap` | font-name map       | the default font-name → system-TTF mapping table consulted by the substitution handler                                                         |
-|  [03]   | `PdfUnspHandler`   | unsupported handler | `setup(add_default=True)` installs the unsupported-feature callback (XFA/portfolio/etc.); `SINGLETON` holds it                                 |
+| [INDEX] | [SYMBOL]           | [PACKAGE_ROLE]      | [CAPABILITY]                                     |
+| :-----: | :----------------- | :------------------ | :----------------------------------------------- |
+|  [01]   | `PdfSysfontBase`   | font-substitution   | active PDFium system-font substitution singleton |
+|  [02]   | `PdfDefaultTTFMap` | font-name map       | default font-name to system-TTF mapping          |
+|  [03]   | `PdfUnspHandler`   | unsupported handler | XFA/portfolio/etc. callback singleton            |
 
 [PUBLIC_TYPE_SCOPE]: faults and the escape hatch
 - rail: pdf
+- call: `raw` (`pypdfium2.raw`) exposes `FPDF_*` functions plus `FPDFBitmap_*`/`FPDF_ANNOT_*`/`FPDF_TEXTRENDERMODE_*` constants.
 
-| [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]  | [CAPABILITY]                                                                                                                                     |
-| :-----: | :---------------------- | :-------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `PdfiumError`           | engine fault    | a PDFium call returned an error code (the boundary maps it to the runtime fault)                                                                 |
-|  [02]   | `PdfiumWarning`         | engine warning  | a recoverable PDFium condition                                                                                                                   |
-|  [03]   | `raw` (`pypdfium2.raw`) | ctypes bindings | the full PDFium C API (`FPDF_*` functions, `FPDFBitmap_*`/`FPDF_ANNOT_*`/`FPDF_TEXTRENDERMODE_*` constants) for surfaces the helpers do not wrap |
+| [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]  | [CAPABILITY]                                  |
+| :-----: | :---------------------- | :-------------- | :-------------------------------------------- |
+|  [01]   | `PdfiumError`           | engine fault    | PDFium error code mapped to the runtime fault |
+|  [02]   | `PdfiumWarning`         | engine warning  | recoverable PDFium condition                  |
+|  [03]   | `raw` (`pypdfium2.raw`) | ctypes bindings | full PDFium C API for helper gaps             |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document open, build, metadata, attachments, and save
 - rail: pdf
+- call: table surfaces are `PdfDocument` members.
+- call: surface identities are `PdfDocument.new`, `PdfDocument.save`, `PdfDocument.get_page`, `new_page`, `del_page`, `PdfDocument.import_pages`, `PdfDocument.page_as_xobject`, `PdfDocument.get_toc`, `PdfDocument.get_metadata_dict`, and `get_metadata_value`.
+- call: `save(dest, version=None, flags=0) -> None`; `flags` passes raw `FPDF_INCREMENTAL`/`FPDF_NO_INCREMENTAL`/`FPDF_REMOVE_SECURITY` bits, and no `callback` parameter exists.
+- call: `get_page(index)` / `new_page(width, height, index=None)` / `del_page(index)`.
+- call: `get_toc(max_depth=15, parent=None, level=0, seen=None) -> Iterator[PdfBookmark]`.
+- call: `get_metadata_dict(skip_empty=False)` / `get_metadata_value(key)` recover docinfo keyed by `PdfDocument.METADATA_KEYS`: `Title`/`Author`/`Subject`/`Keywords`/`Creator`/`Producer`/`CreationDate`/`ModDate`.
+- call: `get_identifier(type=0)` / `get_version()` / `get_pagemode()` / `get_page_label(index)` / `get_page_size(index)` / `is_tagged()`.
+- call: `count_attachments()` / `get_attachment(i)` / `new_attachment(name)` / `del_attachment(i)`.
+- call: `init_forms(config=None)` / `get_formtype()` / `close_forms()` / `.formenv`.
 
-| [INDEX] | [SURFACE]                                              | [CALL_SHAPE]                                                                                                                     | [CAPABILITY]                                                                                                                                  |
-| :-----: | :----------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `PdfDocument`                                          | `PdfDocument(input, password=None, autoclose=False)`                                                                             | open from path/bytes/buffer/file-handle                                                                                                       |
-|  [02]   | `PdfDocument.new`                                      | `new() -> PdfDocument`                                                                                                           | staticmethod: build an empty document                                                                                                         |
-|  [03]   | `PdfDocument.save`                                     | `save(dest, version=None, flags=0) -> None`                                                                                      | serialize to a writable buffer (`flags` passes raw `FPDF_INCREMENTAL`/`FPDF_NO_INCREMENTAL`/`FPDF_REMOVE_SECURITY` bits; NO `callback` param) |
-|  [04]   | `PdfDocument.get_page` / `new_page` / `del_page`       | `get_page(index)` / `new_page(width, height, index=None)` / `del_page(index)`                                                    | page access / build / drop                                                                                                                    |
-|  [05]   | `PdfDocument.import_pages`                             | `import_pages(pdf, pages=None, index=None) -> None`                                                                              | splice pages from another document                                                                                                            |
-|  [06]   | `PdfDocument.page_as_xobject`                          | `page_as_xobject(index, dest_pdf) -> PdfXObject`                                                                                 | reuse a page as a stampable form XObject                                                                                                      |
-|  [07]   | `PdfDocument.get_toc`                                  | `get_toc(max_depth=15, parent=None, level=0, seen=None) -> Iterator[PdfBookmark]`                                                | walk the outline (depth-bounded, cycle-guarded)                                                                                               |
-|  [08]   | `PdfDocument.get_metadata_dict` / `get_metadata_value` | `get_metadata_dict(skip_empty=False)` / `get_metadata_value(key)`                                                                | recover docinfo (keys from `PdfDocument.METADATA_KEYS`: `Title`/`Author`/`Subject`/`Keywords`/`Creator`/`Producer`/`CreationDate`/`ModDate`)  |
-|  [09]   | `PdfDocument` identity                                 | `get_identifier(type=0)` / `get_version()` / `get_pagemode()` / `get_page_label(index)` / `get_page_size(index)` / `is_tagged()` | document identity / version / page-mode / page-label / page-size / tagged                                                                     |
-|  [10]   | `PdfDocument` attachments                              | `count_attachments()` / `get_attachment(i)` / `new_attachment(name)` / `del_attachment(i)`                                       | embedded-file attachment table                                                                                                                |
-|  [11]   | `PdfDocument` forms                                    | `init_forms(config=None)` / `get_formtype()` / `close_forms()` / `.formenv`                                                      | enable/inspect/tear-down the AcroForm/XFA form environment                                                                                    |
+| [INDEX] | [SURFACE]         | [CALL_SHAPE]                                         | [CAPABILITY]                                     |
+| :-----: | :---------------- | :--------------------------------------------------- | :----------------------------------------------- |
+|  [01]   | constructor       | `PdfDocument(input, password=None, autoclose=False)` | open from path/bytes/buffer/file-handle          |
+|  [02]   | `new`             | `new() -> PdfDocument`                               | staticmethod building an empty document          |
+|  [03]   | `save`            | `save(dest, version=None, flags=0) -> None`          | writable-buffer serialization via raw save flags |
+|  [04]   | page access       | `get_page(…)` / `new_page(…)` / `del_page(…)`        | page access / build / drop                       |
+|  [05]   | `import_pages`    | `import_pages(pdf, pages=None, index=None) -> None`  | splice pages from another document               |
+|  [06]   | `page_as_xobject` | `page_as_xobject(index, dest_pdf) -> PdfXObject`     | reuse a page as a stampable form XObject         |
+|  [07]   | `get_toc`         | `get_toc(max_depth=15, …)`                           | depth-bounded and cycle-guarded outline walk     |
+|  [08]   | metadata          | `get_metadata_dict(…)` / `get_metadata_value(…)`     | docinfo through `METADATA_KEYS`                  |
+|  [09]   | identity          | identifier/version/mode/label/size/tag calls         | document identity and structural facts           |
+|  [10]   | attachments       | count/get/new/delete calls                           | embedded-file attachment table                   |
+|  [11]   | forms             | init/type/close calls plus `.formenv`                | AcroForm/XFA environment lifecycle               |
 
 [ENTRYPOINT_SCOPE]: render, bitmap allocators, and page-object editing
 - rail: pdf
+- call: `render(scale=1, rotation=0, crop=(0,0,0,0), may_draw_forms=True, bitmap_maker=PdfBitmap.new_native, color_scheme=None, fill_to_stroke=False) -> PdfBitmap` rasterizes form-aware output with color override and fill-to-stroke.
+- call: surface identities are `PdfBitmap.to_pil`, `PdfBitmap.new_native`, `new_foreign_simple`, `PdfBitmap.from_pil`, `PdfPage.get_objects`, and `gen_content`; the bridge returns a Pillow `Image`, and `render(color_scheme=)` consumes the override.
+- call: `new_native(width, height, format, rev_byteorder=False, buffer=None, stride=None)` / `new_foreign(width, height, format, rev_byteorder=False, force_packed=False)` / `new_foreign_simple(width, height, use_alpha, rev_byteorder=False)` select PDFium-owned native or host-buffer foreign backing.
+- call: `from_pil(pil_image)` / `from_raw(raw, rev_byteorder=False, ex_buffer=None)` wrap a PIL image or raw `FPDF_BITMAP` handle as a `PdfBitmap`.
+- call: `.width` / `.height` / `.stride` / `.format` / `.rev_byteorder` / `.buffer` / `.fill_rect(color, left, top, width, height)` / `.get_posconv(page)` expose bitmap geometry, buffer access, fill, and coordinate conversion; `.format` is `raw.FPDFBitmap_BGR`/`BGRA`/`BGRx`/`BGRA_Premul`/`Gray`.
+- call: `get_objects(filter=None, max_depth=15, form=None)` / `insert_obj(pageobj)` / `remove_obj(pageobj)` / `gen_content()` enumerate, author, and remove page objects, then regenerate the content stream.
+- call: `get_size` / `get_width` / `get_height` / `get_mediabox` / `get_cropbox` / `get_bleedbox` / `get_trimbox` / `get_artbox` / `set_mediabox(l,b,r,t)` / `set_cropbox` / `set_bleedbox` / `set_trimbox` / `set_artbox` / `get_bbox` / `get_rotation` / `set_rotation` / `flatten(flag=0)` cover media/crop/bleed/trim/art boxes, rotation, and annotation flatten; bleed/trim/art are load-bearing for PDF/X print production.
+- call: `get_matrix()` / `set_matrix(matrix)` / `transform(matrix)` / `get_bounds()` / `get_quad_points()` read or replace the object CTM, compose a transform, and recover axis-aligned bounds plus the rotated quad.
+- call: `PdfImage.new(pdf)` / `extract(dest)` / `get_bitmap(render=False, scale_to_original=True)` / `get_data(decode_simple=False)` / `get_px_size()` / `get_metadata()` / `get_filters(skip_simple=False)` / `set_bitmap(bitmap, pages=None)` / `load_jpeg(source, pages=None, inline=False, autoclose=True)` author, extract, and replace rasters; read pixel size and filter chain; embed JPEG directly; `SIMPLE_FILTERS` lists inline-decodable codecs.
+- call: `PdfTextObj.get_font()` / `get_font_size()` / `extract()` inspect font, size, and string; `PdfFont.load_standard(pdf, name)` / `get_base_name()` / `get_family_name()` / `get_weight()` / `is_embedded` load one of the 14 `STANDARD_FONTS` for inserted text.
 
 Render rows share scale, rotation, crop, form-draw, color-scheme, fill-to-stroke, and bitmap-maker policy; `PdfBitmap` exposes the bridge pair, the inbound factories, and the native/foreign allocators (`bitmap_maker`); page-object rows enumerate, author, and remove content; `PdfObject`/`PdfImage`/`PdfTextObj` carry geometry + matrix transform.
 
-| [INDEX] | [SURFACE]                                                           | [CALL_SHAPE]                                                                                                                                                                                                                                                                                            | [CAPABILITY]                                                                                                                                        |
-| :-----: | :------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `PdfPage.render`                                                    | `render(scale=1, rotation=0, crop=(0,0,0,0), may_draw_forms=True, bitmap_maker=PdfBitmap.new_native, color_scheme=None, fill_to_stroke=False) -> PdfBitmap`                                                                                                                                             | rasterize a page (form-aware, color-overridable, fill-to-stroke)                                                                                    |
-|  [02]   | `PdfBitmap.to_pil` / `to_numpy`                                     | no-arg bridges                                                                                                                                                                                                                                                                                          | bridge the buffer to a Pillow `Image` / NumPy array (zero-copy where layout permits) — the CORE-band raster exit                                    |
-|  [03]   | `PdfBitmap.new_native` / `new_foreign` / `new_foreign_simple`       | `new_native(width, height, format, rev_byteorder=False, buffer=None, stride=None)` / `new_foreign(width, height, format, rev_byteorder=False, force_packed=False)` / `new_foreign_simple(width, height, use_alpha, rev_byteorder=False)`                                                                | the `bitmap_maker` allocators: PDFium-owned (native) vs host-buffer (foreign) backing                                                               |
-|  [04]   | `PdfBitmap.from_pil` / `from_raw`                                   | `from_pil(pil_image)` / `from_raw(raw, rev_byteorder=False, ex_buffer=None)`                                                                                                                                                                                                                            | wrap an existing PIL image / raw `FPDF_BITMAP` handle as a `PdfBitmap`                                                                              |
-|  [05]   | `PdfBitmap` attrs                                                   | `.width` / `.height` / `.stride` / `.format` / `.rev_byteorder` / `.buffer` / `.fill_rect(color, left, top, width, height)` / `.get_posconv(page)`                                                                                                                                                      | bitmap geometry, buffer access, fill, coord converter (`.format` ∈ `raw.FPDFBitmap_BGR`/`BGRA`/`BGRx`/`BGRA_Premul`/`Gray`)                         |
-|  [06]   | `PdfColorScheme`                                                    | `PdfColorScheme(path_fill, path_stroke, text_fill, text_stroke)`                                                                                                                                                                                                                                        | per-render color override fed to `render(color_scheme=)`                                                                                            |
-|  [07]   | `PdfPage.get_objects` / `insert_obj` / `remove_obj` / `gen_content` | `get_objects(filter=None, max_depth=15, form=None)` / `insert_obj(pageobj)` / `remove_obj(pageobj)` / `gen_content()`                                                                                                                                                                                   | enumerate / author / remove page content objects (regenerate the content stream after edits)                                                        |
-|  [08]   | `PdfPage` boxes / rotation                                          | `get_size` / `get_width` / `get_height` / `get_mediabox` / `get_cropbox` / `get_bleedbox` / `get_trimbox` / `get_artbox` / `set_mediabox(l,b,r,t)` / `set_cropbox` / `set_bleedbox` / `set_trimbox` / `set_artbox` / `get_bbox` / `get_rotation` / `set_rotation` / `flatten(flag=0)`                   | the full PDF box family (media/crop/bleed/trim/art — bleed/trim/art are load-bearing for PDF/X print production), rotation, annotation flatten      |
-|  [09]   | `PdfObject` transform                                               | `get_matrix()` / `set_matrix(matrix)` / `transform(matrix)` / `get_bounds()` / `get_quad_points()`                                                                                                                                                                                                      | read/replace the object CTM, compose a transform, recover axis-aligned bounds + rotated quad                                                        |
-|  [10]   | `PdfImage`                                                          | `PdfImage.new(pdf)` / `extract(dest)` / `get_bitmap(render=False, scale_to_original=True)` / `get_data(decode_simple=False)` / `get_px_size()` / `get_metadata()` / `get_filters(skip_simple=False)` / `set_bitmap(bitmap, pages=None)` / `load_jpeg(source, pages=None, inline=False, autoclose=True)` | author/extract/replace embedded rasters, read pixel size + filter chain, embed a JPEG directly (`SIMPLE_FILTERS` lists the inline-decodable codecs) |
-|  [11]   | `PdfTextObj` / `PdfFont`                                            | `PdfTextObj.get_font()` / `get_font_size()` / `extract()`; `PdfFont.load_standard(pdf, name)` / `get_base_name()` / `get_family_name()` / `get_weight()` / `is_embedded`                                                                                                                                | inspect a text object's font + size + string; load one of the 14 `STANDARD_FONTS` for inserted text                                                 |
+| [INDEX] | [SURFACE]         | [CALL_SHAPE]                                 | [CAPABILITY]                                      |
+| :-----: | :---------------- | :------------------------------------------- | :------------------------------------------------ |
+|  [01]   | `PdfPage.render`  | `render(scale, rotation, …) -> PdfBitmap`    | form-aware raster with color and stroke policy    |
+|  [02]   | bitmap bridges    | `to_pil()` / `to_numpy()`                    | Pillow/NumPy buffer bridge; zero-copy when valid  |
+|  [03]   | bitmap allocators | native plus two foreign allocator calls      | PDFium-owned or host-buffer backing               |
+|  [04]   | bitmap wrapping   | `from_pil(…)` / `from_raw(…)`                | PIL image or raw `FPDF_BITMAP` to `PdfBitmap`     |
+|  [05]   | bitmap access     | attributes plus fill and position conversion | geometry, buffer, fill, format, coordinates       |
+|  [06]   | `PdfColorScheme`  | `PdfColorScheme(path_fill, path_stroke, …)`  | per-render path/text color override               |
+|  [07]   | page objects      | enumerate/insert/remove/regenerate calls     | page-content object editing                       |
+|  [08]   | page geometry     | box, rotation, bbox, and flatten calls       | print boxes, rotation, annotation flatten         |
+|  [09]   | object transform  | matrix/bounds/quad calls                     | CTM mutation and transformed geometry             |
+|  [10]   | `PdfImage`        | image author/read/replace calls              | raster data, metadata, filters, direct JPEG embed |
+|  [11]   | text and fonts    | text inspection and standard-font calls      | font/string inspection and inserted-text fonts    |
 
 [ENTRYPOINT_SCOPE]: text extraction, char geometry, and search
 - rail: pdf
+- call: table surfaces are `PdfTextPage` members except page construction and `PdfTextSearcher` cursor stepping.
+- call: surface identities are `PdfPage.get_textpage`, `PdfTextPage.get_text_range`, `PdfTextPage.get_text_bounded`, `PdfTextPage.count_chars`, `count_rects`, and `PdfTextPage.search`.
+- call: `get_text_range(index=0, count=-1, errors="ignore") -> str`.
+- call: `get_text_bounded(left=None, bottom=None, right=None, top=None, errors="ignore") -> str`.
+- call: `count_chars() -> int` / `count_rects(index=0, count=-1) -> int`.
+- call: `get_charbox(index, loose=False)` / `get_rect(index)` / `get_index(x, y, x_tol, y_tol)` / `get_textobj(index)` recover per-character bbox and rectangle geometry, hit-test a point, and bridge a char index to its `PdfTextObj`.
+- call: `search(text, index=0, match_case=False, match_whole_word=False, consecutive=False, flags=0) -> PdfTextSearcher`; `flags` passes raw `FPDF_MATCHCASE`/`FPDF_MATCHWHOLEWORD`/`FPDF_CONSECUTIVE` bits.
+- call: `get_next()` / `get_prev()` return `(char_index, count)` or `None`.
 
 Text rows share range, bounds, char-index, and search policy; char-geometry rows recover per-character bounding boxes for layout-faithful reconstruction; `get_textobj` bridges a char index to its owning `PdfTextObj`.
 
-| [INDEX] | [SURFACE]                                 | [CALL_SHAPE]                                                                                                     | [CAPABILITY]                                                                                              |
-| :-----: | :---------------------------------------- | :--------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------- |
-|  [01]   | `PdfPage.get_textpage`                    | `get_textpage() -> PdfTextPage`                                                                                  | build a text model for the page                                                                           |
-|  [02]   | `PdfTextPage.get_text_range`              | `get_text_range(index=0, count=-1, errors="ignore") -> str`                                                      | extract a character range                                                                                 |
-|  [03]   | `PdfTextPage.get_text_bounded`            | `get_text_bounded(left=None, bottom=None, right=None, top=None, errors="ignore") -> str`                         | extract text within a rectangle                                                                           |
-|  [04]   | `PdfTextPage.count_chars` / `count_rects` | `count_chars() -> int` / `count_rects(index=0, count=-1) -> int`                                                 | char and rect counts for iteration                                                                        |
-|  [05]   | `PdfTextPage` char geometry               | `get_charbox(index, loose=False)` / `get_rect(index)` / `get_index(x, y, x_tol, y_tol)` / `get_textobj(index)`   | per-char bbox, rect geometry, hit-test a point, bridge a char index to its `PdfTextObj`                   |
-|  [06]   | `PdfTextPage.search`                      | `search(text, index=0, match_case=False, match_whole_word=False, consecutive=False, flags=0) -> PdfTextSearcher` | build a search cursor (`flags` passes raw `FPDF_MATCHCASE`/`FPDF_MATCHWHOLEWORD`/`FPDF_CONSECUTIVE` bits) |
-|  [07]   | `PdfTextSearcher`                         | `get_next()` / `get_prev()` (return `(char_index, count)`, or `None`)                                            | step matches forward/backward                                                                             |
+| [INDEX] | [SURFACE]       | [CALL_SHAPE]                                | [CAPABILITY]                             |
+| :-----: | :-------------- | :------------------------------------------ | :--------------------------------------- |
+|  [01]   | page text model | `get_textpage() -> PdfTextPage`             | construct the page text model            |
+|  [02]   | range           | `get_text_range(index, count, …) -> str`    | extract a character range                |
+|  [03]   | bounds          | `get_text_bounded(left, bottom, …) -> str`  | extract text inside a rectangle          |
+|  [04]   | counts          | `count_chars()` / `count_rects(index, …)`   | character and rectangle iteration counts |
+|  [05]   | char geometry   | bbox/rect/hit-test/object calls             | geometry and owning-object lookup        |
+|  [06]   | search          | `search(text, index, …) -> PdfTextSearcher` | cursor with raw matching flags           |
+|  [07]   | cursor          | `get_next()` / `get_prev()`                 | forward/backward match stepping          |
 
 [ENTRYPOINT_SCOPE]: outline walk, affine matrix, and headless handlers
 - rail: pdf
+- call: `get_title()` / `get_count()` / `get_dest() -> PdfDest` expose bookmark title, signed sub-item count (>0 open, <0 closed), and destination.
+- call: `get_index()` / `get_view(seqtype=list)` expose destination page index and view fit-mode plus parameters.
+- call: `PdfMatrix(a=1,b=0,c=0,d=1,e=0,f=0)` / `scale(x, y)` / `rotate(angle, ccw=False, rad=False)` / `translate(x, y)` / `skew(x_angle, y_angle, rad=False)` / `mirror(invert_x, invert_y)` / `multiply(other)` compose an affine transform; each builder returns the composed `PdfMatrix` for object placement.
+- call: `on_point(x, y)` / `on_rect(left, bottom, right, top)` / `get()` / `to_raw()` / `from_raw(raw)` apply the transform to a point/rect and bridge to/from raw `FS_MATRIX`.
+- call: `PdfSysfontBase().setup(reusable=False)` reads `PdfDefaultTTFMap` / `PdfSysfontBase.SINGLETON` and installs deterministic missing-font fallback.
+- call: `PdfUnspHandler().setup(add_default=True)` reads `PdfUnspHandler.SINGLETON` and installs the unsupported-feature callback for XFA/portfolio/3D as a logged event rather than a crash.
 
 The outline-harvest the `PDF_RASTER` arm folds into `OutlineRow` triples; the `PdfMatrix` affine algebra for object placement/stamping; and the process-singleton handlers installed once at boundary setup.
 
-| [INDEX] | [SURFACE]                   | [CALL_SHAPE]                                                                                                                                                                                              | [CAPABILITY]                                                                                                       |
-| :-----: | :-------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `PdfBookmark`               | `get_title()` / `get_count()` / `get_dest() -> PdfDest`                                                                                                                                                   | bookmark title, signed sub-item count (>0 open, <0 closed), destination                                            |
-|  [02]   | `PdfDest`                   | `get_index()` / `get_view(seqtype=list)`                                                                                                                                                                  | destination page index + view (fit-mode + params)                                                                  |
-|  [03]   | `PdfMatrix` builders        | `PdfMatrix(a=1,b=0,c=0,d=1,e=0,f=0)` / `scale(x, y)` / `rotate(angle, ccw=False, rad=False)` / `translate(x, y)` / `skew(x_angle, y_angle, rad=False)` / `mirror(invert_x, invert_y)` / `multiply(other)` | compose an affine transform (each builder returns the composed `PdfMatrix`) for object placement                   |
-|  [04]   | `PdfMatrix` apply / convert | `on_point(x, y)` / `on_rect(left, bottom, right, top)` / `get()` / `to_raw()` / `from_raw(raw)`                                                                                                           | apply the transform to a point/rect; bridge to/from the raw `FS_MATRIX`                                            |
-|  [05]   | `PdfSysfontBase.setup`      | `PdfSysfontBase().setup(reusable=False)` (read `PdfDefaultTTFMap` / `PdfSysfontBase.SINGLETON`)                                                                                                           | install the headless font-substitution handler for deterministic missing-font fallback                             |
-|  [06]   | `PdfUnspHandler.setup`      | `PdfUnspHandler().setup(add_default=True)` (read `PdfUnspHandler.SINGLETON`)                                                                                                                              | install the unsupported-feature callback (XFA/portfolio/3D) so an unhandled feature is a logged event, not a crash |
+| [INDEX] | [SURFACE]       | [CALL_SHAPE]                       | [CAPABILITY]                                |
+| :-----: | :-------------- | :--------------------------------- | :------------------------------------------ |
+|  [01]   | `PdfBookmark`   | title/count/destination calls      | signed outline node and destination         |
+|  [02]   | `PdfDest`       | index/view calls                   | page index and fit-mode parameters          |
+|  [03]   | matrix builders | constructor plus six builder calls | composed affine for object placement        |
+|  [04]   | matrix apply    | point/rect/raw conversion calls    | transformed geometry and `FS_MATRIX` bridge |
+|  [05]   | font handler    | `PdfSysfontBase.setup`             | deterministic missing-font fallback         |
+|  [06]   | feature handler | `PdfUnspHandler.setup`             | logged unsupported-feature events           |
 
 ## [04]-[INTEGRATION_LAW]
 

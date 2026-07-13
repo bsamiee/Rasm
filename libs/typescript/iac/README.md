@@ -1,25 +1,30 @@
 # [TS_IAC]
 
-`libs/typescript/iac` is the deploy plane of the branch: Pulumi typed programs driven through the Automation API with no `Pulumi.yaml`, one arm-dispatched provider surface over the `StackSpec` value an app supplies, one shared k8s-estate composition riding either the metal bootstrap or the managed EKS plane beside the docker machine estate realizing the same column at container depth, the workload/traffic/data/tenant tiers, secret provisioning with the three-lane cert axis, source-control and static-distribution legs, observability realization with the alert/SLO compile, policy in three verdict directions (pre-apply guard, drift projection, in-cluster reconcile), and the Pulumi Cloud control plane gated on the spec's backend. The plane is depended on by nothing at runtime; its outputs cross back only as typed env facts. `ARCHITECTURE.md` carries the domain map and seams, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
+`libs/typescript/iac` owns the deploy plane: Pulumi typed programs driven through the Automation API with no `Pulumi.yaml`, one arm-dispatched provider realizing the `StackSpec` an app supplies across the shared k8s estate, the docker machine estate, and the workload/traffic/data/tenant tiers, with secret provisioning, observability, three-direction policy, and the Pulumi Cloud control plane gated on the spec backend. Nothing depends on this plane at runtime; its outputs cross back only as typed env facts.
 
 ## [01]-[ROUTER]
 
-- [01]-[SPEC](.planning/program/spec.md)
-- [02]-[PROVIDER](.planning/program/provider.md)
-- [03]-[AUTOMATION](.planning/program/automation.md)
-- [04]-[SOURCE](.planning/program/source.md)
-- [05]-[SECRET](.planning/operate/secret.md)
-- [06]-[WORKLOAD](.planning/kube/workload.md)
-- [07]-[TRAFFIC](.planning/kube/traffic.md)
-- [08]-[DATA](.planning/kube/data.md)
-- [09]-[TENANT](.planning/kube/tenant.md)
-- [10]-[OBSERVE](.planning/operate/observe.md)
-- [11]-[POLICY](.planning/operate/policy.md)
-- [12]-[CLOUD](.planning/operate/cloud.md)
+[PROGRAM]:
+- [01]-[SPEC](.planning/program/spec.md): One decoded `StackSpec` deploy value an app supplies — arm, tiers, profile, backend, coordinates.
+- [02]-[PROVIDER](.planning/program/provider.md): Capability-by-arm map and realizer over the shared k8s and docker estates.
+- [03]-[AUTOMATION](.planning/program/automation.md): Sole Automation-API executor — resilience, retry, per-run budgets, and fleet verbs.
+- [04]-[SOURCE](.planning/program/source.md): Source-control shells the Doppler mirror fills, plus the static-distribution leg.
+
+[OPERATE]:
+- [05]-[SECRET](.planning/operate/secret.md): Doppler material owner — mirror fan-out, access RBAC rows, three-lane cert axis.
+- [06]-[OBSERVE](.planning/operate/observe.md): LGTM distribution and OTel collector compiled onto Grafana boards, alerts, and SLOs.
+- [07]-[POLICY](.planning/operate/policy.md): Guard verdicts before apply, drift projection after, in-cluster PKO reconcile loop.
+- [08]-[CLOUD](.planning/operate/cloud.md): Hosted control-plane twin set, gated on `backend: cloud`.
+
+[KUBE]:
+- [09]-[WORKLOAD](.planning/kube/workload.md): One spec row realized as the full typed workload set with its `_LIFE` anchor.
+- [10]-[TRAFFIC](.planning/kube/traffic.md): Gateway API edge with external-dns automation and the tunnel/WAF/vanity rows.
+- [11]-[DATA](.planning/kube/data.md): Typed CNPG data plane — object store, NATS, backups, pooler, and replication seam.
+- [12]-[TENANT](.planning/kube/tenant.md): Isolation modes and the cross-stack platform seam.
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Every folder-specific external library, planned or implemented. Versions are centralized in `pnpm-workspace.yaml`; corroborating API evidence lives in the adjacent `.api/` folder.
+Deploy-plane libraries admitted by this folder; `pnpm-workspace.yaml` centralizes versions and the adjacent `.api/` folder holds the API evidence.
 
 [ENGINE]:
 - `@pulumi/pulumi`
@@ -27,24 +32,20 @@ Every folder-specific external library, planned or implemented. Versions are cen
 - `@pulumi/pulumiservice`
 - `@pulumi/esc-sdk`
 
-[KUBERNETES]:
+[PROVIDERS]:
 - `@pulumi/kubernetes`
 - `@pulumi/eks`
-
-[CLOUD_PROVIDERS]:
 - `@pulumi/aws`
 - `@pulumi/awsx`
 - `@pulumi/gcp`
 - `@pulumi/cloudflare`
-
-[MACHINE]:
 - `@pulumi/docker`
 - `@pulumi/docker-build`
 - `@pulumi/command`
 - `@pulumi/cloudinit`
 - `@pulumi/synced-folder`
 
-[IDENTITY_MATERIAL]:
+[MATERIAL]:
 - `@pulumi/tls`
 - `@pulumi/random`
 - `@pulumiverse/acme`
@@ -57,7 +58,7 @@ Every folder-specific external library, planned or implemented. Versions are cen
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Cross-cutting TypeScript substrate this folder consumes; canonical registry and charters live in `libs/typescript/.planning/README.md` and the adjacent `libs/typescript/.api/` folder.
+Shared TypeScript substrate consumed from the registry; `libs/typescript/.planning/README.md` and the sibling `libs/typescript/.api/` folder own the full contracts and evidence.
 
 [TYPING_RAILS]:
 - `effect`

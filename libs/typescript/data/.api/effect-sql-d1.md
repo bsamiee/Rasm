@@ -14,21 +14,29 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                                                         | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                                   |
-| :-----: | :------------------------------------------------------------------------------- | :------------------ | :---------------------------------------------------- |
-|  [01]   | `D1Client` (Tag) / `interface D1Client`                                          | service Tag         | `lane/sqlite` D1 profile row; `D1Client \| SqlClient` |
-|  [02]   | `D1Client.updateValues: never`                                                   | refused member      | the lane degradation row — per-row updates only       |
-|  [03]   | `D1ClientConfig.db` (`D1Database`)                                               | binding adopt       | the Workers `env.DB` handle passed as a value         |
-|  [04]   | `D1ClientConfig.prepareCacheSize` / `.prepareCacheTTL`                           | statement cache     | hot-path lever; `Config`-sourced                      |
-|  [05]   | `D1ClientConfig` (`spanAttributes`/`transformResultNames`/`transformQueryNames`) | telemetry/transform | shared driver base                                    |
+[PUBLIC_TYPE_SCOPE]: the `D1Client` service and its config
+- rail: data/lane
+- `D1Client extends SqlClient` — the layer yields both Tags; neutral rows compose `SqlClient`. `D1ClientConfig` carries the shared `spanAttributes`/`transformResultNames`/`transformQueryNames` transforms over the Workers binding.
+
+| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                             |
+| :-----: | :----------------------------------------------------- | :------------------ | :---------------------------------------------- |
+|  [01]   | `D1Client` (Tag) / `interface D1Client`                | service Tag         | `lane/sqlite` D1 profile row                    |
+|  [02]   | `D1Client.updateValues: never`                         | refused member      | the lane degradation row — per-row updates only |
+|  [03]   | `D1ClientConfig.db` (`D1Database`)                     | binding adopt       | the Workers `env.DB` handle passed as a value   |
+|  [04]   | `D1ClientConfig.prepareCacheSize` / `.prepareCacheTTL` | statement cache     | hot-path lever; `Config`-sourced                |
+|  [05]   | `D1ClientConfig` (base)                                | telemetry/transform | shared driver base                              |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                 |
-| :-----: | :------------------------------------------------------------------------------ | :------------- | :-------------------------------------------------- |
-|  [01]   | `D1Client.layer(config): Layer<D1Client \| SqlClient, ConfigError \| SqlError>` | driver layer   | the Workers composition root passing `env.DB`       |
-|  [02]   | `D1Client.layerConfig(Config.Wrap<D1ClientConfig>)`                             | driver layer   | cache knobs from `Config`; the handle stays a value |
-|  [03]   | `D1Client.make(config): Effect<D1Client, SqlError, Scope>`                      | scoped make    | construction inside a larger acquire graph          |
+[ENTRYPOINT_SCOPE]: constructing the driver Layer
+- rail: data/lane
+- `layer`/`layerConfig` provide `D1Client \| SqlClient` in one Layer, error `ConfigError \| SqlError`; `make` returns `Effect<D1Client, SqlError, Scope>`. The `env.DB` handle stays a value, never a connection string.
+
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                 |
+| :-----: | :-------------------------------------------------- | :------------- | :-------------------------------------------------- |
+|  [01]   | `D1Client.layer(config)`                            | driver layer   | the Workers composition root passing `env.DB`       |
+|  [02]   | `D1Client.layerConfig(Config.Wrap<D1ClientConfig>)` | driver layer   | cache knobs from `Config`; the handle stays a value |
+|  [03]   | `D1Client.make(config)`                             | scoped make    | construction inside a larger acquire graph          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -446,13 +446,17 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes; the per-axis kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]     | [OWNER]          | [KIND]                                                                                            | [RAIL]                                   | [CASES] |
-| :-----: | :----------------- | :--------------- | :------------------------------------------------------------------------------------------------ | :--------------------------------------- | :-----: |
-|  [01]   | Skeletonization    | `SkeletonOp`     | request record folded by ONE `Apply` (contract → surgery → extract → smooth)                      | `Skeletonize.Apply → Fin<CurveSkeleton>` |    —    |
-|  [1a]   | Contraction policy | `SkeletonPolicy` | policy row — Au weight laws · cot clamp · convergence/stall bands · surgery λ · smoothing · floor | value (`IValidityEvidence`)              |    —    |
-|  [1b]   | Result + wire      | `CurveSkeleton`  | SoA node/arc/radius columns + `Graph` projection (offset's family, zero new types) + `Clearance`  | carrier (columns frozen at extraction)   |    —    |
+| [INDEX] | [AXIS_CONCERN]     | [OWNER]          | [RAIL]                                   | [CASES] |
+| :-----: | :----------------- | :--------------- | :--------------------------------------- | :-----: |
+|  [01]   | Skeletonization    | `SkeletonOp`     | `Skeletonize.Apply → Fin<CurveSkeleton>` |    —    |
+|  [02]   | Contraction policy | `SkeletonPolicy` | value (`IValidityEvidence`)              |    —    |
+|  [03]   | Result + wire      | `CurveSkeleton`  | carrier (columns frozen at extraction)   |    —    |
+
+- [01]-[SKELETONIZATION]: request record folded by ONE `Apply` (contract → surgery → extract → smooth).
+- [02]-[CONTRACTION_POLICY]: policy row — Au weight laws, cot clamp, convergence/stall bands, surgery λ, smoothing, floor.
+- [03]-[RESULT_AND_WIRE]: SoA node/arc/radius columns + `Graph` projection (offset's family, zero new types) + `Clearance`.
 
 ## [04]-[RESEARCH]
 

@@ -170,12 +170,18 @@ public static partial class HistoryLedger {
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]             | [OWNER]                       | [KIND]                                            | [RAIL]                         | [CASES] |
-| :-----: | :-------------------- | :---------------------------- | :------------------------------------------------ | :----------------------------- | :-----: |
-|  [01]   | stride direction      | `LedgerStride`                | `[SmartEnum<int>]` stride + replay columns        | `Stride`/`Replay` (internal)   |    2    |
-|  [02]   | undo commands         | `HistoryOp` + `LedgerReceipt` | `[GenerateUnionOps]` `[Union]` + evidence receipt | `Commit → Fin<LedgerReceipt>`  |    6    |
-|  [03]   | the one seal          | `HistoryLedger.Seal`          | cross-page composed seam, caller-marshal          | `Seal → Fin<LedgerReceipt>`    |    1    |
-|  [04]   | record banking        | `HistoryLedger.Bank`          | `ActionList.ToRecord` mint                        | `Bank → Fin<Record>`           |    1    |
-|  [05]   | branch reconciliation | `BranchPath` + `BranchCrown`  | evidence receipts over the live tree              | `Reconcile`/`Crown` → `Fin<T>` |  2 + 2  |
+| [INDEX] | [CONCERN]             | [OWNER]                       | [RAIL]                         | [CASES] |
+| :-----: | :-------------------- | :---------------------------- | :----------------------------- | :-----: |
+|  [01]   | stride direction      | `LedgerStride`                | `Stride`/`Replay` (internal)   |    2    |
+|  [02]   | undo commands         | `HistoryOp` + `LedgerReceipt` | `Commit → Fin<LedgerReceipt>`  |    6    |
+|  [03]   | the one seal          | `HistoryLedger.Seal`          | `Seal → Fin<LedgerReceipt>`    |    1    |
+|  [04]   | record banking        | `HistoryLedger.Bank`          | `Bank → Fin<Record>`           |    1    |
+|  [05]   | branch reconciliation | `BranchPath` + `BranchCrown`  | `Reconcile`/`Crown` → `Fin<T>` |  2 + 2  |
+
+- [01]-[STRIDE_DIRECTION]: `[SmartEnum<int>]` stride + replay columns.
+- [02]-[UNDO_COMMANDS]: `[GenerateUnionOps]` `[Union]` + evidence receipt.
+- [03]-[THE_ONE_SEAL]: cross-page composed seam, caller-marshal.
+- [04]-[RECORD_BANKING]: `ActionList.ToRecord` mint.
+- [05]-[BRANCH_RECONCILIATION]: evidence receipts over the live tree.
 
 `DocumentScope.Resolve`, `EtoDispatch`, `Op`, `Fault`, and `ValidityClaim` are composed upstream owners. The census `DocumentHistory` command family has no successor shape — its capabilities land as the cases and rows above, and the folder's mutation gates reach the tree only through `Seal`.

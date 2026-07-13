@@ -421,16 +421,23 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — `Fin`/`GeometryFault` where the locus, the lattice, the seeding, or the section cut can fail its post-condition, pure carriers for the projection.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — `Fin`/`GeometryFault` where the locus, the lattice, the seeding, or the section cut can fail its post-condition, pure carriers for the projection; the per-axis collapse kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]      | [OWNER]             | [KIND]                                                                                               | [RAIL]                                    | [CASES] |
-| :-----: | :------------------ | :------------------ | :--------------------------------------------------------------------------------------------------- | :---------------------------------------- | :-----: |
-|  [01]   | Projection          | `ViewOp`            | `[Union]` (`Silhouette`/`HiddenLine`/`Section`/`Outline`) folded by ONE `Apply` with `Op?` threading | `View.Apply → Fin<DrawingProjection>`     |    4    |
-|  [1a]   | Operation kind      | `ViewKind`          | `[SmartEnum<string>]` four rows + consulted `EmitsHidden`/`ResolvesVisibility` columns               | discriminant (pure)                       |    4    |
-|  [1b]   | Edge classification | `EdgeKind`          | `[SmartEnum<int>]` silhouette/crease/boundary/intersection — the 2436 fault payload vocabulary       | discriminant (pure)                       |    4    |
-|  [1c]   | Segment visibility  | `Visibility`        | `[SmartEnum<int>]` visible/hidden DERIVED from the Appel count                                       | derived (pure)                            |    2    |
-|  [1d]   | Solve policy        | `ViewPolicy`        | crease dihedral · winding β² · composed `IntersectPolicy`/`BuildPolicy` rows                         | value                                     |    —    |
-|  [1e]   | Result carrier      | `DrawingProjection` | successor-linked visible/hidden sets + histogram + `ToPolylines`/`ToSegments`/`Fill` projections     | carrier (`Fill → Fin<ArrangementResult>`) |    —    |
+| [INDEX] | [AXIS_CONCERN]      | [OWNER]             | [RAIL]                                    | [CASES] |
+| :-----: | :------------------ | :------------------ | :---------------------------------------- | :-----: |
+|  [01]   | Projection          | `ViewOp`            | `View.Apply → Fin<DrawingProjection>`     |    4    |
+|  [02]   | Operation kind      | `ViewKind`          | discriminant (pure)                       |    4    |
+|  [03]   | Edge classification | `EdgeKind`          | discriminant (pure)                       |    4    |
+|  [04]   | Segment visibility  | `Visibility`        | derived (pure)                            |    2    |
+|  [05]   | Solve policy        | `ViewPolicy`        | value                                     |    —    |
+|  [06]   | Result carrier      | `DrawingProjection` | carrier (`Fill → Fin<ArrangementResult>`) |    —    |
+
+- [01]-[PROJECTION]: `[Union]` (`Silhouette`/`HiddenLine`/`Section`/`Outline`) folded by ONE `Apply` with `Op?` threading.
+- [02]-[OPERATION_KIND]: `[SmartEnum<string>]` four rows + consulted `EmitsHidden`/`ResolvesVisibility` columns.
+- [03]-[EDGE_CLASSIFICATION]: `[SmartEnum<int>]` silhouette/crease/boundary/intersection — the 2436 fault payload vocabulary.
+- [04]-[SEGMENT_VISIBILITY]: `[SmartEnum<int>]` visible/hidden DERIVED from the Appel count.
+- [05]-[SOLVE_POLICY]: crease dihedral · winding β² · composed `IntersectPolicy`/`BuildPolicy` rows.
+- [06]-[RESULT_CARRIER]: successor-linked visible/hidden sets + histogram + `ToPolylines`/`ToSegments`/`Fill` projections.
 
 The `Apply` fold, the `[ADMISSION]` capsule (`MeshEdit.Of` lease), the `[SILHOUETTE]` cluster (`Silhouettes` exact locus + cached side signs, `FacesOppose` salvaged verbatim, `CreaseEdges` propagating lift, `Register`/`Key` incidence scratch), the `[QI_LATTICE]` cluster (`Resolve` orchestration, `Crossings` the Overlap→SegmentSegment lattice, `Seeds`/`StabCount` the two-stage exact seeding, the signature-pinned `Delta`/`Emit` sign and emission kernels with their laws stated on the signatures), the `[SECTION]` cluster (`Cut` one `PlaneMesh` delegation, `SectionDrawing` closed/open chain projection), and the `[PRIMITIVES]` cluster (the `Spatial.Apply`/`Intersection.Apply` answer-extraction and staging kernels) compose only landed public seams — no member depends on a host spelling beyond the stable `Plane`/`Line`/`Polyline`/`BoundingBox` surface the siblings pin.
 

@@ -443,11 +443,10 @@ const codexPrompt = (label, task, schema, o) => {
             'entries=0, report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every heavy read/investigate lane routes here: gpt-5.6-terra wrapper when CODEX, native otherwise. QUOTA FALLBACK: a
-// codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin
-// (terra->opus); the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The roster row carries
-// `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's uncensused territory is exact even
-// when the lane died before writing anything.
+// Every heavy read/investigate lane routes here: gpt-5.6-terra wrapper when CODEX, native otherwise. QUOTA FALLBACK: a codex receipt whose failure
+// matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus); the caller owns the re-dispatch, the
+// sonnet wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's
+// uncensused territory is exact even when the lane died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
     agent(

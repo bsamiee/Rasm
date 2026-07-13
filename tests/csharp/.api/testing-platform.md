@@ -12,27 +12,37 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                    | [KIND]       | [CAPABILITY]                                                                                                        |
-| :-----: | :------------------------------------------ | :----------- | :------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `TestApplication`                           | host         | `CreateBuilderAsync(args, options)` / `CreateServerModeBuilderAsync`; `RunAsync()`                                  |
-|  [02]   | `ITestApplicationBuilder`                   | builder      | `TestHost`, `TestHostControllers`, `CommandLine`, `Configuration`, `Logging`; `RegisterTestFramework`, `BuildAsync` |
-|  [03]   | `TestApplicationOptions`                    | options      | `EnableTelemetry` and configuration seed                                                                            |
-|  [04]   | `TestingPlatformBuilderHook` (MSBuild item) | registration | GUID + `TypeFullName` rows the entry-point generator wires in, ordered by well-known GUID                           |
+| [INDEX] | [SYMBOL]                     | [KIND]       | [CAPABILITY]                                                                       |
+| :-----: | :--------------------------- | :----------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `TestApplication`            | host         | `CreateBuilderAsync(args, options)` / `CreateServerModeBuilderAsync`; `RunAsync()` |
+|  [02]   | `ITestApplicationBuilder`    | builder      | composes host, controllers, command line, configuration, logging into `BuildAsync` |
+|  [03]   | `TestApplicationOptions`     | options      | `EnableTelemetry` and configuration seed                                           |
+|  [04]   | `TestingPlatformBuilderHook` | registration | GUID + `TypeFullName` rows the entry-point generator wires in, ordered by GUID     |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                                                             | [KIND]   | [CAPABILITY]                                                                          |
-| :-----: | :---------------------------------------------------------------------------------------------------- | :------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `--results-directory` / `--report-trx` / `--report-trx-filename`                                      | CLI      | TRX evidence routing; filename requires `--report-trx`, forbidden with `--list-tests` |
-|  [02]   | `--crashdump` / `--crashdump-type` / `--crashdump-filename`                                           | CLI      | crash dump capture                                                                    |
-|  [03]   | `--hangdump` / `--hangdump-type` / `--hangdump-timeout` / `--hangdump-filename`                       | CLI      | hang dump capture; sub-options demand the master switch                               |
-|  [04]   | `--retry-failed-tests <n>` / `--retry-failed-tests-max-percentage` / `--retry-failed-tests-max-tests` | CLI      | in-process retry; percentage and count are mutually exclusive                         |
-|  [05]   | `--filter` / `--list-tests` / `--minimum-expected-tests` / `--maximum-failed-tests`                   | CLI      | selection and run-shape gates                                                         |
-|  [06]   | `--diagnostic*` / `--timeout` / `--ignore-exit-code` / `--no-banner` / `--no-progress`                | CLI      | run diagnostics and output control                                                    |
-|  [07]   | `TestingPlatformCommandLineArguments` (MSBuild)                                                       | property | verbatim argument splice into the test process; the estate's coverage gate rides it   |
-|  [08]   | `testconfig.json` -> `$(AssemblyName).testconfig.json`                                                | config   | file-borne platform options; copied beside the executable at build                    |
+Every dump and retry sub-flag demands its master switch; `--retry-failed-tests-max-percentage` and `--retry-failed-tests-max-tests` are mutually exclusive.
 
-```csharp contract
+| [INDEX] | [SURFACE]                                                        | [KIND]  | [CAPABILITY]                                               |
+| :-----: | :--------------------------------------------------------------- | :------ | :--------------------------------------------------------- |
+|  [01]   | `--results-directory`                                            | CLI     | TRX and dump output root                                   |
+|  [02]   | `--report-trx`                                                   | CLI     | emit a TRX report                                          |
+|  [03]   | `--report-trx-filename`                                          | CLI     | TRX filename; needs `--report-trx`, forbids `--list-tests` |
+|  [04]   | `--crashdump`                                                    | CLI     | crash dump master switch                                   |
+|  [05]   | `--crashdump-type` / `--crashdump-filename`                      | CLI     | crash dump type and filename                               |
+|  [06]   | `--hangdump`                                                     | CLI     | hang dump master switch                                    |
+|  [07]   | `--hangdump-type` / `--hangdump-timeout` / `--hangdump-filename` | CLI     | hang dump type, detection timeout, and filename            |
+|  [08]   | `--retry-failed-tests <n>`                                       | CLI     | in-process retry count                                     |
+|  [09]   | `--retry-failed-tests-max-percentage`                            | CLI     | retry ceiling by failure percentage                        |
+|  [10]   | `--retry-failed-tests-max-tests`                                 | CLI     | retry ceiling by failure count                             |
+|  [11]   | `--filter` / `--list-tests`                                      | CLI     | selection expression and list-without-run                  |
+|  [12]   | `--minimum-expected-tests` / `--maximum-failed-tests`            | CLI     | discovered-count floor and fail-fast ceiling               |
+|  [13]   | `--diagnostic*` / `--timeout`                                    | CLI     | platform diagnostics family and global run timeout         |
+|  [14]   | `--ignore-exit-code` / `--no-banner` / `--no-progress`           | CLI     | force zero exit, suppress banner and progress              |
+|  [15]   | `TestingPlatformCommandLineArguments`                            | MSBuild | verbatim argument splice; the coverage gate rides it       |
+|  [16]   | `testconfig.json` -> `$(AssemblyName).testconfig.json`           | config  | file-borne platform options; copied beside the executable  |
+
+```csharp signature
 public static class TestApplication {
     public static Task<ITestApplicationBuilder> CreateBuilderAsync(
         string[] args, TestApplicationOptions? testApplicationOptions = null);

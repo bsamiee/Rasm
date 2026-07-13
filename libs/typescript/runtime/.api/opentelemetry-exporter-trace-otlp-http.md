@@ -18,27 +18,28 @@
 
 [PUBLIC_TYPE_SCOPE]: the `SpanExporter` and its config
 - rail: observability/export/trace
-- One exporter class, `OTLPExporterBase<ReadableSpan[]> implements SpanExporter` — the endpoint, headers, compression, and timeout are CONFIG values on one class, never a subclass per backend or per compression. The node/browser split is the package export map; the two config types differ only by node-only transport fields (`keepAlive`/`compression`/`httpAgentOptions`).
+- One exporter class, `OTLPExporterBase<ReadableSpan[]> implements SpanExporter` — the endpoint, headers, compression, and timeout are CONFIG values on one class, never a subclass per backend or per compression. The node/browser split is the package export map; the node config extends the browser+base config by node-only transport fields, and `CompressionAlgorithm` resolves `"none" | "gzip"`.
 
-| [INDEX] | [SYMBOL]                                                                                                                     | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                              |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------- | :------------ | :--------------------------------------------------------------- |
-|  [01]   | `OTLPTraceExporter` (`extends OTLPExporterBase<ReadableSpan[]> implements SpanExporter`)                                     | span exporter | the concrete exporter a `BatchSpanProcessor` wraps               |
-|  [02]   | `export(items: ReadableSpan[], cb: (r: ExportResult) => void): void`                                                         | export method | called by the processor; reports through core's `ExportResult`   |
-|  [03]   | `forceFlush(): Promise<void>` / `shutdown(): Promise<void>`                                                                  | lifecycle     | drain-on-exit and terminal release the SDK provider invokes      |
-|  [04]   | `OTLPExporterConfigBase { url?; headers?; concurrencyLimit?; timeoutMillis? }` (transitive)                                  | base config   | endpoint + header + concurrency + deadline (browser + base)      |
-|  [05]   | `OTLPExporterNodeConfigBase` (extends base: `keepAlive?; compression?: CompressionAlgorithm; httpAgentOptions?; userAgent?`) | node config   | node transport tuning; `CompressionAlgorithm = "none" \| "gzip"` |
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                                                  |
+| :-----: | :---------------------------------------- | :------------------ | :------------------------------------------------------------------- |
+|  [01]   | `OTLPTraceExporter`                       | span exporter class | concrete exporter a `BatchSpanProcessor` wraps                       |
+|  [02]   | `export(items: ReadableSpan[], cb): void` | export method       | `cb` receives core's `ExportResult`                                  |
+|  [03]   | `forceFlush(): Promise<void>`             | lifecycle           | drain-on-exit flush the SDK provider invokes                         |
+|  [04]   | `shutdown(): Promise<void>`               | lifecycle           | terminal release the SDK provider invokes                            |
+|  [05]   | `OTLPExporterConfigBase`                  | base config         | `url?`, `headers?`, `concurrencyLimit?`, `timeoutMillis?`            |
+|  [06]   | `OTLPExporterNodeConfigBase`              | node config         | adds `keepAlive?`, `compression?`, `httpAgentOptions?`, `userAgent?` |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: SDK-bridge trace export composition
 - rail: observability/export/trace
-- The exporter is never a leaf: construct it, wrap it in a processor, hand the processor to the facade. `BatchSpanProcessor` (production, buffered) or `SimpleSpanProcessor` (dev, synchronous) from `sdk-trace-base` is the wrapper; `NodeSdk`/`WebSdk` `Configuration.spanProcessor` is the sink. `url`/`headers`/`compression`/`timeoutMillis` are policy values sourced from config or `OTEL_EXPORTER_OTLP_*` env (via core's readers), never forks.
+- The exporter is never a leaf: construct it, wrap it in a processor, hand the processor to the facade. `new OTLPTraceExporter(config?)` selects its platform config type by the package export condition. `BatchSpanProcessor` (production, buffered) or `SimpleSpanProcessor` (dev, synchronous) from `sdk-trace-base` is the wrapper; `NodeSdk`/`WebSdk` `Configuration.spanProcessor` is the sink. `url`/`headers`/`compression`/`timeoutMillis` are policy values sourced from config or `OTEL_EXPORTER_OTLP_*` env (via core's readers), never forks.
 
-| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                           |
-| :-----: | :----------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------ |
-|  [01]   | `new OTLPTraceExporter(config?: OTLPExporterNodeConfigBase)`                         | node ctor      | the node OTLP/HTTP span exporter                              |
-|  [02]   | `new OTLPTraceExporter(config?: OTLPExporterConfigBase)`                             | browser ctor   | the browser OTLP/HTTP span exporter (RUM egress)              |
-|  [03]   | `new BatchSpanProcessor(new OTLPTraceExporter(cfg))` → `Configuration.spanProcessor` | composition    | the standing stack: exporter → processor → `NodeSdk`/`WebSdk` |
+| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                          |
+| :-----: | :----------------------------------------------------------------- | :------------- | :------------------------------------------- |
+|  [01]   | `new OTLPTraceExporter(config?: OTLPExporterNodeConfigBase)`       | node ctor      | node OTLP/HTTP span exporter                 |
+|  [02]   | `new OTLPTraceExporter(config?: OTLPExporterConfigBase)`           | browser ctor   | browser OTLP/HTTP span exporter (RUM egress) |
+|  [03]   | `new BatchSpanProcessor(exporter)` → `Configuration.spanProcessor` | composition    | exporter → processor → `NodeSdk`/`WebSdk`    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

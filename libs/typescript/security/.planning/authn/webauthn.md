@@ -4,11 +4,11 @@ Both halves of the passkey ceremony as two per-runtime subpath modules: the RP-s
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                                         | [PUBLIC]                                                     | [RUNTIME]       |
-| :-----: | :------------------ | :--------------------------------------------------------------------------------------------- | :----------------------------------------------------------- | :-------------- |
-|  [01]   | `ATTESTATION_TRUST` | the credential/fault vocabulary, the ceremony phase witness, the MDS + root-cert trust anchors | `Passkey`, `WebAuthnFault`, `CeremonyPhase`, `WebAuthnTrust` | `./server` node |
-|  [02]   | `RP_VERIFICATION`   | RP-side options + verify, pinned policy, the counter replay defense                            | `WebAuthn`, `WebAuthnStore`, `ChallengeStore`                | `./server` node |
-|  [03]   | `BROWSER_CEREMONY`  | the `navigator.credentials` invocation, autofill, auto-register, abort, probes                 | `Passkeys`, `PasskeyFault`                                   | `./browser`     |
+| [INDEX] | [CLUSTER]           | [PUBLIC]                                                     | [RUNTIME]       |
+| :-----: | :------------------ | :----------------------------------------------------------- | :-------------- |
+|  [01]   | `ATTESTATION_TRUST` | `Passkey`, `WebAuthnFault`, `CeremonyPhase`, `WebAuthnTrust` | `./server` node |
+|  [02]   | `RP_VERIFICATION`   | `WebAuthn`, `WebAuthnStore`, `ChallengeStore`                | `./server` node |
+|  [03]   | `BROWSER_CEREMONY`  | `Passkeys`, `PasskeyFault`                                   | `./browser`     |
 
 ## [02]-[ATTESTATION_TRUST]
 

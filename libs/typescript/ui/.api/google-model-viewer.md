@@ -19,29 +19,39 @@
 - rail: viewer/scene
 - `ModelViewerElement` is `AnnotationMixin ∘ SceneGraphMixin ∘ StagingMixin ∘ EnvironmentMixin ∘ ControlsMixin ∘ ARMixin ∘ LoadingMixin ∘ AnimationMixin` over `ModelViewerElementBase`. Each `*Mixin` is a `<T extends Constructor<ModelViewerElementBase>>(Base: T) => Constructor<…Interface> & T` — the composition is the surface, and a custom subclass re-applies the mixins it needs.
 
-| [INDEX] | [SYMBOL]                                                                                                                                      | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                                                                                                                                                                     |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------- | :--------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ModelViewerElement` (const + `InstanceType`) / `HTMLElementTagNameMap['model-viewer']`                                                       | custom element   | `viewer/scene/glb.md` GlbViewport `"model-viewer"` backend row; the JSX `ref` type                                                                                                                                      |
-|  [02]   | `ModelViewerElementBase`                                                                                                                      | Lit base         | `ReactiveElement` spine every mixin extends; the `loading`/`error`/`load` event source                                                                                                                                  |
-|  [03]   | `Vector3D` / `Vector2D`                                                                                                                       | coordinate value | `{ x, y, z, toString() }` / `{ u, v, toString() }` — dimensions, camera target, hotspot UV                                                                                                                              |
-|  [04]   | `RGB` / `RGBA` (re-exported glTF 2.0)                                                                                                         | color value      | scene-graph material factor reads/writes                                                                                                                                                                                |
-|  [05]   | `AnnotationMixin` / `SceneGraphMixin` / `StagingMixin` / `EnvironmentMixin` / `ControlsMixin` / `ARMixin` / `LoadingMixin` / `AnimationMixin` | mixin factory    | compose a custom element subclass with a chosen capability subset                                                                                                                                                       |
-|  [06]   | `CanvasTexture` / `FileLoader` / `Loader` / `NearestFilter` (re-exported bare `from 'three'`)                                                 | three re-export  | primitives from the SHARED peer `three@catalog` (not a bundled copy) for `createCanvasTexture`/custom loaders — the SAME class identities as the viewer `three` row, `instanceof`-compatible and directly interoperable |
+| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                            |
+| :-----: | :-------------------------------------- | :--------------- | :------------------------------------------------------------- |
+|  [01]   | `ModelViewerElement`                    | custom element   | the `"model-viewer"` GlbViewport backend; JSX `ref` type       |
+|  [02]   | `HTMLElementTagNameMap['model-viewer']` | element map      | the augmented tag type `document.createElement` resolves       |
+|  [03]   | `ModelViewerElementBase`                | Lit base         | `ReactiveElement` spine; `loading`/`error`/`load` source       |
+|  [04]   | `Vector3D` / `Vector2D`                 | coordinate value | `{x,y,z}`/`{u,v}` + `toString()`; dims, target, hotspot UV     |
+|  [05]   | `RGB` / `RGBA`                          | color value      | re-exported glTF 2.0; scene-graph material factor reads/writes |
+|  [06]   | the eight `*Mixin` factories            | mixin factory    | compose a subclass with a chosen capability subset (see lead)  |
+|  [07]   | `CanvasTexture` / `FileLoader`          | three re-export  | bare `from 'three'`; the shared `three@catalog` classes        |
+|  [08]   | `Loader` / `NearestFilter`              | three re-export  | bare `from 'three'`; the shared `three@catalog` classes        |
 
 [PUBLIC_TYPE_SCOPE]: the eight feature interfaces + their config/event value types
 - rail: viewer/scene
 - Each interface is one capability facet of the composed element; the config records parameterize its operations.
+- `RevealAttributeValue` = `'auto'\|'manual'`; `LoadingAttributeValue` = `'auto'\|'lazy'\|'eager'`; `ARMode` = `'quick-look'\|'scene-viewer'\|'webxr'\|'none'`.
+- `ToneMappingValue` = `'auto'\|'aces'\|'agx'\|'commerce'\|'neutral'\|'reinhard'\|'cineon'\|'linear'\|'none'` (the `tone-mapping` attribute union).
 
-| [INDEX] | [SYMBOL]                                                                                                                                                                         | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                                                     |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | `LoadingInterface` + `LoadingStaticInterface` / `RevealAttributeValue` (`'auto'\|'manual'`) / `LoadingAttributeValue` (`'auto'\|'lazy'\|'eager'`) / `ModelViewerGlobalConfig`    | load config    | `src`/poster/reveal + decoder-location statics; `powerPreference`                       |
-|  [02]   | `ControlsInterface` / `SphericalPosition` (`theta`,`phi`,`radius`,`toString()`) / `CameraChangeDetails` / `InteractionPromptStrategy` / `InteractionPromptStyle` / `TouchAction` | camera config  | orbit/target/FOV + `camera-change` event; `viewer/geo/project.md` camera sync           |
-|  [03]   | `SceneGraphInterface` / `SceneExportOptions` (`binary`,`trs`,`onlyVisible`,`maxTextureSize`)                                                                                     | scene mutation | `exportScene`/variants/`materialFromPoint`; `viewer/scene/appearance.md` material reads |
-|  [04]   | `AnnotationInterface` / `HotspotData` (`position`,`normal`,`canvasPosition`,`facingCamera`)                                                                                      | hotspot + ray  | `viewer/mark/bcf.md` viewpoint anchors via `positionAndNormalFromPoint`                 |
-|  [05]   | `ARInterface` / `ARMode` (`'quick-look'\|'scene-viewer'\|'webxr'\|'none'`) / `ARStatusDetails`                                                                                   | AR activation  | mobile AR launch; `iosSrc` USDZ for Quick Look                                          |
-|  [06]   | `EnvironmentInterface` / `ToneMappingValue` (`'auto'\|'aces'\|'agx'\|'commerce'\|'neutral'\|'reinhard'\|'cineon'\|'linear'\|'none'`, the `tone-mapping` attribute union)         | IBL lighting   | `environmentImage`/`skyboxImage`/`shadowIntensity`/`exposure` — OpenPBR env binding     |
-|  [07]   | `AnimationInterface` / `PlayAnimationOptions` (`repetitions`,`pingpong`) / `AppendAnimationOptions` (`fade`,`warp`,`weight`,`timeScale`) / `DetachAnimationOptions`              | animation      | clip playback + additive blend                                                          |
-|  [08]   | `StagingInterface`                                                                                                                                                               | auto-stage     | `autoRotate` + `autoRotateDelay` idle turntable                                         |
+| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                   |
+| :-----: | :----------------------------------------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `LoadingInterface` + `LoadingStaticInterface`          | load config    | `src`/poster/reveal + decoder-location statics        |
+|  [02]   | `RevealAttributeValue` / `LoadingAttributeValue`       | load config    | reveal + loading attribute unions (values in lead)    |
+|  [03]   | `ModelViewerGlobalConfig`                              | load config    | global `powerPreference` + decoder statics            |
+|  [04]   | `ControlsInterface` / `SphericalPosition`              | camera config  | `theta`/`phi`/`radius`; orbit/target/FOV              |
+|  [05]   | `CameraChangeDetails`                                  | camera config  | the `camera-change` event payload                     |
+|  [06]   | `InteractionPromptStrategy` / `InteractionPromptStyle` | camera config  | interaction-prompt strategy + style policy            |
+|  [07]   | `TouchAction`                                          | camera config  | the touch-action policy; `viewer/geo/project.md` sync |
+|  [08]   | `SceneGraphInterface` / `SceneExportOptions`           | scene mutation | `binary`/`trs`/`onlyVisible`/`maxTextureSize`         |
+|  [09]   | `AnnotationInterface` / `HotspotData`                  | hotspot + ray  | `position`/`normal`/`canvasPosition`/`facingCamera`   |
+|  [10]   | `ARInterface` / `ARMode` / `ARStatusDetails`           | AR activation  | mobile AR launch; `iosSrc` USDZ for Quick Look        |
+|  [11]   | `EnvironmentInterface` / `ToneMappingValue`            | IBL lighting   | `environmentImage`/`skyboxImage`/`shadowIntensity`    |
+|  [12]   | `AnimationInterface` / `PlayAnimationOptions`          | animation      | `repetitions`/`pingpong` clip playback                |
+|  [13]   | `AppendAnimationOptions` / `DetachAnimationOptions`    | animation      | `fade`/`warp`/`weight`/`timeScale` additive blend     |
+|  [14]   | `StagingInterface`                                     | auto-stage     | `autoRotate` + `autoRotateDelay` idle turntable       |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -49,26 +59,45 @@
 - rail: viewer/scene
 - The declarative row: set `.src` to a GLB object-URL, `camera-controls` for orbit; the element decodes, uploads, and renders with no GL handle exposed. Every property has an attribute twin (`camera-orbit`, `shadow-intensity`, …).
 
-| [INDEX] | [SURFACE]                                                                                                                                            | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                                                          |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `.src` / `.poster` / `.reveal` / `.alt` / readonly `.loaded` / `.modelIsVisible`                                                                     | load state      | `glb.md` `draw` sets `src` to a `model/gltf-binary` object-URL over the `ArtifactBlob` bytes |
-|  [02]   | `dismissPoster()` / `showPoster()` / `getDimensions(): Vector3D` / `getBoundingBoxCenter(): Vector3D`                                                | reveal + bounds | manual reveal gating; frame-to-fit                                                           |
-|  [03]   | `.dracoDecoderLocation` / `.ktx2TranscoderLocation` / `.meshoptDecoderLocation` (static) / `mapURLs(cb)` / `ModelViewerGlobalConfig.powerPreference` | decoder config  | pin decoders to a self-hosted path before first model (CSP); `mapURLs` rewrites asset URLs   |
-|  [04]   | `.cameraControls` / `.cameraOrbit` / `.cameraTarget` / `.fieldOfView` / `.min\|maxCameraOrbit` / `.touchAction`                                      | camera props    | `camera-controls` enables orbit; `viewer/geo/project.md` camera fold                         |
-|  [05]   | `getCameraOrbit(): SphericalPosition` / `getCameraTarget(): Vector3D` / `jumpCameraToGoal()`                                                         | camera query    | read live camera for the `atom/binding.md` AtomBinding; snap to goal                         |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                   |
+| :-----: | :------------------------------------------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `.src` / `.poster` / `.reveal` / `.alt`                  | load state     | `glb.md` `draw` sets `.src` to a GLB object-URL       |
+|  [02]   | readonly `.loaded` / `.modelIsVisible`                   | load state     | load + visibility flags                               |
+|  [03]   | `dismissPoster()` / `showPoster()`                       | reveal         | manual reveal gating                                  |
+|  [04]   | `getDimensions(): Vector3D`                              | bounds         | model dimensions                                      |
+|  [05]   | `getBoundingBoxCenter(): Vector3D`                       | bounds         | frame-to-fit center                                   |
+|  [06]   | `.dracoDecoderLocation` / `.ktx2TranscoderLocation`      | decoder static | pin decoders to a self-hosted path before first model |
+|  [07]   | `.meshoptDecoderLocation` / `mapURLs(cb)`                | decoder config | meshopt path; `mapURLs` rewrites asset URLs (CSP)     |
+|  [08]   | `ModelViewerGlobalConfig.powerPreference`                | decoder config | the global GPU `powerPreference`                      |
+|  [09]   | `.cameraControls` / `.cameraOrbit` / `.cameraTarget`     | camera props   | `camera-controls` enables orbit                       |
+|  [10]   | `.fieldOfView` / `.min\|maxCameraOrbit` / `.touchAction` | camera props   | FOV, orbit clamps, touch-action; project camera fold  |
+|  [11]   | `getCameraOrbit(): SphericalPosition`                    | camera query   | read live orbit for the `atom/binding.md` AtomBinding |
+|  [12]   | `getCameraTarget(): Vector3D` / `jumpCameraToGoal()`     | camera query   | read target; snap to goal                             |
 
 [ENTRYPOINT_SCOPE]: scene-graph mutation, hotspot ray-casting, environment, animation, AR — the full advanced surface
 - rail: viewer/scene
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                 | [ENTRY_FAMILY]     | [CONSUMER_BOUNDARY]                                                                 |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `exportScene(options?: SceneExportOptions): Promise<Blob>` / readonly `.model?: Model` / `.availableVariants` / `.variantName` / `.orientation` / `.scale`                                | scene graph        | GLB round-trip export; KHR_materials_variants switch; model-root access             |
-|  [02]   | `createTexture(uri, type?)` / `createCanvasTexture()` / `createVideoTexture(uri)` → `ModelViewerTexture` / `materialFromPoint(px, py): Material \| null`                                  | texture + material | runtime texture authoring; screen-pixel → material pick                             |
-|  [03]   | `updateHotspot(config)` / `queryHotspot(name): HotspotData \| null` / `positionAndNormalFromPoint(px, py)` / `surfaceFromPoint(px, py): string \| null`                                   | hotspot + ray      | `viewer/mark/bcf.md` — screen pixel → 3D surface hit + normal for viewpoint anchors |
-|  [04]   | `.environmentImage` / `.skyboxImage` / `.skyboxHeight` / `.exposure` / `.shadowIntensity` / `.shadowSoftness` / `hasBakedShadow()`                                                        | environment        | `viewer/scene/appearance.md` OpenPBR IBL/exposure binding                           |
-|  [05]   | `play(options?)` / `pause()` / `appendAnimation(name, options?)` / `detachAnimation(name, options?)` / `.animationName` / readonly `.availableAnimations` / `.currentTime` / `.timeScale` | animation          | clip playback + additive blend for animated GLB                                     |
-|  [06]   | `activateAR(): Promise<void>` / readonly `.canActivateAR` / `.ar` / `.arModes` / `.arScale` / `.arPlacement` / `.iosSrc`                                                                  | AR                 | mobile AR (quick-look/scene-viewer/webxr) launch                                    |
-|  [07]   | `<*>Mixin<T>(Base): Constructor<…Interface> & T` (per feature)                                                                                                                            | mixin compose      | build a custom element subclass with a chosen capability subset                     |
+| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                              |
+| :-----: | :---------------------------------------------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `exportScene(options?): Promise<Blob>`                            | scene graph    | GLB round-trip export                            |
+|  [02]   | readonly `.model?: Model` / `.orientation` / `.scale`             | scene graph    | model-root access + transform                    |
+|  [03]   | `.availableVariants` / `.variantName`                             | scene graph    | KHR_materials_variants switch                    |
+|  [04]   | `createTexture(uri, type?)` / `createCanvasTexture()`             | texture        | runtime `ModelViewerTexture` authoring           |
+|  [05]   | `createVideoTexture(uri)`                                         | texture        | a video-backed `ModelViewerTexture`              |
+|  [06]   | `materialFromPoint(px, py): Material \| null`                     | material pick  | screen-pixel → material                          |
+|  [07]   | `updateHotspot(config)` / `queryHotspot(name)`                    | hotspot        | hotspot update + query                           |
+|  [08]   | `positionAndNormalFromPoint(px, py)`                              | ray            | pixel → 3D position + normal                     |
+|  [09]   | `surfaceFromPoint(px, py): string \| null`                        | ray            | pixel → surface node; `viewer/mark/bcf.md`       |
+|  [10]   | `.environmentImage` / `.skyboxImage` / `.skyboxHeight`            | environment    | IBL + skybox binding                             |
+|  [11]   | `.exposure` / `.shadowIntensity`                                  | environment    | OpenPBR exposure + shadow intensity              |
+|  [12]   | `.shadowSoftness` / `hasBakedShadow()`                            | environment    | shadow softness; baked-shadow probe              |
+|  [13]   | `play(options?)` / `pause()` / `.currentTime` / `.timeScale`      | animation      | clip playback control                            |
+|  [14]   | `appendAnimation(name, options?)`                                 | animation      | additive blend layer                             |
+|  [15]   | `detachAnimation(name, options?)`                                 | animation      | remove a blended layer                           |
+|  [16]   | `.animationName` / readonly `.availableAnimations`                | animation      | clip selection                                   |
+|  [17]   | `activateAR(): Promise<void>` / readonly `.canActivateAR` / `.ar` | AR             | mobile AR launch                                 |
+|  [18]   | `.arModes` / `.arScale` / `.arPlacement` / `.iosSrc`              | AR             | AR mode/scale/placement + USDZ                   |
+|  [19]   | `<*>Mixin<T>(Base): Constructor<…Interface> & T`                  | mixin compose  | build a subclass with a chosen capability subset |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

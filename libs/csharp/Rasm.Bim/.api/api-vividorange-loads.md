@@ -73,15 +73,15 @@ the same `ToUnit(UnitSystem.SI)` path, and it is QUANTITY-ISOMORPHIC to the SAF 
 [ENTRYPOINT_SCOPE]: typed construction and scaling
 - rail: structural-load
 
-| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY]     | [RAIL]                                                                                     |
-| :-----: | :---------------------------------------------------- | :----------------- | :----------------------------------------------------------------------------------------- |
-|  [01]   | `new PointForce(Force x, Force y, Force z)`           | quantity ctor      | spatial point force from typed `Force` components                                          |
-|  [02]   | `new LineForce(...)` / `new AreaForce(...)`           | quantity ctor      | line/area action from `ForcePerLength`/`Pressure`                                          |
-|  [03]   | `new Gravity(Ratio z)` / `new Gravity()`              | quantity ctor      | gravity field as a `Ratio` g-multiplier                                                    |
-|  [04]   | `implicit operator PointForce(Force f)`               | scalar lift        | a bare `Force` lifts to a Z-axis `PointForce`                                              |
-|  [05]   | `ILoad.Factor(Ratio factor)`                          | scaling combinator | returns a new `ILoad` with every component × `factor.DecimalFractions`, preserving `Label` |
-|  [06]   | `ILoad.Label { get; }`                                | identity read      | the human-facing load label carried across `Factor`                                        |
-|  [07]   | `PointForce.X`/`.Y`/`.Z` (and family component reads) | component read     | typed `UnitsNet` quantity per axis                                                         |
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]     | [RAIL]                                                  |
+| :-----: | :-------------------------------------------------- | :----------------- | :------------------------------------------------------ |
+|  [01]   | `new PointForce(Force x, Force y, Force z)`         | quantity ctor      | spatial point force from typed `Force` components       |
+|  [02]   | `new LineForce(...)` / `new AreaForce(...)`         | quantity ctor      | line/area action from `ForcePerLength`/`Pressure`       |
+|  [03]   | `new Gravity(Ratio z)` / `new Gravity()`            | quantity ctor      | gravity field as a `Ratio` g-multiplier                 |
+|  [04]   | `implicit operator PointForce(Force f)`             | scalar lift        | a bare `Force` lifts to a Z-axis `PointForce`           |
+|  [05]   | `ILoad.Factor(Ratio factor)`                        | scaling combinator | new `ILoad`, each component × `factor.DecimalFractions` |
+|  [06]   | `ILoad.Label { get; }`                              | identity read      | the human-facing load label carried across `Factor`     |
+|  [07]   | `PointForce.X`/`.Y`/`.Z` (+ family component reads) | component read     | typed `UnitsNet` quantity per axis                      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

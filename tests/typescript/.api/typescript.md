@@ -12,20 +12,20 @@ The workspace consumes this package on two disjoint lanes. The GATE lane is proc
 
 ## [01]-[SCANNER_SURFACE]
 
-[PUBLIC_SCOPE]: the parse-and-walk lane the gauge engine composes — pure, synchronous, program-free.
+[PUBLIC_SCOPE]: the parse-and-walk lane the gauge engine composes — pure, synchronous, program-free. Every `ts.is*` row is a `(node) => node is <T>` type guard; the full `createSourceFile`/`forEachChild` signatures live in the fence below.
 
-| [INDEX] | [SYMBOL]                            | [TYPE]                                                                                         | [CAPABILITY]                                                        |
-| :-----: | :---------------------------------- | :--------------------------------------------------------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | `ts.createSourceFile`               | `(fileName, sourceText, languageVersionOrOptions, setParentNodes?, scriptKind?) => SourceFile` | one file parsed standalone; `ScriptTarget.Latest`, parents off      |
-|  [02]   | `ts.forEachChild<T>`                | `(node, cbNode, cbNodes?) => T \| undefined`                                                   | the one AST walk; recursion is the caller's visit function          |
-|  [03]   | `ts.isImportDeclaration`            | `(node) => node is ImportDeclaration`                                                          | static import row; `.importClause?.isTypeOnly` splits the plane     |
-|  [04]   | `ts.isExportDeclaration`            | `(node) => node is ExportDeclaration`                                                          | re-export row; `.isTypeOnly` + optional `.moduleSpecifier`          |
-|  [05]   | `ts.isCallExpression`               | `(node) => node is CallExpression`                                                             | with `expression.kind === SyntaxKind.ImportKeyword`: dynamic import |
-|  [06]   | `ts.isStringLiteral`                | `(node) => node is StringLiteral`                                                              | the specifier text; a non-literal specifier is a grammar error      |
-|  [07]   | `ts.ScriptTarget` / `ts.SyntaxKind` | const enums on the namespace                                                                   | `ScriptTarget.Latest = 99`; `SyntaxKind.ImportKeyword = 102`        |
-|  [08]   | `ts.version` / `ts.transpileModule` | `string` / `(input, transpileOptions) => TranspileOutput`                                      | engine identity; single-file erase without a program                |
+| [INDEX] | [SYMBOL]                            | [TYPE]                         | [CAPABILITY]                                                   |
+| :-----: | :---------------------------------- | :----------------------------- | :------------------------------------------------------------- |
+|  [01]   | `ts.createSourceFile`               | `→ SourceFile`                 | one file parsed standalone; `ScriptTarget.Latest`, parents off |
+|  [02]   | `ts.forEachChild<T>`                | `→ T \| undefined`             | the one AST walk; recursion is the caller's visit fn           |
+|  [03]   | `ts.isImportDeclaration`            | `node is ImportDeclaration`    | static import; `.importClause?.isTypeOnly` splits the plane    |
+|  [04]   | `ts.isExportDeclaration`            | `node is ExportDeclaration`    | re-export; `.isTypeOnly` + optional `.moduleSpecifier`         |
+|  [05]   | `ts.isCallExpression`               | `node is CallExpression`       | `expression.kind === SyntaxKind.ImportKeyword`: dynamic import |
+|  [06]   | `ts.isStringLiteral`                | `node is StringLiteral`        | the specifier text; a non-literal specifier errors             |
+|  [07]   | `ts.ScriptTarget` / `ts.SyntaxKind` | const enums on the namespace   | `ScriptTarget.Latest = 99`; `SyntaxKind.ImportKeyword = 102`   |
+|  [08]   | `ts.version` / `ts.transpileModule` | `string` / `→ TranspileOutput` | engine identity; single-file erase without a program           |
 
-```ts contract
+```ts signature
 // lib/typescript.d.ts — the composed scanner lane.
 function createSourceFile(fileName: string, sourceText: string, languageVersionOrOptions: ScriptTarget | CreateSourceFileOptions, setParentNodes?: boolean, scriptKind?: ScriptKind): SourceFile
 function forEachChild<T>(node: Node, cbNode: (node: Node) => T | undefined, cbNodes?: (nodes: NodeArray<Node>) => T | undefined): T | undefined

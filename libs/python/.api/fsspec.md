@@ -30,11 +30,16 @@
 
 [PUBLIC_TYPE_SCOPE]: cache and transfer policy
 - rail: transport
+- cache rows are read-cache strategies selected behind a file handle.
 
-| [INDEX] | [SYMBOL]                                                                                   | [TYPE_FAMILY] | [RAIL]                                                            |
-| :-----: | :----------------------------------------------------------------------------------------- | :------------ | :---------------------------------------------------------------- |
-|  [01]   | `BlockCache` / `BackgroundBlockCache` / `ReadAheadCache` / `MMapCache` / `FirstChunkCache` | cache         | read-cache strategies behind file handles                         |
-|  [02]   | filesystem transaction object                                                              | transaction   | `fs.transaction` context manager and explicit start/end lifecycle |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [RAIL]                                                             |
+| :-----: | :---------------------------- | :------------ | :----------------------------------------------------------------- |
+|  [01]   | `BlockCache`                  | cache         | fixed-size block LRU over the remote file                          |
+|  [02]   | `BackgroundBlockCache`        | cache         | block cache prefetching the next block in a thread                 |
+|  [03]   | `ReadAheadCache`              | cache         | contiguous forward read-ahead buffer                               |
+|  [04]   | `MMapCache`                   | cache         | memory-mapped local sparse-file cache                              |
+|  [05]   | `FirstChunkCache`             | cache         | caches the file's leading block for header reads                   |
+|  [06]   | filesystem transaction object | transaction   | `fs.transaction` context manager plus explicit start/end lifecycle |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -51,14 +56,14 @@
 [ENTRYPOINT_SCOPE]: read, metadata, mutation, and range access
 - rail: transport
 
-| [INDEX] | [SURFACE]                                                                                                  | [ENTRY_FAMILY] | [RAIL]                                     |
-| :-----: | :--------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------- |
-|  [01]   | `fs.open(path, mode='rb', block_size=...) -> AbstractBufferedFile`                                         | open           | stream a file through the backend          |
-|  [02]   | `fs.cat_file(path, start=, end=)` / `fs.cat(path)`                                                         | bytes read     | whole-file or single-range read            |
-|  [03]   | `fs.cat_ranges(paths, starts, ends, max_gap=None, on_error="return")`                                      | range read     | concurrent byte-range batch read           |
-|  [04]   | `fs.info(path)` / `fs.exists` / `fs.isfile` / `fs.isdir` / `fs.ls(path, detail=True)`                      | inspect        | metadata and directory enumeration         |
-|  [05]   | `fs.put` / `fs.get` / `fs.copy` / `fs.mv` / `fs.rm` / `fs.mkdir`                                           | mutate         | filesystem mutation surface                |
-|  [06]   | `await afs._cat_file(...)` / `await afs._open(...)` / `await afs._info(...)` / `await afs.open_async(...)` | async          | coroutine mirror of the filesystem surface |
+| [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY] | [RAIL]                             |
+| :-----: | :------------------------------------------------------------------------------ | :------------- | :--------------------------------- |
+|  [01]   | `fs.open(path, mode='rb', block_size=...) -> AbstractBufferedFile`              | open           | stream a file through the backend  |
+|  [02]   | `fs.cat_file(path, start=, end=)` / `fs.cat(path)`                              | bytes read     | whole-file or single-range read    |
+|  [03]   | `fs.cat_ranges(paths, starts, ends, max_gap=None, on_error="return")`           | range read     | concurrent byte-range batch read   |
+|  [04]   | `fs.info` / `fs.exists` / `fs.isfile` / `fs.isdir` / `fs.ls(path, detail=True)` | inspect        | metadata and directory enumeration |
+|  [05]   | `fs.put` / `fs.get` / `fs.copy` / `fs.mv` / `fs.rm` / `fs.mkdir`                | mutate         | filesystem mutation surface        |
+|  [06]   | `afs._cat_file` / `afs._open` / `afs._info` / `afs.open_async`                  | async          | coroutine mirror of the surface    |
 
 [ENTRYPOINT_SCOPE]: map, cache, transaction, and generic transfer
 - rail: transport

@@ -114,20 +114,20 @@ public sealed record PanZoomRow(
 }
 ```
 
-| [INDEX] | [GESTURE]       | [ROUTE]                                               | [CONSEQUENCE]                                                                       |
-| :-----: | :-------------- | :---------------------------------------------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | tap             | `TappedEventTrigger`                                  | primary intent action fires                                                         |
-|  [02]   | double-tap      | `DoubleTappedEventTrigger`                            | canvas rows route through `DoubleClickZoomMode`                                     |
-|  [03]   | press-hold      | `HoldingGestureTrigger`                               | context intent raise                                                                |
-|  [04]   | context-request | `RightTappedEventTrigger`                             | menu derivation from the command-table surface predicate                            |
-|  [05]   | wheel zoom      | `ZoomBorder`                                          | one zoom owner per canvas row                                                       |
-|  [06]   | pinch zoom      | `PinchGestureTrigger` / `ZoomBorder` `EnableGestures` | same single-owner law                                                               |
-|  [07]   | canvas drag     | `CanvasDragBehavior`                                  | draggable tiles inside canvas rows                                                  |
-|  [08]   | item drag       | `ItemDragBehavior`                                    | draggable-control rows                                                              |
-|  [09]   | rotate gesture  | `PointerTouchPadGestureRotateGestureTrigger`          | gated by the row `EnableRotation` onto `Rotate`/`SnapRotation` under `RotationStep` |
-|  [10]   | magnify gesture | `PointerTouchPadGestureMagnifyGestureTrigger`         | wheel-class zoom under the row `MinZoom`/`MaxZoom`                                  |
-|  [11]   | pointer-capture | `PointerCaptureLostEventTrigger`                      | capture-loss releases the canvas pointer owner                                      |
-|  [12]   | saved-view      | `ZoomBorder` `RestoreView` / `SaveView`               | `DeleteSavedView`/`ClearSavedViews` raise as intents                                |
+| [INDEX] | [GESTURE]       | [ROUTE]                                       | [CONSEQUENCE]                                                    |
+| :-----: | :-------------- | :-------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | tap             | `TappedEventTrigger`                          | primary intent action fires                                      |
+|  [02]   | double-tap      | `DoubleTappedEventTrigger`                    | canvas rows route through `DoubleClickZoomMode`                  |
+|  [03]   | press-hold      | `HoldingGestureTrigger`                       | context intent raise                                             |
+|  [04]   | context-request | `RightTappedEventTrigger`                     | menu derivation from the command-table surface predicate         |
+|  [05]   | wheel zoom      | `ZoomBorder`                                  | one zoom owner per canvas row                                    |
+|  [06]   | pinch zoom      | `PinchGestureTrigger`                         | `ZoomBorder` `EnableGestures`; one zoom owner                    |
+|  [07]   | canvas drag     | `CanvasDragBehavior`                          | draggable tiles inside canvas rows                               |
+|  [08]   | item drag       | `ItemDragBehavior`                            | draggable-control rows                                           |
+|  [09]   | rotate gesture  | `PointerTouchPadGestureRotateGestureTrigger`  | `EnableRotation` gates `Rotate`/`SnapRotation` by `RotationStep` |
+|  [10]   | magnify gesture | `PointerTouchPadGestureMagnifyGestureTrigger` | wheel-class zoom under the row `MinZoom`/`MaxZoom`               |
+|  [11]   | pointer-capture | `PointerCaptureLostEventTrigger`              | capture-loss releases the canvas pointer owner                   |
+|  [12]   | saved-view      | `ZoomBorder` `RestoreView` / `SaveView`       | `DeleteSavedView`/`ClearSavedViews` raise as intents             |
 
 ## [05]-[DRAG_CLIPBOARD]
 
@@ -323,12 +323,21 @@ public static class InputDrivers {
 }
 ```
 
-| [INDEX] | [DRIVER]   | [SDK]                   | [ENUMERATE]                                 | [SAMPLE_SOURCE]                                      | [NORMALIZE]                 |
-| :-----: | :--------- | :---------------------- | :------------------------------------------ | :--------------------------------------------------- | :-------------------------- |
-|  [01]   | SpaceMouse | `HidSharp`              | `DeviceList.Local.GetHidDevices(vid,pid)`   | `DeviceItemInputParser.GetValue`/`DataValue`         | `GetScaledValue(-1, 1)`     |
-|  [02]   | Controller | `Silk.NET.Input`        | `IView.CreateInput().Gamepads`              | `IGamepad.Thumbsticks`/`Triggers`/`Buttons`          | `Deadzone.Apply` + `[-1,1]` |
-|  [03]   | Haptic     | `Silk.NET.SDL`          | `Sdl.NumHaptics` + `HapticOpenFromJoystick` | `HapticQuery` capability + `GameControllerRumble`    | output-only normalized      |
-|  [04]   | MIDI       | `Melanchall.DryWetMidi` | `InputDevice.GetAll`/`GetByName`            | `ControlChangeEvent`/`NoteOnEvent` (`EventReceived`) | `SevenBitNumber / 127`      |
+Each driver binds one SDK and enumeration entry, then one sample source normalized to `[-1, 1]`.
+
+| [INDEX] | [DRIVER]   | [SDK]                   | [ENUMERATE]                                 |
+| :-----: | :--------- | :---------------------- | :------------------------------------------ |
+|  [01]   | SpaceMouse | `HidSharp`              | `DeviceList.Local.GetHidDevices(vid,pid)`   |
+|  [02]   | Controller | `Silk.NET.Input`        | `IView.CreateInput().Gamepads`              |
+|  [03]   | Haptic     | `Silk.NET.SDL`          | `Sdl.NumHaptics` + `HapticOpenFromJoystick` |
+|  [04]   | MIDI       | `Melanchall.DryWetMidi` | `InputDevice.GetAll`/`GetByName`            |
+
+| [INDEX] | [DRIVER]   | [SAMPLE_SOURCE]                                      | [NORMALIZE]                 |
+| :-----: | :--------- | :--------------------------------------------------- | :-------------------------- |
+|  [01]   | SpaceMouse | `DeviceItemInputParser.GetValue`/`DataValue`         | `GetScaledValue(-1, 1)`     |
+|  [02]   | Controller | `IGamepad.Thumbsticks`/`Triggers`/`Buttons`          | `Deadzone.Apply` + `[-1,1]` |
+|  [03]   | Haptic     | `HapticQuery` capability + `GameControllerRumble`    | output-only normalized      |
+|  [04]   | MIDI       | `ControlChangeEvent`/`NoteOnEvent` (`EventReceived`) | `SevenBitNumber / 127`      |
 
 ## [08]-[RESEARCH]
 

@@ -47,9 +47,9 @@ export default Stryker
 interface StrykerOptions {
   mutate: string[]                                   // production files to mutate (glob; `file:startLine-endLine` for a range)
   testRunner: string                                 // "vitest" — selects the TestRunner plugin (vitest-runner.md [02])
-  testRunnerNodeArgs: string[]                        // node args passed to the test-runner child process
+  testRunnerNodeArgs: string[]                       // node args passed to the test-runner child process
   checkers: string[]                                 // ["typescript"] — selects Checker plugins that gate mutants pre-run (typescript-checker.md [02])
-  checkerNodeArgs: string[]                           // node args passed to the checker child process (heap for large graphs)
+  checkerNodeArgs: string[]                          // node args passed to the checker child process (heap for large graphs)
   coverageAnalysis: CoverageAnalysis                 // "perTest" only runs a mutant against tests that cover its line — the speed rail
   concurrency?: number | string                      // worker-process fan; assay serializes runs under a mutation-<lang> lease
   reporters: string[]                                // ["html","json","clear-text","progress"] — Reporter plugins ([05])
@@ -83,8 +83,8 @@ type MutantStatus = "Killed" | "Survived" | "NoCoverage" | "CompileError" | "Run
 interface MutantResult {
   id: string; mutatorName: string; location: Location; replacement: string; fileName: string   // required
   status: MutantStatus
-  coveredBy?: string[]; killedBy?: string[]; static?: boolean; statusReason?: string            // detected-by / static-mutant / failure text
-  testsCompleted?: number; description?: string; duration?: number                              // bail count / mutation desc / net ms
+  coveredBy?: string[]; killedBy?: string[]; static?: boolean; statusReason?: string           // detected-by / static-mutant / failure text
+  testsCompleted?: number; description?: string; duration?: number                             // bail count / mutation desc / net ms
 }
 ```
 
@@ -151,8 +151,8 @@ declare const INSTRUMENTER_CONSTANTS: Readonly<{
 }>
 interface InstrumenterContext { activeMutant?: string; currentTestId?: string; mutantCoverage?: MutantCoverage; hitCount?: number; hitLimit?: number }
 interface MutantCoverage { static: CoverageData; perTest: CoveragePerTestId }   // perTest[testId][mutantId] = hit count
-type CoverageData = Record<string, number>                                       // mutantId → times hit
-type CoveragePerTestId = Record<string, CoverageData>                            // testId → CoverageData
+type CoverageData = Record<string, number>                                      // mutantId → times hit
+type CoveragePerTestId = Record<string, CoverageData>                           // testId → CoverageData
 ```
 
 ## [06]-[INTEGRATION]

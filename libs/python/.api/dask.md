@@ -47,63 +47,69 @@
 
 [ENTRYPOINT_SCOPE]: collection-agnostic execution (`dask`)
 - rail: lazy-collections
+- `compute`/`persist`/`optimize`/`visualize` share the `traverse=True, optimize_graph=True, **kwargs` execution tail.
 
-| [INDEX] | [SURFACE]                                                                                | [ENTRY_FAMILY] | [RAIL]                                                       |
-| :-----: | :--------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `compute(*args, traverse=True, optimize_graph=True, scheduler=None, get=None, **kwargs)` | execute        | materialize one or more collections                          |
-|  [02]   | `persist(*args, traverse=True, optimize_graph=True, scheduler=None, **kwargs)`           | execute        | compute and cache collections                                |
-|  [03]   | `optimize(*args, traverse=True, **kwargs)`                                               | graph          | return optimized collections                                 |
-|  [04]   | `visualize(*args, filename='mydask', optimize_graph=False, engine=None, **kwargs)`       | inspect        | render the task graph                                        |
-|  [05]   | `delayed(obj, name=None, pure=None, nout=None, traverse=True)`                           | construct      | wrap a call into a graph node                                |
-|  [06]   | `is_dask_collection(x)`                                                                  | predicate      | test for a dask collection                                   |
-|  [07]   | `annotate(**annotations)` / `get_annotations()`                                          | graph          | attach scheduler annotations                                 |
-|  [08]   | `dask.base.tokenize(*args, **kwargs)`                                                    | graph          | deterministic content hash (`tokenize` lives in `dask.base`) |
-|  [09]   | `dask.order.order(dsk, dependencies=None)`                                               | graph          | topological execution-priority ordering of a task graph      |
-|  [10]   | `config.set(scheduler=..., **kwargs)`                                                    | config         | scoped scheduler/config override context                     |
+| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                   |
+| :-----: | :---------------------------------------------- | :------------- | :--------------------------------------- |
+|  [01]   | `compute(*args, get=None, ...)`                 | execute        | materialize one or more collections      |
+|  [02]   | `persist(*args, ...)`                           | execute        | compute and cache collections            |
+|  [03]   | `optimize(*args, traverse=True, **kwargs)`      | graph          | return optimized collections             |
+|  [04]   | `visualize(*args, filename='mydask', ...)`      | inspect        | render the task graph                    |
+|  [05]   | `delayed(obj, name=None, nout=None, ...)`       | construct      | wrap a call into a graph node            |
+|  [06]   | `is_dask_collection(x)`                         | predicate      | test for a dask collection               |
+|  [07]   | `annotate(**annotations)` / `get_annotations()` | graph          | attach scheduler annotations             |
+|  [08]   | `dask.base.tokenize(*args, **kwargs)`           | graph          | deterministic content hash for caching   |
+|  [09]   | `dask.order.order(dsk, dependencies=None)`      | graph          | execution-priority topological ordering  |
+|  [10]   | `config.set(scheduler=..., **kwargs)`           | config         | scoped scheduler/config override context |
 
 [ENTRYPOINT_SCOPE]: array construction and transform (`dask.array`)
 - rail: lazy-collections
 
-| [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY] | [RAIL]                          |
-| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :------------------------------ |
-|  [01]   | `from_array(x, chunks='auto', name, lock, asarray, meta, inline_array)`                    | ingest         | array-like to chunked Array     |
-|  [02]   | `from_zarr(url, component, storage_options, chunks, ...)`                                  | ingest         | Zarr store to chunked Array     |
-|  [03]   | `from_delayed(value, shape, dtype, meta, name)`                                            | ingest         | one `Delayed` block to Array    |
-|  [04]   | `asarray(a, allow_unknown_chunksizes, dtype, order, like)`                                 | ingest         | coerce to chunked Array         |
-|  [05]   | `zeros` / `ones` / `full(shape, fill_value, ...)`                                          | create         | filled chunked arrays           |
-|  [06]   | `arange(start, stop, step, *, chunks, dtype)`                                              | create         | range array                     |
-|  [07]   | `linspace(start, stop, num, endpoint, retstep, chunks, dtype)`                             | create         | linearly spaced array           |
-|  [08]   | `map_blocks(func, *args, dtype, chunks, drop_axis, new_axis, ...)`                         | blockwise      | apply func per block            |
-|  [09]   | `map_overlap(func, *args, depth, boundary, trim, align_arrays, allow_rechunk)`             | blockwise      | apply func with halo overlap    |
-|  [10]   | `blockwise(func, out_ind, *args, dtype, adjust_chunks, new_axes, ...)`                     | blockwise      | generalized blocked contraction |
-|  [11]   | `apply_gufunc(func, signature, *args, axes, output_dtypes, vectorize, allow_rechunk, ...)` | gufunc         | generalized ufunc               |
-|  [12]   | `rechunk(x, chunks='auto', threshold, block_size_limit, balance, method)`                  | reshape        | change block layout             |
-|  [13]   | `concatenate(seq, axis, allow_unknown_chunksizes)` / `stack(seq, axis, ...)`               | combine        | join along existing or new axis |
-|  [14]   | `reshape(x, shape, merge_chunks, limit)` / `where(condition, x, y)`                        | reshape        | reshape or conditional select   |
-|  [15]   | `store(sources, targets, lock, regions, compute, return_stored, ...)`                      | persist        | write blocks to array-likes     |
-|  [16]   | `to_zarr(arr, url, component, storage_options, region, compute, mode, ...)`                | persist        | write Array to Zarr             |
+| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                          |
+| :-----: | :--------------------------------------------------------- | :------------- | :------------------------------ |
+|  [01]   | `from_array(x, chunks='auto', asarray, meta, ...)`         | ingest         | array-like to chunked Array     |
+|  [02]   | `from_zarr(url, component, storage_options, chunks, ...)`  | ingest         | Zarr store to chunked Array     |
+|  [03]   | `from_delayed(value, shape, dtype, meta, name)`            | ingest         | one `Delayed` block to Array    |
+|  [04]   | `asarray(a, allow_unknown_chunksizes, dtype, order, like)` | ingest         | coerce to chunked Array         |
+|  [05]   | `zeros` / `ones` / `full(shape, fill_value, ...)`          | create         | filled chunked arrays           |
+|  [06]   | `arange(start, stop, step, *, chunks, dtype)`              | create         | range array                     |
+|  [07]   | `linspace(start, stop, num, endpoint, ...)`                | create         | linearly spaced array           |
+|  [08]   | `map_blocks(func, *args, dtype, drop_axis, new_axis, ...)` | blockwise      | apply func per block            |
+|  [09]   | `map_overlap(func, *args, depth, boundary, trim, ...)`     | blockwise      | apply func with halo overlap    |
+|  [10]   | `blockwise(func, out_ind, *args, dtype, new_axes, ...)`    | blockwise      | generalized blocked contraction |
+|  [11]   | `apply_gufunc(func, signature, *args, output_dtypes, ...)` | gufunc         | generalized ufunc               |
+|  [12]   | `rechunk(x, chunks='auto', threshold, balance, ...)`       | reshape        | change block layout             |
+|  [13]   | `concatenate(seq, axis, ...)` / `stack(seq, axis, ...)`    | combine        | join along existing or new axis |
+|  [14]   | `reshape(x, shape, ...)` / `where(condition, x, y)`        | reshape        | reshape or conditional select   |
+|  [15]   | `store(sources, targets, regions, compute, ...)`           | persist        | write blocks to array-likes     |
+|  [16]   | `to_zarr(arr, url, component, region, compute, ...)`       | persist        | write Array to Zarr             |
 
 [ENTRYPOINT_SCOPE]: dataframe, bag, and distributed (`dask.dataframe`, `dask.bag`, `dask.distributed`)
 - rail: lazy-collections
 
-| [INDEX] | [SURFACE]                                                                                                                                       | [ENTRY_FAMILY] | [RAIL]                                                                          |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `dd.read_csv(urlpath, blocksize='default', storage_options, assume_missing, ...)`                                                               | ingest         | CSV to partitioned frame                                                        |
-|  [02]   | `dd.read_parquet(path, columns, filters, index, calculate_divisions, split_row_groups, filesystem, ...)`                                        | ingest         | Parquet to partitioned frame (predicate/projection pushdown via query planning) |
-|  [03]   | `dd.read_sql_query(sql, con, index_col, npartitions, bytes_per_chunk, meta, ...)`                                                               | ingest         | SQL query to partitioned frame                                                  |
-|  [04]   | `dd.from_pandas(data, npartitions, sort, chunksize)`                                                                                            | ingest         | pandas object to partitioned frame                                              |
-|  [05]   | `dd.from_map(func, *iterables, args, meta, divisions, enforce_metadata, ...)`                                                                   | ingest         | function map to partitioned frame                                               |
-|  [06]   | `dd.concat(dfs, axis, join, interleave_partitions, ...)` / `dd.merge(left, right, how, on, ...)`                                                | combine        | concat or join frames                                                           |
-|  [07]   | `DataFrame.map_partitions(func, *args, meta, enforce_metadata, ...)`                                                                            | blockwise      | apply func per partition                                                        |
-|  [08]   | `DataFrame.repartition(divisions, npartitions, partition_size, freq, force)`                                                                    | reshape        | change partition layout                                                         |
-|  [09]   | `DataFrame.set_index(other, drop, sorted, npartitions, divisions, sort, ...)`                                                                   | reshape        | set and align index                                                             |
-|  [10]   | `DataFrame.groupby(by, group_keys, sort, observed, dropna, ...)`                                                                                | aggregate      | grouped aggregation                                                             |
-|  [11]   | `DataFrame.to_parquet(path, **kwargs)`                                                                                                          | persist        | write frame to Parquet                                                          |
-|  [12]   | `db.from_sequence(seq, partition_size, npartitions)` / `db.read_text(urlpath, blocksize, compression, ...)`                                     | ingest         | sequence or text to Bag                                                         |
-|  [13]   | `Client(address=None, ...)` / `LocalCluster(n_workers, threads_per_worker, processes, ...)`                                                     | scheduler      | connect to or launch a cluster                                                  |
-|  [14]   | `Client.submit(func, *args, key, workers, retries, priority, pure, resources, ...)`                                                             | submit         | submit one task, returns `Future`                                               |
-|  [15]   | `Client.map(func, *iterables, key, workers, retries, batch_size, ...)`                                                                          | submit         | submit many tasks, returns futures                                              |
-|  [16]   | `Client.gather(futures, errors, direct, asynchronous)` / `wait(fs, timeout, return_when)` / `as_completed(futures, with_results, raise_errors)` | collect        | retrieve, block on, or stream results as they finish                            |
+| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                                                  |
+| :-----: | :--------------------------------------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `dd.read_csv(urlpath, blocksize='default', ...)`           | ingest         | CSV to partitioned frame                                |
+|  [02]   | `dd.read_parquet(path, columns, filters, ...)`             | ingest         | Parquet to frame; planner predicate/projection pushdown |
+|  [03]   | `dd.read_sql_query(sql, con, index_col, npartitions, ...)` | ingest         | SQL query to partitioned frame                          |
+|  [04]   | `dd.from_pandas(data, npartitions, sort, chunksize)`       | ingest         | pandas object to partitioned frame                      |
+|  [05]   | `dd.from_map(func, *iterables, meta, divisions, ...)`      | ingest         | function map to partitioned frame                       |
+|  [06]   | `dd.concat(dfs, axis, join, ...)`                          | combine        | concat frames along an axis                             |
+|  [07]   | `dd.merge(left, right, how, on, ...)`                      | combine        | join frames                                             |
+|  [08]   | `DataFrame.map_partitions(func, *args, meta, ...)`         | blockwise      | apply func per partition                                |
+|  [09]   | `DataFrame.repartition(divisions, npartitions, ...)`       | reshape        | change partition layout                                 |
+|  [10]   | `DataFrame.set_index(other, drop, sorted, ...)`            | reshape        | set and align index                                     |
+|  [11]   | `DataFrame.groupby(by, group_keys, sort, ...)`             | aggregate      | grouped aggregation                                     |
+|  [12]   | `DataFrame.to_parquet(path, **kwargs)`                     | persist        | write frame to Parquet                                  |
+|  [13]   | `db.from_sequence(seq, partition_size, npartitions)`       | ingest         | sequence to Bag                                         |
+|  [14]   | `db.read_text(urlpath, blocksize, compression, ...)`       | ingest         | text to Bag                                             |
+|  [15]   | `Client(address=None, ...)`                                | scheduler      | connect to a cluster                                    |
+|  [16]   | `LocalCluster(n_workers, threads_per_worker, ...)`         | scheduler      | launch a local cluster                                  |
+|  [17]   | `Client.submit(func, *args, key, retries, ...)`            | submit         | submit one task, returns `Future`                       |
+|  [18]   | `Client.map(func, *iterables, key, retries, ...)`          | submit         | submit many tasks, returns futures                      |
+|  [19]   | `Client.gather(futures, errors, direct, ...)`              | collect        | retrieve results                                        |
+|  [20]   | `wait(fs, timeout, return_when)`                           | collect        | block until futures finish                              |
+|  [21]   | `as_completed(futures, with_results, ...)`                 | collect        | stream results as they finish                           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

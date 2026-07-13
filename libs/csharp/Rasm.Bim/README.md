@@ -1,156 +1,129 @@
 # [RASM_BIM]
 
-`Rasm.Bim` owns host-neutral BIM semantics over the `Rasm.Element` seam. It projects GeometryGym `DatabaseIfc` models into canonical `ElementGraph` deltas, emits IFC through `SemanticProjector.Emit`, validates IFC legality through `IfcLegality`, owns IFC class, predefined, Pset, Qto, bSDD, and spatial-structure vocabularies, and binds imported type identity through `IIfcTypeReconciler` without minting catalogue identity from names alone. Exchange, review, geospatial, energy, cost, and schedule carriers lower foreign formats to seam graph, content-key, or receipt surfaces; simulation remains Compute-owned, and the Python IFC companion meets only at the wire.
+`Rasm.Bim` owns host-neutral BIM semantics over the `Rasm.Element` seam: it projects GeometryGym models into canonical `ElementGraph` deltas, re-emits IFC through `SemanticProjector.Emit`, gates legality through `IfcLegality`, and mints the IFC class, property, classification, and spatial vocabularies every consumer composes. It references no AEC peer — exchange, review, geospatial, energy, cost, and schedule carriers lower foreign formats to seam graph, content-key, or receipt surfaces, simulation stays Compute-owned, and the Python IFC companion meets only at the wire.
 
 ## [01]-[ROUTER]
 
-- [01]-[FAULTS](.planning/Model/faults.md): `BimFault` closed `[Union]` (`ModelRejected`/`UnmappedClass`/`DanglingReference`/`CodecReject`/`CapabilityMiss`), `Expected`-derived so the bare typed case lifts DIRECTLY onto the `Fin<T>`/`Validation<Error,T>` rail — band 2600 the `Code => FaultBand.Bim` read of the seam `FaultBand` registry, no `.ToError()` hop.
-- [02]-[ELEMENTS](.planning/Model/elements.md): the generated `IfcClass` `[SmartEnum<string>]` IFC entity-class taxonomy from `IfcVocabularyEmitter`, with per-token `PredefinedRow` schema spans, `Instantiable` abstract-supertype rows, `ReleaseMap`, the `IfcDomain` partition, the `AdmitPredefined` egress gate, and the `IfcRepresentation` content-keyer.
-- [03]-[QUERY](.planning/Model/query.md): set-algebraic `ElementSet` query over a closed `ElementPredicate` union with `ByDomain`/`ByPredefinedType`/`ByZone` discrimination arms.
-- [04]-[CLASSIFICATION](.planning/Semantics/classification.md): bSDD-bound standard-systems classification axis, local code-shape policy, `BsddResolution` live dictionary resolution, and the `IfcRelAssociatesClassification` round-trip.
-- [05]-[COMPOSITION](.planning/Semantics/composition.md): GeometryGym↔seam material projector lowering the `IfcMaterialSelect` family onto seam `MaterialComposition`, then authoring seam material nodes back to IFC material definitions and occurrence bindings through `AuthorComposition`/`AuthorUsage`.
-- [06]-[APPEARANCE](.planning/Semantics/appearance.md): `AppearanceProjection` lowering `IfcSurfaceStyleRendering`/`IfcSurfaceStyleShading` onto the seam `AppearanceSummary` host-neutral PBR record carried as a `Node.Appearance`, reconciled with the `Rasm.Materials` OpenPBR owner at the content-key seam.
-- [07]-[SPATIAL](.planning/Model/spatial.md): the `SpatialClass` spatial-interpretation vocabulary (`Rank`-derived `IsRoot`/`IsContainer`/`CanContain` the `IfcLegality` containment gate consumes) and the `SpatialStructure` derived spatial-tree VIEW over the seam's neutral `Compose` edges, traversed through the shared `QuikGraph` substrate (`BimAssembly`/`AssemblyRel`/`IfcSemanticModel` RETIRED).
-- [08]-[ZONES](.planning/Model/zones.md): cross-cutting `BimZone` many-to-many grouping overlay over `IfcZone`/`IfcGroup`/`IfcSystem`, distinct from the single-parent containment tree, with the `ByZone` query arm.
-- [09]-[PROPERTIES](.planning/Semantics/properties.md): the `PropertyKey` Pset/Qto template vocabulary, the bSDD-resolved template supplying each property's IFC `DataType`, the `PropertyInheritance` `InheritanceMode` classifier stamped on seam bag nodes at ingest, and the `QuantityDerivation` per-`IfcClass` base-quantity fold producing seam `QuantitySet` values (the typed `PropertyValue`/`MeasureValue` value half RETIRED to the seam).
-- [10]-[VALIDATION](.planning/Review/validation.md): IDS `IdsSpecification`/`IdsFacet` owner folding the six facets onto the `ElementPredicate` algebra for structural selection and the `Xbim.InformationSpecifications` `ValueConstraint` engine for typed value match, the `Xids.LoadBuildingSmartIDS` spec parse, the `ids-lib` `Audit` IDS-file conformance receipt, and the `IdsLib.IfcSchema` schema authority.
-- [11]-[ISSUES](.planning/Review/issues.md): BCF `BcfTopic`/`BcfComment`/`BcfViewpoint` record family over the `Smino.Bcf.Toolkit` `Worker`/`BcfBuilder` `.bcfzip` codec, and the `BcfApi` REST projection.
-- [12]-[DIFF](.planning/Review/diff.md): `ModelDiff` change-set folding two seam `ElementGraph` snapshots into added/modified/removed/moved arms joined by GlobalId plus content-key, the `Modified` deltas typed by member path and `DeltaShape`.
-- [13]-[STRUCTURAL](.planning/Model/structural.md): `StructuralProjection` the structural-analysis-domain READER the `SemanticProjector` composes — the ONE polymorphic `Attrs` bag over restraints (6-DOF fixity + SI springs), the full `IfcStructuralLoad` family (point/uniform/trapezoid via `IfcStructuralLoadConfiguration`), load groups/cases/results/analysis models, `AtStart`/`Station` topology discriminants, all `UnitScale`-coerced onto neutral seam edge/bag payloads the Compute frame solve reads (`AnalysisModel` store RETIRED).
-- [14]-[SCHEDULE](.planning/Planning/schedule.md): 4D `ConstructionTask` activity network carrying `IfcTaskTime` as a NodaTime `Interval`, the `SequenceRel` `[Union]` dependency lag as a `Period`, and the `ConstructionState.At(Instant)` element-set snapshot.
-- [15]-[COST](.planning/Planning/cost.md): 5D `CostItem` cost-and-resource network joining an `IfcCostValue` rate to the `QuantitySet` quantity by GlobalId, the `ConstructionResource` `[Union]`, and the `CostSchedule.Rollup` fold.
-- [16]-[SYSTEMS](.planning/Model/systems.md): `DistributionSystem` the derived MEP connectivity VIEW over the seam's `NodeId`-keyed neutral `Connect`/`Generic` edges — `DistributionSystemKind` `[SmartEnum]`, the `DistributionPort`/`FlowEdge` port view (flow direction off the projector-synthesized port bag), the `(MembershipKey, TopologyKey)` content identity, the directed `SystemTrace` reachability fold, and the BVH-broad-phase `InterferenceCheck` (`PortConnection` `[Union]` RETIRED).
-- [17]-[RECONSTRUCT](.planning/Exchange/reconstruct.md): scan-to-BIM `ReconstructionProjector : IElementProjection` folding kernel-registered `SegmentedCloud` rows into a seam `GraphDelta` of `Node.Object` occurrences — the six-arm `ReconstructionPrimitive` `[Union]` (plane/sphere/cylinder/cone/torus/freeform), the frozen `ElementClassifier` table + `AsprsBias` ASPRS policy admitting every landing through `AdmitPredefined`, the kernel-`ContentHash` `ReconstructionLineage` key, and the dual-engine `LasIngest` LAS/LAZ decode front (`Themis.Las` uncompressed + `Unofficial.laszip.netstandard` compressed) the kernel registration/segmentation consumes.
-- [18]-[GEOREFERENCE](.planning/Semantics/georeference.md): the `GeoReferenceProjector` lowering `IfcMapConversion`/`IfcMapConversionScaled`/`IfcProjectedCRS` into the seam `GeoReference` (full field set, per-axis scale, EPSG parse + fault-on-unresolvable), and the `GeoTransform.Reproject` `ProjNET` datum-to-datum leg over the seam value (the `GeoReference`/`ProjectedCrs` value-objects RETIRED to the seam).
-- [19]-[FORMAT](.planning/Exchange/format.md): `InterchangeFormat`/`InterchangeCodec`/`KhrExtension` format-codec-extension table (the `Serialization` IFC column, the `dotbim`/KML/KMZ/MVT rows, capability columns naming their realizing arm), `FrameNormalization` per-importer frame coercion, and the `Detect` row resolution.
-- [20]-[IMPORT](.planning/Exchange/import.md): `BimIo` foreign-bytes ingest fold — managed glTF mesh decode (SharpGLTF, Draco/meshopt pre-decode), the `geometry3Sharp` OBJ/STL/OFF arm, the dedicated `Ply.Net` PLY decode, the `dotbim` `.bim` pooled-mesh decode (pool x placed `Element` fold, identity restored `Info["globalId"]` first / `Guid` second) plus its `DotbimProjector` semantic arm, the `AssimpNetter` FBX/Collada/3MF scene decode, the `ACadSharp` DWG/DXF mesh arm, the `UsdStage` OpenUSD decode, `ImportIfc` the ONE bytes→`DatabaseIfc` decode (schema-sniffed through the railed `Sniff`), the in-process `StepReader` Part-21 semantic leg, and the Speckle `Base` object-graph seam onto the pooled/instanced `ImportedGeometry` carrier.
-- [21]-[EXPORT](.planning/Exchange/export.md): `BimExport` artifact emit — one TOTAL codec `Switch` over the `ExportPayload` `Soup`/`Scene` union, the per-element `GlbScene` author (GlobalId-named nodes, mesh-pool instancing, `EXT_mesh_gpu_instancing` threshold), GLB with Draco/meshopt encode, the `dotbim` `.bim` instancing wire, the `AssimpNetter` FBX/Collada and `UsdStage` OpenUSD scene emit, IFC STEP/XML/JSON serialization, the graph-sourced `CobieEmit` COBie FM-handover XLSX (`Xbim.CobieExpress` authored `Instances.New` from the seam graph, `ExportToTable` seal), per-tile `EXT_structural_metadata` `TileMetadata` author, the `subtree` 3D-Tiles `.subtree` availability bitstream, and the `InterchangePolicy`/`ExportArtifact` carriers.
-- [22]-[TESSELLATION](.planning/Exchange/tessellation.md): `TessellationRequest` IFC/AP242/native geometry hop to the Compute companion rail.
-- [23]-[WIRE](.planning/Exchange/wire.md): the cross-runtime IFC interchange wire — one host-free `IfcWire` content-keyed artifact (`Seal` egress, `Admit` ingress, `Negotiate` serialization selection) carrying the seam `ElementGraph` re-authored to IFC bytes (STEP/ifcXML/ifcJSON) through `SemanticProjector.Emit`, stamped `ContentAddress.OfGraph`, plus the `WireParity` cross-runtime golden-corpus leg — the Python and TypeScript peers decode the same IFC serialization Bim emits.
-- [24]-[CONNECTION](.planning/Semantics/connection.md): `ConnectionProjection` lowers GeometryGym realizing elements onto `DetailSchema.Realization` seam property bags and assigning edges. Materials reaches reinforcement, fastener, connector, and joint data through `ComponentFamily` rows in `ComponentProjector`.
-- [25]-[COORDINATION](.planning/Review/coordination.md): `CoordinationRule` `[Union]` rule engine over the `ElementPredicate` algebra, the `ClashProposal` fold over the `Model/systems#INTERFERENCE` evidence, the `ImpactReport` over two diffs, and the `SignOff` `[SmartEnum]` BCF state machine — the BCF issue-board DOMAIN owner the Persistence/AppUi relocations settle here.
-- [26]-[GEOSPATIAL](.planning/Semantics/geospatial.md): host-neutral georeferenced-BIM site-context PROJECTOR — the `GeoFeature` canonical row over the `NetTopologySuite` Simple-Features planar algebra, the `GeoModel` `STRtree` broad-phase, the `GeoVector`/`GeoRaster` universal ingest (managed shapefile/CityJSON/GeoPackage/GeoJSON plus the `MaxRev.Gdal.Core` OGR universal driver + GeoTIFF/COG/DEM raster), the OGR↔NTS WKB bridge, and the `GeoFeature.ToObject`/`GeoRaster.ToCoverage` site-context projection onto seam `Object`/`Coverage` nodes through a `GraphDelta`, reprojected through the seam `GeoReference` `ProjNET` leg.
-- [27]-[VERSIONING](.planning/Review/versioning.md): content-addressed model history — the `BimCommit` commit object whose identity IS the `Review/diff` `ElementFingerprint` set, the `BimBranch` ref, the `BimRepository` commit-DAG (`Commit`/`History`/`CommonAncestor`), and the `Version.Merge` three-way fold reconciling two revisions against their common ancestor into a merged graph plus a closed `MergeConflict` `[Union]` the `Review/coordination` `SignOff` resolves; the branching counterpart to the linear `Review/diff` `AuditTrail`, meeting the `Rasm.Persistence` Version owner at the content-key wire.
-- [28]-[SEMANTIC](.planning/Projection/semantic.md): `SemanticProjector : IElementProjection` lowering a GeometryGym `DatabaseIfc` into the seam `GraphDelta` (rooted `NodeId` mint + 1:1 IFC `GlobalId`, `OwnerHistory`/`StepHeader`, the railed `ReleaseLower` schema lowering, per-projection `UnitScale` SI coercion, synthesized port/structural entity-attribute bags), `IIfcTypeReconciler` type identity reconciliation, `IIfcProfileStore` imported profile preservation/egress, and `IfcLegality : IGraphConstraint` IFC-semantic legality (relationship rules + `CanContain` rank arm + the two roster vocabulary arms).
-- [29]-[RELATIONS](.planning/Projection/relations.md): `IfcRelKind` the full `IfcRel*` roster `[SmartEnum<string>]` (axis + sub-kind + inverse-attribute names + `Author` egress mint) and `EdgeProjection.All` folding every relationship family — decomposition/containment/ordered-nest ordinals, void/fill, assignment, structural member/activity payloads via `StructuralProjection.Attrs(rel)`, space boundaries, material `Associate` usages — onto the seam's neutral 5-kind edge algebra plus `Generic`.
-- [30]-[EGRESS](.planning/Projection/egress.md): the Bim-internal `SemanticProjector.Emit` IFC re-author — the railed `ReleaseRaise` (`ReleaseMap.Raise`) + `Sniff` (STEP/ifcXML/ifcJSON schema probe), the `Instantiable` + per-token `AdmitPredefined` egress gate, typed property/quantity raise, relationship/material/classification re-author, and the ordered-nest `NestOrdinal` re-emit.
-- [31]-[ENERGY_EXCHANGE](.planning/Energy/exchange.md): the building-energy-model exchange entry — `EnergyExchange.Apply` over the closed `EnergyOp` `[Union]` (`Raise`/`Lower`/`Translate`), the content-keyed `EnergyDoc`/`EnergyArtifact` carriers (one `ContentHash` derivation, the `{ContentKey:x32}:{form}` object-plane address), the `EnergyScope`/`EnergyLeg` vocabulary, and the `EnergyReceipt` typed evidence — energy SIMULATION stays `Rasm.Compute`'s, the python energy plane meets ONLY at content-keyed document bytes.
-- [32]-[ENERGY_PROJECTOR](.planning/Energy/projector.md): the `EnergyProjector : IElementProjection` raise — five decode arms (HBJSON/DFJSON managed, OSM/gbXML/IDF SWIG) onto the seam graph in the exact `IfcRelSpaceBoundary`/`Host`-attributed-opening/FootPrint/`MaterialComposition` shape the Compute energy runner reads, opaque `Thermal` AND glazing `Optical` layer evidence on every arm, the `EnergyClassRows` one-table class correspondence, and the dragonfly height/multiplier evidence the derive reads back.
-- [33]-[ENERGY_DERIVE](.planning/Energy/derive.md): the `EnergyDerive` BIM-to-BEM lower (graph → honeybee envelope + opaque/glazing energy library with opening constructions, graph → dragonfly massing) and the `EnergyTranslate` OSM-centric translator matrix (osm↔gbxml, osm↔idf, osm version-upgrade) as frozen row data.
+[ENERGY]:
+- [01]-[DERIVE](.planning/Energy/derive.md): BIM-to-BEM lower — honeybee envelope, dragonfly massing, and the OSM-centric translation matrix.
+- [02]-[EXCHANGE](.planning/Energy/exchange.md): `EnergyExchange.Apply` folding raise, lower, and translate onto content-keyed document carriers.
+- [03]-[PROJECTOR](.planning/Energy/projector.md): `EnergyProjector` raise landing every energy format in the shape the Compute runner reads.
+
+[EXCHANGE]:
+- [04]-[EXPORT](.planning/Exchange/export.md): `BimExport` artifact emit — one total codec switch over scene, IFC, COBie, and tile targets.
+- [05]-[FORMAT](.planning/Exchange/format.md): Format-codec-extension table with per-importer frame normalization and sniffed row resolution.
+- [06]-[IMPORT](.planning/Exchange/import.md): `BimIo` foreign-bytes ingest fold landing every decode arm on the pooled imported-geometry carrier.
+- [07]-[RECONSTRUCT](.planning/Exchange/reconstruct.md): Scan-to-BIM folding segmented clouds into seam occurrences over the LAS/LAZ ingest front.
+- [08]-[TESSELLATION](.planning/Exchange/tessellation.md): `TessellationRequest` IFC/AP242/native geometry hop to the Compute companion rail.
+- [09]-[WIRE](.planning/Exchange/wire.md): Host-free content-keyed `IfcWire` interchange artifact the Python and TypeScript peers decode.
+
+[MODEL]:
+- [10]-[ELEMENTS](.planning/Model/elements.md): Generated `IfcClass` taxonomy with release map, domain partition, and predefined egress gate.
+- [11]-[FAULTS](.planning/Model/faults.md): `BimFault` closed union lifting every rejection onto the seam fault band's typed rail.
+- [12]-[QUERY](.planning/Model/query.md): Set-algebraic `ElementSet` query over a closed predicate union discriminating domain, type, and zone.
+- [13]-[SPATIAL](.planning/Model/spatial.md): Spatial rank vocabulary and the containment-tree view derived over the seam's compose edges.
+- [14]-[STRUCTURAL](.planning/Model/structural.md): Structural-analysis reader lowering restraints, loads, and topology onto seam payloads.
+- [15]-[SYSTEMS](.planning/Model/systems.md): Derived MEP connectivity view — port flow edges, directed system trace, and interference check.
+- [16]-[ZONES](.planning/Model/zones.md): Cross-cutting `BimZone` many-to-many overlay distinct from the single-parent containment tree.
+
+[PLANNING]:
+- [17]-[COST](.planning/Planning/cost.md): 5D `CostItem` cost-and-resource network joining rates to quantities with the rollup fold.
+- [18]-[SCHEDULE](.planning/Planning/schedule.md): 4D `ConstructionTask` network carrying task-time intervals, lags, and instant snapshots.
+
+[PROJECTION]:
+- [19]-[EGRESS](.planning/Projection/egress.md): `SemanticProjector.Emit` IFC re-author with railed release raise and per-token admission gate.
+- [20]-[RELATIONS](.planning/Projection/relations.md): `IfcRelKind` roster folding every relationship family onto the seam edge algebra.
+- [21]-[SEMANTIC](.planning/Projection/semantic.md): `SemanticProjector` lowering GeometryGym into seam deltas beside the IFC-legality constraint.
+
+[REVIEW]:
+- [22]-[COORDINATION](.planning/Review/coordination.md): Clash rule engine, impact report, and sign-off machine owning the BCF issue board.
+- [23]-[DIFF](.planning/Review/diff.md): `ModelDiff` folding two graph snapshots into typed added, modified, removed, and moved arms.
+- [24]-[ISSUES](.planning/Review/issues.md): BCF topic, comment, and viewpoint family over the `.bcfzip` codec and the REST projection.
+- [25]-[VALIDATION](.planning/Review/validation.md): IDS owner folding facets onto the predicate algebra with typed value-constraint match.
+- [26]-[VERSIONING](.planning/Review/versioning.md): Content-addressed model history — the commit DAG and three-way merge with typed conflicts.
+
+[SEMANTICS]:
+- [27]-[APPEARANCE](.planning/Semantics/appearance.md): Surface-style lowering onto the seam PBR summary reconciled at the Materials content key.
+- [28]-[CLASSIFICATION](.planning/Semantics/classification.md): bSDD-bound classification axis with live resolution and association round-trip.
+- [29]-[COMPOSITION](.planning/Semantics/composition.md): Bidirectional material projector between IFC material selects and seam composition.
+- [30]-[CONNECTION](.planning/Semantics/connection.md): `ConnectionProjection` lowering realizing elements onto seam detail bags and edges.
+- [31]-[GEOREFERENCE](.planning/Semantics/georeference.md): Map-conversion and CRS lowering into the seam `GeoReference` with the reprojection leg.
+- [32]-[GEOSPATIAL](.planning/Semantics/geospatial.md): Site-context projector — Simple-Features algebra and universal vector/raster ingest.
+- [33]-[PROPERTIES](.planning/Semantics/properties.md): Pset/Qto template authority, inheritance classifier, and base-quantity derivation.
 
 ## [02]-[DOMAIN_PACKAGES]
 
-The IFC/glTF/STEP/USD interchange, BIM-review, and geospatial domain packages this folder consumes outside the C# substrate registry; versions are centralized in the one C# manifest, corroborated by `.api/`.
+BIM-domain libraries admitted by this folder; versions centralize in the C# manifest and corroborate against this folder's `.api/`.
 
-[IFC_SEMANTIC]:
-- `GeometryGymIFC_Core`
-
-[STRUCTURAL_ANALYSIS_EXCHANGE]:
-- `StructuralAnalysisFormat` — SAF/XLSX exchange over seam structural payloads onto `ExcelModel`; an `Exchange/format` candidate row, never a second model.
-
-[LIGHTWEIGHT_BIM_EXCHANGE]:
-- `dotbim` — lightweight `.bim` mesh+metadata interchange for preview, portable issue payloads, and low-friction external model exchange beside IFC/glTF/USD.
-
-[GLTF_CODEC]:
+[MODEL_INTERCHANGE]:
+- `GeometryGymIFC_Core` — the sole IFC semantic model surface.
 - `SharpGLTF.Core`
 - `SharpGLTF.Toolkit`
 - `SharpGLTF.Runtime`
 - `SharpGLTF.Ext.3DTiles`
-
-[TILESET_IMPLICIT]:
-- `subtree`
-
-[USD_SCENE]:
-- `UniversalSceneDescription`
-
-[CAD_INTERCHANGE]:
-- `ACadSharp`
-
-[MESH_COMPRESSION]:
-- `Openize.Drako`
-- `Alimer.Bindings.MeshOptimizer`
-
-[MESH_TEXT]:
-- `geometry3Sharp`
-- `Ply.Net`
-
-[SCENE_EXCHANGE]:
-- `AssimpNetter`
-
-[POINT_CLOUD]:
-- `Themis.Las`
-- `Unofficial.laszip.netstandard`
-
-[IDS_VALIDATION]:
-- `Xbim.InformationSpecifications`
-- `ids-lib`
-
-[PROPERTY_TEMPLATES]:
-- `Xbim.Properties`
-
-[CLASSIFICATION_DICTIONARY]:
-- `bSDD Dictionaries API` — live buildingSMART Data Dictionary REST resolving classification systems over the Compute transport; no manifest pin, no assembly.
-
-[COBIE_EXCHANGE]:
-- `Xbim.CobieExpress`
+- `subtree` — the 3D-Tiles implicit-availability bitstream.
+- `UniversalSceneDescription` — OpenUSD scene decode and emit.
+- `ACadSharp` — DWG/DXF mesh read.
+- `AssimpNetter` — FBX/Collada/3MF scene decode and emit.
+- `geometry3Sharp` — the OBJ/STL/OFF text-mesh arm.
+- `Ply.Net` — dedicated PLY decode.
+- `dotbim` — lightweight `.bim` mesh-plus-metadata interchange.
+- `Openize.Drako` — Draco mesh compression.
+- `Alimer.Bindings.MeshOptimizer` — meshopt compression.
+- `Themis.Las` — uncompressed LAS point-cloud decode.
+- `Unofficial.laszip.netstandard` — compressed LAZ point-cloud decode.
+- `StructuralAnalysisFormat` — SAF/XLSX exchange over seam structural payloads.
+- `Speckle.Sdk` — the Speckle object-graph sync seam.
+- `Speckle.Objects`
+- `Xbim.CobieExpress` — the COBie FM-handover emit.
 - `Xbim.IO.CobieExpress`
 - `Xbim.CobieExpress.Exchanger`
 
-[BCF_ISSUES]:
-- `Smino.Bcf.Toolkit`
+[REVIEW]:
+- `Xbim.InformationSpecifications` — the IDS value-constraint engine.
+- `ids-lib` — IDS-file conformance audit and schema authority.
+- `Smino.Bcf.Toolkit` — the BCF `.bcfzip` codec.
+- `SwiftCollections.Lean` — the BVH broad phase behind the interference check.
 
-[CLASH_SPATIAL]:
-- `SwiftCollections.Lean`
-
-[BUILDING_SYSTEMS_ONTOLOGY]:
-- `BrickSchema.Net`
-
-[ENERGY_MODEL_EXCHANGE]:
-- `HoneybeeSchema` — HBJSON object graph the `Energy/projector` raise and `Energy/derive` lower compose to operator depth.
-- `DragonflySchema` — DFJSON `Building`/`Story`/`Room2D` massing layer composing honeybee by identifier; the `Energy/projector` massing arm.
-- `NREL.OpenStudio.macOS-arm64` — OSM/IDF store + translators behind `Energy/projector` raise and `Energy/derive` `Translate`; SIMULATION is Compute's half.
-
-[STRUCTURAL_TAXONOMY]:
+[DOMAIN_VOCABULARY]:
+- `Xbim.Properties` — Pset/Qto template definitions.
+- `bSDD Dictionaries API` — live buildingSMART dictionary REST over the Compute transport; no manifest pin, no assembly.
+- `BrickSchema.Net` — building-systems ontology.
 - `VividOrange.Loads`
 - `VividOrange.Cases`
 - `VividOrange.Stages`
 - `VividOrange.Countries`
-- `VividOrange.IStandards` — verified-transitive through `VividOrange.Cases`: the Eurocode standards-identity taxonomy and the `NationalAnnex` dispatch key the structural family reads; no direct manifest row.
+- `VividOrange.IStandards` — verified-transitive through `VividOrange.Cases`; no direct manifest row.
+- `NodaMoney` — the 5D cost-value money type.
+
+[ENERGY_EXCHANGE]:
+- `HoneybeeSchema` — the HBJSON object graph composed to operator depth.
+- `DragonflySchema` — DFJSON massing composing honeybee by identifier.
+- `NREL.OpenStudio.macOS-arm64` — OSM/IDF store and translators; simulation is Compute's half.
 
 [GEOSPATIAL]:
 - `NetTopologySuite.IO.Esri.Shapefile`
 - `NetTopologySuite.IO.GeoPackage`
 - `NetTopologySuite.IO.GeoJSON4STJ`
+- `NetTopologySuite.IO.VectorTiles`
+- `NetTopologySuite.IO.VectorTiles.Mapbox`
 - `GISBlox.IO.GeoParquet`
 - `FlatGeobuf`
 - `SharpKml.Core`
-- `NetTopologySuite.IO.VectorTiles`
-- `NetTopologySuite.IO.VectorTiles.Mapbox`
 - `pocketken.H3`
 - `bertt.CityJSON`
-- `MaxRev.Gdal.Core`
+- `MaxRev.Gdal.Core` — the OGR universal vector driver and GeoTIFF/COG/DEM raster ingest.
 - `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
-
-[SPECKLE_SYNC]:
-- `Speckle.Sdk`
-- `Speckle.Objects`
-
-[GEODETIC]:
-- `ProjNET`
-
-[COST_MONEY]:
-- `NodaMoney`
+- `ProjNET` — the datum-to-datum reprojection leg.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-The C# substrate registry cards this folder consumes; full registry and substrate contracts live in `libs/csharp/.planning/README.md`, with shared API evidence in `libs/csharp/.api/`.
+Shared substrate consumed from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
-[ELEMENT_SEAM]:
-- `Rasm.Element` — the element seam Bim depends UP on: the canonical graph, the `IElementProjection`/`IGraphConstraint` contracts, and the typed value family.
-
-[SEAM_GENERATORS]:
-- `Riok.Mapperly` — compile-time `ElementGraph`↔DTO/proto boundary transcription, `[MapDerivedType]` over the `Node`/`Relationship` `[Union]`.
-- `Generator.Equals` — node/edge structural equality + `Inequalities` member diff, the `Emit` `ChangeAction` derivation.
+[SEAM_CONTRACTS]:
+- `Rasm.Element` — the element seam Bim depends UP on: the canonical graph and the projection and constraint contracts.
+- `Riok.Mapperly` — compile-time boundary transcription over the seam unions.
+- `Generator.Equals` — structural equality and member diff behind the emit change derivation.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -158,23 +131,17 @@ The C# substrate registry cards this folder consumes; full registry and substrat
 - `Thinktecture.Runtime.Extensions.Json`
 - `JetBrains.Annotations`
 
-[TIME_IDENTITY]:
-- `NodaTime`
-- `System.IO.Hashing`
-
-[BUFFER_POOLING]:
-- `CommunityToolkit.HighPerformance` — `ArrayPoolBufferWriter<T>`/`MemoryOwner<T>` staging behind the Draco/meshopt encoders and `MeshSoup` accumulation.
-
-[NUMERIC_SUBSTRATE]:
+[NUMERIC_ALGORITHM]:
 - `UnitsNet`
+- `NetTopologySuite` — the OGC Simple-Features planar algebra behind the geospatial seam; the IO codecs stay folder additions.
+- `QuikGraph` — the CPM sort, system-trace reachability, commit-DAG ancestor, and coordination closure walks.
+- `CommunityToolkit.HighPerformance` — pooled buffer staging behind the mesh encoders.
 
-[PLANAR_GEOMETRY]:
-- `NetTopologySuite` — the OGC Simple-Features planar algebra (DE-9IM predicates, OverlayNG, STRtree) behind the geospatial seam; the IO codecs stay folder additions.
+[IDENTITY_TIME]:
+- `System.IO.Hashing` — reached only through the kernel content-hash mint every content key seeds from.
+- `NodaTime`
 
-[GRAPH_ALGORITHM]:
-- `QuikGraph` — graph containers + `AlgorithmExtensions` behind the CPM sort, `SystemTrace` reachability, commit-DAG ancestor, and coordination closure walks.
-
-[TEST_SUBSTRATE]:
+[TEST]:
 - `xunit.v3.*`
 - `CsCheck`
 - `coverlet.MTP`

@@ -19,31 +19,37 @@
 [PUBLIC_TYPE_SCOPE]: archive root, info records, and io protocol
 - rail: compression
 
-| [INDEX] | [SYMBOL]                                                | [PACKAGE_ROLE] | [CAPABILITY]                                                                                                                                                                       |
-| :-----: | :------------------------------------------------------ | :------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SevenZipFile`                                          | archive root   | open/read/write/test a 7z archive; context-manager; carries `reporter` and a nested `ParseStatus`                                                                                  |
-|  [02]   | `ArchiveInfo`                                           | archive view   | `@dataclass` container metadata (`archiveinfo()` return): `filename`, `stat`, `header_size`, `method_names`, `solid`, `blocks`, `uncompressed`                                     |
-|  [03]   | `FileInfo`                                              | entry view     | `@dataclass` per-entry metadata (`list()` row): `filename`, `compressed`, `uncompressed`, `archivable`, `is_directory`, `is_file`, `is_symlink`, `creationtime`, `crc32`           |
-|  [04]   | `WriterFactory`                                         | sink factory   | ABC: `create(filename) -> Py7zIO`; per-entry streamed sink                                                                                                                         |
-|  [05]   | `Py7zIO`                                                | streamed sink  | `write`/`read`/`seek`/`size`/`flush`/`close` per-entry IO target                                                                                                                   |
-|  [06]   | `callbacks.ExtractCallback` / `ArchiveCallback`         | progress hooks | extract/write progress: `report_start_preparation`/`report_start`/`report_update`/`report_postprocess`/`report_end`/`report_warning`                                               |
-|  [07]   | `io.BytesIOFactory` / `HashIOFactory` / `NullIOFactory` | built-in sinks | extract into a capped in-memory buffer (`BytesIOFactory(limit)`) / streaming hash IO (`HashIOFactory()`) / discard sink; `get(name)` retrieves the populated sink after extraction |
+| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE] | [CAPABILITY]                                                                              |
+| :-----: | :-------------------------- | :------------- | :---------------------------------------------------------------------------------------- |
+|  [01]   | `SevenZipFile`              | archive root   | open/read/write/test a 7z archive; context-manager; `reporter` + nested `ParseStatus`     |
+|  [02]   | `ArchiveInfo`               | archive view   | `@dataclass` container metadata (`archiveinfo()`); fields below                           |
+|  [03]   | `FileInfo`                  | entry view     | `@dataclass` per-entry metadata (`list()` row); fields below                              |
+|  [04]   | `WriterFactory`             | sink factory   | ABC: `create(filename) -> Py7zIO`; per-entry streamed sink                                |
+|  [05]   | `Py7zIO`                    | streamed sink  | `write`/`read`/`seek`/`size`/`flush`/`close` per-entry IO target                          |
+|  [06]   | `callbacks.ExtractCallback` | extract hooks  | `report_{start_preparation,start,update,postprocess,end,warning}`                         |
+|  [07]   | `callbacks.ArchiveCallback` | write hooks    | mirror of `ExtractCallback` on write                                                      |
+|  [08]   | `io.BytesIOFactory`         | built-in sink  | extract into a capped in-memory buffer `BytesIOFactory(limit)`; `get(name)` after extract |
+|  [09]   | `io.HashIOFactory`          | built-in sink  | streaming hash IO (the content-identity seam)                                             |
+|  [10]   | `io.NullIOFactory`          | built-in sink  | discard sink                                                                              |
+
+- [02]-[ARCHIVEINFO]: `filename`, `stat`, `header_size`, `method_names`, `solid`, `blocks`, `uncompressed`.
+- [03]-[FILEINFO]: `filename`, `compressed`, `uncompressed`, `archivable`, `is_directory`, `is_file`, `is_symlink`, `creationtime`, `crc32`.
 
 [PUBLIC_TYPE_SCOPE]: filter codec, preset, and integrity-check table
 - rail: compression
 
-Filter rows are filter-chain vocabulary consumed as `filters=[{ 'id': FILTER_..., 'preset': PRESET_... }]` list values.
+Filter rows are filter-chain vocabulary consumed as `filters=[{ 'id': FILTER_..., 'preset': PRESET_... }]` list values. Every codec/pre-filter row drops its `FILTER_` prefix (each is a `FILTER_*` constant); presets are `PRESET_*` and checks `CHECK_*`.
 
-| [INDEX] | [SYMBOL_FAMILY]                                                                                     | [PACKAGE_ROLE]  | [CAPABILITY]                          |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------ |
-|  [01]   | `FILTER_LZMA` / `FILTER_LZMA2`                                                                      | primary codec   | default LZMA family compression       |
-|  [02]   | `FILTER_BZIP2` / `FILTER_PPMD` / `FILTER_ZSTD` / `FILTER_BROTLI` / `FILTER_DEFLATE`                 | alt codec       | alternate compression codecs          |
-|  [03]   | `FILTER_COPY`                                                                                       | store           | store-only (no compression)           |
-|  [04]   | `FILTER_DELTA`                                                                                      | preprocessor    | delta pre-filter for incremental data |
-|  [05]   | `FILTER_X86` / `FILTER_ARM` / `FILTER_ARMTHUMB` / `FILTER_POWERPC` / `FILTER_SPARC` / `FILTER_IA64` | BCJ pre-filter  | branch-convert executable code        |
-|  [06]   | `FILTER_CRYPTO_AES256_SHA256`                                                                       | crypto filter   | AES256 content/header encryption      |
-|  [07]   | `PRESET_DEFAULT` / `PRESET_EXTREME`                                                                 | preset          | LZMA preset level                     |
-|  [08]   | `CHECK_CRC32` / `CHECK_CRC64` / `CHECK_SHA256` / `CHECK_NONE`                                       | integrity check | per-chunk integrity-check selector    |
+| [INDEX] | [SYMBOL_FAMILY]                                               | [PACKAGE_ROLE]  | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------------ | :-------------- | :------------------------------------ |
+|  [01]   | `LZMA` / `LZMA2`                                              | primary codec   | default LZMA family compression       |
+|  [02]   | `BZIP2` / `PPMD` / `ZSTD` / `BROTLI` / `DEFLATE`              | alt codec       | alternate compression codecs          |
+|  [03]   | `COPY`                                                        | store           | store-only (no compression)           |
+|  [04]   | `DELTA`                                                       | preprocessor    | delta pre-filter for incremental data |
+|  [05]   | `X86` / `ARM` / `ARMTHUMB` / `POWERPC` / `SPARC` / `IA64`     | BCJ pre-filter  | branch-convert executable code        |
+|  [06]   | `CRYPTO_AES256_SHA256`                                        | crypto filter   | AES256 content/header encryption      |
+|  [07]   | `PRESET_DEFAULT` / `PRESET_EXTREME`                           | preset          | LZMA preset level                     |
+|  [08]   | `CHECK_CRC32` / `CHECK_CRC64` / `CHECK_SHA256` / `CHECK_NONE` | integrity check | per-chunk integrity-check selector    |
 
 [PUBLIC_TYPE_SCOPE]: faults
 - rail: compression
@@ -67,27 +73,29 @@ Filter rows are filter-chain vocabulary consumed as `filters=[{ 'id': FILTER_...
 [ENTRYPOINT_SCOPE]: archive open, read, and write
 - rail: compression
 
-| [INDEX] | [SURFACE]                                                 | [CALL_SHAPE]                                                                                                                                                | [CAPABILITY]                                                                                   |
-| :-----: | :-------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | `SevenZipFile`                                            | `SevenZipFile(file, mode='r', *, filters=None, dereference=False, password=None, header_encryption=False, blocksize=None, mp=False, max_extract_size=None)` | open/create an archive (`max_extract_size` caps decode to defend against a decompression bomb) |
-|  [02]   | `SevenZipFile.extractall`                                 | `extractall(path=None, *, callback=None, factory=None)`                                                                                                     | extract every entry                                                                            |
-|  [03]   | `SevenZipFile.extract`                                    | `extract(path=None, targets=None, recursive=False, *, callback=None, factory=None)`                                                                         | extract selected entries / into a `WriterFactory` sink                                         |
-|  [04]   | `SevenZipFile.writeall`                                   | `writeall(path, arcname=None)`                                                                                                                              | add a tree to the archive                                                                      |
-|  [05]   | `SevenZipFile.write`                                      | `write(file, arcname=None)`                                                                                                                                 | add one file                                                                                   |
-|  [06]   | `SevenZipFile.writestr`                                   | `writestr(data, arcname)`                                                                                                                                   | add in-memory bytes/str                                                                        |
-|  [07]   | `SevenZipFile.writef`                                     | `writef(bio, arcname)`                                                                                                                                      | add from a file-like object                                                                    |
-|  [08]   | `SevenZipFile.list` / `getnames` / `namelist` / `getinfo` | listing / name list / single `FileInfo`                                                                                                                     | enumerate entries                                                                              |
-|  [09]   | `SevenZipFile.test` / `testzip`                           | CRC verification query                                                                                                                                      | verify CRCs                                                                                    |
-|  [10]   | `SevenZipFile.needs_password` / `archiveinfo` / `reset`   | password-state / `ArchiveInfo` / rewind cursor                                                                                                              | encryption probe + metadata                                                                    |
+`SevenZipFile(file, mode='r', *, filters=None, dereference=False, password=None, header_encryption=False, blocksize=None, mp=False, max_extract_size=None)` opens or creates an archive; the rows below are methods on it, and `extract`/`extractall` share the `*, callback=None, factory=None` sink kwargs (the `…` tail).
+
+| [INDEX] | [CALL_SHAPE]                                           | [CAPABILITY]                                           |
+| :-----: | :----------------------------------------------------- | :----------------------------------------------------- |
+|  [01]   | `SevenZipFile(file, mode='r', …)`                      | open/create an archive; `max_extract_size` caps a bomb |
+|  [02]   | `extractall(path=None, …)`                             | extract every entry                                    |
+|  [03]   | `extract(path=None, targets=None, recursive=False, …)` | extract selected entries / into a `WriterFactory` sink |
+|  [04]   | `writeall(path, arcname=None)`                         | add a tree to the archive                              |
+|  [05]   | `write(file, arcname=None)`                            | add one file                                           |
+|  [06]   | `writestr(data, arcname)`                              | add in-memory bytes/str                                |
+|  [07]   | `writef(bio, arcname)`                                 | add from a file-like object                            |
+|  [08]   | `list`/`getnames`/`namelist`/`getinfo`                 | enumerate entries (listing, names, single `FileInfo`)  |
+|  [09]   | `test`/`testzip`                                       | verify CRCs                                            |
+|  [10]   | `needs_password`/`archiveinfo`/`reset`                 | encryption probe, `ArchiveInfo`, rewind cursor         |
 
 [ENTRYPOINT_SCOPE]: predicate and shutil registration
 - rail: compression
 
-| [INDEX] | [SURFACE]          | [CALL_SHAPE]                    | [CAPABILITY]                                                                            |
-| :-----: | :----------------- | :------------------------------ | :-------------------------------------------------------------------------------------- |
-|  [01]   | `is_7zfile`        | `is_7zfile(file)` (path/stream) | format predicate                                                                        |
-|  [02]   | `pack_7zarchive`   | base name, directory, and hooks | shutil pack hook (`shutil.register_archive_format('7zip', pack_7zarchive)`)             |
-|  [03]   | `unpack_7zarchive` | archive, target path, and extra | shutil unpack hook (`shutil.register_unpack_format('7zip', ['.7z'], unpack_7zarchive)`) |
+| [INDEX] | [CALL_SHAPE]                             | [CAPABILITY]                                                                    |
+| :-----: | :--------------------------------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `is_7zfile(file)`                        | format predicate over a path/stream                                             |
+|  [02]   | `pack_7zarchive(base_name, base_dir, …)` | shutil pack hook: `register_archive_format('7zip', pack_7zarchive)`             |
+|  [03]   | `unpack_7zarchive(archive, path, …)`     | shutil unpack hook: `register_unpack_format('7zip', ['.7z'], unpack_7zarchive)` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

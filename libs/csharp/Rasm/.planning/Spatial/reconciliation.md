@@ -331,33 +331,49 @@ The single content-addressed golden-fixture corpus every runtime parity harness 
 - Consumers: `python:runtime/evidence/identity#IDENTITY` reproduces the seed through `xxhash.xxh3_128_intdigest` and reads the corpus to assert byte-identical reproduction; `typescript:core/value/contentKey` reproduces it through the 128-bit wasm hash and reads the `tests/contracts` corpus (TS readers in `tests/typescript/_testkit`); the C# shared test corpus (the `[BRANCH_TEST_NODE_PROVISIONING]` shared-corpus task) asserts every producer emits its fixture byte-for-byte. Every consumer reads the one frozen corpus, never re-deriving its own fixtures.
 - Boundary: the seed is the single key across all fixtures — a per-fixture digest function or a per-runtime fixture mint is the named drift defect; the corpus is read-only for every consumer and every producer asserts its own fixture against the frozen bytes; a fabricated byte set for an unpinned fixture is the rejected form, replaced by an explicit DESIGN-PIN gap on the producer. The two REAL fixtures are HARNESS-CONFIRMED-ONCE gated: one `XxHash128`/`NodeLinkProjection` reproof runs before any page cites their literal digests as REAL — the layout laws are settled independent of that gate.
 
-The fixture set the corpus carries, each keyed by the one seed:
+The fixture set the corpus carries, each keyed by the one seed; the per-fixture byte shape rides the indexed notes below.
 
-| [INDEX] | [FIXTURE]               | [PRODUCER_OWNER]                                                              | [SOURCE]   | [SHAPE]                                                                                                                                                                                                                                                                                                                                     |
-| :-----: | :---------------------- | :---------------------------------------------------------------------------- | :--------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | CANONICAL_BYTE_IDENTITY | `Rasm/Spatial/reconciliation#CANONICAL_BYTE_IDENTITY` (this page)             | REAL       | 52-byte int32-LE adjacency stream + `0x9462A71A5DD13DCFA3B1D6D225FCBE70` digest (harness-confirmed-once)                                                                                                                                                                                                                                    |
-|  [02]   | CLASH_GOLDEN            | `Rasm/Spatial/index#CLASH_GOLDEN`                                             | REAL       | 8-primitive `BoundingBox(min,max)` set → 160-byte `Bounds`/`Nodes` LE stream re-derived under index's OUTWARD-rounding law (`BitDecrement` min / `BitIncrement` max); topology (`NodeCount == 3`), descriptor block, and the 4-pair clash set `{(0,1),(2,3),(4,5),(6,7)}` stay PINNED — the stream bytes await the one-time harness reproof |
-|  [03]   | FAULT_TRIPLES           | `Rasm.Compute/Runtime/wire#FAULT_PROJECTION`                                  | DESIGN-PIN | `FaultDetail` `(package, code, case)` triples spanning the disjoint bands (ComputeFault 2200, HopFault 4500, WireFault 4520-4532, store/config app roots)                                                                                                                                                                                   |
-|  [04]   | CRDT_OP_SET             | `Rasm.Persistence/Version/commits#CRDT_ALGEBRA`                               | DESIGN-PIN | the `MvRegister`/`opMerge` op-set whose divergent-delivery folds converge byte-identically                                                                                                                                                                                                                                                  |
-|  [05]   | GLB_BY_KEY              | `Rasm.Compute/Runtime/codecs#TILE_PARTITION` over the GLB tessellation result | DESIGN-PIN | one content-keyed GLB sample keyed by the `ContentIdentity` seed                                                                                                                                                                                                                                                                            |
-|  [06]   | HLC_TWO_HALF            | `Rasm.AppHost/Runtime/ports#HLC_FANIN`                                        | DESIGN-PIN | the two-64-bit-half HLC stamps whose half order an off-by-one-half would corrupt                                                                                                                                                                                                                                                            |
-|  [07]   | MATERIAL_LAYER_GOLDEN   | `Rasm.Element/Projection/address#CONTENT_ADDRESS`                             | DESIGN-PIN | the float-bearing `IfcMaterialLayer`-shaped node (layer thicknesses + properties) whose `CanonicalWriter` IEEE-754-LE bytes the C#/Python/TypeScript `ContentAddress` agree on byte-for-byte                                                                                                                                                |
+| [INDEX] | [FIXTURE]               | [PRODUCER_OWNER]                                                  | [SOURCE]   |
+| :-----: | :---------------------- | :---------------------------------------------------------------- | :--------- |
+|  [01]   | CANONICAL_BYTE_IDENTITY | `Rasm/Spatial/reconciliation#CANONICAL_BYTE_IDENTITY` (this page) | REAL       |
+|  [02]   | CLASH_GOLDEN            | `Rasm/Spatial/index#CLASH_GOLDEN`                                 | REAL       |
+|  [03]   | FAULT_TRIPLES           | `Rasm.Compute/Runtime/wire#FAULT_PROJECTION`                      | DESIGN-PIN |
+|  [04]   | CRDT_OP_SET             | `Rasm.Persistence/Version/commits#CRDT_ALGEBRA`                   | DESIGN-PIN |
+|  [05]   | GLB_BY_KEY              | `Rasm.Compute/Runtime/codecs#TILE_PARTITION`                      | DESIGN-PIN |
+|  [06]   | HLC_TWO_HALF            | `Rasm.AppHost/Runtime/ports#HLC_FANIN`                            | DESIGN-PIN |
+|  [07]   | MATERIAL_LAYER_GOLDEN   | `Rasm.Element/Projection/address#CONTENT_ADDRESS`                 | DESIGN-PIN |
+
+- [01]-[CANONICAL_BYTE_IDENTITY]: 52-byte int32-LE adjacency stream + `0x9462A71A5DD13DCFA3B1D6D225FCBE70` digest (harness-confirmed-once).
+- [02]-[CLASH_GOLDEN]: 8-primitive `BoundingBox(min,max)` set → 160-byte `Bounds`/`Nodes` LE stream re-derived under index's OUTWARD-rounding law (`BitDecrement` min / `BitIncrement` max); topology (`NodeCount == 3`), descriptor block, and the 4-pair clash set `{(0,1),(2,3),(4,5),(6,7)}` stay PINNED — the stream bytes await the one-time harness reproof.
+- [03]-[FAULT_TRIPLES]: `FaultDetail` `(package, code, case)` triples spanning the disjoint bands (ComputeFault 2200, HopFault 4500, WireFault 4520-4532, store/config app roots).
+- [04]-[CRDT_OP_SET]: the `MvRegister`/`opMerge` op-set whose divergent-delivery folds converge byte-identically.
+- [05]-[GLB_BY_KEY]: one content-keyed GLB sample over the `TILE_PARTITION` GLB tessellation result, keyed by the `ContentIdentity` seed.
+- [06]-[HLC_TWO_HALF]: the two-64-bit-half HLC stamps whose half order an off-by-one-half would corrupt.
+- [07]-[MATERIAL_LAYER_GOLDEN]: the float-bearing `IfcMaterialLayer`-shaped node (layer thicknesses + properties) whose `CanonicalWriter` IEEE-754-LE bytes the C#/Python/TypeScript `ContentAddress` agree on byte-for-byte.
 
 Fixtures [1] and [2] are REAL and frozen against their producer pages — [1] CANONICAL_BYTE_IDENTITY on this page (the 52-byte stream, the `XxHash128.HashToUInt128` digest, the morph and topology-break discriminators), [2] CLASH_GOLDEN in `Rasm/Spatial/index#CLASH_GOLDEN` with the 8 `BoundingBox(min,max)` coordinate tuples, the SAH split (axis X, primitives `{0,1,2,3}` left / `{4,5,6,7}` right), the identity `Order` permutation, `NodeCount == 3`, and the 4-pair clash set `{(0,1),(2,3),(4,5),(6,7)}` PINNED; index's OUTWARD-rounding bounds narrowing (`BitDecrement` min / `BitIncrement` max post-cast) re-derives the 160-byte `Bounds`/`Nodes` LE stream, so the stream bytes and both literal digests stand only under the harness-confirmed-once gate above — topology, descriptor block, and clash set are settled independent of that gate. Fixtures [3]–[7] remain DESIGN-PIN: the bytes are derivable only after each producer page (in the `Rasm.Compute`/`Rasm.Persistence`/`Rasm.AppHost`/`Rasm.Element` siblings, outside this folder's write-scope) pins its missing input, and no fabricated byte set stands in for an unpinned fixture. No design-pin gap inside the geometry kernel's write-scope blocks corpus completion; the remaining gaps are owned by the named cross-folder producers and are the synthesis tier's arbitration.
 
 ## [04]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes, and the per-axis kind rides the indexed notes below.
 
-| [INDEX] | [CONCERN]              | [OWNER]                    | [KIND]                                                                                                   | [RAIL]                                                    | [CASES] |
-| :-----: | :--------------------- | :------------------------- | :------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------- | :-----: |
-|  [01]   | Content-axis identity  | `GeometryHash`             | `[ValueObject<UInt128>]` — type-distinct from the `TopoName` reference axis                              | pure value                                                |    —    |
-|  [02]   | Canonical adjacency    | `CanonicalTopology`        | immutable record + total `OfMesh` encoder + oracle-claimed canonical order + `Self`-keyed entity emitter | `CanonicalTopology.OfMesh → CanonicalTopology` (boundary) |    —    |
-|  [03]   | Encode modality        | `EncodeForm`               | `[Union]` Mesh · Cloud · Parametric + shape-discriminating `Of` admission family, `IValidityEvidence`    | `EncodeForm.Of → EncodeForm` / `Fin<EncodeForm>` (raw)    |    3    |
-|  [04]   | Reconciliation request | `ReconcileOp`              | `[Union]` Encode · Reconcile · BuildEntities                                                             | carrier (dispatched in `Apply`)                           |    3    |
-|  [05]   | Reconciliation answer  | `ReconcileAnswer`          | `[Union]` Digest · Reconciled · Topology, `IValidityEvidence` delegation fold                            | carrier (returned in the `Apply` rail)                    |    3    |
-|  [06]   | Naming↔hash bridge     | `Reconciliation`           | ONE `Apply` entry: total generated `Switch` + accumulating reconcile traverse                            | `Reconciliation.Apply → Fin<ReconcileAnswer>`             |    3    |
-|  [07]   | Reconciliation receipt | `NamingHash`/`NameAddress` | whole-topology digest + per-name content addresses, `IValidityEvidence`                                  | receipt (carried in `Reconciled`)                         |    —    |
+| [INDEX] | [CONCERN]              | [OWNER]                    | [RAIL]                                                    | [CASES] |
+| :-----: | :--------------------- | :------------------------- | :-------------------------------------------------------- | :-----: |
+|  [01]   | Content-axis identity  | `GeometryHash`             | pure value                                                |    —    |
+|  [02]   | Canonical adjacency    | `CanonicalTopology`        | `CanonicalTopology.OfMesh → CanonicalTopology` (boundary) |    —    |
+|  [03]   | Encode modality        | `EncodeForm`               | `EncodeForm.Of → EncodeForm` / `Fin<EncodeForm>` (raw)    |    3    |
+|  [04]   | Reconciliation request | `ReconcileOp`              | carrier (dispatched in `Apply`)                           |    3    |
+|  [05]   | Reconciliation answer  | `ReconcileAnswer`          | carrier (returned in the `Apply` rail)                    |    3    |
+|  [06]   | Naming↔hash bridge     | `Reconciliation`           | `Reconciliation.Apply → Fin<ReconcileAnswer>`             |    3    |
+|  [07]   | Reconciliation receipt | `NamingHash`/`NameAddress` | receipt (carried in `Reconciled`)                         |    —    |
+
+- [01]-[CONTENT_AXIS_IDENTITY]: `[ValueObject<UInt128>]` — type-distinct from the `TopoName` reference axis.
+- [02]-[CANONICAL_ADJACENCY]: immutable record + total `OfMesh` encoder + oracle-claimed canonical order + `Self`-keyed entity emitter.
+- [03]-[ENCODE_MODALITY]: `[Union]` Mesh · Cloud · Parametric + shape-discriminating `Of` admission family, `IValidityEvidence`.
+- [04]-[RECONCILIATION_REQUEST]: `[Union]` Encode · Reconcile · BuildEntities.
+- [05]-[RECONCILIATION_ANSWER]: `[Union]` Digest · Reconciled · Topology, `IValidityEvidence` delegation fold.
+- [06]-[NAMING_HASH_BRIDGE]: ONE `Apply` entry: total generated `Switch` + accumulating reconcile traverse.
+- [07]-[RECONCILIATION_RECEIPT]: whole-topology digest + per-name content addresses, `IValidityEvidence`.
 
 ## [05]-[RESEARCH]
 

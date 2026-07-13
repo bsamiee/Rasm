@@ -22,14 +22,15 @@ enter the runtime closure.
 
 [GENERATOR_SCOPE]: incremental generators + code-fix providers
 - rail: snapshot-codec
+- namespace: generators under `MessagePack.SourceGenerator`; code-fixes under `MessagePack.Analyzers.CodeFixes`
 
-| [INDEX] | [SYMBOL]                                                     | [PACKAGE_ROLE]        | [CAPABILITY]                                                                               |
-| :-----: | :----------------------------------------------------------- | :-------------------- | :----------------------------------------------------------------------------------------- |
-|  [01]   | `MessagePack.SourceGenerator.MessagePackGenerator`           | incremental generator | emits per-type formatters from `[MessagePackObject]` contracts                             |
-|  [02]   | `MessagePack.SourceGenerator.CompositeResolverGenerator`     | incremental generator | emits the `[GeneratedMessagePackResolver]`/`[CompositeResolver]` resolver class            |
-|  [03]   | `MessagePack.Analyzers.CodeFixes.MessagePackCodeFixProvider` | code-fix provider     | fixes MsgPack003 (add `[MessagePackObject]`) and MsgPack004 (add `[Key]`/`[IgnoreMember]`) |
-|  [04]   | `MessagePack.Analyzers.CodeFixes.FormatterCodeFixProvider`   | code-fix provider     | fixes formatter-accessibility diagnostics (MsgPack010/013)                                 |
-|  [05]   | `MessagePack.Analyzers.CodeFixes.MsgPack015CodeFixProvider`  | code-fix provider     | fixes MsgPack015 — sets `MessagePackObject(AllowPrivate = true)`                           |
+| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]        | [CAPABILITY]                                                                      |
+| :-----: | :--------------------------- | :-------------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `MessagePackGenerator`       | incremental generator | emits per-type formatters from `[MessagePackObject]` contracts                    |
+|  [02]   | `CompositeResolverGenerator` | incremental generator | emits the `[GeneratedMessagePackResolver]`/`[CompositeResolver]` resolver class   |
+|  [03]   | `MessagePackCodeFixProvider` | code-fix provider     | MsgPack003 → add `[MessagePackObject]`; MsgPack004 → add `[Key]`/`[IgnoreMember]` |
+|  [04]   | `FormatterCodeFixProvider`   | code-fix provider     | fixes formatter-accessibility MsgPack010/013                                      |
+|  [05]   | `MsgPack015CodeFixProvider`  | code-fix provider     | MsgPack015 → set `MessagePackObject(AllowPrivate = true)`                         |
 
 [GENERATOR_TEMPLATE_SCOPE]: `MessagePack.SourceGenerator.Transforms` emitted shapes
 - rail: snapshot-codec
@@ -65,26 +66,46 @@ enter the runtime closure.
 descriptors on their named `DiagnosticAnalyzer` classes. Category is `Usage` for MsgPack003–018 and
 `Reliability` for MsgPack001/002; `GetHelpLink` resolves each ID's help URL.
 
-| [INDEX] | [DIAGNOSTIC_ID] | [SEVERITY]               | [DESCRIPTOR_S]                                                                                                                                                    | [TRIGGER]                                                                       |
-| :-----: | :-------------- | :----------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `MsgPack001`    | Warning (off-by-default) | `MissingOptionsDescriptor`                                                                                                                                        | `MessagePackSerializer` call without explicit options                           |
-|  [02]   | `MsgPack002`    | Warning (off-by-default) | `MutableSharedOptionsDescriptor`                                                                                                                                  | mutable shared `MessagePackSerializerOptions` (mutate after init)               |
-|  [03]   | `MsgPack003`    | Error                    | `TypeMustBeMessagePackObject`                                                                                                                                     | type serialised without `[MessagePackObject]`                                   |
-|  [04]   | `MsgPack004`    | Error                    | `MemberNeedsKey`, `BaseTypeContainsUnattributedPublicMembers`                                                                                                     | member (or base-type member) without `[Key]`/`[IgnoreMember]`                   |
-|  [05]   | `MsgPack005`    | Error                    | `InvalidMessagePackObject`, `BothStringAndIntKeyAreNull`, `DoNotMixStringAndIntKeys`, `KeysMustBeUnique`, `UnionAttributeRequired`, `KeyAnnotatedMemberInMapMode` | invalid contract: null/mixed/duplicate keys, missing `[Union]`, key in map mode |
-|  [06]   | `MsgPack006`    | Error                    | `MessageFormatterMustBeMessagePackFormatter`                                                                                                                      | `[MessagePackFormatter]` type not `IMessagePackFormatter`                       |
-|  [07]   | `MsgPack007`    | Error                    | `NoDeserializingConstructor` + parameter type/count/name/duplicate descriptors                                                                                    | missing or mismatched deserialising constructor                                 |
-|  [08]   | `MsgPack008`    | Error                    | `AotUnionAttributeRequiresTypeArg`, `AotArrayRankTooHigh`                                                                                                         | `[Union]` without Type arg, or array rank too high, under AOT generation        |
-|  [09]   | `MsgPack009`    | Error                    | `CollidingFormatters`                                                                                                                                             | multiple formatters registered for one type                                     |
-|  [10]   | `MsgPack010`    | Warning                  | `InaccessibleFormatterType`                                                                                                                                       | formatter type below internal visibility — omitted from resolver                |
-|  [11]   | `MsgPack011`    | Error                    | `PartialTypeRequired`                                                                                                                                             | type (or nesting type) with private serialised members not `partial`            |
-|  [12]   | `MsgPack012`    | Error                    | `InaccessibleDataType`                                                                                                                                            | serialised data type below internal visibility                                  |
-|  [13]   | `MsgPack013`    | Warning                  | `InaccessibleFormatterInstance`                                                                                                                                   | formatter lacks accessible ctor or `static readonly Instance`                   |
-|  [14]   | `MsgPack014`    | Warning                  | `NullableReferenceTypeFormatter`                                                                                                                                  | nullable reference type without nullable-annotated formatter                    |
-|  [15]   | `MsgPack015`    | Warning                  | `MessagePackObjectAllowPrivateRequired`                                                                                                                           | non-public type/member serialised without `AllowPrivate = true`                 |
-|  [16]   | `MsgPack016`    | Error                    | `AOTDerivedKeyAttribute`                                                                                                                                          | `KeyAttribute`-derived attribute under AOT generation                           |
-|  [17]   | `MsgPack017`    | Warning                  | `AOTInitProperty`                                                                                                                                                 | init-accessor property with initializer reset on AOT deserialise                |
-|  [18]   | `MsgPack018`    | Error                    | `CollidingMemberNamesInForceMapMode`                                                                                                                              | duplicate serialised member name in force-map mode                              |
+| [INDEX] | [DIAGNOSTIC_ID] | [SEVERITY]               | [TRIGGER]                                                                       |
+| :-----: | :-------------- | :----------------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `MsgPack001`    | Warning (off-by-default) | `MessagePackSerializer` call without explicit options                           |
+|  [02]   | `MsgPack002`    | Warning (off-by-default) | mutable shared `MessagePackSerializerOptions` (mutate after init)               |
+|  [03]   | `MsgPack003`    | Error                    | type serialised without `[MessagePackObject]`                                   |
+|  [04]   | `MsgPack004`    | Error                    | member (or base-type member) without `[Key]`/`[IgnoreMember]`                   |
+|  [05]   | `MsgPack005`    | Error                    | invalid contract: null/mixed/duplicate keys, missing `[Union]`, key in map mode |
+|  [06]   | `MsgPack006`    | Error                    | `[MessagePackFormatter]` type not `IMessagePackFormatter`                       |
+|  [07]   | `MsgPack007`    | Error                    | missing or mismatched deserialising constructor                                 |
+|  [08]   | `MsgPack008`    | Error                    | `[Union]` without Type arg, or array rank too high, under AOT generation        |
+|  [09]   | `MsgPack009`    | Error                    | multiple formatters registered for one type                                     |
+|  [10]   | `MsgPack010`    | Warning                  | formatter type below internal visibility — omitted from resolver                |
+|  [11]   | `MsgPack011`    | Error                    | type (or nesting type) with private serialised members not `partial`            |
+|  [12]   | `MsgPack012`    | Error                    | serialised data type below internal visibility                                  |
+|  [13]   | `MsgPack013`    | Warning                  | formatter lacks accessible ctor or `static readonly Instance`                   |
+|  [14]   | `MsgPack014`    | Warning                  | nullable reference type without nullable-annotated formatter                    |
+|  [15]   | `MsgPack015`    | Warning                  | non-public type/member serialised without `AllowPrivate = true`                 |
+|  [16]   | `MsgPack016`    | Error                    | `KeyAttribute`-derived attribute under AOT generation                           |
+|  [17]   | `MsgPack017`    | Warning                  | init-accessor property with initializer reset on AOT deserialise                |
+|  [18]   | `MsgPack018`    | Error                    | duplicate serialised member name in force-map mode                              |
+
+[DESCRIPTORS]: the `DiagnosticDescriptor` field(s) each ID owns.
+- [01]-[MSGPACK001]: `MissingOptionsDescriptor`
+- [02]-[MSGPACK002]: `MutableSharedOptionsDescriptor`
+- [03]-[MSGPACK003]: `TypeMustBeMessagePackObject`
+- [04]-[MSGPACK004]: `MemberNeedsKey`, `BaseTypeContainsUnattributedPublicMembers`
+- [05]-[MSGPACK005]: `InvalidMessagePackObject`, `BothStringAndIntKeyAreNull`, `DoNotMixStringAndIntKeys`, `KeysMustBeUnique`, `UnionAttributeRequired`, `KeyAnnotatedMemberInMapMode`
+- [06]-[MSGPACK006]: `MessageFormatterMustBeMessagePackFormatter`
+- [07]-[MSGPACK007]: `NoDeserializingConstructor` + parameter type/count/name/duplicate descriptors
+- [08]-[MSGPACK008]: `AotUnionAttributeRequiresTypeArg`, `AotArrayRankTooHigh`
+- [09]-[MSGPACK009]: `CollidingFormatters`
+- [10]-[MSGPACK010]: `InaccessibleFormatterType`
+- [11]-[MSGPACK011]: `PartialTypeRequired`
+- [12]-[MSGPACK012]: `InaccessibleDataType`
+- [13]-[MSGPACK013]: `InaccessibleFormatterInstance`
+- [14]-[MSGPACK014]: `NullableReferenceTypeFormatter`
+- [15]-[MSGPACK015]: `MessagePackObjectAllowPrivateRequired`
+- [16]-[MSGPACK016]: `AOTDerivedKeyAttribute`
+- [17]-[MSGPACK017]: `AOTInitProperty`
+- [18]-[MSGPACK018]: `CollidingMemberNamesInForceMapMode`
 
 DiagnosticSeverity numerics: `2`=Warning, `3`=Error. MsgPack001/002 are `isEnabledByDefault: false`
 (opt-in `.editorconfig` escalation); every MsgPack003–018 descriptor is enabled by default.

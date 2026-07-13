@@ -4,13 +4,13 @@ The PWA shell plane: the web-app manifest as a typed VALUE the app constructs an
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                      | [PUBLIC]                                   |
-| :-----: | :---------------- | :-------------------------------------------------------------------------- | :----------------------------------------- |
-|  [01]   | `MANIFEST_VALUE`  | the typed manifest owner and its emitted wire twin                          | `Manifest`                                 |
-|  [02]   | `LIFECYCLE_OWNER` | the Workbox resource, the phase cell, the update handshake, the fault       | `Sw`, `SwFault`, `SwLifecycle`             |
-|  [03]   | `CACHE_ROWS`      | the strategy vocabulary, the `RuntimeCaching` projection, the build partial | `Sw.caching`, `Sw.build`                   |
-|  [04]   | `REPLAY_DRAIN`    | the outbox enqueue and the merged-wake drain fold                           | `Sw`                                       |
-|  [05]   | `INSTALL_OWNER`   | the prompt capture, the stance cell, the ask/refresh affordances            | `Install`, `InstallFault`, `InstallStance` |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                           | [PUBLIC]                                   |
+| :-----: | :---------------- | :--------------------------------------------------------------- | :----------------------------------------- |
+|  [01]   | `MANIFEST_VALUE`  | the typed manifest owner and its emitted wire twin               | `Manifest`                                 |
+|  [02]   | `LIFECYCLE_OWNER` | Workbox resource, phase cell, update handshake, fault            | `Sw`, `SwFault`, `SwLifecycle`             |
+|  [03]   | `CACHE_ROWS`      | strategy vocabulary, `RuntimeCaching` projection, build partial  | `Sw.caching`, `Sw.build`                   |
+|  [04]   | `REPLAY_DRAIN`    | the outbox enqueue and the merged-wake drain fold                | `Sw`                                       |
+|  [05]   | `INSTALL_OWNER`   | the prompt capture, the stance cell, the ask/refresh affordances | `Install`, `InstallFault`, `InstallStance` |
 
 ## [02]-[MANIFEST_VALUE]
 

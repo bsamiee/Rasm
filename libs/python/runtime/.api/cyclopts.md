@@ -19,21 +19,23 @@
 [PUBLIC_TYPE_SCOPE]: app and parameter family (entry slice)
 - rail: entry
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [RAIL]                                                                                                                        |
-| :-----: | :----------------------- | :------------ | :---------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `App`                    | app           | the companion command registry, runner, and `result_action` owner                                                             |
-|  [02]   | `Parameter`              | annotation    | option/flag spec; runtime binds `env_var` (`negative`/`converter`/`group` available, unconsumed here)                         |
-|  [03]   | `ResultAction`           | enum          | typed post-command action; `result_action` also accepts the equivalent string literal (`'return_int_as_exit_code_else_zero'`) |
-|  [04]   | `types.NonNegativeFloat` | float bound   | the constrained grace input bound in the companion `serve` command                                                            |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [RAIL]                                                                                      |
+| :-----: | :----------------------- | :------------ | :------------------------------------------------------------------------------------------ |
+|  [01]   | `App`                    | app           | the companion command registry, runner, and `result_action` owner                           |
+|  [02]   | `Parameter`              | annotation    | option/flag spec; binds `env_var`; `negative`/`converter`/`group` unconsumed                |
+|  [03]   | `ResultAction`           | enum          | typed post-command action; `result_action` also takes `'return_int_as_exit_code_else_zero'` |
+|  [04]   | `types.NonNegativeFloat` | float bound   | the constrained grace input bound in the companion `serve` command                          |
 
 [PUBLIC_TYPE_SCOPE]: fault family
 - rail: entry
 - a `CycloptsError` subtype is rendered to stderr and mapped to a non-zero exit at the boundary; the traceback never escapes.
 
-| [INDEX] | [SYMBOL]                                                     | [TYPE_FAMILY] | [RAIL]                                                            |
-| :-----: | :----------------------------------------------------------- | :------------ | :---------------------------------------------------------------- |
-|  [01]   | `CycloptsError`                                              | fault base    | base for all CLI parse/bind faults                                |
-|  [02]   | `ValidationError` / `CoercionError` / `MissingArgumentError` | fault         | validator rejection / coercion failure / required argument absent |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                             |
+| :-----: | :--------------------- | :------------ | :--------------------------------- |
+|  [01]   | `CycloptsError`        | fault base    | base for all CLI parse/bind faults |
+|  [02]   | `ValidationError`      | fault         | validator rejection                |
+|  [03]   | `CoercionError`        | fault         | coercion failure                   |
+|  [04]   | `MissingArgumentError` | fault         | required argument absent           |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -41,13 +43,15 @@
 - rail: entry
 - defined on `App` (PUBLIC_TYPES [01]); the companion daemon's private entry, never a public CLI axis.
 
-| [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY] | [RAIL]                                                                                       |
-| :-----: | :------------------------------------------------------------------------------ | :------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `App(name, *, help, result_action)`                                             | build          | construct the companion app with return-to-exit policy                                       |
-|  [02]   | `App.command(obj=None, *, name, ...)`                                           | register       | register a subcommand (function or sub-`App`)                                                |
-|  [03]   | `App.__call__(tokens=None, *, exit_on_error=, result_action=) -> Any`           | run            | parse argv and dispatch (sync)                                                               |
-|  [04]   | `App.run_async(tokens=None, *, backend: Literal['asyncio','trio']=None) -> Any` | run            | async parse and dispatch (asyncio backend under the anyio lane) for the `async def` commands |
-|  [05]   | `cyclopts.resolve_returncode(value)`                                            | resolve        | standalone return-value->exit-code resolver                                                  |
+`run_async` binds `backend: Literal['asyncio','trio']`; the `-> Any` return tail is dropped from the SURFACE cells.
+
+| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [RAIL]                                                 |
+| :-----: | :------------------------------------------------------------- | :------------- | :----------------------------------------------------- |
+|  [01]   | `App(name, *, help, result_action)`                            | build          | construct the companion app with return-to-exit policy |
+|  [02]   | `App.command(obj=None, *, name, ...)`                          | register       | register a subcommand (function or sub-`App`)          |
+|  [03]   | `App.__call__(tokens=None, *, exit_on_error=, result_action=)` | run            | parse argv and dispatch (sync)                         |
+|  [04]   | `App.run_async(tokens=None, *, backend=None)`                  | run            | async dispatch on the asyncio backend                  |
+|  [05]   | `cyclopts.resolve_returncode(value)`                           | resolve        | standalone return-value->exit-code resolver            |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

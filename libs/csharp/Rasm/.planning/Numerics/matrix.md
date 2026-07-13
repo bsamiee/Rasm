@@ -1127,11 +1127,25 @@ internal static class MatrixKernel {
 
 ## [07]-[DENSITY_BAR]
 
-| [INDEX] | [AXIS_CONCERN]        | [OWNER]                                                                                                               | [KIND]                                                                |    [CASES]    |
-| :-----: | :-------------------- | :-------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------- | :-----------: |
-|  [01]   | Route/stop vocabulary | `EigenSolvePath` · `EigenSolveStop` · `SolvePath` · `SolveStop` · `MatrixNormKind` · `GaugeSolverKind` · `GaugeShift` | `[SmartEnum<int>]` with capability columns                            | 5·3·7·7·4·3·4 |
-|  [02]   | Gauge algebra         | `GaugePolicy`                                                                                                         | `[Union]` Pin/MeanZeroDeflation/LagrangeKKT + presets                 |       3       |
-|  [03]   | Dense owners          | `Matrix` · `SymmetricMatrix` (+ 4 decomposition carriers)                                                             | admission-gated `record struct` over MathNet                          |       2       |
-|  [04]   | Sparse owners         | `SparseMatrix` · `SparseHermitian` · `CholeskySparse`                                                                 | CSR invariants + lock-guarded AMD factor cache over CSparse           |       3       |
-|  [05]   | Evidence              | `SolveReceipt` · `EigenSolveReceipt<TEigen,TVector>` · `GaugeReceipt`                                                 | `ValidityClaim.All` fold + semantic claim rows                        |       3       |
-|  [06]   | Kernel                | `MatrixKernel`                                                                                                        | the ONE MathNet+CSparse access path (dense/sparse/gauge/eigen/LOBPCG) |       1       |
+One owner per axis; capability is a case, row, or member on the owning carrier, never a sibling surface. Rows [01]-[07] are the `[SmartEnum<int>]` route/stop vocabularies with capability columns; the remaining per-axis kinds ride the indexed notes below.
+
+| [INDEX] | [AXIS_CONCERN]        | [OWNER]                                                               | [CASES] |
+| :-----: | :-------------------- | :-------------------------------------------------------------------- | :-----: |
+|  [01]   | Route/stop vocabulary | `EigenSolvePath`                                                      |    5    |
+|  [02]   | Route/stop vocabulary | `EigenSolveStop`                                                      |    3    |
+|  [03]   | Route/stop vocabulary | `SolvePath`                                                           |    7    |
+|  [04]   | Route/stop vocabulary | `SolveStop`                                                           |    7    |
+|  [05]   | Route/stop vocabulary | `MatrixNormKind`                                                      |    4    |
+|  [06]   | Route/stop vocabulary | `GaugeSolverKind`                                                     |    3    |
+|  [07]   | Route/stop vocabulary | `GaugeShift`                                                          |    4    |
+|  [08]   | Gauge algebra         | `GaugePolicy`                                                         |    3    |
+|  [09]   | Dense owners          | `Matrix` · `SymmetricMatrix` (+ 4 decomposition carriers)             |    2    |
+|  [10]   | Sparse owners         | `SparseMatrix` · `SparseHermitian` · `CholeskySparse`                 |    3    |
+|  [11]   | Evidence              | `SolveReceipt` · `EigenSolveReceipt<TEigen,TVector>` · `GaugeReceipt` |    3    |
+|  [12]   | Kernel                | `MatrixKernel`                                                        |    1    |
+
+- [08]-[GAUGE_ALGEBRA]: `[Union]` Pin/MeanZeroDeflation/LagrangeKKT + presets.
+- [09]-[DENSE_OWNERS]: admission-gated `record struct` over MathNet.
+- [10]-[SPARSE_OWNERS]: CSR invariants + lock-guarded AMD factor cache over CSparse.
+- [11]-[EVIDENCE]: `ValidityClaim.All` fold + semantic claim rows.
+- [12]-[KERNEL]: the ONE MathNet+CSparse access path (dense/sparse/gauge/eigen/LOBPCG).

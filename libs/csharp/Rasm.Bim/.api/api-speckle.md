@@ -46,15 +46,15 @@
 [PUBLIC_TYPE_SCOPE]: host-object data family
 - rail: interchange
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [ROLE]                                                                                                                                     |
-| :-----: | :--------------- | :------------ | :----------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `DataObject`     | data class    | base host object; `IDataObject`/`IProperties`/`IDisplayValue<IReadOnlyList<Base>>`; `name`, `displayValue` `List<Base>`, `properties` dict |
-|  [02]   | `RevitObject`    | data subtype  | adds `type`/`family`/`category`/`level`/`location`/`elements`                                                                              |
-|  [03]   | `TeklaObject`    | data subtype  | adds `type`/`elements`                                                                                                                     |
-|  [04]   | `ArchicadObject` | data subtype  | Archicad host element; `DataObject` parameter dictionary                                                                                   |
-|  [05]   | `Civil3dObject`  | data subtype  | Civil3D host element; `DataObject` parameter dictionary                                                                                    |
-|  [06]   | `AutocadObject`  | data subtype  | AutoCAD host element; `DataObject` parameter dictionary                                                                                    |
-|  [07]   | `RhinoObject`    | data subtype  | Rhino host element; `DataObject` parameter dictionary                                                                                      |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [ROLE]                                                                             |
+| :-----: | :--------------- | :------------ | :--------------------------------------------------------------------------------- |
+|  [01]   | `DataObject`     | data class    | base host object; `IDataObject`/`IProperties`/`IDisplayValue<IReadOnlyList<Base>>` |
+|  [02]   | `RevitObject`    | data subtype  | adds `type`/`family`/`category`/`level`/`location`/`elements`                      |
+|  [03]   | `TeklaObject`    | data subtype  | adds `type`/`elements`                                                             |
+|  [04]   | `ArchicadObject` | data subtype  | Archicad host element; `DataObject` parameter dictionary                           |
+|  [05]   | `Civil3dObject`  | data subtype  | Civil3D host element; `DataObject` parameter dictionary                            |
+|  [06]   | `AutocadObject`  | data subtype  | AutoCAD host element; `DataObject` parameter dictionary                            |
+|  [07]   | `RhinoObject`    | data subtype  | Rhino host element; `DataObject` parameter dictionary                              |
 
 [HOST_SUBTYPE_ROSTER]: `DataObject` subtypes
 - `ArcgisObject`, `ArchicadObject`, `AutocadObject`, `Civil3dObject`, `EtabsObject`, `MicrostationObject`, `NavisworksObject`, `RevitObject`, `RhinoObject`, `TeklaObject`, `TsdObject` — each extends `DataObject` and carries the inherited `name`/`displayValue`/`properties` plus host-specific typed columns.

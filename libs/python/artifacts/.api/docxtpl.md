@@ -39,35 +39,62 @@
 
 `DocxTemplate(template_file)` accepts a path, `PathLike`, or binary stream and lazily materializes the `python-docx` `Document` (`init_docx`) on first need. `render` mutates the loaded document in place (body + header/footer parts); `render_footnotes` and `render_properties` are companion substitution passes for the footnote and core-property parts, both called after `render` on the same `context`/`jinja_env`. `save` flushes the rendered document to the target. `get_undeclared_template_variables` runs jinja2 meta analysis (over a throwaway `Document` so it is non-mutating) to list variables the template references. `new_subdoc` mints a `Subdoc` for full sub-document composition. `build_url_id` registers an external hyperlink relationship and returns the `url_id` the carriers reference. The `replace_*` rows swap embedded media/files inside the package before render.
 
-| [INDEX] | [SURFACE]                                        | [CALL_SHAPE]                                                                                                                       | [CAPABILITY]                                                                                                                                                                                           |
-| :-----: | :----------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `DocxTemplate.__init__`                          | `DocxTemplate(template_file: Union[IO[bytes], str, PathLike]) -> None`                                                             | load a `.docx` as a jinja2 template                                                                                                                                                                    |
-|  [02]   | `DocxTemplate.render`                            | `render(context: Dict[str, Any], jinja_env: Optional[Environment] = None, autoescape: bool = False) -> None`                       | substitute context into body + header/footer XML in place                                                                                                                                              |
-|  [03]   | `DocxTemplate.render_footnotes`                  | `render_footnotes(context: Dict[str, Any], jinja_env: Optional[Environment] = None) -> None`                                       | substitute context into footnote-part XML (call after `render`)                                                                                                                                        |
-|  [04]   | `DocxTemplate.render_properties`                 | `render_properties(context: Dict[str, Any], jinja_env: Optional[Environment] = None) -> None`                                      | render context through `core_properties` `author`/`comments`/`identifier`/`language`/`subject`/`title` and write them back (call after `render`)                                                       |
-|  [05]   | `DocxTemplate.save`                              | `save(filename: Union[IO[bytes], str, PathLike], *args, **kwargs) -> None`                                                         | write the rendered document to path or stream (`*args`/`**kwargs` forwarded to `python-docx` `Document.save`); a save with no prior render reloads the template and applies only the `replace_*` swaps |
-|  [06]   | `DocxTemplate.get_undeclared_template_variables` | `get_undeclared_template_variables(jinja_env: Optional[Environment] = None, context: Optional[Dict[str, Any]] = None) -> Set[str]` | list jinja2 variables body+header+footer reference (non-mutating)                                                                                                                                      |
-|  [07]   | `DocxTemplate.new_subdoc`                        | `new_subdoc(docpath=None) -> Subdoc`                                                                                               | mint a sub-document carrier for the context (requires `docxcompose`)                                                                                                                                   |
-|  [08]   | `DocxTemplate.build_url_id`                      | `build_url_id(url) -> str`                                                                                                         | register an external hyperlink relationship, return its `url_id` for a carrier `url_id=`                                                                                                               |
-|  [09]   | `DocxTemplate.docx` / `get_docx`                 | `docx` attribute (the `python-docx` `Document`); `get_docx() -> Document` forces `init_docx()` then returns it                     | reach the underlying `python-docx` `Document` for structural pre/post work                                                                                                                             |
-|  [10]   | `DocxTemplate.replace_media`                     | `replace_media(src_file, dst_file)`                                                                                                | swap a media part by source file before render                                                                                                                                                         |
-|  [11]   | `DocxTemplate.replace_embedded`                  | `replace_embedded(src_file, dst_file)`                                                                                             | swap an embedded (OLE/object) part before render                                                                                                                                                       |
-|  [12]   | `DocxTemplate.replace_zipname`                   | `replace_zipname(zipname, dst_file)`                                                                                               | swap a zip-entry part by archive name before render (the `EmitSpec.replace` band)                                                                                                                      |
-|  [13]   | `DocxTemplate.replace_pic`                       | `replace_pic(embedded_file, dst_file)`                                                                                             | swap a picture part by its embedded filename before render                                                                                                                                             |
+Every surface is a `DocxTemplate` method; `render`/`render_footnotes`/`render_properties` share `(context, jinja_env=None)` (`render` adds `autoescape=False`).
+
+| [INDEX] | [SURFACE]                           | [CAPABILITY]                                                                |
+| :-----: | :---------------------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `__init__`                          | load a `.docx` as a jinja2 template (path/`PathLike`/stream)                |
+|  [02]   | `render`                            | substitute context into body + header/footer XML in place                   |
+|  [03]   | `render_footnotes`                  | substitute into footnote-part XML (call after `render`)                     |
+|  [04]   | `render_properties`                 | render context through `core_properties` and write it back                  |
+|  [05]   | `save`                              | write the rendered doc to path/stream; a bare save applies only `replace_*` |
+|  [06]   | `get_undeclared_template_variables` | list jinja2 variables body+header+footer reference (non-mutating)           |
+|  [07]   | `new_subdoc`                        | mint a sub-document carrier (requires `docxcompose`)                        |
+|  [08]   | `build_url_id`                      | register an external hyperlink relationship, return its `url_id`            |
+|  [09]   | `docx` / `get_docx`                 | reach the underlying `python-docx` `Document` for structural work           |
+|  [10]   | `replace_media`                     | swap a media part by source file before render                              |
+|  [11]   | `replace_embedded`                  | swap an embedded (OLE/object) part before render                            |
+|  [12]   | `replace_zipname`                   | swap a zip-entry part by archive name (the `EmitSpec.replace` band)         |
+|  [13]   | `replace_pic`                       | swap a picture part by its embedded filename before render                  |
+
+Call shapes:
+
+- [01]-[__init__]: `DocxTemplate(template_file: Union[IO[bytes], str, PathLike]) -> None`
+- [02]-[RENDER]: `render(context, jinja_env=None, autoescape=False) -> None`
+- [03]-[RENDER_FOOTNOTES]: `render_footnotes(context, jinja_env=None) -> None`
+- [04]-[RENDER_PROPERTIES]: `render_properties(context, jinja_env=None) -> None` — writes `author`/`comments`/`identifier`/`language`/`subject`/`title`
+- [05]-[SAVE]: `save(filename: Union[IO[bytes], str, PathLike], *args, **kwargs) -> None` — `*args`/`**kwargs` forward to `python-docx` `Document.save`
+- [06]-[GET_UNDECLARED_TEMPLATE_VARIABLES]: `get_undeclared_template_variables(jinja_env=None, context=None) -> Set[str]`
+- [07]-[NEW_SUBDOC]: `new_subdoc(docpath=None) -> Subdoc`
+- [08]-[BUILD_URL_ID]: `build_url_id(url) -> str`
+- [09]-[DOCX]: `docx` attribute (the `python-docx` `Document`); `get_docx() -> Document` forces `init_docx()` then returns it
+- [10]-[REPLACE_MEDIA]: `replace_media(src_file, dst_file)`
+- [11]-[REPLACE_EMBEDDED]: `replace_embedded(src_file, dst_file)`
+- [12]-[REPLACE_ZIPNAME]: `replace_zipname(zipname, dst_file)`
+- [13]-[REPLACE_PIC]: `replace_pic(embedded_file, dst_file)`
 
 [ENTRYPOINT_SCOPE]: content carriers
 - rail: document
 
 Carriers serialize to OOXML and stringify into the render context (`__str__`/`__html__` both return the accumulated `.xml`). `RichText`/`R` accumulate styled runs via `add` (the full character-appearance axis below); a `RichText` passed as the `text` of another `add` is concatenated by XML, so carriers nest. `RichTextParagraph`/`RP` accumulate styled paragraphs via `add`, each paragraph wrapping a `RichText` under an optional `parastyle`. `Listing` escapes text while preserving `\n` (soft line break) and `\a` (page break) so the template's surrounding paragraph style is kept. `InlineImage` binds an image descriptor to the template via `tpl` and stringifies to the inline-drawing XML.
 
-| [INDEX] | [SURFACE]                    | [CALL_SHAPE]                                                                                                                                                                                            | [CAPABILITY]                                                                                                                                                                                                                                           |
-| :-----: | :--------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `RichText.__init__`          | `RichText(text=None, **text_prop)`                                                                                                                                                                      | start an inline run sequence; `**text_prop` forwards to a first `add`                                                                                                                                                                                  |
-|  [02]   | `RichText.add`               | `add(text, style=None, color=None, highlight=None, size=None, subscript=None, superscript=None, bold=False, italic=False, underline=False, strike=False, font=None, url_id=None, rtl=False, lang=None)` | append a styled run; the full character-appearance axis the emit `_docx_run_props` projects (`italic`/`superscript`/`subscript`/`color`/`rtl`/`lang`/`url_id`) — a `RichText` argument is concatenated, a non-str is `str()`-coerced then HTML-escaped |
-|  [03]   | `RichTextParagraph.__init__` | `RichTextParagraph(text=None, **text_prop)`                                                                                                                                                             | start a styled paragraph sequence                                                                                                                                                                                                                      |
-|  [04]   | `RichTextParagraph.add`      | `add(text, parastyle=None)`                                                                                                                                                                             | append a paragraph wrapping a `RichText` under an optional named paragraph style                                                                                                                                                                       |
-|  [05]   | `Listing.__init__`           | `Listing(text)`                                                                                                                                                                                         | escape text while keeping `\n`/`\a` and the template paragraph style (non-str is `str()`-coerced)                                                                                                                                                      |
-|  [06]   | `InlineImage.__init__`       | `InlineImage(tpl, image_descriptor, width=None, height=None, anchor=None)`                                                                                                                              | bind an inline image to `tpl` with optional `Length` size and `anchor` hyperlink-id                                                                                                                                                                    |
+| [INDEX] | [SURFACE]                    | [CAPABILITY]                                                           |
+| :-----: | :--------------------------- | :--------------------------------------------------------------------- |
+|  [01]   | `RichText.__init__`          | start an inline run sequence; `**text_prop` forwards to a first `add`  |
+|  [02]   | `RichText.add`               | append a styled run over the full character-appearance axis            |
+|  [03]   | `RichTextParagraph.__init__` | start a styled paragraph sequence                                      |
+|  [04]   | `RichTextParagraph.add`      | append a paragraph wrapping a `RichText` under an optional `parastyle` |
+|  [05]   | `Listing.__init__`           | escape text while keeping `\n`/`\a` and the template paragraph style   |
+|  [06]   | `InlineImage.__init__`       | bind an inline image to `tpl` with optional `Length` size and `anchor` |
+
+Call shapes — `RichText.add` projects the full run-appearance axis the emit `_docx_run_props` mirrors (a `RichText` argument is concatenated, a non-str is `str()`-coerced then HTML-escaped):
+
+- [01]-[RichText.__init__]: `RichText(text=None, **text_prop)`
+- [02]-[RichText.add]: `add(text, style=None, color=None, highlight=None, size=None, subscript=None, superscript=None, bold=False, italic=False, underline=False, strike=False, font=None, url_id=None, rtl=False, lang=None)`
+- [03]-[RichTextParagraph.__init__]: `RichTextParagraph(text=None, **text_prop)`
+- [04]-[RichTextParagraph.add]: `add(text, parastyle=None)`
+- [05]-[Listing.__init__]: `Listing(text)`
+- [06]-[InlineImage.__init__]: `InlineImage(tpl, image_descriptor, width=None, height=None, anchor=None)`
 
 ## [04]-[IMPLEMENTATION_LAW]
 

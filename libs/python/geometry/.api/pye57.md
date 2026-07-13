@@ -18,77 +18,96 @@
 [PUBLIC_TYPE_SCOPE]: file, scan, and coordinate-system family
 - rail: scan-processing
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [CAPABILITY]                                                                                                                                |
-| :-----: | :------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `E57`                | file handle     | multi-scan read/write, buffer allocation, static global-frame transform, context-manager close                                              |
-|  [02]   | `ScanHeader`         | scan metadata   | typed view over a libe57 scan structure node: pose, bounds, acquisition, point count, field list                                            |
-|  [03]   | `COORDINATE_SYSTEMS` | `enum.Enum`     | `CARTESIAN`/`SPHERICAL`; each member's `.value` is the field-name->dtype-char map for that mode                                             |
-|  [04]   | `pye57.libe57`       | C++ node module | low-level `ImageFile`/`StructureNode`/`FloatNode`/`CompressedVectorNode`/`SourceDestBuffer` plus `E57Exception`; boundary-only escape hatch |
-|  [05]   | `PyE57Exception`     | fault           | `pye57.exception.PyE57Exception(BaseException)`; package-level fault (libe57 node faults surface as `libe57.E57Exception`)                  |
+`pye57.libe57` exposes the raw libe57 node classes — `ImageFile`, `StructureNode`, `FloatNode`, `CompressedVectorNode`, `SourceDestBuffer`, `E57Exception` — as the boundary escape hatch.
+
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [CAPABILITY]                                                                   |
+| :-----: | :------------------- | :-------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `E57`                | file handle     | multi-scan read/write, buffer alloc, global-frame transform, ctx-manager close |
+|  [02]   | `ScanHeader`         | scan metadata   | typed view of a libe57 scan node: pose, bounds, acquisition, count, fields     |
+|  [03]   | `COORDINATE_SYSTEMS` | `enum.Enum`     | `CARTESIAN`/`SPHERICAL`; `.value` is the field-name->dtype-char map            |
+|  [04]   | `pye57.libe57`       | C++ node module | raw libe57 node classes (see lead); boundary-only escape hatch                 |
+|  [05]   | `PyE57Exception`     | fault           | `PyE57Exception(BaseException)`; libe57 faults raise `libe57.E57Exception`     |
 
 [PUBLIC_TYPE_SCOPE]: supported-field maps (`pye57.e57`)
 - rail: scan-processing
 - type-family: `dict[str, str]` mapping each supported field name to its `numpy` dtype char — NOT a frozenset; `make_buffer` reads the dtype char to allocate the array, and `COORDINATE_SYSTEMS.*.value` reuses the Cartesian/spherical sub-maps for mode detection
 
-| [INDEX] | [SYMBOL]                           | [ENTRIES]                                                                                                                                                                  |
-| :-----: | :--------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SUPPORTED_CARTESIAN_POINT_FIELDS` | `cartesianX`/`cartesianY`/`cartesianZ` -> `"d"`                                                                                                                            |
-|  [02]   | `SUPPORTED_SPHERICAL_POINT_FIELDS` | `sphericalRange`/`sphericalAzimuth`/`sphericalElevation` -> `"d"`                                                                                                          |
-|  [03]   | `SUPPORTED_POINT_FIELDS`           | the two above plus `intensity`->`"f"`, `colorRed`/`colorGreen`/`colorBlue`->`"B"`, `rowIndex`/`columnIndex`->`"H"`, `cartesianInvalidState`/`sphericalInvalidState`->`"b"` |
+| [INDEX] | [SYMBOL]                           | [ENTRIES]                                                         |
+| :-----: | :--------------------------------- | :---------------------------------------------------------------- |
+|  [01]   | `SUPPORTED_CARTESIAN_POINT_FIELDS` | `cartesianX`/`cartesianY`/`cartesianZ` -> `"d"`                   |
+|  [02]   | `SUPPORTED_SPHERICAL_POINT_FIELDS` | `sphericalRange`/`sphericalAzimuth`/`sphericalElevation` -> `"d"` |
+|  [03]   | `SUPPORTED_POINT_FIELDS`           | rows [01] + [02] plus the extra fields fenced below               |
+
+```python signature
+# SUPPORTED_POINT_FIELDS extends [01] + [02] with (field name -> numpy dtype char):
+"intensity": "f",
+"colorRed": "B", "colorGreen": "B", "colorBlue": "B",
+"rowIndex": "H", "columnIndex": "H",
+"cartesianInvalidState": "b", "sphericalInvalidState": "b",
+```
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: E57 file lifecycle, read, and buffer allocation
 - rail: scan-processing
 
-`make_buffer`/`make_buffers` return a `(numpy-array-or-dict, libe57-buffer)` PAIR, not a bare dict — `read_scan` calls `make_buffers` internally, so direct buffer allocation is only needed for the raw write path.
+`read_scan(index, *, intensity=False, colors=False, row_column=False, transform=True, ignore_missing_fields=False)` returns the conditioned field-keyed dict (invalid-state masked, pose applied when `transform=True`); `read_scan_raw(index, ignore_unsupported_fields=False)` returns every supported field as-stored. `make_buffer(field_name, capacity, do_conversion=True, do_scaling=True) -> (ndarray, SourceDestBuffer)` and `make_buffers(field_names, ...) -> (dict[str, ndarray], VectorSourceDestBuffer)` return a `(array-or-dict, libe57-buffer)` pair, not a bare dict — `read_scan` calls `make_buffers` internally, so direct allocation is only needed for the raw write path.
 
-| [INDEX] | [SURFACE]                                                                                                                     | [ENTRY_FAMILY] | [RAIL]                                                                                                                 |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `E57(path, mode='r') -> E57`                                                                                                  | construction   | open `.e57`; `mode='w'` writes the default header inline; supports `with E57(...) as e:`                               |
-|  [02]   | `e.scan_count -> int`                                                                                                         | query          | `len(data3D)` scans in the file                                                                                        |
-|  [03]   | `e.get_header(index) -> ScanHeader`                                                                                           | query          | wrap the `data3D[index]` node in a `ScanHeader`                                                                        |
-|  [04]   | `e.read_scan(index, *, intensity=False, colors=False, row_column=False, transform=True, ignore_missing_fields=False) -> dict` | read           | conditioned field-keyed `numpy` dict; invalid-state-masked, pose-applied when `transform=True`                         |
-|  [05]   | `e.read_scan_raw(index, ignore_unsupported_fields=False) -> dict`                                                             | read           | every supported field as-stored, no mask, no transform                                                                 |
-|  [06]   | `e.make_buffer(field_name, capacity, do_conversion=True, do_scaling=True) -> (ndarray, SourceDestBuffer)`                     | allocation     | one preallocated array sized by `SUPPORTED_POINT_FIELDS[field_name]` dtype, plus its libe57 buffer                     |
-|  [07]   | `e.make_buffers(field_names, capacity, do_conversion=True, do_scaling=True) -> (dict[str, ndarray], VectorSourceDestBuffer)`  | allocation     | per-field array dict plus the buffer vector the reader/writer consumes                                                 |
-|  [08]   | `e.scan_position(index) -> ndarray`                                                                                           | query          | sensor XYZ via `to_global([[0,0,0]], header.rotation, header.translation)`                                             |
-|  [09]   | `E57.to_global(points, rotation, translation) -> ndarray` (`@staticmethod`)                                                   | transform      | quaternion-rotate + translate an `(N,3)` array to global frame via `pyquaternion.Quaternion(rotation).rotation_matrix` |
-|  [10]   | `e.close()` / `e.__del__` / `e.__exit__`                                                                                      | lifecycle      | close the libe57 `ImageFile`                                                                                           |
-|  [11]   | `e.root -> StructureNode` / `e.data3d -> VectorNode`                                                                          | property       | libe57 root node / `data3D` scan vector (boundary escape)                                                              |
+| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [RAIL]                                                     |
+| :-----: | :-------------------------------------------------------- | :------------- | :--------------------------------------------------------- |
+|  [01]   | `E57(path, mode='r') -> E57`                              | construction   | open `.e57`; `mode='w'` auto-writes default header         |
+|  [02]   | `e.scan_count -> int`                                     | query          | `len(data3D)` scans in the file                            |
+|  [03]   | `e.get_header(index) -> ScanHeader`                       | query          | wrap the `data3D[index]` node in a `ScanHeader`            |
+|  [04]   | `e.read_scan(index, *, ...) -> dict`                      | read           | conditioned field-keyed `numpy` dict (see lead)            |
+|  [05]   | `e.read_scan_raw(index, ...) -> dict`                     | read           | every supported field as-stored, no mask, no transform     |
+|  [06]   | `e.make_buffer(field_name, ...)`                          | allocation     | array sized by `SUPPORTED_POINT_FIELDS` dtype + buffer     |
+|  [07]   | `e.make_buffers(field_names, ...)`                        | allocation     | per-field array dict + buffer vector for reader/writer     |
+|  [08]   | `e.scan_position(index) -> ndarray`                       | query          | sensor XYZ via `to_global([0,0,0], rotation, translation)` |
+|  [09]   | `E57.to_global(points, rotation, translation) -> ndarray` | transform      | static; rotate + translate `(N,3)` to global frame         |
+|  [10]   | `e.close()` / `e.__del__` / `e.__exit__`                  | lifecycle      | close the libe57 `ImageFile`                               |
+|  [11]   | `e.root -> StructureNode` / `e.data3d -> VectorNode`      | property       | libe57 root node / `data3D` scan vector (boundary escape)  |
 
 [ENTRYPOINT_SCOPE]: E57 write path
 - rail: scan-processing
 
-`write_scan_raw` is the single write entry: it builds the scan structure node (pose, bounds, intensity/color limits, acquisition times), the points prototype from the present fields, and streams the data dict in 5M-point chunks.
+`write_scan_raw(data, *, name=None, rotation=None, translation=None, scan_header=None)` is the single write entry: it builds the scan structure node (pose, bounds, intensity/color limits, acquisition times) and the points prototype from the present fields, then streams the data dict in 5M-point chunks. `convert_spherical_to_cartesian` lives in `pye57.utils`.
 
-| [INDEX] | [SURFACE]                                                                                 | [ENTRY_FAMILY] | [RAIL]                                                                                                           |
-| :-----: | :---------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `e.write_default_header()`                                                                | write          | format/guid/version/data3D/images2D root nodes; auto-run when `mode='w'`                                         |
-|  [02]   | `e.write_scan_raw(data, *, name=None, rotation=None, translation=None, scan_header=None)` | write          | append one scan from a field-keyed dict; pose from explicit `rotation`/`translation` or copied off `scan_header` |
-|  [03]   | `convert_spherical_to_cartesian(rae) -> ndarray` (`pye57.utils`)                          | transform      | `(N,3)` range/azimuth/elevation -> XYZ; the spherical-mode projection `read_scan` applies before pose transform  |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                                                               |
+| :-----: | :----------------------------------------------- | :------------- | :------------------------------------------------------------------- |
+|  [01]   | `e.write_default_header()`                       | write          | root nodes format/guid/version/data3D/images2D; auto at `mode='w'`   |
+|  [02]   | `e.write_scan_raw(data, *, ...)`                 | write          | append one scan; pose from `rotation`/`translation` or `scan_header` |
+|  [03]   | `convert_spherical_to_cartesian(rae) -> ndarray` | transform      | `(N,3)` RAE -> XYZ; spherical projection before pose transform       |
 
 [ENTRYPOINT_SCOPE]: ScanHeader typed metadata
 - rail: scan-processing
 
-`ScanHeader` wraps the libe57 scan node and `__getitem__`-delegates to it; every property below reads a child node's `.value()` and raises through `libe57.E57Exception` when absent (pose properties degrade to identity/zero).
+`ScanHeader` wraps the libe57 scan node and `__getitem__`-delegates to it; every property below reads a child node's `.value()` and raises through `libe57.E57Exception` when absent (pose properties degrade to identity/zero). Pose accessors return `ndarray`; bounds accessors return scalars.
 
-| [INDEX] | [SURFACE]                                                                                                   | [ENTRY_FAMILY] | [RAIL]                                                                                        |
-| :-----: | :---------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------------- |
-|  [01]   | `ScanHeader(scan_node)` / `ScanHeader.from_data3d(data3d) -> list[ScanHeader]`                              | construction   | wrap one scan node / map a whole `data3D` vector                                              |
-|  [02]   | `h.point_fields -> list[str]` / `h.scan_fields -> list[str]`                                                | query          | prototype field names / scan-node child names (drives `get_coordinate_system`)                |
-|  [03]   | `h.get_coordinate_system(COORDINATE_SYSTEMS) -> COORDINATE_SYSTEMS`                                         | query          | `CARTESIAN`/`SPHERICAL` by presence of each mode's field set; raises otherwise                |
-|  [04]   | `h.has_pose() -> bool`                                                                                      | query          | `node.isDefined("pose")`                                                                      |
-|  [05]   | `h.point_count -> int`                                                                                      | property       | `points.childCount()`                                                                         |
-|  [06]   | `h.rotation -> ndarray` / `h.translation -> ndarray` / `h.rotation_matrix -> ndarray`                       | property       | quaternion elements `(w,x,y,z)` / `(3,)` translation / `(3,3)` matrix (identity when no pose) |
-|  [07]   | `h.pose` / `h.points` / `h.indexBounds` / `h.intensityLimits` / `h.cartesianBounds` / `h.sphericalBounds`   | property       | raw libe57 sub-nodes (boundary escape)                                                        |
-|  [08]   | `h.xMinimum`..`h.zMaximum`                                                                                  | property       | Cartesian bounding-box scalars                                                                |
-|  [09]   | `h.rangeMinimum`/`h.rangeMaximum`/`h.elevationMinimum`/`h.elevationMaximum`/`h.azimuthStart`/`h.azimuthEnd` | property       | spherical bounds scalars                                                                      |
-|  [10]   | `h.rowMinimum`/`h.rowMaximum`/`h.columnMinimum`/`h.columnMaximum`/`h.returnMinimum`/`h.returnMaximum`       | property       | index-bounds scalars                                                                          |
-|  [11]   | `h.intensityMinimum` / `h.intensityMaximum`                                                                 | property       | intensity-limit scalars                                                                       |
-|  [12]   | `h.acquisitionStart_dateTimeValue`/`h.acquisitionStart_isAtomicClockReferenced` (and `..End..`)             | property       | acquisition GPS time + atomic-clock flag                                                      |
-|  [13]   | `h.guid` / `h.temperature` / `h.relativeHumidity` / `h.atmosphericPressure`                                 | property       | scan identity and environmental metadata                                                      |
-|  [14]   | `h.pretty_print(node=None, indent='') -> list[str]`                                                         | debug          | recursive node dump as a line list (NOT a printer)                                            |
+| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [RAIL]                                             |
+| :-----: | :--------------------------------------------------------------- | :------------- | :------------------------------------------------- |
+|  [01]   | `ScanHeader(scan_node)`                                          | construction   | wrap one scan node                                 |
+|  [02]   | `ScanHeader.from_data3d(data3d) -> list[ScanHeader]`             | construction   | map a whole `data3D` vector                        |
+|  [03]   | `h.point_fields -> list[str]` / `h.scan_fields -> list[str]`     | query          | prototype field names / scan-node child names      |
+|  [04]   | `h.get_coordinate_system(COORDINATE_SYSTEMS)`                    | query          | detects `CARTESIAN`/`SPHERICAL`; raises if neither |
+|  [05]   | `h.has_pose() -> bool`                                           | query          | `node.isDefined("pose")`                           |
+|  [06]   | `h.point_count -> int`                                           | property       | `points.childCount()`                              |
+|  [07]   | `h.rotation` / `h.translation`                                   | property       | quaternion `(w,x,y,z)` and `(3,)` translation      |
+|  [08]   | `h.rotation_matrix`                                              | property       | `(3,3)` matrix (identity when no pose)             |
+|  [09]   | `h.pose` / `h.points` / `h.indexBounds`                          | property       | raw libe57 sub-nodes (boundary escape)             |
+|  [10]   | `h.intensityLimits` / `h.cartesianBounds` / `h.sphericalBounds`  | property       | raw libe57 sub-nodes (boundary escape)             |
+|  [11]   | `h.xMinimum`..`h.zMaximum`                                       | property       | Cartesian bounding-box scalars                     |
+|  [12]   | `h.rangeMinimum` / `h.rangeMaximum`                              | property       | spherical range bounds                             |
+|  [13]   | `h.elevationMinimum` / `h.elevationMaximum`                      | property       | spherical elevation bounds                         |
+|  [14]   | `h.azimuthStart` / `h.azimuthEnd`                                | property       | spherical azimuth bounds                           |
+|  [15]   | `h.rowMinimum` / `h.rowMaximum`                                  | property       | row index bounds                                   |
+|  [16]   | `h.columnMinimum` / `h.columnMaximum`                            | property       | column index bounds                                |
+|  [17]   | `h.returnMinimum` / `h.returnMaximum`                            | property       | return index bounds                                |
+|  [18]   | `h.intensityMinimum` / `h.intensityMaximum`                      | property       | intensity-limit scalars                            |
+|  [19]   | `h.acquisitionStart_dateTimeValue` (and `..End..`)               | property       | acquisition GPS time                               |
+|  [20]   | `h.acquisitionStart_isAtomicClockReferenced` (and `..End..`)     | property       | atomic-clock flag                                  |
+|  [21]   | `h.guid`                                                         | property       | scan identity                                      |
+|  [22]   | `h.temperature` / `h.relativeHumidity` / `h.atmosphericPressure` | property       | environmental metadata                             |
+|  [23]   | `h.pretty_print(node=None, indent='') -> list[str]`              | debug          | recursive node dump as a line list (NOT a printer) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

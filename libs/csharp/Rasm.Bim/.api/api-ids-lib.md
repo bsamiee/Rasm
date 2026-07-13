@@ -30,72 +30,92 @@ quantity, and classification owners read directly, independent of the audit path
 - namespace: `IdsLib`
 - rail: ids-validation
 
-| [INDEX] | [SYMBOL]                              | [RAIL]         | [CAPABILITY]                                                                                                                                                                                                                                                                                                     |
-| :-----: | :------------------------------------ | :------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Audit`                               | ids-validation | `static`; the entrypoint — `Run`/`RunAsync(Stream, SingleAuditOptions, ILogger?)` and `Run(IBatchAuditOptions, ILogger?)`                                                                                                                                                                                        |
-|  [02]   | `Audit.Status`                        | ids-validation | `[Flags]` result enum: `Ok=0`, `NotImplementedError`, `InvalidOptionsError`, `NotFoundError`, `IdsStructureError`, `IdsContentError`, `XsdSchemaError`, `UnhandledError`, `IdsStructureWarning`                                                                                                                  |
-|  [03]   | `Audit.ISchemaProvider`               | ids-validation | the IDS-XSD source seam: `Status GetSchemas(Stream source, ILogger?, out IEnumerable<XmlSchema>)`                                                                                                                                                                                                                |
-|  [04]   | `AuditHelper`                         | ids-validation | the per-run audit state holder (`Options`, `SchemaStatus`, `ValidationReporter` XSD event sink)                                                                                                                                                                                                                  |
-|  [05]   | `AuditHelper.BufferedValidationIssue` | ids-validation | a captured issue: `Level` (`LogLevel`), `Message`, `Line`, `Position`, `Schema` (`Original` enum: which schema raised it)                                                                                                                                                                                        |
-|  [06]   | `LibraryInformation`                  | ids-validation | `static`; `AssemblyVersion`, `Commit`/`Sha`/`CommitDate`, `Isdirty` — the exact engine build the audit ran under                                                                                                                                                                                                 |
-|  [07]   | `NullLogger.Instance`                 | ids-validation | `Microsoft.Extensions.Logging.Abstractions.NullLogger: ILogger` (transitive); the static no-op `ILogger` sink passed as the `Audit.Run`/`RunAsync` logger argument (and the `Xids.LoadBuildingSmartIDS`/`ValueConstraint.IsSatisfiedBy` logger) when the per-line diagnostics are discarded rather than buffered |
+| [INDEX] | [SYMBOL]                              | [CAPABILITY]                                                                                     |
+| :-----: | :------------------------------------ | :----------------------------------------------------------------------------------------------- |
+|  [01]   | `Audit`                               | `static`; the audit entrypoint (`Run`/`RunAsync` overloads in [03])                              |
+|  [02]   | `Audit.Status`                        | `[Flags]` result enum (values in the fence below)                                                |
+|  [03]   | `Audit.ISchemaProvider`               | IDS-XSD source seam; `Status GetSchemas(Stream source, ILogger?, out IEnumerable<XmlSchema>)`    |
+|  [04]   | `AuditHelper`                         | the per-run audit state holder (`Options`, `SchemaStatus`, `ValidationReporter` XSD event sink)  |
+|  [05]   | `AuditHelper.BufferedValidationIssue` | a captured issue: `Level`/`Message`/`Line`/`Position`/`Schema` (`Original` enum)                 |
+|  [06]   | `LibraryInformation`                  | `static`; `AssemblyVersion`, `Commit`/`Sha`/`CommitDate`, `Isdirty` — the engine build           |
+|  [07]   | `NullLogger.Instance`                 | `NullLogger: ILogger` (transitive) — the no-op sink when diagnostics are discarded, not buffered |
+
+```csharp signature
+[Flags] enum Audit.Status =                     // Ok=0 is the pass; any error flag (or IdsStructureWarning under strict) rejects
+    Ok=0 | NotImplementedError | InvalidOptionsError | NotFoundError | IdsStructureError
+    | IdsContentError | XsdSchemaError | UnhandledError | IdsStructureWarning;
+```
 
 [PUBLIC_TYPE_SCOPE]: audit options
 - package: `ids-lib`
 - namespace: `IdsLib`
 - rail: ids-validation
 
-| [INDEX] | [SYMBOL]                                  | [RAIL]         | [CAPABILITY]                                                                                                                                                                        |
-| :-----: | :---------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `AuditProcessOptions`                     | ids-validation | base options: `SchemaProvider` (`ISchemaProvider`, default `SeekableStreamSchemaProvider`), `OmitIdsSchemaAudit`, `OmitIdsContentAudit`, `XmlWarningAction` (`XmlWarningBehaviour`) |
-|  [02]   | `SingleAuditOptions`                      | ids-validation | `AuditProcessOptions` + `IdsVersion` (default `Ids1_0`); the single-file `Run`/`RunAsync` argument                                                                                  |
-|  [03]   | `IBatchAuditOptions`                      | ids-validation | the batch contract: `InputSource`/`InputExtension`, `SchemaFiles`, `AuditSchemaDefinition`, `OmitIdsContentAudit`(+`Pattern`) — implement for directory/glob audits                 |
-|  [04]   | `AuditProcessOptions.XmlWarningBehaviour` | ids-validation | how XSD warnings escalate: `ReportAsInformation` (default), promote to warning/error                                                                                                |
+| [INDEX] | [SYMBOL]                                  | [CAPABILITY]                                                                         |
+| :-----: | :---------------------------------------- | :----------------------------------------------------------------------------------- |
+|  [01]   | `AuditProcessOptions`                     | `SchemaProvider`, `OmitIds{Schema,Content}Audit`, `XmlWarningAction`                 |
+|  [02]   | `SingleAuditOptions`                      | `AuditProcessOptions` + `IdsVersion` (default `Ids1_0`); the single-file argument    |
+|  [03]   | `IBatchAuditOptions`                      | batch contract: `InputSource`/`InputExtension`/`SchemaFiles`                         |
+|  [04]   | `IBatchAuditOptions`                      | + `AuditSchemaDefinition`/`OmitIdsContentAudit`(+`Pattern`)                          |
+|  [05]   | `AuditProcessOptions.XmlWarningBehaviour` | how XSD warnings escalate: `ReportAsInformation` (default), promote to warning/error |
 
 [PUBLIC_TYPE_SCOPE]: IDS-XSD schema providers
 - package: `ids-lib`
 - namespace: `IdsLib.SchemaProviders`
 - rail: ids-validation
 
-| [INDEX] | [SYMBOL]                       | [RAIL]         | [CAPABILITY]                                                                                            |
-| :-----: | :----------------------------- | :------------- | :------------------------------------------------------------------------------------------------------ |
-|  [01]   | `SchemaProvider`               | ids-validation | `abstract` base for the IDS-XSD source providers                                                        |
-|  [02]   | `SeekableStreamSchemaProvider` | ids-validation | the default: detects the `IdsVersion` from the source stream and supplies the matching embedded IDS XSD |
-|  [03]   | `FixedVersionSchemaProvider`   | ids-validation | ctor `(IdsVersion)`; forces a specific IDS schema version regardless of the document declaration        |
-|  [04]   | `FileBasedSchemaProvider`      | ids-validation | ctor `(IEnumerable<string> schemaFiles, ILogger?)`; audits against externally-supplied XSD files        |
+| [INDEX] | [SYMBOL]                       | [CAPABILITY]                                                                                            |
+| :-----: | :----------------------------- | :------------------------------------------------------------------------------------------------------ |
+|  [01]   | `SchemaProvider`               | `abstract` base for the IDS-XSD source providers                                                        |
+|  [02]   | `SeekableStreamSchemaProvider` | the default: detects the `IdsVersion` from the source stream and supplies the matching embedded IDS XSD |
+|  [03]   | `FixedVersionSchemaProvider`   | ctor `(IdsVersion)`; forces a specific IDS schema version regardless of the document declaration        |
+|  [04]   | `FileBasedSchemaProvider`      | ctor `(IEnumerable<string> schemaFiles, ILogger?)`; audits against externally-supplied XSD files        |
 
 [PUBLIC_TYPE_SCOPE]: IfcSchema — schema graph root
 - package: `ids-lib`
 - namespace: `IdsLib.IfcSchema`
 - rail: ifc-schema
 
-`SchemaInfo` is the embedded IFC schema authority — `SchemaIfc2x3`/`SchemaIfc4`/`SchemaIfc4x3`
-are ready-built static graphs, each an `IEnumerable<ClassInfo>` indexable by class name.
+`SchemaInfo` is the embedded IFC schema authority — `SchemaIfc2x3`/`SchemaIfc4`/`SchemaIfc4x3` are ready-built static graphs, each an `IEnumerable<ClassInfo>` indexable by class name.
 
-| [INDEX] | [SYMBOL]            | [RAIL]     | [CAPABILITY]                                                                                                                                                                                                                                                       |
-| :-----: | :------------------ | :--------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SchemaInfo`        | ifc-schema | `IEnumerable<ClassInfo>`; static `SchemaIfc2x3`/`SchemaIfc4`/`SchemaIfc4x3`, `this[className]`, `Version`, `PropertySets`; class/attribute/measure/datatype queries (below)                                                                                        |
-|  [02]   | `IfcSchemaVersions` | ifc-schema | `[Flags]` enum: `IfcNoVersion=0`, `Ifc2x3=1`, `Ifc4=2`, `Ifc4x3=4`, `IfcAllVersions=7`                                                                                                                                                                             |
-|  [03]   | `ClassInfo`         | ifc-schema | one IFC entity: `Name`, `ParentName`/`Parent`, `Type` (`ClassType`), `FunctionalType`, `SubClasses`, `PredefinedTypeValues`, `EnumerationValues`, `DirectAttributesInfo`, `NameSpace`, `MatchingConcreteClasses`, `RelationTypeClasses`; `Is(string)` subtype test |
-|  [04]   | `ClassType`         | ifc-schema | enum: `Abstract`, `Concrete`, `Enumeration`                                                                                                                                                                                                                        |
-|  [05]   | `FunctionalType`    | ifc-schema | the element/type/group functional role of a class                                                                                                                                                                                                                  |
-|  [06]   | `AttributeInfo`     | ifc-schema | `record`; `Name`, `ExpressType` (`ExpressDefinition`), `IsOptional`, `IsCollection`, `BaseType`, `XmlBaseType`                                                                                                                                                     |
-|  [07]   | `ExpressDefinition` | ifc-schema | the parsed EXPRESS type of an attribute (optional/collection/base-type facts)                                                                                                                                                                                      |
+| [INDEX] | [SYMBOL]            | [CAPABILITY]                                                                                                   |
+| :-----: | :------------------ | :------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `SchemaInfo`        | `IEnumerable<ClassInfo>`; static `SchemaIfc{2x3,4,4x3}`, `this[className]`, `Version`, `PropertySets` ([03])   |
+|  [02]   | `IfcSchemaVersions` | `[Flags]` enum: `IfcNoVersion=0`, `Ifc2x3=1`, `Ifc4=2`, `Ifc4x3=4`, `IfcAllVersions=7`                         |
+|  [03]   | `ClassInfo`         | one IFC entity (fields in the fence below); `Is(string)` subtype test                                          |
+|  [04]   | `ClassType`         | enum: `Abstract`, `Concrete`, `Enumeration`                                                                    |
+|  [05]   | `FunctionalType`    | the element/type/group functional role of a class                                                              |
+|  [06]   | `AttributeInfo`     | `record`; `Name`, `ExpressType` (`ExpressDefinition`), `IsOptional`, `IsCollection`, `BaseType`, `XmlBaseType` |
+|  [07]   | `ExpressDefinition` | the parsed EXPRESS type of an attribute (optional/collection/base-type facts)                                  |
 
 [PUBLIC_TYPE_SCOPE]: IfcSchema — properties, measures, and units
 - package: `ids-lib`
 - namespace: `IdsLib.IfcSchema`
 - rail: ifc-schema
 
-| [INDEX] | [SYMBOL]                                            | [RAIL]     | [CAPABILITY]                                                                                                                                                                                                                                         |
-| :-----: | :-------------------------------------------------- | :--------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `PropertySetInfo`                                   | ifc-schema | a standard Pset/Qto: `Name`, `Properties` (`IList<IPropertyTypeInfo>`), `ApplicableClasses`, `PropertyNames`; static `SchemaIfc2x3`/`SchemaIfc4`/`SchemaIfc4x3` lists, `GetProperty(name)`, static `Get(version, pset, prop)` / `GetSchema(version)` |
-|  [02]   | `IPropertyTypeInfo` / `NamedPropertyType`           | ifc-schema | a property definition inside a Pset (name + value type)                                                                                                                                                                                              |
-|  [03]   | `IfcMeasureInformation`                             | ifc-schema | `record: IUnitInformation`; `Id`, `IfcMeasure`, `Unit`, `UnitSymbol`, `Description`, `SiUnitNameEnums`, `IsBasicUnit`/`IsPureNumber`/`IsDirectSIUnit`, dimensional `Exponents`                                                                       |
-|  [04]   | `IUnitInformation` / `IfcConversionUnitInformation` | ifc-schema | the unit-metadata contract and the standard conversion-unit rows                                                                                                                                                                                     |
-|  [05]   | `IfcDataTypeInformation`                            | ifc-schema | a defined IFC data type (the `TryParseIfcDataType`/`TryParseIfcMeasure` resolution target)                                                                                                                                                           |
-|  [06]   | `DimensionType`                                     | ifc-schema | the 7-vector SI dimensional exponents of a measure                                                                                                                                                                                                   |
-|  [07]   | `SchemaInfo.ClassRelationInfo`                      | ifc-schema | a class-to-class relation row (`ClassName` + `ClassAttributeMode`) from the attribute-relation graph                                                                                                                                                 |
+| [INDEX] | [SYMBOL]                                  | [CAPABILITY]                                                                                |
+| :-----: | :---------------------------------------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | `PropertySetInfo`                         | `Name`/`Properties`/`ApplicableClasses`/`PropertyNames`/`GetProperty(name)` (lists in [03]) |
+|  [02]   | `IPropertyTypeInfo` / `NamedPropertyType` | a property definition inside a Pset (name + value type)                                     |
+|  [03]   | `IfcMeasureInformation`                   | `record: IUnitInformation` (fields in the fence below)                                      |
+|  [04]   | `IUnitInformation`                        | the unit-metadata contract                                                                  |
+|  [05]   | `IfcConversionUnitInformation`            | the standard conversion-unit rows                                                           |
+|  [06]   | `IfcDataTypeInformation`                  | a defined IFC data type (`TryParseIfcDataType`/`TryParseIfcMeasure` target)                 |
+|  [07]   | `DimensionType`                           | the 7-vector SI dimensional exponents of a measure                                          |
+|  [08]   | `SchemaInfo.ClassRelationInfo`            | a class-to-class relation row (`ClassName` + `ClassAttributeMode`)                          |
+
+```csharp signature
+record ClassInfo {                             // one IFC entity in the schema graph
+    Name; ParentName; Parent; Type;           // Type is ClassType
+    FunctionalType; SubClasses;
+    PredefinedTypeValues; EnumerationValues; DirectAttributesInfo;
+    NameSpace; MatchingConcreteClasses; RelationTypeClasses;
+}
+record IfcMeasureInformation : IUnitInformation {
+    Id; IfcMeasure; Unit; UnitSymbol; Description; SiUnitNameEnums;
+    IsBasicUnit; IsPureNumber; IsDirectSIUnit; Exponents;   // Exponents = dimensional 7-vector
+}
+```
 
 ## [03]-[ENTRYPOINTS]
 
@@ -104,45 +124,56 @@ are ready-built static graphs, each an `IEnumerable<ClassInfo>` indexable by cla
 - namespace: `IdsLib`
 - rail: ids-validation
 
-`Run` blocks on the async core; prefer `RunAsync`. The `ILogger` is the issue channel —
-attach an `ILogger` (or the buffered reporter) to collect the per-line diagnostics; the
-`Status` flags are the pass/fail discriminant.
+`Run` blocks on the async core; prefer `RunAsync`. The `ILogger` is the issue channel — attach an `ILogger` (or the buffered reporter) to collect the per-line diagnostics; the `Status` flags are the pass/fail discriminant.
 
-| [INDEX] | [SURFACE]                                                    | [CALL_SHAPE]                                                                      | [CAPABILITY]                         |
-| :-----: | :----------------------------------------------------------- | :-------------------------------------------------------------------------------- | :----------------------------------- |
-|  [01]   | `Audit.RunAsync`                                             | `(Stream idsSource, SingleAuditOptions, ILogger? = null)` → `Task<Status>`        | audit one `.ids` stream (preferred)  |
-|  [02]   | `Audit.Run`                                                  | `(Stream idsSource, SingleAuditOptions, ILogger? = null)` → `Status`              | synchronous single-file audit        |
-|  [03]   | `Audit.Run`                                                  | `(IBatchAuditOptions, ILogger? = null)` → `Status`                                | directory/glob batch audit           |
-|  [04]   | `new SingleAuditOptions`                                     | `{ IdsVersion = IdsVersion.Ids1_0, SchemaProvider = …, OmitIdsContentAudit = … }` | configure version + provider + scope |
-|  [05]   | `new FixedVersionSchemaProvider` / `FileBasedSchemaProvider` | `(IdsVersion)` / `(IEnumerable<string>, ILogger?)`                                | pin the IDS-XSD source               |
+| [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                               | [CAPABILITY]                        |
+| :-----: | :------------------------------- | :--------------------------------------------------------- | :---------------------------------- |
+|  [01]   | `Audit.RunAsync`                 | `(Stream, SingleAuditOptions, ILogger?)` → `Task<Status>`  | audit one `.ids` stream (preferred) |
+|  [02]   | `Audit.Run`                      | `(Stream, SingleAuditOptions, ILogger? = null)` → `Status` | synchronous single-file audit       |
+|  [03]   | `Audit.Run`                      | `(IBatchAuditOptions, ILogger? = null)` → `Status`         | directory/glob batch audit          |
+|  [04]   | `new SingleAuditOptions`         | `{ IdsVersion, SchemaProvider, OmitIdsContentAudit, … }`   | configure version/provider/scope    |
+|  [05]   | `new FixedVersionSchemaProvider` | `(IdsVersion)`                                             | pin a fixed IDS-XSD version         |
+|  [06]   | `new FileBasedSchemaProvider`    | `(IEnumerable<string>, ILogger?)`                          | audit against external XSD files    |
 
 [ENTRYPOINT_SCOPE]: IfcSchema — class graph queries
 - package: `ids-lib`
 - namespace: `IdsLib.IfcSchema`
 - rail: ifc-schema
+- note: the `SchemaInfo` query methods are static; `SchemaIfc{4,4x3,2x3}` are static properties.
 
-| [INDEX] | [SURFACE]                                                                        | [CALL_SHAPE]                                                            | [CAPABILITY]                                      |
-| :-----: | :------------------------------------------------------------------------------- | :---------------------------------------------------------------------- | :------------------------------------------------ |
-|  [01]   | `SchemaInfo.SchemaIfc4` / `SchemaIfc4x3` / `SchemaIfc2x3`                        | static property → `SchemaInfo`                                          | the ready-built embedded schema graph             |
-|  [02]   | `SchemaInfo[className]`                                                          | indexer → `ClassInfo?`                                                  | resolve a class by name                           |
-|  [03]   | `ClassInfo.Is`                                                                   | `(string className)` → `bool`                                           | subtype/inheritance test up the parent chain      |
-|  [04]   | `SchemaInfo.GetConcreteClassesFrom`                                              | `(string topClass, IfcSchemaVersions)` → `IEnumerable<string>` (static) | expand an abstract supertype to concrete leaves   |
-|  [05]   | `SchemaInfo.TrySimplifyTopClasses` / `TrySearchTopClass`                         | `(IEnumerable<string>, IfcSchemaVersions, out …)`                       | collapse a concrete set to its minimal supertypes |
-|  [06]   | `SchemaInfo.GetClassesByType` / `GetAttributesByType`                            | `(IIfcTypeConstraint)` → `IEnumerable<ClassInfo>`/`AttributeInfo`       | filter classes/attributes by a type constraint    |
-|  [07]   | `SchemaInfo.GetAttributeClasses` / `GetAttributeRelations` / `GetAttributeNames` | `(string attributeName, …)`                                             | the attribute-to-class reverse index              |
+| [INDEX] | [SURFACE]                           | [CALL_SHAPE]                                          | [CAPABILITY]                           |
+| :-----: | :---------------------------------- | :---------------------------------------------------- | :------------------------------------- |
+|  [01]   | `SchemaInfo.SchemaIfc4`             | property → `SchemaInfo`                               | IFC4 schema graph                      |
+|  [02]   | `SchemaInfo.SchemaIfc4x3`           | property → `SchemaInfo`                               | IFC4x3 schema graph                    |
+|  [03]   | `SchemaInfo.SchemaIfc2x3`           | property → `SchemaInfo`                               | IFC2x3 schema graph                    |
+|  [04]   | `SchemaInfo[className]`             | indexer → `ClassInfo?`                                | resolve a class by name                |
+|  [05]   | `ClassInfo.Is`                      | `(string className)` → `bool`                         | subtype test up the parent chain       |
+|  [06]   | `SchemaInfo.GetConcreteClassesFrom` | `(string, IfcSchemaVersions)` → `IEnumerable<string>` | abstract supertype → concrete leaves   |
+|  [07]   | `SchemaInfo.TrySimplifyTopClasses`  | `(IEnumerable<string>, IfcSchemaVersions, out …)`     | concrete set → minimal supertypes      |
+|  [08]   | `SchemaInfo.TrySearchTopClass`      | `(IEnumerable<string>, IfcSchemaVersions, out …)`     | search the minimal supertype           |
+|  [09]   | `SchemaInfo.GetClassesByType`       | `(IIfcTypeConstraint)` → `IEnumerable<ClassInfo>`     | filter classes by a type constraint    |
+|  [10]   | `SchemaInfo.GetAttributesByType`    | `(IIfcTypeConstraint)` → `AttributeInfo`              | filter attributes by a type constraint |
+|  [11]   | `SchemaInfo.GetAttributeClasses`    | `(string attributeName, …)`                           | attribute → classes                    |
+|  [12]   | `SchemaInfo.GetAttributeRelations`  | `(string attributeName, …)`                           | attribute → relations                  |
+|  [13]   | `SchemaInfo.GetAttributeNames`      | `(string attributeName, …)`                           | attribute → names                      |
 
 [ENTRYPOINT_SCOPE]: IfcSchema — property and measure resolution
 - package: `ids-lib`
 - namespace: `IdsLib.IfcSchema`
 - rail: ifc-schema
 
-| [INDEX] | [SURFACE]                                                                                      | [CALL_SHAPE]                                                                                       | [CAPABILITY]                                     |
-| :-----: | :--------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `PropertySetInfo.Get`                                                                          | `(IfcSchemaVersions, string propertySetName, string propertyName)` → `IPropertyTypeInfo?` (static) | resolve a standard Pset property definition      |
-|  [02]   | `PropertySetInfo.GetSchema`                                                                    | `(IfcSchemaVersions)` → `IList<PropertySetInfo>?` (static)                                         | the full standard Pset/Qto catalog for a version |
-|  [03]   | `SchemaInfo.TryParseIfcMeasure` / `TryParseIfcDataType`                                        | `(string value, out IfcDataTypeInformation?, bool strict = true)` (static)                         | resolve a measure/datatype name                  |
-|  [04]   | `SchemaInfo.GetMeasureInformation` / `TryGetMeasureInformation`                                | `(IfcSchemaVersions = IfcAllVersions)` / `(string, out …)` (static)                                | the measure→SI-unit metadata for unit coercion   |
-|  [05]   | `SchemaInfo.AllConcreteClasses` / `AllAttributes` / `AllDataTypes` / `StandardConversionUnits` | static `IEnumerable<…>`                                                                            | the full embedded reflection rosters             |
+| [INDEX] | [SURFACE]                             | [CALL_SHAPE]                                                 | [CAPABILITY]                     |
+| :-----: | :------------------------------------ | :----------------------------------------------------------- | :------------------------------- |
+|  [01]   | `PropertySetInfo.Get`                 | `(IfcSchemaVersions, string, string)` → `IPropertyTypeInfo?` | resolve a standard Pset property |
+|  [02]   | `PropertySetInfo.GetSchema`           | `(IfcSchemaVersions)` → `IList<PropertySetInfo>?`            | the full Pset/Qto catalog        |
+|  [03]   | `SchemaInfo.TryParseIfcMeasure`       | `(string value, out IfcDataTypeInformation?, bool strict)`   | resolve a measure name           |
+|  [04]   | `SchemaInfo.TryParseIfcDataType`      | `(string value, out IfcDataTypeInformation?, bool strict)`   | resolve a datatype name          |
+|  [05]   | `SchemaInfo.GetMeasureInformation`    | `(IfcSchemaVersions = IfcAllVersions)`                       | the measure→SI-unit metadata     |
+|  [06]   | `SchemaInfo.TryGetMeasureInformation` | `(string, out …)`                                            | try-resolve a measure by name    |
+|  [07]   | `SchemaInfo.AllConcreteClasses`       | `IEnumerable<string>`                                        | every concrete IFC class         |
+|  [08]   | `SchemaInfo.AllAttributes`            | `IEnumerable<AttributeInfo>`                                 | every attribute                  |
+|  [09]   | `SchemaInfo.AllDataTypes`             | `IEnumerable<…>`                                             | every defined data type          |
+|  [10]   | `SchemaInfo.StandardConversionUnits`  | `IEnumerable<IfcConversionUnitInformation>`                  | the standard conversion units    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -28,33 +28,39 @@ tessellation seam without an intermediate parser DTO.
 - namespace: `Ply.Net`
 - rail: interchange
 
-| [INDEX] | [SYMBOL]   | [RAIL]      | [CAPABILITY]                                                                                                                                                                                                                          |
-| :-----: | :--------- | :---------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `Header`   | interchange | `record Header(Format Format, ImmutableList<Element> Elements, ImmutableList<string> HeaderLines, long DataOffset)`; typed element accessors `Vertex`/`Face`/`Edge`/`Material`/`Cell` (`Element?` `SingleOrDefault` by `ElementType`) |
-|  [02]   | `Element`  | interchange | `record Element(ElementType Type, string Name, int Count, ImmutableList<Property> Properties)`; `ContainsListProperty` predicate; `Add(Property)` builder returning a new `Element`                                                   |
-|  [03]   | `Property` | interchange | `record Property(DataType DataType, string Name, DataType ListCountType)`; `IsListProperty => ListCountType != DataType.Undefined` discriminates the `vertex_indices`-style list column                                               |
+The cell carries each record's constructor signature; the members below the table hang off it.
+
+| [INDEX] | [SYMBOL]   | [CAPABILITY]                                                                                                        |
+| :-----: | :--------- | :------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `Header`   | `record Header(Format Format, ImmutableList<Element> Elements, ImmutableList<string> HeaderLines, long DataOffset)` |
+|  [02]   | `Element`  | `record Element(ElementType Type, string Name, int Count, ImmutableList<Property> Properties)`                      |
+|  [03]   | `Property` | `record Property(DataType DataType, string Name, DataType ListCountType)`                                           |
+
+- [01]-[ACCESSORS]: `Header.Vertex`/`Face`/`Edge`/`Material`/`Cell` resolve an `Element?` by `ElementType` (`SingleOrDefault`).
+- [02]-[BUILDER]: `Element.ContainsListProperty` predicate; `Element.Add(Property)` returns a new `Element`.
+- [03]-[LIST]: `Property.IsListProperty => ListCountType != DataType.Undefined` marks a `vertex_indices`-style list column.
 
 [PUBLIC_TYPE_SCOPE]: decoded-payload record graph
 - package: `Ply.Net`
 - namespace: `Ply.Net`
 - rail: interchange
 
-| [INDEX] | [SYMBOL]       | [RAIL]      | [CAPABILITY]                                                                                                                                                             |
-| :-----: | :------------- | :---------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Dataset`      | interchange | `record Dataset(Header Header, IEnumerable<ElementData> Data)`; the `Data` sequence is lazy/streamed, one `ElementData` per declared `Element`                           |
-|  [02]   | `ElementData`  | interchange | `record ElementData(Element Element, ImmutableList<PropertyData> Data)`; `this[string propertyName]` indexer resolves a column's `PropertyData`                          |
-|  [03]   | `PropertyData` | interchange | `record PropertyData(Property Property, Array Data)`; `Data` is a typed CLR `System.Array` (e.g. `float[]` for `Float32`, `int[][]` for a list column) materialized once |
+| [INDEX] | [SYMBOL]       | [CAPABILITY]                                                                                             |
+| :-----: | :------------- | :------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Dataset`      | `record Dataset(Header Header, IEnumerable<ElementData> Data)`; `Data` lazy/streamed, one per `Element`  |
+|  [02]   | `ElementData`  | `record ElementData(Element Element, ImmutableList<PropertyData> Data)`; `this[string]` → `PropertyData` |
+|  [03]   | `PropertyData` | `record PropertyData(Property Property, Array Data)`; `Data` a typed `System.Array` materialized once    |
 
 [PUBLIC_TYPE_SCOPE]: codec discriminants
 - package: `Ply.Net`
 - namespace: `Ply.Net`
 - rail: interchange
 
-| [INDEX] | [SYMBOL]      | [RAIL]      | [CAPABILITY]                                                                                                                                       |
-| :-----: | :------------ | :---------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Format`      | interchange | `Undefined`, `Ascii`, `BinaryLittleEndian`, `BinaryBigEndian` — the full ascii/binary LE+BE matrix the FORMAT row claims, read off `Header.Format` |
-|  [02]   | `DataType`    | interchange | `Undefined`, `Int8`, `UInt8`, `Int16`, `UInt16`, `Int32`, `UInt32`, `Int64`, `UInt64`, `Float32`, `Float64` — the per-property scalar width        |
-|  [03]   | `ElementType` | interchange | `Vertex`, `Face`, `Edge`, `Material`, `Cell`, `UserDefined` — the element classification driving `Header.Vertex`/`Face`/… accessors                |
+| [INDEX] | [SYMBOL]      | [CAPABILITY]                                                                                                |
+| :-----: | :------------ | :---------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Format`      | `Undefined`, `Ascii`, `BinaryLittleEndian`, `BinaryBigEndian` — read off `Header.Format`                    |
+|  [02]   | `DataType`    | `Undefined`, `Int8`, `UInt8`, `Int16`, `UInt16`, `Int32`, `UInt32`, `Int64`, `UInt64`, `Float32`, `Float64` |
+|  [03]   | `ElementType` | `Vertex`, `Face`, `Edge`, `Material`, `Cell`, `UserDefined` — drives the `Header.Vertex`/`Face`/… accessors |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -63,17 +69,16 @@ tessellation seam without an intermediate parser DTO.
 - namespace: `Ply.Net`
 - rail: interchange
 
-`PlyParser` is the sole static entrypoint; every overload accepts an optional
-`Action<string>? log` diagnostic sink.
+`PlyParser` is the sole static entrypoint; every overload also takes an optional `Action<string>? log` sink, omitted below. `ParseHeader` returns `Header`; `Parse` returns `Dataset`.
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                                                   | [CAPABILITY]                                                                        |
-| :-----: | :---------------------- | :----------------------------------------------------------------------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `PlyParser.ParseHeader` | `(Stream f, Action<string>? log)` → `Header`                                   | header-only decode; leaves the stream at `Header.DataOffset` for a custom body read |
-|  [02]   | `PlyParser.ParseHeader` | `(string filename, Action<string>? log = null)` → `Header`                     | header-only decode by path                                                          |
-|  [03]   | `PlyParser.Parse`       | `(Header header, Stream f, Action<string>? log)` → `Dataset`                   | full body decode against an already-parsed header                                   |
-|  [04]   | `PlyParser.Parse`       | `(Header header, Stream f, int maxChunkSize, Action<string>? log)` → `Dataset` | chunked body decode bounding peak memory by `maxChunkSize` for large meshes         |
-|  [05]   | `PlyParser.Parse`       | `(Stream f, int maxChunkSize, Action<string>? log = null)` → `Dataset`         | one-shot header+body decode from a stream                                           |
-|  [06]   | `PlyParser.Parse`       | `(string filename, int maxChunkSize, Action<string>? log = null)` → `Dataset`  | one-shot decode by path                                                             |
+| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                  | [CAPABILITY]                                                 |
+| :-----: | :---------------------- | :-------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `PlyParser.ParseHeader` | `(Stream f)`                                  | header-only decode; leaves the stream at `Header.DataOffset` |
+|  [02]   | `PlyParser.ParseHeader` | `(string filename)`                           | header-only decode by path                                   |
+|  [03]   | `PlyParser.Parse`       | `(Header header, Stream f)`                   | full body decode against an already-parsed header            |
+|  [04]   | `PlyParser.Parse`       | `(Header header, Stream f, int maxChunkSize)` | chunked decode; bounds peak memory by `maxChunkSize`         |
+|  [05]   | `PlyParser.Parse`       | `(Stream f, int maxChunkSize)`                | one-shot header+body decode from a stream                    |
+|  [06]   | `PlyParser.Parse`       | `(string filename, int maxChunkSize)`         | one-shot decode by path                                      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

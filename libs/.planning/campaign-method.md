@@ -35,7 +35,6 @@ These are lib-grade foundations, not app scaffolding. The bar for every package:
 Scope selects the workflow shape: a full `libs/` or whole-branch target runs the multi-tiered workflow; a folder-scoped target runs the scoped workflow.
 
 Every substantive pass runs as workflows, never one-off agents, fanned out across three altitudes and refined at each:
-
 - Tiers: per-folder, then a per-language pass, then the cross-`libs/` master.
 - IDEATE runs top-down so a master concept seeds language ideas that seed folder tasks; IMPLEMENT and REFINE run bottom-up so each higher tier works a settled lower one.
 - Each higher tier is a full pass at broader scope, never a thin reconcile or aggregation: it runs the same research/author/critique/red-team depth as the folder tier and adds the ideas, tasks, and fences that only emerge at the language or cross-`libs/` altitude.

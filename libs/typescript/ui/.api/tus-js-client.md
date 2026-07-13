@@ -18,41 +18,43 @@
 [PUBLIC_TYPE_SCOPE]: upload lifecycle, resume state, and protocol callbacks
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                                                                                                         | [TYPE_FAMILY]     | [CONSUMER]                                                                                                                                                    |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `Upload` (`constructor(file, options)`, `start`, `abort`, `findPreviousUploads`, `resumeFromPreviousUpload`, static `terminate`) | upload client     | one browser-side upload session over a `File`, `Blob`, `Buffer`, or reader-shaped source                                                                      |
-|  [02]   | `UploadOptions`                                                                                                                  | option shape      | endpoint or known `uploadUrl`, metadata, `chunkSize`, retry delays, parallel upload rows, hooks, URL storage, HTTP stack, file reader, and fingerprint policy |
-|  [03]   | `PreviousUpload`                                                                                                                 | resume fact       | stored upload URL, parallel upload URLs, metadata, size, creation time, and storage key                                                                       |
-|  [04]   | `UrlStorage`                                                                                                                     | resume store port | `findAllUploads`, `findUploadsByFingerprint`, `addUpload`, and `removeUpload`; the browser storage owner adapts it                                            |
-|  [05]   | `OnSuccessPayload`                                                                                                               | success receipt   | wraps the final `HttpResponse` emitted to `onSuccess`                                                                                                         |
-|  [06]   | `DetailedError`                                                                                                                  | protocol fault    | carries `originalRequest`, optional `originalResponse`, and optional `causingError` for retry classification                                                  |
+The `Upload` lifecycle methods are catalogued in the [03] entrypoints table.
+
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]     | [CONSUMER]                                                                       |
+| :-----: | :----------------- | :---------------- | :------------------------------------------------------------------------------- |
+|  [01]   | `Upload`           | upload client     | one browser upload session over a `File`/`Blob`/`Buffer`/reader source           |
+|  [02]   | `UploadOptions`    | option shape      | endpoint or `uploadUrl`, metadata, `chunkSize`, retries, hooks, storage, stack   |
+|  [03]   | `PreviousUpload`   | resume fact       | stored URL, parallel URLs, metadata, size, creation time, storage key            |
+|  [04]   | `UrlStorage`       | resume store port | `findAllUploads` / `findUploadsByFingerprint` / `addUpload` / `removeUpload`     |
+|  [05]   | `OnSuccessPayload` | success receipt   | wraps the final `HttpResponse` emitted to `onSuccess`                            |
+|  [06]   | `DetailedError`    | protocol fault    | `originalRequest`, optional `originalResponse`/`causingError` for retry classing |
 
 [PUBLIC_TYPE_SCOPE]: request, chunk source, and transport seams
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]    | [CONSUMER]                                                                                          |
-| :-----: | :------------------------------------------ | :--------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `HttpStack` / `DefaultHttpStack`            | transport port   | `createRequest(method, url)` and `getName`; the default stack uses the runtime browser transport    |
-|  [02]   | `HttpRequest`                               | request port     | method, URL, headers, progress handler, `send(body)`, abort, and underlying runtime object access   |
-|  [03]   | `HttpResponse`                              | response receipt | status, headers, body, and underlying runtime object access                                         |
-|  [04]   | `FileReader` / `FileSource` / `SliceResult` | chunk source     | `openFile` returns a source with `size`, `slice(start, end)`, and `close`; slices feed PATCH bodies |
-|  [05]   | `defaultOptions`                            | policy seed      | fully populated defaults for `httpStack`, `fileReader`, `urlStorage`, and `fingerprint`             |
-|  [06]   | `isSupported` / `canStoreURLs`              | capability facts | environment gates for upload support and persistent resume storage                                  |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]    | [CONSUMER]                                                          |
+| :-----: | :------------------------------------------ | :--------------- | :------------------------------------------------------------------ |
+|  [01]   | `HttpStack` / `DefaultHttpStack`            | transport port   | `createRequest(method, url)` / `getName`; default runtime transport |
+|  [02]   | `HttpRequest`                               | request port     | method, URL, headers, progress, `send(body)`, abort, runtime access |
+|  [03]   | `HttpResponse`                              | response receipt | status, headers, body, underlying runtime-object access             |
+|  [04]   | `FileReader` / `FileSource` / `SliceResult` | chunk source     | `openFile` → source with `size` / `slice(start, end)` / `close`     |
+|  [05]   | `defaultOptions`                            | policy seed      | `httpStack` / `fileReader` / `urlStorage` / `fingerprint` defaults  |
+|  [06]   | `isSupported` / `canStoreURLs`              | capability facts | gates for upload support and persistent resume storage              |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: start, resume, retry, and terminate
 - rail: boundaries
 
-| [INDEX] | [SURFACE]                                                                           | [ENTRY_FAMILY] | [CONSUMER]                                                                                               |
-| :-----: | :---------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new Upload(file, options)`                                                         | construct      | creates one upload session; `endpoint` starts a new tus resource and `uploadUrl` resumes an existing one |
-|  [02]   | `upload.start()`                                                                    | transfer       | drives POST or PATCH flow, chunking, progress, and retry callbacks                                       |
-|  [03]   | `upload.abort(shouldTerminate?)`                                                    | stop           | cancels the active request; `shouldTerminate` escalates to server termination                            |
-|  [04]   | `Upload.terminate(url, options?)`                                                   | terminate      | sends protocol termination for a known upload URL                                                        |
-|  [05]   | `upload.findPreviousUploads()` / `upload.resumeFromPreviousUpload(previousUpload)`  | resume         | resolves stored URL candidates by fingerprint, then binds one candidate onto the session                 |
-|  [06]   | `onBeforeRequest` / `onAfterResponse` / `onShouldRetry`                             | policy hooks   | request signing, response evidence capture, and typed retry refusal                                      |
-|  [07]   | `onProgress` / `onChunkComplete` / `onUploadUrlAvailable` / `onSuccess` / `onError` | event hooks    | progress, per-chunk receipt, URL persistence, completion, and fault projection                           |
+| [INDEX] | [SURFACE]                                                                           | [ENTRY_FAMILY] | [CONSUMER]                       |
+| :-----: | :---------------------------------------------------------------------------------- | :------------- | :------------------------------- |
+|  [01]   | `new Upload(file, options)`                                                         | construct      | new vs `uploadUrl` resume        |
+|  [02]   | `upload.start()`                                                                    | transfer       | POST/PATCH flow, chunking, retry |
+|  [03]   | `upload.abort(shouldTerminate?)`                                                    | stop           | cancel; escalate to terminate    |
+|  [04]   | `Upload.terminate(url, options?)`                                                   | terminate      | termination for a known URL      |
+|  [05]   | `upload.findPreviousUploads()` / `upload.resumeFromPreviousUpload(previousUpload)`  | resume         | resolve candidates, bind one     |
+|  [06]   | `onBeforeRequest` / `onAfterResponse` / `onShouldRetry`                             | policy hooks   | signing, evidence, retry refusal |
+|  [07]   | `onProgress` / `onChunkComplete` / `onUploadUrlAvailable` / `onSuccess` / `onError` | event hooks    | progress, URL persist, fault     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

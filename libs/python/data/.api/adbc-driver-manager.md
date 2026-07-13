@@ -37,15 +37,17 @@
 
 [PUBLIC_TYPE_SCOPE]: option and info enums
 - rail: query
+- `StatementOptions` keys: `INGEST_MODE`, `INGEST_TARGET_TABLE`, `INGEST_TARGET_CATALOG`, `INGEST_TARGET_DB_SCHEMA`, `INGEST_TEMPORARY`, `BIND_BY_NAME`, `INCREMENTAL`, `PROGRESS`
+- `AdbcStatusCode` codes: `OK`, `UNKNOWN`, `NOT_IMPLEMENTED`, `NOT_FOUND`, `ALREADY_EXISTS`, `INVALID_ARGUMENT`, `INVALID_STATE`, `INVALID_DATA`, `INTEGRITY`, `INTERNAL`, `IO`, `CANCELLED`, `TIMEOUT`, `UNAUTHENTICATED`, `UNAUTHORIZED`
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [ROLE]                                                                                                                                                                                                           |
-| :-----: | :------------------ | :------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `DatabaseOptions`   | str enum      | `URI`, `USERNAME`, `PASSWORD`                                                                                                                                                                                    |
-|  [02]   | `ConnectionOptions` | str enum      | `CURRENT_CATALOG`, `CURRENT_DB_SCHEMA`, `ISOLATION_LEVEL`                                                                                                                                                        |
-|  [03]   | `StatementOptions`  | str enum      | `INGEST_MODE`, `INGEST_TARGET_TABLE`, `INGEST_TARGET_CATALOG`, `INGEST_TARGET_DB_SCHEMA`, `INGEST_TEMPORARY`, `BIND_BY_NAME`, `INCREMENTAL`, `PROGRESS`                                                          |
-|  [04]   | `AdbcInfoCode`      | int enum      | vendor/driver name, version, Arrow version codes                                                                                                                                                                 |
-|  [05]   | `AdbcStatusCode`    | int enum      | `OK`, `UNKNOWN`, `NOT_IMPLEMENTED`, `NOT_FOUND`, `ALREADY_EXISTS`, `INVALID_ARGUMENT`, `INVALID_STATE`, `INVALID_DATA`, `INTEGRITY`, `INTERNAL`, `IO`, `CANCELLED`, `TIMEOUT`, `UNAUTHENTICATED`, `UNAUTHORIZED` |
-|  [06]   | `GetObjectsDepth`   | int enum      | `ALL`, `CATALOGS`, `DB_SCHEMAS`, `TABLES`, `COLUMNS`                                                                                                                                                             |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [ROLE]                                                    |
+| :-----: | :------------------ | :------------ | :-------------------------------------------------------- |
+|  [01]   | `DatabaseOptions`   | str enum      | `URI`, `USERNAME`, `PASSWORD`                             |
+|  [02]   | `ConnectionOptions` | str enum      | `CURRENT_CATALOG`, `CURRENT_DB_SCHEMA`, `ISOLATION_LEVEL` |
+|  [03]   | `StatementOptions`  | str enum      | ingest mode, target, and execution keys                   |
+|  [04]   | `AdbcInfoCode`      | int enum      | vendor/driver name, version, Arrow version codes          |
+|  [05]   | `AdbcStatusCode`    | int enum      | ADBC status codes                                         |
+|  [06]   | `GetObjectsDepth`   | int enum      | `ALL`, `CATALOGS`, `DB_SCHEMAS`, `TABLES`, `COLUMNS`      |
 
 [PUBLIC_TYPE_SCOPE]: error hierarchy
 - rail: query — PEP 249 exception tree rooted at `Error`
@@ -63,66 +65,70 @@
 
 [ENTRYPOINT_SCOPE]: DBAPI connection lifecycle
 - rail: query — `adbc_driver_manager.dbapi`
+- call: `connect(driver=None, uri=None, *, profile=None, entrypoint=None, db_kwargs=None, conn_kwargs=None, autocommit=False)`
 
-| [INDEX] | [SURFACE]                                                                                                              | [ENTRY_FAMILY] | [ROLE]                                   |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------- |
-|  [01]   | `connect(driver=None, uri=None, *, profile=None, entrypoint=None, db_kwargs=None, conn_kwargs=None, autocommit=False)` | open           | load a driver and open a `Connection`    |
-|  [02]   | `Connection.cursor(*, adbc_stmt_kwargs=None)`                                                                          | cursor         | create a `Cursor`                        |
-|  [03]   | `Connection.commit()`                                                                                                  | transaction    | commit the active transaction            |
-|  [04]   | `Connection.rollback()`                                                                                                | transaction    | roll back the active transaction         |
-|  [05]   | `Connection.close()`                                                                                                   | lifecycle      | close the connection                     |
-|  [06]   | `Connection.adbc_clone()`                                                                                              | lifecycle      | open a second connection on the database |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [ROLE]                                   |
+| :-----: | :-------------------------------------------- | :------------- | :--------------------------------------- |
+|  [01]   | `connect`                                     | open           | load a driver and open a `Connection`    |
+|  [02]   | `Connection.cursor(*, adbc_stmt_kwargs=None)` | cursor         | create a `Cursor`                        |
+|  [03]   | `Connection.commit()`                         | transaction    | commit the active transaction            |
+|  [04]   | `Connection.rollback()`                       | transaction    | roll back the active transaction         |
+|  [05]   | `Connection.close()`                          | lifecycle      | close the connection                     |
+|  [06]   | `Connection.adbc_clone()`                     | lifecycle      | open a second connection on the database |
 
 [ENTRYPOINT_SCOPE]: cursor execution and fetch
 - rail: query — `adbc_driver_manager.dbapi.Cursor`
+- call: `Cursor.adbc_ingest(table_name, data, mode='create', *, catalog_name=None, db_schema_name=None, temporary=False)`
 
-| [INDEX] | [SURFACE]                                                                                                         | [ENTRY_FAMILY] | [ROLE]                                             |
-| :-----: | :---------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `Cursor.execute(operation, parameters=None)`                                                                      | execute        | run one query with optional bind parameters        |
-|  [02]   | `Cursor.executemany(operation, seq_of_parameters)`                                                                | execute        | run a query against a parameter batch              |
-|  [03]   | `Cursor.fetchone()`                                                                                               | fetch          | next row tuple or `None`                           |
-|  [04]   | `Cursor.fetchmany(size=None)`                                                                                     | fetch          | up to `size` row tuples                            |
-|  [05]   | `Cursor.fetchall()`                                                                                               | fetch          | all remaining row tuples                           |
-|  [06]   | `Cursor.fetch_arrow_table()`                                                                                      | fetch          | full result as `pyarrow.Table`                     |
-|  [07]   | `Cursor.fetch_record_batch()`                                                                                     | fetch          | streaming `pyarrow.RecordBatchReader`              |
-|  [08]   | `Cursor.fetch_df()` / `Cursor.fetch_polars()`                                                                     | fetch          | result as pandas or polars frame                   |
-|  [09]   | `Cursor.adbc_ingest(table_name, data, mode='create', *, catalog_name=None, db_schema_name=None, temporary=False)` | bulk           | bulk-load Arrow data into a table                  |
-|  [10]   | `Cursor.adbc_prepare(operation)`                                                                                  | prepare        | pre-compile and return parameter schema            |
-|  [11]   | `Cursor.adbc_execute_schema(operation, parameters=None)`                                                          | plan           | result `pyarrow.Schema` without execution          |
-|  [12]   | `Cursor.adbc_execute_partitions(operation, parameters=None)`                                                      | partition      | return `(partitions, schema)` descriptors          |
-|  [13]   | `Cursor.adbc_read_partition(partition)`                                                                           | partition      | open one partition as a `RecordBatchReader`        |
-|  [14]   | `Cursor.adbc_cancel()`                                                                                            | control        | cancel the in-flight statement                     |
-|  [15]   | `Cursor.adbc_statement` / `Cursor.rowcount` / `Cursor.description`                                                | introspect     | low-level handle, affected rows, DBAPI description |
+| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [ROLE]                                             |
+| :-----: | :----------------------------------------------------------------- | :------------- | :------------------------------------------------- |
+|  [01]   | `Cursor.execute(operation, parameters=None)`                       | execute        | run one query with optional bind parameters        |
+|  [02]   | `Cursor.executemany(operation, seq_of_parameters)`                 | execute        | run a query against a parameter batch              |
+|  [03]   | `Cursor.fetchone()`                                                | fetch          | next row tuple or `None`                           |
+|  [04]   | `Cursor.fetchmany(size=None)`                                      | fetch          | up to `size` row tuples                            |
+|  [05]   | `Cursor.fetchall()`                                                | fetch          | all remaining row tuples                           |
+|  [06]   | `Cursor.fetch_arrow_table()`                                       | fetch          | full result as `pyarrow.Table`                     |
+|  [07]   | `Cursor.fetch_record_batch()`                                      | fetch          | streaming `pyarrow.RecordBatchReader`              |
+|  [08]   | `Cursor.fetch_df()` / `Cursor.fetch_polars()`                      | fetch          | result as pandas or polars frame                   |
+|  [09]   | `Cursor.adbc_ingest`                                               | bulk           | bulk-load Arrow data into a table                  |
+|  [10]   | `Cursor.adbc_prepare(operation)`                                   | prepare        | pre-compile and return parameter schema            |
+|  [11]   | `Cursor.adbc_execute_schema(operation, parameters=None)`           | plan           | result `pyarrow.Schema` without execution          |
+|  [12]   | `Cursor.adbc_execute_partitions(operation, parameters=None)`       | partition      | return `(partitions, schema)` descriptors          |
+|  [13]   | `Cursor.adbc_read_partition(partition)`                            | partition      | open one partition as a `RecordBatchReader`        |
+|  [14]   | `Cursor.adbc_cancel()`                                             | control        | cancel the in-flight statement                     |
+|  [15]   | `Cursor.adbc_statement` / `Cursor.rowcount` / `Cursor.description` | introspect     | low-level handle, affected rows, DBAPI description |
 
 [ENTRYPOINT_SCOPE]: connection metadata
 - rail: query — `adbc_driver_manager.dbapi.Connection`
 - entry family: metadata
+- call: `adbc_get_objects(*, depth='all', catalog_filter=None, db_schema_filter=None, table_name_filter=None, table_types_filter=None, column_name_filter=None)`
+- call: `adbc_get_statistics(*, catalog_filter=None, db_schema_filter=None, table_name_filter=None, approximate=True)`
 
-| [INDEX] | [SURFACE]                                                                                                                                                | [ROLE]                                |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------ |
-|  [01]   | `adbc_get_info()`                                                                                                                                        | driver/vendor info code mapping       |
-|  [02]   | `adbc_get_objects(*, depth='all', catalog_filter=None, db_schema_filter=None, table_name_filter=None, table_types_filter=None, column_name_filter=None)` | catalog/schema/table/column hierarchy |
-|  [03]   | `adbc_get_table_schema(table_name, *, catalog_filter=None, db_schema_filter=None)`                                                                       | `pyarrow.Schema` for one table        |
-|  [04]   | `adbc_get_table_types()`                                                                                                                                 | supported table type list             |
-|  [05]   | `adbc_get_statistics(*, catalog_filter=None, db_schema_filter=None, table_name_filter=None, approximate=True)`                                           | table statistics reader               |
+| [INDEX] | [SURFACE]                                                                          | [ROLE]                                |
+| :-----: | :--------------------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `adbc_get_info()`                                                                  | driver/vendor info code mapping       |
+|  [02]   | `adbc_get_objects`                                                                 | catalog/schema/table/column hierarchy |
+|  [03]   | `adbc_get_table_schema(table_name, *, catalog_filter=None, db_schema_filter=None)` | `pyarrow.Schema` for one table        |
+|  [04]   | `adbc_get_table_types()`                                                           | supported table type list             |
+|  [05]   | `adbc_get_statistics`                                                              | table statistics reader               |
 
 [ENTRYPOINT_SCOPE]: low-level handle operations
 - rail: query — `adbc_driver_manager._lib`
+- `AdbcConnection` setup: `AdbcConnection(database, **kwargs)`, `.set_autocommit(enabled)`, `.set_options(**kwargs)`, `.get_option(key)`
+- `AdbcConnection` metadata: `.get_info()`, `.get_objects(...)`, `.get_table_schema(...)`, `.get_table_types()`, `.get_statistics(...)`, `.get_statistic_names()`
 
-| [INDEX] | [SURFACE]                                                                                                                                               | [ENTRY_FAMILY] | [ROLE]                                                         |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :------------------------------------------------------------- |
-|  [01]   | `AdbcDatabase(**kwargs)` / `AdbcDatabase.set_options(**kwargs)`                                                                                         | configure      | open and set database driver options                           |
-|  [02]   | `AdbcConnection(database, **kwargs)` / `.set_autocommit(enabled)` / `.set_options(**kwargs)` / `.get_option(key)`                                       | configure      | open over a database, toggle autocommit, get/set options       |
-|  [03]   | `AdbcConnection.commit()` / `.rollback()`                                                                                                               | transaction    | commit or roll back on the handle                              |
-|  [04]   | `AdbcConnection.get_info()` / `.get_objects(...)` / `.get_table_schema(...)` / `.get_table_types()` / `.get_statistics(...)` / `.get_statistic_names()` | metadata       | driver info, catalog hierarchy, table schema/types, statistics |
-|  [05]   | `AdbcStatement(connection)` / `.set_options(**kwargs)`                                                                                                  | prepare        | open a statement on a connection, set options                  |
-|  [06]   | `AdbcStatement.set_sql_query(query)` / `.set_substrait_plan(plan)`                                                                                      | prepare        | set SQL text or a Substrait plan                               |
-|  [07]   | `AdbcStatement.prepare()` / `.get_parameter_schema()`                                                                                                   | prepare        | pre-compile; read the bind-parameter `Schema`                  |
-|  [08]   | `AdbcStatement.bind(data, schema=None)` / `.bind_stream(stream)`                                                                                        | bind           | bind Arrow array data or a record-batch stream                 |
-|  [09]   | `AdbcStatement.execute_query()`                                                                                                                         | execute        | run and return `(stream, rows_affected)`                       |
-|  [10]   | `AdbcStatement.execute_update()`                                                                                                                        | execute        | run for affected-row count only                                |
-|  [11]   | `AdbcStatement.execute_partitions()`                                                                                                                    | execute        | run into `(partitions, schema, rows_affected)`                 |
-|  [12]   | `AdbcStatement.execute_schema()` / `.cancel()`                                                                                                          | execute        | result schema without execution; cancel in-flight              |
+| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [ROLE]                                            |
+| :-----: | :----------------------------------------------------------------- | :------------- | :------------------------------------------------ |
+|  [01]   | `AdbcDatabase(**kwargs)` / `AdbcDatabase.set_options(**kwargs)`    | configure      | open and set database driver options              |
+|  [02]   | `AdbcConnection.commit()` / `.rollback()`                          | transaction    | commit or roll back on the handle                 |
+|  [03]   | `AdbcStatement(connection)` / `.set_options(**kwargs)`             | prepare        | open a statement on a connection, set options     |
+|  [04]   | `AdbcStatement.set_sql_query(query)` / `.set_substrait_plan(plan)` | prepare        | set SQL text or a Substrait plan                  |
+|  [05]   | `AdbcStatement.prepare()` / `.get_parameter_schema()`              | prepare        | pre-compile; read the bind-parameter `Schema`     |
+|  [06]   | `AdbcStatement.bind(data, schema=None)` / `.bind_stream(stream)`   | bind           | bind Arrow array data or a record-batch stream    |
+|  [07]   | `AdbcStatement.execute_query()`                                    | execute        | run and return `(stream, rows_affected)`          |
+|  [08]   | `AdbcStatement.execute_update()`                                   | execute        | run for affected-row count only                   |
+|  [09]   | `AdbcStatement.execute_partitions()`                               | execute        | run into `(partitions, schema, rows_affected)`    |
+|  [10]   | `AdbcStatement.execute_schema()` / `.cancel()`                     | execute        | result schema without execution; cancel in-flight |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

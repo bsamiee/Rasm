@@ -9,115 +9,115 @@
         <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Element Seam And Graph">
-        <PackageReference Include="Generator.Equals" />
-        <PackageReference Include="QuikGraph" />
-        <PackageReference Include="Riok.Mapperly" />
-    </ItemGroup>
-
-    <ItemGroup Label="Store Lanes">
-        <PackageReference Include="AWSSDK.KeyManagementService" />
-        <PackageReference Include="Azure.Security.KeyVault.Keys" />
-        <PackageReference Include="ClickHouse.Driver" />
-        <PackageReference Include="CloudNative.CloudEvents" />
-        <PackageReference Include="CloudNative.CloudEvents.Kafka" />
-        <PackageReference Include="CloudNative.CloudEvents.SystemTextJson" />
-        <PackageReference Include="Confluent.Kafka" />
-        <PackageReference Include="DeltaLake.Net" />
-        <PackageReference Include="DotPulsar" />
-        <PackageReference Include="DuckDB.NET.Data.Full" />
-        <PackageReference Include="EFCore.NamingConventions" />
-        <PackageReference Include="Google.Cloud.Kms.V1" />
-        <PackageReference Include="linq2db.EntityFrameworkCore" />
-        <PackageReference Include="Microsoft.Data.Sqlite" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
-        <PackageReference Include="NetTopologySuite.IO.GeoJSON4STJ" />
-        <PackageReference Include="NetTopologySuite.IO.GeoPackage" />
-        <PackageReference Include="NodaTime" />
-        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
+    <ItemGroup Label="Relational Tier">
         <PackageReference Include="Npgsql" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime" />
         <PackageReference Include="Npgsql.NetTopologySuite" />
         <PackageReference Include="Npgsql.OpenTelemetry" />
+        <PackageReference Include="EFCore.NamingConventions" />
+        <PackageReference Include="linq2db.EntityFrameworkCore" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
         <PackageReference Include="Pgvector" />
         <PackageReference Include="Pgvector.EntityFrameworkCore" />
+        <PackageReference Include="NetTopologySuite.IO.GeoJSON4STJ" />
+        <PackageReference Include="NetTopologySuite.IO.GeoPackage" />
         <PackageReference Include="pocketken.H3" />
-        <PackageReference Include="Qdrant.Client" />
-        <PackageReference Include="ScyllaDBCSharpDriver" />
-        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
-        <PackageReference Include="System.Numerics.Tensors" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+        <PackageReference Include="Microsoft.Data.Sqlite" />
+        <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" />
     </ItemGroup>
 
-    <ItemGroup Label="Embedded KV Engines">
-        <PackageReference Include="LightningDB" />
+    <ItemGroup Label="Scaleout Backends">
+        <PackageReference Include="ClickHouse.Driver" />
+        <PackageReference Include="ScyllaDBCSharpDriver" />
+        <PackageReference Include="Qdrant.Client" />
+        <PackageReference Include="DeltaLake.Net" />
         <PackageReference Include="rocksdb" />
+        <PackageReference Include="LightningDB" />
     </ItemGroup>
 
-    <ItemGroup Label="Cache And Object Store">
-        <PackageReference Include="AWSSDK.S3" />
-        <PackageReference Include="Azure.Storage.Blobs" />
-        <PackageReference Include="CommunityToolkit.HighPerformance" />
-        <PackageReference Include="Google.Cloud.Storage.V1" />
-        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
-        <PackageReference Include="Minio" />
-        <PackageReference Include="StackExchange.Redis" />
-    </ItemGroup>
-
-    <ItemGroup Label="Analytical Egress And Chunking">
+    <ItemGroup Label="Columnar And Codecs">
+        <PackageReference Include="DuckDB.NET.Data.Full" />
         <PackageReference Include="Apache.Arrow" />
+        <PackageReference Include="Apache.Arrow.Flight" />
         <PackageReference Include="Apache.Arrow.Adbc" />
         <PackageReference Include="Apache.Arrow.Adbc.Drivers.Apache" />
         <PackageReference Include="Apache.Arrow.Adbc.Drivers.BigQuery" />
         <PackageReference Include="Apache.Arrow.Compression" />
-        <PackageReference Include="Apache.Arrow.Flight" />
-        <PackageReference Include="FastCDC.Net" />
-        <PackageReference Include="FlowtideDotNet.Substrait" />
         <PackageReference Include="ParquetSharp" />
-    </ItemGroup>
-
-    <ItemGroup Label="BIM Analytics Exchange">
+        <PackageReference Include="FlowtideDotNet.Substrait" />
+        <PackageReference Include="FastCDC.Net" />
         <PackageReference Include="Ara3D.BimOpenSchema" />
         <PackageReference Include="Ara3D.BimOpenSchema.IO" />
-    </ItemGroup>
-
-    <ItemGroup Label="Streaming And Messaging Protocols">
         <PackageReference Include="Chr.Avro" />
         <PackageReference Include="Chr.Avro.Binary" />
         <PackageReference Include="Chr.Avro.Confluent" />
-        <PackageReference Include="Confluent.SchemaRegistry" />
-        <PackageReference Include="Confluent.SchemaRegistry.Serdes.Avro" />
-        <PackageReference Include="Confluent.SchemaRegistry.Serdes.Json" />
-        <PackageReference Include="Confluent.SchemaRegistry.Serdes.Protobuf" />
-        <PackageReference Include="NATS.Net" />
-        <PackageReference Include="RabbitMQ.Client" />
-    </ItemGroup>
-
-    <ItemGroup Label="Snapshots And Support">
-        <PackageReference Include="K4os.Compression.LZ4" />
-        <PackageReference Include="Marten" />
+        <PackageReference Include="System.Formats.Cbor" />
+        <PackageReference Include="MiniExcel" />
+        <PackageReference Include="ZstdSharp.Port" />
         <PackageReference Include="MessagePack" />
         <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" />
         <PackageReference Include="JsonSchema.Net" />
-        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
-        <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
-        <PackageReference Include="MiniExcel" />
+        <PackageReference Include="K4os.Compression.LZ4" />
         <PackageReference Include="MPXJ.Net" />
         <PackageReference Include="Sep" />
-        <PackageReference Include="System.Formats.Cbor" />
-        <PackageReference Include="System.IO.Hashing" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions.MessagePack" />
-        <PackageReference Include="ZstdSharp.Port" />
     </ItemGroup>
 
-    <ItemGroup Label="Sync Outside-Rhino">
-        <PackageReference Include="PollinationSDK" />
-        <PackageReference Include="Speckle.Objects" />
+    <ItemGroup Label="Append And Egress">
+        <PackageReference Include="Marten" />
+        <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
+        <PackageReference Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" />
         <PackageReference Include="Speckle.Sdk" />
+        <PackageReference Include="Speckle.Objects" />
+        <PackageReference Include="PollinationSDK" />
+        <PackageReference Include="Confluent.Kafka" />
+        <PackageReference Include="Confluent.SchemaRegistry" />
+        <PackageReference Include="Confluent.SchemaRegistry.Serdes.Avro" />
+        <PackageReference Include="Confluent.SchemaRegistry.Serdes.Protobuf" />
+        <PackageReference Include="Confluent.SchemaRegistry.Serdes.Json" />
+        <PackageReference Include="CloudNative.CloudEvents" />
+        <PackageReference Include="CloudNative.CloudEvents.Kafka" />
+        <PackageReference Include="CloudNative.CloudEvents.SystemTextJson" />
+        <PackageReference Include="NATS.Net" />
+        <PackageReference Include="RabbitMQ.Client" />
+        <PackageReference Include="DotPulsar" />
+    </ItemGroup>
+
+    <ItemGroup Label="Object Cache Kms">
+        <PackageReference Include="AWSSDK.S3" />
+        <PackageReference Include="Azure.Storage.Blobs" />
+        <PackageReference Include="Google.Cloud.Storage.V1" />
+        <PackageReference Include="Minio" />
+        <PackageReference Include="StackExchange.Redis" />
+        <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" />
+        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
+        <PackageReference Include="AWSSDK.KeyManagementService" />
+        <PackageReference Include="Azure.Security.KeyVault.Keys" />
+        <PackageReference Include="Google.Cloud.Kms.V1" />
+    </ItemGroup>
+
+    <ItemGroup Label="Code Generation">
+        <PackageReference Include="Riok.Mapperly" />
+        <PackageReference Include="Generator.Equals" />
+        <PackageReference Include="QuikGraph" />
+    </ItemGroup>
+
+    <ItemGroup Label="Functional Core">
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.MessagePack" />
+    </ItemGroup>
+
+    <ItemGroup Label="Time Identity">
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
+        <PackageReference Include="System.IO.Hashing" />
+    </ItemGroup>
+
+    <ItemGroup Label="Perf">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="System.Numerics.Tensors" />
     </ItemGroup>
 </Project>

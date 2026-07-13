@@ -73,64 +73,79 @@
 [PUBLIC_TYPE_SCOPE]: grpc.aio family
 - rail: transport
 
-| [INDEX] | [SYMBOL]                                                                 | [TYPE_FAMILY] | [RAIL]                                                     |
-| :-----: | :----------------------------------------------------------------------- | :------------ | :--------------------------------------------------------- |
-|  [01]   | `aio.Channel`                                                            | async         | async-managed channel                                      |
-|  [02]   | `aio.Server`                                                             | async         | async gRPC server                                          |
-|  [03]   | `aio.ServicerContext`                                                    | async         | async server-side call context                             |
-|  [04]   | `aio.ClientInterceptor`                                                  | abstract      | async client interceptor base                              |
-|  [05]   | `aio.ServerInterceptor`                                                  | abstract      | async server interceptor base                              |
-|  [06]   | `aio.UnaryUnaryClientInterceptor` / `aio.UnaryStreamClientInterceptor`   | abstract      | per-arity async client interceptor mixins                  |
-|  [07]   | `aio.StreamUnaryClientInterceptor` / `aio.StreamStreamClientInterceptor` | abstract      | per-arity async client interceptor mixins                  |
-|  [08]   | `aio.UnaryUnaryCall`                                                     | call          | async unary-unary in-flight RPC                            |
-|  [09]   | `aio.UnaryStreamCall`                                                    | call          | async unary-stream in-flight RPC                           |
-|  [10]   | `aio.StreamUnaryCall`                                                    | call          | async stream-unary in-flight RPC                           |
-|  [11]   | `aio.StreamStreamCall`                                                   | call          | async bidi-stream in-flight RPC                            |
-|  [12]   | `aio.AioRpcError`                                                        | exception     | async RPC failure exception (carries `code()`/`details()`) |
-|  [13]   | `aio.Metadata`                                                           | value         | multi-dict gRPC metadata carrier for aio                   |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [RAIL]                                                     |
+| :-----: | :---------------------------------- | :------------ | :--------------------------------------------------------- |
+|  [01]   | `aio.Channel`                       | async         | async-managed channel                                      |
+|  [02]   | `aio.Server`                        | async         | async gRPC server                                          |
+|  [03]   | `aio.ServicerContext`               | async         | async server-side call context                             |
+|  [04]   | `aio.ClientInterceptor`             | abstract      | async client interceptor base                              |
+|  [05]   | `aio.ServerInterceptor`             | abstract      | async server interceptor base                              |
+|  [06]   | `aio.UnaryUnaryClientInterceptor`   | abstract      | async unary-unary client interceptor                       |
+|  [07]   | `aio.UnaryStreamClientInterceptor`  | abstract      | async unary-stream client interceptor                      |
+|  [08]   | `aio.StreamUnaryClientInterceptor`  | abstract      | async stream-unary client interceptor                      |
+|  [09]   | `aio.StreamStreamClientInterceptor` | abstract      | async bidi-stream client interceptor                       |
+|  [10]   | `aio.UnaryUnaryCall`                | call          | async unary-unary in-flight RPC                            |
+|  [11]   | `aio.UnaryStreamCall`               | call          | async unary-stream in-flight RPC                           |
+|  [12]   | `aio.StreamUnaryCall`               | call          | async stream-unary in-flight RPC                           |
+|  [13]   | `aio.StreamStreamCall`              | call          | async bidi-stream in-flight RPC                            |
+|  [14]   | `aio.AioRpcError`                   | exception     | async RPC failure exception (carries `code()`/`details()`) |
+|  [15]   | `aio.Metadata`                      | value         | multi-dict gRPC metadata carrier for aio                   |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: channel factory
+[ENTRYPOINT_SCOPE]: channel construction and lifecycle
 - rail: transport
 
-| [INDEX] | [SURFACE]                                                                        | [ENTRY_FAMILY]  | [RAIL]                                                     |
-| :-----: | :------------------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------- |
-|  [01]   | `insecure_channel(target, options, compression)`                                 | channel factory | plaintext channel                                          |
-|  [02]   | `secure_channel(target, credentials, options, compression)`                      | channel factory | TLS/mTLS channel                                           |
-|  [03]   | `ssl_channel_credentials(root_certificates, private_key, certificate_chain)`     | credentials     | TLS client credentials                                     |
-|  [04]   | `composite_channel_credentials(channel_credentials, *call_credentials)`          | credentials     | combine TLS + call auth                                    |
-|  [05]   | `access_token_call_credentials(access_token)`                                    | credentials     | bearer token per-call auth                                 |
-|  [06]   | `metadata_call_credentials(metadata_plugin, name)`                               | credentials     | plugin-backed per-call auth                                |
-|  [07]   | `composite_call_credentials(*call_credentials)`                                  | credentials     | merge multiple per-call creds                              |
-|  [08]   | `local_channel_credentials(local_connect_type)`                                  | credentials     | UDS/loopback channel creds (`LocalConnectionType`)         |
-|  [09]   | `compute_engine_channel_credentials(call_credentials)`                           | credentials     | GCE metadata-server channel creds                          |
-|  [10]   | `xds_channel_credentials(fallback_credentials)`                                  | credentials     | xDS-driven channel creds with fallback                     |
-|  [11]   | `alts_channel_credentials(service_accounts)`                                     | credentials     | ALTS mutual-auth channel creds                             |
-|  [12]   | `intercept_channel(channel, *interceptors)`                                      | channel wrap    | attach client interceptors (compose left-to-right)         |
-|  [13]   | `channel_ready_future(channel)`                                                  | readiness       | `Future` resolving when channel reaches `READY`            |
-|  [14]   | `protos(protobuf_path)` / `services(protobuf_path)` / `protos_and_services(...)` | runtime codegen | import generated message/stub modules without a build step |
-|  [15]   | `aio.insecure_channel(target, options, ...)`                                     | async factory   | async plaintext channel                                    |
-|  [16]   | `aio.secure_channel(target, credentials, ...)`                                   | async factory   | async TLS channel                                          |
-|  [17]   | `aio.init_grpc_aio()` / `aio.shutdown_grpc_aio()`                                | async lifecycle | bind/release the aio C-core event loop                     |
+| [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY]  | [RAIL]                                             |
+| :-----: | :---------------------------------------------------------- | :-------------- | :------------------------------------------------- |
+|  [01]   | `insecure_channel(target, options, compression)`            | channel factory | plaintext channel                                  |
+|  [02]   | `secure_channel(target, credentials, options, compression)` | channel factory | TLS/mTLS channel                                   |
+|  [03]   | `intercept_channel(channel, *interceptors)`                 | channel wrap    | attach client interceptors (compose left-to-right) |
+|  [04]   | `channel_ready_future(channel)`                             | readiness       | `Future` resolving when channel reaches `READY`    |
+|  [05]   | `protos(protobuf_path)`                                     | runtime codegen | import generated message module at runtime         |
+|  [06]   | `services(protobuf_path)`                                   | runtime codegen | import generated stub module at runtime            |
+|  [07]   | `protos_and_services(protobuf_path)`                        | runtime codegen | import message + stub modules without a build step |
+|  [08]   | `aio.insecure_channel(target, options, ...)`                | async factory   | async plaintext channel                            |
+|  [09]   | `aio.secure_channel(target, credentials, ...)`              | async factory   | async TLS channel                                  |
+|  [10]   | `aio.init_grpc_aio()` / `aio.shutdown_grpc_aio()`           | async lifecycle | bind/release the aio C-core event loop             |
+
+[ENTRYPOINT_SCOPE]: channel and call credentials
+- rail: transport
+- every row is a credentials constructor.
+
+| [INDEX] | [SURFACE]                                                                    | [RAIL]                                             |
+| :-----: | :--------------------------------------------------------------------------- | :------------------------------------------------- |
+|  [01]   | `ssl_channel_credentials(root_certificates, private_key, certificate_chain)` | TLS client credentials                             |
+|  [02]   | `composite_channel_credentials(channel_credentials, *call_credentials)`      | combine TLS + call auth                            |
+|  [03]   | `access_token_call_credentials(access_token)`                                | bearer token per-call auth                         |
+|  [04]   | `metadata_call_credentials(metadata_plugin, name)`                           | plugin-backed per-call auth                        |
+|  [05]   | `composite_call_credentials(*call_credentials)`                              | merge multiple per-call creds                      |
+|  [06]   | `local_channel_credentials(local_connect_type)`                              | UDS/loopback channel creds (`LocalConnectionType`) |
+|  [07]   | `compute_engine_channel_credentials(call_credentials)`                       | GCE metadata-server channel creds                  |
+|  [08]   | `xds_channel_credentials(fallback_credentials)`                              | xDS-driven channel creds with fallback             |
+|  [09]   | `alts_channel_credentials(service_accounts)`                                 | ALTS mutual-auth channel creds                     |
 
 [ENTRYPOINT_SCOPE]: server factory
 - rail: transport
 
-| [INDEX] | [SURFACE]                                                                                                                             | [ENTRY_FAMILY] | [RAIL]                       |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :--------------------------- |
-|  [01]   | `server(thread_pool, handlers, interceptors, options, ...)`                                                                           | server factory | sync gRPC server             |
-|  [02]   | `ssl_server_credentials(private_key_certificate_chain_pairs, root_certificates, require_client_auth)`                                 | credentials    | mTLS server creds            |
-|  [03]   | `insecure_server_credentials()`                                                                                                       | credentials    | plaintext server credentials |
-|  [04]   | `dynamic_ssl_server_credentials(initial_certificate_configuration, certificate_configuration_fetcher, require_client_authentication)` | credentials    | hot-reloadable server TLS    |
-|  [05]   | `local_server_credentials(local_connect_type)`                                                                                        | credentials    | UDS/loopback server creds    |
-|  [06]   | `xds_server_credentials(fallback_credentials)` / `alts_server_credentials(...)`                                                       | credentials    | xDS / ALTS server creds      |
-|  [07]   | `unary_unary_rpc_method_handler(behavior, ...)`                                                                                       | handler        | create unary-unary handler   |
-|  [08]   | `unary_stream_rpc_method_handler(behavior, ...)`                                                                                      | handler        | create unary-stream handler  |
-|  [09]   | `stream_unary_rpc_method_handler(behavior, ...)`                                                                                      | handler        | create stream-unary handler  |
-|  [10]   | `stream_stream_rpc_method_handler(behavior, ...)`                                                                                     | handler        | create bidi-stream handler   |
-|  [11]   | `method_handlers_generic_handler(service, method_handlers)`                                                                           | handler        | service handler map          |
-|  [12]   | `aio.server(migration_thread_pool, handlers, interceptors, ...)`                                                                      | async server   | async gRPC server            |
+| [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY] | [RAIL]                       |
+| :-----: | :------------------------------------------------------------------------------ | :------------- | :--------------------------- |
+|  [01]   | `server(thread_pool, handlers, interceptors, options, ...)`                     | server factory | sync gRPC server             |
+|  [02]   | `ssl_server_credentials(...)`                                                   | credentials    | mTLS server creds            |
+|  [03]   | `insecure_server_credentials()`                                                 | credentials    | plaintext server credentials |
+|  [04]   | `dynamic_ssl_server_credentials(...)`                                           | credentials    | hot-reloadable server TLS    |
+|  [05]   | `local_server_credentials(local_connect_type)`                                  | credentials    | UDS/loopback server creds    |
+|  [06]   | `xds_server_credentials(fallback_credentials)` / `alts_server_credentials(...)` | credentials    | xDS / ALTS server creds      |
+|  [07]   | `unary_unary_rpc_method_handler(behavior, ...)`                                 | handler        | create unary-unary handler   |
+|  [08]   | `unary_stream_rpc_method_handler(behavior, ...)`                                | handler        | create unary-stream handler  |
+|  [09]   | `stream_unary_rpc_method_handler(behavior, ...)`                                | handler        | create stream-unary handler  |
+|  [10]   | `stream_stream_rpc_method_handler(behavior, ...)`                               | handler        | create bidi-stream handler   |
+|  [11]   | `method_handlers_generic_handler(service, method_handlers)`                     | handler        | service handler map          |
+|  [12]   | `aio.server(migration_thread_pool, handlers, interceptors, ...)`                | async server   | async gRPC server            |
+
+Full signatures for the `...`-abbreviated credential constructors:
+- [02]-[SSL_SERVER]: `ssl_server_credentials(private_key_certificate_chain_pairs, root_certificates, require_client_auth)`
+- [04]-[DYNAMIC_SSL]: `dynamic_ssl_server_credentials(initial_certificate_configuration, certificate_configuration_fetcher, require_client_authentication)`
 
 [ENTRYPOINT_SCOPE]: StatusCode values
 - rail: transport

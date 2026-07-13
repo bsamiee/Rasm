@@ -18,13 +18,14 @@
 
 [PUBLIC_TYPE_SCOPE]: quantity take-off (`ifc5d.qto`)
 - rail: 5d-costing
+- The `qto.RULE_SET` literal is the closed rule-set vocabulary: `IFC4QtoBaseQuantities`, `IFC4QtoBaseQuantitiesBlender`, `IFC4X3QtoBaseQuantities`, `IFC4X3QtoBaseQuantitiesBlender`.
 
-| [INDEX] | [SYMBOL]        | [PACKAGE_ROLE]    | [CAPABILITY]                                                                                                                    |
-| :-----: | :-------------- | :---------------- | :------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `qto.rules`     | quantity rule set | the `dict[RULE_SET, ...]` base-quantity rule table loaded from bundled JSON                                                     |
-|  [02]   | `qto.RULE_SET`  | rule-set literal  | `Literal["IFC4QtoBaseQuantities", "IFC4QtoBaseQuantitiesBlender", "IFC4X3QtoBaseQuantities", "IFC4X3QtoBaseQuantitiesBlender"]` |
-|  [03]   | `qto.quantify`  | quantity kernel   | `quantify(file, elements, rules) -> ResultsDict` rule-driven measurement                                                        |
-|  [04]   | `qto.edit_qtos` | quantity writer   | `edit_qtos(file, results) -> None` writes `IfcElementQuantity` base quantities                                                  |
+| [INDEX] | [SYMBOL]        | [PACKAGE_ROLE]    | [CAPABILITY]                                                                   |
+| :-----: | :-------------- | :---------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `qto.rules`     | quantity rule set | the `dict[RULE_SET, ...]` base-quantity rule table loaded from bundled JSON    |
+|  [02]   | `qto.RULE_SET`  | rule-set literal  | the closed rule-set literal (4 IFC4/IFC4X3 base-quantity variants)             |
+|  [03]   | `qto.quantify`  | quantity kernel   | `quantify(file, elements, rules) -> ResultsDict` rule-driven measurement       |
+|  [04]   | `qto.edit_qtos` | quantity writer   | `edit_qtos(file, results) -> None` writes `IfcElementQuantity` base quantities |
 
 [PUBLIC_TYPE_SCOPE]: cost export (`ifc5d.ifc5Dspreadsheet`)
 - rail: 5d-costing
@@ -43,16 +44,16 @@ Cost rollup is NOT an `ifc5d` member — `ifc5d` carries no `cost` module. The p
 [ENTRYPOINT_SCOPE]: quantity take-off and cost rollup
 - rail: 5d-costing
 
-Quantity rows consume an `ifcopenshell.file` plus an element set and a rule set; export rows consume a model, an output directory, and an optional `IfcCostSchedule`.
+Quantity rows consume an `ifcopenshell.file` plus an element set and a rule set; export rows consume a model, an output directory, and an optional `IfcCostSchedule`. Rows drop the `ifc5d.` package prefix; the `Ifc5D*Writer` export rows take `(file, output, cost_schedule)` then `.write()`.
 
-| [INDEX] | [SURFACE]                                                                    | [CALL_SHAPE]                      | [CAPABILITY]                                 |
-| :-----: | :--------------------------------------------------------------------------- | :-------------------------------- | :------------------------------------------- |
-|  [01]   | `ifc5d.qto.quantify(file, elements, rules) -> ResultsDict`                   | model, element set, rule-set dict | compute base quantities per element          |
-|  [02]   | `ifc5d.qto.edit_qtos(file, results) -> None`                                 | model plus a `ResultsDict`        | write the computed quantities into the model |
-|  [03]   | `ifc5d.qto.rules[RULE_SET]`                                                  | a `RULE_SET` literal key          | the bundled base-quantity rule table         |
-|  [04]   | `ifcopenshell.api.cost.calculate_cost_item_resource_value(file, cost_item)`  | model plus one `IfcCostItem`      | roll resource costs into the item value      |
-|  [05]   | `ifc5d.ifc5Dspreadsheet.Ifc5DCsvWriter(file, output, cost_schedule).write()` | model, dir, schedule              | export the cost schedule to a CSV file       |
-|  [06]   | `ifc5d.ifc5Dspreadsheet.Ifc5DOdsWriter(file, output, cost_schedule).write()` | model, dir, schedule              | export the cost schedule to an ODS workbook  |
+| [INDEX] | [SURFACE]                                                  | [CALL_SHAPE]           | [CAPABILITY]                                 |
+| :-----: | :--------------------------------------------------------- | :--------------------- | :------------------------------------------- |
+|  [01]   | `qto.quantify(file, elements, rules)`                      | model, elements, rules | compute base quantities per element          |
+|  [02]   | `qto.edit_qtos(file, results)`                             | model + `ResultsDict`  | write the computed quantities into the model |
+|  [03]   | `qto.rules[RULE_SET]`                                      | `RULE_SET` key         | the bundled base-quantity rule table         |
+|  [04]   | `ifcopenshell.api.cost.calculate_cost_item_resource_value` | model + `IfcCostItem`  | roll resource costs into the item value      |
+|  [05]   | `ifc5Dspreadsheet.Ifc5DCsvWriter`                          | model, dir, schedule   | export the cost schedule to a CSV file       |
+|  [06]   | `ifc5Dspreadsheet.Ifc5DOdsWriter`                          | model, dir, schedule   | export the cost schedule to an ODS workbook  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

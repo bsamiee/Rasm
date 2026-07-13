@@ -8,7 +8,7 @@
         <ProjectReference Include="../Rasm/Rasm.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Package References">
+    <ItemGroup Label="Recency Cache">
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
     </ItemGroup>
 

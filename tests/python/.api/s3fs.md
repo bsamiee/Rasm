@@ -17,7 +17,7 @@
 |  [02]   | `S3File`       | class `AbstractBufferedFile`                 | an open object handle; `commit`/`discard` finalize a multipart write  |
 |  [03]   | `protocol`     | class attr `("s3", "s3a")`                   | the registry keys fsspec/`UPath` resolve `s3://` and `s3a://` through |
 
-```python contract
+```python signature
 class S3FileSystem(AsyncFileSystem):
     def __init__(self, anon=False, endpoint_url=None, key=None, secret=None, token=None, use_ssl=True,
                  client_kwargs=None, requester_pays=False, default_block_size=None, default_fill_cache=True,
@@ -29,17 +29,17 @@ class S3FileSystem(AsyncFileSystem):
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                             | [KIND]          | [CAPABILITY]                                                                                       |
-| :-----: | :---------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | `open(path, mode)` · `pipe_file`/`cat_file`           | fsspec io       | byte read/write; `pipe`/`cat` for the bulk multi-path variants                                     |
-|  [02]   | `ls`/`find`/`glob`/`exists`/`isdir`/`info`            | fsspec query    | listing, existence, and metadata — `info(path)["ETag"]` carries the object e-tag                   |
-|  [03]   | `copy`/`mv`/`rm`/`makedirs`                           | fsspec mutate   | duplicate, move, recursive delete, bucket/prefix creation                                          |
-|  [04]   | `get`/`put`                                           | fsspec transfer | remote↔local file transfer for both directions                                                     |
-|  [05]   | `url(path, expires=3600, client_method="get_object")` | presign         | a presigned HTTP URL an anonymous client GETs — the memory double refuses                          |
-|  [06]   | `sign(path, expiration=100)`                          | presign alias   | fsspec-generic presign hook delegating to `url`                                                    |
-|  [07]   | `call_s3(method, *akw, **kw)` · `_call_s3`            | boto boundary   | direct typed S3 API call (`create_bucket` with a `LocationConstraint`) escaping the fsspec algebra |
+| [INDEX] | [SURFACE]                                   | [KIND]          | [CAPABILITY]                                                          |
+| :-----: | :------------------------------------------ | :-------------- | :-------------------------------------------------------------------- |
+|  [01]   | `open(path, mode)` · `pipe_file`/`cat_file` | fsspec io       | byte read/write; `pipe`/`cat` for the bulk multi-path variants        |
+|  [02]   | `ls`/`find`/`glob`/`exists`/`isdir`/`info`  | fsspec query    | listing/existence/metadata; `info(path)["ETag"]` is the object e-tag  |
+|  [03]   | `copy`/`mv`/`rm`/`makedirs`                 | fsspec mutate   | duplicate, move, recursive delete, bucket/prefix creation             |
+|  [04]   | `get`/`put`                                 | fsspec transfer | remote↔local file transfer for both directions                        |
+|  [05]   | `url(path, expires, client_method)`         | presign         | presigned HTTP URL an anon client GETs; the memory double refuses     |
+|  [06]   | `sign(path, expiration=100)`                | presign alias   | fsspec-generic presign hook delegating to `url`                       |
+|  [07]   | `call_s3(method, *akw, **kw)` · `_call_s3`  | boto boundary   | typed S3 call escaping fsspec; `create_bucket` + `LocationConstraint` |
 
-```python contract
+```python signature
 def url(self, path, expires: int = 3600, client_method: str = "get_object", **kwargs) -> str: ...
 def call_s3(self, method, *akwarglist, **kwargs): ...        # _call_s3 is the async core; call_s3 the sync facade
 # bucket creation bypasses s3fs.mkdir's unconditional LocationConstraint (S3 rejects us-east-1 as a constraint):

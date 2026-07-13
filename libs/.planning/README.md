@@ -36,7 +36,7 @@ Each index doc opens with one or two declarative lines stating its own organizat
 - The map fuels ideas and tasks: a planned-but-empty sub-domain is a visible gap. Dependency direction is stated once in the branch `ARCHITECTURE.md` and never restated per folder; there is no owner-state registry. Transient build-order detail stays on the task that builds a seam; the settled alignment is recorded in `[2]-[SEAMS]`.
 
 [IDEAS] — the folder's forward pool of higher-order concepts.
-- Two sections, `[1]-[OPEN]` and `[2]-[CLOSED]`. Each idea is a card: a bracketed slug leader plus a few bullets — the capability, what it unlocks, and the gap or modern technique it draws on. A folder idea is a bigger concept (a new file, sub-domain, or capability) grounded in the folder's domain and the monorepo purpose, never speculation.
+- Two sections, `[1]-[OPEN]` and `[2]-[CLOSED]`. Each idea is a card: a bracketed slug leader plus a few bullets — the capability, what it unlocks, and the gap or technique it draws on. A folder idea is a bigger concept (a new file, sub-domain, or capability) grounded in the folder's domain and the monorepo purpose, never speculation.
 - An idea drives one or more tasks. A resolved idea moves to `[CLOSED]` with a one-line disposition, so the same idea is never re-litigated.
 
 [TASKLOG] — the folder's open and closed work, distilled from its ideas.

@@ -24,7 +24,7 @@
 |  [06]   | `__ENV` / `__VU` / `__ITER`   | ambient global | env map, 1-based VU id, 0-based iteration counter            |
 |  [07]   | `open(path, mode?)`           | ambient global | read a fixture file at init time (corpus / payload seed)     |
 
-```ts contract
+```ts signature
 // index.d.ts + global.d.ts — Checkers is a name→predicate record; a check is one row, discriminated by description.
 export function check<VT>(val: VT, sets: Checkers<VT>, tags?: object): boolean
 export function group<RT>(name: string, fn: () => RT): RT
@@ -46,7 +46,7 @@ declare var __ENV: { [name: string]: string }; declare var __VU: number; declare
 |  [04]   | `Scenario`        | union (7 executors) | `executor` discriminates the load shape; the whole roster is one type    |
 |  [05]   | `Stage`           | interface           | `{ duration; target }` — a ramping segment for `stages`/`ramping-*`      |
 
-```ts contract
+```ts signature
 // options/index.d.ts — ONE Options object; scenarios is executor-discriminated; thresholds is the gate.
 interface Options {
   vus?: number; duration?: string; iterations?: number
@@ -70,15 +70,15 @@ type Executor =
 
 [PUBLIC_TYPE_SCOPE]: `k6/http` — the request surface, RT-generic so the response body type narrows to `text` / `binary` / `none`. One `request<RT>` verb-generalizes; the named verbs are its rows; `batch` fires a typed request map; `asyncRequest` is the promise mirror.
 
-| [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY] | [CAPABILITY]                                                           |
-| :-----: | :---------------------------------------------------------- | :------------ | :--------------------------------------------------------------------- |
-|  [01]   | `get`/`post`/`put`/`patch`/`del`/`head`/`options`/`request` | function      | RT-generic request verbs; `request(method, …)` generalizes             |
-|  [02]   | `asyncRequest<RT>`                                          | function      | the `Promise<RefinedResponse<RT>>` mirror for concurrent fan-out       |
-|  [03]   | `batch<Q>(requests)`                                        | function      | fire a typed request map in parallel; `BatchResponses<Q>` keyed result |
-|  [04]   | `RefinedResponse<RT>` / `Response`                          | interface     | `status`/`body`/`headers`/`timings`/`json()`; body narrows by `RT`     |
-|  [05]   | `url` / `expectedStatuses`                                  | function      | URL tagged-template (name-tag aggregation) / status-set predicate      |
+| [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :---------------------------------------------------------- | :------------ | :---------------------------------------------------- |
+|  [01]   | `get`/`post`/`put`/`patch`/`del`/`head`/`options`/`request` | function      | RT-generic verbs; `request(method, …)` generalizes    |
+|  [02]   | `asyncRequest<RT>`                                          | function      | `Promise<RefinedResponse<RT>>` concurrent mirror      |
+|  [03]   | `batch<Q>(requests)`                                        | function      | parallel typed request map → `BatchResponses<Q>`      |
+|  [04]   | `RefinedResponse<RT>` / `Response`                          | interface     | `status`/`body`/`headers`/`timings`/`json()`; RT body |
+|  [05]   | `url` / `expectedStatuses`                                  | function      | URL tagged-template / status-set predicate            |
 
-```ts contract
+```ts signature
 // http/index.d.ts — RT threads through: RefinedResponse<'text'>.body is string, <'binary'> is ArrayBuffer.
 export function request<RT extends ResponseType | undefined>(method: string, url: string, body?: RequestBody, params?: RefinedParams<RT>): RefinedResponse<RT>
 export function asyncRequest<RT extends ResponseType | undefined>(method: string, url: string, body?: RequestBody, params?: RefinedParams<RT>): Promise<RefinedResponse<RT>>
@@ -96,15 +96,18 @@ type ResponseType = "binary" | "none" | "text"
 
 Custom metrics feed thresholds BY NAME — a `new Trend("my_op_ms")` becomes the `thresholds["my_op_ms"]` key. `Metric` is the abstract base; `Counter`/`Gauge`/`Rate`/`Trend` are its four rows. `k6/execution` exposes the live VU/scenario/test state.
 
-| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]  | [CAPABILITY]                                                                |
-| :-----: | :------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `Metric` → `Counter`/`Gauge`/`Rate`/`Trend`              | class          | `new Trend(name, isTime?)`; `.add(value, tags?)` — the custom-metric rail   |
-|  [02]   | `execution.vu` / `.scenario`                             | live state     | `vu.idInTest`/`vu.iterationInScenario`; `scenario.iterationInTest` counters |
-|  [03]   | `execution.instance` / `.test`                           | live state     | instance VU count; `test.abort(reason?)` — hard-stop the whole run          |
-|  [04]   | `k6/data` `SharedArray`                                  | class          | memory-shared read-only fixture corpus across VUs                           |
-|  [05]   | `k6/ws` · `k6/websockets` · `k6/net/grpc` · `k6/browser` | ambient module | protocol drivers: WS, gRPC, browser automation                              |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]  | [CAPABILITY]                                                      |
+| :-----: | :------------------------------------------ | :------------- | :---------------------------------------------------------------- |
+|  [01]   | `Metric` → `Counter`/`Gauge`/`Rate`/`Trend` | class          | `new Trend(name, isTime?)`; `.add(value, tags?)`                  |
+|  [02]   | `execution.vu` / `.scenario`                | live state     | `vu.idInTest`/`vu.iterationInScenario`/`scenario.iterationInTest` |
+|  [03]   | `execution.instance` / `.test`              | live state     | instance VU count; `test.abort(reason?)` hard-stops the run       |
+|  [04]   | `k6/data` `SharedArray`                     | class          | memory-shared read-only fixture corpus across VUs                 |
+|  [05]   | `k6/ws`                                     | ambient module | legacy WebSocket protocol driver                                  |
+|  [06]   | `k6/websockets`                             | ambient module | Promise-based WebSocket driver                                    |
+|  [07]   | `k6/net/grpc`                               | ambient module | gRPC protocol driver                                              |
+|  [08]   | `k6/browser`                                | ambient module | browser-automation driver                                         |
 
-```ts contract
+```ts signature
 // metrics/index.d.ts + execution/index.d.ts — the metric name is the threshold key; execution.test.abort is the panic.
 export abstract class Metric { constructor(name: string, isTime?: boolean); add(value: number | boolean, tags?: { [name: string]: string }): void }
 export class Trend extends Metric {}  export class Counter extends Metric {}  export class Rate extends Metric {}  export class Gauge extends Metric {}

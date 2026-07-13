@@ -18,12 +18,19 @@
 [PUBLIC_TYPE_SCOPE]: solver, settings, and solution roots
 - rail: convex optimization
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]  | [CAPABILITY]                                                                                                                                                                             |
-| :-----: | :---------------- | :------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `DefaultSolver`   | solver         | `DefaultSolver(P, q, A, b, cones, settings)` — assembles and runs the solve                                                                                                              |
-|  [02]   | `DefaultSettings` | settings       | tolerances, iteration cap, time limit, equilibration, presolve, KKT method                                                                                                               |
-|  [03]   | `DefaultSolution` | result carrier | `x`, `z`, `s`, `status`, `obj_val`, `solve_time`, `iterations`, `r_prim`, `r_dual`                                                                                                       |
-|  [04]   | `SolverStatus`    | status enum    | `Unsolved`/`Solved`/`PrimalInfeasible`/`DualInfeasible`/`AlmostSolved`/`AlmostPrimalInfeasible`/`AlmostDualInfeasible`/`MaxIterations`/`MaxTime`/`NumericalError`/`InsufficientProgress` |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]  | [CAPABILITY]                                                                       |
+| :-----: | :---------------- | :------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `DefaultSolver`   | solver         | `DefaultSolver(P, q, A, b, cones, settings)` — assembles and runs the solve        |
+|  [02]   | `DefaultSettings` | settings       | tolerances, iteration cap, time limit, equilibration, presolve, KKT method         |
+|  [03]   | `DefaultSolution` | result carrier | `x`, `z`, `s`, `status`, `obj_val`, `solve_time`, `iterations`, `r_prim`, `r_dual` |
+|  [04]   | `SolverStatus`    | status enum    | the `DefaultSolution.status` value; the closed verdict roster fences below         |
+
+```python signature
+# SolverStatus verdict enum — three base verdicts each mirrored by an Almost* near-solve variant, plus the caps
+SolverStatus = ("Unsolved", "Solved", "PrimalInfeasible", "DualInfeasible", "AlmostSolved",
+                "AlmostPrimalInfeasible", "AlmostDualInfeasible", "MaxIterations", "MaxTime",
+                "NumericalError", "InsufficientProgress")
+```
 
 [PUBLIC_TYPE_SCOPE]: cone constructors
 - rail: convex optimization

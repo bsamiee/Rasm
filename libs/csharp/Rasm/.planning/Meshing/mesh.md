@@ -19,7 +19,7 @@ The mesh substrate owner: the validated `MeshSpace` snapshot handle every mesh-c
 - Growth: a fourth Laplacian discretization is one `MeshLaplacian` row (its column values, `Select`/`Snapshot` delegates) + one cache memo + one assembly member with every call site untouched — never a sibling selector; a new memoized solver artifact is ZERO cache edits — the owning page mints its key record and calls `Memoized`; a new signpost gauge is one `SignpostGauge` row; a power-diagram density model is one `PowerDensityPolicy` row; a new topology witness is one `TopologyReceipt` field (the receipt is the total witness — no gate to extend); zero new public surface.
 - Boundary: `LaplacianCache` semantics are the load-bearing correctness contract — replacing the `ConditionalWeakTable` with a keyed dictionary leaks caches across snapshot lifetimes and re-keys on value equality (two duplicates would alias), and caching failures poisons every downstream solve: both are the named rebuild defects this page exists to prevent. The cotangent arithmetic lives in ONE `Cotangent` owner — a consumer re-deriving `(a·b)/(2A)` or the law-of-cosines form inline is the collapsed duplication re-opening. `IntrinsicMesh` stays `internal`: the cross-package surface is `MeshAdjointSnapshot` carrying the public `DiscreteCalculus`, and exposing the mutable triangulation would let a consumer mutate a frozen snapshot mid-cache. The cotangent-kind aspect-ratio guard and the intrinsic-kind mollification are policy rows on `MeshAssemblyPolicy`/`TuftedCoverPolicy`, never resurrected constants — and `MeshAssemblyPolicy` travels on `MeshSpace.Of`, one value per snapshot: a per-call assembly knob would alias the Unit-keyed intrinsic/cotangent memos under two flip budgets, so per-run variation means a fresh snapshot, never a cache poke. The `Memoized` anti-aliasing law is load-bearing: two solver families sharing one `(key-record, artifact)` type pair would alias one slot, so every family declares its own key record beside its kernel — re-adding named per-solver accessors here re-opens the downward type dependency this collapse killed. `PowerFacet.OffsetI` stays `Option<double>.None` at construction — the BNOT driver recomputes the weighted offset `d_ij = l_ij/2 + (w_i−w_j)/(2·l_ij)` from live dual weights each outer iteration, so a populated midpoint here would be silently trusted stale data; `A_ij == A_ji` holds because the FIFO incident-pair frontier pushes both cell views of every power facet. Euclidean k-NN seeds the power-incident set through the `Spatial/neighbors` substrate (Euclidean, not power-nearest), so with non-trivial weights the k-th neighbour can under-clip — `KNearest` is a policy row and `IncidentPairCount`/`IntegrationResidual`/`QueuePeakDepth` make any under-clip observable in the receipt, never silent. A thrown exception on a degenerate mesh is forbidden — the defect routes `Op` faults over `Fin<T>`.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Collections.Concurrent;
@@ -624,19 +624,29 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a row, case, memo slot, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail.
+One owner per axis; capability is a row, case, memo slot, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail; the per-axis kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]      | [OWNER]                               | [KIND]                                                                                                     | [RAIL]                                               | [CASES] |
-| :-----: | :------------------ | :------------------------------------ | :--------------------------------------------------------------------------------------------------------- | :--------------------------------------------------- | :-----: |
-|  [01]   | Mesh handle         | `MeshSpace`                           | `[BoundaryAdapter]` validated defensive snapshot                                                           | `MeshSpace.Of → Fin<MeshSpace>`                      |    1    |
-|  [02]   | Laplacian selection | `MeshLaplacian`                       | `[SmartEnum<int>]`, gate/triangulation columns + `Select`/`Snapshot` delegates                             | `Select → Fin<SparseLaplacian>`                      |    3    |
-|  [03]   | Memoization         | `LaplacianCache`                      | `ConditionalWeakTable` service, `Atom<HashMap>` success-only memos + the type-keyed `Memoized` solver slot | `Memo.Of → Fin<T>`                                   | 12+slot |
-|  [04]   | Cotangent primitive | `Cotangent`                           | one static owner, intrinsic + extrinsic arithmetic paths                                                   | pure                                                 |    2    |
-|  [05]   | Intrinsic snapshot  | `IntrinsicMesh`/`IntrinsicEdge`       | mutable-build / frozen-read triangulation + FLIP-N coordinates                                             | `BuildIntrinsicMesh → Fin<IntrinsicMesh>`            |    —    |
-|  [06]   | Adjoint handle      | `MeshAdjointSnapshot`                 | public record over the cached `DiscreteCalculus`                                                           | `Of → Fin<MeshAdjointSnapshot>`                      |    1    |
-|  [07]   | Substrate assembly  | `MeshKernel`                          | internal kernel: cotangent/IDT/tufted/SPD/topology                                                         | `Fin` rails per member                               |    —    |
-|  [08]   | Tangent transport   | `SignpostPolicy` + transport receipts | policy + gauge-angle kernel + overlay                                                                      | `SignpostTransportReceiptOf → Fin<...>`              |    —    |
-|  [09]   | Power diagram       | `RestrictedPowerDiagram`              | receipt-carrying Laguerre diagram, scale-derived clip policy                                               | `RestrictedPowerCells → Fin<RestrictedPowerDiagram>` |    —    |
+| [INDEX] | [AXIS_CONCERN]      | [OWNER]                               | [RAIL]                                               | [CASES] |
+| :-----: | :------------------ | :------------------------------------ | :--------------------------------------------------- | :-----: |
+|  [01]   | Mesh handle         | `MeshSpace`                           | `MeshSpace.Of → Fin<MeshSpace>`                      |    1    |
+|  [02]   | Laplacian selection | `MeshLaplacian`                       | `Select → Fin<SparseLaplacian>`                      |    3    |
+|  [03]   | Memoization         | `LaplacianCache`                      | `Memo.Of → Fin<T>`                                   | 12+slot |
+|  [04]   | Cotangent primitive | `Cotangent`                           | pure                                                 |    2    |
+|  [05]   | Intrinsic snapshot  | `IntrinsicMesh`/`IntrinsicEdge`       | `BuildIntrinsicMesh → Fin<IntrinsicMesh>`            |    —    |
+|  [06]   | Adjoint handle      | `MeshAdjointSnapshot`                 | `Of → Fin<MeshAdjointSnapshot>`                      |    1    |
+|  [07]   | Substrate assembly  | `MeshKernel`                          | `Fin` rails per member                               |    —    |
+|  [08]   | Tangent transport   | `SignpostPolicy` + transport receipts | `SignpostTransportReceiptOf → Fin<...>`              |    —    |
+|  [09]   | Power diagram       | `RestrictedPowerDiagram`              | `RestrictedPowerCells → Fin<RestrictedPowerDiagram>` |    —    |
+
+- [01]-[MESH_HANDLE]: `[BoundaryAdapter]` validated defensive snapshot.
+- [02]-[LAPLACIAN_SELECTION]: `[SmartEnum<int>]`, gate/triangulation columns + `Select`/`Snapshot` delegates.
+- [03]-[MEMOIZATION]: `ConditionalWeakTable` service, `Atom<HashMap>` success-only memos + the type-keyed `Memoized` solver slot.
+- [04]-[COTANGENT_PRIMITIVE]: one static owner, intrinsic + extrinsic arithmetic paths.
+- [05]-[INTRINSIC_SNAPSHOT]: mutable-build / frozen-read triangulation + FLIP-N coordinates.
+- [06]-[ADJOINT_HANDLE]: public record over the cached `DiscreteCalculus`.
+- [07]-[SUBSTRATE_ASSEMBLY]: internal kernel — cotangent/IDT/tufted/SPD/topology.
+- [08]-[TANGENT_TRANSPORT]: policy + gauge-angle kernel + overlay.
+- [09]-[POWER_DIAGRAM]: receipt-carrying Laguerre diagram, scale-derived clip policy.
 
 The `MeshSpace`/`LaplacianCache`/`Cotangent`/`TopologyDetailed`/`AssembleCotangent`/`AssembleMassStiffnessSystem` fences are transcription-complete; the four cache factor/bundle recipes (`SpectralBasisBundleOf`/`ConnectionCholesky`/`ScalarHeatCholesky`/`EdgeConnectionCholeskyDetailed`), the `IntrinsicMesh` member cluster, `TuftedCoverMesh`, the signpost/overlay kernels, and the power-clip run are signature-fixed with their bodies the algorithms the `[04]` research contracts specify — each is a named statement-kernel exemption whose invariants (FLIP-N parity, cover closure, fan ordering, partition of unity, radical-clip degeneracy counting) are stated on the owning receipt gates, so a rebuild that loses an invariant fails the receipt, never silently.
 

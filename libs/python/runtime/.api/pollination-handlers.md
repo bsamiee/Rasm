@@ -21,42 +21,57 @@
 [PUBLIC_TYPE_SCOPE]: package layout (resolution targets)
 - rail: io-coercion
 
-No classes — two module trees of pure functions addressed by dotted `module`+`function`. The module path is the resolution contract: `lbt-recipes` calls `importlib.import_module('pollination_handlers.inputs.model')` then `getattr(mod, 'model_to_json')`.
+No classes — two module trees of pure functions addressed by dotted `module`+`function`, rooted at `pollination_handlers.*`. The module path is the resolution contract: `lbt-recipes` calls `importlib.import_module('pollination_handlers.inputs.model')` then `getattr(mod, 'model_to_json')`.
 
-| [INDEX] | [SYMBOL]                                                                     | [TYPE_FAMILY] | [CAPABILITY]                                                                       |
-| :-----: | :--------------------------------------------------------------------------- | :------------ | :--------------------------------------------------------------------------------- |
-|  [01]   | `pollination_handlers.inputs`                                                | module tree   | resolved at job-argument time: value -> recipe-input artifact                      |
-|  [02]   | `pollination_handlers.outputs`                                               | module tree   | resolved at run-completion time: result folder -> ladybug object/dict              |
-|  [03]   | `pollination_handlers.inputs.helper` / `pollination_handlers.outputs.helper` | helper module | tempfile/CSV writers; `read_sensor_grid_result`/`read_grid_results` shared readers |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY] | [CAPABILITY]                                                                       |
+| :-----: | :--------------------------------- | :------------ | :--------------------------------------------------------------------------------- |
+|  [01]   | `inputs.*`                         | module tree   | resolved at job-argument time: value -> recipe-input artifact                      |
+|  [02]   | `outputs.*`                        | module tree   | resolved at run-completion time: result folder -> ladybug object/dict              |
+|  [03]   | `inputs.helper` / `outputs.helper` | helper module | tempfile/CSV writers; `read_sensor_grid_result`/`read_grid_results` shared readers |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: input-coercion handlers (invoked by `RecipeInput.handle_value`)
 - rail: io-coercion
 
-At `handle_value` the executor runs the handler chain (ordered by `IOAliasHandler.index`) on the input value, then casts to the `DAGInput` type. Each handler is polymorphic on the value — a domain object is serialized to a temp artifact, a path/scalar is validated and returned.
+At `handle_value` the executor runs the handler chain (ordered by `IOAliasHandler.index`) on the input value, then casts to the `DAGInput` type. Each handler is polymorphic on the value — a domain object is serialized to a temp artifact, a path/scalar is validated and returned. The `[SURFACE]` globs name the coercion families; the exact per-family handler members follow the table.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                                                                                    | [ENTRY_FAMILY]   | [CAPABILITY]                                                                                                                                 |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `inputs.model.model_to_json(model_obj)` (+ precondition variants `model_to_json_{room,hvac,grid,grid_room,view}_check`) / `inputs.model.model_dragonfly_to_json`                                                                                                                                                             | model coercion   | honeybee/dragonfly `Model` \| path -> HBJSON/DFJSON path; the `_check` variants assert Rooms/HVAC/SensorGrids/Views exist before serializing |
-|  [02]   | `inputs.wea.wea_handler` (+ `wea_handler_timestep_check`/`wea_handler_timestep_annual_check`) / `inputs.ddy.ddy_handler`                                                                                                                                                                                                     | weather coercion | ladybug `Wea`/`EPW`/`DDY` \| path -> weather artifact; the timestep variants assert timestep==1 / annual coverage                            |
-|  [03]   | `inputs.simulation.energy_sim_par_to_json` / `measures_to_folder` / `list_to_additional_strings` / `list_to_additional_idf` / `viz_variables_to_string` / `standard_to_str`                                                                                                                                                  | sim coercion     | simulation parameter/measure/list coercion                                                                                                   |
-|  [04]   | `inputs.data.value_or_data_to_str` / `value_or_data_to_file` / `value_or_data_to_air_speed_file` / `value_or_data_to_met_file` / `value_or_data_to_clo_file` / `inputs.schedule.schedule_to_csv` / `inputs.schedule.data_to_csv`                                                                                             | data coercion    | scalar \| `DataCollection` -> str/CSV/per-sensor file                                                                                        |
-|  [05]   | `inputs.north.north_vector_to_angle` / `inputs.runperiod.run_period_to_str` / `inputs.emissions.location_to_electricity_emissions` / `inputs.pit.point_in_time_metric_to_str` / `inputs.postprocess.grid_metrics`                                                                                                            | value coercion   | orientation/period/emissions/metric coercion                                                                                                 |
-|  [06]   | `inputs.bool_options.*` (`use_multiplier_to_str`, `is_residential_to_str`, `cloudy_bool_to_str`, `sky_view_metric_to_str`, `visible_vs_solar_to_str`, `glare_control_devices_to_str`, `filter_des_days_to_str`, `skip_overture_to_str`, `write_set_map_to_str`, `bldg_lighting_to_str`) / `inputs.helper.bool_option_to_str` | option coercion  | bool/option -> the acceptable CLI flag string the recipe expects                                                                             |
+| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY]   | [CAPABILITY]                                        |
+| :-----: | :----------------------------------------------------------- | :--------------- | :-------------------------------------------------- |
+|  [01]   | `inputs.model.*`                                             | model coercion   | honeybee/dragonfly `Model` \| path -> HBJSON/DFJSON |
+|  [02]   | `inputs.wea.*` / `inputs.ddy.*`                              | weather coercion | `Wea`/`EPW`/`DDY` \| path -> weather artifact       |
+|  [03]   | `inputs.simulation.*`                                        | sim coercion     | sim-param/measure/list coercion                     |
+|  [04]   | `inputs.data.*` / `inputs.schedule.*`                        | data coercion    | scalar \| `DataCollection` -> str/CSV/file          |
+|  [05]   | `inputs.{north,runperiod,emissions,pit,postprocess}.*`       | value coercion   | orientation/period/emissions/metric coercion        |
+|  [06]   | `inputs.bool_options.*` / `inputs.helper.bool_option_to_str` | option coercion  | bool/option -> the CLI flag string the recipe wants |
+
+Per-family handler members:
+- [01]-[MODEL]: `model_to_json(model_obj)`, precondition variants `model_to_json_{room,hvac,grid,grid_room,view}_check` (assert Rooms/HVAC/SensorGrids/Views exist before serializing), `model_dragonfly_to_json`.
+- [02]-[WEATHER]: `wea_handler`, `wea_handler_timestep_check`, `wea_handler_timestep_annual_check` (assert timestep==1 / annual coverage), `ddy_handler`.
+- [03]-[SIM]: `energy_sim_par_to_json`, `measures_to_folder`, `list_to_additional_strings`, `list_to_additional_idf`, `viz_variables_to_string`, `standard_to_str`.
+- [04]-[DATA]: `value_or_data_to_str`, `value_or_data_to_file`, `value_or_data_to_air_speed_file`, `value_or_data_to_met_file`, `value_or_data_to_clo_file`, `schedule.schedule_to_csv`, `schedule.data_to_csv`.
+- [05]-[VALUE]: `north.north_vector_to_angle`, `runperiod.run_period_to_str`, `emissions.location_to_electricity_emissions`, `pit.point_in_time_metric_to_str`, `postprocess.grid_metrics`.
+- [06]-[OPTION]: `use_multiplier_to_str`, `is_residential_to_str`, `cloudy_bool_to_str`, `sky_view_metric_to_str`, `visible_vs_solar_to_str`, `glare_control_devices_to_str`, `filter_des_days_to_str`, `skip_overture_to_str`, `write_set_map_to_str`, `bldg_lighting_to_str`, `helper.bool_option_to_str`.
 
 [ENTRYPOINT_SCOPE]: result-reader handlers (invoked by `RecipeOutput.value`)
 - rail: io-coercion
 
-At `RecipeOutput.value(simulation_folder)` the executor joins the output path and runs the output handler chain, turning the raw result folder into a typed Python object the job receipt carries.
+At `RecipeOutput.value(simulation_folder)` the executor joins the output path and runs the output handler chain, turning the raw result folder into a typed Python object the job receipt carries. The `[SURFACE]` globs name the reader families; the exact per-family handler members follow the table.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                             | [ENTRY_FAMILY]    | [CAPABILITY]                                                               |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------------------------------- |
-|  [01]   | `outputs.daylight.read_da_from_folder` / `read_udi_from_folder` / `read_cda_from_folder` / `read_ga_from_folder` / `read_df_from_folder` / `read_pit_from_folder` / `read_hours_from_folder` / `read_ase_from_folder` | metric reader     | radiance result folder -> per-sensor metric lists                          |
-|  [02]   | `outputs.daylight.sort_ill_from_folder` / `read_images_from_folder` / `read_leed_datacollection_from_folder`                                                                                                          | collection reader | sorted `.ill` files, images, LEED `DataCollection`                         |
-|  [03]   | `outputs.daylight.read_leed_summary_grid` / `read_leed_shade_transmittance_schedule` / `read_grid_metrics` / `ill_credit_json_from_path` / `read_json_dict` / `read_json_summary_list`                                | summary reader    | LEED/credit summaries and grid-metric dicts                                |
-|  [04]   | `outputs.comfort.read_comfort_percent_from_folder` / `outputs.eui.eui_json_from_path` / `outputs.summary.json_properties_from_path` / `outputs.summary.contents_from_folder`                                          | summary reader    | comfort percent, EUI, summary properties/contents                          |
-|  [05]   | `outputs.helper.read_sensor_grid_result(result_folder, extension, grid_key, is_percent=True, factor=1)` / `outputs.helper.read_grid_results(result_folder, extension, grid_key, is_percent=True, factor=1)`           | reader primitive  | the shared per-grid result-file readers the daylight handlers compose over |
+| [INDEX] | [SURFACE]                             | [ENTRY_FAMILY]    | [CAPABILITY]                                       |
+| :-----: | :------------------------------------ | :---------------- | :------------------------------------------------- |
+|  [01]   | `outputs.daylight.read_*_from_folder` | metric reader     | radiance result folder -> per-sensor metric lists  |
+|  [02]   | `outputs.daylight.*`                  | collection reader | sorted `.ill` files, images, LEED `DataCollection` |
+|  [03]   | `outputs.daylight.*`                  | summary reader    | LEED/credit summaries and grid-metric dicts        |
+|  [04]   | `outputs.{comfort,eui,summary}.*`     | summary reader    | comfort percent, EUI, summary properties/contents  |
+|  [05]   | `outputs.helper.*`                    | reader primitive  | shared per-grid result-file readers                |
+
+Per-family handler members:
+- [01]-[METRIC]: `read_da_from_folder`, `read_udi_from_folder`, `read_cda_from_folder`, `read_ga_from_folder`, `read_df_from_folder`, `read_pit_from_folder`, `read_hours_from_folder`, `read_ase_from_folder`.
+- [02]-[COLLECTION]: `sort_ill_from_folder`, `read_images_from_folder`, `read_leed_datacollection_from_folder`.
+- [03]-[SUMMARY]: `read_leed_summary_grid`, `read_leed_shade_transmittance_schedule`, `read_grid_metrics`, `ill_credit_json_from_path`, `read_json_dict`, `read_json_summary_list`.
+- [04]-[OTHER]: `comfort.read_comfort_percent_from_folder`, `eui.eui_json_from_path`, `summary.json_properties_from_path`, `summary.contents_from_folder`.
+- [05]-[PRIMITIVE]: `read_sensor_grid_result(result_folder, extension, grid_key, is_percent=True, factor=1)`, `read_grid_results(result_folder, extension, grid_key, is_percent=True, factor=1)`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -13,14 +13,14 @@
 
 Seed helpers and the reseed extension point third-party RNGs register against.
 
-| [INDEX] | [SYMBOL]                                          | [KIND]        | [CAPABILITY]                                                                     |
-| :-----: | :------------------------------------------------ | :------------ | :------------------------------------------------------------------------------- |
-|  [01]   | `pytest_randomly.make_seed()`                     | seed source   | draws a fresh 32-bit seed via `random.Random().getrandbits(32)`                  |
-|  [02]   | `pytest_randomly.seed_type(value)`                | option parser | coerces `--randomly-seed` input, accepting the literal `last` and `default`      |
-|  [03]   | `pytest_randomly.XdistHooks`                      | xdist bridge  | broadcasts the controller seed to every worker so a parallel run shares one seed |
-|  [04]   | entry-point group `pytest_randomly.random_seeder` | reseed hook   | each registered callable receives the per-test seed to reseed a custom RNG       |
+| [INDEX] | [SYMBOL]                           | [KIND]            | [CAPABILITY]                                                                |
+| :-----: | :--------------------------------- | :---------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `pytest_randomly.make_seed()`      | seed source       | draws a fresh 32-bit seed via `random.Random().getrandbits(32)`             |
+|  [02]   | `pytest_randomly.seed_type(value)` | option parser     | coerces `--randomly-seed` input, accepting the literal `last` and `default` |
+|  [03]   | `pytest_randomly.XdistHooks`       | xdist bridge      | broadcasts the controller seed to every worker for one shared parallel seed |
+|  [04]   | `pytest_randomly.random_seeder`    | entry-point group | each registered callable receives the per-test seed to reseed a custom RNG  |
 
-```python contract
+```python signature
 def make_seed() -> int: ...                              # random.Random().getrandbits(32)
 def seed_type(value: str) -> str | int: ...              # 'default' | 'last' | int
 # A third-party RNG registers a reseeder via the entry-point group:
@@ -32,14 +32,14 @@ def seed_type(value: str) -> str | int: ...              # 'default' | 'last' | 
 
 CLI surface fixing the seed and toggling the two behaviors independently.
 
-| [INDEX] | [SURFACE]                                        | [KIND]        | [CAPABILITY]                                                                               |
-| :-----: | :----------------------------------------------- | :------------ | :----------------------------------------------------------------------------------------- |
-|  [01]   | `--randomly-seed <int>` · `--randomly-seed last` | seed control  | fixes the seed for replay; `last` reuses the prior run's seed; default draws fresh per run |
-|  [02]   | `--randomly-dont-reorganize`                     | order toggle  | keeps collection order, still reseeds RNGs per test                                        |
-|  [03]   | `--randomly-dont-reset-seed`                     | reseed toggle | stops the per-test `random.seed()` reset while still shuffling order                       |
-|  [04]   | `-p no:randomly`                                 | disable       | unloads the plugin entirely — the mutmut invocation path                                   |
+| [INDEX] | [SURFACE]                                        | [KIND]        | [CAPABILITY]                                                         |
+| :-----: | :----------------------------------------------- | :------------ | :------------------------------------------------------------------- |
+|  [01]   | `--randomly-seed <int>` · `--randomly-seed last` | seed control  | fixes the seed for replay; `last` = prior run's, default draws fresh |
+|  [02]   | `--randomly-dont-reorganize`                     | order toggle  | keeps collection order, still reseeds RNGs per test                  |
+|  [03]   | `--randomly-dont-reset-seed`                     | reseed toggle | stops the per-test `random.seed()` reset while still shuffling order |
+|  [04]   | `-p no:randomly`                                 | disable       | unloads the plugin entirely — the mutmut invocation path             |
 
-```python contract
+```python signature
 # addoption bindings (dest / default):
 #   --randomly-seed            dest=randomly_seed      default="default"   type=seed_type
 #   --randomly-dont-reset-seed dest=randomly_reset_seed  default=True  (store_false)

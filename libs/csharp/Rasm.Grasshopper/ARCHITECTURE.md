@@ -1,84 +1,171 @@
 # [RASM_GRASSHOPPER_ARCHITECTURE]
 
-The domain map of `Rasm.Grasshopper` — the Grasshopper2 and Eto host boundary on the C# app strata, a planning-scoped package whose whole design corpus lives under one `.planning/` root in six sub-domain folders. It references the `Rasm` kernel and no other sibling; host-agnostic math composes the kernel motion and colour surfaces rather than a second in-folder derivation. Namespace mirrors folder path (`[03]`).
-
-Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
+`Rasm.Grasshopper` maps the Grasshopper 2, Eto, and Rhino UI host boundary on the C# app strata: each sub-domain folder maps to exactly one namespace, and one owner closes each host concern over the live GH2 and Eto surfaces. It references the `Rasm` kernel and no sibling — host-agnostic kernel math composes the motion and colour surfaces rather than a second in-folder derivation.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
-Rasm.Grasshopper/
-├── Canvas/                 # Paint, wire, layout, motion, and interaction owners over the live GH2 canvas
-│   ├── Canvas.cs           # CanvasOp commands plus closed CanvasQuery/CanvasProjection reads, typed picks, monotonic receipts, owned rasters
-│   ├── Interaction.cs      # ResponderSpec dispatch, InteractionMount registration/focus/menu leases, DragSession and EdgeResize capsules
-│   ├── Layout.cs           # Arrangement folded to pivot deltas sealed as one undo mutation; host snapping/stretch solvers; snap solving
-│   ├── Motion.cs           # Span/Pace rows, Tween/FlexDrive, animated glyphs, and a CanvasPacer lease sharing MotionDrive.Step
-│   ├── Paint.cs            # PaintAnchor event leases, scoped PaintScene, PaintFrame/Mark plans, PaintStock custody, culling, Pigment egress
-│   └── Wires.cs            # Wire route geometry over host WireShape, RouteStyle custom routes, wire pick, marquee select, WireSkin pen pass
-├── Components/             # Component authoring, pin catalog, Garden data transfer, attribute chrome, native object catalog
-│   ├── Attributes.cs       # ChromeEvent/ChromeDecision policy, bounded ChromeTrace, and one ChromeHost/ResizableChromeHost projection spine
-│   ├── Component.cs        # Self-typed static declaration, constructor-safe SpecComponent<TSelf>, topology/iteration policies, run ledger
-│   ├── Data.cs             # GardenData: IDataAccess transfer, Garden tree algebra, ConversionServer cast-or-convert, the closed GhFault family
-│   ├── Objects.cs          # NativeKind public factories, PersistedValue read/assign, timer targets, cluster maps, and the GH1 host boundary
-│   └── Ports.cs            # PortRow carrier/semantic/axis catalog, side-aware PortBinding, PinPlan/PinTrim admission, and declaration fold
-├── Document/               # The graph transaction spine, query/wire operator, undo ledger, solution controller
-│   ├── Document.cs         # DocumentScope: minting across inert/inactive/active tiers, keyed-value shelves, the one Transact graph gate
-│   ├── Graph.cs            # GraphScope: Ask over ObjectList/Connectivity, Mutate over Connections/SplitWire, each sealed into the ledger
-│   ├── History.cs          # HistoryLedger: ActionList sealed into the branching History tree, stride/re-root/replay, the shared Seal spelling
-│   └── Solution.cs         # SolutionControl: SolutionServer launch/halt/cancel, deferred-expiry protocol, Watch/Trace lifecycle fold
-├── Eto/                    # Native control construction, two-way binding, the UI-thread runtime floor, window/dialog/menu spine
-│   ├── Binding.cs          # BindingRail: IndirectBinding/BindableBinding/DualBinding fusion, ValueGate admission, DataScope, StoreRow carriers
-│   ├── Controls.cs         # ControlForge.Realize: recursive ControlSpec over the Eto.Forms surface, FieldTag/FieldValue capture, role rows
-│   ├── Runtime.cs          # EtoDispatch lanes/echoes, leased UiClock, Transfer algebra, Display/InputState facts, notice and tray custody
-│   └── Windows.cs          # CommandDeck, recursive MenuNode fold, WindowSpec/WindowChrome + WindowVerb, DialogSpec<TResult>/PickerSpec gate
-├── Platform/               # The Eto handler seam, the gated macOS-native AppKit touch, the CoreAnimation compositing owner
-│   ├── Composition.cs      # LayerMount custody, Compose transactions, MotionDrive/Attachment, glides, effects, and Display-P3 WideColor
-│   ├── Handlers.cs         # PlatformSeam capability demand, Handlers widget-to-handler substrate, Styler frozen style rows, Bridge embedding
-│   └── Native.cs           # MacGate/MacAnchor roles, ABI-typed monitor and gesture leases, pressure restore, WorkspaceWatch screen pacing
-└── Shell/                  # The session spine, UI event algebra, editor-shell control, chrome intent, vector-icon owner
-    ├── Chrome.cs           # Chrome.Apply: toolbar, input-panel, tooltip, floating-button demand onto the mintable GH2 chrome hosts, one gate
-    ├── Editor.cs           # EditorShell: Editor singleton chrome-pane ShellSlot rows, ShellToggle rows, ShellState receipt, BeginRhinoGetter
-    ├── Events.cs           # UiFact/UiEvent evidence, EventAnchor/UiSource rows, and transactional UiSubscription ownership on Lease<T>
-    ├── Icons.cs            # Vector-icon owner: five AbstractIcon origins, keyed-state pose machine, IconContext filter chain, IconCatalog
-    └── Session.cs          # ScopeTarget/GhScope acquisition, Apply/Run gates, repaint and monotonic receipts, DocumentToken/SessionCache
+Rasm.Grasshopper/       # refs ../Rasm ONLY; GH2 + Eto host boundary; kernel math composed, never re-derived
+├── Canvas/             # Paint, wire, layout, motion, and interaction owners over the live GH2 canvas
+│   ├── Canvas.cs       # Canvas command-and-projection boundary over the live host surface
+│   ├── Interaction.cs  # Responder dispatch, mount/focus/menu leases, and drag/resize capsules
+│   ├── Layout.cs       # Arrangement folded to pivot deltas as one undo mutation; host snap/stretch solvers
+│   ├── Motion.cs       # Span/pace tween drive, animated glyphs, and the shared canvas pacer lease
+│   ├── Paint.cs        # Event-scoped paint scene, frame/mark plans, stock custody, and pigment egress
+│   └── Wires.cs        # Wire route geometry, custom routes, pick, marquee select, and the skin pen pass
+├── Components/         # Component authoring, pin catalog, data transfer, attribute chrome, native catalog
+│   ├── Attributes.cs   # Chrome event/decision policy, bounded trace, and the resizable chrome host spine
+│   ├── Component.cs    # Self-typed component declaration, topology/iteration policy, and the run ledger
+│   ├── Data.cs         # Data-access transfer, the tree algebra, cast-or-convert, and the fault family
+│   ├── Objects.cs      # Native-object factories, persisted read/assign, timer/cluster maps, GH1 boundary
+│   └── Ports.cs        # Port carrier/semantic/axis catalog, side-aware binding, and admission fold
+├── Document/           # Graph transaction spine, query/wire operator, undo ledger, solution controller
+│   ├── Document.cs     # Graph transaction spine over inert/inactive/active minting tiers, one gate
+│   ├── Graph.cs        # Graph query-and-mutate operator, each mutation sealed into the ledger
+│   ├── History.cs      # Branching history ledger — actions sealed, stride, re-root, and replay
+│   └── Solution.cs     # Solution controller — launch/halt/cancel, deferred expiry, watch/trace
+├── Eto/                # Native control construction, two-way binding, the UI-thread floor, window spine
+│   ├── Binding.cs      # Two-way binding fusion, value-gate admission, and store-row carriers
+│   ├── Controls.cs     # Recursive control realization over the Eto.Forms surface with field capture
+│   ├── Runtime.cs      # UI-thread dispatch floor — leased clock, transfer algebra, display/input facts
+│   └── Windows.cs      # Command deck, recursive menu fold, and window/dialog/picker construction
+├── Platform/           # Eto handler seam, gated macOS AppKit touch, CoreAnimation compositor
+│   ├── Composition.cs  # Layer custody, compose transactions, motion drives, and wide-colour compositing
+│   ├── Handlers.cs     # Eto handler seam, widget-to-handler substrate, frozen stylers, embedding
+│   └── Native.cs       # Gated macOS AppKit — monitor/gesture leases, pressure restore, workspace pacing
+└── Shell/              # Session spine, UI event algebra, editor shell, chrome intent, vector icons
+    ├── Chrome.cs       # Toolbar, input-panel, tooltip, and floating-button demand onto GH2 chrome hosts
+    ├── Editor.cs       # Editor shell — chrome-pane slots, toggles, state receipt, Rhino getter
+    ├── Events.cs       # UI fact/event evidence, anchor/source rows, and transactional subscription
+    ├── Icons.cs        # Vector-icon owner — host origins, a pose machine, filter chain, and catalog
+    └── Session.cs      # Live-scope acquisition, apply/run gates, repaint receipts, and the session cache
 ```
 
 ## [02]-[SEAMS]
 
-```text seams
-Canvas/Wires.cs           ←  Canvas/Canvas.cs             # [PROJECTION]: typed point picks through CanvasQuery/CanvasProjection
-Canvas/Interaction.cs     ←  Canvas/Canvas.cs             # [PROJECTION]: dwell and gesture reads through detached canvas state
-Canvas/Interaction.cs     ←  Shell/Session.cs             # [LIFETIME]: GhSession resolves the live canvas before an owned mount or capsule escapes
-Canvas/Motion.cs          ←  Eto/Runtime.cs               # [LIFETIME]: CanvasPacer owns one UiClock lease through terminal stop
-Canvas/Motion.cs          ←  Platform/Composition.cs      # [SHAPE]: one MotionDrive.Step/DriveFrame sampling contract
-Canvas/Paint.cs           ←  Shell/Session.cs             # [LIFETIME]: paint hooks acquire the live canvas inside GhSession
-Canvas/Wires.cs           ←  Canvas/Paint.cs              # [LIFETIME]: wire rendering consumes event-scoped PaintScene only
-Components/Component.cs   ←  Components/Attributes.cs     # [POLICY]: ComponentSpec.Chrome projects through one attribute spine
-Components/Component.cs   ←  Components/Ports.cs          # [DECLARATION]: PinPlan rows drive constructor-time and maintenance ports
-Components/Objects.cs     ←  Components/Data.cs           # [RAIL]: NativeObject host calls cross Hosted/GhFault
-Shell/Events.cs           ←  Eto/Runtime.cs               # [WIRE]: ClockBeat and dispatch evidence enter UiFact rows
-Shell/Events.cs           ←  Shell/Session.cs             # [IDENTITY]: document facts carry DocumentToken, never a live Document
-Shell/Session.cs          ←  Eto/Runtime.cs               # [BOUNDARY]: Apply/Run settle through EtoDispatch lanes
-Platform/Native.cs        ←  Eto/Runtime.cs               # [LIFETIME]: native attachment and teardown marshal through EtoDispatch
-Platform/Composition.cs   ←  Platform/Native.cs           # [LIFETIME]: MacAnchor and WorkspaceWatch bound layer and display-link custody
-Canvas/Canvas.cs          ←  csharp:Rasm/Parametric       # [RECEIPT]: monotonic command settlement
-Canvas/Canvas.cs          ←  csharp:Rasm/Numerics         # [EVIDENCE]: finite unit-interval canvas state
-Canvas/Motion.cs          ←  csharp:Rasm/Parametric       # [BOUNDARY]: easing, cycle, spring, and branded monotonic timing
-Canvas/Motion.cs          ←  csharp:Rasm/Numerics         # [BOUNDARY]: perceptual interpolation and unit-interval admission
-Canvas/Paint.cs           ←  csharp:Rasm/Parametric       # [RECEIPT]: monotonic paint execution settlement
-Canvas/Paint.cs           ←  csharp:Rasm/Numerics         # [BOUNDARY]: perceptual colour and mapped sRGB Eto egress
-Eto/Runtime.cs            ←  csharp:Rasm/Parametric       # [BOUNDARY]: MonotonicTimeline stamps and beats
-Shell/Events.cs           ←  csharp:Rasm/Parametric       # [EVIDENCE]: ClockBeat carries MonotonicBeat identity
-Shell/Session.cs          ←  csharp:Rasm/Parametric       # [RECEIPT]: monotonic command acknowledgement
-Shell/Icons.cs            ←  csharp:Rasm/Numerics         # [BOUNDARY]: perceptual icon tint and BlendPath policy
-Platform/Composition.cs   ←  csharp:Rasm/Parametric       # [BOUNDARY]: sampled drive state and monotonic beats
-Platform/Composition.cs   ←  csharp:Rasm/Numerics         # [BOUNDARY]: perceptual drives and mapped Display-P3 AppKit egress
+Every host-facing sub-domain admits the kernel's `MonotonicTimeline` timing authority and `PerceptualColor` colour authority as boundary contracts, minting its own receipts and drives home-side rather than re-deriving kernel math. Kernel geometry stays a pure upstream source — every command receipt seals home-side from an injected timeline, so no contract flows back down.
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: Grasshopper host-boundary kernel seams
+    accDescr: Grasshopper host-boundary sub-domain owners admitting the Rasm kernel's monotonic timing and perceptual-colour authorities as boundary contracts, edge rails colored by kind and nodes classed by seam direction.
+    subgraph grasshopper[RASM.GRASSHOPPER]
+        Canvas[Canvas boundary]
+        Eto[Eto runtime]
+        Shell[Shell session]
+        Platform[Platform native]
+    end
+    Rasm([Rasm])
+    Rasm e1@-->|"[BOUNDARY]: MonotonicTimeline"| Canvas
+    Rasm e2@-->|"[BOUNDARY]: PerceptualColor"| Canvas
+    Rasm e3@-->|"[BOUNDARY]: MonotonicTimeline"| Eto
+    Rasm e4@-->|"[BOUNDARY]: MonotonicTimeline"| Shell
+    Rasm e5@-->|"[BOUNDARY]: PerceptualColor"| Shell
+    Rasm e6@-->|"[BOUNDARY]: MonotonicTimeline"| Platform
+    Rasm e7@-->|"[BOUNDARY]: PerceptualColor"| Platform
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    class Canvas,Eto,Shell,Platform primary
+    class Rasm annotation
+    class e1,e2,e3,e4,e5,e6,e7 edgeControl
 ```
 
-## [03]-[NAMESPACES]
+## [03]-[INTERNAL]
 
-Namespace mirrors folder path — `.editorconfig` `dotnet_style_namespace_match_folder = true:error`: every fence under `Rasm.Grasshopper/<Folder>/` declares `namespace Rasm.Grasshopper.<Folder>;`, giving the six roots `Rasm.Grasshopper.Canvas`, `Rasm.Grasshopper.Components`, `Rasm.Grasshopper.Document`, `Rasm.Grasshopper.Eto`, `Rasm.Grasshopper.Platform`, and `Rasm.Grasshopper.Shell`.
+UI-thread interior composes around two floors — the `Eto/Runtime` dispatch surface and the `Shell/Session` scope gate — that every canvas, motion, event, and native owner marshals through; per-owner wiring lives on the owning implementation pages. Component-authoring and document-transaction spines carry no UI-thread dependency.
 
-The boundary compiles as ONE assembly — the single `Rasm.Grasshopper.csproj` — so members cross the six namespaces with no build edge. `Eto.Forms`, `Eto.Drawing`, `Rasm.Domain`, and the `Grasshopper2.*` roots arrive as project-level global usings, so fences name host members bare.
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: Grasshopper host-boundary interior wiring
+    accDescr: How the Grasshopper host boundary composes its UI-thread interior around the Eto runtime dispatch floor and the Shell session-scope gate, with canvas, paint, motion, events, and native owners consuming live scope, dispatch beats, and typed reads.
+    Runtime[[Eto runtime floor]]
+    Session[[Shell session gate]]
+    Canvas[[Canvas boundary]]
+    Interaction[[Interaction]]
+    Paint[[Paint scene]]
+    Wires[[Wire pass]]
+    Motion[[Motion drive]]
+    Events[[UI events]]
+    Native[[Platform native]]
+    Composition[[Layer compositor]]
+    Runtime i1@-->|"dispatch marshal"| Session
+    Runtime i2@-->|"UiClock lease"| Motion
+    Runtime i3@-->|"native marshal"| Native
+    Runtime i4@-->|"clock beat"| Events
+    Session i5@-->|"live canvas"| Interaction
+    Session i6@-->|"live canvas"| Paint
+    Session i7@-->|"DocumentToken"| Events
+    Canvas i8@-->|"typed picks"| Interaction
+    Canvas i9@-->|"typed picks"| Wires
+    Paint i10@-->|"paint scene"| Wires
+    Composition i11@-->|"MotionDrive.Step"| Motion
+    Native i12@-->|"anchor custody"| Composition
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    class Runtime,Session,Canvas,Interaction,Paint,Wires,Motion,Events,Native,Composition primary
+    class i4,i8,i9,i10 edgeData
+    class i1,i2,i3,i5,i6,i7,i11,i12 edgeControl
+```
 
-Host-name resolution is one law: inside `Rasm.Grasshopper.*` the first identifier of a partial qualification re-resolves against the boundary's own namespaces (`Eto.Forms.X` binds `Rasm.Grasshopper.Eto`, `Canvas.X`/`Document.X`/`Shell.X`/`Platform.X`/`Components.X` bind the sibling sub-namespaces), so fences name host members BARE through the global usings; a host type no global using reaches spells `global::` in full, and a simple-name collision between two host namespaces resolves through one project-level `<Using Include="..." Alias="..." />` row in `Rasm.Grasshopper.csproj` — never a per-fence `using` alias, never a partial qualification. Fully-qualified `Grasshopper2.*` spellings stay valid because no boundary namespace shadows that root.
+## [04]-[NAMESPACES]
+
+Namespace mirrors folder path — `.editorconfig` `dotnet_style_namespace_match_folder = true:error`: every fence under `Rasm.Grasshopper/<Folder>/` declares `namespace Rasm.Grasshopper.<Folder>;`, giving each sub-domain folder its own root.
+
+Boundary compiles as ONE assembly — the single `Rasm.Grasshopper.csproj` — so members cross the sub-domain namespaces with no build edge. `Eto.Forms`, `Eto.Drawing`, `Rasm.Domain`, and the `Grasshopper2.*` roots arrive as project-level global usings, so fences name host members bare.
+
+Host-name resolution is one law:
+- Inside `Rasm.Grasshopper.*` the first identifier of a partial qualification re-resolves against the boundary's own namespaces — `Eto.Forms.X` binds `Rasm.Grasshopper.Eto`, and a sub-domain simple name binds its sibling sub-namespace — so fences name host members bare through the global usings.
+- A host type no global using reaches spells `global::` in full.
+- A simple-name collision between two host namespaces resolves through one project-level `<Using Include="..." Alias="..." />` row in `Rasm.Grasshopper.csproj` — never a per-fence `using` alias, never a partial qualification.
+- Fully-qualified `Grasshopper2.*` spellings stay valid because no boundary namespace shadows that root.

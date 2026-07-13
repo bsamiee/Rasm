@@ -29,53 +29,70 @@ INDICES into the document `Vertices` list, and real coordinates are recovered by
 - namespace: `CityJSON`
 - rail: geospatial
 
-| [INDEX] | [SYMBOL]           | [RAIL]     | [CAPABILITY]                                                                                                                                                                                                                                      |
-| :-----: | :----------------- | :--------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `CityJsonDocument` | geospatial | the root: `Type` (`"CityJSON"`), `Version`, `Transform`, `CityObjects` (`Dictionary<string, CityObject>` keyed by object id), `Vertices` (`List<Vertex>`), `Appearance`, `Metadata`; `GetVerticesEnvelope` → `(Envelope, float minZ, float maxZ)` |
-|  [02]   | `Transform`        | geospatial | the quantization transform: `Scale` / `Translate` (`double[]`) with `ScaleVector3()` / `TranslateVector3()`; real coord = index-vertex × Scale + Translate                                                                                        |
-|  [03]   | `Vertex`           | geospatial | a quantized integer-or-real coordinate: `X`/`Y`/`Z` (`double`), `ToVector3()`                                                                                                                                                                     |
-|  [04]   | `Metadata`         | geospatial | `GeographicalExtent` (`float[]`, the bbox), `Identifier`, `PointOfContact`, `ReferenceDate`, `ReferenceSystem` (the CRS URN), `Title`                                                                                                             |
-|  [05]   | `Pointofcontact`   | geospatial | the dataset point-of-contact (name/role/org/email/address) `Metadata.PointOfContact` carries                                                                                                                                                      |
-|  [06]   | `Address`          | geospatial | a structured xAL-style address attached to a `CityObject`                                                                                                                                                                                         |
+| [INDEX] | [SYMBOL]           | [CAPABILITY]                                                                        |
+| :-----: | :----------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `CityJsonDocument` | the document root; object graph, vertex pool, and envelope accessor (roster below)  |
+|  [02]   | `Transform`        | the quantization transform; scale/translate vectors and the dequant law (below)     |
+|  [03]   | `Vertex`           | a quantized coordinate: `X`/`Y`/`Z` (`double`), `ToVector3()`                       |
+|  [04]   | `Metadata`         | dataset metadata; extent, identifier, CRS, and contact fields (roster below)        |
+|  [05]   | `Pointofcontact`   | the point-of-contact `Metadata.PointOfContact` carries: name/role/org/email/address |
+|  [06]   | `Address`          | a structured xAL-style address attached to a `CityObject`                           |
+
+Member rosters, keyed to the rows above:
+- [01]-[CITYJSONDOCUMENT]: `Type` (`"CityJSON"`), `Version`, `Transform`, `CityObjects` (`Dictionary<string, CityObject>` keyed by object id), `Vertices` (`List<Vertex>`), `Appearance`, `Metadata`; `GetVerticesEnvelope()` → `(Envelope, float minZ, float maxZ)`.
+- [02]-[TRANSFORM]: `Scale` / `Translate` (`double[]`) with `ScaleVector3()` / `TranslateVector3()`; real coord = index-vertex × Scale + Translate.
+- [04]-[METADATA]: `GeographicalExtent` (`float[]`, the bbox), `Identifier`, `PointOfContact`, `ReferenceDate`, `ReferenceSystem` (the CRS URN), `Title`.
 
 [PUBLIC_TYPE_SCOPE]: city objects
 - package: `bertt.CityJSON`
 - namespace: `CityJSON`
 - rail: geospatial
 
-| [INDEX] | [SYMBOL]         | [RAIL]     | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| :-----: | :--------------- | :--------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `CityObject`     | geospatial | one urban feature: `Type` (`CityObjectType`), `Attributes` (`Dictionary<string, object>`), `Geometry` (`List<CityJSON.Geometry.Geometry>` — multiple LoDs), `Address` (`JToken`)                                                                                                                                                                                                                                                                    |
-|  [02]   | `CityObjectType` | geospatial | the CityGML feature taxonomy enum: `Building`/`BuildingPart`/`BuildingInstallation`/`BuildingStorey`/`BuildingRoom`/`BuildingUnit`/`BuildingFurniture`/`BuildingsConstructiveElement`, `Bridge`+parts, `Tunnel`+parts, `Railway`/`TransportationSquare`, `Waterbody`/`WaterWay`, `CityFurniture`, `CityObjectGroup`, `LandUse`, `PlantCover`/`SolitaryVegetationObject`, `TINRelief`, `GenericCityObject`, `OtherConstruction`, `GroundSurface`,... |
+| [INDEX] | [SYMBOL]         | [CAPABILITY]                                                                              |
+| :-----: | :--------------- | :---------------------------------------------------------------------------------------- |
+|  [01]   | `CityObject`     | one urban feature; type, attribute bag, per-LoD geometry list, and address (roster below) |
+|  [02]   | `CityObjectType` | the CityGML feature taxonomy enum (values below)                                          |
+
+Rosters, keyed to the rows above:
+- [01]-[CITYOBJECT]: `Type` (`CityObjectType`), `Attributes` (`Dictionary<string, object>`), `Geometry` (`List<CityJSON.Geometry.Geometry>` — multiple LoDs), `Address` (`JToken`).
+- [02]-[CITYOBJECTTYPE]: `Building`/`BuildingPart`/`BuildingInstallation`/`BuildingStorey`/`BuildingRoom`/`BuildingUnit`/`BuildingFurniture`/`BuildingsConstructiveElement`, `Bridge`+parts, `Tunnel`+parts, `Railway`/`TransportationSquare`, `Waterbody`/`WaterWay`, `CityFurniture`, `CityObjectGroup`, `LandUse`, `PlantCover`/`SolitaryVegetationObject`, `TINRelief`, `GenericCityObject`, `OtherConstruction`, `GroundSurface`,...
 
 [PUBLIC_TYPE_SCOPE]: LoD geometry hierarchy
 - package: `bertt.CityJSON`
 - namespace: `CityJSON.Geometry`
 - rail: geospatial
 
-`Boundaries` is the CityJSON index encoding — nested `int[]` arrays referencing the document
-`Vertices` list, with one more nesting level per dimension (surface = ring×vertex,
-solid = shell×surface×ring×vertex). `Texture` is the parallel per-boundary UV-index map
-(`Dictionary<string, int?[]…>` keyed by appearance theme).
+`Boundaries` is the CityJSON index encoding — nested `int[]` arrays referencing the document `Vertices` list, with one more nesting level per dimension (surface = ring×vertex, solid = shell×surface×ring×vertex). `Texture` is the parallel per-boundary UV-index map (`Dictionary<string, int?[]…>` keyed by appearance theme).
 
-| [INDEX] | [SYMBOL]                                            | [RAIL]     | [CAPABILITY]                                                                                                                           |
-| :-----: | :-------------------------------------------------- | :--------- | :------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Geometry`                                          | geospatial | `abstract` base: `Type` (`GeometryType`), `Lod` (the level-of-detail string, e.g. `""`)                                                |
-|  [02]   | `GeometryType`                                      | geospatial | enum: `MultiPoint`, `MultiLineString`, `MultiSurface`, `CompositeSurface`, `Solid`, `MultiSolid`, `CompositeSolid`, `GeometryInstance` |
-|  [03]   | `MultiSurfaceGeometry` / `CompositeSurfaceGeometry` | geospatial | `Boundaries` (`int[][][]` — surface×ring×vertex) + per-theme `Texture` (`int?[][][]`)                                                  |
-|  [04]   | `SolidGeometry`                                     | geospatial | `Boundaries` (`int[][][][]` — shell×surface×ring×vertex) + `Texture` (`int?[][][][]`)                                                  |
-|  [05]   | `MultiSolidGeometry` / `CompositeSolidGeometry`     | geospatial | the multi-solid / composite-solid boundary nesting (one level above `SolidGeometry`)                                                   |
+| [INDEX] | [SYMBOL]                   | [CAPABILITY]                                                                            |
+| :-----: | :------------------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | `Geometry`                 | `abstract` base: `Type` (`GeometryType`), `Lod` (the level-of-detail string, e.g. `""`) |
+|  [02]   | `GeometryType`             | the geometry-kind enum (values below)                                                   |
+|  [03]   | `MultiSurfaceGeometry`     | `Boundaries` (`int[][][]` — surface×ring×vertex) + per-theme `Texture` (`int?[][][]`)   |
+|  [04]   | `CompositeSurfaceGeometry` | `Boundaries` (`int[][][]` — surface×ring×vertex) + per-theme `Texture` (`int?[][][]`)   |
+|  [05]   | `SolidGeometry`            | `Boundaries` (`int[][][][]` — shell×surface×ring×vertex) + `Texture` (`int?[][][][]`)   |
+|  [06]   | `MultiSolidGeometry`       | multi-solid boundary nesting (one level above `SolidGeometry`)                          |
+|  [07]   | `CompositeSolidGeometry`   | composite-solid boundary nesting (one level above `SolidGeometry`)                      |
+
+Enum values, keyed to the row above:
+- [02]-[GEOMETRYTYPE]: `MultiPoint`, `MultiLineString`, `MultiSurface`, `CompositeSurface`, `Solid`, `MultiSolid`, `CompositeSolid`, `GeometryInstance`.
 
 [PUBLIC_TYPE_SCOPE]: appearance and textures
 - package: `bertt.CityJSON`
 - namespace: `CityJSON`
 - rail: geospatial
 
-| [INDEX] | [SYMBOL]                                               | [RAIL]     | [CAPABILITY]                                                                                                                                                   |
-| :-----: | :----------------------------------------------------- | :--------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Appearance`                                           | geospatial | the document appearance store: `Textures` (`List<Texture>`), `VerticesTexture` (`float[][]` — the UV coordinate pool the geometry `Texture` indices reference) |
-|  [02]   | `Texture`                                              | geospatial | `Image` (the texture file ref), `ImageType` (`TextureImageType`), `WrapMode` (`TextureWrapMode`), `TextureType`, `BorderColor` (`float[]`)                     |
-|  [03]   | `TextureImageType` / `TextureWrapMode` / `TextureType` | geospatial | the image-format, wrap-mode, and texture-kind enums                                                                                                            |
+| [INDEX] | [SYMBOL]           | [CAPABILITY]                                                                      |
+| :-----: | :----------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `Appearance`       | the document appearance store; texture list and UV coordinate pool (roster below) |
+|  [02]   | `Texture`          | one texture: image ref, format/wrap/kind enums, and border color (roster below)   |
+|  [03]   | `TextureImageType` | the image-format enum                                                             |
+|  [04]   | `TextureWrapMode`  | the wrap-mode enum                                                                |
+|  [05]   | `TextureType`      | the texture-kind enum                                                             |
+
+Member rosters, keyed to the rows above:
+- [01]-[APPEARANCE]: `Textures` (`List<Texture>`), `VerticesTexture` (`float[][]` — the UV coordinate pool the geometry `Texture` indices reference).
+- [02]-[TEXTURE]: `Image` (the texture file ref), `ImageType` (`TextureImageType`), `WrapMode` (`TextureWrapMode`), `TextureType`, `BorderColor` (`float[]`).
 
 ## [03]-[ENTRYPOINTS]
 
@@ -84,25 +101,31 @@ solid = shell×surface×ring×vertex). `Texture` is the parallel per-boundary UV
 - namespace: `CityJSON`
 - rail: geospatial
 
-The codec is static and file/string-shaped. Reading is via Newtonsoft deserialization of a
-`CityJsonDocument` from the JSON text; writing goes through `CityJsonWriter`.
+The codec is static and file/string-shaped. Reading is via Newtonsoft deserialization of a `CityJsonDocument` from the JSON text; writing goes through `CityJsonWriter`.
 
-| [INDEX] | [SURFACE]                                         | [CALL_SHAPE]                                | [CAPABILITY]                                                                                                                                                                                                                       |
-| :-----: | :------------------------------------------------ | :------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `JsonConvert.DeserializeObject<CityJsonDocument>` | `(string json)` → `CityJsonDocument`        | the read counterpart — `Newtonsoft.Json` deserialization of the CityJSON text into the document graph; the package ships NO single-document `CityJsonReader`, read IS Newtonsoft (the symmetric inverse of `CityJsonWriter.Write`) |
-|  [02]   | `CityJsonWriter.Write`                            | `(CityJsonDocument)` → `string`             | serialize a document to a CityJSON string                                                                                                                                                                                          |
-|  [03]   | `CityJsonWriter.WriteToFile`                      | `(CityJsonDocument, string filePath)`       | serialize a document to a `.city.json` file                                                                                                                                                                                        |
-|  [04]   | `CityJsonDocument.GetVerticesEnvelope`            | `()` → `(Envelope, float minZ, float maxZ)` | compute the NTS planar envelope + Z-range of the dequantized vertices                                                                                                                                                              |
-|  [05]   | `Transform.ScaleVector3` / `TranslateVector3`     | `()` → `Vector3`                            | the quantization vectors to dequantize an index-vertex                                                                                                                                                                             |
-|  [06]   | `Vertex.ToVector3`                                | `()` → `Vector3`                            | a single vertex as a `System.Numerics.Vector3`                                                                                                                                                                                     |
+| [INDEX] | [SURFACE]                                         | [CALL_SHAPE]                                |
+| :-----: | :------------------------------------------------ | :------------------------------------------ |
+|  [01]   | `JsonConvert.DeserializeObject<CityJsonDocument>` | `(string json)` → `CityJsonDocument`        |
+|  [02]   | `CityJsonWriter.Write`                            | `(CityJsonDocument)` → `string`             |
+|  [03]   | `CityJsonWriter.WriteToFile`                      | `(CityJsonDocument, string filePath)`       |
+|  [04]   | `CityJsonDocument.GetVerticesEnvelope`            | `()` → `(Envelope, float minZ, float maxZ)` |
+|  [05]   | `Transform.ScaleVector3` / `TranslateVector3`     | `()` → `Vector3`                            |
+|  [06]   | `Vertex.ToVector3`                                | `()` → `Vector3`                            |
+
+Behaviors, keyed to the rows above:
+- [01]-[DESERIALIZE]: the read counterpart — `Newtonsoft.Json` deserialization of the CityJSON text into the document graph; the package ships NO single-document `CityJsonReader`, read IS Newtonsoft (the symmetric inverse of `CityJsonWriter.Write`).
+- [02]-[WRITE]: serialize a document to a CityJSON string.
+- [03]-[WRITE_TO_FILE]: serialize a document to a `.city.json` file.
+- [04]-[VERTICES_ENVELOPE]: compute the NTS planar envelope + Z-range of the dequantized vertices.
+- [05]-[DEQUANT_VECTORS]: the quantization vectors to dequantize an index-vertex.
+- [06]-[VERTEX_VECTOR3]: a single vertex as a `System.Numerics.Vector3`.
 
 [ENTRYPOINT_SCOPE]: CityJSONSeq streaming
 - package: `bertt.CityJSON`
 - namespace: `CityJSON`
 - rail: geospatial
 
-CityJSONSeq is the newline-delimited streaming form (one JSON object per line: a
-first-line metadata "CityJSON" object followed by per-feature objects) for large datasets.
+CityJSONSeq is the newline-delimited streaming form (one JSON object per line: a first-line metadata "CityJSON" object followed by per-feature objects) for large datasets.
 
 | [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                   | [CAPABILITY]                              |
 | :-----: | :----------------------------------- | :--------------------------------------------- | :---------------------------------------- |

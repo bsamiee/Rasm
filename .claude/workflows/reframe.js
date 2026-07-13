@@ -549,8 +549,8 @@ const reconBlock = (framed, unmapped) =>
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-// Agent-level slot scheduler: CAP agents in flight across ALL unit chains, staggered launch,
-// work-conserving backfill the moment a slot frees. The single governor for every agent call.
+// Agent-level slot scheduler: CAP agents in flight across ALL unit chains, staggered launch, work-conserving backfill the moment a
+// slot frees. The single governor for every agent call.
 const makeSlots = (cap) => {
     let active = 0;
     let gate = Promise.resolve();
@@ -650,11 +650,10 @@ const codexPrompt = (label, task, schema, o) => {
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every codex-dispatched lane routes here: terra by default, sol where o.model says so; CODEX=false restores
-// a native run. QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME
-// task natively at the role's Claude twin (terra->opus, sol->fable, luna->sonnet); the caller owns re-dispatch,
-// the sonnet wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR so a
-// failed lane's unmapped territory is exact even when the lane died before writing anything.
+// Every codex-dispatched lane routes here: terra by default, sol where o.model says so; CODEX=false restores a native run. QUOTA FALLBACK: a codex
+// receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->fable,
+// luna->sonnet); the caller owns re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR so
+// a failed lane's unmapped territory is exact even when the lane died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
     agent(

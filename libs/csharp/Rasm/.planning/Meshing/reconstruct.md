@@ -19,7 +19,7 @@ The 58-factory construction spam is dead: `ReconstructionPolicy` is the one cons
 - Growth: a new reconstruction family (partition-of-unity implicits, neural pull) is one `ReconstructionPolicy` case + one `ReconstructionMode` row + one build arm producing a new frozen field case; a new signed-heat discretization (polygon FEM, adaptive octree grid) is one `SignedHeatDiscretization` case + one stage row on the same four-stage spine — never a parallel heat→Poisson pipeline; a new mesh-SDF method is one `SdfMeshMethod` row; a new lattice boundary condition is one `PoissonBoundary` row with its column values; a grid ceiling change is a policy-row edit; zero new entry surface.
 - Boundary: the spine is ONE law — a discretization implementing its own heat→divergence→Poisson→calibrate sequence outside the `SignedHeatSpine` rows is the re-opened Field↔Mesh fracture this page exists to close. The dropped Poisson octree knobs are a standing decision: re-admitting `FullDepth`/`CgDepth`/`KernelDepth`/`Confidence`/`ConfidenceBias`/`LinearFit`/`PrimalGrid` — or a splat `Degree` knob without a degree-dependent splat kernel — is dead parameterization; an octree or higher-order-spline upgrade re-parameterizes the lattice policy at that time. The boundary-source row REJECTS flipped intrinsic snapshots (sources are encoded against original-mesh edges; the `Unsupported` fault is the honest verdict until CR signpost transfer lands — recorded growth). The closed-grid row admits ONLY watertight-solid-closed-oriented topology (the `TopologyReceipt` conjunction is the gate; a soup mesh routes `InvalidInput`, never a garbage sign field). `PoissonGrid.SampleTrilinear` returns the positive outside value `max(1, spacing·resolution)` beyond the lattice — a clamp-to-edge would fabricate interior values. Native `CreateFromIsosurface` runs its evaluator callback in parallel — the failure counter is `Interlocked`, and the receipt's `FixedTolerance`/`FixedNormalSampleDistance` witness the native evaluator's fixed internals (RhinoCommon-owned values, recorded not chosen). Every linear solve routes the `Numerics/matrix` owners — a raw MathNet/CSparse reach is the named bypass defect. A thrown exception anywhere on the rail is forbidden; the `Op.Catch` funnel converts the one native extraction callback boundary.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -664,16 +664,27 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-| [INDEX] | [AXIS_CONCERN]    | [OWNER]                                               | [KIND]                                                                                                                                          | [RAIL]                                        | [CASES] |
-| :-----: | :---------------- | :---------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------- | :-----: |
-|  [01]   | Construction      | `ReconstructionPolicy` → `Reconstruction.Reconstruct` | `[Union]` policy discriminant, one entry, per-case admission                                                                                    | `Reconstruct → Fin<ReconstructionResult>`     |    5    |
-|  [02]   | Mode vocabulary   | `ReconstructionMode`                                  | `[SmartEnum<int>]` with normals/sparse/degree/status columns                                                                                    | discriminant                                  |    7    |
-|  [03]   | Signed-heat spine | `SignedHeatDiscretization` → `SignedHeatSpine.Solve`  | `[Union]` rows over ONE four-stage law                                                                                                          | `Solve → Fin<SignedHeatOutcome>`              |    3    |
-|  [04]   | Mesh SDF          | `SdfMeshPolicy` → `MeshSdf`                           | method-row dispatch, cache-backed solves                                                                                                        | `SignedDistanceDetailed → Fin<SdfMeshSample>` |    3    |
-|  [05]   | Tet domain        | `TetMeshDomain`                                       | validated domain, boundary topology derived at admission                                                                                        | `Of → Fin<TetMeshDomain>`                     |    1    |
-|  [06]   | Volume grid       | `VolumeGridPolicy` / `VolumeGridDomain`               | resolution-xor-cellsize + ceiling policy rows                                                                                                   | `VolumeGridDomainOf → Fin<VolumeGridDomain>`  |    —    |
-|  [07]   | Iso extraction    | `IsoSurface`                                          | native marching-cubes adapter, failure-classified receipt                                                                                       | `Detailed → Fin<IsoSurfaceResult>`            |    4    |
-|  [08]   | Policy family     | `SignedHeatTime` … `PoissonPolicy`                    | validated policy records with presets; dead octree knobs + the unread `Degree` dropped, CG-era solver knobs collapsed into `VolumeSolverPolicy` | `Of → Fin<policy>` per record                 |    —    |
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes; the per-axis kind rides the indexed notes below.
+
+| [INDEX] | [AXIS_CONCERN]    | [OWNER]                                               | [RAIL]                                        | [CASES] |
+| :-----: | :---------------- | :---------------------------------------------------- | :-------------------------------------------- | :-----: |
+|  [01]   | Construction      | `ReconstructionPolicy` → `Reconstruction.Reconstruct` | `Reconstruct → Fin<ReconstructionResult>`     |    5    |
+|  [02]   | Mode vocabulary   | `ReconstructionMode`                                  | discriminant                                  |    7    |
+|  [03]   | Signed-heat spine | `SignedHeatDiscretization` → `SignedHeatSpine.Solve`  | `Solve → Fin<SignedHeatOutcome>`              |    3    |
+|  [04]   | Mesh SDF          | `SdfMeshPolicy` → `MeshSdf`                           | `SignedDistanceDetailed → Fin<SdfMeshSample>` |    3    |
+|  [05]   | Tet domain        | `TetMeshDomain`                                       | `Of → Fin<TetMeshDomain>`                     |    1    |
+|  [06]   | Volume grid       | `VolumeGridPolicy` / `VolumeGridDomain`               | `VolumeGridDomainOf → Fin<VolumeGridDomain>`  |    —    |
+|  [07]   | Iso extraction    | `IsoSurface`                                          | `Detailed → Fin<IsoSurfaceResult>`            |    4    |
+|  [08]   | Policy family     | `SignedHeatTime` … `PoissonPolicy`                    | `Of → Fin<policy>` per record                 |    —    |
+
+- [01]-[CONSTRUCTION]: `[Union]` policy discriminant, one entry, per-case admission.
+- [02]-[MODE_VOCABULARY]: `[SmartEnum<int>]` with normals/sparse/degree/status columns.
+- [03]-[SIGNED_HEAT_SPINE]: `[Union]` rows over ONE four-stage law.
+- [04]-[MESH_SDF]: method-row dispatch, cache-backed solves.
+- [05]-[TET_DOMAIN]: validated domain, boundary topology derived at admission.
+- [06]-[VOLUME_GRID]: resolution-xor-cellsize + ceiling policy rows.
+- [07]-[ISO_EXTRACTION]: native marching-cubes adapter, failure-classified receipt.
+- [08]-[POLICY_FAMILY]: validated policy records with presets; dead octree knobs + the unread `Degree` dropped, CG-era solver knobs collapsed into `VolumeSolverPolicy`.
 
 `Reconstruct`, `SignedHeatSpine.Solve`, `BoundarySolutionOf`/`ClosedSolutionOf`, `ComputeSignedHeatDetailed`, `MeshSdf.SignedDistanceDetailed`, and `IsoSurface.Detailed` are transcription-complete; the build kernels (`BuildRbf`/`BuildMls`/`BuildLevin`/`BuildApss`/`BuildPoisson`), the deep evaluators, the tet FEM assembly, the volume-grid row, and the `WindingFieldOf`/`TriangleSoup` index-lane seam are signature-fixed with their bodies the algorithms the `[04]` contracts specify — each invariant they compute is a gated receipt field (Pratt norm positivity, splat conservation, residual tolerances, watertight admission), so a body cannot silently weaken.
 

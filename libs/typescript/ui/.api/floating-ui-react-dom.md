@@ -17,51 +17,59 @@
 [PUBLIC_TYPE_SCOPE]: position result family — the hook config and return
 - rail: position
 
-| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]     | [CONSUMER]                                                                                                                      |
-| :-----: | :--------------------------------------- | :---------------- | :------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `UseFloatingOptions<RT>`                 | hook config       | `Partial<ComputePositionConfig>` + `whileElementsMounted`/`open`/`elements`/`transform`; the placement + middleware declaration |
-|  [02]   | `UseFloatingReturn<RT>`                  | hook result       | `refs`/`elements` + `floatingStyles` + `update()` + `context` + spread `UseFloatingData`                                        |
-|  [03]   | `UseFloatingData`                        | position snapshot | `ComputePositionReturn & { isPositioned: boolean }` — `x`/`y`/`placement`/`strategy`/`middlewareData`                           |
-|  [04]   | `ReferenceType`                          | reference union   | `Element \| VirtualElement` — the anchor may be a real node or a virtual rect (cursor/selection)                                |
-|  [05]   | `ArrowOptions` (`{ element, padding? }`) | arrow config      | the `arrow` middleware ref target; `element` is a React ref or node                                                             |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [CONSUMER]                                                                              |
+| :-----: | :----------------------- | :---------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | `UseFloatingOptions<RT>` | hook config       | `Partial<ComputePositionConfig>` + `whileElementsMounted`/`open`/`elements`/`transform` |
+|  [02]   | `UseFloatingReturn<RT>`  | hook result       | `refs`/`elements` + `floatingStyles` + `update()` + `context` + `UseFloatingData`       |
+|  [03]   | `UseFloatingData`        | position snapshot | `ComputePositionReturn & { isPositioned: boolean }` — `x`/`y`/`placement`/`strategy`    |
+|  [04]   | `ReferenceType`          | reference union   | `Element \| VirtualElement` — real node or virtual rect (cursor/selection)              |
+|  [05]   | `ArrowOptions`           | arrow config      | `{ element, padding? }`; `element` is the `arrow` ref target (React ref or node)        |
 
 [PUBLIC_TYPE_SCOPE]: re-exported geometry — the `@floating-ui/dom` vocabulary
 - rail: position
 
-| [INDEX] | [SYMBOL]                                                                                         | [TYPE_FAMILY]       | [CONSUMER]                                                                                                                    |
-| :-----: | :----------------------------------------------------------------------------------------------- | :------------------ | :---------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Placement` / `AlignedPlacement` / `Side` / `Alignment`                                          | placement union     | `view/compose` — `'top' \| 'right' \| 'bottom' \| 'left'` × `'start' \| 'end'`; the requested + resolved placement            |
-|  [02]   | `Strategy`                                                                                       | position mode       | `'absolute' \| 'fixed'`; `fixed` escapes clipping/transform ancestors                                                         |
-|  [03]   | `Middleware` / `MiddlewareState` / `MiddlewareData` / `MiddlewareArguments` / `MiddlewareReturn` | middleware contract | `{ name; fn(state) => MiddlewareReturn }`; `MiddlewareData` keys each middleware's output by name (`arrow`, `hide`, `offset`) |
-|  [04]   | `Derivable<T>`                                                                                   | reactive option     | `(state: MiddlewareState) => T` — a middleware option computed from the live position state                                   |
-|  [05]   | `Coords` / `SideObject` / `Dimensions` / `Rect` / `VirtualElement` / `Padding` / `Boundary`      | box geometry        | `{ x, y }`; per-side numbers; `{ width, height }`; a rect; the virtual-anchor shape; overflow padding/boundary                |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]       | [CONSUMER]                                                   |
+| :-----: | :---------------------------------------------- | :------------------ | :----------------------------------------------------------- |
+|  [01]   | `Placement` / `AlignedPlacement`                | placement union     | `'top'\|'right'\|'bottom'\|'left'` × `'start'\|'end'`        |
+|  [02]   | `Side` / `Alignment`                            | placement axis      | the side and alignment halves a `Placement` composes         |
+|  [03]   | `Strategy`                                      | position mode       | `'absolute' \| 'fixed'`; `fixed` escapes clip/transform      |
+|  [04]   | `Middleware` / `MiddlewareState`                | middleware contract | `{ name; fn(state) => MiddlewareReturn }` — the stage shape  |
+|  [05]   | `MiddlewareArguments` / `MiddlewareReturn`      | middleware fn io    | the `fn(state)` argument bag and its return                  |
+|  [06]   | `MiddlewareData`                                | middleware output   | keyed by stage name (`arrow`/`hide`/`offset`)                |
+|  [07]   | `Derivable<T>`                                  | reactive option     | `(state: MiddlewareState) => T` from the live position state |
+|  [08]   | `Coords` / `Rect` / `Dimensions` / `SideObject` | box geometry        | `{ x, y }`; a rect; `{ width, height }`; per-side numbers    |
+|  [09]   | `VirtualElement` / `Padding` / `Boundary`       | anchor + overflow   | virtual-anchor shape; overflow padding; clip boundary        |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: positioning hook
 - rail: position
+- `useFloating<RT>(options?)` returns `{ refs, elements, floatingStyles, update, placement, middlewareData, isPositioned, context }`
 
-| [INDEX] | [SURFACE]                                                                                                                    | [ENTRY_FAMILY] | [CONSUMER]                                                                                                                                   |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `useFloating<RT>(options?)` → `{ refs, elements, floatingStyles, update, placement, middlewareData, isPositioned, context }` | position hook  | `view/compose` — spread `floatingStyles` on the float, set `refs.setReference`/`refs.setFloating`; `isPositioned` guards first-paint flicker |
+| [INDEX] | [SURFACE]                   | [ENTRY_FAMILY] | [CONSUMER]                                                                          |
+| :-----: | :-------------------------- | :------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `useFloating<RT>(options?)` | position hook  | `view/compose` — spread `floatingStyles`; `isPositioned` guards first-paint flicker |
 
 [ENTRYPOINT_SCOPE]: React-aware middleware factories — `(options | Derivable, deps?)`
 - rail: position
 
-| [INDEX] | [SURFACE]                                                                                                              | [ENTRY_FAMILY]       | [CONSUMER]                                                                                                                                   |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------- | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `offset(value, deps?)` / `flip(options?, deps?)` / `shift(options?, deps?)`                                            | core pipeline        | `view/compose` — the canonical `offset → flip → shift` order: gap the float, flip on cross-axis overflow, slide on main-axis overflow        |
-|  [02]   | `arrow(options, deps?)` / `size(options?, deps?)`                                                                      | measurement          | center the arrow element on the reference; clamp the float to available space (`availableWidth`/`availableHeight`)                           |
-|  [03]   | `autoPlacement(options?, deps?)` / `hide(options?, deps?)` / `inline(options?, deps?)` / `limitShift(options?, deps?)` | placement/visibility | pick the best side automatically; hide when the reference is clipped; anchor to inline (wrapped-text) references; bound `shift` displacement |
+| [INDEX] | [SURFACE]                   | [ENTRY_FAMILY] | [CONSUMER]                                                                           |
+| :-----: | :-------------------------- | :------------- | :----------------------------------------------------------------------------------- |
+|  [01]   | `offset` / `flip` / `shift` | core pipeline  | canonical `offset → flip → shift`: gap, flip cross-axis, slide main-axis on overflow |
+|  [02]   | `arrow` / `size`            | measurement    | center the arrow on the reference; clamp to `availableWidth`/`availableHeight`       |
+|  [03]   | `autoPlacement` / `hide`    | placement      | auto-pick the best side; hide when the reference is clipped                          |
+|  [04]   | `inline` / `limitShift`     | visibility     | anchor inline (wrapped-text) references; bound `shift` displacement                  |
 
 [ENTRYPOINT_SCOPE]: imperative engine and DOM utilities
 - rail: position
 
-| [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY] | [CONSUMER]                                                                                                          |
-| :-----: | :--------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `autoUpdate(reference, floating, update, options?)`                                | auto-updater   | `view/compose` — the required `whileElementsMounted` value; re-runs `update` on scroll/resize/mutation/layout-shift |
-|  [02]   | `computePosition(reference, floating, config)` / `detectOverflow(state, options?)` | imperative     | one-shot position/overflow queries outside the hook (measurement, tests)                                            |
-|  [03]   | `getOverflowAncestors(element, list?, traverseIframes?)` / `platform`              | DOM util       | the scrollable-ancestor set `autoUpdate` listens on; the default DOM platform `computePosition` binds               |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CONSUMER]                                       |
+| :-----: | :------------------------------------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `autoUpdate(reference, floating, update, options?)`      | auto-updater   | the required `whileElementsMounted` value        |
+|  [02]   | `computePosition(reference, floating, config)`           | imperative     | one-shot position query outside the hook         |
+|  [03]   | `detectOverflow(state, options?)`                        | imperative     | one-shot overflow query (measurement, tests)     |
+|  [04]   | `getOverflowAncestors(element, list?, traverseIframes?)` | DOM util       | scrollable-ancestor set `autoUpdate` listens on  |
+|  [05]   | `platform`                                               | DOM platform   | the default DOM platform `computePosition` binds |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

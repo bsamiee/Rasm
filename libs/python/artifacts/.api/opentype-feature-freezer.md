@@ -22,66 +22,66 @@
 
 `RemapByOTL` is the single owner; it is constructed with one `options` object whose attribute set IS the freeze policy (the CLI builds it as an argparse `Namespace`, a library caller builds it as any attribute carrier — a `types.SimpleNamespace` or a typed struct exposing the same field names). The engine holds the live `fontTools.ttLib.TTFont` as `.ttx`, the glyph-substitution mapping as `.substitution_mapping`, and a `.success` boolean the pipeline short-circuits on. There is no functional `freeze(bytes) -> bytes` entry — the public contract is "construct with options, call `run()`, the rewritten font is written to `options.outpath`".
 
-| [INDEX] | [SYMBOL]                               | [PACKAGE_ROLE] | [CAPABILITY]                                                                                                                                         |
-| :-----: | :------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `opentype_feature_freezer.RemapByOTL`  | freeze engine  | `RemapByOTL(options)`; the whole open->remap->rename->save pipeline; holds `.ttx`/`.success`/`.substitution_mapping`                                 |
-|  [02]   | `RemapByOTL.options`                   | freeze policy  | the attribute carrier supplying `features`/`script`/`lang`/`suffix`/`usesuffix`/`replacenames`/`zapnames`/`info`/`report`/`names`/`inpath`/`outpath` |
-|  [03]   | `RemapByOTL.ttx`                       | live font      | the open `fontTools.ttLib.TTFont` (`Optional`); `None` until `openFont()`, closed by `closeFont()`                                                   |
-|  [04]   | `RemapByOTL.success`                   | pipeline gate  | `bool`; each stage sets it and `run()`/`remapByOTL()` short-circuit when it goes `False`                                                             |
-|  [05]   | `RemapByOTL.substitution_mapping`      | remap table    | `MutableMapping[str, str]` old-glyph-name -> substituted-glyph-name, applied to every `cmap` subtable                                                |
-|  [06]   | `opentype_feature_freezer.__version__` | version anchor | the installed package version string (`"1.32.2"`)                                                                                                    |
+| [INDEX] | [SYMBOL]                               | [PACKAGE_ROLE] | [CAPABILITY]                                                                  |
+| :-----: | :------------------------------------- | :------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `opentype_feature_freezer.RemapByOTL`  | freeze engine  | `RemapByOTL(options)`; the open->remap->rename->save pipeline                 |
+|  [02]   | `RemapByOTL.options`                   | freeze policy  | the attribute carrier holding the freeze-policy fields (the [02] table)       |
+|  [03]   | `RemapByOTL.ttx`                       | live font      | `Optional[TTFont]`; `None` pre-`openFont()`, closed by `closeFont()`          |
+|  [04]   | `RemapByOTL.success`                   | pipeline gate  | `bool`; each stage sets it, `run()`/`remapByOTL()` short-circuit when `False` |
+|  [05]   | `RemapByOTL.substitution_mapping`      | remap table    | old->new glyph-name `MutableMapping[str,str]` over every `cmap` subtable      |
+|  [06]   | `opentype_feature_freezer.__version__` | version anchor | the installed package version string (`"1.32.2"`)                             |
 
 [PUBLIC_TYPE_SCOPE]: the options field set (the freeze policy surface)
 - rail: fonts
 
 These attribute names are the load-bearing knob set the owning design page must populate on the options carrier; they are the argparse `dest=` names and are read directly by `RemapByOTL`. A typed options struct in the design composes exactly this field set.
 
-| [INDEX] | [FIELD]        | [TYPE]                  | [CAPABILITY]                                                                                       |
-| :-----: | :------------- | :---------------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | `inpath`       | `os.PathLike`           | input `.otf`/`.ttf` path opened via `TTFont(inpath, 0, recalcBBoxes=False)`                        |
-|  [02]   | `outpath`      | `os.PathLike` \| `None` | output path; `None` derives `<inpath>.featfreeze.otf`                                              |
-|  [03]   | `features`     | `str`                   | comma-separated GSUB feature tags to freeze, e.g. `"smcp,c2sc,onum"` (split on `,`)                |
-|  [04]   | `script`       | `str` \| `None`         | OpenType script tag filter, e.g. `"cyrl"`; `None`/falsy matches every `ScriptRecord`               |
-|  [05]   | `lang`         | `str` \| `None`         | OpenType language tag filter, e.g. `"SRB "`; `None` uses each script's `DefaultLangSys`            |
-|  [06]   | `zapnames`     | `bool`                  | set `post.formatType = 3.0` (drop glyph names; `.ttf` only) before save                            |
-|  [07]   | `suffix`       | `bool`                  | append a family-name suffix; default suffix is the sorted frozen feature tags                      |
-|  [08]   | `usesuffix`    | `str`                   | explicit suffix string used when `suffix` is set (overrides the feature-derived one)               |
-|  [09]   | `replacenames` | `str`                   | OFL name mutation, `"search1/replace1,search2/replace2"` applied to the family name                |
-|  [10]   | `info`         | `bool`                  | stamp the freeze feature list into the `name`-ID 5 version string                                  |
-|  [11]   | `report`       | `bool`                  | report-only mode: print scripts/languages (`-s`/`-l` form) and features (`-f` form), write nothing |
-|  [12]   | `names`        | `bool`                  | collect+print the substituted (remapped) glyph names during processing                             |
-|  [13]   | `verbose`      | `bool`                  | raise the module logger to `INFO` (consumed by `cli.main`, not by `RemapByOTL`)                    |
+| [INDEX] | [FIELD]        | [TYPE]                  | [CAPABILITY]                                                                            |
+| :-----: | :------------- | :---------------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | `inpath`       | `os.PathLike`           | input `.otf`/`.ttf` path opened via `TTFont(inpath, 0, recalcBBoxes=False)`             |
+|  [02]   | `outpath`      | `os.PathLike` \| `None` | output path; `None` derives `<inpath>.featfreeze.otf`                                   |
+|  [03]   | `features`     | `str`                   | comma-separated GSUB feature tags to freeze, e.g. `"smcp,c2sc,onum"` (split on `,`)     |
+|  [04]   | `script`       | `str` \| `None`         | OpenType script tag filter, e.g. `"cyrl"`; `None`/falsy matches every `ScriptRecord`    |
+|  [05]   | `lang`         | `str` \| `None`         | OpenType language tag filter, e.g. `"SRB "`; `None` uses each script's `DefaultLangSys` |
+|  [06]   | `zapnames`     | `bool`                  | set `post.formatType = 3.0` (drop glyph names; `.ttf` only) before save                 |
+|  [07]   | `suffix`       | `bool`                  | append a family-name suffix; default suffix is the sorted frozen feature tags           |
+|  [08]   | `usesuffix`    | `str`                   | explicit suffix string used when `suffix` is set (overrides the feature-derived one)    |
+|  [09]   | `replacenames` | `str`                   | OFL name mutation, `"search1/replace1,search2/replace2"` applied to the family name     |
+|  [10]   | `info`         | `bool`                  | stamp the freeze feature list into the `name`-ID 5 version string                       |
+|  [11]   | `report`       | `bool`                  | report-only: print scripts/languages and features (`-s`/`-l`/`-f` form), write nothing  |
+|  [12]   | `names`        | `bool`                  | collect+print the substituted (remapped) glyph names during processing                  |
+|  [13]   | `verbose`      | `bool`                  | raise the module logger to `INFO` (consumed by `cli.main`, not by `RemapByOTL`)         |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the freeze pipeline
 - rail: fonts
 
-`run()` is the single orchestration entry and the canonical call. It opens the font, runs `remapByOTL()` (the GSUB->`cmap` fold), renames, saves to `outpath`, and closes — short-circuiting on `.success`. The constituent methods are public and individually callable for a caller that needs to drive a pre-opened `TTFont` or interleave the stages, but `run()` is the contract; the stage methods mutate `self` and are not pure.
+`run()` is the single orchestration entry and the canonical call. It opens the font, runs `remapByOTL()` (the GSUB->`cmap` fold), renames, saves to `outpath`, and closes — short-circuiting on `.success`. The constituent methods are public and individually callable for a caller that needs to drive a pre-opened `TTFont` or interleave the stages, but `run()` is the contract; each stage method returns `None` save `renameFont() -> bool`, mutates `self`, and is not pure.
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                           | [CAPABILITY]                                                                                                     |
-| :-----: | :------------------------------ | :------------------------------------- | :--------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `RemapByOTL(options)`           | `RemapByOTL(options: SimpleNamespace)` | construct the engine over the options carrier; derives `outpath` if unset                                        |
-|  [02]   | `RemapByOTL.run`                | `run() -> None`                        | open -> `remapByOTL` -> `renameFont` -> `saveFont` -> `closeFont`, gated on `.success`                           |
-|  [03]   | `RemapByOTL.openFont`           | `openFont() -> None`                   | open the font into `.ttx` via `TTFont(inpath, 0, recalcBBoxes=False)`; sets `.success`                           |
-|  [04]   | `RemapByOTL.remapByOTL`         | `remapByOTL() -> None`                 | the GSUB->`cmap` fold: `initSubs`/`filterFeatureIndex`/`filterLookupList`/`applySubstitutions`/`remapCmaps`      |
-|  [05]   | `RemapByOTL.filterFeatureIndex` | `filterFeatureIndex() -> None`         | resolve the `FeatureIndex` set from `GSUB.ScriptList` under the `script`/`lang` filter                           |
-|  [06]   | `RemapByOTL.filterLookupList`   | `filterLookupList() -> None`           | resolve the `LookupList` indices for the requested `features` over the `FeatureIndex`                            |
-|  [07]   | `RemapByOTL.applySubstitutions` | `applySubstitutions() -> None`         | apply LookupType 1/3/7 subs into `.substitution_mapping`; warn on no-`cmap`-value remaps                         |
-|  [08]   | `RemapByOTL.remapCmaps`         | `remapCmaps() -> None`                 | rewrite every `cmap` subtable entry through `.substitution_mapping`                                              |
-|  [09]   | `RemapByOTL.renameFont`         | `renameFont() -> bool`                 | RIBBI/OFL rename across `name` IDs {1,3,4,5,6,16,18,20,21} + CFF top-dict; no-op without `suffix`/`replacenames` |
-|  [10]   | `RemapByOTL.saveFont`           | `saveFont() -> None`                   | `report` -> print enumeration; else apply `zapnames` then `ttx.save(outpath)`                                    |
-|  [11]   | `RemapByOTL.closeFont`          | `closeFont() -> None`                  | `ttx.close()` the live font                                                                                      |
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]           | [CAPABILITY]                                                                  |
+| :-----: | :------------------------------ | :--------------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `RemapByOTL(options)`           | `RemapByOTL(options)`  | construct the engine over the options carrier; derives `outpath` if unset     |
+|  [02]   | `RemapByOTL.run`                | `run()`                | the full open->remap->rename->save pipeline, gated on `.success`              |
+|  [03]   | `RemapByOTL.openFont`           | `openFont()`           | open the font into `.ttx` via `TTFont(inpath, 0, recalcBBoxes=False)`         |
+|  [04]   | `RemapByOTL.remapByOTL`         | `remapByOTL()`         | the GSUB->`cmap` fold: `initSubs` then rows [05]-[08]                         |
+|  [05]   | `RemapByOTL.filterFeatureIndex` | `filterFeatureIndex()` | resolve the `FeatureIndex` set from `GSUB.ScriptList` under `script`/`lang`   |
+|  [06]   | `RemapByOTL.filterLookupList`   | `filterLookupList()`   | resolve the `LookupList` indices for `features` over the `FeatureIndex`       |
+|  [07]   | `RemapByOTL.applySubstitutions` | `applySubstitutions()` | fold LookupType 1/3/7 subs to `.substitution_mapping`; warn no-`cmap` remap   |
+|  [08]   | `RemapByOTL.remapCmaps`         | `remapCmaps()`         | rewrite every `cmap` subtable entry through `.substitution_mapping`           |
+|  [09]   | `RemapByOTL.renameFont`         | `renameFont() -> bool` | RIBBI/OFL `name` + CFF top-dict rename; no-op without `suffix`/`replacenames` |
+|  [10]   | `RemapByOTL.saveFont`           | `saveFont()`           | `report` prints enumeration; else `zapnames` then `ttx.save(outpath)`         |
+|  [11]   | `RemapByOTL.closeFont`          | `closeFont()`          | `ttx.close()` the live font                                                   |
 
 [ENTRYPOINT_SCOPE]: argv / CLI helpers
 - rail: fonts
 
 `cli.main` is the console-script body; `cli.parseOptions` builds the argparse `Namespace` whose attribute set the engine consumes. A design that drives the tool in-process bypasses these and builds the options carrier directly, but `parseOptions` documents the canonical option vocabulary.
 
-| [INDEX] | [SURFACE]                                   | [CALL_SHAPE]                                               | [CAPABILITY]                                                                                     |
-| :-----: | :------------------------------------------ | :--------------------------------------------------------- | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `opentype_feature_freezer.cli.main`         | `main(args: list[str] \| None = None, parser=None) -> int` | CLI entry; exists-check, log level, `RemapByOTL(...).run()`, exit code                           |
-|  [02]   | `opentype_feature_freezer.cli.parseOptions` | `parseOptions(args=None) -> argparse.Namespace`            | build the options `Namespace` (the `-f`/`-s`/`-l`/`-S`/`-U`/`-R`/`-z`/`-i`/`-r`/`-n` vocabulary) |
+| [INDEX] | [SURFACE]          | [CALL_SHAPE]                                               | [CAPABILITY]                                         |
+| :-----: | :----------------- | :--------------------------------------------------------- | :--------------------------------------------------- |
+|  [01]   | `cli.main`         | `main(args: list[str] \| None = None, parser=None) -> int` | CLI: exists-check, log level, `run()`, exit code     |
+|  [02]   | `cli.parseOptions` | `parseOptions(args=None) -> argparse.Namespace`            | options `Namespace`; `-f -s -l -S -U -R -z -i -r -n` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

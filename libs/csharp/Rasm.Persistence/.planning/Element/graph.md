@@ -346,15 +346,15 @@ public static class GraphStore {
 }
 ```
 
-| [INDEX] | [POLICY]               | [VALUE]                                    | [BINDING]                                                             |
-| :-----: | :--------------------- | :----------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | one txn owner          | identity + event in one `IDocumentSession` | `IdentityStore.Stamp` then `SaveChangesAsync`                         |
-|  [02]   | read consistency       | `FetchLatest<GraphProjection>`             | inline document or live tail fold; read-your-writes                   |
-|  [03]   | AS-OF fold             | `AggregateStreamAsync(version\|timestamp)` | version XOR instant; reuses `GraphDelta.ReplayOnto`                   |
-|  [04]   | optimistic concurrency | `Append(model, delta, expectedVersion)`    | racing writer → `ConcurrentUpdateException` → `StreamVersionConflict` |
-|  [05]   | exclusive escalation   | `CommitExclusive` op case                  | `FetchForExclusiveWriting`; refusal → `TxnConflict` 8303              |
-|  [06]   | frame injection        | `StoreActor` + `ProjectionContext`         | AppHost fills slots at the port; no AppHost type crosses down         |
-|  [07]   | naming lineage         | `NameLineage` co-committed rows            | kernel `Track(prior, rebuilt)` reads a durable prior generation       |
+| [INDEX] | [POLICY]               | [VALUE]                                    | [BINDING]                                                       |
+| :-----: | :--------------------- | :----------------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | one txn owner          | identity + event in one `IDocumentSession` | `IdentityStore.Stamp` then `SaveChangesAsync`                   |
+|  [02]   | read consistency       | `FetchLatest<GraphProjection>`             | inline document or live tail fold; read-your-writes             |
+|  [03]   | AS-OF fold             | `AggregateStreamAsync(version\|timestamp)` | version XOR instant; reuses `GraphDelta.ReplayOnto`             |
+|  [04]   | optimistic concurrency | `Append(model, delta, expectedVersion)`    | racing writer aborts → `StreamVersionConflict`                  |
+|  [05]   | exclusive escalation   | `CommitExclusive` op case                  | `FetchForExclusiveWriting`; refusal → `TxnConflict` 8303        |
+|  [06]   | frame injection        | `StoreActor` + `ProjectionContext`         | AppHost fills slots at the port; no AppHost type crosses down   |
+|  [07]   | naming lineage         | `NameLineage` co-committed rows            | kernel `Track(prior, rebuilt)` reads a durable prior generation |
 
 ## [05]-[FAULT_TABLES]
 

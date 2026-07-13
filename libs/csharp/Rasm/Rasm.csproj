@@ -4,37 +4,28 @@
         <CspScope>Domain</CspScope>
     </PropertyGroup>
 
-    <ItemGroup Label="Numerics">
+    <ItemGroup Label="Numeric Floor">
         <PackageReference Include="CSparse" />
         <PackageReference Include="ExtendedNumerics.BigRational" />
-        <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="PeterO.Numbers" />
-        <PackageReference Include="System.Numerics.Tensors" />
         <PackageReference Include="TYoshimura.DoubleDouble" />
-    </ItemGroup>
-
-    <ItemGroup Label="Performance Primitives">
-        <PackageReference Include="CommunityToolkit.HighPerformance" />
-    </ItemGroup>
-
-    <ItemGroup Label="Geometry">
-        <PackageReference Include="Supercluster.KDTree.Net" />
     </ItemGroup>
 
     <ItemGroup Label="Computational Geometry">
         <PackageReference Include="MIConvexHull" />
+        <PackageReference Include="Supercluster.KDTree.Net" />
     </ItemGroup>
 
-    <ItemGroup Label="Content Hash">
-        <PackageReference Include="System.IO.Hashing" />
+    <ItemGroup Label="Numeric">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="System.Numerics.Tensors" />
     </ItemGroup>
 
-    <ItemGroup Label="Perceptual Color">
-        <PackageReference Include="Wacton.Unicolour" />
-    </ItemGroup>
-
-    <ItemGroup Label="Graph Algorithms">
+    <ItemGroup Label="Bounded Lanes">
         <PackageReference Include="QuikGraph" />
+        <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>
 
     <ItemGroup Label="Kernel Usings">

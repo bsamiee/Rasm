@@ -26,19 +26,19 @@
 [PUBLIC_TYPE_SCOPE]: `ak.ArrayBuilder` members
 - rail: irregular-arrays
 
-| [INDEX] | [MEMBER]                                                              | [KIND]          | [ROLE]                                            |
-| :-----: | :-------------------------------------------------------------------- | :-------------- | :------------------------------------------------ |
-|  [01]   | `snapshot()`                                                          | method          | materialize appended layout to `ak.Array`         |
-|  [02]   | `append(obj)` / `extend(iterable)`                                    | method          | append one value or extend from iterable          |
-|  [03]   | `integer(x)` / `real(x)` / `complex(x)` / `boolean(x)`                | method          | append a typed scalar                             |
-|  [04]   | `string(s)` / `bytestring(b)`                                         | method          | append a string or bytestring                     |
-|  [05]   | `null()`                                                              | method          | append an option-type `None`                      |
-|  [06]   | `begin_list()` / `end_list()` / `list()`                              | method          | open, close, or context a list level              |
-|  [07]   | `begin_record(name)` / `field(key)` / `end_record()` / `record(name)` | method          | open, key, close, or context a record             |
-|  [08]   | `begin_tuple(n)` / `index(i)` / `end_tuple()` / `tuple(n)`            | method          | open, slot, close, or context a tuple             |
-|  [09]   | `datetime(x)` / `timedelta(x)`                                        | method          | append a temporal scalar                          |
-|  [10]   | `type` / `typestr` / `to_list()` / `tolist()` / `to_numpy()`          | property/method | live build type and Python/NumPy export           |
-|  [11]   | `behavior` / `attrs` / `numba_type` / `show(...)`                     | property/method | behavior mixin, metadata, Numba JIT type, preview |
+| [INDEX] | [MEMBER]                                                              | [KIND]          | [ROLE]                                    |
+| :-----: | :-------------------------------------------------------------------- | :-------------- | :---------------------------------------- |
+|  [01]   | `snapshot()`                                                          | method          | materialize appended layout to `ak.Array` |
+|  [02]   | `append(obj)` / `extend(iterable)`                                    | method          | append one value or extend from iterable  |
+|  [03]   | `integer(x)` / `real(x)` / `complex(x)` / `boolean(x)`                | method          | append a typed scalar                     |
+|  [04]   | `string(s)` / `bytestring(b)`                                         | method          | append a string or bytestring             |
+|  [05]   | `null()`                                                              | method          | append an option-type `None`              |
+|  [06]   | `begin_list()` / `end_list()` / `list()`                              | method          | open, close, or context a list level      |
+|  [07]   | `begin_record(name)` / `field(key)` / `end_record()` / `record(name)` | method          | open, key, close, or context a record     |
+|  [08]   | `begin_tuple(n)` / `index(i)` / `end_tuple()` / `tuple(n)`            | method          | open, slot, close, or context a tuple     |
+|  [09]   | `datetime(x)` / `timedelta(x)`                                        | method          | append a temporal scalar                  |
+|  [10]   | `type` / `typestr` / `to_list()` / `tolist()` / `to_numpy()`          | property/method | live build type and Python/NumPy export   |
+|  [11]   | `behavior` / `attrs` / `numba_type` / `show(...)`                     | property/method | behavior, metadata, Numba type, preview   |
 
 [PUBLIC_TYPE_SCOPE]: `ak.Array` members
 - rail: irregular-arrays
@@ -78,40 +78,48 @@
 [ENTRYPOINT_SCOPE]: export (`ak`)
 - rail: irregular-arrays
 
-| [INDEX] | [SURFACE]                                                                              | [ENTRY_FAMILY] | [RAIL]                                                                                    |
-| :-----: | :------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | `to_numpy(array, *, allow_missing)`                                                    | export         | awkward to NumPy array                                                                    |
-|  [02]   | `to_list(array)`                                                                       | export         | awkward to Python list                                                                    |
-|  [03]   | `to_arrow(array, *, list_to32, extensionarray, count_nulls, ...)`                      | export         | awkward to Arrow `pyarrow.Array` (`arrow_c_array` only)                                   |
-|  [04]   | `to_arrow_table(array, *, list_to32, extensionarray, count_nulls, ...)`                | export         | awkward to Arrow `pyarrow.Table` (native `arrow_c_stream`, fieldless folds to struct-top) |
-|  [05]   | `to_parquet(array, destination, *, compression, row_group_size, parquet_version, ...)` | export         | awkward to Parquet file                                                                   |
-|  [06]   | `to_json(array, file, *, line_delimited, nan_string, num_indent_spaces, ...)`          | export         | awkward to JSON                                                                           |
-|  [07]   | `to_dataframe(array, *, how, levelname, anonymous)`                                    | export         | awkward to pandas frame                                                                   |
-|  [08]   | `to_backend(array, backend, *, highlevel, behavior, attrs)`                            | backend        | move array to named backend                                                               |
-|  [09]   | `to_layout(array, *, allow_record, none_policy, primitive_policy, ...)`                | layout         | descend to `ak.contents`                                                                  |
-|  [10]   | `to_buffers(array, container, buffer_key, form_key, *, id_start, backend, byteorder)`  | layout         | decompose to `(form, length, container)`                                                  |
-|  [11]   | `to_packed(array, *, highlevel, behavior, attrs)`                                      | layout         | compact contiguous layout copy                                                            |
+Every row exports an `ak.Array`; the [RAIL] column names the target and any Arrow-capsule note.
+
+| [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] | [RAIL]                                   |
+| :-----: | :---------------------------------------------------------------------- | :------------- | :--------------------------------------- |
+|  [01]   | `to_numpy(array, *, allow_missing)`                                     | export         | NumPy array                              |
+|  [02]   | `to_list(array)`                                                        | export         | Python list                              |
+|  [03]   | `to_arrow(array, *, list_to32, extensionarray, count_nulls, ...)`       | export         | Arrow `pyarrow.Array` (`arrow_c_array`)  |
+|  [04]   | `to_arrow_table(array, *, list_to32, extensionarray, ...)`              | export         | Arrow `pyarrow.Table` (`arrow_c_stream`) |
+|  [05]   | `to_parquet(array, destination, *, compression, ...)`                   | export         | Parquet file                             |
+|  [06]   | `to_json(array, file, *, line_delimited, nan_string, ...)`              | export         | JSON                                     |
+|  [07]   | `to_dataframe(array, *, how, levelname, anonymous)`                     | export         | pandas frame                             |
+|  [08]   | `to_backend(array, backend, *, highlevel, behavior, attrs)`             | backend        | move array to named backend              |
+|  [09]   | `to_layout(array, *, allow_record, none_policy, primitive_policy, ...)` | layout         | descend to `ak.contents`                 |
+|  [10]   | `to_buffers(array, container, buffer_key, form_key, *, ...)`            | layout         | decompose to `(form, length, container)` |
+|  [11]   | `to_packed(array, *, highlevel, behavior, attrs)`                       | layout         | compact contiguous layout copy           |
 
 [ENTRYPOINT_SCOPE]: transform and structure (`ak`)
 - rail: irregular-arrays
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                                                                                                                                                                                                                     | [ENTRY_FAMILY] | [RAIL]                                                |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :---------------------------------------------------- |
-|  [01]   | `concatenate(arrays, axis, *, mergebool, highlevel, ...)`                                                                                                                                                                                                                                                                                                                                                                                                     | combine        | concatenate along axis                                |
-|  [02]   | `zip(arrays, depth_limit, *, with_name, optiontype_outside_record, ...)` / `unzip(array, *, how)`                                                                                                                                                                                                                                                                                                                                                             | combine        | zip or split records                                  |
-|  [03]   | `flatten(array, axis, ...)` / `unflatten(array, counts, axis, ...)`                                                                                                                                                                                                                                                                                                                                                                                           | reshape        | remove or add a nesting level                         |
-|  [04]   | `where(condition, *args, mergebool, ...)`                                                                                                                                                                                                                                                                                                                                                                                                                     | filter         | conditional element select                            |
-|  [05]   | `sort(array, axis, *, ascending, stable, ...)` / `argsort(array, axis, ...)`                                                                                                                                                                                                                                                                                                                                                                                  | order          | sort along axis or get order                          |
-|  [06]   | `pad_none(array, target, axis, *, clip, ...)` / `fill_none(array, value, axis, ...)`                                                                                                                                                                                                                                                                                                                                                                          | pad            | pad to length or fill option None                     |
-|  [07]   | `drop_none(array, axis, ...)` / `is_none(array, axis, ...)` / `mask(array, mask, *, valid_when)`                                                                                                                                                                                                                                                                                                                                                              | option         | drop, test, or apply option mask                      |
-|  [08]   | `with_field(array, what, where, ...)` / `without_field(array, where, ...)`                                                                                                                                                                                                                                                                                                                                                                                    | annotation     | add or remove a record field                          |
-|  [09]   | `with_name(array, name, ...)`                                                                                                                                                                                                                                                                                                                                                                                                                                 | annotation     | attach record type name                               |
-|  [10]   | `cartesian(arrays, axis, *, nested, with_name, ...)` / `combinations(array, n, *, replacement, axis, ...)`                                                                                                                                                                                                                                                                                                                                                    | combine        | per-list pairings or n-tuples                         |
-|  [11]   | `num(array, axis, ...)` / `count(array, axis, ...)` / `sum(array, axis, *, keepdims, mask_identity, ...)` / `mean(x, weight, axis, ...)` / `prod` / `min(array, axis, *, initial, ...)` / `max(array, axis, *, initial, ...)` / `any` / `all` / `count_nonzero` / `std(x, weight, ddof, axis, ...)` / `var(x, weight, ddof, axis, ...)` / `ptp` / `corr(x, y, weight, axis, ...)` / `linear_fit(x, y, weight, axis, ...)` / `moment(x, n, weight, axis, ...)` | reduce         | lengths and axis reductions                           |
-|  [12]   | `fields(array)` / `type(array, *, behavior)` / `backend(*arrays)`                                                                                                                                                                                                                                                                                                                                                                                             | metadata       | field names, type, backend                            |
-|  [13]   | `firsts(array, axis, ...)` / `singletons(array, axis, ...)` / `local_index(array, axis, ...)` / `run_lengths(array, ...)`                                                                                                                                                                                                                                                                                                                                     | structure      | per-list first/singleton/index/runs                   |
-|  [14]   | `values_astype(array, to, *, including_unknown, ...)` / `enforce_type(array, type, ...)` / `ravel(array, ...)` / `copy(array)`                                                                                                                                                                                                                                                                                                                                | transform      | value-cast, type-enforce, flatten, copy               |
-|  [15]   | `with_parameter(array, parameter, value, ...)` / `validity_error(array, *, exception)` / `parameters(array)` / `metadata_from_parquet(path, *, storage_options, row_groups, ignore_metadata, scan_files)`                                                                                                                                                                                                                                                     | inspect        | parameter set, validity, parameters, parquet metadata |
+Axis reductions share `(array, axis, *, keepdims, mask_identity, ...)`; weighted statistics (`mean`/`std`/`var`/`corr`/`linear_fit`/`moment`) add `weight`/`ddof`, and `min`/`max` add `initial`.
+
+| [INDEX] | [SURFACE]                                                                    | [ENTRY_FAMILY] | [RAIL]                                  |
+| :-----: | :--------------------------------------------------------------------------- | :------------- | :-------------------------------------- |
+|  [01]   | `concatenate(arrays, axis, *, mergebool, highlevel, ...)`                    | combine        | concatenate along axis                  |
+|  [02]   | `zip(arrays, depth_limit, *, with_name, ...)` / `unzip(array, *, how)`       | combine        | zip or split records                    |
+|  [03]   | `flatten(array, axis, ...)` / `unflatten(array, counts, axis, ...)`          | reshape        | remove or add a nesting level           |
+|  [04]   | `where(condition, *args, mergebool, ...)`                                    | filter         | conditional element select              |
+|  [05]   | `sort(array, axis, *, ascending, stable, ...)` / `argsort(array, axis, ...)` | order          | sort along axis or get order            |
+|  [06]   | `pad_none(array, target, axis, *, clip)` / `fill_none(array, value, axis)`   | pad            | pad to length or fill option None       |
+|  [07]   | `drop_none` / `is_none` / `mask(array, mask, *, valid_when)`                 | option         | drop, test, or apply option mask        |
+|  [08]   | `with_field(array, what, where, ...)` / `without_field(array, where, ...)`   | annotation     | add or remove a record field            |
+|  [09]   | `with_name(array, name, ...)`                                                | annotation     | attach record type name                 |
+|  [10]   | `cartesian(arrays, axis)` / `combinations(array, n, *, replacement)`         | combine        | per-list pairings or n-tuples           |
+|  [11]   | `num` / `count` / `count_nonzero`                                            | reduce         | per-list lengths and non-null counts    |
+|  [12]   | `sum` / `prod` / `mean` / `min` / `max` / `any` / `all`                      | reduce         | core axis reductions                    |
+|  [13]   | `std` / `var` / `ptp` / `moment` / `corr` / `linear_fit`                     | reduce         | dispersion, moment, and bivariate stats |
+|  [14]   | `fields(array)` / `type(array, *, behavior)` / `backend(*arrays)`            | metadata       | field names, type, backend              |
+|  [15]   | `firsts(...)` / `singletons(...)` / `local_index(...)` / `run_lengths(...)`  | structure      | per-list first/singleton/index/runs     |
+|  [16]   | `values_astype(array, to)` / `enforce_type(array, type)` / `ravel` / `copy`  | transform      | value-cast, type-enforce, flatten, copy |
+|  [17]   | `with_parameter(array, parameter, value)` / `parameters(array)`              | inspect        | parameter set and get                   |
+|  [18]   | `validity_error(array)`                                                      | inspect        | layout validity check                   |
+|  [19]   | `metadata_from_parquet(path, *, storage_options, row_groups, ...)`           | inspect        | parquet metadata without reading rows   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

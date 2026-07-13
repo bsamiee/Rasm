@@ -61,33 +61,38 @@ codec in this package; `Npgsql` owns the `bit` wire mapping). The `EmbeddingArit
 |  [05]   | `ToString()`                         | `string`               | invariant-culture `[h,h,h]` wire text |
 |  [06]   | `Equals(HalfVector?)`, `==`, `!=`    | `bool`                 | element-wise `SequenceEqual`          |
 
-[SPARSEVECTOR_MEMBERS]: `Pgvector.SparseVector` — value type (no `IEquatable<>` interface; `Equals(SparseVector?)` declared directly)
+[SPARSEVECTOR_CTORS]: `Pgvector.SparseVector` construction — wire/dictionary/dense nuance in the note below
 
-| [INDEX] | [MEMBER]                                                                                  | [RETURN]                | [CAPABILITY]                                            |
-| :-----: | :---------------------------------------------------------------------------------------- | :---------------------- | :------------------------------------------------------ |
-|  [01]   | `SparseVector(int dimensions, ReadOnlyMemory<int> indices, ReadOnlyMemory<float> values)` | ctor                    | pre-sorted sparse components; throws on length mismatch |
-|  [02]   | `SparseVector(ReadOnlyMemory<float> v)`                                                   | ctor                    | dense-to-sparse: drops zero elements                    |
-|  [03]   | `SparseVector(IDictionary<int,float> dictionary, int dimensions)`                         | ctor                    | index→value dictionary; sorts and drops zeros           |
-|  [04]   | `SparseVector(string s)`                                                                  | ctor                    | parses `{i:v,...}/d` wire format (1-based indices)      |
-|  [05]   | `Dimensions`                                                                              | `int`                   | total dimension count                                   |
-|  [06]   | `Indices`                                                                                 | `ReadOnlyMemory<int>`   | non-zero index positions (0-based in CLR)               |
-|  [07]   | `Values`                                                                                  | `ReadOnlyMemory<float>` | non-zero element values                                 |
-|  [08]   | `ToArray()`                                                                               | `float[]`               | materialises dense `float[Dimensions]`                  |
-|  [09]   | `ToString()`                                                                              | `string`                | invariant `{i:v,...}/d` wire text (1-based, re-shifts)  |
-|  [10]   | `Equals(SparseVector?)`, `==`, `!=`                                                       | `bool`                  | dimension + indices + values `SequenceEqual`            |
+| [INDEX] | [CTOR]                                                                                     | [CAPABILITY]                          |
+| :-----: | :---------------------------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `SparseVector(int dimensions, ReadOnlyMemory<int> indices, ReadOnlyMemory<float> values)` | pre-sorted; throws on mismatch        |
+|  [02]   | `SparseVector(ReadOnlyMemory<float> v)`                                                    | dense→sparse: drops zeros             |
+|  [03]   | `SparseVector(IDictionary<int,float> dictionary, int dimensions)`                          | dict; sorts and drops zeros           |
+|  [04]   | `SparseVector(string s)`                                                                   | parses `{i:v,...}/d` (1-based)         |
+
+[SPARSEVECTOR_MEMBERS]: `Pgvector.SparseVector` — value type (`Equals(SparseVector?)` declared directly, no `IEquatable<>`)
+
+| [INDEX] | [MEMBER]                            | [RETURN]                | [CAPABILITY]                                 |
+| :-----: | :---------------------------------- | :---------------------- | :------------------------------------------- |
+|  [01]   | `Dimensions`                        | `int`                   | total dimension count                        |
+|  [02]   | `Indices`                           | `ReadOnlyMemory<int>`   | non-zero index positions (0-based in CLR)    |
+|  [03]   | `Values`                            | `ReadOnlyMemory<float>` | non-zero element values                      |
+|  [04]   | `ToArray()`                         | `float[]`               | materialises dense `float[Dimensions]`       |
+|  [05]   | `ToString()`                        | `string`                | invariant `{i:v,...}/d` wire text (1-based)  |
+|  [06]   | `Equals(SparseVector?)`, `==`, `!=` | `bool`                  | dimension + indices + values `SequenceEqual` |
 
 The wire string is 1-based per pgvector; the `string` ctor subtracts 1 into 0-based `Indices` and
 `ToString()` adds 1 back. The dense and dictionary ctors drop zero elements, so a round-trip through
 `SparseVector(dense)` is the canonical sparsification.
 
-[WIRE_CODECS]: ADO streaming converters — `Pgvector` package, namespace `Pgvector.Npgsql`
+[WIRE_CODECS]: ADO streaming converters — `Pgvector` package, namespace `Pgvector.Npgsql`; the three converters derive `PgStreamingConverter<T>`, the factory `PgTypeInfoResolverFactory`
 
-| [INDEX] | [SYMBOL]                        | [BASE]                               | [WIRE_LAYOUT]                                             | [CAPABILITY]                             |
-| :-----: | :------------------------------ | :----------------------------------- | :-------------------------------------------------------- | :--------------------------------------- |
-|  [01]   | `VectorConverter`               | `PgStreamingConverter<Vector>`       | `uint16 dim, uint16 0, float32[dim]`                      | dense float binary read/write            |
-|  [02]   | `HalfvecConverter`              | `PgStreamingConverter<HalfVector>`   | `uint16 dim, uint16 0, uint16[dim]` (half bits)           | half-precision binary read/write         |
-|  [03]   | `SparsevecConverter`            | `PgStreamingConverter<SparseVector>` | `int32 dim, int32 nnz, int32 0, int32[nnz], float32[nnz]` | sparse binary read/write                 |
-|  [04]   | `VectorTypeInfoResolverFactory` | `PgTypeInfoResolverFactory`          | —                                                         | binds the three converters + array forms |
+| [INDEX] | [SYMBOL]                        | [WIRE_LAYOUT]                                             | [CAPABILITY]                     |
+| :-----: | :------------------------------ | :------------------------------------------------------- | :------------------------------- |
+|  [01]   | `VectorConverter`               | `uint16 dim, uint16 0, float32[dim]`                     | dense float binary read/write    |
+|  [02]   | `HalfvecConverter`              | `uint16 dim, uint16 0, uint16[dim]` (half bits)          | half-precision binary read/write |
+|  [03]   | `SparsevecConverter`            | `int32 dim, int32 nnz, int32 0, int32[nnz], float32[nnz]` | sparse binary read/write         |
+|  [04]   | `VectorTypeInfoResolverFactory` | —                                                        | binds converters + array forms   |
 
 Each converter overrides the full `PgStreamingConverter<T>` quartet — `Read`/`ReadAsync`/`Write`/`WriteAsync`
 plus `GetSize(SizeContext, T, ref object?)` — so the binary protocol streams without a synchronous-over-async
@@ -101,11 +106,11 @@ bare-driver `UseVector` both wire — internal code never instantiates a convert
 | [INDEX] | [SYMBOL]                              | [BASE_CONTRACT]                        | [CAPABILITY]                                                 |
 | :-----: | :------------------------------------ | :------------------------------------- | :----------------------------------------------------------- |
 |  [01]   | `VectorDbContextOptionsExtension`     | `IDbContextOptionsExtension`           | carries plugin policy; `LogFragment "using vector "`         |
-|  [02]   | `VectorTypeMapping`                   | `RelationalTypeMapping`                | maps `Vector`/`HalfVector`/`SparseVector`; sizes `vector(N)` |
-|  [03]   | `VectorTypeMappingSourcePlugin`       | `IRelationalTypeMappingSourcePlugin`   | resolves `vector`/`halfvec`/`sparsevec` ↔ CLR both ways      |
-|  [04]   | `VectorDataSourceConfigurationPlugin` | `INpgsqlDataSourceConfigurationPlugin` | calls `VectorExtensions.UseVector` on the data source        |
+|  [02]   | `VectorTypeMapping`                   | `RelationalTypeMapping`                | maps the three CLR types; sizes `vector(N)`                  |
+|  [03]   | `VectorTypeMappingSourcePlugin`       | `IRelationalTypeMappingSourcePlugin`   | resolves store-type ↔ CLR both ways                         |
+|  [04]   | `VectorDataSourceConfigurationPlugin` | `INpgsqlDataSourceConfigurationPlugin` | calls `VectorExtensions.UseVector`                          |
 |  [05]   | `VectorDbFunctionsExtensions`         | static                                 | the six distance methods (server-translated)                 |
-|  [06]   | `VectorDbFunctionsTranslatorPlugin`   | `IMethodCallTranslatorPlugin`          | translates distance calls to `PgUnknownBinaryExpression`     |
+|  [06]   | `VectorDbFunctionsTranslatorPlugin`   | `IMethodCallTranslatorPlugin`          | distance calls → `PgUnknownBinaryExpression`                |
 |  [07]   | `VectorCodeGeneratorPlugin`           | `ProviderCodeGeneratorPlugin`          | emits `.UseVector()` in scaffolded `OnConfiguring`           |
 |  [08]   | `VectorDesignTimeServices`            | `IDesignTimeServices`                  | admits mapping + code-gen plugins for scaffolding            |
 
@@ -116,12 +121,12 @@ bare-driver `UseVector` both wire — internal code never instantiates a convert
 
 ## [03]-[ENTRYPOINTS]
 
-[ADMISSION]: the dual `UseVector` surface — note the return-type asymmetry
+[ADMISSION]: the dual `UseVector` surface — note the return-type asymmetry; surface [01] homes in `Microsoft.EntityFrameworkCore` and extends the `NpgsqlDbContextOptionsBuilder`, surface [02] in `Npgsql` and extends the `NpgsqlDataSourceBuilder`
 
-| [INDEX] | [SURFACE]                                             | [HOME_NAMESPACE]                | [RETURNS]                                    | [CALL_SHAPE]                              | [CAPABILITY]                                                   |
-| :-----: | :---------------------------------------------------- | :------------------------------ | :------------------------------------------- | :---------------------------------------- | :------------------------------------------------------------- |
-|  [01]   | `VectorDbContextOptionsBuilderExtensions.UseVector()` | `Microsoft.EntityFrameworkCore` | `NpgsqlDbContextOptionsBuilder` (preserving) | `NpgsqlDbContextOptionsBuilder` extension | admits the EF plugin (mapping + translate + wire)              |
-|  [02]   | `VectorExtensions.UseVector(this INpgsqlTypeMapper)`  | `Npgsql`                        | `INpgsqlTypeMapper` (**erased**)             | `NpgsqlDataSourceBuilder` extension       | registers `VectorTypeInfoResolverFactory` for wire decode only |
+| [INDEX] | [SURFACE]                                             | [RETURNS]                                    |
+| :-----: | :---------------------------------------------------- | :------------------------------------------- |
+|  [01]   | `VectorDbContextOptionsBuilderExtensions.UseVector()` | `NpgsqlDbContextOptionsBuilder` (preserving) |
+|  [02]   | `VectorExtensions.UseVector(this INpgsqlTypeMapper)`  | `INpgsqlTypeMapper` (erased)                 |
 
 Surface [01] lives in `Microsoft.EntityFrameworkCore` (not `Pgvector.EntityFrameworkCore`), so the
 EF admission call resolves without a `Pgvector.EntityFrameworkCore` using directive once
@@ -139,10 +144,10 @@ it forwards to `AddTypeInfoResolverFactory(new VectorTypeInfoResolverFactory())`
 
 [TYPE_MAPPING]: `VectorTypeMapping` — `RelationalTypeMapping`
 
-| [INDEX] | [SURFACE]                                                             | [CALL_SHAPE]               | [CAPABILITY]                                                          |
-| :-----: | :-------------------------------------------------------------------- | :------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `VectorTypeMapping.Default`                                           | `static VectorTypeMapping` | unsized `vector` ↔ `Vector` (no `(N)`)                                |
-|  [02]   | `VectorTypeMapping(string storeType, Type clrType, int? size = null)` | constructor                | sizes the column; `StoreTypePostfix.Size` emits `<storeType>(<size>)` |
+| [INDEX] | [SURFACE]                                                             | [CAPABILITY]                                       |
+| :-----: | :-------------------------------------------------------------------- | :------------------------------------------------- |
+|  [01]   | `VectorTypeMapping.Default`                                           | static; unsized `vector` ↔ `Vector`                |
+|  [02]   | `VectorTypeMapping(string storeType, Type clrType, int? size = null)` | ctor; sizes the column via `StoreTypePostfix.Size` |
 
 The mapping uses `StoreTypePostfix.Size`, so a non-null `size` renders `vector(N)`/`halfvec(N)`/`sparsevec(N)`;
 EF `HasColumnType("vector(1536)")` and the plugin parse the size both ways.
@@ -173,13 +178,13 @@ type/operator pair. The `Query/retrieval#SEARCH_PROVISIONING_PROBE` `VectorMetri
 `nameof(VectorDbFunctionsExtensions.L2Distance)` and build the `ORDER BY` projection with
 `Expression.Call(typeof(VectorDbFunctionsExtensions), Fn, Type.EmptyTypes, columnExpr, Expression.Constant(new Vector(probe)))`.
 
-[INDEX_DECLARATION]: EF index builder — `NpgsqlIndexBuilderExtensions` in `Npgsql.EntityFrameworkCore.PostgreSQL` (`.api/api-npgsql-ef.md`)
+[INDEX_DECLARATION]: EF index builder — `NpgsqlIndexBuilderExtensions` in `Npgsql.EntityFrameworkCore.PostgreSQL` (`.api/api-npgsql-ef.md`); each an `IndexBuilder` method with a `<TEntity>` generic overload
 
-| [INDEX] | [SURFACE]             | [CALL_SHAPE]                                                                                     | [CAPABILITY]                            |
-| :-----: | :-------------------- | :----------------------------------------------------------------------------------------------- | :-------------------------------------- |
-|  [01]   | `HasMethod`           | `IndexBuilder.HasMethod(string? method)` (+ `<TEntity>`)                                         | selects `hnsw` or `ivfflat`             |
-|  [02]   | `HasOperators`        | `IndexBuilder.HasOperators(params string[]? operators)` (+ `<TEntity>`)                          | sets ops class e.g. `vector_cosine_ops` |
-|  [03]   | `HasStorageParameter` | `IndexBuilder.HasStorageParameter(string parameterName, object? parameterValue)` (+ `<TEntity>`) | sets `m`, `ef_construction`, `lists`    |
+| [INDEX] | [SURFACE]                                                           | [CAPABILITY]                            |
+| :-----: | :------------------------------------------------------------------ | :-------------------------------------- |
+|  [01]   | `HasMethod(string? method)`                                         | selects `hnsw` or `ivfflat`             |
+|  [02]   | `HasOperators(params string[]? operators)`                          | sets ops class e.g. `vector_cosine_ops` |
+|  [03]   | `HasStorageParameter(string parameterName, object? parameterValue)` | sets `m`, `ef_construction`, `lists`    |
 
 The vector AM/opclass/build-parameter literals these rows carry are server-side pgvector SQL, catalogued in `[SERVER_SURFACE]`.
 
@@ -191,31 +196,31 @@ rows project, and the `Query/retrieval#SEARCH_PROVISIONING_PROBE` planner reads.
 through `HasPostgresExtension("vector")` (`.api/api-npgsql-ef.md`); `vectorscale` pulls it as a CASCADE
 dependency (`.api/api-pgvectorscale.md`).
 
-[INDEX_OPCLASSES]: per-store-type opclass per access method
+[INDEX_OPCLASSES]: per-store-type opclass per access method — each opclass is `<store_type>_<metric>_ops` (e.g. `vector_cosine_ops`, `bit_hamming_ops`); the columns list the metrics each access method supports
 
-| [INDEX] | [STORE_TYPE] | [HNSW_OPCLASSES]                                                                   | [IVFFLAT_OPCLASSES]                                   |
-| :-----: | :----------- | :--------------------------------------------------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `vector`     | `vector_l2_ops`, `vector_ip_ops`, `vector_cosine_ops`, `vector_l1_ops`             | `vector_l2_ops`, `vector_ip_ops`, `vector_cosine_ops` |
-|  [02]   | `halfvec`    | `halfvec_l2_ops`, `halfvec_ip_ops`, `halfvec_cosine_ops`, `halfvec_l1_ops`         | `halfvec_l2_ops`                                      |
-|  [03]   | `sparsevec`  | `sparsevec_l2_ops`, `sparsevec_ip_ops`, `sparsevec_cosine_ops`, `sparsevec_l1_ops` | _(none — HNSW only)_                                  |
-|  [04]   | `bit`        | `bit_hamming_ops`, `bit_jaccard_ops`                                               | `bit_hamming_ops`                                     |
+| [INDEX] | [STORE_TYPE] | [HNSW_METRICS]             | [IVFFLAT_METRICS]    |
+| :-----: | :----------- | :------------------------- | :------------------- |
+|  [01]   | `vector`     | `l2`, `ip`, `cosine`, `l1` | `l2`, `ip`, `cosine` |
+|  [02]   | `halfvec`    | `l2`, `ip`, `cosine`, `l1` | `l2`                 |
+|  [03]   | `sparsevec`  | `l2`, `ip`, `cosine`, `l1` | — (HNSW only)        |
+|  [04]   | `bit`        | `hamming`, `jaccard`       | `hamming`            |
 
 `vectorscale`'s `diskann` AM is a third index path over a `vector` column only, under
 `vector_cosine_ops`/`vector_l2_ops`/`vector_ip_ops` (`.api/api-pgvectorscale.md`).
 
-[BUILD_AND_QUERY]: build parameters (`HasStorageParameter`) and session GUCs (search lane sets at query time)
+[BUILD_AND_QUERY]: build parameters (`HasStorageParameter`) and session GUCs (search lane sets at query time) — each GUC is `<am>.<name>`, its default in parens
 
-| [INDEX] | [AM]      | [BUILD_PARAMS]                   | [QUERY_GUCS]                                                                                                 |
-| :-----: | :-------- | :------------------------------- | :----------------------------------------------------------------------------------------------------------- |
-|  [01]   | `hnsw`    | `m` (16), `ef_construction` (64) | `hnsw.ef_search` (40), `hnsw.iterative_scan`, `hnsw.max_scan_tuples` (20000), `hnsw.scan_mem_multiplier` (1) |
-|  [02]   | `ivfflat` | `lists` (required)               | `ivfflat.probes` (1), `ivfflat.max_probes`, `ivfflat.iterative_scan`                                         |
+| [INDEX] | [AM]      | [BUILD_PARAMS]                   | [QUERY_GUCS]                                                                              |
+| :-----: | :-------- | :------------------------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `hnsw`    | `m` (16), `ef_construction` (64) | `ef_search` (40), `iterative_scan`, `max_scan_tuples` (20000), `scan_mem_multiplier` (1) |
+|  [02]   | `ivfflat` | `lists` (required)               | `probes` (1), `max_probes`, `iterative_scan`                                              |
 
 [UTILITY_FUNCTIONS]: server functions the bit-quantization and subvector forms compose
 
 | [INDEX] | [FUNCTION]                            | [RESULT] | [CAPABILITY]                                                                                                                                      |
 | :-----: | :------------------------------------ | :------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `binary_quantize(vector)`             | `bit`    | quantizes a dense embedding to a `bit` for `<~>`/`<%>` ANN; backs the `EmbeddingArity.Bit` `binary_quantize(emb)::bit(N)` expression-index column |
-|  [02]   | `subvector(vector, integer, integer)` | `vector` | slices a contiguous dimension window for sub-space indexing                                                                                       |
+|  [01]   | `binary_quantize(vector)`             | `bit`    | quantizes a dense embedding to a `bit` for `<~>`/`<%>` ANN |
+|  [02]   | `subvector(vector, integer, integer)` | `vector` | slices a contiguous dimension window for sub-space indexing |
 
 ## [05]-[IMPLEMENTATION_LAW]
 

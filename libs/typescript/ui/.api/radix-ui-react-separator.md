@@ -12,7 +12,7 @@
 - runtime: `runtime:browser`, core `ui` — composition plane; not `scope:viewer`
 - modules: single `.` barrel — `Separator` / `Root` component, `SeparatorProps` type (verified exports: `Root`, `Separator`, `SeparatorProps`); the `ORIENTATIONS` tuple and its `Orientation` type are package-internal (NOT exported)
 
-```ts contract
+```ts signature
 // Verified dist/index.d.ts — SeparatorProps = Primitive.div props + two own knobs; asChild rides in from Primitive.
 const ORIENTATIONS = ['horizontal', 'vertical'] as const   // internal — not exported
 type Orientation = (typeof ORIENTATIONS)[number]           // internal — code depends on the `orientation` prop
@@ -33,12 +33,12 @@ return <Primitive.div data-orientation={orientation} {...semanticProps} {...domP
 - rail: view/primitive, view/compose
 - `Separator` and `Root` are the same `forwardRef` component under two names. `SeparatorProps extends React.ComponentPropsWithoutRef<typeof Primitive.div>` and adds two own knobs plus the `asChild` inherited from `Primitive.div`. `orientation` is a closed two-value axis (the internal `ORIENTATIONS` tuple); the public surface is the `orientation` prop, not the tuple. `decorative` selects the a11y contract.
 
-| [INDEX] | [SYMBOL]                                                                                           | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                                                                          |
-| :-----: | :------------------------------------------------------------------------------------------------- | :------------------ | :------------------------------------------------------------------------------------------- |
-|  [01]   | `Separator` / `Root` (`ForwardRefExoticComponent<SeparatorProps & RefAttributes<HTMLDivElement>>`) | primitive component | `view/primitive` divider row; ref forwards to the `<div>` element                            |
-|  [02]   | `SeparatorProps` (`= PrimitiveDivProps & { orientation?; decorative? }`)                           | prop contract       | native `<div>` attrs + orientation axis + decorative gate + inherited `asChild`              |
-|  [03]   | `orientation?: "horizontal" \| "vertical"` (default `"horizontal"`)                                | closed axis         | drives `aria-orientation` (vertical only) + the always-emitted `data-orientation` token hook |
-|  [04]   | `decorative?: boolean`                                                                             | a11y gate           | `true` → `role="none"` (removed from a11y tree); else `role="separator"`                     |
+| [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                                                 |
+| :-----: | :----------------------------------------- | :------------------ | :------------------------------------------------------------------ |
+|  [01]   | `Separator` / `Root`                       | primitive component | `view/primitive` divider row; ref forwards to `<div>`               |
+|  [02]   | `SeparatorProps`                           | prop contract       | native `<div>` attrs + orientation + decorative + `asChild`         |
+|  [03]   | `orientation?: "horizontal" \| "vertical"` | closed axis         | drives `aria-orientation` (vertical) + always-on `data-orientation` |
+|  [04]   | `decorative?: boolean`                     | a11y gate           | `true` → `role="none"` (off a11y tree); else `role="separator"`     |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -46,11 +46,11 @@ return <Primitive.div data-orientation={orientation} {...semanticProps} {...domP
 - rail: view/primitive
 - One component owns the full divider space: `(decorative, orientation)` selects the ARIA role and (via `data-orientation`) the token-plane line axis in a single render — the four render shapes are policy rows of one primitive, never four components. `data-orientation` is emitted on every render (decorative and semantic alike). `asChild` merges divider semantics onto a caller element through `Primitive.div` → the `createSlot('Primitive.div')` instance.
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                                                                 |
-| :-----: | :--------------------------------------------------------- | :--------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `<Separator orientation="horizontal" \| "vertical" />`     | semantic divider | `role="separator"`; `aria-orientation="vertical"` emitted for vertical only; `data-orientation` set |
-|  [02]   | `<Separator decorative />`                                 | presentational   | `role="none"`; removed from a11y tree; `data-orientation` still set for the token line              |
-|  [03]   | `<Separator asChild><Slot-mergeable element/></Separator>` | slot-merge       | render-as-child via `Primitive.div`→`createSlot('Primitive.div')`; `view/compose` slot row          |
+| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                   |
+| :-----: | :--------------------------------------- | :--------------- | :---------------------------------------------------- |
+|  [01]   | `<Separator orientation={o} />`          | semantic divider | `role="separator"`; `aria-orientation` on vertical    |
+|  [02]   | `<Separator decorative />`               | presentational   | `role="none"`; off a11y tree                          |
+|  [03]   | `<Separator asChild>{child}</Separator>` | slot-merge       | render-as-child through `createSlot('Primitive.div')` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

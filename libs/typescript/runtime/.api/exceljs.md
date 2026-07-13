@@ -17,78 +17,84 @@
 
 [PUBLIC_TYPE_SCOPE]: the workbook/worksheet document model
 - rail: document
-- `Workbook` owns metadata, worksheets, defined names, and the two IO facades; `Worksheet` owns the row/column/cell grid plus tables and formatting. `work/report` never subclasses these — it drives them behind a spec.
+- `Workbook` owns metadata, worksheets, defined names, and the two IO facades; `Worksheet` owns the row/column/cell grid plus tables and formatting. `work/report` never subclasses these — it drives them behind a spec. Style rides each cell (`Row extends Style`, `Cell extends Style, Address`) — no parallel style map.
 
-| [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY]      | [CONSUMER_BOUNDARY]                                                                              |
-| :-----: | :---------------------------------------------------- | :----------------- | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `Workbook`                                            | document root      | `work/report` — one workbook per report job; carries `.xlsx`/`.csv` facades and metadata         |
-|  [02]   | `Worksheet`                                           | sheet grid         | one sheet per report section; the row/column/cell/table owner                                    |
-|  [03]   | `Row` / `Column` / `Cell`                             | grid cell          | `Row extends Style`, `Cell extends Style, Address` — style rides the cell, no parallel style map |
-|  [04]   | `Table` / `TableProperties` / `TableColumnProperties` | structured table   | native Excel Table with header/totals rows; `totalsRowFunction` a policy value per column        |
-|  [05]   | `DefinedNames` / `DefinedNamesRanges`                 | named range        | cross-sheet named ranges for formula-driven report templates                                     |
-|  [06]   | `WorkbookModel` / `WorksheetModel` / `CellModel`      | serializable model | the plain-object projections behind `workbook.model` for content-key hashing                     |
+| [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY]      | [CONSUMER_BOUNDARY]                                     |
+| :-----: | :---------------------------------------------------- | :----------------- | :------------------------------------------------------ |
+|  [01]   | `Workbook`                                            | document root      | one workbook per job; `.xlsx`/`.csv` facades + metadata |
+|  [02]   | `Worksheet`                                           | sheet grid         | one sheet per report section; row/cell/table owner      |
+|  [03]   | `Row` / `Column` / `Cell`                             | grid cell          | `Row extends Style`; `Cell extends Style, Address`      |
+|  [04]   | `Table` / `TableProperties` / `TableColumnProperties` | structured table   | Excel Table, header/totals; `totalsRowFunction` policy  |
+|  [05]   | `DefinedNames` / `DefinedNamesRanges`                 | named range        | cross-sheet named ranges for formula templates          |
+|  [06]   | `WorkbookModel` / `WorksheetModel` / `CellModel`      | serializable model | `workbook.model` projections for content-key hashing    |
 
 [PUBLIC_TYPE_SCOPE]: the cell value + style vocabularies — parameterization DATA
 - rail: document/policy
 - Every report variation is one of these closed vocabularies, not a new code path: `CellValue` is the value union, `Style` composes `Font`/`Fill`/`Border`/`Alignment`, and the formatting/validation unions carry the whole rule space. A report template names style rows and rule values; it never branches per report.
 
-| [INDEX] | [SYMBOL]                                                                                                                                        | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                                 |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------- | :------------ | :---------------------------------------------------------------------------------- |
-|  [01]   | `CellValue` = number\|string\|bool\|Date\|richtext\|hyperlink\|formula\|error\|null                                                             | value union   | the discriminated cell payload; `ValueType`/`FormulaType`/`ErrorValue` enums tag it |
-|  [02]   | `Style` (`Font`/`Fill`/`Border`/`Alignment`/`Protection`/`numFmt`)                                                                              | style record  | one style record per cell/row/column; `numFmt` the format string                    |
-|  [03]   | `Fill` = `FillPattern` \| `FillGradientAngle` \| `FillGradientPath`                                                                             | fill union    | pattern vs gradient as a value, not a method                                        |
-|  [04]   | `ConditionalFormattingRule` (9 arms: `CellIs`/`ColorScale`/`IconSet`/`DataBar`/`Top10`/`AboveAverage`/`ContainsText`/`TimePeriod`/`Expression`) | rule union    | the whole conditional-format space as data; a report picks arms                     |
-|  [05]   | `DataValidation` (`list`/`whole`/`decimal`/`date`/`textLength`/`custom`)                                                                        | validation    | dropdown/range guards; the operator is a policy field                               |
-|  [06]   | `PageSetup` / `HeaderFooter` / `WorksheetView` / `WorksheetProtection`                                                                          | layout policy | print/freeze/split/protect settings as declarative records                          |
-|  [07]   | `Image` / `Anchor` / `ImageRange`                                                                                                               | media         | logo/chart embedding; `Workbook.addImage` returns the shared id                     |
+| [INDEX] | [SYMBOL]                                                               | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                            |
+| :-----: | :--------------------------------------------------------------------- | :------------ | :--------------------------------------------- |
+|  [01]   | `CellValue`                                                            | value union   | discriminated cell payload                     |
+|  [02]   | `Style`                                                                | style record  | per cell/row/column; `numFmt` format string    |
+|  [03]   | `Fill`                                                                 | fill union    | pattern vs gradient as a value                 |
+|  [04]   | `ConditionalFormattingRule`                                            | rule union    | conditional-format space as data               |
+|  [05]   | `DataValidation`                                                       | validation    | dropdown/range guards; operator a policy field |
+|  [06]   | `PageSetup` / `HeaderFooter` / `WorksheetView` / `WorksheetProtection` | layout policy | print/freeze/split/protect as records          |
+|  [07]   | `Image` / `Anchor` / `ImageRange`                                      | media         | embedding; `Workbook.addImage` → shared id     |
+
+- `CellValue` arms: `number`/`string`/`bool`/`Date`/`richtext`/`hyperlink`/`formula`/`error`/`null`; tagged by `ValueType`/`FormulaType`/`ErrorValue`.
+- `Style` fields: `Font`/`Fill`/`Border`/`Alignment`/`Protection`/`numFmt`.
+- `Fill` arms: `FillPattern`/`FillGradientAngle`/`FillGradientPath`.
+- `ConditionalFormattingRule` arms: `CellIs`/`ColorScale`/`IconSet`/`DataBar`/`Top10`/`AboveAverage`/`ContainsText`/`TimePeriod`/`Expression`.
+- `DataValidation` arms: `list`/`whole`/`decimal`/`date`/`textLength`/`custom`.
 
 [PUBLIC_TYPE_SCOPE]: the streaming IO options
 - rail: boundaries/streaming
-- The constant-memory writer/reader options; `WorkbookWriter` is the default for durable reports whose row count is unbounded.
+- The constant-memory writer/reader options; `WorkbookWriter` is the default for durable reports whose row count is unbounded. `WorkbookWriterOptions` carries `stream`|`filename`, `useSharedStrings`, `useStyles`, `zip` (`useStyles` trades memory for formatting); `WorkbookStreamReaderOptions` sets each of `worksheets`/`sharedStrings`/`hyperlinks`/`styles`/`entries` to `emit`|`cache`|`ignore`.
 
-| [INDEX] | [SYMBOL]                                                                                                                            | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                                                      |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------- | :------------ | :------------------------------------------------------------------------------------------------------- |
-|  [01]   | `stream.xlsx.WorkbookWriterOptions` (`stream`\|`filename`, `useSharedStrings`, `useStyles`, `zip`)                                  | writer config | route output to an `effect/Stream` sink or a `FileSystem` path; `useStyles` trades memory for formatting |
-|  [02]   | `stream.xlsx.WorkbookStreamReaderOptions` (`worksheets`/`sharedStrings`/`hyperlinks`/`styles`/`entries`: `emit`\|`cache`\|`ignore`) | reader config | per-part cache/emit policy for the async-iterated read of a huge input                                   |
-|  [03]   | `XlsxReadOptions` / `XlsxWriteOptions` / `JSZipGeneratorOptions`                                                                    | IO options    | in-memory read/write tuning; `XlsxWriteOptions` extends the writer options                               |
+| [INDEX] | [SYMBOL]                                                         | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                |
+| :-----: | :--------------------------------------------------------------- | :------------ | :------------------------------------------------- |
+|  [01]   | `stream.xlsx.WorkbookWriterOptions`                              | writer config | route to an `effect/Stream` sink or a `FileSystem` |
+|  [02]   | `stream.xlsx.WorkbookStreamReaderOptions`                        | reader config | per-part cache/emit policy for the huge-input read |
+|  [03]   | `XlsxReadOptions` / `XlsxWriteOptions` / `JSZipGeneratorOptions` | IO options    | `XlsxWriteOptions` extends the writer options      |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `.xlsx` in-memory IO — the effectful boundary
 - rail: boundaries
-- Every IO terminal is a `Promise`; `work/report` wraps it in `Effect.tryPromise` → `ReportRenderError`. Prefer `writeBuffer()` and hand the `Buffer` to the platform `FileSystem`/object storage over `writeFile` (which reaches `node:fs` directly and bypasses the platform rail).
+- Every IO terminal is a `workbook.xlsx.*` `Promise`; `work/report` wraps it in `Effect.tryPromise` → `ReportRenderError`. Prefer `writeBuffer()` and hand the `Buffer` to the platform `FileSystem`/object storage over `writeFile` (which reaches `node:fs` directly and bypasses the platform rail).
 
-| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                 |
-| :-----: | :-------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `workbook.xlsx.writeBuffer(options?): Promise<Buffer>`    | egress         | `work/report` — the preferred terminal; the `Buffer` is the shared deliver artifact |
-|  [02]   | `workbook.xlsx.write(stream, options?): Promise<void>`    | egress         | pipe directly to an object-store upload stream                                      |
-|  [03]   | `workbook.xlsx.load(buffer, options?): Promise<Workbook>` | ingress        | re-open a stored `.xlsx` for amend-and-re-emit report jobs                          |
-|  [04]   | `workbook.xlsx.readFile(path)` / `.read(stream)`          | ingress        | template load; `read(stream)` stays off the `node:fs` path                          |
+| [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                         |
+| :-----: | :------------------------------------------ | :------------- | :---------------------------------------------------------- |
+|  [01]   | `writeBuffer(options?): Promise<Buffer>`    | egress         | preferred terminal; `Buffer` is the shared deliver artifact |
+|  [02]   | `write(stream, options?): Promise<void>`    | egress         | pipe directly to an object-store upload stream              |
+|  [03]   | `load(buffer, options?): Promise<Workbook>` | ingress        | re-open a stored `.xlsx` for amend-and-re-emit jobs         |
+|  [04]   | `readFile(path)` / `.read(stream)`          | ingress        | template load; `read(stream)` stays off `node:fs`           |
 
 [ENTRYPOINT_SCOPE]: constant-memory streaming — the durable-report default
 - rail: boundaries/streaming
-- `WorkbookWriter` commits per worksheet/row so an unbounded report never materializes in RAM. It is a scoped resource: acquire the writer, drain a row `Stream` through `addRow(...).commit()`, release with `workbook.commit()`. `WorkbookReader` is async-iterable for the symmetric huge-input read.
+- `WorkbookWriter` commits per worksheet/row so an unbounded report never materializes in RAM. It is a scoped resource: acquire the writer, drain a row `Stream` through `addRow(...).commit()`, release with `workbook.commit()`. `WorkbookReader` async-iterates as `for await (ws of reader)` → `for await (row of ws)` for the symmetric huge-input read.
 
-| [INDEX] | [SURFACE]                                                                                               | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                                                |
-| :-----: | :------------------------------------------------------------------------------------------------------ | :-------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `new stream.xlsx.WorkbookWriter({ stream\|filename, useSharedStrings, useStyles, zip })`                | streaming write | the bounded-memory writer; wrap construction+`commit` in `Effect.acquireRelease`   |
-|  [02]   | `writer.addWorksheet(name)` → `worksheet.addRow(row).commit()`                                          | streaming row   | the `effect/Stream.runForEach` sink; each committed row leaves memory              |
-|  [03]   | `writer.commit(): Promise<void>`                                                                        | finalize        | the release step; flushes shared strings, styles, and the zip central directory    |
-|  [04]   | `new stream.xlsx.WorkbookReader(input, options)` — `for await (ws of reader)` → `for await (row of ws)` | streaming read  | async-iterate a huge `.xlsx`; `WorksheetReader` yields `Row`s without a full parse |
+| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                           |
+| :-----: | :---------------------------------------------------- | :-------------- | :------------------------------------------------------------ |
+|  [01]   | `new stream.xlsx.WorkbookWriter(options)`             | streaming write | bounded-memory writer under `Effect.acquireRelease`           |
+|  [02]   | `writer.addWorksheet(name)` → `.addRow(row).commit()` | streaming row   | the `effect/Stream.runForEach` sink; each row leaves memory   |
+|  [03]   | `writer.commit(): Promise<void>`                      | finalize        | release step; flushes strings, styles, zip central directory  |
+|  [04]   | `new stream.xlsx.WorkbookReader(input, options)`      | streaming read  | async-iterate a huge `.xlsx`; `WorksheetReader` yields `Row`s |
 
 [ENTRYPOINT_SCOPE]: worksheet authoring — the parameterized grid surface
 - rail: document
-- The row/column/cell/table/format calls a report template drives from a spec. `columns` is the header/key/width declaration; `addRow` accepts an object keyed by those column keys.
+- The row/column/cell/table/format calls a report template drives from a spec, every surface a `worksheet.*` method except the `workbook.addWorksheet`/`addImage` assembler. `columns` is the header/key/width declaration; `addRow` accepts an object keyed by those column keys.
 
-| [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                 |
-| :-----: | :------------------------------------------------------------------------------ | :------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `worksheet.columns = [{ header, key, width, style }]`                           | schema         | the column contract; `addRow` maps object fields by `key`                           |
-|  [02]   | `worksheet.addRow(data)` / `.addRows(rows)` / `.insertRow` / `.duplicateRow`    | rows           | the row projection sink; `data` is a keyed object or positional array               |
-|  [03]   | `worksheet.getCell(ref)` / `.mergeCells(range)` / `.getColumn(key)`             | cell access    | targeted cell/merge edits; `mergeCells` carries the overload family for range forms |
-|  [04]   | `worksheet.addTable(props): Table` / `.getTable` / `.removeTable`               | table          | native Excel Table with typed columns + totals functions                            |
-|  [05]   | `worksheet.addConditionalFormatting(cf)` / `.getCell(x).dataValidation = v`     | formatting     | the rule/validation vocabularies applied as data                                    |
-|  [06]   | `worksheet.protect(password, options)` / `.addImage(id, range)` / `.autoFilter` | decorate       | sheet protection, embedded media, filter ranges                                     |
-|  [07]   | `workbook.addWorksheet(name, options)` / `.addImage(img): number`               | assemble       | the workbook builder; `addImage` returns the shared media id                        |
+| [INDEX] | [SURFACE]                                                             | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                             |
+| :-----: | :-------------------------------------------------------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `columns = [{ header, key, width, style }]`                           | schema         | column contract; `addRow` maps fields by `key`  |
+|  [02]   | `addRow(data)` / `.addRows(rows)` / `.insertRow` / `.duplicateRow`    | rows           | projection sink; keyed or positional array      |
+|  [03]   | `getCell(ref)` / `.mergeCells(range)` / `.getColumn(key)`             | cell access    | cell/merge edits; `mergeCells` range overloads  |
+|  [04]   | `addTable(props): Table` / `.getTable` / `.removeTable`               | table          | Excel Table; typed columns + totals functions   |
+|  [05]   | `addConditionalFormatting(cf)` / `.getCell(x).dataValidation = v`     | formatting     | rule/validation vocabularies applied as data    |
+|  [06]   | `protect(password, options)` / `.addImage(id, range)` / `.autoFilter` | decorate       | sheet protection, embedded media, filter ranges |
+|  [07]   | `workbook.addWorksheet(name, options)` / `.addImage(img): number`     | assemble       | workbook builder; `addImage` → shared media id  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

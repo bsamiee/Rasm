@@ -29,11 +29,11 @@ is HOST-LOCAL and carries no TS_PROJECTION.
 [PUBLIC_TYPE_SCOPE]: stream ownership and policy
 - rail: staging
 
-| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE] | [CAPABILITY]                                                                               |
-| :-----: | :-------------------------------------- | :------------- | :----------------------------------------------------------------------------------------- |
-|  [01]   | `RecyclableMemoryStreamManager`         | pool owner     | owns the small-block + large-buffer pools and the 14-overload `GetStream` factory          |
-|  [02]   | `RecyclableMemoryStream`                | pooled stream  | `MemoryStream` + `IBufferWriter<byte>`; the staging byte carrier and zero-copy sink/source |
-|  [03]   | `RecyclableMemoryStreamManager.Options` | policy object  | block size, large-buffer multiple, pool caps, capacity cap, and debug/zeroing flags        |
+| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE] | [CAPABILITY]                                                                 |
+| :-----: | :-------------------------------------- | :------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `RecyclableMemoryStreamManager`         | pool owner     | owns small-block + large-buffer pools; the `GetStream` rent factory          |
+|  [02]   | `RecyclableMemoryStream`                | pooled stream  | staging byte carrier; zero-copy sink and source                              |
+|  [03]   | `RecyclableMemoryStreamManager.Options` | policy object  | block size, large-buffer multiple, pool + capacity caps, debug/zeroing flags |
 
 [PUBLIC_TYPE_SCOPE]: lifecycle event payloads
 - rail: staging
@@ -59,86 +59,88 @@ is HOST-LOCAL and carries no TS_PROJECTION.
 - rail: staging
 - note: one manager is a process-singleton owning the pools; construct it once with an `Options` policy and rent every stream from it.
 
-| [INDEX] | [SURFACE]                                    | [CALL_SHAPE]                                     | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------- | :----------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `new RecyclableMemoryStreamManager()`        | `RecyclableMemoryStreamManager()`                | manager with default `Options`                     |
-|  [02]   | `new RecyclableMemoryStreamManager(Options)` | `RecyclableMemoryStreamManager(Options options)` | manager with an explicit capacity/telemetry policy |
-|  [03]   | `Settings`                                   | `Options Settings { get; }`                      | the live `Options` reference (read policy back)    |
+| [INDEX] | [SURFACE]                                    | [CALL_SHAPE]                                     | [CAPABILITY]                       |
+| :-----: | :------------------------------------------- | :----------------------------------------------- | :--------------------------------- |
+|  [01]   | `new RecyclableMemoryStreamManager()`        | `RecyclableMemoryStreamManager()`                | manager with default `Options`     |
+|  [02]   | `new RecyclableMemoryStreamManager(Options)` | `RecyclableMemoryStreamManager(Options options)` | explicit capacity/telemetry policy |
+|  [03]   | `Settings`                                   | `Options Settings { get; }`                      | live `Options`; read policy back   |
 
 [ENTRYPOINT_SCOPE]: `RecyclableMemoryStream` direct construction
 - rail: staging#STREAM_POOL
 - note: `GetStream` is the default rent path; the public ctor family is the explicit-manager construction (it still draws from the bound manager's pools — NOT an ad hoc `MemoryStream`), mirroring the `GetStream` `Guid id` / `string? tag` / `long requestedSize` telemetry/sizing args. There is NO parameterless ctor and NO `RecyclableMemoryStreamManager.Default` static — a stream is always bound to an explicit manager instance.
+- shared shape: every ctor is `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, …)`; the tail args below are appended positionally.
 
-| [INDEX] | [MEMBER]                                                                  | [SIGNATURE]                                                                                                     |
-| :-----: | :------------------------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager)`                   | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager)`                                           |
-|  [02]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,Guid)`              | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, Guid id)`                                  |
-|  [03]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,string?)`           | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, string? tag)`                              |
-|  [04]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,Guid,string?)`      | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, Guid id, string? tag)`                     |
-|  [05]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,string?,long)`      | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, string? tag, long requestedSize)`          |
-|  [06]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,Guid,string?,long)` | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, Guid id, string? tag, long requestedSize)` |
+| [INDEX] | [APPENDED_ARGS]                            |
+| :-----: | :----------------------------------------- |
+|  [01]   | (manager only)                             |
+|  [02]   | `Guid id`                                  |
+|  [03]   | `string? tag`                              |
+|  [04]   | `Guid id, string? tag`                     |
+|  [05]   | `string? tag, long requestedSize`          |
+|  [06]   | `Guid id, string? tag, long requestedSize` |
 
 [ENTRYPOINT_SCOPE]: `GetStream` overloads
 - rail: staging#STREAM_POOL
 - note: the full rent surface; `requiredSize` pre-grows the stream, `asContiguousBuffer` forces a single large buffer, and the byte-seed overloads rent a stream pre-filled from a source buffer. The `Guid id` / `string? tag` arguments are the telemetry correlation keys that flow into every lifecycle event.
+- shared shape: every overload returns `RecyclableMemoryStream` from `GetStream(<args>)`; the arg lists below are the complete overload set.
 
-| [INDEX] | [MEMBER]                                     | [SIGNATURE]                                                                                          |
-| :-----: | :------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `GetStream()`                                | `RecyclableMemoryStream GetStream()`                                                                 |
-|  [02]   | `GetStream(Guid)`                            | `RecyclableMemoryStream GetStream(Guid id)`                                                          |
-|  [03]   | `GetStream(string?)`                         | `RecyclableMemoryStream GetStream(string? tag)`                                                      |
-|  [04]   | `GetStream(Guid,string?)`                    | `RecyclableMemoryStream GetStream(Guid id, string? tag)`                                             |
-|  [05]   | `GetStream(string?,long)`                    | `RecyclableMemoryStream GetStream(string? tag, long requiredSize)`                                   |
-|  [06]   | `GetStream(Guid,string?,long)`               | `RecyclableMemoryStream GetStream(Guid id, string? tag, long requiredSize)`                          |
-|  [07]   | `GetStream(Guid,string?,long,bool)`          | `RecyclableMemoryStream GetStream(Guid id, string? tag, long requiredSize, bool asContiguousBuffer)` |
-|  [08]   | `GetStream(string?,long,bool)`               | `RecyclableMemoryStream GetStream(string? tag, long requiredSize, bool asContiguousBuffer)`          |
-|  [09]   | `GetStream(Guid,string?,byte[],int,int)`     | `RecyclableMemoryStream GetStream(Guid id, string? tag, byte[] buffer, int offset, int count)`       |
-|  [10]   | `GetStream(byte[])`                          | `RecyclableMemoryStream GetStream(byte[] buffer)`                                                    |
-|  [11]   | `GetStream(string?,byte[],int,int)`          | `RecyclableMemoryStream GetStream(string? tag, byte[] buffer, int offset, int count)`                |
-|  [12]   | `GetStream(Guid,string?,ReadOnlySpan<byte>)` | `RecyclableMemoryStream GetStream(Guid id, string? tag, ReadOnlySpan<byte> buffer)`                  |
-|  [13]   | `GetStream(ReadOnlySpan<byte>)`              | `RecyclableMemoryStream GetStream(ReadOnlySpan<byte> buffer)`                                        |
-|  [14]   | `GetStream(string?,ReadOnlySpan<byte>)`      | `RecyclableMemoryStream GetStream(string? tag, ReadOnlySpan<byte> buffer)`                           |
+| [INDEX] | [ARGS]                                                               |
+| :-----: | :------------------------------------------------------------------- |
+|  [01]   | `()`                                                                 |
+|  [02]   | `(Guid id)`                                                          |
+|  [03]   | `(string? tag)`                                                      |
+|  [04]   | `(Guid id, string? tag)`                                             |
+|  [05]   | `(string? tag, long requiredSize)`                                   |
+|  [06]   | `(Guid id, string? tag, long requiredSize)`                          |
+|  [07]   | `(Guid id, string? tag, long requiredSize, bool asContiguousBuffer)` |
+|  [08]   | `(string? tag, long requiredSize, bool asContiguousBuffer)`          |
+|  [09]   | `(Guid id, string? tag, byte[] buffer, int offset, int count)`       |
+|  [10]   | `(byte[] buffer)`                                                    |
+|  [11]   | `(string? tag, byte[] buffer, int offset, int count)`                |
+|  [12]   | `(Guid id, string? tag, ReadOnlySpan<byte> buffer)`                  |
+|  [13]   | `(ReadOnlySpan<byte> buffer)`                                        |
+|  [14]   | `(string? tag, ReadOnlySpan<byte> buffer)`                           |
 
 [ENTRYPOINT_SCOPE]: `RecyclableMemoryStream` zero-copy sink and source
 - rail: staging#STREAM_POOL
 - note: this is the integration surface — `IBufferWriter<byte>` makes the stream a direct serialization sink, `GetReadOnlySequence` makes it a fragmented zero-copy source, and the `SafeRead*` family reads without mutating the shared `Position`. `GetBuffer`/`ToArray` are edge copies that fire `StreamConvertedToArray`.
 
-| [INDEX] | [MEMBER]              | [SIGNATURE]                                                                                         | [CAPABILITY]                                                                                         |
-| :-----: | :-------------------- | :-------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `GetSpan`             | `Span<byte> GetSpan(int sizeHint = 0)`                                                              | `IBufferWriter<byte>` write window                                                                   |
-|  [02]   | `GetMemory`           | `Memory<byte> GetMemory(int sizeHint = 0)`                                                          | `IBufferWriter<byte>` write window (memory form)                                                     |
-|  [03]   | `Advance`             | `void Advance(int count)`                                                                           | commits `count` written bytes                                                                        |
-|  [04]   | `GetReadOnlySequence` | `ReadOnlySequence<byte> GetReadOnlySequence()`                                                      | zero-copy fragmented view over the staged blocks — feeds `MessageParser.ParseFrom(ReadOnlySequence)` |
-|  [05]   | `Write`               | `void Write(ReadOnlySpan<byte> source)` / `void Write(byte[], int, int)`                            | appends bytes                                                                                        |
-|  [06]   | `WriteTo`             | `void WriteTo(Stream)` / `WriteTo(byte[], long, long, int)`                                         | copies staged bytes to a stream or pre-sized array                                                   |
-|  [07]   | `CopyToAsync`         | `Task CopyToAsync(Stream, int bufferSize, CancellationToken)`                                       | async drain to a destination stream                                                                  |
-|  [08]   | `SafeRead`            | `int SafeRead(Span<byte> buffer, ref long streamPosition)` / `SafeRead(byte[], int, int, ref long)` | thread-safe read passing position by ref (no shared-`Position` mutation)                             |
-|  [09]   | `SafeReadByte`        | `int SafeReadByte(ref long streamPosition)`                                                         | thread-safe single-byte read                                                                         |
-|  [10]   | `GetBuffer`           | `byte[] GetBuffer()`                                                                                | the contiguous backing array (forces a single large buffer)                                          |
-|  [11]   | `TryGetBuffer`        | `bool TryGetBuffer(out ArraySegment<byte> buffer)`                                                  | non-copy segment when already contiguous                                                             |
-|  [12]   | `ToArray`             | `byte[] ToArray()`                                                                                  | EDGE COPY — allocates; throws if `ThrowExceptionOnToArray`                                           |
-|  [13]   | `Capacity64`          | `long Capacity64 { get; }`                                                                          | 64-bit capacity (the `int Capacity` override saturates)                                              |
-|  [14]   | `Id` / `Tag`          | `Guid Id { get; }` / `string? Tag { get; }`                                                         | the telemetry correlation keys carried into events                                                   |
+| [INDEX] | [SIGNATURE]                                                                   | [CAPABILITY]                                       |
+| :-----: | :---------------------------------------------------------------------------- | :------------------------------------------------- |
+|  [01]   | `Span<byte> GetSpan(int sizeHint = 0)`                                        | `IBufferWriter` write window                       |
+|  [02]   | `Memory<byte> GetMemory(int sizeHint = 0)`                                    | `IBufferWriter` write window (memory form)         |
+|  [03]   | `void Advance(int count)`                                                     | commits `count` written bytes                      |
+|  [04]   | `ReadOnlySequence<byte> GetReadOnlySequence()`                                | zero-copy fragmented `ParseFrom` source            |
+|  [05]   | `void Write(ReadOnlySpan<byte> source)` / `Write(byte[], int, int)`           | appends bytes                                      |
+|  [06]   | `void WriteTo(Stream)` / `WriteTo(byte[], long, long, int)`                   | copies staged bytes to a stream or pre-sized array |
+|  [07]   | `Task CopyToAsync(Stream, int bufferSize, CancellationToken)`                 | async drain to a destination stream                |
+|  [08]   | `int SafeRead(Span<byte> buffer, ref long streamPosition)`                    | thread-safe read, position by ref                  |
+|  [09]   | `int SafeRead(byte[] buffer, int offset, int count, ref long streamPosition)` | thread-safe read (offset/count), position by ref   |
+|  [10]   | `int SafeReadByte(ref long streamPosition)`                                   | thread-safe single-byte read                       |
+|  [11]   | `byte[] GetBuffer()`                                                          | contiguous backing array (forces one large buffer) |
+|  [12]   | `bool TryGetBuffer(out ArraySegment<byte> buffer)`                            | non-copy segment when already contiguous           |
+|  [13]   | `byte[] ToArray()`                                                            | edge copy; throws if `ThrowExceptionOnToArray`     |
+|  [14]   | `long Capacity64 { get; }`                                                    | 64-bit capacity (`int Capacity` saturates)         |
+|  [15]   | `Guid Id { get; }` / `string? Tag { get; }`                                   | telemetry correlation keys carried into events     |
 
 [ENTRYPOINT_SCOPE]: `Options` capacity, pool, and debug policy
 - rail: staging#STREAM_POOL
-- note: `MaximumSmallPoolFreeBytes`/`MaximumLargePoolFreeBytes` default to `0` (unbounded retention) — Compute staging policy MUST set bounds; `GenerateCallStacks` is debug-only.
+- note: `MaximumSmallPoolFreeBytes`/`MaximumLargePoolFreeBytes` default to `0` (unbounded retention) — Compute staging policy MUST set bounds; `GenerateCallStacks` is debug-only. Every member below is a `{ get; set; }` property; per-member semantics land in `[OPTIONS_DETAIL]`.
+- ctors: `Options()` is the default ctor; `Options(int blockSize, int largeBufferMultiple, int maximumBufferSize, long maximumSmallPoolFreeBytes, long maximumLargePoolFreeBytes)` sets rows [01]-[05] positionally.
 
-| [INDEX] | [MEMBER]                              | [SIGNATURE]                                                                                                                              |
-| :-----: | :------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `BlockSize`                           | `int BlockSize { get; set; }` default `131072` (128KB)                                                                                   |
-|  [02]   | `LargeBufferMultiple`                 | `int LargeBufferMultiple { get; set; }` default `1048576` (1MB)                                                                          |
-|  [03]   | `MaximumBufferSize`                   | `int MaximumBufferSize { get; set; }` default `134217728` (128MB)                                                                        |
-|  [04]   | `MaximumSmallPoolFreeBytes`           | `long MaximumSmallPoolFreeBytes { get; set; }` default `0` (unbounded retention)                                                         |
-|  [05]   | `MaximumLargePoolFreeBytes`           | `long MaximumLargePoolFreeBytes { get; set; }` default `0` (unbounded retention)                                                         |
-|  [06]   | `UseExponentialLargeBuffer`           | `bool UseExponentialLargeBuffer { get; set; }` default `false` — switches large-pool bucketing linear→exponential                        |
-|  [07]   | `MaximumStreamCapacity`               | `long MaximumStreamCapacity { get; set; }` default `0` (no limit) — caps a single stream; over-cap fires `StreamOverCapacity`            |
-|  [08]   | `GenerateCallStacks`                  | `bool GenerateCallStacks { get; set; }` default `false` — debug-only, captures allocation/dispose stacks                                 |
-|  [09]   | `AggressiveBufferReturn`              | `bool AggressiveBufferReturn { get; set; }` default `false` — returns buffers eagerly                                                    |
-|  [10]   | `ThrowExceptionOnToArray`             | `bool ThrowExceptionOnToArray { get; set; }` default `false` — turns an unintended `ToArray` edge copy into a fault                      |
-|  [11]   | `ZeroOutBuffer`                       | `bool ZeroOutBuffer { get; set; }` default `false` — clears blocks on allocation and return                                              |
-|  [12]   | `Options()` ctor                      | `Options()`                                                                                                                              |
-|  [13]   | `Options(int,int,int,long,long)` ctor | `Options(int blockSize, int largeBufferMultiple, int maximumBufferSize, long maximumSmallPoolFreeBytes, long maximumLargePoolFreeBytes)` |
+| [INDEX] | [MEMBER]                    | [TYPE] | [DEFAULT]           |
+| :-----: | :-------------------------- | :----- | :------------------ |
+|  [01]   | `BlockSize`                 | `int`  | `131072` (128KB)    |
+|  [02]   | `LargeBufferMultiple`       | `int`  | `1048576` (1MB)     |
+|  [03]   | `MaximumBufferSize`         | `int`  | `134217728` (128MB) |
+|  [04]   | `MaximumSmallPoolFreeBytes` | `long` | `0` (unbounded)     |
+|  [05]   | `MaximumLargePoolFreeBytes` | `long` | `0` (unbounded)     |
+|  [06]   | `UseExponentialLargeBuffer` | `bool` | `false`             |
+|  [07]   | `MaximumStreamCapacity`     | `long` | `0` (no limit)      |
+|  [08]   | `GenerateCallStacks`        | `bool` | `false`             |
+|  [09]   | `AggressiveBufferReturn`    | `bool` | `false`             |
+|  [10]   | `ThrowExceptionOnToArray`   | `bool` | `false`             |
+|  [11]   | `ZeroOutBuffer`             | `bool` | `false`             |
 
 [ENTRYPOINT_SCOPE]: lifecycle events and ETW counters
 - rail: staging#STREAM_POOL
@@ -172,6 +174,7 @@ is HOST-LOCAL and carries no TS_PROJECTION.
 - `MaximumStreamCapacity` caps a single stream's growth; an over-cap write fires `StreamOverCapacity` and is the bounded-payload guard the admission rail reads.
 - `ThrowExceptionOnToArray` upgrades an unintended `ToArray` edge copy from a silent allocation into a fault — set it where the lane must stay zero-copy.
 - `ZeroOutBuffer` clears blocks on allocation and return; enable only when data-leak avoidance outweighs the per-cycle cost.
+- `AggressiveBufferReturn` returns buffers to the pool eagerly rather than on the standard schedule.
 - `UseExponentialLargeBuffer` switches large-buffer growth from linear multiples to exponential and changes the large-pool bucket count.
 - `GenerateCallStacks` is a debug-only option that captures allocation/dispose stacks for leak attribution — NEVER enable in production.
 

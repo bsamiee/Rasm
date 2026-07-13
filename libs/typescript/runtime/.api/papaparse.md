@@ -13,44 +13,55 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: configuration shapes — parse modalities and the serializer
+[PUBLIC_TYPE_SCOPE]: configuration shapes — parse modalities and the serializer; every field roster carried in the keyed list below
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY]    | [CONSUMER]                                                                                                                                                                                                                         |
-| :-----: | :------------------------------------------------- | :--------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ParseConfig<T, TInput>`                           | parse policy     | the base row config — `header`, `delimiter`, `newline`, `quoteChar`, `escapeChar`, `comments`, `skipEmptyLines`, `preview`, `fastMode`, `delimitersToGuess`, `transformHeader`, `transform`, `skipFirstNLines`, `beforeFirstChunk` |
-|  [02]   | `ParseWorkerConfig<T>` / `ParseAsyncConfigBase<T>` | streaming policy | `worker: true` off-thread; `chunkSize`, `chunk`, `error`, `step` — the incremental modalities `report` uses for large exports                                                                                                      |
-|  [03]   | `ParseLocalConfig<T>` / `ParseRemoteConfig<T>`     | boundary policy  | browser-only — `encoding` over `FileReader`; `download`/`downloadRequestHeaders`/`downloadRequestBody`/`withCredentials` over `XMLHttpRequest`; excluded from Node jobs                                                            |
-|  [04]   | `UnparseConfig`                                    | serialize policy | the egress formatter — `quotes`, `quoteChar`, `escapeChar`, `delimiter`, `header`, `newline`, `columns`, and `escapeFormulae` (the CSV-injection defense)                                                                          |
-|  [05]   | `UnparseObject<T>`                                 | serialize input  | the explicit `{ fields, data }` column form when object keys do not fix column order                                                                                                                                               |
+| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY]    | [ROLE]                                      |
+| :-----: | :------------------------------------------------- | :--------------- | :------------------------------------------ |
+|  [01]   | `ParseConfig<T, TInput>`                           | parse policy     | base row config; fields at [01] below       |
+|  [02]   | `ParseWorkerConfig<T>` / `ParseAsyncConfigBase<T>` | streaming policy | off-thread + incremental; fields at [02]    |
+|  [03]   | `ParseLocalConfig<T>` / `ParseRemoteConfig<T>`     | boundary policy  | browser-only, Node-excluded; fields at [03] |
+|  [04]   | `UnparseConfig`                                    | serialize policy | egress formatter; fields at [04]            |
+|  [05]   | `UnparseObject<T>`                                 | serialize input  | explicit `{ fields, data }` column form     |
+
+- [01]-[PARSE_CONFIG]: `header`, `delimiter`, `newline`, `quoteChar`, `escapeChar`, `comments`, `skipEmptyLines`, `preview`, `fastMode`, `delimitersToGuess`, `transformHeader`, `transform`, `skipFirstNLines`, `beforeFirstChunk`.
+- [02]-[STREAMING]: `worker: true` off-thread; `chunkSize`, `chunk`, `error`, `step` — the incremental modalities `report` uses for large exports.
+- [03]-[BOUNDARY]: `encoding` over `FileReader`; `download`/`downloadRequestHeaders`/`downloadRequestBody`/`withCredentials` over `XMLHttpRequest`.
+- [04]-[UNPARSE_CONFIG]: `quotes`, `quoteChar`, `escapeChar`, `delimiter`, `header`, `newline`, `columns`, `escapeFormulae` (the CSV-injection defense).
 
 [PUBLIC_TYPE_SCOPE]: result, evidence, and fault shapes
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]   | [CONSUMER]                                                                                                                                              |
-| :-----: | :-------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `ParseResult<T>`                              | batch result    | `{ data: T[], errors: ParseError[], meta: ParseMeta }` — the synchronous-parse and `complete`-callback payload                                          |
-|  [02]   | `ParseStepResult<T>`                          | streamed result | `{ data: T, errors, meta }` — one row per `step`/`chunk` tick, the element the Effect `Stream` carries                                                  |
-|  [03]   | `ParseError`                                  | fault           | `{ type: "Quotes"\|"Delimiter"\|"FieldMismatch", code, message, row?, index? }` — accumulated, never thrown; `code` is the closed vocabulary below      |
-|  [04]   | `ParseMeta`                                   | receipt         | `delimiter`, `linebreak`, `aborted`, `fields?`, `truncated`, `cursor`, `renamedHeaders?` — the sampling/dedup evidence retained as an algorithm receipt |
-|  [05]   | `Parser`                                      | control handle  | passed into `step`/`chunk`; `abort()`, `pause()`, `resume()`, `getCharIndex()` — the backpressure + early-termination seam                              |
-|  [06]   | `LocalFile` = `File \| NodeJS.ReadableStream` | input alias     | the async-parse source union; only the `ReadableStream` arm is Node-reachable                                                                           |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [CONSUMER]                                                                            |
+| :-----: | :------------------- | :-------------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `ParseResult<T>`     | batch result    | `{ data: T[], errors: ParseError[], meta: ParseMeta }` — sync + `complete` payload    |
+|  [02]   | `ParseStepResult<T>` | streamed result | `{ data: T, errors, meta }` — one row per `step`/`chunk`; the Effect `Stream` element |
+|  [03]   | `ParseError`         | fault           | `{ type, code, message, row?, index? }`; accumulated, never thrown; values at [03]    |
+|  [04]   | `ParseMeta`          | receipt         | sampling/dedup evidence; fields at [04] below                                         |
+|  [05]   | `Parser`             | control handle  | passed into `step`/`chunk`; `abort()`, `pause()`, `resume()`, `getCharIndex()`        |
+|  [06]   | `LocalFile`          | input alias     | `= File \| NodeJS.ReadableStream`; only the `ReadableStream` arm is Node-reachable    |
+
+- [03]-[PARSE_ERROR]: `type` is `"Quotes"` / `"Delimiter"` / `"FieldMismatch"`; `code` is the closed vocabulary the entrypoint constants gate.
+- [04]-[PARSE_META]: `delimiter`, `linebreak`, `aborted`, `fields?`, `truncated`, `cursor`, `renamedHeaders?`.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: the polymorphic codec and its control surface
+[ENTRYPOINT_SCOPE]: the polymorphic codec and its control surface — every surface is a `Papa.` member; `report` is the consumer unless noted
 - rail: boundaries
 
-| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY]  | [CONSUMER]                                                                                                                      |
-| :-----: | :-------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `Papa.parse<T>(csv, config?)` → `ParseResult<T>`                                              | sync ingest     | `report` inbound decode — the string arm; wrap in `Effect.sync`, inspect `result.errors`, lift to the typed channel             |
-|  [02]   | `Papa.parse<T>(file\|url, config)` → `void`                                                   | async ingest    | browser DOM `File`/remote URL through `step`/`complete`/`error` callbacks; bridged with `Effect.async`, excluded from Node jobs |
-|  [03]   | `Papa.parse(Papa.NODE_STREAM_INPUT, config?)` → `Duplex`                                      | node stream     | the Node streaming rail — pipe an `fs` `ReadStream` in, lift the `Duplex` with `NodeStream.fromReadable` to an Effect `Stream`  |
-|  [04]   | `Papa.unparse<T>(data\|UnparseObject<T>, config?)` → `string`                                 | serialize       | `report` outbound — `Effect.sync`; `escapeFormulae` prepends `'` to `=`/`+`/`-`/`@` cells before the bytes leave the process    |
-|  [05]   | `Parser#abort()` / `#pause()` / `#resume()` / `#getCharIndex()`                               | stream control  | inside `step` — `abort` ends parse on a poison row, `pause`/`resume` gate against the downstream `Queue`                        |
-|  [06]   | `Papa.NODE_STREAM_INPUT` (`unique symbol`)                                                    | stream token    | the discriminant selecting the `Duplex` return; the only Node-native streaming entry                                            |
-|  [07]   | `Papa.BAD_DELIMITERS` / `RECORD_SEP` (`\x1E`) / `UNIT_SEP` (`\x1F`) / `BYTE_ORDER_MARK` (`﻿`) | constants       | reserved-delimiter guard and the ASCII record/unit separators for structured keys; BOM stripping at ingress                     |
-|  [08]   | `Papa.LocalChunkSize` / `RemoteChunkSize` / `DefaultDelimiter` / `WORKERS_SUPPORTED`          | tunable / probe | mutable module tunables for streamed-file chunking and recovery delimiter; the worker-availability gate                         |
+| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY]  | [CONSUMER]                                             |
+| :-----: | :------------------------------------------------------------ | :-------------- | :----------------------------------------------------- |
+|  [01]   | `Papa.parse<T>(csv, config?)` → `ParseResult<T>`              | sync ingest     | string arm; `Effect.sync`, read `result.errors`        |
+|  [02]   | `Papa.parse<T>(file\|url, config)` → `void`                   | async ingest    | `step`/`complete`/`error` via `Effect.async`           |
+|  [03]   | `Papa.parse(NODE_STREAM_INPUT, config?)` → `Duplex`           | node stream     | lift the `Duplex` via `NodeStream.fromReadable`        |
+|  [04]   | `Papa.unparse<T>(data\|UnparseObject<T>, config?)` → `string` | serialize       | `Effect.sync`; `escapeFormulae` guards `=`/`+`/`-`/`@` |
+|  [05]   | `Parser#abort` / `#pause` / `#resume` / `#getCharIndex`       | stream control  | inside `step`; `pause`/`resume` gate the `Queue`       |
+|  [06]   | `Papa.NODE_STREAM_INPUT` (`unique symbol`)                    | stream token    | selects the `Duplex`; only Node-native streaming       |
+|  [07]   | `Papa` reserved / separator constants                         | constants       | values at [07] below                                   |
+|  [08]   | `Papa` module tunables and worker probe                       | tunable / probe | values at [08] below                                   |
+
+- [07]-[CONSTANTS]: `Papa.BAD_DELIMITERS`, `RECORD_SEP` (`\x1E`), `UNIT_SEP` (`\x1F`), `BYTE_ORDER_MARK` — reserved-delimiter guard, ASCII record/unit separators for structured keys, BOM stripping at ingress.
+- [08]-[TUNABLES]: `Papa.LocalChunkSize`, `RemoteChunkSize`, `DefaultDelimiter`, `WORKERS_SUPPORTED` — mutable module tunables for streamed-file chunking and the recovery delimiter; the worker-availability gate.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

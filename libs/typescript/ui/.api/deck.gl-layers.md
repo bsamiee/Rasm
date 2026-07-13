@@ -18,39 +18,60 @@
 [TYPE_SCOPE]: position-anchored marks — one row per data object at a `getPosition`, styled by `getFillColor`/`getRadius`/`getColor` accessors; the radius/size unit-normalization axis is core-shared.
 - `ScatterplotLayer` is the workhorse circle; `ColumnLayer` extrudes a regular polygon disk (with `GridCellLayer` fixing a square footprint); `IconLayer`/`TextLayer` are the atlas-backed marks (raster sprites, SDF glyphs) that own a loaders.gl-fed atlas manager; `PointCloudLayer` is the lit point primitive with per-point normals.
 
-| [INDEX] | [SYMBOL]                       | [DISTINCTIVE_PROPS]                                                                                                                                                                                                               | [CONSUMER_BOUNDARY]                                                                                |
-| :-----: | :----------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | `ScatterplotLayer<DataT>`      | `getPosition`, `getRadius`, `getFillColor`, `getLineColor`, `getLineWidth`, `getPixelOffset`; `stroked`/`filled`/`billboard`/`antialiasing`, `radius{Units,Scale,MinPixels,MaxPixels}`                                            | point features → circles; the default geo point mark                                               |
-|  [02]   | `PointCloudLayer<DataT>`       | `getPosition`, `getNormal`, `getColor`; `pointSize`, `sizeUnits`, `material`                                                                                                                                                      | lit 3D point clouds (LiDAR, scan)                                                                  |
-|  [03]   | `IconLayer<DataT>`             | `getPosition`, `getIcon`, `getSize`, `getColor`, `getAngle`, `getPixelOffset`; `iconAtlas`/`iconMapping` or auto-packed atlas, `billboard`, `sizeUnits`                                                                           | raster sprite markers; `IconManager` owns the atlas                                                |
-|  [04]   | `TextLayer<DataT>` (composite) | `getText`, `getPosition`, `getColor`, `getSize`, `getAngle`, `getTextAnchor`, `getAlignmentBaseline`, `getPixelOffset`; `fontFamily`/`fontSettings`/`characterSet`, `background`/`outlineWidth`                                   | SDF glyph labels; renders `_MultiIconLayer`+`_TextBackgroundLayer`, `FontAtlasManager` owns glyphs |
-|  [05]   | `ColumnLayer<DataT>`           | `getPosition`, `getFillColor`, `getLineColor`, `getElevation`, `getLineWidth`; `diskResolution`, `radius`, `angle`, `vertices`, `coverage`, `extruded`/`stroked`/`filled`/`wireframe`/`flatShading`, `elevationScale`, `material` | extruded hex/cylinder columns (3D bar maps)                                                        |
-|  [06]   | `GridCellLayer<DataT>`         | `ColumnLayer` + `cellSize`                                                                                                                                                                                                        | square-footprint grid cells (aggregation viz)                                                      |
+| [INDEX] | [SYMBOL]                       | [CONSUMER_BOUNDARY]                                  |
+| :-----: | :----------------------------- | :--------------------------------------------------- |
+|  [01]   | `ScatterplotLayer<DataT>`      | point features → circles; the default geo point mark |
+|  [02]   | `PointCloudLayer<DataT>`       | lit 3D point clouds (LiDAR, scan)                    |
+|  [03]   | `IconLayer<DataT>`             | raster sprite markers; `IconManager` owns the atlas  |
+|  [04]   | `TextLayer<DataT>` (composite) | SDF glyph labels; `FontAtlasManager` owns glyphs     |
+|  [05]   | `ColumnLayer<DataT>`           | extruded hex/cylinder columns (3D bar maps)          |
+|  [06]   | `GridCellLayer<DataT>`         | square-footprint grid cells (aggregation viz)        |
+
+[DISTINCTIVE_PROPS] by row (accessors + toggles each mark adds over the core base):
+- [01]-[SCATTERPLOTLAYER]: `getPosition`, `getRadius`, `getFillColor`, `getLineColor`, `getLineWidth`, `getPixelOffset`; `stroked`/`filled`/`billboard`/`antialiasing`, `radius{Units,Scale,MinPixels,MaxPixels}`.
+- [02]-[POINTCLOUDLAYER]: `getPosition`, `getNormal`, `getColor`; `pointSize`, `sizeUnits`, `material`.
+- [03]-[ICONLAYER]: `getPosition`, `getIcon`, `getSize`, `getColor`, `getAngle`, `getPixelOffset`; `iconAtlas`/`iconMapping` or auto-packed atlas, `billboard`, `sizeUnits`.
+- [04]-[TEXTLAYER]: `getText`, `getPosition`, `getColor`, `getSize`, `getAngle`, `getTextAnchor`, `getAlignmentBaseline`, `getPixelOffset`; `fontFamily`/`fontSettings`/`characterSet`, `background`/`outlineWidth`; renders `_MultiIconLayer`+`_TextBackgroundLayer`.
+- [05]-[COLUMNLAYER]: `getPosition`, `getFillColor`, `getLineColor`, `getElevation`, `getLineWidth`; `diskResolution`, `radius`, `angle`, `vertices`, `coverage`, `extruded`/`stroked`/`filled`/`wireframe`/`flatShading`, `elevationScale`, `material`.
+- [06]-[GRIDCELLLAYER]: `ColumnLayer` + `cellSize`.
 
 ## [03]-[PATH_AND_AREA_MARKS]
 
 [TYPE_SCOPE]: multi-vertex marks — paths and polygons tesselated on the GPU; source/target-pair marks (`ArcLayer`/`LineLayer`) vs vertex-list marks (`PathLayer`/`PolygonLayer`).
 - `PathLayer` extrudes mitered polylines; `LineLayer`/`ArcLayer` render straight/curved segments between a `getSourcePosition` and `getTargetPosition` pair. `PolygonLayer` (composite) draws fill + stroke + optional 3D extrusion by delegating to `SolidPolygonLayer` (the tesselated fill primitive) and `PathLayer` (the outline) — the fill/stroke separation the cell family and GeoJSON reuse.
 
-| [INDEX] | [SYMBOL]                          | [DISTINCTIVE_PROPS]                                                                                                                                                                                                      | [CONSUMER_BOUNDARY]                                                             |
-| :-----: | :-------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `PathLayer<DataT>`                | `getPath`, `getColor`, `getWidth`; `width{Units,Scale,MinPixels,MaxPixels}`, `capRounded`, `jointRounded`, `miterLimit`, `billboard`                                                                                     | extruded polylines; `PathTesselator` owns geometry                              |
-|  [02]   | `LineLayer<DataT>`                | `getSourcePosition`, `getTargetPosition`, `getColor`, `getWidth`; `width{Units,Scale,MinPixels,MaxPixels}`                                                                                                               | straight great-line segments (OD flows)                                         |
-|  [03]   | `ArcLayer<DataT>`                 | `getSourcePosition`, `getTargetPosition`, `getSourceColor`, `getTargetColor`, `getWidth`, `getHeight`, `getTilt`; `greatCircle`, `numSegments`, `width*`                                                                 | curved arcs; `greatCircle:true` = shortest-path (supersedes `GreatCircleLayer`) |
-|  [04]   | `PolygonLayer<DataT>` (composite) | `getPolygon`, `getFillColor`, `getLineColor`, `getLineWidth`, `getElevation`; `stroked`/`filled`/`extruded`/`wireframe`, `elevationScale`, `lineJointRounded`/`lineMiterLimit`, `material`, `_normalize`/`_windingOrder` | fill+stroke+extrusion; base for `GeoCellLayer`/`GeoJsonLayer`                   |
-|  [05]   | `SolidPolygonLayer<DataT>`        | `getPolygon`, `getFillColor`, `getLineColor`, `getElevation`; `extruded`/`wireframe`, `elevationScale`, `material`, `_normalize`/`_windingOrder`/`_full3d`                                                               | the tesselated fill primitive; `PolygonTesselator` (earcut) owns triangulation  |
+| [INDEX] | [SYMBOL]                          | [CONSUMER_BOUNDARY]                                           |
+| :-----: | :-------------------------------- | :------------------------------------------------------------ |
+|  [01]   | `PathLayer<DataT>`                | extruded polylines; `PathTesselator` owns geometry            |
+|  [02]   | `LineLayer<DataT>`                | straight great-line segments (OD flows)                       |
+|  [03]   | `ArcLayer<DataT>`                 | curved arcs; `greatCircle:true` = shortest-path               |
+|  [04]   | `PolygonLayer<DataT>` (composite) | fill+stroke+extrusion; base for `GeoCellLayer`/`GeoJsonLayer` |
+|  [05]   | `SolidPolygonLayer<DataT>`        | tesselated fill primitive; `PolygonTesselator` (earcut)       |
+
+[DISTINCTIVE_PROPS] by row:
+- [01]-[PATHLAYER]: `getPath`, `getColor`, `getWidth`; `width{Units,Scale,MinPixels,MaxPixels}`, `capRounded`, `jointRounded`, `miterLimit`, `billboard`.
+- [02]-[LINELAYER]: `getSourcePosition`, `getTargetPosition`, `getColor`, `getWidth`; `width{Units,Scale,MinPixels,MaxPixels}`.
+- [03]-[ARCLAYER]: `getSourcePosition`, `getTargetPosition`, `getSourceColor`, `getTargetColor`, `getWidth`, `getHeight`, `getTilt`; `greatCircle`, `numSegments`, `width*` (supersedes `GreatCircleLayer`).
+- [04]-[POLYGONLAYER]: `getPolygon`, `getFillColor`, `getLineColor`, `getLineWidth`, `getElevation`; `stroked`/`filled`/`extruded`/`wireframe`, `elevationScale`, `lineJointRounded`/`lineMiterLimit`, `material`, `_normalize`/`_windingOrder`.
+- [05]-[SOLIDPOLYGONLAYER]: `getPolygon`, `getFillColor`, `getLineColor`, `getElevation`; `extruded`/`wireframe`, `elevationScale`, `material`, `_normalize`/`_windingOrder`/`_full3d`.
 
 ## [04]-[RASTER_AND_OMNIBUS]
 
 [TYPE_SCOPE]: the image mark and the Feature-stream composite that dispatches to every mark above.
 - `BitmapLayer` textures an image over a geographic quad. `GeoJsonLayer` is the omnibus composite: one GeoJSON/`Feature[]`/`BinaryFeatureCollection` stream fans out to point (`pointType: 'circle'|'icon'|'text'`), line, and fill sublayers, exposing each sublayer's accessors under a namespaced prefix (`getPointRadius`, `getLineColor`, `getFillColor`, `getElevation`). Its prop record composes six sub-groups (fill, stroke, 3D, pointCircle, iconPoint, textPoint) — the parameterized dispatch that turns one Feature collection into the full mark vocabulary.
 
-| [INDEX] | [SYMBOL]                                   | [DISTINCTIVE_PROPS]                                                                                                                                                                                                                                                                                                                                                                          | [CONSUMER_BOUNDARY]                                                                                |
-| :-----: | :----------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | `BitmapLayer`                              | `image` (URL/`TextureSource`), `bounds: BitmapBoundingBox`, `getBounds`; `desaturate`, `transparentColor`, `tintColor`, `textureParameters`, `_imageCoordinateSystem`                                                                                                                                                                                                                        | raster overlays (ground images, legends); `data: never`, `BitmapLayerPickingInfo` adds `bitmap` uv |
-|  [02]   | `GeoJsonLayer<FeatProps>` (composite)      | `data: GeoJSON\|Feature[]\|BinaryFeatureCollection`; `pointType: 'circle'\|'icon'\|'text'` (+`+`-join); fill (`getFillColor`,`filled`), stroke (`getLineColor`,`getLineWidth`,`stroked`,`lineWidthUnits`), 3D (`getElevation`,`extruded`,`wireframe`), point (`getPointRadius`,`pointRadius{Units,Scale,MinPixels,MaxPixels}`), icon (`getIcon`,`iconAtlas`), text (`getText`,`getTextSize`) | the primary geo Feature renderer; `wire`-decoded WKB→GeoJSON feeds it                              |
-|  [03]   | `BitmapBoundingBox`                        | `[left,bottom,right,top] \| [Position,Position,Position,Position]`                                                                                                                                                                                                                                                                                                                           | rectangular or 4-corner (skewed) image placement                                                   |
-|  [04]   | `_MultiIconLayer` / `_TextBackgroundLayer` | `TextLayer` internals                                                                                                                                                                                                                                                                                                                                                                        | glyph run + label background; not instantiated directly                                            |
+| [INDEX] | [SYMBOL]                                   | [CONSUMER_BOUNDARY]                                        |
+| :-----: | :----------------------------------------- | :--------------------------------------------------------- |
+|  [01]   | `BitmapLayer`                              | raster overlays; `BitmapLayerPickingInfo` adds `bitmap` uv |
+|  [02]   | `GeoJsonLayer<FeatProps>` (composite)      | primary geo Feature renderer; `wire` WKB→GeoJSON feeds it  |
+|  [03]   | `BitmapBoundingBox`                        | rectangular or 4-corner (skewed) image placement           |
+|  [04]   | `_MultiIconLayer` / `_TextBackgroundLayer` | glyph run + label background; not instantiated directly    |
+
+[DISTINCTIVE_PROPS] by row:
+- [01]-[BITMAPLAYER]: `image` (URL/`TextureSource`), `bounds: BitmapBoundingBox`, `getBounds`; `desaturate`, `transparentColor`, `tintColor`, `textureParameters`, `_imageCoordinateSystem`; `data: never`, `BitmapLayerPickingInfo` adds `bitmap` uv.
+- [02]-[GEOJSONLAYER]: `data: GeoJSON|Feature[]|BinaryFeatureCollection`; `pointType: 'circle'|'icon'|'text'` (+`+`-join); fill (`getFillColor`,`filled`), stroke (`getLineColor`,`getLineWidth`,`stroked`,`lineWidthUnits`), 3D (`getElevation`,`extruded`,`wireframe`), point (`getPointRadius`,`pointRadius{Units,Scale,MinPixels,MaxPixels}`), icon (`getIcon`,`iconAtlas`), text (`getText`,`getTextSize`).
+- [03]-[BITMAPBOUNDINGBOX]: `[left,bottom,right,top] | [Position,Position,Position,Position]`.
+- [04]-[_MultiIconLayer / _TextBackgroundLayer]: `TextLayer` internals — glyph run + label background, not instantiated directly.
 
 ## [05]-[IMPLEMENTATION_LAW]
 

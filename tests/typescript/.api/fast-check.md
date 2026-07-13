@@ -15,24 +15,24 @@
 
 [PUBLIC_TYPE_SCOPE]: the generator algebra — one abstract owner, everything else is a row on it.
 
-| [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY]       | [CAPABILITY]                                                            |
-| :-----: | :--------------------------------------------------------- | :------------------ | :---------------------------------------------------------------------- |
-|  [01]   | `Arbitrary<T>`                                             | abstract class      | typed generator; owns `map`/`filter`/`chain` — the composition floor    |
-|  [02]   | `Value<T>`                                                 | class               | one generated value + `context` metadata; `WithCloneMethod` support     |
-|  [03]   | `Stream<T>`                                                | class               | lazy `IterableIterator<T>` shrink stream                                |
-|  [04]   | `Random`                                                   | class               | mutable `pure-rand` wrapper; the only RNG a predicate may touch         |
-|  [05]   | `IRawProperty<Ts, IsAsync>`                                | interface           | property contract: `generate` / `shrink` / `run`                        |
-|  [06]   | `IProperty<Ts>` / `IPropertyWithHooks<Ts>`                 | interface           | sync property (+ `beforeEach`/`afterEach`)                              |
-|  [07]   | `IAsyncProperty<Ts>` / `…WithHooks`                        | interface           | async property; async hooks live only on the async variant              |
-|  [08]   | `GeneratorValue`                                           | type alias          | callable in-predicate RNG produced by `gen()`                           |
-|  [09]   | `Parameters<T>` / `GlobalParameters`                       | interface + alias   | per-run config (see [04]); global subset for `configureGlobal`          |
-|  [10]   | `RunDetails<Ts>`                                           | discriminated union | run outcome: `RunDetailsSuccess` \| three failure variants              |
-|  [11]   | `PreconditionFailure`                                      | class (Error)       | thrown by `pre(false)` when the skip budget is exhausted                |
-|  [12]   | `ExecutionStatus` / `ExecutionTree<Ts>` / `VerbosityLevel` | enum + interface    | per-run replay tree feeding verbose reporters                           |
-|  [13]   | `Size` / `SizeForArbitrary` / `DepthSize`                  | union aliases       | collection/string/recursion size policy (`Size` = `"xsmall".."xlarge"`) |
-|  [14]   | `WithCloneMethod` / `WithToStringMethod` / `cloneMethod`   | branded shape       | stateful-value cloning + custom counterexample rendering                |
+| [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY]       | [CAPABILITY]                                         |
+| :-----: | :--------------------------------------------------------- | :------------------ | :--------------------------------------------------- |
+|  [01]   | `Arbitrary<T>`                                             | abstract class      | typed generator; owns `map`/`filter`/`chain`         |
+|  [02]   | `Value<T>`                                                 | class               | one generated value + `context` metadata             |
+|  [03]   | `Stream<T>`                                                | class               | lazy `IterableIterator<T>` shrink stream             |
+|  [04]   | `Random`                                                   | class               | the only RNG a predicate touches (`pure-rand`)       |
+|  [05]   | `IRawProperty<Ts, IsAsync>`                                | interface           | property contract: `generate`/`shrink`/`run`         |
+|  [06]   | `IProperty<Ts>` / `IPropertyWithHooks<Ts>`                 | interface           | sync property (+ `beforeEach`/`afterEach`)           |
+|  [07]   | `IAsyncProperty<Ts>` / `…WithHooks`                        | interface           | async property; async hooks on the async variant     |
+|  [08]   | `GeneratorValue`                                           | type alias          | callable in-predicate RNG from `gen()`               |
+|  [09]   | `Parameters<T>` / `GlobalParameters`                       | interface + alias   | per-run config; global subset via `configureGlobal`  |
+|  [10]   | `RunDetails<Ts>`                                           | discriminated union | `RunDetailsSuccess` \| three failure variants        |
+|  [11]   | `PreconditionFailure`                                      | class (Error)       | thrown by `pre(false)` when the skip budget is spent |
+|  [12]   | `ExecutionStatus` / `ExecutionTree<Ts>` / `VerbosityLevel` | enum + interface    | per-run replay tree feeding verbose reporters        |
+|  [13]   | `Size` / `SizeForArbitrary` / `DepthSize`                  | union aliases       | size policy; `Size` = `"xsmall".."xlarge"`           |
+|  [14]   | `WithCloneMethod` / `WithToStringMethod` / `cloneMethod`   | branded shape       | stateful-value cloning + counterexample rendering    |
 
-```ts contract
+```ts signature
 // The Arbitrary algebra — every primitive/combinator below returns one of these; you refine with three methods.
 abstract class Arbitrary<T> {
   abstract generate(mrng: Random, biasFactor: number | undefined): Value<T>
@@ -54,20 +54,20 @@ declare function clone<T>(arb: Arbitrary<T>, numValues: number): Arbitrary<T[]> 
 
 [ENTRYPOINT_SCOPE]: property construction + execution — the surface every law combinator terminates in.
 
-| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY]      | [CAPABILITY]                                                  |
-| :-----: | :----------------------------------------------------------------- | :------------------ | :------------------------------------------------------------ |
-|  [01]   | `property(...arbs, predicate)`                                     | sync property       | `IPropertyWithHooks<Ts>`; predicate returns `boolean \| void` |
-|  [02]   | `asyncProperty(...arbs, predicate)`                                | async property      | `IAsyncPropertyWithHooks<Ts>`; predicate returns a `Promise`  |
-|  [03]   | `assert(property, params?)`                                        | throwing runner     | the spec entry — throws with seed + minimal counterexample    |
-|  [04]   | `check(property, params?)`                                         | non-throwing runner | returns `RunDetails<Ts>` for custom reporting                 |
-|  [05]   | `sample(gen, params? \| number)`                                   | extractor           | `Ts[]` for corpus generation / debugging                      |
-|  [06]   | `statistics(gen, classify, params? \| number)`                     | classifier          | logs frequency distribution of a `classify` label             |
-|  [07]   | `pre(expectTruthy)`                                                | precondition        | `asserts expectTruthy`; a false guard skips the run           |
-|  [08]   | `gen()`                                                            | inline RNG          | `Arbitrary<GeneratorValue>` — draw inside a predicate         |
-|  [09]   | `configureGlobal` / `readConfigureGlobal` / `resetConfigureGlobal` | global config       | one `GlobalParameters` override across a suite                |
-|  [10]   | `hash` / `stringify` / `asyncStringify` / `defaultReportMessage`   | reporting utils     | stable hashing + counterexample rendering                     |
+| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY]      | [CAPABILITY]                                  |
+| :-----: | :----------------------------------------------------------------- | :------------------ | :-------------------------------------------- |
+|  [01]   | `property(...arbs, predicate)`                                     | sync property       | predicate returns `boolean \| void`           |
+|  [02]   | `asyncProperty(...arbs, predicate)`                                | async property      | async predicate returns a `Promise`           |
+|  [03]   | `assert(property, params?)`                                        | throwing runner     | throws with seed + minimal counterexample     |
+|  [04]   | `check(property, params?)`                                         | non-throwing runner | returns `RunDetails<Ts>` for custom reporting |
+|  [05]   | `sample(gen, params? \| number)`                                   | extractor           | `Ts[]` for corpus generation / debugging      |
+|  [06]   | `statistics(gen, classify, params? \| number)`                     | classifier          | frequency distribution of a `classify` label  |
+|  [07]   | `pre(expectTruthy)`                                                | precondition        | `asserts expectTruthy` — a false guard skips  |
+|  [08]   | `gen()`                                                            | inline RNG          | in-predicate `Arbitrary<GeneratorValue>`      |
+|  [09]   | `configureGlobal` / `readConfigureGlobal` / `resetConfigureGlobal` | global config       | one `GlobalParameters` override per suite     |
+|  [10]   | `hash` / `stringify` / `asyncStringify` / `defaultReportMessage`   | reporting utils     | stable hashing + counterexample rendering     |
 
-```ts contract
+```ts signature
 // Signatures verified against lib/types/fast-check-default.d.ts @3.23.2 (variadic-tuple arbitraries → typed predicate).
 declare function property<Ts extends [unknown, ...unknown[]]>(
   ...args: [...arbitraries: { [K in keyof Ts]: Arbitrary<Ts[K]> }, predicate: (...args: Ts) => boolean | void]
@@ -95,7 +95,7 @@ The full generator roster is SEED DATA for the one `Arbitrary<T>` algebra — a 
 
 [ENTRYPOINT_SCOPE]: model-based + async — `commands` + `modelRun` / `asyncModelRun` / `scheduledModelRun` (stateful `Command`/`AsyncCommand` sequences), `scheduler` / `schedulerFor` (`Arbitrary<Scheduler>` for deterministic async-race ordering).
 
-```ts contract
+```ts signature
 declare function string(constraints?: StringConstraints): Arbitrary<string>
 declare function oneof<Ts extends MaybeWeightedArbitrary<unknown>[]>(...arbs: Ts): Arbitrary<OneOfValue<Ts>>
 declare function oneof<Ts extends MaybeWeightedArbitrary<unknown>[]>(constraints: OneOfConstraints, ...arbs: Ts): Arbitrary<OneOfValue<Ts>>
@@ -109,7 +109,7 @@ declare function constantFrom<TArgs extends unknown[]>(...values: TArgs): Arbitr
 
 `Parameters<T>` is the run policy; `RunDetails<T>` is the verified receipt `check` returns and `assert` embeds on throw. Replay a failure with `{ seed, path }` — both ride the receipt.
 
-```ts contract
+```ts signature
 interface Parameters<T = void> {
   seed?: number                                  // 32-bit; replay anchor
   randomType?: RandomType | ((seed: number) => RandomGenerator)
@@ -137,7 +137,7 @@ interface RunDetailsCommon<Ts> {
 
 [STACK: `effect/Schema` → `Arbitrary.make` → `fast-check`] — the ONE arbitrary source in `tests/typescript/_testkit`. Every kernel brand (`ContentKey`, `Hlc`, `AppKey`, `Guid-v7`, `OrdinalKey`, SI `Quantity`) and decoded wire shape is a `Schema`; `Arbitrary.make(schema)` yields a `FastCheck.Arbitrary<A>` that already honors the schema's `filter`/refinement, so `INGRESS_BUDGET` decode budgets hold at generation time — never re-encoded as a hand-written `.filter`. `effect` re-exports the SAME engine as `effect/FastCheck`, so the arbitrary a spec composes and the engine a property runs are one instance.
 
-```ts contract
+```ts signature
 import * as Arbitrary from "effect/Arbitrary"
 import type * as FastCheck from "effect/FastCheck"       // re-export of this package — one engine, no version skew
 import type { Schema } from "effect/Schema"

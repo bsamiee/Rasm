@@ -18,14 +18,14 @@
 
 The surface is ONE generated pattern, not a member list: four literal-typed `const` families, each a `NAME → "dotted.string"` binding whose TYPE is the string literal (so a mistyped key is a compile error and the value narrows for discriminated dispatch). A new convention is a generated row in the owning family, never a new export shape. `observe/convention` re-exports the Rasm-relevant subset as typed rows; the design NEVER writes the string literal — it references the constant, and the literal type flows to the OTLP attribute record.
 
-| [INDEX] | [FAMILY]               | [SHAPE]                                    | [CONSUMER_BOUNDARY]                                                                   |
-| :-----: | :--------------------- | :----------------------------------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `ATTR_<NAME>`          | `const: "dotted.key"` (attribute key)      | span/metric/log attribute keys — the field-name vocabulary                            |
-|  [02]   | `<GROUP>_VALUE_<ENUM>` | `const: "value"` (bounded attribute value) | the closed value set for an enum attribute — a discriminated-union fold value         |
-|  [03]   | `METRIC_<NAME>`        | `const: "metric.name"` (instrument name)   | `Metric` instrument names on the `data` fact-journal meter rows + native OTLP metrics |
-|  [04]   | `EVENT_<NAME>`         | `const: "event.name"` (event name)         | span/log event names (`EVENT_EXCEPTION` = `"exception"`, the crash event)             |
+| [INDEX] | [FAMILY]               | [SHAPE]                | [CONSUMER_BOUNDARY]                                                       |
+| :-----: | :--------------------- | :--------------------- | :------------------------------------------------------------------------ |
+|  [01]   | `ATTR_<NAME>`          | `const: "dotted.key"`  | span/metric/log attribute keys — the field-name vocabulary                |
+|  [02]   | `<GROUP>_VALUE_<ENUM>` | `const: "value"`       | an enum attribute's closed value set — a discriminated-union fold value   |
+|  [03]   | `METRIC_<NAME>`        | `const: "metric.name"` | `Metric` names on `data` fact-journal meter rows + native OTLP metrics    |
+|  [04]   | `EVENT_<NAME>`         | `const: "event.name"`  | span/log event names (`EVENT_EXCEPTION` = `"exception"`, the crash event) |
 
-```ts contract
+```ts signature
 // Every member is a literal-typed constant — the TYPE is the string, so keys are compile-checked and values narrow:
 export declare const ATTR_HTTP_REQUEST_METHOD: "http.request.method"
 export declare const ATTR_URL_FULL: "url.full"
@@ -48,14 +48,23 @@ const span = { [ATTR_HTTP_REQUEST_METHOD]: HTTP_REQUEST_METHOD_VALUE_GET, [ATTR_
 
 The load-bearing decision is which entrypoint a namespace comes from. STABLE (`.`) names are API-frozen — safe to embed in durable dashboards, SLO policy rows, and cross-language wire parity. INCUBATING (`./incubating`) names are overlay — a minor release can rename or remove them, so `observe/convention` imports them behind a Rasm-owned alias row that absorbs the churn at one seam. The stable entry is the default import; reach for `/incubating` only for a namespace stable has promoted.
 
-| [INDEX] | [TIER]                    | [RASM_NAMESPACES]                                                                                                   | [CONSUMER_BOUNDARY]                                      |
-| :-----: | :------------------------ | :------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------- |
-|  [01]   | STABLE `.`                | `service.*` (name/version/instance.id/namespace), `telemetry.sdk.*`/`telemetry.distro.*`                            | the `Resource` identity spine — `AppIdentity → resource` |
-|  [02]   | STABLE `.`                | `http.request.*`/`http.response.*`/`http.route`, `url.*`, `network.*`, `server.*`/`client.*`, `user_agent.original` | edge ingress + `host/net` client span attrs              |
-|  [03]   | STABLE `.`                | `error.type`, `exception.*` (type/message/stacktrace), `EVENT_EXCEPTION`, `code.*`, `otel.*`                        | `signal/crash` fault capture → `FaultDetail`             |
-|  [04]   | STABLE `.`                | `deployment.environment.name`; `db.*` (`ATTR_DB_*`, `DB_SYSTEM_NAME_VALUE_*`)                                       | env tag on resource; `store` DB-client spans             |
-|  [05]   | INCUBATING `./incubating` | `browser.*` (brands/language/mobile/platform), `device.*`                                                           | `signal/vital` browser RUM enrichment                    |
-|  [06]   | INCUBATING `./incubating` | `host.*`, `process.*`, `container.*`, `k8s.*`, `cloud.*`                                                            | resource infra enrichment; `iac/observe` correlation     |
+STABLE (`.`) namespaces — API-frozen, safe for durable dashboards, SLO rows, and cross-language parity:
+
+| [INDEX] | [RASM_NAMESPACES]                                                             | [CONSUMER_BOUNDARY]                                      |
+| :-----: | :---------------------------------------------------------------------------- | :------------------------------------------------------- |
+|  [01]   | `service.*` (name/version/instance.id/namespace)                              | the `Resource` identity spine — `AppIdentity → resource` |
+|  [02]   | `telemetry.sdk.*`/`telemetry.distro.*`                                        | SDK/distro resource attrs                                |
+|  [03]   | `http.request.*`/`http.response.*`/`http.route`, `user_agent.original`        | edge ingress http span attrs                             |
+|  [04]   | `url.*`, `network.*`, `server.*`/`client.*`                                   | `host/net` client span attrs                             |
+|  [05]   | `error.type`, `exception.*`, `EVENT_EXCEPTION`, `code.*`, `otel.*`            | `signal/crash` fault capture → `FaultDetail`             |
+|  [06]   | `deployment.environment.name`; `db.*` (`ATTR_DB_*`, `DB_SYSTEM_NAME_VALUE_*`) | env tag on resource; `store` DB-client spans             |
+
+INCUBATING (`./incubating`) namespaces — overlay, imported behind the churn-absorbing alias row:
+
+| [INDEX] | [RASM_NAMESPACES]                                         | [CONSUMER_BOUNDARY]                                  |
+| :-----: | :-------------------------------------------------------- | :--------------------------------------------------- |
+|  [01]   | `browser.*` (brands/language/mobile/platform), `device.*` | `signal/vital` browser RUM enrichment                |
+|  [02]   | `host.*`, `process.*`, `container.*`, `k8s.*`, `cloud.*`  | resource infra enrichment; `iac/observe` correlation |
 
 ## [04]-[DEPRECATED_LEGACY]
 

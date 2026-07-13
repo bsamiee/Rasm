@@ -12,7 +12,7 @@
 
 ## [01]-[ROOT_AND_RESOURCES]
 
-```ts contract
+```ts signature
 declare const tgpu: {
   init(options?: { adapter?: GPURequestAdapterOptions; device?: GPUDeviceDescriptor }): Promise<TgpuRoot>
   initFromDevice(options: { device: GPUDevice }): TgpuRoot            // sync — adopt a device another owner (three) already holds
@@ -39,15 +39,15 @@ Render-pipeline authoring (`withVertex`/`beginRenderPass`) is `'~unstable'` and 
 
 `typegpu/data` (`import * as d from 'typegpu/data'`) is the one layout vocabulary — WGSL memory rules (alignment, padding, host-shareability) enforced at the type level.
 
-| [INDEX] | [FAMILY]   | [MEMBERS]                                                                       | [ROLE]                                             |
-| :-----: | :--------- | :------------------------------------------------------------------------------ | :------------------------------------------------- |
-|  [01]   | scalar     | `d.f32` `d.f16` `d.u32` `d.i32` `d.bool`                                        | element types                                      |
-|  [02]   | vector     | `d.vec2f`/`3f`/`4f` · `vec2u`/`3u`/`4u` · `vec2i`/`3i`/`4i` · `vec2h`/`3h`/`4h` | callable constructors AND schema nodes             |
-|  [03]   | matrix     | `d.mat2x2f` `d.mat3x3f` `d.mat4x4f`                                             | column-major WGSL layout                           |
-|  [04]   | composite  | `d.struct({...})` `d.arrayOf(type, n)` `d.atomic(d.u32 \| d.i32)`               | the buffer shapes; struct fields are ordered rows  |
-|  [05]   | loose      | `d.disarrayOf` `d.unstruct`                                                     | packed non-host-shareable vertex-data layouts      |
-|  [06]   | attributes | `d.size(n, T)` `d.align(n, T)` `d.location(n, T)` `d.builtin` `d.interpolate`   | explicit layout/IO decoration                      |
-|  [07]   | inference  | `d.Infer<T>`                                                                    | schema → TS value type; the end-to-end typing seam |
+| [INDEX] | [FAMILY]   | [MEMBERS]                                                                       | [ROLE]                                 |
+| :-----: | :--------- | :------------------------------------------------------------------------------ | :------------------------------------- |
+|  [01]   | scalar     | `d.f32` `d.f16` `d.u32` `d.i32` `d.bool`                                        | element types                          |
+|  [02]   | vector     | `d.vec2f`/`3f`/`4f` · `vec2u`/`3u`/`4u` · `vec2i`/`3i`/`4i` · `vec2h`/`3h`/`4h` | callable constructors AND schema nodes |
+|  [03]   | matrix     | `d.mat2x2f` `d.mat3x3f` `d.mat4x4f`                                             | column-major WGSL layout               |
+|  [04]   | composite  | `d.struct({...})` `d.arrayOf(type, n)` `d.atomic(d.u32 \| d.i32)`               | buffer shapes; ordered struct fields   |
+|  [05]   | loose      | `d.disarrayOf` `d.unstruct`                                                     | packed non-host-shareable layouts      |
+|  [06]   | attributes | `d.size(n, T)` `d.align(n, T)` `d.location(n, T)` `d.builtin` `d.interpolate`   | explicit layout/IO decoration          |
+|  [07]   | inference  | `d.Infer<T>`                                                                    | schema → TS value type; typing seam    |
 
 ## [03]-[KERNELS_AND_RESOLUTION]
 

@@ -21,7 +21,7 @@ The evidence tier registers with the one oracle: `IntersectionHit` `[Union]` (na
 - Growth: a new hit facet (a per-hit depth, a face component) is one field + one facet projection + one claim conjunct; a new projectable output is one row in the frozen set + one projection arm; a new tangency refinement (angle-banded near-tangency) is one `IntersectionTangency` row fed by the enrichment fold.
 - Boundary: `IntersectionHit` and `RayQuery` are frozen spellings — cs-analyzer carries their docIDs and the host boundary re-enters against them; curve payloads are HOST RESOURCES — the disposal law is load-bearing (a projection path that drops a curve without disposing it is the named leak defect; a path that disposes a transferred curve is the named use-after-free defect — the `Curve` output transfers, everything else disposes); a hand-rolled `&&`-chain validity body is the dead form — evidence is the `ValidityClaim` fold per the `Domain/rails` law; `ReflectionCeiling` is the named policy bound — a bare reflection-count literal is the dead form.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Collections.Frozen;
@@ -146,7 +146,7 @@ public abstract partial record IntersectionHit : IValidityEvidence {
 - Growth: a new geometry pair is ONE row — admission, shape, compute — and every relation operation, output gate, and consumer reads it with zero edits; a new result shape is one `IntersectionResult` case + its `CanProject`/`Project` arms; a new host intersector (a SubD band when the host ships one) is rows, never a parallel dispatcher.
 - Boundary: the table IS the dispatch — a `switch` over type pairs or an `IntersectAB` method family beside it is the deleted form; every disposable the host mints is leased (`CurveIntersections`, `MeshIntersectionCache`, `TextLog`, the ray proxy `LineCurve` under `using`) — a bare host handle crossing an expression boundary is the named leak defect; mesh rows thread `Context.MeshIntersectionTolerance` (the host coefficient law lives on `Domain/context`) and cancellation faults as `Fault.Cancelled`, never as an empty result; the unordered retry fires ONLY on the 9104 `Unsupported` — retrying a hard failure double-runs a cancelled or failed host call; this lattice is the host-parametric altitude — the settled `Meshing/intersect` predicate-exact owner is never called from here and never re-implemented here, per the standing two-altitude decision.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Linq;
@@ -437,7 +437,7 @@ public static partial class Analyze {
 - Growth: a new pairwise relation (a clearance query, a minimal-distance witness pair) is one builder over the SAME `PairOp` spine plus its kernel — the admission, preparation, and projection law are inherited; a new self-intersecting form is one `SelfIntersectionOf` arm plus its `CanSelfIntersect` disjunct.
 - Boundary: `PairOp` is the ONE pair-admission spine — a relation builder that re-derives kind resolution, readiness, or ray asymmetry locally is the deleted repetition; classification NEVER re-intersects — it is the intersection answer plus one enrichment fold, and a second curve-pair intersector for tangency is the killed form; the tangency probe degrades to `Unknown` on projection failure rather than faulting the whole answer (an unclassifiable contact is still a contact); deviation is EXACT by contract — the host extremum computation, never a sampled estimate (the sampled counterpart is `Analysis/measure`'s conformance pipeline, which short-circuits TO this kernel when exactness is demanded); self-intersection disposal is total — event sets lease, mesh polylines lift into owned curves the hit carriers dispose under the projection law.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Threading;
@@ -571,17 +571,18 @@ flowchart LR
 
 ## [05]-[DENSITY_BAR]
 
-One owner per axis; a new pair, shape, or relation is a row, a case, or a builder over the one spine — never a sibling dispatcher.
+One owner per axis; a new pair, shape, or relation is a row, a case, or a builder over the one spine — never a sibling dispatcher. Every evidence receipt registers with the one validity oracle through `IValidityEvidence`.
 
-| [INDEX] | [CONCERN]           | [OWNER]                                     | [KIND]                                                               | [RAIL]                                    | [CASES] |
-| :-----: | :------------------ | :------------------------------------------ | :------------------------------------------------------------------- | :---------------------------------------- | :-----: |
-|  [01]   | Contact vocabulary  | `IntersectionKind` / `IntersectionTangency` | `[SmartEnum<int>]` pair                                              | rows (pure)                               |  4 + 3  |
-|  [02]   | Ray request         | `RayQuery`                                  | `readonly record struct` + `ReflectionCeiling` + evidence fold       | `IValidityEvidence` → the one oracle      |    —    |
-|  [03]   | Deviation receipt   | `CurveDeviation`                            | 8-field exact receipt, derived verdict, evidence fold                | `IValidityEvidence` → the one oracle      |    —    |
-|  [04]   | Hit evidence        | `IntersectionHit`                           | `[Union]` + facet projections + batch `Project<TOut>` + disposal law | `Fin<Seq<TOut>>` through `AnalysisOutput` |    3    |
-|  [05]   | Result shape        | `IntersectionResult`                        | internal `[Union]` — five shapes, `Supports`/`CanProject`/`Project`  | generated `Switch` → the output gate      |    5    |
-|  [06]   | Pair dispatch       | `IntersectionCases`                         | 25-row `IntersectionCase` table + ordered scan + unordered retry law | `Fin<IntersectionResult>` over `Fault`    |   25    |
-|  [07]   | Relation operations | `Analyze.Relation*`                         | five builders over ONE `PairOp` spine + deviation/self kernels       | `Operation → Eff<Env, Seq<TOut>>`         |    5    |
+| [INDEX] | [CONCERN]           | [OWNER]                | [KIND]                                | [RAIL]                            | [CASES] |
+| :-----: | :------------------ | :--------------------- | :------------------------------------ | :-------------------------------- | :-----: |
+|  [01]   | Contact kind        | `IntersectionKind`     | `[SmartEnum<int>]` result kind        | row (pure)                        |    4    |
+|  [02]   | Contact tangency    | `IntersectionTangency` | `[SmartEnum<int>]` curve-pair contact | row (pure)                        |    3    |
+|  [03]   | Ray request         | `RayQuery`             | `record struct` + `ReflectionCeiling` | evidence → oracle                 |    —    |
+|  [04]   | Deviation receipt   | `CurveDeviation`       | 8-field receipt, derived verdict      | evidence → oracle                 |    —    |
+|  [05]   | Hit evidence        | `IntersectionHit`      | `[Union]` + facets + `Project`        | `Fin<Seq<TOut>>` gate             |    3    |
+|  [06]   | Result shape        | `IntersectionResult`   | internal `[Union]`, 5 shapes          | generated `Switch` → output gate  |    5    |
+|  [07]   | Pair dispatch       | `IntersectionCases`    | 25-row table + scan + flip retry      | `Fin<IntersectionResult>`         |   25    |
+|  [08]   | Relation operations | `Analyze.Relation*`    | 5 `PairOp` builders + kernels         | `Operation → Eff<Env, Seq<TOut>>` |    5    |
 
 All three fences are transcription-complete host captures: the evidence tier with the oracle-registered receipts, the full twenty-five-row lattice with its lease/tolerance/cancellation discipline and both curve-form lowering rows, and the five relation builders over the shared admission spine. The `RequirementContext.Pair` combinator, the `Requirement` rows, and the oracle are `Domain/validation` law; the form recoveries are `Domain/normalization` law; the tangency relation is `Numerics/atoms` + `Processing/intent` law — composed here, legislated there.
 

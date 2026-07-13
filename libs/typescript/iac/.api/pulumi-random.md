@@ -61,17 +61,18 @@ Generated material is a sensitive `Output` that stacks into the secret + workloa
 
 [RAIL]: `random → effect + sibling providers`
 
-| [INDEX] | [RANDOM_SEAM]                    | [STACKS_WITH]                                                                 | [COMPOSED_RAIL]                                            |
-| :-----: | :------------------------------- | :---------------------------------------------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | char-class knob struct           | `Schema.Struct` (from `StackSpec`)                                            | ONE decoded `PasswordPolicy` value → `RandomPassword` args |
-|  [02]   | `RandomPassword.result` (secret) | `@pulumiverse/doppler` `Secret({value})`                                      | `pulumi.secret(result)` → Doppler stores it canonically    |
-|  [03]   | `RandomPassword.result`          | `@pulumi/kubernetes` `Secret.stringData` / `@pulumi/postgresql` role password | generated credential feeds workload + DB rows              |
-|  [04]   | `RandomId.hex` / `RandomBytes`   | `ComponentResource` child names                                               | collision-free bucket/db/stack suffixes under a tier       |
-|  [05]   | `RandomShuffle.results` (seeded) | `kube` workload placement                                                     | seed-stable AZ / replica spreading, stable across `up`     |
-|  [06]   | `keepers`                        | `Redacted` / `Config` rotation epoch                                          | `keepers = { epoch }` from an Effect `Config` value        |
-|  [07]   | `RandomUuid7.result`             | typed `StackOutputs`                                                          | time-ordered ids surfaced as outputs                       |
+| [INDEX] | [RANDOM_SEAM]                    | [STACKS_WITH]                            | [COMPOSED_RAIL]                                         |
+| :-----: | :------------------------------- | :--------------------------------------- | :------------------------------------------------------ |
+|  [01]   | char-class knob struct           | `Schema.Struct` (from `StackSpec`)       | decoded `PasswordPolicy` → `RandomPassword` args        |
+|  [02]   | `RandomPassword.result` (secret) | `@pulumiverse/doppler` `Secret({value})` | `pulumi.secret(result)` → Doppler stores it canonically |
+|  [03]   | `RandomPassword.result`          | `@pulumi/kubernetes` `Secret.stringData` | generated credential feeds workload rows                |
+|  [04]   | `RandomPassword.result`          | `@pulumi/postgresql` role password       | generated credential feeds DB rows                      |
+|  [05]   | `RandomId.hex` / `RandomBytes`   | `ComponentResource` child names          | collision-free bucket/db/stack suffixes under a tier    |
+|  [06]   | `RandomShuffle.results` (seeded) | `kube` workload placement                | seed-stable AZ / replica spreading, stable across `up`  |
+|  [07]   | `keepers`                        | `Redacted` / `Config` rotation epoch     | `keepers = { epoch }` from an Effect `Config` value     |
+|  [08]   | `RandomUuid7.result`             | typed `StackOutputs`                     | time-ordered ids surfaced as outputs                    |
 
-```ts contract
+```ts signature
 // iac/secret — generate → mark secret → store canonically, one policy shape
 const dbPassword = new random.RandomPassword("db-password", {
   length: policy.length, special: policy.special,

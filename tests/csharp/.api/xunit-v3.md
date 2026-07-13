@@ -12,33 +12,38 @@ The xunit.v3 family carries the whole C# proof estate: `xunit.v3.assert` is the 
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                                                           | [KIND]             | [CAPABILITY]                                                              |
-| :-----: | :--------------------------------------------------------------------------------- | :----------------- | :------------------------------------------------------------------------ |
-|  [01]   | `Assert`                                                                           | static partial     | the single assertion surface; equality, type, collection, throws, control |
-|  [02]   | `FactAttribute` / `TheoryAttribute`                                                | attribute          | test discovery; skip/explicit/timeout policy per case                     |
-|  [03]   | `InlineDataAttribute` / `MemberDataAttribute` / `ClassDataAttribute`               | attribute          | theory data sources                                                       |
-|  [04]   | `TheoryData<...>` / `TheoryDataRow<...>`                                           | data carrier       | typed theory rows, 16 arities each                                        |
-|  [05]   | `CollectionAttribute` / `CollectionAttribute<T>` / `CollectionDefinitionAttribute` | attribute          | collection grouping and per-collection parallelism opt-out                |
-|  [06]   | `CollectionBehaviorAttribute`                                                      | assembly attribute | assembly parallelism policy: algorithm, max threads, disable              |
-|  [07]   | `IClassFixture<T>` / `ICollectionFixture<T>` / `AssemblyFixtureAttribute`          | fixture            | class, collection, and assembly fixture tiers                             |
-|  [08]   | `TraitAttribute` / `TestCaseOrdererAttribute`                                      | attribute          | trait tagging and case ordering                                           |
-|  [09]   | `ITestOutputHelper` / `TestContext`                                                | service            | per-test output sink and ambient test state                               |
-|  [10]   | `Xunit.Sdk.XunitException` family                                                  | exception          | typed assertion failures (`AllException`, `CollectionException`, ...)     |
+| [INDEX] | [SYMBOL]                                         | [KIND]             | [CAPABILITY]                                                 |
+| :-----: | :----------------------------------------------- | :----------------- | :----------------------------------------------------------- |
+|  [01]   | `Assert`                                         | static partial     | single surface: equality, type, collection, throws, control  |
+|  [02]   | `FactAttribute` / `TheoryAttribute`              | attribute          | test discovery; skip/explicit/timeout policy per case        |
+|  [03]   | `InlineDataAttribute` / `MemberDataAttribute`    | attribute          | inline and member theory data                                |
+|  [04]   | `ClassDataAttribute`                             | attribute          | class-typed theory data source                               |
+|  [05]   | `TheoryData<...>` / `TheoryDataRow<...>`         | data carrier       | typed theory rows, 16 arities each                           |
+|  [06]   | `CollectionAttribute` / `CollectionAttribute<T>` | attribute          | collection grouping and parallelism opt-out                  |
+|  [07]   | `CollectionDefinitionAttribute`                  | attribute          | collection definition with fixture binding                   |
+|  [08]   | `CollectionBehaviorAttribute`                    | assembly attribute | assembly parallelism policy: algorithm, max threads, disable |
+|  [09]   | `IClassFixture<T>` / `ICollectionFixture<T>`     | fixture            | class and collection fixture tiers                           |
+|  [10]   | `AssemblyFixtureAttribute`                       | fixture            | assembly-wide fixture tier                                   |
+|  [11]   | `TraitAttribute` / `TestCaseOrdererAttribute`    | attribute          | trait tagging and case ordering                              |
+|  [12]   | `ITestOutputHelper` / `TestContext`              | service            | per-test output sink and ambient test state                  |
+|  [13]   | `Xunit.Sdk.XunitException` family                | exception          | typed failures: `AllException`/`CollectionException`/...     |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                                        | [KIND]    | [CAPABILITY]                                                                  |
-| :-----: | :------------------------------------------------------------------------------- | :-------- | :---------------------------------------------------------------------------- |
-|  [01]   | `Assert.Equal<T>(T?, T?)` + comparer/func/tolerance/span/unmanaged overloads     | assertion | equality across regimes; `Equal(double, double, double tolerance)` for floats |
-|  [02]   | `Assert.True/False/Null/NotNull/Same/NotSame`                                    | assertion | boolean, null, and reference gates                                            |
-|  [03]   | `Assert.Single/Contains/DoesNotContain/Empty/All/Collection/Distinct/Equivalent` | assertion | collection shape and membership gates                                         |
-|  [04]   | `Assert.IsType<T>/IsNotType<T>/IsAssignableFrom<T>`                              | assertion | type gates returning the cast value                                           |
-|  [05]   | `Assert.Throws<T>/ThrowsAny<T>/ThrowsAsync<T>`                                   | assertion | typed exception capture returning the exception                               |
-|  [06]   | `Assert.InRange<T>(T, T, T)`                                                     | assertion | comparable range gate                                                         |
-|  [07]   | `Assert.Fail(string?)` / `Assert.Multiple(params Action[])`                      | control   | explicit failure and aggregated multi-check                                   |
-|  [08]   | `[Fact(Explicit = true)]`                                                        | discovery | explicit-only cases; run via `-- --explicit only`                             |
+| [INDEX] | [SURFACE]                                                   | [KIND]    | [CAPABILITY]                                                   |
+| :-----: | :---------------------------------------------------------- | :-------- | :------------------------------------------------------------- |
+|  [01]   | `Assert.Equal<T>(T?, T?)`                                   | assertion | equality with comparer/func/tolerance/span/unmanaged overloads |
+|  [02]   | `Assert.Equal(double, double, double tolerance)`            | assertion | float equality within a tolerance                              |
+|  [03]   | `Assert.True/False/Null/NotNull/Same/NotSame`               | assertion | boolean, null, and reference gates                             |
+|  [04]   | `Assert.Single/Contains/DoesNotContain/Empty`               | assertion | presence and emptiness gates                                   |
+|  [05]   | `Assert.All/Collection/Distinct/Equivalent`                 | assertion | per-item, shape, distinctness, and equivalence gates           |
+|  [06]   | `Assert.IsType<T>/IsNotType<T>/IsAssignableFrom<T>`         | assertion | type gates returning the cast value                            |
+|  [07]   | `Assert.Throws<T>/ThrowsAny<T>/ThrowsAsync<T>`              | assertion | typed exception capture returning the exception                |
+|  [08]   | `Assert.InRange<T>(T, T, T)`                                | assertion | comparable range gate                                          |
+|  [09]   | `Assert.Fail(string?)` / `Assert.Multiple(params Action[])` | control   | explicit failure and aggregated multi-check                    |
+|  [10]   | `[Fact(Explicit = true)]`                                   | discovery | explicit-only cases; run via `-- --explicit only`              |
 
-```csharp contract
+```csharp signature
 public class FactAttribute : Attribute, IFactAttribute {
     public string? DisplayName { get; set; }
     public bool Explicit { get; set; }

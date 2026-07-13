@@ -36,68 +36,68 @@
 [ENTRYPOINT_SCOPE]: cell array operations (`h3ronpy`)
 - rail: GRID_DGGS
 
-Every surface accepts an Arrow cell array (`u64` indexes) and returns an `arro3.core.Array` unless a multi-column `RecordBatch` is noted. `set_failing_to_invalid` keeps array length stable by emitting null on parse failure; `booleanarray` switches a validity check to a boolean mask.
+Every surface takes an Arrow cell array (`u64` indexes) and returns `arro3.core.Array`; the multi-column surfaces `change_resolution_paired`, `grid_disk_distances`, `grid_disk_aggregate_k`, `grid_ring_distances`, and `cells_to_localij` return a `RecordBatch` instead. The `[ARGS]` column carries each surface's argument list. Shared keyword defaults, omitted from the rows: traversal takes `flatten=False`, `compact` takes `mixed_resolutions=False`, parse/local-IJ take `set_failing_to_invalid=False` (null on failure, keeping array length), and validate takes `booleanarray=False` (a boolean mask instead of a filtered array).
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                                   | [CAPABILITY]                                     |
-| :-----: | :------------------------- | :--------------------------------------------------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `change_resolution`        | `change_resolution(arr, resolution: int) -> Array`                                             | move each cell to a target resolution            |
-|  [02]   | `change_resolution_list`   | `change_resolution_list(arr, resolution: int) -> Array`                                        | per-cell list of target-resolution children      |
-|  [03]   | `change_resolution_paired` | `change_resolution_paired(arr, resolution: int) -> RecordBatch`                                | source/target cell pairing across resolution     |
-|  [04]   | `compact`                  | `compact(arr, mixed_resolutions: bool = False) -> Array`                                       | compact a uniform cell set to coarser parents    |
-|  [05]   | `uncompact`                | `uncompact(arr, target_resolution: int) -> Array`                                              | expand compacted cells to a target resolution    |
-|  [06]   | `grid_disk`                | `grid_disk(cellarray, k: int, flatten: bool = False) -> Array`                                 | k-ring disk of neighbors per cell                |
-|  [07]   | `grid_disk_distances`      | `grid_disk_distances(cellarray, k: int, flatten: bool = False) -> RecordBatch`                 | disk cells with their grid distance              |
-|  [08]   | `grid_disk_aggregate_k`    | `grid_disk_aggregate_k(cellarray, k: int, aggregation_method: str) -> RecordBatch`             | disk reduced by `min`/`max` k aggregation        |
-|  [09]   | `grid_ring_distances`      | `grid_ring_distances(cellarray, k_min: int, k_max: int, flatten: bool = False) -> RecordBatch` | annulus rings `k_min..k_max` with distances      |
-|  [10]   | `cells_resolution`         | `cells_resolution(arr) -> Array`                                                               | resolution of each cell                          |
-|  [11]   | `cells_area_km2`           | `cells_area_km2(cellarray) -> Array`                                                           | spherical cell area in km2                       |
-|  [12]   | `cells_area_m2`            | `cells_area_m2(cellarray) -> Array`                                                            | spherical cell area in m2                        |
-|  [13]   | `cells_area_rads2`         | `cells_area_rads2(cellarray) -> Array`                                                         | spherical cell area in radians2                  |
-|  [14]   | `cells_valid`              | `cells_valid(arr, booleanarray: bool = False) -> Array`                                        | validate cell indexes (mask or filtered)         |
-|  [15]   | `cells_parse`              | `cells_parse(arr, set_failing_to_invalid: bool = False) -> Array`                              | parse string cells to `u64` indexes              |
-|  [16]   | `cells_to_string`          | `cells_to_string(cellarray) -> Array`                                                          | format cells to hex strings                      |
-|  [17]   | `cells_to_localij`         | `cells_to_localij(cellarray, anchor, set_failing_to_invalid: bool = False) -> RecordBatch`     | local-IJ coordinates relative to an anchor       |
-|  [18]   | `localij_to_cells`         | `localij_to_cells(anchor, i, j, set_failing_to_invalid: bool = False) -> Array`                | cells from anchor and local-IJ coordinate arrays |
-|  [19]   | `vertexes_valid`           | `vertexes_valid(arr, booleanarray: bool = False) -> Array`                                     | validate vertex indexes                          |
-|  [20]   | `vertexes_parse`           | `vertexes_parse(arr, set_failing_to_invalid: bool = False) -> Array`                           | parse vertex strings to indexes                  |
-|  [21]   | `vertexes_to_string`       | `vertexes_to_string(vertexesarray) -> Array`                                                   | format vertexes to hex strings                   |
-|  [22]   | `directededges_valid`      | `directededges_valid(arr, booleanarray: bool = False) -> Array`                                | validate directed-edge indexes                   |
-|  [23]   | `directededges_parse`      | `directededges_parse(arr, set_failing_to_invalid: bool = False) -> Array`                      | parse directed-edge strings to indexes           |
-|  [24]   | `directededges_to_string`  | `directededges_to_string(directededgearray) -> Array`                                          | format directed edges to hex strings             |
-|  [25]   | `version`                  | `version() -> str`                                                                             | installed h3ronpy version string                 |
+| [INDEX] | [SURFACE]                  | [ARGS]                               | [CAPABILITY]                                     |
+| :-----: | :------------------------- | :----------------------------------- | :----------------------------------------------- |
+|  [01]   | `change_resolution`        | `(arr, resolution)`                  | move each cell to a target resolution            |
+|  [02]   | `change_resolution_list`   | `(arr, resolution)`                  | per-cell list of target-resolution children      |
+|  [03]   | `change_resolution_paired` | `(arr, resolution)`                  | source/target cell pairing across resolution     |
+|  [04]   | `compact`                  | `(arr)`                              | compact a uniform cell set to coarser parents    |
+|  [05]   | `uncompact`                | `(arr, target_resolution)`           | expand compacted cells to a target resolution    |
+|  [06]   | `grid_disk`                | `(cellarray, k)`                     | k-ring disk of neighbors per cell                |
+|  [07]   | `grid_disk_distances`      | `(cellarray, k)`                     | disk cells with their grid distance              |
+|  [08]   | `grid_disk_aggregate_k`    | `(cellarray, k, aggregation_method)` | disk reduced by `min`/`max` k aggregation        |
+|  [09]   | `grid_ring_distances`      | `(cellarray, k_min, k_max)`          | annulus rings `k_min..k_max` with distances      |
+|  [10]   | `cells_resolution`         | `(arr)`                              | resolution of each cell                          |
+|  [11]   | `cells_area_km2`           | `(cellarray)`                        | spherical cell area in km2                       |
+|  [12]   | `cells_area_m2`            | `(cellarray)`                        | spherical cell area in m2                        |
+|  [13]   | `cells_area_rads2`         | `(cellarray)`                        | spherical cell area in radians2                  |
+|  [14]   | `cells_valid`              | `(arr)`                              | validate cell indexes (mask or filtered)         |
+|  [15]   | `cells_parse`              | `(arr)`                              | parse string cells to `u64` indexes              |
+|  [16]   | `cells_to_string`          | `(cellarray)`                        | format cells to hex strings                      |
+|  [17]   | `cells_to_localij`         | `(cellarray, anchor)`                | local-IJ coordinates relative to an anchor       |
+|  [18]   | `localij_to_cells`         | `(anchor, i, j)`                     | cells from anchor and local-IJ coordinate arrays |
+|  [19]   | `vertexes_valid`           | `(arr)`                              | validate vertex indexes                          |
+|  [20]   | `vertexes_parse`           | `(arr)`                              | parse vertex strings to indexes                  |
+|  [21]   | `vertexes_to_string`       | `(vertexesarray)`                    | format vertexes to hex strings                   |
+|  [22]   | `directededges_valid`      | `(arr)`                              | validate directed-edge indexes                   |
+|  [23]   | `directededges_parse`      | `(arr)`                              | parse directed-edge strings to indexes           |
+|  [24]   | `directededges_to_string`  | `(directededgearray)`                | format directed edges to hex strings             |
+|  [25]   | `version`                  | `() -> str`                          | installed h3ronpy version string                 |
 
 [ENTRYPOINT_SCOPE]: geometry bridge (`h3ronpy.vector`)
 - rail: GRID_DGGS
 
-`geometry_to_cells`/`wkb_to_cells` discriminate coverage by `ContainmentMode`; `radians` toggles coordinate units; `compact`/`flatten` shape the cell output. Returns are `arro3.core.Array` unless noted.
+`geometry_to_cells`/`wkb_to_cells` discriminate coverage by `ContainmentMode` (default `ContainmentMode.ContainsCentroid`); `radians`, `compact`, `flatten`, and `link_cells` are `bool` flags defaulting `False`. The `[ARGS]` column carries each surface's argument list; returns are `arro3.core.Array` unless `-> RecordBatch` or `-> Tuple` is noted.
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                                                                                                                                      | [CAPABILITY]                               |
-| :-----: | :--------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------- |
-|  [01]   | `geometry_to_cells`                | `geometry_to_cells(geom, resolution: int, containment_mode: ContainmentMode = ContainmentMode.ContainsCentroid, compact: bool = False) -> Array`                  | cover one geometry with cells              |
-|  [02]   | `wkb_to_cells`                     | `wkb_to_cells(arr, resolution: int, containment_mode: ContainmentMode = ContainmentMode.ContainsCentroid, compact: bool = False, flatten: bool = False) -> Array` | cover a WKB array with cells               |
-|  [03]   | `coordinates_to_cells`             | `coordinates_to_cells(latarray, lngarray, resarray, radians: bool = False) -> Array`                                                                              | cells from lat/lng/resolution arrays       |
-|  [04]   | `cells_to_coordinates`             | `cells_to_coordinates(arr, radians: bool = False) -> RecordBatch`                                                                                                 | cell centroids as lat/lng columns          |
-|  [05]   | `cells_to_wkb_points`              | `cells_to_wkb_points(arr, radians: bool = False) -> Array`                                                                                                        | cell centroids as WKB points               |
-|  [06]   | `cells_to_wkb_polygons`            | `cells_to_wkb_polygons(arr, radians: bool = False, link_cells: bool = False) -> Array`                                                                            | cell boundaries as WKB polygons            |
-|  [07]   | `directededges_to_wkb_linestrings` | `directededges_to_wkb_linestrings(arr, radians: bool = False) -> Array`                                                                                           | directed edges as WKB linestrings          |
-|  [08]   | `vertexes_to_wkb_points`           | `vertexes_to_wkb_points(arr, radians: bool = False) -> Array`                                                                                                     | vertexes as WKB points                     |
-|  [09]   | `cells_bounds`                     | `cells_bounds(arr) -> Tuple \| None`                                                                                                                              | aggregate `(minx, miny, maxx, maxy)` bound |
-|  [10]   | `cells_bounds_arrays`              | `cells_bounds_arrays(arr) -> RecordBatch`                                                                                                                         | per-cell bounding-box columns              |
+| [INDEX] | [SURFACE]                          | [ARGS]                                                  | [CAPABILITY]                         |
+| :-----: | :--------------------------------- | :------------------------------------------------------ | :----------------------------------- |
+|  [01]   | `geometry_to_cells`                | `(geom, resolution, containment_mode, compact)`         | cover one geometry with cells        |
+|  [02]   | `wkb_to_cells`                     | `(arr, resolution, containment_mode, compact, flatten)` | cover a WKB array with cells         |
+|  [03]   | `coordinates_to_cells`             | `(latarray, lngarray, resarray, radians)`               | cells from lat/lng/resolution arrays |
+|  [04]   | `cells_to_coordinates`             | `(arr, radians) -> RecordBatch`                         | cell centroids as lat/lng columns    |
+|  [05]   | `cells_to_wkb_points`              | `(arr, radians)`                                        | cell centroids as WKB points         |
+|  [06]   | `cells_to_wkb_polygons`            | `(arr, radians, link_cells)`                            | cell boundaries as WKB polygons      |
+|  [07]   | `directededges_to_wkb_linestrings` | `(arr, radians)`                                        | directed edges as WKB linestrings    |
+|  [08]   | `vertexes_to_wkb_points`           | `(arr, radians)`                                        | vertexes as WKB points               |
+|  [09]   | `cells_bounds`                     | `(arr) -> Tuple \| None`                                | aggregate `(minx, miny, maxx, maxy)` |
+|  [10]   | `cells_bounds_arrays`              | `(arr) -> RecordBatch`                                  | per-cell bounding-box columns        |
 
 [ENTRYPOINT_SCOPE]: raster bridge (`h3ronpy.raster`) and polars namespace (`h3ronpy.polars`)
 - rail: GRID_DGGS
 
-The raster bridge moves between numpy arrays under an affine `transform` and cells. The polars surface registers a `.h3` namespace exposing the cell operations on `Expr` and `Series`.
+The raster bridge moves between numpy arrays under an affine `transform` and cells; the polars surface registers a `.h3` namespace on `Expr`/`Series`. The `[ARGS]` column carries each function's argument list; the polars rows carry the accessor pattern. Raster defaults, omitted from the rows: `nodata_value=None`, `axis_order='yx'`, `compact=True`, `search_mode='min_diff'`; `rasterize_cells`'s `size` is an `int` or `(int, int)`. Returns: `raster_to_dataframe -> pyarrow.Table`, `rasterize_cells -> (ndarray, transform tuple)`, `nearest_h3_resolution -> int`.
 
-| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                                                                                                                               | [CAPABILITY]                                |
-| :-----: | :----------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------ |
-|  [01]   | `raster.raster_to_dataframe`   | `raster_to_dataframe(in_raster: ndarray, transform, h3_resolution: int, nodata_value=None, axis_order: str = 'yx', compact: bool = True) -> pyarrow.Table` | raster pixels to cell/value table           |
-|  [02]   | `raster.rasterize_cells`       | `rasterize_cells(cells, values, size: int \| Tuple[int, int], nodata_value=0) -> Tuple[ndarray, Tuple[float, ...]]`                                        | cells/values to raster array + transform    |
-|  [03]   | `raster.nearest_h3_resolution` | `nearest_h3_resolution(shape, transform, axis_order='yx', search_mode='min_diff') -> int`                                                                  | resolution matching a raster cell size      |
-|  [04]   | `raster.cells_bounds`          | `cells_bounds(arr) -> Tuple \| None`                                                                                                                       | aggregate cell bound                        |
-|  [05]   | `raster.cells_to_wkb_polygons` | `cells_to_wkb_polygons(arr, radians: bool = False, link_cells: bool = False) -> Array`                                                                     | cell boundaries as WKB polygons             |
-|  [06]   | `polars.H3Expr`                | `pl.col(name).h3.<op>(...)`                                                                                                                                | `.h3` expression namespace on `polars.Expr` |
-|  [07]   | `polars.H3SeriesShortcuts`     | `series.h3.<op>(...)`                                                                                                                                      | `.h3` namespace on `polars.Series`          |
+| [INDEX] | [SURFACE]                      | [ARGS]                                       | [CAPABILITY]                                |
+| :-----: | :----------------------------- | :------------------------------------------- | :------------------------------------------ |
+|  [01]   | `raster.raster_to_dataframe`   | `(in_raster, transform, h3_resolution, ...)` | raster pixels to cell/value table           |
+|  [02]   | `raster.rasterize_cells`       | `(cells, values, size, nodata_value=0)`      | cells/values to raster array + transform    |
+|  [03]   | `raster.nearest_h3_resolution` | `(shape, transform, ...)`                    | resolution matching a raster cell size      |
+|  [04]   | `raster.cells_bounds`          | `(arr)`                                      | aggregate cell bound                        |
+|  [05]   | `raster.cells_to_wkb_polygons` | `(arr, radians, link_cells)`                 | cell boundaries as WKB polygons             |
+|  [06]   | `polars.H3Expr`                | `pl.col(name).h3.<op>(...)`                  | `.h3` expression namespace on `polars.Expr` |
+|  [07]   | `polars.H3SeriesShortcuts`     | `series.h3.<op>(...)`                        | `.h3` namespace on `polars.Series`          |
 
 The `.h3` namespace mirrors the cell-scalar operation family only — `change_resolution`, `change_resolution_list`, `compact`, `uncompact`, `grid_disk`, `cells_resolution`, `cells_area_km2`/`_m2`/`_rads2`, `cells_valid`, `cells_parse`, `cells_to_string`, and the `vertexes_*`/`directededges_*` validate/parse/stringify trio. The geometry bridge (`geometry_to_cells`/`wkb_to_cells`/`cells_to_coordinates`), the raster bridge, and the distance-bearing traversal (`grid_disk_distances`/`grid_ring_distances`/`grid_disk_aggregate_k`/`cells_to_localij`) are NOT on the `.h3` accessor; call those module functions on the underlying Arrow array (`series.to_arrow()`) and re-wrap, since polars passes the column through `h3ronpy` as an `arro3` array with no copy.
 

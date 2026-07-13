@@ -824,8 +824,8 @@ const solLane = (task, o) => {
         .catch(() => ({ ok: false, report: '', entries: 0, headline: '', failure: 'lane died' }));
 };
 
-// Page-disjointness is PROVEN, never assumed: every ordered card must carry >=1 verified page,
-// gate pairs merge, and components pack heaviest-first into <= IMPL_FAN buckets without splitting.
+// Page-disjointness is PROVEN, never assumed: every ordered card must carry >=1 verified page, gate pairs merge, and
+// components pack heaviest-first into <= IMPL_FAN buckets without splitting.
 const cardGroups = (t) => {
     const inOrder = new Set(t.order || []);
     const cards = [...(t.tasks || []), ...(t.ideas || [])].filter((c) => inOrder.has(c.slug));
@@ -995,7 +995,8 @@ const implementPrompt = (folder, seq, report, note) =>
             (note ? '\n' + note : ''),
     ].join('\n');
 
-// critiquePrompt feeds the sol codex lane (+ native fable twin): neutral stance — hostile register degrades codex, safe for the twin; the hostile pass is redteam (native).
+// critiquePrompt feeds the sol codex lane (+ native fable twin): neutral stance — hostile register degrades
+// codex, safe for the twin; the hostile pass is redteam (native).
 const critiquePrompt = (folder, seq, report) =>
     [
         DOCTRINE,

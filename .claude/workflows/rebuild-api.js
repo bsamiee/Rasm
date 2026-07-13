@@ -47,7 +47,8 @@ const DISCOVERY_SCHEMA = {
     required: ['files'],
     properties: { files: { type: 'array', items: { type: 'string' } } },
 };
-// On-disk product schema: each batch writes its complete fix-log here; required-but-empty `beyondBatch` attests the cross-catalog hunt ran and every exposed defect landed in-pass.
+// On-disk product schema: each batch writes its complete fix-log here; required-but-empty `beyondBatch` attests
+// the cross-catalog hunt ran and every exposed defect landed in-pass.
 const FIXLOG_SCHEMA = {
     type: 'object',
     additionalProperties: false,
@@ -229,11 +230,10 @@ const codexPrompt = (label, task, schema, o) => {
             'second tool error return ok=false, entries=0, report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every catalog rebuild batch routes here: terra by default, native opus when CODEX=false. QUOTA FALLBACK: a codex
-// receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin
-// (terra->opus) — the caller owns the re-dispatch; the sonnet wrapper never executes work itself. The roster row
-// carries `scope` from the ORCHESTRATOR (the batch's assigned files) so a failed lane's territory is exact even
-// when it died.
+// Every catalog rebuild batch routes here: terra by default, native opus when CODEX=false. QUOTA FALLBACK: a codex receipt whose failure matches
+// usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus) — the caller owns the re-dispatch, the sonnet
+// wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (the batch's assigned files) so
+// a failed lane's territory is exact even when it died.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
     agent(

@@ -37,69 +37,74 @@ The `Drawing` is the single document owner; `modelspace()`/`paperspace(name)` re
 
 Every drawable derives `DXFGraphic`; each carries a typed `.dxf` namespace (the DXF group-code attributes) plus entity-specific methods. The builder family on the layout is the only admitted construction path — never hand-assembled tags. This is the closed entity grammar the `export/dxf` owner emits and the render `Frontend` consumes.
 
-| [INDEX] | [TYPE]                                                   | [KIND]    | [ROLE]                                                               |
-| :-----: | :------------------------------------------------------- | :-------- | :------------------------------------------------------------------- |
-|  [01]   | `DXFGraphic`                                             | base      | transformable drawable base; `.dxf` attribs, `translate`/`transform` |
-|  [02]   | `Line`                                                   | linear    | straight segment (`dxf.start`/`dxf.end`)                             |
-|  [03]   | `Arc` / `Circle`                                         | curve     | circular arc / circle (`dxf.center`/`dxf.radius`)                    |
-|  [04]   | `Ellipse`                                                | curve     | elliptical arc (`dxf.major_axis`/`dxf.ratio`)                        |
-|  [05]   | `Spline`                                                 | curve     | NURBS spline (`fit_points`/`control_points`/`knots`/`weights`)       |
-|  [06]   | `LWPolyline`                                             | polyline  | lightweight 2D polyline with per-vertex bulge/width                  |
-|  [07]   | `Polyline`                                               | polyline  | 2D/3D heavy polyline, polymesh, polyface mesh                        |
-|  [08]   | `Hatch` / `MPolygon`                                     | fill      | solid/gradient/pattern fill (`Hatch`) or filled polygon (`MPolygon`) |
-|  [09]   | `Text` / `MText`                                         | text      | single-line / multi-line formatted text                              |
-|  [10]   | `Leader` / `MultiLeader`                                 | annot     | leader line / leader-with-content (block or mtext)                   |
-|  [11]   | `Dimension`                                              | dimension | linear/aligned/angular/radial/diameter/ordinate/arc dimension        |
-|  [12]   | `Insert`                                                 | reference | block reference (placement of a `BlockLayout`) + `ATTRIB` children   |
-|  [13]   | `Mesh` / `Body` / `Surface` / `Solid3d`                  | 3d        | mesh builder / ACIS body / surface / 3D solid                        |
-|  [14]   | `Image` / `Wipeout`                                      | raster    | raster-image reference / masking wipeout                             |
-|  [15]   | `Point` / `Ray` / `XLine` / `Solid` / `Trace` / `Face3d` | primitive | point, infinite/semi-infinite line, 2D filled tri/quad, 3D face      |
+| [INDEX] | [TYPE]                                  | [KIND]    | [ROLE]                                                               |
+| :-----: | :-------------------------------------- | :-------- | :------------------------------------------------------------------- |
+|  [01]   | `DXFGraphic`                            | base      | transformable drawable base; `.dxf` attribs, `translate`/`transform` |
+|  [02]   | `Line`                                  | linear    | straight segment (`dxf.start`/`dxf.end`)                             |
+|  [03]   | `Arc` / `Circle`                        | curve     | circular arc / circle (`dxf.center`/`dxf.radius`)                    |
+|  [04]   | `Ellipse`                               | curve     | elliptical arc (`dxf.major_axis`/`dxf.ratio`)                        |
+|  [05]   | `Spline`                                | curve     | NURBS spline (`fit_points`/`control_points`/`knots`/`weights`)       |
+|  [06]   | `LWPolyline`                            | polyline  | lightweight 2D polyline with per-vertex bulge/width                  |
+|  [07]   | `Polyline`                              | polyline  | 2D/3D heavy polyline, polymesh, polyface mesh                        |
+|  [08]   | `Hatch` / `MPolygon`                    | fill      | solid/gradient/pattern fill (`Hatch`) or filled polygon (`MPolygon`) |
+|  [09]   | `Text` / `MText`                        | text      | single-line / multi-line formatted text                              |
+|  [10]   | `Leader` / `MultiLeader`                | annot     | leader line / leader-with-content (block or mtext)                   |
+|  [11]   | `Dimension`                             | dimension | linear/aligned/angular/radial/diameter/ordinate/arc dimension        |
+|  [12]   | `Insert`                                | reference | block reference (placement of a `BlockLayout`) + `ATTRIB` children   |
+|  [13]   | `Mesh` / `Body` / `Surface` / `Solid3d` | 3d        | mesh builder / ACIS body / surface / 3D solid                        |
+|  [14]   | `Image` / `Wipeout`                     | raster    | raster-image reference / masking wipeout                             |
+|  [15]   | `Point` / `Ray` / `XLine`               | primitive | point; infinite / semi-infinite line                                 |
+|  [16]   | `Solid` / `Trace` / `Face3d`            | primitive | 2D filled tri/quad; 3D face                                          |
 
 [PUBLIC_TYPE_SCOPE]: symbol-table entries
 - rail: cad-export
 
 The named resources entities reference. The `Drawing` exposes one collection per table (`doc.layers`/`doc.linetypes`/…); each `.add(name, dxfattribs=)` mints an entry. These are the drawing-standard substrate the `drawing/standard` AEC vocabulary lowers onto (ISO 128 line types -> `Linetype`, ISO 3098 text heights -> `Textstyle`, the layer-name codec -> `Layer`).
 
-| [INDEX] | [TYPE]                                          | [TABLE]                                | [ROLE]                                                          |
-| :-----: | :---------------------------------------------- | :------------------------------------- | :-------------------------------------------------------------- |
-|  [01]   | `Layer`                                         | `doc.layers`                           | layer (name/color/linetype/lineweight/on/off/lock/freeze/plot)  |
-|  [02]   | `Linetype`                                      | `doc.linetypes`                        | dash/dot/complex linetype definition (ISO 128 line-type target) |
-|  [03]   | `Textstyle`                                     | `doc.styles`                           | text style (font/height/width — ISO 3098 lettering target)      |
-|  [04]   | `DimStyle`                                      | `doc.dimstyles`                        | dimension style family (ISO 129-1 dimension-style target)       |
-|  [05]   | `BlockRecord`                                   | `doc.block_records`                    | block-definition table record                                   |
-|  [06]   | `UCSTableEntry` / `View` / `Viewport` / `AppID` | `doc.ucs`/`views`/`viewports`/`appids` | coordinate systems, named views, vports, registered app ids     |
+| [INDEX] | [TYPE]                   | [TABLE]                  | [ROLE]                                                          |
+| :-----: | :----------------------- | :----------------------- | :-------------------------------------------------------------- |
+|  [01]   | `Layer`                  | `doc.layers`             | layer (name/color/linetype/lineweight/on/off/lock/freeze/plot)  |
+|  [02]   | `Linetype`               | `doc.linetypes`          | dash/dot/complex linetype definition (ISO 128 line-type target) |
+|  [03]   | `Textstyle`              | `doc.styles`             | text style (font/height/width — ISO 3098 lettering target)      |
+|  [04]   | `DimStyle`               | `doc.dimstyles`          | dimension style family (ISO 129-1 dimension-style target)       |
+|  [05]   | `BlockRecord`            | `doc.block_records`      | block-definition table record                                   |
+|  [06]   | `UCSTableEntry` / `View` | `doc.ucs`/`views`        | named coordinate systems / views                                |
+|  [07]   | `Viewport` / `AppID`     | `doc.viewports`/`appids` | vports; registered app ids                                      |
 
 [PUBLIC_TYPE_SCOPE]: geometry kernel (`ezdxf.math`)
 - rail: cad-export
 
 The pure geometry value objects ezdxf computes against — the same `Vec3`/`Matrix44` shapes the `geometry/*` and the C# `Rasm` geometry seam exchange at the wire. `Vec3.list(...)`/`v.xyz` round-trips to plain tuples a `numpy` array or a `msgspec` struct records; never re-derive an affine or a B-spline evaluator.
 
-| [INDEX] | [TYPE]                                                                                                                             | [KIND]       | [ROLE]                                                                            |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------- | :----------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `Vec3` / `Vec2`                                                                                                                    | vector       | 3D/2D vector; `cross`/`dot`/`normalize`/`lerp`/`rotate`/`angle_between`           |
-|  [02]   | `Matrix44`                                                                                                                         | affine       | 4x4 affine; `translate`/`scale`/`*_rotate`/`chain`/`inverse`/`transform_vertices` |
-|  [03]   | `BSpline`                                                                                                                          | spline       | NURBS curve; `point`/`flattening`/`derivative`/`insert_knot`/`measure`            |
-|  [04]   | `Bezier4P` / `Bezier3P` / `Bezier`                                                                                                 | bezier       | cubic/quadratic/arbitrary Bezier curve evaluators                                 |
-|  [05]   | `OCS` / `UCS`                                                                                                                      | coord sys    | object/user coordinate system <-> WCS transform                                   |
-|  [06]   | `BoundingBox` / `BoundingBox2d`                                                                                                    | extents      | 3D/2D AABB; `extend`/`union`/`inside`/`intersection`/`size`/`center`              |
-|  [07]   | `ConstructionArc` / `ConstructionCircle` / `ConstructionEllipse` / `ConstructionLine` / `ConstructionRay` / `ConstructionPolyline` | construction | analytic primitives for intersection/tangent/offset math                          |
-|  [08]   | `Plane` / `Shape2d` / `EulerSpiral` / `ApproxParamT`                                                                               | helper       | plane algebra, 2D shape transform, clothoid, arc-length reparam                   |
+| [INDEX] | [TYPE]                                     | [KIND]       | [ROLE]                                                                  |
+| :-----: | :----------------------------------------- | :----------- | :---------------------------------------------------------------------- |
+|  [01]   | `Vec3` / `Vec2`                            | vector       | 3D/2D vector; `cross`/`dot`/`normalize`/`lerp`/`rotate`/`angle_between` |
+|  [02]   | `Matrix44`                                 | affine       | `translate`/`scale`/`*_rotate`/`chain`/`inverse`/`transform_vertices`   |
+|  [03]   | `BSpline`                                  | spline       | NURBS curve; `point`/`flattening`/`derivative`/`insert_knot`/`measure`  |
+|  [04]   | `Bezier4P` / `Bezier3P` / `Bezier`         | bezier       | cubic/quadratic/arbitrary Bezier curve evaluators                       |
+|  [05]   | `OCS` / `UCS`                              | coord sys    | object/user coordinate system <-> WCS transform                         |
+|  [06]   | `BoundingBox` / `BoundingBox2d`            | extents      | 3D/2D AABB; `extend`/`union`/`inside`/`intersection`/`size`/`center`    |
+|  [07]   | `ConstructionArc` / `ConstructionCircle`   | construction | analytic arc / circle                                                   |
+|  [08]   | `ConstructionEllipse` / `ConstructionLine` | construction | analytic ellipse / line                                                 |
+|  [09]   | `ConstructionRay` / `ConstructionPolyline` | construction | analytic primitives for intersection/tangent/offset math                |
+|  [10]   | `Plane` / `Shape2d`                        | helper       | plane algebra; 2D shape transform                                       |
+|  [11]   | `EulerSpiral` / `ApproxParamT`             | helper       | clothoid; arc-length reparam                                            |
 
 [PUBLIC_TYPE_SCOPE]: render frontend + backends (`ezdxf.addons.drawing`)
 - rail: cad-export
 
 The in-process render stack — no foreign DXF renderer, no CLI. `Frontend(ctx, backend, config)` walks any layout and drives the chosen `BackendInterface`; the `RenderContext` resolves entity DXF attributes into concrete pen properties through the full layer/linetype/lineweight/color/transparency stack; `config.Configuration` + the policy enums govern lineweight/hatch/text/proxy/background/color behavior. This is how `export/dxf` produces an SVG/PDF/PNG preview and how `visualization/diagram` rasterizes a DXF figure into the document.
 
-| [INDEX] | [TYPE]                                               | [KIND]     | [ROLE]                                                                        |
-| :-----: | :--------------------------------------------------- | :--------- | :---------------------------------------------------------------------------- |
-|  [01]   | `Frontend`                                           | driver     | walks a layout, resolves properties, calls the backend per entity             |
-|  [02]   | `RenderContext`                                      | resolver   | layer/linetype/lineweight/color/font/visibility resolution stack              |
-|  [03]   | `Configuration`                                      | policy     | render policy bundle (line/hatch/text/lineweight/color/background/proxy)      |
-|  [04]   | `MatplotlibBackend`                                  | backend    | Matplotlib `Axes` target -> raster/PDF (`qsave` convenience)                  |
-|  [05]   | `SVGBackend`                                         | backend    | native SVG string target (`get_string`) — no Matplotlib needed                |
-|  [06]   | `PyMuPdfBackend`                                     | backend    | PDF/PNG/PSD target via PyMuPDF (`get_pdf_bytes`/`get_pixmap_bytes`)           |
-|  [07]   | `CustomJSONBackend` / `GeoJSONBackend`               | backend    | structured JSON / GeoJSON geometry export                                     |
-|  [08]   | `layout.Page` / `layout.Settings` / `layout.Margins` | page model | output page size/units/margins/fit-to-page placement for the SVG/PDF backends |
+| [INDEX] | [TYPE]                                               | [KIND]     | [ROLE]                                                              |
+| :-----: | :--------------------------------------------------- | :--------- | :------------------------------------------------------------------ |
+|  [01]   | `Frontend`                                           | driver     | walks a layout, resolves properties, calls the backend per entity   |
+|  [02]   | `RenderContext`                                      | resolver   | layer/linetype/lineweight/color/font/visibility resolution stack    |
+|  [03]   | `Configuration`                                      | policy     | render policy bundle over the closed policy enums                   |
+|  [04]   | `MatplotlibBackend`                                  | backend    | Matplotlib `Axes` target -> raster/PDF (`qsave` convenience)        |
+|  [05]   | `SVGBackend`                                         | backend    | native SVG string target (`get_string`) — no Matplotlib needed      |
+|  [06]   | `PyMuPdfBackend`                                     | backend    | PDF/PNG/PSD target via PyMuPDF (`get_pdf_bytes`/`get_pixmap_bytes`) |
+|  [07]   | `CustomJSONBackend` / `GeoJSONBackend`               | backend    | structured JSON / GeoJSON geometry export                           |
+|  [08]   | `layout.Page` / `layout.Settings` / `layout.Margins` | page model | output page size/units/margins/fit-to-page for the SVG/PDF backends |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -107,127 +112,201 @@ The in-process render stack — no foreign DXF renderer, no CLI. `Frontend(ctx, 
 - rail: cad-export
 
 `ezdxf.new` mints a fresh document at a target version with optional standard-resource `setup`; `readfile`/`read`/`readzip`/`decode_base64` are the polymorphic ingestion family (file path / text stream / zip member / base64 blob), each returning the same `Drawing`. For damaged third-party files, `recover.readfile` is the salvage path (the only correct loader for non-conforming DXF). `saveas`/`write`/`encode_base64` are the egress family; `audit()` validates structural integrity before save. One document owner — no per-version reader subtype.
+- call: `ezdxf.readfile(filename, encoding=None, errors='surrogateescape')` / `ezdxf.read(stream)` / `ezdxf.readzip(zipfile, filename=None)`
+- call: `Drawing.units` (property) / `ezdxf.units.conversion_factor(src, tgt)` — insert-units factor
 
-| [INDEX] | [MEMBER]                                                                          | [KIND]    | [ROLE]                                                                                           |
-| :-----: | :-------------------------------------------------------------------------------- | :-------- | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `ezdxf.new(dxfversion='AC1027', setup=False, units=6)`                            | construct | new document (`'R2018'`/`'AC1027'` etc.); `setup=True` loads standard linetypes+styles+dimstyles |
-|  [02]   | `ezdxf.readfile(filename, encoding=None, errors='surrogateescape')`               | read      | load a conforming DXF from a path                                                                |
-|  [03]   | `ezdxf.read(stream)` / `ezdxf.readzip(zipfile, filename=None)`                    | read      | load from a text stream / from a (zipped) DXF                                                    |
-|  [04]   | `ezdxf.recover.readfile(filename)` / `recover.read(stream)`                       | salvage   | load a DAMAGED/non-conforming DXF, returns `(doc, auditor)`                                      |
-|  [05]   | `Drawing.saveas(filename, encoding=None, fmt='asc')`                              | write     | save to a path; `fmt='bin'` for binary DXF                                                       |
-|  [06]   | `Drawing.write(stream, fmt='asc')` / `Drawing.encode_base64()`                    | write     | save to a stream / encode to a base64 blob                                                       |
-|  [07]   | `Drawing.audit()`                                                                 | validate  | structural audit -> `Auditor` (errors/fixes) before egress                                       |
-|  [08]   | `Drawing.modelspace()` / `Drawing.paperspace(name=None)` / `Drawing.layout(name)` | layout    | the model / a paper / a named layout (the `GraphicsFactory`)                                     |
-|  [09]   | `Drawing.units` (property) / `ezdxf.units.conversion_factor(src, tgt)`            | units     | document insert-units (`InsertUnits` enum) + unit conversion factor                              |
+| [INDEX] | [MEMBER]                                                 | [KIND]    | [ROLE]                                                        |
+| :-----: | :------------------------------------------------------- | :-------- | :------------------------------------------------------------ |
+|  [01]   | `ezdxf.new(dxfversion='AC1027', setup=False, units=6)`   | construct | new document; `setup=True` loads standard linetypes/dimstyles |
+|  [02]   | `ezdxf.readfile(...)`                                    | read      | load a conforming DXF from a path                             |
+|  [03]   | `ezdxf.read(...)` / `ezdxf.readzip(...)`                 | read      | load from a text stream / from a (zipped) DXF                 |
+|  [04]   | `ezdxf.recover.readfile(...)` / `recover.read(stream)`   | salvage   | load a DAMAGED/non-conforming DXF, returns `(doc, auditor)`   |
+|  [05]   | `Drawing.saveas(filename, encoding=None, fmt='asc')`     | write     | save to a path; `fmt='bin'` for binary DXF                    |
+|  [06]   | `Drawing.write(stream, fmt='asc')` / `.encode_base64()`  | write     | save to a stream / encode to a base64 blob                    |
+|  [07]   | `Drawing.audit()`                                        | validate  | structural audit -> `Auditor` (errors/fixes) before egress    |
+|  [08]   | `Drawing.modelspace()` / `Drawing.paperspace(name=None)` | layout    | the model / a paper layout (the `GraphicsFactory`)            |
+|  [09]   | `Drawing.layout(name)`                                   | layout    | a named layout (the `GraphicsFactory`)                        |
+|  [10]   | `Drawing.units` / `ezdxf.units.conversion_factor(...)`   | units     | insert-units (`InsertUnits` enum) + conversion factor         |
 
 [ENTRYPOINT_SCOPE]: graphic-entity builder family (`GraphicsFactory.add_*`)
 - rail: cad-export
 
-The single construction surface for every drawable, all living on the layout (`msp.add_*`). Every builder takes a final `dxfattribs=` mapping (or a `GfxAttribs` via `.asdict()`) carrying layer/color/linetype/lineweight — so attribute application is one uniform axis across the whole vocabulary, never a per-entity setter. This is the dense owner the `export/dxf`, `drawing/*` (dimensions/annotation/symbols), and `visualization/diagram` pages emit through.
+The single construction surface for every drawable, all living on the layout (`msp.add_*`). Every builder takes a final `dxfattribs=` mapping (or a `GfxAttribs` via `.asdict()`) carrying layer/color/linetype/lineweight — so attribute application is one uniform axis across the whole vocabulary, never a per-entity setter. This is the dense owner the `export/dxf`, `drawing/*` (dimensions/annotation/symbols), and `visualization/diagram` pages emit through. Every `add_*_dim` builder (the full ISO 129-1 family) returns a `DimStyleOverride` whose `.render()` generates the dimension geometry.
 
-| [INDEX] | [MEMBER]                                                                                                                                                                                                                                                                                    | [KIND]    | [ROLE]                                                                                                                                                                                                                                                              |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :-------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `add_line(start, end, dxfattribs=None)`                                                                                                                                                                                                                                                     | linear    | a `Line`                                                                                                                                                                                                                                                            |
-|  [02]   | `add_circle(center, radius, …)` / `add_arc(center, radius, start_angle, end_angle, …)`                                                                                                                                                                                                      | curve     | a `Circle` / `Arc`                                                                                                                                                                                                                                                  |
-|  [03]   | `add_ellipse(center, major_axis, ratio, start_param, end_param, …)`                                                                                                                                                                                                                         | curve     | an `Ellipse`                                                                                                                                                                                                                                                        |
-|  [04]   | `add_spline(fit_points=None, degree=3, dxfattribs=None)` / `add_open_spline` / `add_rational_spline` / `add_cad_spline_control_frame`                                                                                                                                                       | curve     | a NURBS `Spline` from fit points or a control frame                                                                                                                                                                                                                 |
-|  [05]   | `add_lwpolyline(points, format='xyseb', close=False, dxfattribs=None)`                                                                                                                                                                                                                      | polyline  | a 2D `LWPolyline` (`(x,y,start_w,end_w,bulge)` rows)                                                                                                                                                                                                                |
-|  [06]   | `add_polyline2d` / `add_polyline3d` / `add_polymesh` / `add_polyface`                                                                                                                                                                                                                       | polyline  | heavy 2D/3D polyline, polygon mesh, polyface mesh                                                                                                                                                                                                                   |
-|  [07]   | `add_hatch(color=7, dxfattribs=None)` / `add_mpolygon(…)`                                                                                                                                                                                                                                   | fill      | a `Hatch` (`set_solid_fill`/`set_gradient`/`set_pattern_fill`) / filled `MPolygon`                                                                                                                                                                                  |
-|  [08]   | `add_text(text, height=…, dxfattribs=None)` / `add_mtext(text, dxfattribs=None)`                                                                                                                                                                                                            | text      | single-line `Text` / multi-line `MText`                                                                                                                                                                                                                             |
-|  [09]   | `add_blockref(name, insert, dxfattribs=None)` / `add_auto_blockref` / `add_attdef`                                                                                                                                                                                                          | reference | an `Insert` block reference / auto-attrib insert / attribute def                                                                                                                                                                                                    |
-|  [10]   | `add_leader(vertices, …)` / `add_multileader_mtext(style)` / `add_multileader_block(style)`                                                                                                                                                                                                 | annot     | a `Leader` / a `MultiLeader` — the mtext/block calls return a `MultiLeaderMTextBuilder`/`MultiLeaderBlockBuilder` (the multileader-builder table below)                                                                                                             |
-|  [11]   | `add_linear_dim` / `add_aligned_dim` / `add_angular_dim_2l` / `add_angular_dim_3p` / `add_angular_dim_cra` / `add_radius_dim` / `add_diameter_dim` / `add_ordinate_dim` / `add_ordinate_x_dim` / `add_ordinate_y_dim` / `add_arc_dim_3p` / `add_arc_dim_cra` / `add_multi_point_linear_dim` | dimension | the full ISO 129-1 dimension family (linear/aligned; angular 2-line/3-point/center-radius-angle; radius/diameter; ordinate + x/y-feature; arc 3-point/center-radius-angle; chained multi-point) — each returns a `DimStyleOverride`, `.render()` generates geometry |
-|  [12]   | `add_mesh` / `add_3dface` / `add_body` / `add_3dsolid` / `add_surface` / `add_extruded_surface` / `add_revolved_surface` / `add_swept_surface`                                                                                                                                              | 3d        | mesh + ACIS solid/surface builders                                                                                                                                                                                                                                  |
-|  [13]   | `add_image(image_def, insert, size_in_pixels, …)` / `add_wipeout(vertices)` / `add_underlay(…)`                                                                                                                                                                                             | raster    | raster-image reference / masking wipeout / PDF/DWF/DGN underlay                                                                                                                                                                                                     |
-|  [14]   | `add_point` / `add_ray` / `add_xline` / `add_solid` / `add_trace` / `add_shape`                                                                                                                                                                                                             | primitive | point, infinite/ray line, 2D filled solid/trace, shape ref                                                                                                                                                                                                          |
-|  [15]   | `add_foreign_entity(entity, copy=True)` / `add_entity(entity)`                                                                                                                                                                                                                              | adopt     | adopt an entity created elsewhere / add a constructed entity                                                                                                                                                                                                        |
+| [INDEX] | [MEMBER]                                                              | [KIND]    | [ROLE]                                               |
+| :-----: | :-------------------------------------------------------------------- | :-------- | :--------------------------------------------------- |
+|  [01]   | `add_line(start, end)`                                                | linear    | a `Line`                                             |
+|  [02]   | `add_circle(center, radius, …)`                                       | curve     | a `Circle`                                           |
+|  [03]   | `add_arc(center, radius, start_angle, end_angle, …)`                  | curve     | an `Arc`                                             |
+|  [04]   | `add_ellipse(center, major_axis, ratio, start_param, end_param, …)`   | curve     | an `Ellipse`                                         |
+|  [05]   | `add_spline(fit_points=None, degree=3)` / `add_open_spline`           | curve     | a NURBS `Spline` from fit points / open spline       |
+|  [06]   | `add_rational_spline` / `add_cad_spline_control_frame`                | curve     | rational spline / spline from a control frame        |
+|  [07]   | `add_lwpolyline(points, format='xyseb', close=False)`                 | polyline  | a 2D `LWPolyline` (`(x,y,start_w,end_w,bulge)` rows) |
+|  [08]   | `add_polyline2d` / `add_polyline3d` / `add_polymesh` / `add_polyface` | polyline  | heavy 2D/3D polyline, polygon mesh, polyface mesh    |
+|  [09]   | `add_hatch(color=7)`                                                  | fill      | a solid/gradient/pattern `Hatch`                     |
+|  [10]   | `add_mpolygon(…)`                                                     | fill      | filled `MPolygon`                                    |
+|  [11]   | `add_text(text, height=…)` / `add_mtext(text)`                        | text      | single-line `Text` / multi-line `MText`              |
+|  [12]   | `add_blockref(name, insert)`                                          | reference | an `Insert` block reference                          |
+|  [13]   | `add_auto_blockref`                                                   | reference | auto-attrib insert                                   |
+|  [14]   | `add_attdef`                                                          | reference | attribute def                                        |
+|  [15]   | `add_leader(vertices, …)`                                             | annot     | a `Leader`                                           |
+|  [16]   | `add_multileader_mtext(style)`                                        | annot     | `MultiLeader` mtext builder (table below)            |
+|  [17]   | `add_multileader_block(style)`                                        | annot     | `MultiLeader` block builder (table below)            |
+|  [18]   | `add_linear_dim` / `add_aligned_dim` / `add_multi_point_linear_dim`   | dimension | linear / aligned / chained multi-point               |
+|  [19]   | `add_angular_dim_2l` / `add_angular_dim_3p` / `add_angular_dim_cra`   | dimension | angular 2-line / 3-point / center-radius-angle       |
+|  [20]   | `add_radius_dim` / `add_diameter_dim`                                 | dimension | radius / diameter                                    |
+|  [21]   | `add_ordinate_dim` / `add_ordinate_x_dim` / `add_ordinate_y_dim`      | dimension | ordinate + x/y-feature                               |
+|  [22]   | `add_arc_dim_3p` / `add_arc_dim_cra`                                  | dimension | arc 3-point / center-radius-angle                    |
+|  [23]   | `add_mesh` / `add_3dface` / `add_body` / `add_3dsolid`                | 3d        | mesh / 3D face / ACIS body / 3D solid                |
+|  [24]   | `add_surface`                                                         | 3d        | ACIS surface                                         |
+|  [25]   | `add_extruded_surface`                                                | 3d        | extruded surface                                     |
+|  [26]   | `add_revolved_surface`                                                | 3d        | revolved surface                                     |
+|  [27]   | `add_swept_surface`                                                   | 3d        | swept surface                                        |
+|  [28]   | `add_image(image_def, insert, size_in_pixels, …)`                     | raster    | raster-image reference                               |
+|  [29]   | `add_wipeout(vertices)` / `add_underlay(…)`                           | raster    | masking wipeout / PDF/DWF/DGN underlay               |
+|  [30]   | `add_point` / `add_ray` / `add_xline`                                 | primitive | point; semi-infinite ray / infinite line             |
+|  [31]   | `add_solid` / `add_trace` / `add_shape`                               | primitive | 2D filled solid/trace; shape ref                     |
+|  [32]   | `add_foreign_entity(entity, copy=True)`                               | adopt     | adopt an entity created elsewhere                    |
+|  [33]   | `add_entity(entity)`                                                  | adopt     | add a constructed entity                             |
 
 [ENTRYPOINT_SCOPE]: multileader builders, hatch pattern fill, and arrow blocks
 - rail: cad-export
 
 `add_multileader_mtext(style)` / `add_multileader_block(style)` return a fluent builder — `render.MultiLeaderMTextBuilder` (mtext content) / `render.MultiLeaderBlockBuilder` (block content) — whose `set_content` / `add_leader_line(ConnectionSide, vertices)` / `set_connection_types` / `build(insert)` compose the leader before it lands on the layout, `render.mleader.ConnectionSide` (`left`/`right`/`top`/`bottom`) selecting the dogleg attachment side the `drawing/annotate` keynote/leader owner drives. `Hatch.set_pattern_fill` applies an ISO 128-50 pattern the `ezdxf.tools.pattern` module supplies (`load()` the full pattern-definition dict, `scale_pattern(pattern, factor, angle)` the ISO-scale transform, `ISO_PATTERN` the 172-entry ISO hatch-name table the `drawing/standard` hatch table selects from), and `ezdxf.ARROWS` carries the arrow-block name constants the `drawing/dimension`/`drawing/annotate` terminators reference.
 
-| [INDEX] | [MEMBER]                                                                                                       | [KIND]    | [ROLE]                                                                                                                                                          |
-| :-----: | :------------------------------------------------------------------------------------------------------------- | :-------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `render.MultiLeaderMTextBuilder` / `render.MultiLeaderBlockBuilder`                                            | builder   | fluent multileader builder returned by `add_multileader_mtext`/`add_multileader_block` (`set_content`/`add_leader_line`/`set_connection_types`/`build(insert)`) |
-|  [02]   | `render.mleader.ConnectionSide` (`left`/`right`/`top`/`bottom`)                                                | enum      | leader dogleg attachment side passed to `add_leader_line`                                                                                                       |
-|  [03]   | `Hatch.set_pattern_fill(name, color=7, angle=0.0, scale=1.0, …)` / `set_solid_fill` / `set_gradient`           | fill      | pattern/solid/gradient hatch fill (ISO 128-50 pattern from the `drawing/standard` hatch table)                                                                  |
-|  [04]   | `tools.pattern.load(measurement=1, factor=None)` / `scale_pattern(pattern, factor=1, angle=0)` / `ISO_PATTERN` | pattern   | the ISO/imperial hatch-pattern definition table + ISO-scale transform                                                                                           |
-|  [05]   | `ezdxf.ARROWS` (`closed_filled`/`architectural_tick`/`dot`/`box_filled`/`closed`/`datum_triangle_filled`/…)    | constants | arrow-block name constants the dimension/leader terminators reference                                                                                           |
+| [INDEX] | [MEMBER]                                                         | [KIND]    | [ROLE]                                                    |
+| :-----: | :--------------------------------------------------------------- | :-------- | :-------------------------------------------------------- |
+|  [01]   | `render.MultiLeaderMTextBuilder`                                 | builder   | fluent mtext-content multileader builder                  |
+|  [02]   | `render.MultiLeaderBlockBuilder`                                 | builder   | fluent block-content multileader builder                  |
+|  [03]   | `render.mleader.ConnectionSide` (`left`/`right`/`top`/`bottom`)  | enum      | leader dogleg attachment side passed to `add_leader_line` |
+|  [04]   | `Hatch.set_pattern_fill(name, color=7, angle=0.0, scale=1.0, …)` | fill      | pattern hatch fill (ISO 128-50 from `drawing/standard`)   |
+|  [05]   | `Hatch.set_solid_fill` / `set_gradient`                          | fill      | solid / gradient hatch fill                               |
+|  [06]   | `tools.pattern.load(measurement=1, factor=None)` / `ISO_PATTERN` | pattern   | ISO/imperial hatch-pattern definition table               |
+|  [07]   | `tools.pattern.scale_pattern(pattern, factor=1, angle=0)`        | pattern   | ISO-scale pattern transform                               |
+|  [08]   | `ezdxf.ARROWS` (`closed_filled`/`architectural_tick`/`dot`/…)    | constants | arrow-block name constants for terminators                |
 
 [ENTRYPOINT_SCOPE]: the `Path` geometry bridge (`ezdxf.path`)
 - rail: cad-export
 
 `make_path(entity)` lifts any curve entity (Arc/Circle/Ellipse/Spline/LWPolyline/Polyline/Hatch boundary) into one `Path` command-segment object — the lossless intermediate between DXF geometry and the SVG `d`-path the `svgelements`/`graphic/vector` owners speak. The `render_*` rows are the inverse (a `Path` back to DXF entities), the `from_hatch*`/`to_*` rows convert between fills and paths, and the curve operations (`flattening`/`fillet`/`chamfer`/`triangulate`/`fit_paths_into_box`) are the native pipeline. This is the seam that lets a `skia-pathops` boolean result or an `svgelements.Path` cross into DXF and back without re-parsing a `d` string.
 
-| [INDEX] | [MEMBER]                                                                                                                                                          | [KIND]     | [ROLE]                                                                     |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------- | :------------------------------------------------------------------------- |
-|  [01]   | `path.make_path(entity, segments=1, level=4)`                                                                                                                     | lift       | any curve entity -> one `Path` (the polymorphic ingestion factory)         |
-|  [02]   | `Path.move_to(p)` / `line_to(p)` / `curve3_to(loc, ctrl)` / `curve4_to(loc, ctrl1, ctrl2)` / `close()`                                                            | build      | the bounded command grammar (`MoveTo`/`LineTo`/`Curve3To`/`Curve4To`)      |
-|  [03]   | `Path.flattening(distance, segments=16)`                                                                                                                          | flatten    | adaptive curve->`Vec3` vertices (the polyline egress)                      |
-|  [04]   | `Path.approximate(segments=20)` / `Path.control_vertices()` / `Path.commands()`                                                                                   | sample     | uniform sampling / control-vertex list / raw command list                  |
-|  [05]   | `Path.transform(m)` / `Path.to_wcs(ocs, elevation)` / `Path.reversed()` / `Path.clone()`                                                                          | transform  | apply a `Matrix44` / OCS->WCS lift / reverse / copy                        |
-|  [06]   | `path.from_hatch(hatch)` / `from_hatch_boundary_path(...)` / `from_vertices(verts, close=False)`                                                                  | convert    | hatch boundaries -> paths / a vertex ring -> a `Path`                      |
-|  [07]   | `path.render_lines` / `render_splines_and_polylines` / `render_lwpolylines` / `render_polylines2d` / `render_polylines3d` / `render_hatches` / `render_mpolygons` | render     | a `Path` iterable -> DXF entities on a layout (the inverse of `make_path`) |
-|  [08]   | `path.to_lwpolylines` / `to_polylines2d` / `to_polylines3d` / `to_splines_and_polylines` / `to_hatches` / `to_mpolygons`                                          | emit       | paths -> virtual DXF entities (no layout)                                  |
-|  [09]   | `path.fillet(points, radius)` / `chamfer(points, length)` / `polygonal_fillet(...)`                                                                               | corner     | filleted / chamfered corner paths                                          |
-|  [10]   | `path.triangulate(paths, max_sagitta=0.01)` / `make_polygon_structure(paths)` / `winding_deconstruction(...)`                                                     | tessellate | constrained triangulation / nested-polygon hole structure                  |
-|  [11]   | `path.fit_paths_into_box(paths, size, uniform=True)` / `path.bbox(paths, fast=False)` / `precise_bbox(...)`                                                       | fit        | scale-to-fit a path set into a box / extents of a path set                 |
-|  [12]   | `path.rect` / `ngon` / `star` / `gear` / `helix` / `unit_circle` / `wedge`                                                                                        | shapes     | parametric construction paths (frames, n-gons, gears, helices)             |
+| [INDEX] | [MEMBER]                                                                    | [KIND]     | [ROLE]                                    |
+| :-----: | :-------------------------------------------------------------------------- | :--------- | :---------------------------------------- |
+|  [01]   | `path.make_path(entity, segments=1, level=4)`                               | lift       | any curve entity -> one `Path`            |
+|  [02]   | `Path.move_to(p)`                                                           | build      | `MoveTo` command                          |
+|  [03]   | `Path.line_to(p)`                                                           | build      | `LineTo` command                          |
+|  [04]   | `Path.curve3_to(loc, ctrl)`                                                 | build      | `Curve3To` command                        |
+|  [05]   | `Path.curve4_to(loc, ctrl1, ctrl2)`                                         | build      | `Curve4To` command                        |
+|  [06]   | `Path.close()`                                                              | build      | close the sub-path                        |
+|  [07]   | `Path.flattening(distance, segments=16)`                                    | flatten    | adaptive curve->`Vec3` vertices           |
+|  [08]   | `Path.approximate(segments=20)`                                             | sample     | uniform-sampled vertices                  |
+|  [09]   | `Path.control_vertices()`                                                   | sample     | control-vertex list                       |
+|  [10]   | `Path.commands()`                                                           | sample     | raw command list                          |
+|  [11]   | `Path.transform(m)`                                                         | transform  | apply a `Matrix44`                        |
+|  [12]   | `Path.to_wcs(ocs, elevation)`                                               | transform  | OCS->WCS lift                             |
+|  [13]   | `Path.reversed()` / `Path.clone()`                                          | transform  | reverse direction / copy                  |
+|  [14]   | `path.from_hatch(hatch)`                                                    | convert    | hatch boundaries -> paths                 |
+|  [15]   | `path.from_hatch_boundary_path(...)`                                        | convert    | one boundary -> a `Path`                  |
+|  [16]   | `path.from_vertices(verts, close=False)`                                    | convert    | a vertex ring -> a `Path`                 |
+|  [17]   | `path.render_lines` / `render_splines_and_polylines` / `render_lwpolylines` | render     | a `Path` iterable -> layout DXF entities  |
+|  [18]   | `render_polylines2d` / `render_polylines3d`                                 | render     | -> 2D / 3D polylines on a layout          |
+|  [19]   | `render_hatches` / `render_mpolygons`                                       | render     | -> hatches / mpolygons on a layout        |
+|  [20]   | `path.to_lwpolylines` / `to_polylines2d` / `to_polylines3d`                 | emit       | paths -> virtual DXF entities (no layout) |
+|  [21]   | `to_splines_and_polylines` / `to_hatches` / `to_mpolygons`                  | emit       | paths -> virtual DXF entities (no layout) |
+|  [22]   | `path.fillet(points, radius)`                                               | corner     | filleted corner path                      |
+|  [23]   | `path.chamfer(points, length)`                                              | corner     | chamfered corner path                     |
+|  [24]   | `path.polygonal_fillet(...)`                                                | corner     | polygonal filleted corner path            |
+|  [25]   | `path.triangulate(paths, max_sagitta=0.01)`                                 | tessellate | constrained triangulation                 |
+|  [26]   | `path.make_polygon_structure(paths)`                                        | tessellate | nested-polygon hole structure             |
+|  [27]   | `path.winding_deconstruction(...)`                                          | tessellate | winding hole deconstruction               |
+|  [28]   | `path.fit_paths_into_box(paths, size, uniform=True)`                        | fit        | scale-to-fit a path set into a box        |
+|  [29]   | `path.bbox(paths, fast=False)` / `precise_bbox(...)`                        | fit        | extents / precise extents of a path set   |
+|  [30]   | `path.rect` / `ngon` / `star` / `gear` / `helix` / `unit_circle` / `wedge`  | shapes     | parametric construction paths             |
 
 [ENTRYPOINT_SCOPE]: render drivers (`ezdxf.addons.drawing`)
 - rail: cad-export
 
-The in-process DXF->image/SVG/PDF pipeline. `Frontend(RenderContext(doc), backend, config).draw_layout(msp, finalize=True)` is the one render call; the backend determines the output (`SVGBackend.get_string()` for SVG, `PyMuPdfBackend.get_pdf_bytes()` for PDF, `qsave(...)` for a Matplotlib raster/PDF in one shot). `Configuration(...).with_changes(...)` tunes the policy. No foreign renderer is admitted — this is how `export/dxf` previews and how a DXF figure lowers into the document/composition plane.
+The in-process DXF->image/SVG/PDF pipeline. `Frontend(RenderContext(doc), backend, config).draw_layout(msp, finalize=True)` is the one render call; the backend determines the output (`SVGBackend.get_string()` for SVG, `PyMuPdfBackend.get_pdf_bytes()` for PDF, `qsave(...)` for a Matplotlib raster/PDF in one shot). `Configuration(...).with_changes(...)` tunes the policy; the policy bundle carries the closed enums `LineweightPolicy`/`HatchPolicy`/`TextPolicy`/`ColorPolicy`/`BackgroundPolicy`/`ProxyGraphicPolicy`/`LinePolicy`. No foreign renderer is admitted — this is how `export/dxf` previews and how a DXF figure lowers into the document/composition plane.
 
-| [INDEX] | [MEMBER]                                                                                                                                                           | [KIND]    | [ROLE]                                                          |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------- | :-------------------------------------------------------------- |
-|  [01]   | `Frontend(ctx, out, config=Configuration(), bbox_cache=None)`                                                                                                      | construct | the render driver binding a context, a backend, and a policy    |
-|  [02]   | `Frontend.draw_layout(layout, finalize=True, filter_func=None, ...)` / `draw_entities(entities)`                                                                   | render    | walk a layout / an explicit entity set into the backend         |
-|  [03]   | `RenderContext(doc, ctb=None, export_mode=False)`                                                                                                                  | construct | the property-resolution context (layers/linetypes/colors/fonts) |
-|  [04]   | `RenderContext.set_current_layout(layout)` / `resolve_all(entity)` / `resolve_color(...)` / `resolve_lineweight(...)`                                              | resolve   | bind a layout / resolve full or per-axis pen properties         |
-|  [05]   | `SVGBackend()` -> `.get_string(page, settings=Settings())` / `.get_xml_root_element(...)`                                                                          | backend   | render to a native SVG string / lxml element tree               |
-|  [06]   | `PyMuPdfBackend()` -> `.get_pdf_bytes(page, settings=...)` / `.get_pixmap_bytes(page, fmt='png', dpi=...)`                                                         | backend   | render to PDF bytes / a raster (PNG/PSD/PPM) bytes              |
-|  [07]   | `matplotlib.qsave(layout, filename, *, bg=None, fg=None, dpi=300, backend='agg', config=None, size_inches=None)`                                                   | one-shot  | layout -> PNG/PDF/SVG file via Matplotlib in a single call      |
-|  [08]   | `CustomJSONBackend().get_json_data()` / `GeoJSONBackend().get_json_data()`                                                                                         | backend   | structured JSON / GeoJSON geometry of the rendered layout       |
-|  [09]   | `layout.Page(width, height, units=Units.mm, margins=Margins(...), max_width=0, max_height=0)` / `layout.Settings(fit_page=True, scale=1.0, page_alignment=…, ...)` | page      | output page model the SVG/PDF backends place content into       |
-|  [10]   | `config.Configuration(...)` + `LineweightPolicy`/`HatchPolicy`/`TextPolicy`/`ColorPolicy`/`BackgroundPolicy`/`ProxyGraphicPolicy`/`LinePolicy`                     | policy    | the render-policy bundle and its closed policy enums            |
+- call: `matplotlib.qsave(layout, filename, *, bg=None, fg=None, dpi=300, backend='agg', config=None, size_inches=None)` — layout to a PNG/PDF/SVG file in one Matplotlib call
+- call: `Frontend(ctx, out, config=Configuration(), bbox_cache=None)` -> `.draw_layout(layout, finalize=True, filter_func=None, ...)` / `.draw_entities(entities)`
+- call: `RenderContext(doc, ctb=None, export_mode=False)` -> `.set_current_layout(layout)` / `.resolve_all(entity)` / `.resolve_color(...)` / `.resolve_lineweight(...)`
+- call: `SVGBackend().get_string(page, settings=Settings())` / `.get_xml_root_element(...)`
+- call: `PyMuPdfBackend().get_pdf_bytes(page, settings=...)` / `.get_pixmap_bytes(page, fmt='png', dpi=...)`
+- call: `layout.Page(width, height, units=Units.mm, margins=Margins(...), max_width=0, max_height=0)` / `layout.Settings(fit_page=True, scale=1.0, page_alignment=…, ...)`
+
+| [INDEX] | [MEMBER]                                             | [KIND]    | [ROLE]                                                      |
+| :-----: | :--------------------------------------------------- | :-------- | :---------------------------------------------------------- |
+|  [01]   | `Frontend(...)`                                      | construct | render driver binding a context, backend, policy            |
+|  [02]   | `Frontend.draw_layout` / `draw_entities`             | render    | walk a layout / an explicit entity set into the backend     |
+|  [03]   | `RenderContext(...)`                                 | construct | property-resolution context (layers/linetypes/colors/fonts) |
+|  [04]   | `RenderContext.set_current_layout` / `resolve_all`   | resolve   | bind a layout / resolve full pen properties                 |
+|  [05]   | `RenderContext.resolve_color` / `resolve_lineweight` | resolve   | resolve per-axis pen properties                             |
+|  [06]   | `SVGBackend.get_string` / `get_xml_root_element`     | backend   | native SVG string / lxml element tree                       |
+|  [07]   | `PyMuPdfBackend.get_pdf_bytes` / `get_pixmap_bytes`  | backend   | PDF bytes / a raster (PNG/PSD/PPM) bytes                    |
+|  [08]   | `matplotlib.qsave(...)`                              | one-shot  | layout -> PNG/PDF/SVG file via Matplotlib (call above)      |
+|  [09]   | `CustomJSONBackend().get_json_data()`                | backend   | structured JSON geometry of the layout                      |
+|  [10]   | `GeoJSONBackend().get_json_data()`                   | backend   | GeoJSON geometry of the layout                              |
+|  [11]   | `layout.Page(...)`                                   | page      | output page model the SVG/PDF backends fill                 |
+|  [12]   | `layout.Settings(...)`                               | page      | page placement/scale settings for the backends              |
+|  [13]   | `config.Configuration(...)`                          | policy    | render-policy bundle + closed policy enums (in the lead)    |
 
 [ENTRYPOINT_SCOPE]: query, selection, transform, extents
 - rail: cad-export
 
 The read-side surfaces. `doc.query("LINE[layer=='WALLS']")` and `groupby` are the entity-selection family (one polymorphic query string, never a `find`/`filter`/`get_by` proliferation); `select` is the spatial query (rtree-backed window/fence/point against a `BoundingBox`); `transform` applies affines in place or as copies; `bbox.extents` computes the model extents the composition sheet sizing needs.
 
-| [INDEX] | [MEMBER]                                                                                                                | [KIND]    | [ROLE]                                                                             |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------- | :-------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `Drawing.query(query='*')` / `Layout.query(query='*')`                                                                  | select    | DXF entity-query-language selection (`'LINE CIRCLE[layer=="X"]'`) -> `EntityQuery` |
-|  [02]   | `EntityQuery.query(q)` / `.filter(fn)` / `.groupby(dxfattrib='' , key=None)` / `.union`/`.difference`/`.intersection`   | refine    | chain a query / predicate-filter / group / set-algebra over a selection            |
-|  [03]   | `EntityQuery.layer(...)` / `.color(...)` / `.linetype(...)` / `.transparency(...)` (filter-builder properties)          | filter    | attribute-filter builders returning a refined `EntityQuery`                        |
-|  [04]   | `groupby(entities, dxfattrib='', key=None)`                                                                             | group     | group entities by a DXF attribute or a key function -> `dict`                      |
-|  [05]   | `select.bbox_inside(shape, entities)` / `bbox_outside` / `bbox_overlap` / `bbox_crosses_fence` / `point_in_bbox`        | spatial   | window/crossing/fence/point selection against a `SelectionShape`                   |
-|  [06]   | `select.PlanarSearchIndex(entities)` / `select.Window(p1, p2)` / `Circle(center, r)` / `Polygon(verts)`                 | spatial   | an rtree spatial index + the selection-shape vocabulary                            |
-|  [07]   | `transform.inplace(entities, m)` / `transform.copies(entities, m)` / `translate` / `scale` / `axis_rotate` / `z_rotate` | transform | apply a `Matrix44` (or convenience rotate/scale/translate) in place or as copies   |
-|  [08]   | `bbox.extents(entities, *, fast=False, cache=None)` / `bbox.multi_recursive(...)` / `bbox.Cache()`                      | extents   | model extents `BoundingBox` over entities (cache-accelerated)                      |
+| [INDEX] | [MEMBER]                                                           | [KIND]    | [ROLE]                                               |
+| :-----: | :----------------------------------------------------------------- | :-------- | :--------------------------------------------------- |
+|  [01]   | `Drawing.query(query='*')` / `Layout.query(query='*')`             | select    | DXF entity-query-language selection -> `EntityQuery` |
+|  [02]   | `EntityQuery.query(q)` / `.filter(fn)`                             | refine    | chain a query / predicate-filter                     |
+|  [03]   | `EntityQuery.groupby(dxfattrib='', key=None)`                      | refine    | group a selection                                    |
+|  [04]   | `EntityQuery.union` / `.difference` / `.intersection`              | refine    | set-algebra over selections                          |
+|  [05]   | `EntityQuery.layer(...)` / `.color(...)`                           | filter    | attribute-filter builders -> a refined `EntityQuery` |
+|  [06]   | `EntityQuery.linetype(...)` / `.transparency(...)`                 | filter    | more attribute-filter builders                       |
+|  [07]   | `groupby(entities, dxfattrib='', key=None)`                        | group     | group entities by a DXF attribute or key -> `dict`   |
+|  [08]   | `select.bbox_inside(shape, entities)`                              | spatial   | window selection vs a `SelectionShape`               |
+|  [09]   | `select.bbox_outside` / `bbox_overlap`                             | spatial   | crossing selection vs a `SelectionShape`             |
+|  [10]   | `select.bbox_crosses_fence` / `point_in_bbox`                      | spatial   | fence / point selection                              |
+|  [11]   | `select.PlanarSearchIndex(entities)`                               | spatial   | an rtree spatial index                               |
+|  [12]   | `select.Window(p1, p2)` / `Circle(center, r)` / `Polygon(verts)`   | spatial   | the selection-shape vocabulary                       |
+|  [13]   | `transform.inplace(entities, m)` / `transform.copies(entities, m)` | transform | apply a `Matrix44` in place / as copies              |
+|  [14]   | `transform.translate` / `scale` / `axis_rotate` / `z_rotate`       | transform | convenience translate / scale / rotate               |
+|  [15]   | `bbox.extents(entities, *, fast=False, cache=None)`                | extents   | model extents `BoundingBox` (cache-accelerated)      |
+|  [16]   | `bbox.multi_recursive(...)` / `bbox.Cache()`                       | extents   | recursive extents / the extents cache                |
 
 [ENTRYPOINT_SCOPE]: attributes, blocks, xref, import, geo, text-to-path, fast-write
 - rail: cad-export
 
 The boundary surfaces. `GfxAttribs` is the one attribute value object (the uniform `dxfattribs=` payload across the whole builder family); `xref` links external drawings as references or copies their content; `addons.Importer` copies entities/blocks/tables across documents; `addons.geo` round-trips DXF<->GeoJSON (the geospatial seam); `text2path` converts text to glyph-outline paths/hatches; `r12writer` is the streaming fast-writer for huge R12 output.
 
-| [INDEX] | [MEMBER]                                                                                                                                                         | [KIND]     | [ROLE]                                                                       |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------- | :--------------------------------------------------------------------------- |
-|  [01]   | `GfxAttribs(*, layer='0', color=256, rgb=None, linetype='ByLayer', lineweight=-1, transparency=None, ltscale=1.0)`                                               | attribs    | the graphic-attribute value object; `.asdict()` feeds any `dxfattribs=`      |
-|  [02]   | `GfxAttribs.from_entity(e)` / `.from_dict(d)` / `.load_from_header(doc)` / `.write_to_header(doc)`                                                               | attribs    | round-trip attribs from an entity/dict/header defaults                       |
-|  [03]   | `colors.RGB(r, g, b)` / `RGB.from_hex(s)` / `.to_hex()` / `colors.RGBA(...)` / `colors.aci2rgb(i)` / `int2rgb`/`rgb2int`                                         | color      | true-color value objects + ACI<->RGB conversion                              |
-|  [04]   | `doc.blocks.new(name)` / `doc.blocks.new_anonymous_block()` / `block.add_attdef(...)`                                                                            | block      | define a reusable block; populate it via the `add_*` family                  |
-|  [05]   | `xref.attach(doc, *, block_name, filename, insert=(0,0,0), scale=1.0, rotation=0.0)` / `xref.define(doc, block_name, filename)`                                  | xref       | attach/define an external DXF reference                                      |
-|  [06]   | `xref.load_modelspace(sdoc, tdoc, filter_fn=None, conflict_policy=ConflictPolicy.KEEP)` / `xref.write_block(entities, origin=(0,0,0))` / `xref.embed(xref, ...)` | xref       | copy modelspace across docs / extract entities into a new doc / bind an xref |
-|  [07]   | `addons.Importer(source, target)` -> `.import_modelspace()` / `.import_entities(...)` / `.import_blocks(...)` / `.import_tables(...)` / `.finalize()`            | import     | cross-document copy of entities/blocks/tables (resource-mapped)              |
-|  [08]   | `addons.geo.proxy(entity)` / `addons.geo.GeoProxy.parse(geo_mapping)` / `.to_dxf_entities()` / `geo.gps_to_world_mercator`                                       | geo        | DXF entity <-> GeoJSON mapping round-trip + WGS84/Mercator transform         |
-|  [09]   | `addons.text2path.make_paths_from_str(s, font, ...)` / `make_path_from_entity(e)` / `make_hatches_from_str(...)` / `virtual_entities(...)`                       | text2path  | text/text-entity -> outline `Path`s or `Hatch`es (composes `fonttools`)      |
-|  [10]   | `addons.r12writer.r12writer(stream, fixed_tables=False, fmt='asc')` -> `R12FastStreamWriter.add_line/add_circle/add_text/...`                                    | fast-write | streaming R12 writer for millions of entities (no in-memory doc)             |
-|  [11]   | `tools.text.MTextEditor()` -> `.append`/`.color`/`.font`/`.height`/`.bullet_list`/`.stack`/`.underline`                                                          | mtext      | fluent inline-formatted MText content builder (`add_mtext(editor.text)`)     |
+- call: `GfxAttribs(*, layer='0', color=256, rgb=None, linetype='ByLayer', lineweight=-1, transparency=None, ltscale=1.0)` — the graphic-attribute value object; `.asdict()` feeds any `dxfattribs=`
+- call: `xref.attach(doc, *, block_name, filename, insert=(0,0,0), scale=1.0, rotation=0.0)` / `xref.define(doc, block_name, filename)`
+- call: `xref.load_modelspace(sdoc, tdoc, filter_fn=None, conflict_policy=ConflictPolicy.KEEP)`
+- call: `addons.Importer(source, target)` -> `.import_modelspace()` / `.import_entities(...)`
+
+| [INDEX] | [MEMBER]                                                                          | [KIND]     | [ROLE]                                  |
+| :-----: | :-------------------------------------------------------------------------------- | :--------- | :-------------------------------------- |
+|  [01]   | `GfxAttribs(...)`                                                                 | attribs    | `dxfattribs=` value object (call above) |
+|  [02]   | `GfxAttribs.from_entity(e)` / `.from_dict(d)`                                     | attribs    | attribs from an entity / a dict         |
+|  [03]   | `GfxAttribs.load_from_header(doc)` / `.write_to_header(doc)`                      | attribs    | round-trip header attribute defaults    |
+|  [04]   | `colors.RGB(r, g, b)` / `RGB.from_hex(s)` / `.to_hex()` / `colors.RGBA(...)`      | color      | true-color value objects                |
+|  [05]   | `colors.aci2rgb(i)` / `int2rgb` / `rgb2int`                                       | color      | ACI<->RGB conversion                    |
+|  [06]   | `doc.blocks.new(name)` / `doc.blocks.new_anonymous_block()`                       | block      | define a named / anonymous block        |
+|  [07]   | `block.add_attdef(...)`                                                           | block      | populate a block via the `add_*` family |
+|  [08]   | `xref.attach(...)` / `xref.define(...)`                                           | xref       | attach/define an external DXF reference |
+|  [09]   | `xref.load_modelspace(...)`                                                       | xref       | copy modelspace across docs             |
+|  [10]   | `xref.write_block(entities, origin=(0,0,0))` / `xref.embed(xref, ...)`            | xref       | extract to a new doc / bind an xref     |
+|  [11]   | `addons.Importer(...)` -> `.import_modelspace()` / `.import_entities(...)`        | import     | cross-document entity copy (mapped)     |
+|  [12]   | `Importer.import_blocks(...)` / `.import_tables(...)` / `.finalize()`             | import     | copy blocks/tables; finalize            |
+|  [13]   | `addons.geo.proxy(entity)` / `GeoProxy.parse(geo_mapping)` / `.to_dxf_entities()` | geo        | DXF entity <-> GeoJSON round-trip       |
+|  [14]   | `geo.gps_to_world_mercator`                                                       | geo        | WGS84 -> Mercator transform             |
+|  [15]   | `addons.text2path.make_paths_from_str(s, font, ...)` / `make_path_from_entity(e)` | text2path  | text/entity -> outline `Path`s          |
+|  [16]   | `text2path.make_hatches_from_str(...)` / `virtual_entities(...)`                  | text2path  | text -> `Hatch`es / virtual entities    |
+|  [17]   | `addons.r12writer.r12writer(stream, fixed_tables=False, fmt='asc')`               | fast-write | streaming R12 writer, no in-memory doc  |
+|  [18]   | `R12FastStreamWriter.add_line` / `add_circle` / `add_text` / `...`                | fast-write | the streaming entity writers            |
+|  [19]   | `tools.text.MTextEditor()` -> `.append` / `.color` / `.font` / `.height`          | mtext      | fluent inline-formatted MText builder   |
+|  [20]   | `MTextEditor.bullet_list` / `.stack` / `.underline`                               | mtext      | list / stacked-fraction / underline     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

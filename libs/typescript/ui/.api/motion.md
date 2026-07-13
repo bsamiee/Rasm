@@ -2,7 +2,7 @@
 
 [PACKAGE_SURFACE]:
 - package: `motion` · license `MIT`
-- module: dual ESM/CJS via conditional `exports`; subpaths `.` (vanilla DOM, full hybrid), `./mini` (vanilla WAAPI-only), `./react` (full hybrid React), `./react-mini` (WAAPI-only React), `./react-m` (lazy `m.*` tag proxies), `./react-client` (RSC client boundary), `./debug` (`recordStats`). Every subpath is a re-export shim onto the same- — `motion` is the canonical name, `framer-motion` never appears in a manifest beside it.
+- module: dual ESM/CJS via conditional `exports`; subpaths `.` (vanilla DOM, full hybrid), `./mini` (vanilla WAAPI-only), `./react` (full hybrid React), `./react-mini` (WAAPI-only React), `./react-m` (lazy `m.*` tag proxies), `./react-client` (RSC client boundary), `./debug` (`recordStats`). Every subpath is a re-export shim onto the same core — `motion` is the canonical name, `framer-motion` never appears in a manifest beside it.
 - asset: `sideEffects: false`; deps `framer-motion` + `tslib`; peers `react`/`react-dom` 18||19 all OPTIONAL — the vanilla entries run with zero React.
 - runtime: hybrid engine — spring/keyframe generation on rAF with WAAPI/compositor offload where the value allows; browser only.
 - plane: `plane:runtime` (W4 `ui`); folder-local to `ui`.
@@ -12,13 +12,19 @@
 
 ## [01]-[ENTRY_SPLIT]
 
-| [INDEX] | [ENTRY]                                  | [EXPORTS]                                                                                                                                                                                       | [TIER]                                                      |
-| :-----: | :--------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | `motion` (root)                          | vanilla `animate` (all overloads) `scroll` `inView` `press` `hover` `stagger` `frame` `transform` `mix` `wrap` `spring` `delay` (SECONDS) `motionValue` `animateView`                           | vanilla full — drives DOM/three/canvas without React        |
-|  [02]   | `motion/mini`                            | `animate` (single-target WAAPI) + `animateSequence` only                                                                                                                                        | vanilla featherweight (~2.3kB WAAPI)                        |
-|  [03]   | `motion/react`                           | everything in [02]-[04] below: `motion`/`m` proxies, `AnimatePresence`, `LayoutGroup`, `MotionConfig`, `LazyMotion`+bundles, the hook family, vanilla re-exports (`delay` in MILLISECONDS here) | React full hybrid                                           |
-|  [04]   | `motion/react-mini`                      | `useAnimate` ONLY (WAAPI single-target scope animate)                                                                                                                                           | React featherweight — no components, no gestures, no layout |
-|  [05]   | `motion/react-m` / `motion/react-client` | `m.*` lazy tags / RSC client-boundary tags                                                                                                                                                      | the `LazyMotion` payload split and the RSC seam             |
+| [INDEX] | [ENTRY]                                  | [TIER]                                              |
+| :-----: | :--------------------------------------- | :-------------------------------------------------- |
+|  [01]   | `motion` (root)                          | vanilla full — drives DOM/three/canvas, no React    |
+|  [02]   | `motion/mini`                            | vanilla featherweight (~2.3kB WAAPI)                |
+|  [03]   | `motion/react`                           | React full hybrid                                   |
+|  [04]   | `motion/react-mini`                      | React featherweight — no components/gestures/layout |
+|  [05]   | `motion/react-m` / `motion/react-client` | the `LazyMotion` payload split and the RSC seam     |
+
+- [01]-[MOTION_ROOT] exports: vanilla `animate` (all overloads), `scroll`, `inView`, `press`, `hover`, `stagger`, `frame`, `transform`, `mix`, `wrap`, `spring`, `delay` (SECONDS), `motionValue`, `animateView`.
+- [02]-[MOTION_MINI] exports: `animate` (single-target WAAPI) + `animateSequence` only.
+- [03]-[MOTION_REACT] exports: everything in [02]-[04] below — `motion`/`m` proxies, `AnimatePresence`, `LayoutGroup`, `MotionConfig`, `LazyMotion` + bundles, the hook family, vanilla re-exports (`delay` in MILLISECONDS here).
+- [04]-[MOTION_REACT_MINI] exports: `useAnimate` ONLY (WAAPI single-target scope animate).
+- [05]-[MOTION_REACT_M/CLIENT] exports: `m.*` lazy tags / RSC client-boundary tags.
 
 `animateView` rides entries [01] and [03], never the mini entries. The `delay` unit flip (seconds vanilla, milliseconds react) is a live boundary trap — pin the entry before citing a timeout.
 
@@ -26,17 +32,21 @@
 
 The `MotionValue` is the state cell React never re-renders for: it subscribes, transforms, and writes to the DOM outside reconciliation.
 
-| [INDEX] | [SURFACE]                                                                                                   | [FAMILY]     | [CAPABILITY]                                                                              |
-| :-----: | :---------------------------------------------------------------------------------------------------------- | :----------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | `motionValue(init)` / `useMotionValue(initial)`                                                             | value cell   | the render-free animated cell; bound via `style={{ x }}`                                  |
-|  [02]   | `useSpring(source, options?)`                                                                               | spring bind  | spring-follows a `MotionValue`, number, or unit string                                    |
-|  [03]   | `useTransform(input, inputRange, outputRange, options?)` / `useTransform(() => expr)`                       | derive       | mapped or computed derived value — the fold over source values                            |
-|  [04]   | `useScroll({ container?, target?, offset? })` → `{ scrollX, scrollY, scrollXProgress, scrollYProgress }`    | scroll link  | scroll-linked values — the JS `ScrollTimeline` the folder rejects as a second engine      |
-|  [05]   | `useVelocity(value)` / `useTime()` / `useAnimationFrame(cb)`                                                | derive/clock | velocity tracking, elapsed-time value, per-frame callback                                 |
-|  [06]   | `useMotionValueEvent(value, event, cb)`                                                                     | event seam   | `change`/`animationStart`/`animationComplete` without an effect                           |
-|  [07]   | `transform` / `mix` / `wrap` / `spring(options)` / `stagger(duration?, {startDelay, from, ease})` / `frame` | math/batch   | range mapping, mixers, spring keyframe generator, stagger `delay` option, the rAF batcher |
+| [INDEX] | [SURFACE]                                                | [FAMILY]     | [CAPABILITY]                                             |
+| :-----: | :------------------------------------------------------- | :----------- | :------------------------------------------------------- |
+|  [01]   | `motionValue(init)` / `useMotionValue(initial)`          | value cell   | the render-free animated cell; bound via `style={{ x }}` |
+|  [02]   | `useSpring(source, options?)`                            | spring bind  | spring-follows a `MotionValue`, number, or unit string   |
+|  [03]   | `useTransform(input, inputRange, outputRange, options?)` | derive       | mapped range→range derived value                         |
+|  [04]   | `useTransform(() => expr)`                               | derive       | computed derived value, the fold over source values      |
+|  [05]   | `useScroll({ container?, target?, offset? })`            | scroll link  | scroll-linked `scrollX/Y` + `scrollX/YProgress` values   |
+|  [06]   | `useVelocity(value)` / `useTime()`                       | derive/clock | velocity tracking + elapsed-time value                   |
+|  [07]   | `useAnimationFrame(cb)`                                  | clock        | per-frame callback                                       |
+|  [08]   | `useMotionValueEvent(value, event, cb)`                  | event seam   | `change`/`animationStart`/`animationComplete` events     |
+|  [09]   | `transform` / `mix` / `wrap`                             | math/batch   | range mapping, mixers, value wrap                        |
+|  [10]   | `spring(options)` / `frame`                              | math/batch   | spring keyframe generator; the rAF batcher               |
+|  [11]   | `stagger(duration?, {startDelay, from, ease})`           | math/batch   | stagger `delay` generator                                |
 
-```ts contract
+```ts signature
 // Transition vocabulary: type discriminant + spring physics. visualDuration overrides duration; stiffness/damping/mass override bounce/duration when set.
 type Transition = { type?: "spring" | "tween" | "keyframes" | "inertia" | "decay"; duration?: number; visualDuration?: number
   stiffness?: number; damping?: number; mass?: number; bounce?: number; velocity?: number; restSpeed?: number; restDelta?: number
@@ -57,7 +67,7 @@ type Transition = { type?: "spring" | "tween" | "keyframes" | "inertia" | "decay
 
 `animateView(update, options?)` is the typed spring-physics layer over `document.startViewTransition` — open-source in core, promoted out of Motion+; the React `<AnimateView>` component remains membership-gated and is REJECTED.
 
-```ts contract
+```ts signature
 declare function animateView(update: () => void | Promise<void>, options?: AnimationOptions & { interrupt?: "wait" | "immediate" }): ViewTransitionBuilder
 // Builder targets resolve selectors/elements and manage view-transition-name automatically; .add(a, b) pairs a shared-element morph.
 interface ViewTransitionBuilder { add(subject: Element | string, newSubject?: Element | string): this

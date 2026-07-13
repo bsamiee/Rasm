@@ -12,7 +12,7 @@
 
 ## [01]-[CLIENT_AND_TABLE]
 
-```ts contract
+```ts signature
 declare const perspective: {
   worker(worker?: Promise<SharedWorker | ServiceWorker | Worker | MessagePort>): Promise<Client>   // browser: no-arg spawns a dedicated Worker
   websocket(url: string): Promise<Client>                                                          // remote host — same Client API over the wire
@@ -41,21 +41,21 @@ interface Table {
 
 ## [02]-[VIEW_PROTOCOL]
 
-The `ViewConfigUpdate` value is the whole query surface (current spellings — the retired `row_pivots`/`column_pivots` names are dead):
+The `ViewConfigUpdate` value is the whole query surface (current spellings — the retired `row_pivots`/`column_pivots` names are dead); `sort` directions span `asc`, `desc`, `col asc`, `col desc`, `asc abs`, `desc abs`, and further variants, and `expressions` validate through `table.validate_expressions`:
 
-| [INDEX] | [FIELD]                                | [SHAPE]                                                                                  | [ROLE]                                                                                        |
-| :-----: | :------------------------------------- | :--------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------- |
-|  [01]   | `group_by` / `split_by`                | `string[]`                                                                               | row pivots / column pivots                                                                    |
-|  [02]   | `columns`                              | `(string \| null)[]`                                                                     | projected columns                                                                             |
-|  [03]   | `aggregates`                           | `Record<string, string \| [string, string[]]>`                                           | per-column aggregate; tuple form for dependent aggregates (`min by`/`max by`/`weighted mean`) |
-|  [04]   | `filter` + `filter_op`                 | `[column, operator, term][]` · `"and" \| "or"`                                           | predicate rows                                                                                |
-|  [05]   | `sort`                                 | `[column, "asc" \| "desc" \| "col asc" \| "col desc" \| "asc abs" \| "desc abs" \| …][]` | sort rows incl. column-axis and absolute variants                                             |
-|  [06]   | `expressions`                          | `Record<string, string>`                                                                 | ExprTK computed columns — validated via `table.validate_expressions`                          |
-|  [07]   | `group_by_depth` / `group_rollup_mode` | `number` · `"rollup" \| "flat" \| "total"`                                               | tree depth and rollup presentation                                                            |
+| [INDEX] | [FIELD]                                | [SHAPE]                                        | [ROLE]                                     |
+| :-----: | :------------------------------------- | :--------------------------------------------- | :----------------------------------------- |
+|  [01]   | `group_by` / `split_by`                | `string[]`                                     | row pivots / column pivots                 |
+|  [02]   | `columns`                              | `(string \| null)[]`                           | projected columns                          |
+|  [03]   | `aggregates`                           | `Record<string, string \| [string, string[]]>` | per-column aggregate; tuple for dependent  |
+|  [04]   | `filter` + `filter_op`                 | `[column, operator, term][]` · `"and" \| "or"` | predicate rows                             |
+|  [05]   | `sort`                                 | `[column, direction][]`                        | sort rows; column-axis + absolute variants |
+|  [06]   | `expressions`                          | `Record<string, string>`                       | ExprTK computed columns                    |
+|  [07]   | `group_by_depth` / `group_rollup_mode` | `number` · `"rollup" \| "flat" \| "total"`     | tree depth and rollup presentation         |
 
 Aggregate roster (numeric): `sum` `abs sum` `sum not null` `avg` `mean` `count` `distinct count` `dominant` `first` `last` `last by index` `high` `low` `max` `min` `high minus low` `last minus first` `median` `q1` `q3` `pct sum parent` `pct sum total` `stddev` `var` `unique` `weighted mean` `min by` `max by`; string adds `join`, date/datetime and boolean carry the applicable subset.
 
-```ts contract
+```ts signature
 interface View {
   to_arrow(window?: ViewWindow): Promise<ArrayBuffer>                    // the columnar egress — feeds apache-arrow tableFromIPC zero-copy
   to_columns(window?): Promise<Record<string, unknown[]>>; to_json(window?): Promise<Record<string, unknown>[]>; to_csv(window?): Promise<string>; to_ndjson(window?): Promise<string>

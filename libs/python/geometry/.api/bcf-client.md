@@ -43,17 +43,17 @@
 [PUBLIC_TYPE_SCOPE]: v2 and v3 markup model family
 - rail: bcf-exchange schema
 
-The markup models are `xsdata` dataclasses generated from the BCF XSD. The v3 markup adds `DocumentReference`; both versions share `Topic`/`Comment`/`Markup`/`ViewPoint`/`Header`/`BimSnippet`. `Topic` carries the `title: str`, `guid`, `topic_type`, `topic_status`, `creation_author`, `creation_date`, and `description` fields the issue-authoring rail reads (`TopicHandler.topic.title` is the canonical issue title accessor).
+The markup models are `xsdata` dataclasses generated from the BCF XSD. The v3 markup adds `DocumentReference`; both versions share `Topic`/`Comment`/`Markup`/`ViewPoint`/`Header`/`BimSnippet`. `Topic` carries the `title: str`, `guid`, `topic_type`, `topic_status`, `creation_author`, `creation_date`, and `description` fields the issue-authoring rail reads (`TopicHandler.topic.title` is the canonical issue title accessor). Each model resolves as `bcf.v2.model.markup.<Name>` and `bcf.v3.model.markup.<Name>`.
 
-| [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY]  | [CAPABILITY]                                                                               |
-| :-----: | :---------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------- |
-|  [01]   | `v2.model.markup.Topic` / `v3.model.markup.Topic`           | `xsdata` model | issue metadata: `title`/`guid`/`topic_type`/`topic_status`/`creation_author`/`description` |
-|  [02]   | `v2.model.markup.Comment` / `v3.model.markup.Comment`       | `xsdata` model | issue comment                                                                              |
-|  [03]   | `v2.model.markup.Markup` / `v3.model.markup.Markup`         | `xsdata` model | topic container                                                                            |
-|  [04]   | `v2.model.markup.ViewPoint` / `v3.model.markup.ViewPoint`   | `xsdata` model | viewpoint reference                                                                        |
-|  [05]   | `v2.model.markup.Header` / `v3.model.markup.Header`         | `xsdata` model | IFC file header reference                                                                  |
-|  [06]   | `v2.model.markup.BimSnippet` / `v3.model.markup.BimSnippet` | `xsdata` model | linked BIM snippet                                                                         |
-|  [07]   | `v3.model.markup.DocumentReference`                         | `xsdata` model | linked document reference                                                                  |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]  | [CAPABILITY]                                                    |
+| :-----: | :------------------ | :------------- | :-------------------------------------------------------------- |
+|  [01]   | `Topic`             | `xsdata` model | issue metadata: `title`/`guid`/`topic_status`/`creation_author` |
+|  [02]   | `Comment`           | `xsdata` model | issue comment                                                   |
+|  [03]   | `Markup`            | `xsdata` model | topic container                                                 |
+|  [04]   | `ViewPoint`         | `xsdata` model | viewpoint reference                                             |
+|  [05]   | `Header`            | `xsdata` model | IFC file header reference                                       |
+|  [06]   | `BimSnippet`        | `xsdata` model | linked BIM snippet                                              |
+|  [07]   | `DocumentReference` | `xsdata` model | linked document reference (v3 only)                             |
 
 [PUBLIC_TYPE_SCOPE]: v3 REST API family — `bcf.v3.bcfapi`
 - rail: bcf-exchange rest
@@ -71,71 +71,92 @@ The markup models are `xsdata` dataclasses generated from the BCF XSD. The v3 ma
 
 `bcf.bcfxml.load` detects the schema version from the `bcf.version` file in the zip and returns the matching versioned `BcfXml`; the versioned `create_new` factories author a fresh document.
 
-| [INDEX] | [SURFACE]                                                                                         | [ENTRY_FAMILY] | [CAPABILITY]                     |
-| :-----: | :------------------------------------------------------------------------------------------------ | :------------- | :------------------------------- |
-|  [01]   | `bcf.bcfxml.load(filepath: Path, xml_handler=None) -> BcfXml \| None`                             | loader         | open BCF file, detect schema     |
-|  [02]   | `BcfXml.load(filename: Path, xml_handler=None) -> BcfXml \| None`                                 | loader         | open BCF into a version instance |
-|  [03]   | `bcf.v2.bcfxml.BcfXml.create_new(project_name=None, xml_handler=None) -> BcfXml`                  | factory        | new v2 BCF document              |
-|  [04]   | `bcf.v3.bcfxml.BcfXml.create_new(project_name=None, extensions=None, xml_handler=None) -> BcfXml` | factory        | new v3 BCF document              |
-|  [05]   | `BcfXml.save(filename: Path \| None=None, keep_open: bool=False) -> None`                         | serializer     | write BCF archive to disk        |
-|  [06]   | `BcfXml.close() -> None`                                                                          | lifecycle      | close and release zip resources  |
+- call: `bcf.bcfxml.load(filepath: Path, xml_handler=None) -> BcfXml | None`; `BcfXml.load(filename: Path, xml_handler=None) -> BcfXml | None`; `BcfXml.save(filename: Path | None=None, keep_open: bool=False) -> None`; `BcfXml.close() -> None`
+- call: `bcf.v2.bcfxml.BcfXml.create_new(project_name=None, xml_handler=None)`; `bcf.v3.bcfxml.BcfXml.create_new(project_name=None, extensions=None, xml_handler=None)`
+
+| [INDEX] | [SURFACE]                         | [ENTRY_FAMILY] | [CAPABILITY]                     |
+| :-----: | :-------------------------------- | :------------- | :------------------------------- |
+|  [01]   | `bcf.bcfxml.load`                 | loader         | open BCF file, detect schema     |
+|  [02]   | `BcfXml.load`                     | loader         | open BCF into a version instance |
+|  [03]   | `bcf.v2.bcfxml.BcfXml.create_new` | factory        | new v2 BCF document              |
+|  [04]   | `bcf.v3.bcfxml.BcfXml.create_new` | factory        | new v3 BCF document              |
+|  [05]   | `BcfXml.save`                     | serializer     | write BCF archive to disk        |
+|  [06]   | `BcfXml.close`                    | lifecycle      | close and release zip resources  |
 
 [ENTRYPOINT_SCOPE]: topic and comment lifecycle
 - rail: bcf-exchange
 
 `add_topic` returns a `TopicHandler`; comment and project mutations accumulate in memory until `save`.
 
-| [INDEX] | [SURFACE]                                                                                      | [ENTRY_FAMILY] | [CAPABILITY]                    |
-| :-----: | :--------------------------------------------------------------------------------------------- | :------------- | :------------------------------ |
-|  [01]   | `BcfXml.add_topic(title, description, author, topic_type='', topic_status='') -> TopicHandler` | mutator        | author a new topic              |
-|  [02]   | `BcfXml.get_topics() -> dict[str, TopicHandler]`                                               | query          | all topics keyed by GUID        |
-|  [03]   | `BcfXml.get_topic(guid: str) -> TopicHandler`                                                  | query          | one topic by GUID               |
-|  [04]   | `BcfXml.add_comment(_topic, _comment=None) -> None`                                            | mutator        | append a comment to a topic     |
-|  [05]   | `BcfXml.edit_comment() -> None`                                                                | mutator        | edit an existing comment        |
-|  [06]   | `BcfXml.get_project()` / `BcfXml.edit_project(...)` / `BcfXml.save_project(...)`               | project        | project metadata read and write |
-|  [07]   | `BcfXml.documents`                                                                             | property (v3)  | v3 `DocumentsHandler` access    |
+- call: `BcfXml.add_topic(title, description, author, topic_type='', topic_status='') -> TopicHandler`; `get_topics() -> dict[str, TopicHandler]`; `get_topic(guid: str) -> TopicHandler`; `add_comment(_topic, _comment=None)`; `edit_comment()`; `get_project()` / `edit_project(...)` / `save_project(...)`
 
-[ENTRYPOINT_SCOPE]: TopicHandler and viewpoint operations
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                    |
+| :-----: | :----------------------------------------------------- | :------------- | :------------------------------ |
+|  [01]   | `BcfXml.add_topic`                                     | mutator        | author a new topic              |
+|  [02]   | `BcfXml.get_topics`                                    | query          | all topics keyed by GUID        |
+|  [03]   | `BcfXml.get_topic`                                     | query          | one topic by GUID               |
+|  [04]   | `BcfXml.add_comment`                                   | mutator        | append a comment to a topic     |
+|  [05]   | `BcfXml.edit_comment`                                  | mutator        | edit an existing comment        |
+|  [06]   | `BcfXml.get_project` / `edit_project` / `save_project` | project        | project metadata read and write |
+|  [07]   | `BcfXml.documents`                                     | property (v3)  | v3 `DocumentsHandler` access    |
+
+[ENTRYPOINT_SCOPE]: `TopicHandler` operations
 - rail: bcf-exchange
 
-`VisualizationInfoHandler` authors the camera, selection, and visibility of a viewpoint; `TopicHandler` binds viewpoints to a topic.
+`TopicHandler` binds viewpoints and comments to a topic and exposes its markup model; the factory and viewpoint-attach signatures hoist to the call line.
+- call: `add_viewpoint(element: entity_instance) -> VisualizationInfoHandler`; `add_viewpoint_from_point_and_guids(position, *guids)`; `add_visinfo_handler(handler)`; `create_new(...)`; `save(destination_zip)`
 
-| [INDEX] | [SURFACE]                                                                                                                                   | [ENTRY_FAMILY] | [CAPABILITY]                                                                                                        |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `TopicHandler.add_viewpoint(element: entity_instance) -> VisualizationInfoHandler`                                                          | mutator        | attach an element viewpoint to the topic                                                                            |
-|  [02]   | `TopicHandler.add_viewpoint_from_point_and_guids(position, *guids) -> VisualizationInfoHandler`                                             | mutator        | viewpoint from a camera point plus GUIDs                                                                            |
-|  [03]   | `TopicHandler.add_visinfo_handler(handler) -> None`                                                                                         | mutator        | bind a prepared `VisualizationInfoHandler`                                                                          |
-|  [04]   | `TopicHandler.topic` / `markup` / `comments` / `viewpoints` / `header` / `bim_snippet` / `reference_files` / `guid`                         | property       | topic model (`.title`), markup, comments, viewpoint handlers, IFC header, snippet bytes, reference-file bytes, GUID |
-|  [05]   | `TopicHandler.create_new(...)` / `save(destination_zip) -> None`                                                                            | factory / I/O  | in-package topic factory; persist topic into the BCF zip                                                            |
-|  [06]   | `VisualizationInfoHandler.create_new(element, xml_handler=None) -> VisualizationInfoHandler`                                                | factory        | viewpoint from an element                                                                                           |
-|  [07]   | `VisualizationInfoHandler.create_from_point_and_guids(position, *guids, xml_handler=None) -> VisualizationInfoHandler`                      | factory        | viewpoint from camera point plus GUIDs                                                                              |
-|  [08]   | `VisualizationInfoHandler.from_topic_viewpoints(...)` / `load(topic_dir, vpt, xml_handler=None)` / `save(bcf_zip, topic_dir, vpt) -> None`  | factory / I/O  | reconstruct from markup viewpoints; viewpoint read and write                                                        |
-|  [09]   | `VisualizationInfoHandler.set_selected_elements(elements: list[entity_instance]) -> None`                                                   | mutator        | mark selected IFC elements                                                                                          |
-|  [10]   | `VisualizationInfoHandler.set_visible_elements(elements)` / `set_hidden_elements(elements)` / `set_visibility(default_visible, exceptions)` | mutator        | element visibility from IFC elements                                                                                |
-|  [11]   | `VisualizationInfoHandler.get_selected_guids() -> list[str] \| None` / `get_elements_visibility() -> tuple[bool, list[str]] \| None`        | query          | selected GUIDs; default-visibility + exception GUIDs                                                                |
+| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [CAPABILITY]                                               |
+| :-----: | :---------------------------------------------------- | :------------- | :--------------------------------------------------------- |
+|  [01]   | `add_viewpoint`                                       | mutator        | attach an element viewpoint to the topic                   |
+|  [02]   | `add_viewpoint_from_point_and_guids`                  | mutator        | viewpoint from a camera point plus GUIDs                   |
+|  [03]   | `add_visinfo_handler`                                 | mutator        | bind a prepared `VisualizationInfoHandler`                 |
+|  [04]   | `topic` / `markup` / `comments` / `viewpoints`        | property       | topic model (`.title`), markup, comment/viewpoint handlers |
+|  [05]   | `header` / `bim_snippet` / `reference_files` / `guid` | property       | IFC header, snippet bytes, reference-file bytes, GUID      |
+|  [06]   | `create_new` / `save`                                 | factory / I/O  | in-package topic factory; persist topic into the BCF zip   |
+
+[ENTRYPOINT_SCOPE]: `VisualizationInfoHandler` operations
+- rail: bcf-exchange
+
+`VisualizationInfoHandler` authors the camera, selection, and visibility of a viewpoint from `ifcopenshell` elements; the factory and setter signatures hoist to the call lines.
+- call: `create_new(element, xml_handler=None)`; `create_from_point_and_guids(position, *guids, xml_handler=None)`; `from_topic_viewpoints(...)` / `load(topic_dir, vpt, xml_handler=None)` / `save(bcf_zip, topic_dir, vpt)`
+- call: `set_selected_elements(elements: list[entity_instance])`; `set_visible_elements(elements)` / `set_hidden_elements(elements)` / `set_visibility(default_visible, exceptions)`; `get_selected_guids() -> list[str] | None` / `get_elements_visibility() -> tuple[bool, list[str]] | None`
+
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [CAPABILITY]                                         |
+| :-----: | :----------------------------------------------- | :------------- | :--------------------------------------------------- |
+|  [01]   | `create_new`                                     | factory        | viewpoint from an element                            |
+|  [02]   | `create_from_point_and_guids`                    | factory        | viewpoint from camera point plus GUIDs               |
+|  [03]   | `from_topic_viewpoints` / `load` / `save`        | factory / I/O  | reconstruct from markup; read/write viewpoint        |
+|  [04]   | `set_selected_elements`                          | mutator        | mark selected IFC elements                           |
+|  [05]   | `set_visible_elements` / `set_hidden_elements`   | mutator        | show/hide IFC elements in the viewpoint              |
+|  [06]   | `set_visibility`                                 | mutator        | default visibility plus exception elements           |
+|  [07]   | `get_selected_guids` / `get_elements_visibility` | query          | selected GUIDs; default-visibility + exception GUIDs |
 
 [ENTRYPOINT_SCOPE]: v3 REST API — `bcf.v3.bcfapi`
 - rail: bcf-exchange rest
 
-`BcfClient` is the polymorphic `requests`-backed REST surface: the typed CRUD methods compose over the `get`/`post`/`put`/`delete` HTTP primitives (carrying endpoint, params, and auth; GET returns `Any`, mutations return `(status, text)`). `FoundationClient` carries auth and version negotiation; `OAuthReceiver` is the `BaseHTTPRequestHandler` servicing the OAuth2 authorization-code callback.
+`BcfClient` is the polymorphic `requests`-backed REST surface: the typed CRUD methods compose over the `get`/`post`/`put`/`delete` HTTP primitives (carrying endpoint, params, and auth; GET returns `Any`, mutations return `(status, text)`). `FoundationClient` carries auth and version negotiation; `OAuthReceiver` is the `BaseHTTPRequestHandler` servicing the OAuth2 authorization-code callback. Media rows read viewpoint state (snapshot/bitmap/selection/coloring/visibility); events rows return topic and comment audit records.
 
-| [INDEX] | [SURFACE]                                                                                                                                                               | [ENTRY_FAMILY] | [CAPABILITY]                                               |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------- |
-|  [01]   | `BcfClient.get(endpoint, params=None, is_auth_required=False)` / `post(endpoint, data, params)` / `put(...)` / `delete(...)`                                            | http primitive | the polymorphic HTTP verbs every CRUD method composes over |
-|  [02]   | `BcfClient.set_version(version)`                                                                                                                                        | config         | pin the API version dict                                   |
-|  [03]   | `BcfClient.get_projects()` / `get_project(project_id)` / `update_project(project_id, data)` / `get_extensions(project_id)`                                              | project        | project listing/detail/update + extensions                 |
-|  [04]   | `BcfClient.get_topics(...)` / `get_topic(project_id, topic_id)` / `create_topic(...)` / `update_topic(...)` / `delete_topic(...)`                                       | topic          | topic CRUD                                                 |
-|  [05]   | `BcfClient.get_comments(...)` / `get_comment(...)` / `create_comments(...)` / `update_comment(...)` / `delete_comment(...)`                                             | comment        | comment CRUD                                               |
-|  [06]   | `BcfClient.get_viewpoints(...)` / `get_viewpoint(...)` / `create_viewpoints(...)` / `delete_viewpoint(...)`                                                             | viewpoint      | viewpoint CRUD                                             |
-|  [07]   | `BcfClient.get_snapshot(...)` / `get_bitmap(...)` / `get_selection(...)` / `get_coloring(...)` / `get_visibility(...)`                                                  | media          | viewpoint media and state                                  |
-|  [08]   | `BcfClient.get_snippet(...)` / `update_snippet(...)` / `get_files_information(...)` / `get_files(...)` / `update_files(...)`                                            | snippet/files  | BIM snippet and referenced file transfer                   |
-|  [09]   | `BcfClient.get_related_topics(...)` / `update_related_topics(...)`                                                                                                      | relations      | topic cross-references                                     |
-|  [10]   | `BcfClient.get_document_references(...)` / `create_document_reference(...)` / `update_document_references(...)`                                                         | doc-refs       | topic document-reference CRUD                              |
-|  [11]   | `BcfClient.get_documents(...)` / `get_document(...)` / `create_document(...)`                                                                                           | documents      | project document store                                     |
-|  [12]   | `BcfClient.get_topics_events(...)` / `get_topic_events(...)` / `get_comments_events(...)` / `get_comment_events(...)`                                                   | events         | topic and comment audit events                             |
-|  [13]   | `FoundationClient.login()` / `get_access_token()` / `get_refresh_token()` / `get_new_access_token()` / `set_auth_method(method)` / `set_tokens_from_response(response)` | auth           | OAuth2 authorization-code token lifecycle                  |
-|  [14]   | `FoundationClient.get_auth_methods()` / `get_versions()`                                                                                                                | negotiate      | server auth methods and API versions                       |
-|  [15]   | `OAuthReceiver.do_GET()`                                                                                                                                                | auth callback  | local HTTP handler capturing the OAuth2 redirect           |
+- call: the HTTP primitives are `BcfClient.get(endpoint, params=None, is_auth_required=False)`, `post(endpoint, data, params)`, `put(...)`, `delete(...)`; every CRUD row below is a `BcfClient` method.
+
+| [INDEX] | [SURFACE]                                                                                    | [ENTRY_FAMILY] |
+| :-----: | :------------------------------------------------------------------------------------------- | :------------- |
+|  [01]   | `get` / `post` / `put` / `delete`                                                            | http primitive |
+|  [02]   | `set_version`                                                                                | config         |
+|  [03]   | `get_projects` / `get_project` / `update_project` / `get_extensions`                         | project        |
+|  [04]   | `get_topics` / `get_topic` / `create_topic` / `update_topic` / `delete_topic`                | topic          |
+|  [05]   | `get_comments` / `get_comment` / `create_comments` / `update_comment` / `delete_comment`     | comment        |
+|  [06]   | `get_viewpoints` / `get_viewpoint` / `create_viewpoints` / `delete_viewpoint`                | viewpoint      |
+|  [07]   | `get_snapshot` / `get_bitmap` / `get_selection` / `get_coloring` / `get_visibility`          | media          |
+|  [08]   | `get_snippet` / `update_snippet` / `get_files_information` / `get_files` / `update_files`    | snippet/files  |
+|  [09]   | `get_related_topics` / `update_related_topics`                                               | relations      |
+|  [10]   | `get_document_references` / `create_document_reference` / `update_document_references`       | doc-refs       |
+|  [11]   | `get_documents` / `get_document` / `create_document`                                         | documents      |
+|  [12]   | `get_topics_events` / `get_topic_events` / `get_comments_events` / `get_comment_events`      | events         |
+|  [13]   | `FoundationClient.login` / `get_access_token` / `get_refresh_token` / `get_new_access_token` | auth           |
+|  [14]   | `FoundationClient.set_auth_method` / `set_tokens_from_response`                              | auth           |
+|  [15]   | `FoundationClient.get_auth_methods` / `get_versions`                                         | negotiate      |
+|  [16]   | `OAuthReceiver.do_GET`                                                                       | auth callback  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

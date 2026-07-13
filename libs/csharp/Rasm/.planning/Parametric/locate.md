@@ -501,15 +501,17 @@ flowchart LR
 
 One owner per axis; capability is a case, column, or fold arm, never a sibling surface. `[RAIL]` names the one return rail each owner exposes.
 
-| [INDEX] | [AXIS_CONCERN]        | [OWNER]                | [KIND]                                                                                                            | [RAIL]                                    | [CASES] |
-| :-----: | :-------------------- | :--------------------- | :---------------------------------------------------------------------------------------------------------------- | :---------------------------------------- | :-----: |
-|  [01]   | location aspect       | `Location`             | `[Union]` folded to one operation by generated `Switch`                                                           | `Operation<TGeometry,TOut>() → Operation` |    6    |
-|  [02]   | addressing            | `Locator`              | `[Union]` + `ResolveParameter`/`CurveRequirement` columns                                                         | `ResolveParameter → Fin<double>`          |    6    |
-|  [03]   | value rows            | `LocationValue`        | `[Union]` — `Key`/`Closest` columns + three family arms per case                                                  | `Resolve → Operation<TGeometry,TOut>`     |    8    |
-|  [04]   | subdivision           | `Division`             | `[Union]` validating at the fold                                                                                  | `Operation → Operation<TGeometry,TOut>`   |    2    |
-|  [05]   | curvature reading     | `CurvatureMode`        | `[Union]` + `IsCurveMagnitude`/`SurfaceMetrics` derivation columns                                                | derivation (pure)                         |    2    |
-|  [06]   | curvature aggregation | `CurvatureAggregation` | `[Union]` + `Key` column; `Band` policy on the extrema case                                                       | carrier (read by the sweep)               |    2    |
-|  [07]   | operation spine       | `Locate`               | `internal static` — one `Admits` gate, 8 aspect builders, the `Curvature` matrix over one `Sweep`, 7 sample folds | `Operation.Build → Eff<Env, Seq<TOut>>`   |    —    |
+| [INDEX] | [AXIS_CONCERN]        | [OWNER]                | [RAIL]                                    | [CASES] |
+| :-----: | :-------------------- | :--------------------- | :---------------------------------------- | :-----: |
+|  [01]   | location aspect       | `Location`             | `Operation<TGeometry,TOut>() → Operation` |    6    |
+|  [02]   | addressing            | `Locator`              | `ResolveParameter → Fin<double>`          |    6    |
+|  [03]   | value rows            | `LocationValue`        | `Resolve → Operation<TGeometry,TOut>`     |    8    |
+|  [04]   | subdivision           | `Division`             | `Operation → Operation<TGeometry,TOut>`   |    2    |
+|  [05]   | curvature reading     | `CurvatureMode`        | derivation (pure)                         |    2    |
+|  [06]   | curvature aggregation | `CurvatureAggregation` | carrier (read by the sweep)               |    2    |
+|  [07]   | operation spine       | `Locate`               | `Operation.Build → Eff<Env, Seq<TOut>>`   |    —    |
+
+[KIND] by index — [01]: `[Union]` folded to one operation by generated `Switch`. [02]: `[Union]` + `ResolveParameter`/`CurveRequirement` columns. [03]: `[Union]` — `Key`/`Closest` columns + three family arms per case. [04]: `[Union]` validating at the fold. [05]: `[Union]` + `IsCurveMagnitude`/`SurfaceMetrics` derivation columns. [06]: `[Union]` + `Key` column, `Band` policy on the extrema case. [07]: `internal static` — one `Admits` gate, 8 aspect builders, the `Curvature` matrix over one `Sweep`, 7 sample folds.
 
 The vocabulary unions, the case rows, `Resolve`, the `Locate` builders, the curvature matrix, and the sample folds are transcription-complete against the RhinoCommon location surface (`DivideByCount`/`DivideByLength`/`GetPerpendicularFrames`/`NormalizedLengthParameter`/`LengthParameter`/`ClosedCurveOrientation`/`Contains`/`ShortPath`/`DerivativeAt`/`CurvatureAt`/`GetLength`). `Operation<TGeometry,TOut>`/`Env`/`Requirement`/`Op`/`Lease<T>`/`Stat`/`ScalarMetric`/`StatContext`/`ExtremumDirection`/`SupportSpace`/`SupportProjection`/`VectorIntent`/`CurveProjection` and the `Normalization`/`Capability`/`Evaluation` lattices are composed upstream owners, never re-minted here.
 

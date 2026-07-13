@@ -48,57 +48,58 @@
 
 [PUBLIC_TYPE_SCOPE]: polynomial, matrix, and geometry roots
 - rail: symbolic
+- Geometry roots live under `sympy.geometry.*`; `Poly` and the matrix roots are top-level `sympy`.
 
-| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]      | [CAPABILITY]                                               |
-| :-----: | :------------------------------------------------------------------ | :------------------ | :--------------------------------------------------------- |
-|  [01]   | `Poly`                                                              | polynomial owner    | dense polynomial with `all_coeffs`, `degree`, roots access |
-|  [02]   | `Matrix`                                                            | mutable matrix      | dense symbolic matrix                                      |
-|  [03]   | `ImmutableMatrix`                                                   | hashable matrix     | immutable dense matrix for expression embedding            |
-|  [04]   | `MatrixSymbol`                                                      | symbolic matrix     | named matrix variable                                      |
-|  [05]   | `geometry.Point2D` `geometry.Point3D`                               | geometry atom       | exact coordinate point, `Point3D(*args, _nocheck=False)`   |
-|  [06]   | `geometry.Line` `geometry.Line3D` `geometry.Segment` `geometry.Ray` | geometry curve      | exact line/segment/ray                                     |
-|  [07]   | `geometry.Circle` `geometry.Ellipse`                                | geometry conic      | exact conic section                                        |
-|  [08]   | `geometry.Plane`                                                    | geometry surface    | exact plane, ctor `Plane(p1, a=None, b=None)`              |
-|  [09]   | `geometry.Polygon` `geometry.Triangle` `geometry.RegularPolygon`    | geometry region     | exact polygon/triangle/regular polygon                     |
-|  [10]   | `geometry.Curve` `geometry.Parabola`                                | geometry parametric | parametric curve over a range; parabola conic              |
+| [INDEX] | [SYMBOL]                              | [PACKAGE_ROLE]      | [CAPABILITY]                                               |
+| :-----: | :------------------------------------ | :------------------ | :--------------------------------------------------------- |
+|  [01]   | `Poly`                                | polynomial owner    | dense polynomial with `all_coeffs`, `degree`, roots access |
+|  [02]   | `Matrix`                              | mutable matrix      | dense symbolic matrix                                      |
+|  [03]   | `ImmutableMatrix`                     | hashable matrix     | immutable dense matrix for expression embedding            |
+|  [04]   | `MatrixSymbol`                        | symbolic matrix     | named matrix variable                                      |
+|  [05]   | `Point2D` `Point3D`                   | geometry atom       | exact coordinate point, `Point3D(*args, _nocheck=False)`   |
+|  [06]   | `Line` `Line3D` `Segment` `Ray`       | geometry curve      | exact line/segment/ray                                     |
+|  [07]   | `Circle` `Ellipse`                    | geometry conic      | exact conic section                                        |
+|  [08]   | `Plane`                               | geometry surface    | exact plane, ctor `Plane(p1, a=None, b=None)`              |
+|  [09]   | `Polygon` `Triangle` `RegularPolygon` | geometry region     | exact polygon/triangle/regular polygon                     |
+|  [10]   | `Curve` `Parabola`                    | geometry parametric | parametric curve over a range; parabola conic              |
 
 [PUBLIC_TYPE_SCOPE]: set, logic, and matrix-expression roots
 - rail: symbolic
+- `Identity`, `ZeroMatrix`, `BlockMatrix`, `HadamardProduct`, and `KroneckerProduct` are the unevaluated matrix-expression nodes over `MatrixSymbol`.
 
-| [INDEX] | [SYMBOL]                                                                   | [PACKAGE_ROLE]   | [CAPABILITY]                                            |
-| :-----: | :------------------------------------------------------------------------- | :--------------- | :------------------------------------------------------ |
-|  [01]   | `Interval` `FiniteSet` `ConditionSet` `ImageSet`                           | set atom         | the set-valued domains `solveset` returns               |
-|  [02]   | `Union` `Intersection` `Complement`                                        | set algebra      | combinators over sets                                   |
-|  [03]   | `Reals` `Complexes` `Integers` `Naturals` `S.Reals`                        | named domain     | the `domain=` argument to `solveset`                    |
-|  [04]   | `And` `Or` `Not` `Q` `Piecewise` `Rel`                                     | logic node       | boolean algebra, `Q` assumption predicates, branch expr |
-|  [05]   | `Identity` `ZeroMatrix` `BlockMatrix` `HadamardProduct` `KroneckerProduct` | matrix-expr node | unevaluated symbolic matrix algebra over `MatrixSymbol` |
+| [INDEX] | [SYMBOL]                                            | [PACKAGE_ROLE] | [CAPABILITY]                                            |
+| :-----: | :-------------------------------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `Interval` `FiniteSet` `ConditionSet` `ImageSet`    | set atom       | the set-valued domains `solveset` returns               |
+|  [02]   | `Union` `Intersection` `Complement`                 | set algebra    | combinators over sets                                   |
+|  [03]   | `Reals` `Complexes` `Integers` `Naturals` `S.Reals` | named domain   | the `domain=` argument to `solveset`                    |
+|  [04]   | `And` `Or` `Not` `Q` `Piecewise` `Rel`              | logic node     | boolean algebra, `Q` assumption predicates, branch expr |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and conversion
 - rail: symbolic
 
-| [INDEX] | [SURFACE]      | [CALL_SHAPE]                                   | [CAPABILITY]                                                                                                                               |
-| :-----: | :------------- | :--------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `symbols`      | `symbols('x y z', real=True)`                  | batch symbol construction with assumptions                                                                                                 |
-|  [02]   | `sympify`      | `sympify(obj)`                                 | coerces Python/str to a sympy expression                                                                                                   |
-|  [03]   | `Symbol`       | `Symbol('x', positive=True)`                   | single symbol with assumption keywords                                                                                                     |
-|  [04]   | `Function`     | `Function('f')`                                | undeclared function head                                                                                                                   |
-|  [05]   | `Expr.subs`    | `expr.subs({x: a, y: b})`                      | simultaneous structural substitution                                                                                                       |
-|  [06]   | `Expr.replace` | `expr.replace(Wild('w'), f)`                   | `Wild`-pattern match-and-rewrite                                                                                                           |
-|  [07]   | `Expr.rewrite` | `expr.rewrite(exp)`                            | rewrite into an equivalent functional basis                                                                                                |
-|  [08]   | `srepr`        | `srepr(expr, *, order=None, perm_cyclic=True)` | round-trippable executable string repr (`eval(srepr(expr)) == expr`) — the canonical serialization for content-keying a constructed `Expr` |
+| [INDEX] | [SURFACE]      | [CALL_SHAPE]                                   | [CAPABILITY]                                                         |
+| :-----: | :------------- | :--------------------------------------------- | :------------------------------------------------------------------- |
+|  [01]   | `symbols`      | `symbols('x y z', real=True)`                  | batch symbol construction with assumptions                           |
+|  [02]   | `sympify`      | `sympify(obj)`                                 | coerces Python/str to a sympy expression                             |
+|  [03]   | `Symbol`       | `Symbol('x', positive=True)`                   | single symbol with assumption keywords                               |
+|  [04]   | `Function`     | `Function('f')`                                | undeclared function head                                             |
+|  [05]   | `Expr.subs`    | `expr.subs({x: a, y: b})`                      | simultaneous structural substitution                                 |
+|  [06]   | `Expr.replace` | `expr.replace(Wild('w'), f)`                   | `Wild`-pattern match-and-rewrite                                     |
+|  [07]   | `Expr.rewrite` | `expr.rewrite(exp)`                            | rewrite into an equivalent functional basis                          |
+|  [08]   | `srepr`        | `srepr(expr, *, order=None, perm_cyclic=True)` | round-trip repr, `eval(srepr(expr)) == expr`; content-keys an `Expr` |
 
 [ENTRYPOINT_SCOPE]: calculus operations
 - rail: symbolic
 
-| [INDEX] | [SURFACE]   | [CALL_SHAPE]                                                                                | [CAPABILITY]                     |
-| :-----: | :---------- | :------------------------------------------------------------------------------------------ | :------------------------------- |
-|  [01]   | `diff`      | `diff(f, *symbols, **kwargs)`                                                               | differentiate to arbitrary order |
-|  [02]   | `integrate` | `integrate(*args, meijerg=None, conds='piecewise', risch=None, heurisch=None, manual=None)` | definite/indefinite integration  |
-|  [03]   | `limit`     | `limit(e, z, z0, dir='+')`                                                                  | directional limit                |
-|  [04]   | `series`    | `series(expr, x=None, x0=0, n=6, dir='+')`                                                  | Taylor/Laurent series expansion  |
-|  [05]   | `summation` | `summation(f, (i, a, b))`                                                                   | closed-form finite/infinite sum  |
+| [INDEX] | [SURFACE]   | [CALL_SHAPE]                                                                                | [CAPABILITY]                 |
+| :-----: | :---------- | :------------------------------------------------------------------------------------------ | :--------------------------- |
+|  [01]   | `diff`      | `diff(f, *symbols, **kwargs)`                                                               | n-th order derivative        |
+|  [02]   | `integrate` | `integrate(*args, meijerg=None, conds='piecewise', risch=None, heurisch=None, manual=None)` | definite/indefinite integral |
+|  [03]   | `limit`     | `limit(e, z, z0, dir='+')`                                                                  | directional limit            |
+|  [04]   | `series`    | `series(expr, x=None, x0=0, n=6, dir='+')`                                                  | Taylor/Laurent expansion     |
+|  [05]   | `summation` | `summation(f, (i, a, b))`                                                                   | closed-form summation        |
 
 [ENTRYPOINT_SCOPE]: equation and system solving
 - rail: symbolic
@@ -135,51 +136,84 @@
 
 [ENTRYPOINT_SCOPE]: matrix algebra
 - rail: symbolic
+- Rows [03]-[10] are `Matrix` instance methods, called `m.<method>(...)`; `Matrix` and `eye`/`zeros`/`ones`/`diag` build the matrix.
 
-| [INDEX] | [SURFACE]                                                           | [CALL_SHAPE]                 | [CAPABILITY]                                               |
-| :-----: | :------------------------------------------------------------------ | :--------------------------- | :--------------------------------------------------------- |
-|  [01]   | `Matrix`                                                            | `Matrix(rows, cols, data)`   | dense matrix construction                                  |
-|  [02]   | `eye` `zeros` `ones` `diag`                                         | `eye(n)`                     | standard matrix builders                                   |
-|  [03]   | `Matrix.det`                                                        | `m.det()`                    | exact determinant                                          |
-|  [04]   | `Matrix.inv`                                                        | `m.inv()`                    | exact inverse                                              |
-|  [05]   | `Matrix.eigenvals` `Matrix.eigenvects`                              | `m.eigenvals()`              | exact spectrum (value->multiplicity / value->basis)        |
-|  [06]   | `Matrix.rref` `Matrix.charpoly` `Matrix.rank`                       | `m.rref()` / `m.charpoly(x)` | reduced row-echelon, characteristic polynomial, exact rank |
-|  [07]   | `Matrix.nullspace` `Matrix.columnspace`                             | `m.nullspace()`              | subspace bases                                             |
-|  [08]   | `Matrix.LUdecomposition` `Matrix.QRdecomposition` `Matrix.cholesky` | `m.LUdecomposition()`        | exact factorizations                                       |
-|  [09]   | `Matrix.diagonalize` `Matrix.jordan_form` `Matrix.singular_values`  | `m.diagonalize()`            | canonical-form decompositions                              |
-|  [10]   | `Matrix.exp` `Matrix.pinv` `Matrix.norm`                            | `m.exp()`                    | matrix exponential, pseudo-inverse, exact norm             |
+| [INDEX] | [SURFACE]                                      | [CALL_SHAPE]                 | [CAPABILITY]                                        |
+| :-----: | :--------------------------------------------- | :--------------------------- | :-------------------------------------------------- |
+|  [01]   | `Matrix`                                       | `Matrix(rows, cols, data)`   | dense matrix construction                           |
+|  [02]   | `eye` `zeros` `ones` `diag`                    | `eye(n)`                     | standard matrix builders                            |
+|  [03]   | `det`                                          | `m.det()`                    | exact determinant                                   |
+|  [04]   | `inv`                                          | `m.inv()`                    | exact inverse                                       |
+|  [05]   | `eigenvals` `eigenvects`                       | `m.eigenvals()`              | exact spectrum (value->multiplicity / value->basis) |
+|  [06]   | `rref` `charpoly` `rank`                       | `m.rref()` / `m.charpoly(x)` | RREF, characteristic polynomial, exact rank         |
+|  [07]   | `nullspace` `columnspace`                      | `m.nullspace()`              | subspace bases                                      |
+|  [08]   | `LUdecomposition` `QRdecomposition` `cholesky` | `m.LUdecomposition()`        | exact factorizations                                |
+|  [09]   | `diagonalize` `jordan_form` `singular_values`  | `m.diagonalize()`            | canonical-form decompositions                       |
+|  [10]   | `exp` `pinv` `norm`                            | `m.exp()`                    | matrix exponential, pseudo-inverse, exact norm      |
 
 [ENTRYPOINT_SCOPE]: assumption logic, sets, and number theory
 - rail: symbolic
+- `resultant(p, p.diff(x))` is the squarefree-discriminant metric `|res(p, p')|`.
 
-| [INDEX] | [SURFACE]                           | [CALL_SHAPE]                               | [CAPABILITY]                                                                                                                     |
-| :-----: | :---------------------------------- | :----------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `refine`                            | `refine(expr, assumptions)`                | simplify under a `Q` assumption context                                                                                          |
-|  [02]   | `ask`                               | `ask(Q.positive(x), Q.real(x))`            | query a predicate against an assumption set                                                                                      |
-|  [03]   | `Q`                                 | `Q.real(x)` / `Q.integer(x)`               | assumption predicate constructors                                                                                                |
-|  [04]   | `Intersection` `Union` `Complement` | `Intersection(a, b)`                       | symbolic set algebra over `solveset` results                                                                                     |
-|  [05]   | `factorint` `primerange` `isprime`  | `factorint(n)`                             | integer factorization, prime generation/test                                                                                     |
-|  [06]   | `gcd` `lcm`                         | `gcd(a, b)`                                | polynomial/integer gcd and lcm                                                                                                   |
-|  [07]   | `resultant`                         | `resultant(f, g, *gens, includePRS=False)` | resultant of two polynomials (elimination); `resultant(p, p.diff(x))` is the squarefree-discriminant metric ` \| res(p, p') \| ` |
+| [INDEX] | [SURFACE]                           | [CALL_SHAPE]                               | [CAPABILITY]                                 |
+| :-----: | :---------------------------------- | :----------------------------------------- | :------------------------------------------- |
+|  [01]   | `refine`                            | `refine(expr, assumptions)`                | simplify under a `Q` assumption context      |
+|  [02]   | `ask`                               | `ask(Q.positive(x), Q.real(x))`            | query a predicate against an assumption set  |
+|  [03]   | `Q`                                 | `Q.real(x)` / `Q.integer(x)`               | assumption predicate constructors            |
+|  [04]   | `Intersection` `Union` `Complement` | `Intersection(a, b)`                       | symbolic set algebra over `solveset` results |
+|  [05]   | `factorint` `primerange` `isprime`  | `factorint(n)`                             | integer factorization, prime generation/test |
+|  [06]   | `gcd` `lcm`                         | `gcd(a, b)`                                | polynomial/integer gcd and lcm               |
+|  [07]   | `resultant`                         | `resultant(f, g, *gens, includePRS=False)` | resultant of two polynomials (elimination)   |
 
-[ENTRYPOINT_SCOPE]: numeric evaluation and code generation (C# graduation path)
+[ENTRYPOINT_SCOPE]: numeric evaluation
 - rail: symbolic
 
-| [INDEX] | [SURFACE]                                                                                            | [CALL_SHAPE]                                                                                                                                                                                       | [CAPABILITY]                                                                                                                                                                        |
-| :-----: | :--------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `N`                                                                                                  | `N(x, n=15)`                                                                                                                                                                                       | exact-to-decimal evaluation at precision `n`                                                                                                                                        |
-|  [02]   | `Expr.evalf`                                                                                         | `expr.evalf(n)`                                                                                                                                                                                    | arbitrary-precision numeric evaluation                                                                                                                                              |
-|  [03]   | `lambdify`                                                                                           | `lambdify(args, expr, modules=None, printer=None, use_imps=True, dummify=False, cse=False, docstring_limit=1000)`                                                                                  | compile expression to a Python/NumPy callable                                                                                                                                       |
-|  [04]   | `cse`                                                                                                | `cse(exprs, symbols=None, optimizations=None, postprocess=None, order='canonical', ignore=(), list=True)`                                                                                          | common-subexpression elimination for codegen                                                                                                                                        |
-|  [05]   | `Poly.all_coeffs` / `Poly.nroots` / `Poly.real_roots`                                                | `Poly(expr, x).all_coeffs()` / `.nroots(n=15)` / `.real_roots()`                                                                                                                                   | ordered coefficient vector; numeric/real root isolation                                                                                                                             |
-|  [06]   | `Poly.factor_list` / `Poly.discriminant` / `Poly.LC` / `Poly.monic`                                  | `Poly(expr, x).factor_list()`                                                                                                                                                                      | exact factorization, discriminant, lead coeff, monic form                                                                                                                           |
-|  [07]   | `Poly.as_expr` / `Poly.diff`                                                                         | `Poly(expr, x).as_expr(*gens)` / `Poly(expr, x).diff(x, *specs)`                                                                                                                                   | recover the `Expr` from a `Poly` (`as_expr`) and the polynomial derivative as a `Poly` (`diff`), feeding `resultant(p.as_expr(), p.diff(x).as_expr(), x)` for the squarefree metric |
-|  [08]   | `ccode`                                                                                              | `ccode(expr, assign_to=None, standard='c99', **settings)`                                                                                                                                          | emit C99 source for the C# numeric owner                                                                                                                                            |
-|  [09]   | `cxxcode` / `fcode` / `rust_code` / `julia_code` / `octave_code` / `jscode` / `pycode` / `glsl_code` | `cxxcode(expr, standard='c++17')` / `fcode(expr, standard=95)`                                                                                                                                     | the per-language source-printer family (one polymorphic codegen surface, target via the printer choice)                                                                             |
-|  [10]   | `utilities.codegen.codegen`                                                                          | `codegen(name_expr, language=None, prefix=None, project='project', to_files=False, header=True, empty=True, argument_sequence=None, global_vars=None, standard=None, code_gen=None, printer=None)` | emit a named, header-wrapped code module (C/Fortran/Octave/Rust)                                                                                                                    |
-|  [11]   | `utilities.autowrap.autowrap`                                                                        | `autowrap(expr, language=None, backend='f2py', tempdir=None, args=None, flags=None, helpers=None, code_gen=None, **kwargs)`                                                                        | compile + bind an expression to a native extension callable                                                                                                                         |
-|  [12]   | `utilities.autowrap.ufuncify`                                                                        | `ufuncify(args, expr, language=None, backend='numpy', tempdir=None, flags=None, helpers=None, **kwargs)`                                                                                           | emit a broadcasting NumPy ufunc from an expression                                                                                                                                  |
-|  [13]   | `printing.numpy.NumPyPrinter`                                                                        | `NumPyPrinter()`                                                                                                                                                                                   | printer backing `lambdify(..., modules='numpy')`; `modules='jax'` selects the JAX printer for a traceable callable                                                                  |
+| [INDEX] | [SURFACE]                     | [CALL_SHAPE]     | [CAPABILITY]                                                                   |
+| :-----: | :---------------------------- | :--------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `N`                           | `N(x, n=15)`     | exact-to-decimal evaluation at precision `n`                                   |
+|  [02]   | `Expr.evalf`                  | `expr.evalf(n)`  | arbitrary-precision numeric evaluation                                         |
+|  [03]   | `printing.numpy.NumPyPrinter` | `NumPyPrinter()` | backs `lambdify` NumPy mode; `modules='jax'` selects the JAX traceable printer |
+
+[ENTRYPOINT_SCOPE]: Poly coefficient and root extraction
+- rail: symbolic
+- Every surface is a method on `Poly(expr, x)`; `resultant(p.as_expr(), p.diff(x).as_expr(), x)` is the squarefree-discriminant metric.
+
+| [INDEX] | [SURFACE]           | [CALL_SHAPE]       | [CAPABILITY]                      |
+| :-----: | :------------------ | :----------------- | :-------------------------------- |
+|  [01]   | `Poly.all_coeffs`   | `.all_coeffs()`    | ordered coefficient vector        |
+|  [02]   | `Poly.nroots`       | `.nroots(n=15)`    | numeric root isolation            |
+|  [03]   | `Poly.real_roots`   | `.real_roots()`    | real-root isolation               |
+|  [04]   | `Poly.factor_list`  | `.factor_list()`   | exact factorization               |
+|  [05]   | `Poly.discriminant` | `.discriminant()`  | discriminant                      |
+|  [06]   | `Poly.LC`           | `.LC()`            | lead coefficient                  |
+|  [07]   | `Poly.monic`        | `.monic()`         | monic form                        |
+|  [08]   | `Poly.as_expr`      | `.as_expr(*gens)`  | recover the `Expr` from a `Poly`  |
+|  [09]   | `Poly.diff`         | `.diff(x, *specs)` | polynomial derivative as a `Poly` |
+
+[ENTRYPOINT_SCOPE]: source code emission
+- rail: symbolic
+- printer family: `cxxcode`/`fcode`/`rust_code`/`julia_code`/`octave_code`/`jscode`/`pycode`/`glsl_code` are one polymorphic surface, each `<printer>(expr, standard=...)` targeting its language (`cxxcode(expr, standard='c++17')`, `fcode(expr, standard=95)`).
+
+| [INDEX] | [SURFACE] | [CALL_SHAPE]                                              | [CAPABILITY]                                                   |
+| :-----: | :-------- | :-------------------------------------------------------- | :------------------------------------------------------------- |
+|  [01]   | `ccode`   | `ccode(expr, assign_to=None, standard='c99', **settings)` | emit C99 source for the C# numeric owner                       |
+|  [02]   | `cxxcode` | `cxxcode(expr, standard='c++17')`                         | the source-printer family, per-language via the printer choice |
+
+[ENTRYPOINT_SCOPE]: expression compilation and code-module emission
+- rail: symbolic
+- call: `lambdify(args, expr, modules=None, printer=None, use_imps=True, dummify=False, cse=False, docstring_limit=1000)`
+- call: `cse(exprs, symbols=None, optimizations=None, postprocess=None, order='canonical', ignore=(), list=True)`
+- call: `utilities.codegen.codegen(name_expr, language=None, prefix=None, project='project', to_files=False, header=True, empty=True, argument_sequence=None, global_vars=None, standard=None, code_gen=None, printer=None)`
+- call: `utilities.autowrap.autowrap(expr, language=None, backend='f2py', tempdir=None, args=None, flags=None, helpers=None, code_gen=None, **kwargs)`
+- call: `utilities.autowrap.ufuncify(args, expr, language=None, backend='numpy', tempdir=None, flags=None, helpers=None, **kwargs)`
+
+| [INDEX] | [SURFACE]                     | [CAPABILITY]                                                     |
+| :-----: | :---------------------------- | :--------------------------------------------------------------- |
+|  [01]   | `lambdify`                    | compile an expression to a Python/NumPy callable                 |
+|  [02]   | `cse`                         | common-subexpression elimination for codegen                     |
+|  [03]   | `utilities.codegen.codegen`   | emit a named, header-wrapped code module (C/Fortran/Octave/Rust) |
+|  [04]   | `utilities.autowrap.autowrap` | compile + bind an expression to a native extension callable      |
+|  [05]   | `utilities.autowrap.ufuncify` | emit a broadcasting NumPy ufunc from an expression               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -4,12 +4,12 @@ The one authorization owner: the entitlement vocabulary a verified token resolve
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                    | [PUBLIC]                                      |
-| :-----: | :------------------ | :------------------------------------------------------------------------ | :-------------------------------------------- |
-|  [01]   | `CLAIM_VOCABULARY`  | the `Role` table, `ClaimSet`, the `ClaimStore` port, the fault            | `Role`, `ClaimSet`, `ClaimFault`              |
-|  [02]   | `CLAIM_RESOLUTION`  | `Claim.resolve` token→claims, `Claim.principal` tenancy binding           | `Claim`                                       |
-|  [03]   | `POLICY_VOCABULARY` | permission/relation tables, `PolicyDecision`, relation + flag ports       | `PolicyDecision`, `RelationStore`, `FlagGate` |
-|  [04]   | `POLICY_EVALUATION` | the derived role-grant closure, the RBAC ∪ ReBAC fold under the flag gate | `Policy`, `PolicyFault`                       |
+| [INDEX] | [CLUSTER]           | [PUBLIC]                                      |
+| :-----: | :------------------ | :-------------------------------------------- |
+|  [01]   | `CLAIM_VOCABULARY`  | `Role`, `ClaimSet`, `ClaimFault`              |
+|  [02]   | `CLAIM_RESOLUTION`  | `Claim`                                       |
+|  [03]   | `POLICY_VOCABULARY` | `PolicyDecision`, `RelationStore`, `FlagGate` |
+|  [04]   | `POLICY_EVALUATION` | `Policy`, `PolicyFault`                       |
 
 ## [02]-[CLAIM_VOCABULARY]
 

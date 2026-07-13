@@ -12,27 +12,34 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                         | [KIND]        | [CAPABILITY]                                                                           |
-| :-----: | :----------------------------------------------- | :------------ | :------------------------------------------------------------------------------------- |
-|  [01]   | `ArchLoader`                                     | builder       | `LoadAssemblies`, dependency-walking and disk-glob loader modes, `Build()`             |
-|  [02]   | `Architecture`                                   | domain model  | `Types`/`Classes`/`Interfaces`/`Namespaces`/`Assemblies`/`Members` projections         |
-|  [03]   | `ArchRuleDefinition`                             | fluent root   | `Types()`/`Classes()`/`Members()`... -> `.That()` predicates -> `.Should()` conditions |
-|  [04]   | `SliceRuleDefinition`                            | fluent root   | `Slices().Matching("Ns.(*)")` -> `BeFreeOfCycles()` / `NotDependOnEachOther()`         |
-|  [05]   | `IArchRule`                                      | rule          | `HasNoViolations(Architecture)`, `Evaluate`, cross-rule `And`/`Or`                     |
-|  [06]   | `ArchRuleExtensions` / `FailedArchRuleException` | xunit adapter | throwing `Check(rule, architecture)` rail over core evaluation                         |
+| [INDEX] | [SYMBOL]                                         | [KIND]        | [CAPABILITY]                                                       |
+| :-----: | :----------------------------------------------- | :------------ | :----------------------------------------------------------------- |
+|  [01]   | `ArchLoader`                                     | builder       | `LoadAssemblies`, dependency-walk + disk-glob modes, `Build()`     |
+|  [02]   | `Architecture`                                   | domain model  | `Types`/`Classes`/`Interfaces`/`Namespaces`/`Assemblies`/`Members` |
+|  [03]   | `ArchRuleDefinition`                             | fluent root   | `Types()`/`Classes()`/`Members()` -> `.That()` -> `.Should()`      |
+|  [04]   | `SliceRuleDefinition`                            | fluent root   | `BeFreeOfCycles()`/`NotDependOnEachOther()` slice conditions       |
+|  [05]   | `IArchRule`                                      | rule          | `HasNoViolations(Architecture)`, `Evaluate`, cross-rule `And`/`Or` |
+|  [06]   | `ArchRuleExtensions` / `FailedArchRuleException` | xunit adapter | throwing `Check(rule, architecture)` rail over core evaluation     |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                                             | [KIND]      | [CAPABILITY]                                                                        |
-| :-----: | :------------------------------------------------------------------------------------ | :---------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `new ArchLoader().LoadAssemblies(params Assembly[]).Build()`                          | loader      | reflection assemblies parsed via their disk location; no dependency walk            |
-|  [02]   | `Types(bool includeReferenced = false).That().ResideInAssembly(...)`                  | predicate   | assembly-scoped type selection; name/namespace/attribute/visibility families mirror |
-|  [03]   | `.Should().NotDependOnAny(...)` / `.OnlyDependOn(...)` / `.DependOnAnyTypesThat(...)` | condition   | dependency-direction laws with nested predicate sub-grammar                         |
-|  [04]   | `Slices().Matching("Rasm.(*)").Should().BeFreeOfCycles()`                             | slice rule  | one `(*)` or `(**)` capture keys the slice; non-matching types drop out             |
-|  [05]   | `rule.HasNoViolations(architecture)`                                                  | evaluation  | boolean fold over condition results                                                 |
-|  [06]   | `Members()` / `FieldMembers()` / `MethodMembers()` / `PropertyMembers()`              | fluent root | member-level grammar for member-shape laws                                          |
+Predicates filter by name, namespace, attribute, and visibility across every fluent root; slice capture keys and cycle law are `[SLICES]`.
 
-```csharp contract
+| [INDEX] | [SURFACE]                                                            | [KIND]      | [CAPABILITY]                           |
+| :-----: | :------------------------------------------------------------------- | :---------- | :------------------------------------- |
+|  [01]   | `new ArchLoader().LoadAssemblies(params Assembly[]).Build()`         | loader      | parsed from disk location; no dep walk |
+|  [02]   | `Types(bool includeReferenced = false).That().ResideInAssembly(...)` | predicate   | assembly-scoped type selection         |
+|  [03]   | `.Should().NotDependOnAny(...)`                                      | condition   | forbid any listed dependency           |
+|  [04]   | `.Should().OnlyDependOn(...)`                                        | condition   | restrict to the listed set             |
+|  [05]   | `.Should().DependOnAnyTypesThat(...)`                                | condition   | require a matching dependency          |
+|  [06]   | `Slices().Matching("Rasm.(*)").Should().BeFreeOfCycles()`            | slice rule  | namespace-family cycle law             |
+|  [07]   | `rule.HasNoViolations(architecture)`                                 | evaluation  | boolean fold over condition results    |
+|  [08]   | `Members()`                                                          | fluent root | member-shape law grammar               |
+|  [09]   | `FieldMembers()`                                                     | fluent root | field-shape law grammar                |
+|  [10]   | `MethodMembers()`                                                    | fluent root | method-shape law grammar               |
+|  [11]   | `PropertyMembers()`                                                  | fluent root | property-shape law grammar             |
+
+```csharp signature
 public class ArchLoader {
     public ArchLoader LoadAssemblies(params Assembly[] assemblies);
     public Architecture Build();

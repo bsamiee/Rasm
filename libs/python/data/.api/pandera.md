@@ -17,25 +17,25 @@
 [PUBLIC_TYPE_SCOPE]: schema, component, and check types
 - rail: dataframe contract validation
 
-| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]   | [ROLE]                                                                                                             |
-| :-----: | :------------------------------------------------------- | :-------------- | :----------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `DataFrameSchema`                                        | object schema   | column/index/check contract for a frame                                                                            |
-|  [02]   | `SeriesSchema`                                           | object schema   | contract for a single series                                                                                       |
-|  [03]   | `DataFrameModel`                                         | class schema    | declarative class-based schema                                                                                     |
-|  [04]   | `Column`                                                 | component       | typed column with checks and parsers                                                                               |
-|  [05]   | `Index`                                                  | component       | typed index with checks                                                                                            |
-|  [06]   | `MultiIndex`                                             | component       | hierarchical index contract                                                                                        |
-|  [07]   | `Check`                                                  | predicate       | column/frame validation predicate                                                                                  |
-|  [08]   | `Hypothesis`                                             | predicate       | statistical-test validation predicate                                                                              |
-|  [09]   | `Parser`                                                 | transform       | pre-validation column/frame transform                                                                              |
-|  [10]   | `DataType`                                               | dtype           | pandera logical dtype base                                                                                         |
-|  [11]   | `pandera.errors.SchemaError`                             | failure         | single validation failure; `.schema`/`.check`/`.failure_cases` attrs                                               |
-|  [12]   | `pandera.errors.SchemaErrors`                            | failure         | aggregated lazy-validation failures; `.failure_cases` frame (`schema_context`/`column`/`check`/`failure_case`)     |
-|  [13]   | `pandera.errors.{SchemaInitError,SchemaDefinitionError}` | failure         | schema-construction and ill-formed-definition errors raised at build time, not validation time                     |
-|  [14]   | `pandera.polars.{DataFrameSchema,DataFrameModel,Column}` | polars backend  | native polars `LazyFrame`/`DataFrame` schema/model (`pandera.api.polars`), pushes validation into the lazy scan    |
-|  [15]   | `pandera.pyspark.{DataFrameSchema,DataFrameModel}`       | pyspark backend | native PySpark SQL schema validating distributed frames; same `Column`/`Check`/`Field` vocabulary                  |
-|  [16]   | `pandera.geopandas.{GeoDataFrameSchema,GeoSeriesSchema}` | geo backend     | geometry-aware schema/series for GeoPandas frames over the `geopandas` extra                                       |
-|  [17]   | `pandera.typing.{Series,DataFrame,Index}`                | annotation      | typed annotations driving `@check_types`; `pandera.typing.polars.{Series,DataFrame}` mirror for the polars backend |
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]   | [ROLE]                                                      |
+| :-----: | :------------------------------------------------------- | :-------------- | :---------------------------------------------------------- |
+|  [01]   | `DataFrameSchema`                                        | object schema   | column/index/check contract for a frame                     |
+|  [02]   | `SeriesSchema`                                           | object schema   | contract for a single series                                |
+|  [03]   | `DataFrameModel`                                         | class schema    | declarative class-based schema                              |
+|  [04]   | `Column`                                                 | component       | typed column with checks and parsers                        |
+|  [05]   | `Index`                                                  | component       | typed index with checks                                     |
+|  [06]   | `MultiIndex`                                             | component       | hierarchical index contract                                 |
+|  [07]   | `Check`                                                  | predicate       | column/frame validation predicate                           |
+|  [08]   | `Hypothesis`                                             | predicate       | statistical-test validation predicate                       |
+|  [09]   | `Parser`                                                 | transform       | pre-validation column/frame transform                       |
+|  [10]   | `DataType`                                               | dtype           | pandera logical dtype base                                  |
+|  [11]   | `pandera.errors.SchemaError`                             | failure         | single failure; `.schema`/`.check`/`.failure_cases`         |
+|  [12]   | `pandera.errors.SchemaErrors`                            | failure         | aggregated lazy-validation failures; `.failure_cases` frame |
+|  [13]   | `pandera.errors.{SchemaInitError,SchemaDefinitionError}` | failure         | build-time construction/ill-formed-definition errors        |
+|  [14]   | `pandera.polars.{DataFrameSchema,DataFrameModel,Column}` | polars backend  | native polars `LazyFrame`/`DataFrame` schema/model          |
+|  [15]   | `pandera.pyspark.{DataFrameSchema,DataFrameModel}`       | pyspark backend | native PySpark SQL schema over distributed frames           |
+|  [16]   | `pandera.geopandas.{GeoDataFrameSchema,GeoSeriesSchema}` | geo backend     | geometry-aware schema/series for GeoPandas frames           |
+|  [17]   | `pandera.typing.{Series,DataFrame,Index}`                | annotation      | typed annotations for `@check_types` (`.polars` mirror)     |
 
 [PUBLIC_TYPE_SCOPE]: dtype vocabulary
 - rail: dataframe contract validation
@@ -76,23 +76,24 @@
 
 [ENTRYPOINT_SCOPE]: checks, parsers, and decorators
 - rail: dataframe contract validation
+- alias: `Check.gt`/`ge`/`lt`/`le`/`eq`/`ne` are registered short forms of `greater_than`/`greater_than_or_equal_to`/`less_than`/`less_than_or_equal_to`/`equal_to`/`not_equal_to` — both spellings resolve
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                        | [ENTRY_FAMILY] | [RAIL]                               |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------- |
-|  [01]   | `Check.gt/ge/lt/le/eq/ne` (short aliases of the long forms `greater_than`/`greater_than_or_equal_to`/`less_than`/`less_than_or_equal_to`/`equal_to`/`not_equal_to` — both spellings are registered constructors) | check builtin  | scalar comparison predicates         |
-|  [02]   | `Check.in_range(min, max)` / `Check.between`                                                                                                                                                                     | check builtin  | numeric range predicate              |
-|  [03]   | `Check.isin(values)` / `Check.notin(values)`                                                                                                                                                                     | check builtin  | membership predicates                |
-|  [04]   | `Check.str_matches / str_contains / str_length`                                                                                                                                                                  | check builtin  | string-pattern predicates            |
-|  [05]   | `Check.unique_values_eq / is_monotonic`                                                                                                                                                                          | check builtin  | column-shape predicates              |
-|  [06]   | `Check(fn, element_wise, groupby, ...)`                                                                                                                                                                          | custom check   | custom predicate from a callable     |
-|  [07]   | `Hypothesis.one_sample_ttest / two_sample_ttest`                                                                                                                                                                 | hypothesis     | statistical-test predicates          |
-|  [08]   | `Parser(parser_fn, element_wise, ...)`                                                                                                                                                                           | transform      | pre-validation transform             |
-|  [09]   | `@check_types(lazy, head, tail, sample)`                                                                                                                                                                         | decorator      | validate annotated args and return   |
-|  [10]   | `@check_input(schema, obj_getter)`                                                                                                                                                                               | decorator      | validate a function input arg        |
-|  [11]   | `@check_output(schema, obj_getter)`                                                                                                                                                                              | decorator      | validate a function return value     |
-|  [12]   | `@check_io(out=..., **inputs)`                                                                                                                                                                                   | decorator      | validate inputs and outputs together |
-|  [13]   | `@check` / `@dataframe_check`                                                                                                                                                                                    | model check    | register a model method as a check   |
-|  [14]   | `@parser` / `@dataframe_parser`                                                                                                                                                                                  | model parser   | register a model method as a parser  |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                               |
+| :-----: | :----------------------------------------------- | :------------- | :----------------------------------- |
+|  [01]   | `Check.gt/ge/lt/le/eq/ne`                        | check builtin  | scalar comparison predicates         |
+|  [02]   | `Check.in_range(min, max)` / `Check.between`     | check builtin  | numeric range predicate              |
+|  [03]   | `Check.isin(values)` / `Check.notin(values)`     | check builtin  | membership predicates                |
+|  [04]   | `Check.str_matches / str_contains / str_length`  | check builtin  | string-pattern predicates            |
+|  [05]   | `Check.unique_values_eq / is_monotonic`          | check builtin  | column-shape predicates              |
+|  [06]   | `Check(fn, element_wise, groupby, ...)`          | custom check   | custom predicate from a callable     |
+|  [07]   | `Hypothesis.one_sample_ttest / two_sample_ttest` | hypothesis     | statistical-test predicates          |
+|  [08]   | `Parser(parser_fn, element_wise, ...)`           | transform      | pre-validation transform             |
+|  [09]   | `@check_types(lazy, head, tail, sample)`         | decorator      | validate annotated args and return   |
+|  [10]   | `@check_input(schema, obj_getter)`               | decorator      | validate a function input arg        |
+|  [11]   | `@check_output(schema, obj_getter)`              | decorator      | validate a function return value     |
+|  [12]   | `@check_io(out=..., **inputs)`                   | decorator      | validate inputs and outputs together |
+|  [13]   | `@check` / `@dataframe_check`                    | model check    | register a model method as a check   |
+|  [14]   | `@parser` / `@dataframe_parser`                  | model parser   | register a model method as a parser  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -1,57 +1,107 @@
 # [TS_UI_ARCHITECTURE]
 
-The domain map of `ui` — the wave-4 interface package and its sibling `viewer` Nx project. Three sub-domains (`system`, `view`, `viewer`) meet through one atom binding, one styled recipe, one motion vocabulary, and one selection plane; the viewer renders decoded wire vocabularies and owns zero semantics.
+`ui` maps the browser interface plane and its sibling `viewer` Nx project: `system`, `view`, and `viewer` sub-domains meet through one atom binding, one styled recipe, one motion vocabulary, and one selection plane. Viewer renders decoded wire vocabularies and owns zero geometry or IFC semantics.
 
-Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, camelCase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
+Each codemap node names the source file its `.planning/` page becomes in camelCase `.ts`; the scaffold is authoring substrate, never part of the map.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
 ui/
 ├── src/
-│   ├── system/                # The component system: tokens, interaction, state binding, locale, primitives
-│   │   ├── token.ts           # The design-token authority: OKLCH ramps APCA-gated at decode, dimension vocabulary, Theme.linear egress
-│   │   ├── act.ts             # Motion and interaction: react-aria discrete events, use-gesture analog gestures, the MOTION_ROWS vocabulary
-│   │   ├── atom.ts            # The one state binding: Store.make over the app Layer graph, REMOTE_BINDING, the LIVE_BRIDGE host-plane rows
-│   │   ├── intl.ts            # The zero-i18n-package locale plane: I18nProvider locale spine + the per-locale native-Intl cache
-│   │   └── primitive.ts       # The headless spine: the styled recipe fusing cva variants with RAC render state; the sanitize gate
-│   └── view/                  # The view plane over the system owners
-│       ├── form.ts            # Schema-driven forms: one kernel Schema owning wire decode AND live field validity via standardSchemaV1
-│       ├── table.ts           # The data grid: TanStack models + Virtual windows + RAC grid semantics under ONE TableState atom
-│       ├── overlay.ts         # The overlay owner: floating-ui anchoring, vaul sheets, cmdk palette over Overlay.Command, presence cohort
-│       └── chart.ts           # Analytic charts: Plot/visx declarations, uplot streams, perspective pivot over Arrow
+│   ├── system/                # Component system: token, interaction, state-binding, locale, primitive owners
+│   │   ├── token.ts           # Design-token authority computing color and dimension as decode-gated data
+│   │   ├── act.ts             # Motion and interaction, discrete accessible events split from continuous gestures
+│   │   ├── atom.ts            # One state binding standing the app Layer graph behind the registry
+│   │   ├── intl.ts            # Zero-package locale plane riding native Intl behind one cache
+│   │   └── primitive.ts       # Headless spine: the one styled recipe and the sanitize gate
+│   └── view/                  # View plane composing the system owners into four dense surfaces
+│       ├── form.ts            # Schema-driven forms: one kernel Schema owning wire decode and live field validity
+│       ├── table.ts           # Data grid: models, virtual windows, and grid semantics under one TableState atom
+│       ├── overlay.ts         # Overlay owner: anchoring, sheets, and the command palette over one presence cohort
+│       └── chart.ts           # Analytic charts: declarations, streams, and pivots over one Arrow plane
 └── viewer/
-    └── src/                   # The spatial tier (second Nx project)
-        ├── scene.ts           # Content-keyed GLB residency, GlbViewport port, backend rows, Theme.linear ingest
-        ├── geo.ts             # The geospatial surface: one maplibre Map + MapboxOverlay-interleaved deck.gl layers as a pure value tree
-        ├── mark.ts            # The GlobalId mark plane: one HashSet selection atom, a closed op vocabulary, every pick pipeline folding into it
-        ├── panel.ts           # The wire materializer: livewire triple, ControlIntent union, LayoutProgram rendered through the system owners
-        └── probe.ts           # Render evidence: engine-counter benchmarks paired with wire-decoded receipts as operator evidence
+    └── src/                   # Spatial tier, a second Nx project
+        ├── scene.ts           # Content-keyed GLB residency behind the GlbViewport port
+        ├── geo.ts             # Geospatial surface: one shared WebGL context as a pure layer value tree
+        ├── mark.ts            # GlobalId mark plane: one selection atom every pick pipeline folds into
+        ├── panel.ts           # Wire materializer rendering the C#-minted control vocabularies through the owners
+        └── probe.ts           # Render evidence: benchmarks paired with wire-decoded receipts, never gating
 ```
 
 ## [02]-[SEAMS]
 
-```text seams
-view/table       ←  typescript:core/state      # [SHAPE]: Feed.Document column band (name/kind/dimension/nullable, Option-carried columns)
-system/atom      ⇄  typescript:runtime/browser # [PORT]: Router/Install/Guard/Vault Subscribable planes over Atom.subscribable rows
-system/primitive ←  typescript:runtime/browser # [PORT]: ui-declared Clipboard Tag satisfied from the platform clipboard layer
-viewer/geo       ←  typescript:runtime/browser # [PORT]: ui-declared Position/Grant Tags satisfied from the platform geolocation/permissions layers
-viewer/scene     ←  typescript:runtime/browser # [PORT]: GlbViewport satisfied from Depot.haul verified arrivals + the residency ledger
-viewer/scene     ←  typescript:runtime/serve   # [BOUNDARY]: self-hosted draco/basis/meshopt transcoder assets served byte-identical
-viewer/scene     ←  csharp:Rasm.Materials      # [WIRE]: PbrGroups appearance decode
-viewer/panel     ←  csharp:Rasm.AppHost        # [WIRE]: livewire triple BindingStatus/CoercedValue/WriteReceipt
-viewer/panel     ←  csharp:Rasm.AppUi          # [WIRE]: ControlIntent closed union + the ordered LayoutProgram
-viewer/mark      ←  csharp:Rasm.Bim            # [WIRE]: BcfTopic/BcfViewpoint marks + GlobalId selection sets
-viewer/probe     ←  csharp:Rasm.AppUi          # [RECEIPT]: RenderReceipt claims paired with local render evidence
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: UI package seam registry
+    accDescr: UI sub-domain owners exchanging value, wire, port, boundary, and receipt contracts with the core, runtime, Materials, AppHost, AppUi, and Bim packages, edge rails colored by kind and nodes classed by seam direction.
+    subgraph ui[UI]
+        System[System floor]
+        View[View plane]
+        Viewer[Viewer tier]
+    end
+    Core([core])
+    Runtime{{runtime}}
+    Materials([Rasm.Materials])
+    AppHost([Rasm.AppHost])
+    AppUi([Rasm.AppUi])
+    Bim([Rasm.Bim])
+    Core e1@-->|"[SHAPE]: Feed.Document"| View
+    System e2@<-->|"[PORT]: Subscribable planes"| Runtime
+    Runtime e3@-->|"[PORT]: GlbViewport"| Viewer
+    Runtime e4@-->|"[BOUNDARY]: transcoder assets"| Viewer
+    Materials e5@-->|"[WIRE]: PbrGroups"| Viewer
+    AppHost e6@-->|"[WIRE]: livewire triple"| Viewer
+    AppUi e7@-->|"[WIRE]: ControlIntent"| Viewer
+    AppUi e8@-->|"[RECEIPT]: RenderReceipt"| Viewer
+    Bim e9@-->|"[WIRE]: GlobalIdSet"| Viewer
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    class System,View,Viewer primary
+    class Runtime external
+    class Core,Materials,AppHost,AppUi,Bim annotation
+    class e1,e2,e3,e4 edgeControl
+    class e5,e6,e7,e9 edgeData
+    class e8 edgeSuccess
 ```
 
 ## [03]-[ORGANIZATION]
 
-`system` is the capability floor the views instantiate: `token` computes color and dimension as decode-gated data, `act` splits interaction by kind (discrete accessible events vs continuous gestures) and owns both motion planes (class rows and the physical spring/scroll/morph engine) plus the document-transition ladder, `atom` is the ONE state binding standing the app's Layer graph behind the registry, `intl` rides native `Intl` behind one cache, and `primitive` makes react-aria-components the single headless pattern and declares the clipboard port. `view` composes those owners into the four dense view surfaces — form, grid, overlay, chart — each a single owner where variation is rows (columns, commands, field kinds, chart regimes), never sibling components. `viewer` is the spatial tier as a separate Nx project: `scene` renders content-keyed GLB residency behind a port the browser composition root satisfies, `geo` shares one WebGL context between maplibre and deck.gl, `mark` holds the one selection atom every pick pipeline and echo consumer projects (the grid `RowSelectionState` and the `scrollToIndex` echo are projections of this atom, never a second selection), `panel` materializes the C#-minted control vocabularies, and `probe` renders evidence without gating.
+`system` is the capability floor the views instantiate; `view` composes those owners into four dense surfaces — form, grid, overlay, chart — each a single owner where variation is rows (columns, commands, field kinds, chart regimes), never sibling components; `viewer` is the spatial tier as a separate Nx project consuming decoded wire and owning render alone. Selection stays one atom: the grid `RowSelectionState` and the `scrollToIndex` echo project it, never a second plane. Per-owner wiring lives on the owning implementation pages.
 
 ## [04]-[BOUNDARIES]
 
-- The folder evaluates no IFC semantics and owns no geometry; GLB, BCF, and selection vocabularies arrive decoded through the core interchange plane and are rendered, never re-authored.
-- The browser composition root — satisfying `GlbViewport` from Depot arrivals and binding the host Subscribable planes into atoms — is app composition, out of this folder's scope.
+- IFC semantics and geometry stay unowned here; GLB, BCF, and selection vocabularies arrive decoded through the core interchange plane, rendered and never re-authored.
+- Browser composition root — `GlbViewport` satisfied from Depot arrivals, host Subscribable planes bound into atoms — is app composition, out of scope here.
 - `EXT_meshopt_compression` assets refuse with the `codec-absent` reason until the iac plane admits the wasm decoder identity and its serving row.
-- History consumers (selection sets, camera bookmarks) compose from the landed system pages; a second history owner never appears beside the selection atom.
+- History consumers compose from the landed system pages; a second history owner never appears beside the selection atom.

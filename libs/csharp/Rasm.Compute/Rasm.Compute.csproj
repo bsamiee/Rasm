@@ -11,42 +11,29 @@
         <ProjectReference Include="../Rasm.Persistence/Rasm.Persistence.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Tensors Numeric">
-        <PackageReference Include="CommunityToolkit.HighPerformance" />
+    <ItemGroup Label="Numeric Acceleration">
         <PackageReference Include="CSparse" />
-        <PackageReference Include="GeneticSharp" />
-        <PackageReference Include="Google.OrTools" />
         <PackageReference Include="HyperJet" />
         <PackageReference Include="libtorch-cpu" />
-        <PackageReference Include="MathNet.Numerics" />
         <PackageReference Include="MathNet.Numerics.Providers.MKL" />
         <PackageReference Include="MathNet.Numerics.Providers.OpenBLAS" />
-        <PackageReference Include="System.Numerics.Tensors" />
+        <PackageReference Include="Silk.NET.WebGPU" />
+        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
         <PackageReference Include="TorchSharp" />
     </ItemGroup>
 
-    <ItemGroup Label="Symbolic">
+    <ItemGroup Label="Symbolic Cas">
         <PackageReference Include="AngouriMath" />
         <PackageReference Include="PeterO.Numbers" />
     </ItemGroup>
 
-    <ItemGroup Label="Constraint Solving">
+    <ItemGroup Label="Optimization">
+        <PackageReference Include="GeneticSharp" />
+        <PackageReference Include="Google.OrTools" />
         <PackageReference Include="Microsoft.Z3" />
     </ItemGroup>
 
-    <ItemGroup Label="Energy Simulation">
-        <PackageReference Include="Microsoft.Data.Sqlite" />
-        <PackageReference Include="NREL.OpenStudio.macOS-arm64" />
-        <PackageReference Include="PollinationSDK" />
-    </ItemGroup>
-
-    <ItemGroup Label="Analysis Circulation">
-        <PackageReference Include="Clipper2" />
-        <PackageReference Include="NetTopologySuite" />
-        <PackageReference Include="QuikGraph" />
-    </ItemGroup>
-
-    <ItemGroup Label="Models">
+    <ItemGroup Label="Model Runtime">
         <PackageReference Include="Microsoft.Extensions.AI.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
         <PackageReference Include="Microsoft.ML.OnnxRuntime" />
@@ -54,24 +41,16 @@
         <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI" />
     </ItemGroup>
 
-    <ItemGroup Label="GPU Compute">
-        <PackageReference Include="Silk.NET.WebGPU" />
-        <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" />
+    <ItemGroup Label="Simulation Carbon">
+        <PackageReference Include="Microsoft.Data.Sqlite" />
+        <PackageReference Include="NREL.OpenStudio.macOS-arm64" />
+        <PackageReference Include="PollinationSDK" />
     </ItemGroup>
 
-    <ItemGroup Label="Remote Wire">
-        <PackageReference Include="Generator.Equals" />
-        <PackageReference Include="Google.Protobuf" />
-        <PackageReference Include="Grpc.AspNetCore" />
-        <PackageReference Include="Grpc.Net.Client" />
+    <ItemGroup Label="Interchange Transport">
+        <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
         <PackageReference Include="Grpc.Net.Client.Web" />
         <PackageReference Include="Grpc.Net.Common" />
-        <PackageReference Include="NodaTime.Serialization.Protobuf" />
-        <PackageReference Include="Riok.Mapperly" />
-    </ItemGroup>
-
-    <ItemGroup Label="Interchange Staging">
-        <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
         <PackageReference Include="Microsoft.IO.RecyclableMemoryStream" />
         <PackageReference Include="SharpGLTF.Core" />
         <PackageReference Include="SharpGLTF.Ext.3DTiles" />
@@ -79,16 +58,34 @@
     </ItemGroup>
 
     <ItemGroup Label="Functional Core">
-        <PackageReference Include="NodaTime" />
-        <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
-    <ItemGroup Label="Units">
+    <ItemGroup Label="Numeric">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="System.Numerics.Tensors" />
         <PackageReference Include="UnitsNet" />
     </ItemGroup>
 
-    <ItemGroup Label="Protocol Generation">
+    <ItemGroup Label="Identity Time">
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="System.IO.Hashing" />
+    </ItemGroup>
+
+    <ItemGroup Label="Graph Geometry">
+        <PackageReference Include="Clipper2" />
+        <PackageReference Include="NetTopologySuite" />
+        <PackageReference Include="QuikGraph" />
+    </ItemGroup>
+
+    <ItemGroup Label="Mapping Wire">
+        <PackageReference Include="Generator.Equals" />
+        <PackageReference Include="Google.Protobuf" />
+        <PackageReference Include="Grpc.AspNetCore" />
+        <PackageReference Include="Grpc.Net.Client" />
         <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
+        <PackageReference Include="NodaTime.Serialization.Protobuf" />
+        <PackageReference Include="Riok.Mapperly" />
     </ItemGroup>
 </Project>

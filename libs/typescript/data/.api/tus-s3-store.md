@@ -16,31 +16,34 @@
 
 [PUBLIC_TYPE_SCOPE]: the store, its options, and the metadata record
 - rail: object/stream
+- `S3Store` extends `DataStore` with `constructor(options)`; `MetadataValue` is `{ file: Upload, "upload-id", "tus-version" }`.
 
-| [INDEX] | [SYMBOL]                                                         | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                                                                                                  |
-| :-----: | :--------------------------------------------------------------- | :-------------- | :----------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `S3Store` (`extends DataStore`, `constructor(options)`)          | store           | the `datastore` slot of `@tus/server`'s `Server`                                                                                     |
-|  [02]   | `Options.s3ClientConfig` (`S3ClientConfig & { bucket }`)         | provider config | the object plane's endpoint/credential/`forcePathStyle` facts, plus the staging bucket                                               |
-|  [03]   | `Options.partSize` / `.minPartSize` / `.maxMultipartParts`       | part policy     | preferred part bytes (≥ 5 MiB), uniform-part floor, 10 000-part ceiling — the server recomputes optimal size against declared length |
-|  [04]   | `Options.maxConcurrentPartUploads`                               | concurrency     | the part-upload semaphore width per PATCH                                                                                            |
-|  [05]   | `Options.expirationPeriodInMilliseconds` / `.useTags`            | expiry          | staging TTL; completion tags on the info object drive tag-based lifecycle                                                            |
-|  [06]   | `Options.cache` (`KvStore<MetadataValue>`)                       | metadata cache  | fronts the `${id}.info` `HeadObject` reads; in-memory default                                                                        |
-|  [07]   | `MetadataValue` (`{ file: Upload, "upload-id", "tus-version" }`) | record          | the staged upload's identity — the S3 `UploadId` rides here                                                                          |
-|  [08]   | `S3Store.maxUploadSize` (`5497558138880`)                        | bound           | the 5 TiB S3 object ceiling the store enforces                                                                                       |
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                       |
+| :-----: | :------------------------------------------------------- | :-------------- | :-------------------------------------------------------- |
+|  [01]   | `S3Store`                                                | store           | the `datastore` slot of `@tus/server`'s `Server`          |
+|  [02]   | `Options.s3ClientConfig` (`S3ClientConfig & { bucket }`) | provider config | endpoint/credential/`forcePathStyle`, staging bucket      |
+|  [03]   | `Options.partSize`                                       | part policy     | preferred part bytes (≥ 5 MiB)                            |
+|  [04]   | `Options.minPartSize`                                    | part policy     | uniform-part floor                                        |
+|  [05]   | `Options.maxMultipartParts`                              | part policy     | 10 000-part S3 ceiling                                    |
+|  [06]   | `Options.maxConcurrentPartUploads`                       | concurrency     | the part-upload semaphore width per PATCH                 |
+|  [07]   | `Options.expirationPeriodInMilliseconds` / `.useTags`    | expiry          | staging TTL; completion tags drive tag-based lifecycle    |
+|  [08]   | `Options.cache` (`KvStore<MetadataValue>`)               | metadata cache  | fronts `${id}.info` `HeadObject` reads; in-memory default |
+|  [09]   | `MetadataValue`                                          | record          | the staged upload identity — S3 `UploadId` rides here     |
+|  [10]   | `S3Store.maxUploadSize` (`5497558138880`)                | bound           | the 5 TiB S3 object ceiling the store enforces            |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the DataStore members the server drives
 - rail: object/stream
-- The rail never calls these directly — `@tus/server` drives them per protocol verb; the rail's own reads are `read` (the staged bytes for the finalize fold) and `deleteExpired` (the groom).
+- The rail never calls these directly — `@tus/server` drives them per protocol verb; the rail's own reads are `read` (the staged bytes for the finalize fold) and `deleteExpired` (the groom). `new S3Store(options)` takes `{ s3ClientConfig: { bucket, endpoint, forcePathStyle, credentials, region }, partSize, maxConcurrentPartUploads, expirationPeriodInMilliseconds }`; `read` returns `Promise<stream.Readable>` lifted through `Stream.fromReadableStream` after `Readable.toWeb`, `deleteExpired` returns `Promise<number>`. The driven members are `store` methods `create(upload)`/`write(src, id, offset)`/`getUpload(id)`/`read(id)`/`remove(id)`/`deleteExpired()`/`getExpiration()`/`declareUploadLength(id, length)`.
 
-| [INDEX] | [SURFACE]                                                                                                                                                        | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | `new S3Store({ s3ClientConfig: { bucket, endpoint, forcePathStyle, credentials, region }, partSize, maxConcurrentPartUploads, expirationPeriodInMilliseconds })` | construct      | one store per staging band, built beside the server                                                |
-|  [02]   | `store.create(upload)` / `store.write(src, id, offset)` / `store.getUpload(id)`                                                                                  | protocol       | driven by POST/PATCH/HEAD — offsets map onto `ListParts`-derived progress                          |
-|  [03]   | `store.read(id): Promise<stream.Readable>`                                                                                                                       | staged read    | the finalize fold's byte source — lifts through `Stream.fromReadableStream` after `Readable.toWeb` |
-|  [04]   | `store.remove(id)` / `store.deleteExpired(): Promise<number>` / `store.getExpiration()`                                                                          | groom          | staging removal after re-home; the scheduled expiry sweep                                          |
-|  [05]   | `store.declareUploadLength(id, length)`                                                                                                                          | deferred size  | tus `Upload-Defer-Length` — size declared after creation                                           |
+| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                      |
+| :-----: | :------------------------------------------- | :------------- | :------------------------------------------------------- |
+|  [01]   | `new S3Store(options)`                       | construct      | one store per staging band, built beside the server      |
+|  [02]   | `create` / `write` / `getUpload`             | protocol       | POST/PATCH/HEAD — offsets from `ListParts` progress      |
+|  [03]   | `read`                                       | staged read    | the finalize fold's byte source                          |
+|  [04]   | `remove` / `deleteExpired` / `getExpiration` | groom          | staging removal after re-home; expiry sweep              |
+|  [05]   | `declareUploadLength`                        | deferred size  | tus `Upload-Defer-Length` — size declared after creation |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

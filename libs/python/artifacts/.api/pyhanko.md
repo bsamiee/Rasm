@@ -55,17 +55,20 @@
 [PUBLIC_TYPE_SCOPE]: validation, status, and diff family
 - rail: pdf — `pyhanko.sign.validation`, `pyhanko.sign.diff_analysis`
 
-| [INDEX] | [SYMBOL]                                                  | [TYPE_FAMILY]      | [CAPABILITY]                                                                                                |
-| :-----: | :-------------------------------------------------------- | :----------------- | :---------------------------------------------------------------------------------------------------------- |
-|  [01]   | `EmbeddedPdfSignature`                                    | signature handle   | `signer_cert`, `compute_digest`, `evaluate_signature_coverage`, `evaluate_modifications`                    |
-|  [02]   | `PdfSignatureStatus`                                      | signature result   | `trusted`/`revoked`/`coverage`/`modification_level`/`docmdp_ok`/`seed_value_ok`/`diff_result`/`bottom_line` |
-|  [03]   | `DocumentTimestampStatus`                                 | timestamp result   | timestamp trust + coverage                                                                                  |
-|  [04]   | `StandardCMSSignatureStatus`                              | raw CMS result     | detached-CMS validation status (no PDF)                                                                     |
-|  [05]   | `SignatureCoverageLevel`                                  | coverage enum      | `ENTIRE_FILE`, `ENTIRE_REVISION`, `CONTIGUOUS_BLOCK_FROM_START`, `UNCLEAR`                                  |
-|  [06]   | `DocMDPInfo`                                              | certification info | `MDPPerm` level read from a certifying signature                                                            |
-|  [07]   | `DocumentSecurityStore`                                   | DSS owner          | VRI/OCSP/CRL/cert store embedded in the PDF for LTV                                                         |
-|  [08]   | `DiffPolicy` / `StandardDiffPolicy` / `ModificationLevel` | diff policy        | pluggable post-signature modification analysis                                                              |
-|  [09]   | `KeyUsageConstraints`                                     | usage policy       | key-usage / extended-key-usage acceptance constraints                                                       |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY]      | [CAPABILITY]                                                            |
+| :-----: | :---------------------------------- | :----------------- | :---------------------------------------------------------------------- |
+|  [01]   | `EmbeddedPdfSignature`              | signature handle   | `compute_digest`, `evaluate_signature_coverage`/`_modifications`        |
+|  [02]   | `PdfSignatureStatus`                | signature result   | signature verdict; fields below                                         |
+|  [03]   | `DocumentTimestampStatus`           | timestamp result   | timestamp trust + coverage                                              |
+|  [04]   | `StandardCMSSignatureStatus`        | raw CMS result     | detached-CMS validation status (no PDF)                                 |
+|  [05]   | `SignatureCoverageLevel`            | coverage enum      | `ENTIRE_FILE`/`ENTIRE_REVISION`/`CONTIGUOUS_BLOCK_FROM_START`/`UNCLEAR` |
+|  [06]   | `DocMDPInfo`                        | certification info | `MDPPerm` level read from a certifying signature                        |
+|  [07]   | `DocumentSecurityStore`             | DSS owner          | VRI/OCSP/CRL/cert store embedded in the PDF for LTV                     |
+|  [08]   | `DiffPolicy` / `StandardDiffPolicy` | diff policy        | pluggable post-signature modification analysis                          |
+|  [09]   | `ModificationLevel`                 | diff-level enum    | the modification level a diff policy reports                            |
+|  [10]   | `KeyUsageConstraints`               | usage policy       | key-usage / extended-key-usage acceptance constraints                   |
+
+- [02]-[PDFSIGNATURESTATUS]: `trusted`, `revoked`, `coverage`, `modification_level`, `docmdp_ok`, `seed_value_ok`, `diff_result`, `bottom_line`.
 
 [PUBLIC_TYPE_SCOPE]: document I/O and certvalidator context
 - rail: pdf — `pyhanko.pdf_utils`, `pyhanko_certvalidator`
@@ -80,47 +83,47 @@
 [PUBLIC_TYPE_SCOPE]: visible appearance / stamp family
 - rail: pdf — `pyhanko.stamp`
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]       | [CAPABILITY]                                                                                                    |
-| :-----: | :--------------- | :------------------ | :-------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `BaseStampStyle` | appearance base     | the abstract visible-seal style the `PdfSigner(stamp_style=)` renders onto the signature field                  |
-|  [02]   | `TextStampStyle` | text seal           | `stamp_text` (`%(...)s`-interpolated), `border_width`, `background_opacity` — the positioned drawing-sheet seal |
-|  [03]   | `QRStampStyle`   | scan-to-verify seal | `TextStampStyle` plus a rendered QR encoding the `%(url)s` link, positioned by `qr_position`                    |
-|  [04]   | `QRPosition`     | QR placement enum   | `LEFT_OF_TEXT` / `RIGHT_OF_TEXT` / `ABOVE_TEXT` / `BELOW_TEXT`                                                  |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]       | [CAPABILITY]                                                                     |
+| :-----: | :--------------- | :------------------ | :------------------------------------------------------------------------------- |
+|  [01]   | `BaseStampStyle` | appearance base     | abstract visible-seal style `PdfSigner(stamp_style=)` renders onto the field     |
+|  [02]   | `TextStampStyle` | text seal           | `stamp_text` (`%(...)s`), `border_width`, `background_opacity`; positioned seal  |
+|  [03]   | `QRStampStyle`   | scan-to-verify seal | `TextStampStyle` + a QR encoding the `%(url)s` link, positioned by `qr_position` |
+|  [04]   | `QRPosition`     | QR placement enum   | `LEFT_OF_TEXT` / `RIGHT_OF_TEXT` / `ABOVE_TEXT` / `BELOW_TEXT`                   |
 
 [PUBLIC_TYPE_SCOPE]: CAdES signed-attribute and DSS placement family
 - rail: pdf — `pyhanko.sign.ades.api`, `pyhanko.sign.signers.pdf_signer`
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]        | [CAPABILITY]                                                                                                           |
-| :-----: | :-------------------------- | :------------------- | :--------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `CAdESSignedAttrSpec`       | signed-attr spec     | `commitment_type`, signature-policy, and signer-attribute CAdES signed attributes                                      |
-|  [02]   | `GenericCommitment`         | commitment-type enum | `PROOF_OF_ORIGIN` / `_RECEIPT` / `_DELIVERY` / `_SENDER` / `_APPROVAL` / `_CREATION`; each `.asn1` is the ASN.1 object |
-|  [03]   | `DSSContentSettings`        | DSS write policy     | `include_vri`, `placement` controlling the DSS/VRI revision write                                                      |
-|  [04]   | `SigDSSPlacementPreference` | DSS placement enum   | `SEPARATE_REVISION` / `TOGETHER_WITH_NEXT_TS` / `TOGETHER_WITH_SIGNATURE`                                              |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]        | [CAPABILITY]                                                                  |
+| :-----: | :-------------------------- | :------------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `CAdESSignedAttrSpec`       | signed-attr spec     | `commitment_type`, signature-policy, signer-attribute CAdES signed attributes |
+|  [02]   | `GenericCommitment`         | commitment-type enum | `PROOF_OF_{ORIGIN,RECEIPT,DELIVERY,SENDER,APPROVAL,CREATION}`                 |
+|  [03]   | `DSSContentSettings`        | DSS write policy     | `include_vri`, `placement` controlling the DSS/VRI revision write             |
+|  [04]   | `SigDSSPlacementPreference` | DSS placement enum   | `SEPARATE_REVISION` / `TOGETHER_WITH_NEXT_TS` / `TOGETHER_WITH_SIGNATURE`     |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: credential loading and signers
-- rail: pdf — `pyhanko.sign`
+- rail: pdf — `pyhanko.sign`. The `SimpleSigner` loaders and `ExternalSigner` share the `signature_mechanism=None, prefer_pss=False` tail (the `…`); `load` adds `key_passphrase=None`, `load_pkcs12` a `passphrase=None`.
 
-| [INDEX] | [SURFACE]                                                                                                                                        | [ENTRY_FAMILY]    | [CAPABILITY]                                              |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------- | :---------------- | :-------------------------------------------------------- |
-|  [01]   | `SimpleSigner.load(key_file, cert_file, ca_chain_files=None, key_passphrase=None, other_certs=None, signature_mechanism=None, prefer_pss=False)` | PEM loader        | load PEM key + cert chain                                 |
-|  [02]   | `SimpleSigner.load_pkcs12(pfx_file, ca_chain_files=None, other_certs=None, passphrase=None, signature_mechanism=None, prefer_pss=False)`         | PKCS#12 loader    | load a PKCS#12 bundle                                     |
-|  [03]   | `ExternalSigner(signing_cert, cert_registry, signature_value=None, signature_mechanism=None, prefer_pss=False, embed_roots=True)`                | HSM/remote signer | detached signer with injected or deferred signature bytes |
-|  [04]   | `load_certs_from_pemder(cert_files)`                                                                                                             | cert loader       | parse a PEM/DER cert list                                 |
+| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY]    | [CAPABILITY]                                 |
+| :-----: | :--------------------------------------------------------------- | :---------------- | :------------------------------------------- |
+|  [01]   | `SimpleSigner.load(key_file, cert_file, ca_chain_files=None, …)` | PEM loader        | load PEM key + cert chain                    |
+|  [02]   | `SimpleSigner.load_pkcs12(pfx_file, ca_chain_files=None, …)`     | PKCS#12 loader    | load a PKCS#12 bundle                        |
+|  [03]   | `ExternalSigner(signing_cert, cert_registry, …)`                 | HSM/remote signer | detached signer with injected/deferred bytes |
+|  [04]   | `load_certs_from_pemder(cert_files)`                             | cert loader       | parse a PEM/DER cert list                    |
 
 [ENTRYPOINT_SCOPE]: PDF signing
-- rail: pdf — `pyhanko.sign`
+- rail: pdf — `pyhanko.sign`. The sign entrypoints share the `existing_fields_only=False, bytes_reserved=None, in_place=False, output=None` tail (the `…`); the module-level `sign_pdf` full signature is `sign_pdf(pdf_out, signature_meta, signer, timestamper=None, new_field_spec=None, …)`.
 
-| [INDEX] | [SURFACE]                                                                                                                                                        | [ENTRY_FAMILY]    | [CAPABILITY]                                    |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------- | :---------------------------------------------- |
-|  [01]   | `sign_pdf(pdf_out, signature_meta, signer, timestamper=None, new_field_spec=None, existing_fields_only=False, bytes_reserved=None, in_place=False, output=None)` | sync sign         | sign a writer in-place or to an output stream   |
-|  [02]   | `async_sign_pdf(pdf_out, signature_meta, signer, timestamper=None, new_field_spec=None, ...)`                                                                    | async sign        | coroutine variant of `sign_pdf`                 |
-|  [03]   | `PdfSigner(signature_meta, signer, *, timestamper=None, stamp_style=None, new_field_spec=None)`                                                                  | engine ctor       | reusable signer with visible appearance         |
-|  [04]   | `PdfSigner.sign_pdf(pdf_out, existing_fields_only=False, bytes_reserved=None, *, appearance_text_params=None, in_place=False, output=None)`                      | object sign       | sign via a `PdfSigner` instance                 |
-|  [05]   | `PdfSigner.async_sign_pdf(pdf_out, ...)`                                                                                                                         | object async sign | coroutine variant of instance sign              |
-|  [06]   | `PdfSigner.digest_doc_for_signing(pdf_out, ...) -> (PreparedByteRangeDigest, PdfTBSDocument, IO)`                                                                | two-phase prepare | byte range + digest for external HSM/remote sig |
-|  [07]   | `PdfSigner.async_digest_doc_for_signing(pdf_out, ...)`                                                                                                           | two-phase async   | coroutine variant of two-phase prepare          |
+| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY]    | [CAPABILITY]                                       |
+| :-----: | :------------------------------------------------------------ | :---------------- | :------------------------------------------------- |
+|  [01]   | `sign_pdf(pdf_out, signature_meta, signer, …)`                | sync sign         | sign a writer in-place or to an output stream      |
+|  [02]   | `async_sign_pdf(pdf_out, signature_meta, signer, …)`          | async sign        | coroutine variant of `sign_pdf`                    |
+|  [03]   | `PdfSigner(signature_meta, signer, …)`                        | engine ctor       | reusable signer with visible appearance            |
+|  [04]   | `PdfSigner.sign_pdf(pdf_out, appearance_text_params=None, …)` | object sign       | sign via a `PdfSigner` instance                    |
+|  [05]   | `PdfSigner.async_sign_pdf(pdf_out, …)`                        | object async sign | coroutine variant of instance sign                 |
+|  [06]   | `PdfSigner.digest_doc_for_signing(pdf_out, …)`                | two-phase prepare | `-> (PreparedByteRangeDigest, PdfTBSDocument, IO)` |
+|  [07]   | `PdfSigner.async_digest_doc_for_signing(pdf_out, ...)`        | two-phase async   | coroutine variant of two-phase prepare             |
 
 [ENTRYPOINT_SCOPE]: signing descriptor knobs
 - rail: pdf — `pyhanko.sign.PdfSignatureMetadata`
@@ -139,59 +142,61 @@
 [ENTRYPOINT_SCOPE]: timestamp application
 - rail: pdf — `pyhanko.sign.PdfTimeStamper`, `pyhanko.sign.timestamps`
 
-| [INDEX] | [SURFACE]                                                                         | [ENTRY_FAMILY] | [CAPABILITY]                         |
-| :-----: | :-------------------------------------------------------------------------------- | :------------- | :----------------------------------- |
-|  [01]   | `HTTPTimeStamper(url, https=False, timeout=5, auth=None, headers=None)`           | TSA client     | RFC 3161 TSA over HTTP/HTTPS         |
-|  [02]   | `PdfTimeStamper.timestamp_pdf(pdf_out, md_algorithm, validation_context, ...)`    | sync stamp     | add a document timestamp field       |
-|  [03]   | `PdfTimeStamper.async_timestamp_pdf(pdf_out, md_algorithm, ...)`                  | async stamp    | coroutine variant of `timestamp_pdf` |
-|  [04]   | `PdfTimeStamper.update_archival_timestamp_chain(reader, validation_context, ...)` | chain update   | extend LTV archival timestamp chain  |
-|  [05]   | `PdfTimeStamper.async_update_archival_timestamp_chain(reader, ...)`               | chain async    | coroutine variant of chain update    |
+| [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY] | [CAPABILITY]                         |
+| :-----: | :------------------------------------------------------------------------------ | :------------- | :----------------------------------- |
+|  [01]   | `HTTPTimeStamper(url, https=False, timeout=5, auth=None, headers=None)`         | TSA client     | RFC 3161 TSA over HTTP/HTTPS         |
+|  [02]   | `PdfTimeStamper.timestamp_pdf(pdf_out, md_algorithm, validation_context, ...)`  | sync stamp     | add a document timestamp field       |
+|  [03]   | `PdfTimeStamper.async_timestamp_pdf(pdf_out, md_algorithm, ...)`                | async stamp    | coroutine variant of `timestamp_pdf` |
+|  [04]   | `PdfTimeStamper.update_archival_timestamp_chain(reader, validation_context, …)` | chain update   | extend LTV archival timestamp chain  |
+|  [05]   | `PdfTimeStamper.async_update_archival_timestamp_chain(reader, ...)`             | chain async    | coroutine variant of chain update    |
 
 [ENTRYPOINT_SCOPE]: signature field management
-- rail: pdf — `pyhanko.sign.fields`
+- rail: pdf — `pyhanko.sign.fields`. The full field descriptor is `SigFieldSpec(sig_field_name, on_page=0, box=None, seed_value_dict=None, field_mdp_spec=None, doc_mdp_update_value=None, combine_annotation=True, empty_field_appearance=False, invis_sig_settings=InvisSigSettings(...), readable_field_name=None, visible_sig_settings=VisibleSigSettings(...))`.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                                                          | [ENTRY_FAMILY]   | [CAPABILITY]                                                                                                                                                                    |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `append_signature_field(pdf_out, sig_field_spec)`                                                                                                                                                                                                                                                  | field writer     | add a signature field to a writer                                                                                                                                               |
-|  [02]   | `SigFieldSpec(sig_field_name, on_page=0, box=None, seed_value_dict=None, field_mdp_spec=None, doc_mdp_update_value=None, combine_annotation=True, empty_field_appearance=False, invis_sig_settings=InvisSigSettings(...), readable_field_name=None, visible_sig_settings=VisibleSigSettings(...))` | field descriptor | declare a field placement + seed value; both `invis_sig_settings` and `visible_sig_settings` carry the appearance flags, `doc_mdp_update_value` sets the per-field DocMDP level |
-|  [03]   | `enumerate_sig_fields(handler, filled_status=None, with_name=None)`                                                                                                                                                                                                                                | field enumerator | iterate signature fields with fill state                                                                                                                                        |
-|  [04]   | `prepare_sig_field(sig_field_name, root, update_writer, ...)`                                                                                                                                                                                                                                      | field preparer   | locate or create a field for signing                                                                                                                                            |
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]   | [CAPABILITY]                                      |
+| :-----: | :----------------------------------------------------- | :--------------- | :------------------------------------------------ |
+|  [01]   | `append_signature_field(pdf_out, sig_field_spec)`      | field writer     | add a signature field to a writer                 |
+|  [02]   | `SigFieldSpec(sig_field_name, on_page=0, box=None, …)` | field descriptor | field placement + seed value; appearance + DocMDP |
+|  [03]   | `enumerate_sig_fields(handler, filled_status=None, …)` | field enumerator | iterate signature fields with fill state          |
+|  [04]   | `prepare_sig_field(sig_field_name, root, …)`           | field preparer   | locate or create a field for signing              |
 
 [ENTRYPOINT_SCOPE]: visible appearance, CAdES attributes, and DSS placement
-- rail: pdf — `pyhanko.stamp`, `pyhanko.sign.ades.api`, `pyhanko.sign.signers.pdf_signer`
+- rail: pdf — `pyhanko.stamp`, `pyhanko.sign.ades.api`, `pyhanko.sign.signers.pdf_signer`. The stamp-style ctors share `stamp_text=, border_width=, background_opacity=` (the `…`); `DSSContentSettings` `placement=` takes a `SigDSSPlacementPreference`.
 
-| [INDEX] | [SURFACE]                                                                                 | [ENTRY_FAMILY]   | [CAPABILITY]                                                                    |
-| :-----: | :---------------------------------------------------------------------------------------- | :--------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `TextStampStyle(stamp_text=, border_width=, background_opacity=, ...)`                    | text seal ctor   | positioned visible drawing-sheet seal fed to `PdfSigner(stamp_style=)`          |
-|  [02]   | `QRStampStyle(stamp_text=, border_width=, background_opacity=, qr_position=, ...)`        | QR seal ctor     | scan-to-verify seal; `appearance_text_params` carries the `%(url)s` link        |
-|  [03]   | `CAdESSignedAttrSpec(commitment_type=, signature_policy_identifier=, signer_attributes=)` | signed-attr ctor | attach a CAdES commitment-type + policy signed attribute to the signature       |
-|  [04]   | `GenericCommitment.<PROOF_OF_*>.asn1`                                                     | commitment value | the ASN.1 commitment-type object fed to `CAdESSignedAttrSpec(commitment_type=)` |
-|  [05]   | `DSSContentSettings(include_vri=, placement=SigDSSPlacementPreference.<...>)`             | DSS policy ctor  | control the DSS/VRI revision placement at sign time                             |
+| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY]   | [CAPABILITY]                                                    |
+| :-----: | :---------------------------------------------- | :--------------- | :-------------------------------------------------------------- |
+|  [01]   | `TextStampStyle(…)`                             | text seal ctor   | positioned seal fed to `PdfSigner(stamp_style=)`                |
+|  [02]   | `QRStampStyle(…, qr_position=)`                 | QR seal ctor     | scan-to-verify seal; `appearance_text_params` carries `%(url)s` |
+|  [03]   | `CAdESSignedAttrSpec(commitment_type=, …)`      | signed-attr ctor | attach a CAdES commitment-type + policy signed attribute        |
+|  [04]   | `GenericCommitment.<PROOF_OF_*>.asn1`           | commitment value | ASN.1 commitment-type object for `CAdESSignedAttrSpec`          |
+|  [05]   | `DSSContentSettings(include_vri=, placement=…)` | DSS policy ctor  | control the DSS/VRI revision placement at sign time             |
 
 [ENTRYPOINT_SCOPE]: validation, DSS, and raw CMS
-- rail: pdf — `pyhanko.sign.validation`
+- rail: pdf — `pyhanko.sign.validation`. Validation entrypoints take `embedded_sig` first and share the `signer_validation_context=None, ts_validation_context=None, diff_policy=None` context tail (the `…`); the signature and timestamp validators also carry `skip_diff=False`; `validate_pdf_signature` returns `PdfSignatureStatus`, `validate_pdf_timestamp` returns `DocumentTimestampStatus`; the DSS embed/collect functions share `(embedded_sig, validation_context, skip_timestamp=False)`; `validate_cms_signature`/`validate_detached_cms` carry `async_` coroutine mirrors.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                            | [ENTRY_FAMILY]     | [CAPABILITY]                                                                                                              |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `validate_pdf_signature(embedded_sig, signer_validation_context=None, ts_validation_context=None, diff_policy=None, key_usage_settings=None, skip_diff=False) -> PdfSignatureStatus` | sync validate      | validate an embedded CMS signature                                                                                        |
-|  [02]   | `async_validate_pdf_signature(embedded_sig, signer_validation_context=None, ts_validation_context=None, ac_validation_context=None, diff_policy=None, ...)`                          | async validate     | coroutine variant of signature validation                                                                                 |
-|  [03]   | `validate_pdf_timestamp(embedded_sig, validation_context=None, diff_policy=None, skip_diff=False) -> DocumentTimestampStatus`                                                        | timestamp validate | validate a document timestamp field                                                                                       |
-|  [04]   | `validate_cms_signature(...)` / `validate_detached_cms(...)` (+ `async_` mirrors)                                                                                                    | raw CMS validate   | validate a CMS/detached-CMS blob outside a PDF                                                                            |
-|  [05]   | `add_validation_info(embedded_sig, validation_context, skip_timestamp=False, add_vri_entry=True, in_place=False, output=None)`                                                       | DSS embed          | embed validation info into the PDF DSS                                                                                    |
-|  [06]   | `async_add_validation_info(embedded_sig, validation_context, ...)`                                                                                                                   | DSS async embed    | coroutine variant of DSS embedding                                                                                        |
-|  [07]   | `collect_validation_info(embedded_sig, validation_context, skip_timestamp=False)`                                                                                                    | info collect       | gather OCSP/CRL material without writing                                                                                  |
-|  [08]   | `read_certification_data(reader) -> DocMDPInfo`                                                                                                                                      | certification read | retrieve DocMDP info from a certifying signature                                                                          |
-|  [09]   | `EmbeddedPdfSignature.compute_digest(...)` / `evaluate_signature_coverage()` / `evaluate_modifications(...)` / `compute_integrity_info(...)` / `signer_cert`                         | coverage eval      | byte-range digest, `SignatureCoverageLevel`, diff, the consolidated integrity record, and the embedded signer certificate |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY]     | [CAPABILITY]                                     |
+| :-----: | :------------------------------------------------------- | :----------------- | :----------------------------------------------- |
+|  [01]   | `validate_pdf_signature(embedded_sig, …)`                | sync validate      | validate an embedded CMS signature               |
+|  [02]   | `async_validate_pdf_signature(embedded_sig, …)`          | async validate     | coroutine variant of signature validation        |
+|  [03]   | `validate_pdf_timestamp(embedded_sig, …)`                | timestamp validate | validate a document timestamp field              |
+|  [04]   | `validate_cms_signature(…)` / `validate_detached_cms(…)` | raw CMS validate   | validate a CMS/detached-CMS blob outside a PDF   |
+|  [05]   | `add_validation_info(…, add_vri_entry=True, …)`          | DSS embed          | embed validation info into the PDF DSS           |
+|  [06]   | `async_add_validation_info(…)`                           | DSS async embed    | coroutine variant of DSS embedding               |
+|  [07]   | `collect_validation_info(…)`                             | info collect       | gather OCSP/CRL material without writing         |
+|  [08]   | `read_certification_data(reader) -> DocMDPInfo`          | certification read | retrieve DocMDP info from a certifying signature |
+|  [09]   | `EmbeddedPdfSignature` coverage eval                     | coverage eval      | digest, coverage, diff, integrity; members below |
+
+- [09]-[EMBEDDEDPDFSIGNATURE]: `compute_digest`, `evaluate_signature_coverage`, `evaluate_modifications`, `compute_integrity_info`, `signer_cert`.
 
 [ENTRYPOINT_SCOPE]: document I/O and trust context
-- rail: pdf — `pyhanko.pdf_utils`, `pyhanko_certvalidator`
+- rail: pdf — `pyhanko.pdf_utils`, `pyhanko_certvalidator`. The full trust context is `ValidationContext(trust_roots=None, extra_trust_roots=None, other_certs=None, moment=None, allow_fetching=False, crls=None, ocsps=None, revocation_mode='soft-fail', retroactive_revinfo=False)`.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                         | [ENTRY_FAMILY] | [CAPABILITY]                            |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :-------------------------------------- |
-|  [01]   | `PdfFileReader(stream, strict=True)`                                                                                                                                                              | reader open    | open PDF from binary stream             |
-|  [02]   | `PdfFileReader.decrypt(password)` / `get_historical_resolver(revision)`                                                                                                                           | reader access  | decrypt; reach an earlier revision      |
-|  [03]   | `IncrementalPdfFileWriter(input_stream, prev=None, strict=True)`                                                                                                                                  | writer open    | append-only update writer over reader   |
-|  [04]   | `ValidationContext(trust_roots=None, extra_trust_roots=None, other_certs=None, moment=None, allow_fetching=False, crls=None, ocsps=None, revocation_mode='soft-fail', retroactive_revinfo=False)` | trust context  | build the cert/revocation trust context |
+| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [CAPABILITY]                            |
+| :-----: | :----------------------------------------------------------------------- | :------------- | :-------------------------------------- |
+|  [01]   | `PdfFileReader(stream, strict=True)`                                     | reader open    | open PDF from binary stream             |
+|  [02]   | `PdfFileReader.decrypt(password)` / `get_historical_resolver(revision)`  | reader access  | decrypt; reach an earlier revision      |
+|  [03]   | `IncrementalPdfFileWriter(input_stream, prev=None, strict=True)`         | writer open    | append-only update writer over reader   |
+|  [04]   | `ValidationContext(trust_roots=None, …, revocation_mode='soft-fail', …)` | trust context  | build the cert/revocation trust context |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

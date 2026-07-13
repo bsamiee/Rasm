@@ -28,7 +28,7 @@ The Tag exposes typed `createChatCompletion`/`createChatCompletionStream` plus t
 uncovered endpoints. `layer` takes literals; `layerConfig` reads `effect/Config` so the key/URL come from the
 environment as a `ConfigError`-typed Layer. `transformClient` composes the `net/client` default-policy `HttpClient`.
 
-```ts contract
+```ts signature
 declare class OpenRouterClient extends Context.Tag("@effect/ai-openrouter/OpenRouterClient")<OpenRouterClient, Service> {}
 interface Service {
   readonly client: Generated.Client // full typed OpenRouter OpenAPI surface
@@ -64,7 +64,7 @@ per-request generation-parameter Tag (temperature, top_p, reasoning, provider ro
 messages/tools/response_format/stream); `withConfigOverride` scopes an override onto an Effect. Module
 augmentation adds OpenRouter columns to `@effect/ai`'s `Prompt` and `Response` shapes.
 
-```ts contract
+```ts signature
 // The capability-asymmetry row: a Model that is Layer + Effect, provides LanguageModel, requires OpenRouterClient.
 declare const model: (model: string, config?: Omit<Config.Service, "model">)
   => AiModel.Model<"openrouter", LanguageModel.LanguageModel, OpenRouterClient>
@@ -97,7 +97,7 @@ type OpenRouterReasoningInfo =
 transformation onto an Effect (organization proxy, header injection, per-tenant metrics) without rebuilding the
 client Layer.
 
-```ts contract
+```ts signature
 declare class OpenRouterConfig extends Context.Tag("@effect/ai-openrouter/OpenRouterConfig")<OpenRouterConfig, Service> {}
 interface Service { readonly transformClient?: (client: HttpClient) => HttpClient }
 declare const withClientTransform: {
@@ -111,19 +111,19 @@ declare const withClientTransform: {
 [PUBLIC_TYPE_SCOPE]: the typed OpenRouter OpenAPI surface — rail: ai-provider
 
 `Generated` is the derived, `Schema.Class`-backed OpenRouter API (348 schemas). It is the low-level escape hatch
-`Service.client` exposes and the source of every asymmetry type the config/metadata reference.
+`Service.client` exposes and the source of every asymmetry type the config/metadata reference. Rows below drop the `Generated.` prefix.
 
-| [INDEX] | [SYMBOL]                                                    | [FAMILY]     | [CAPABILITY]                                                      |
-| :-----: | :---------------------------------------------------------- | :----------- | :---------------------------------------------------------------- |
-|  [01]   | `Generated.ChatGenerationParams`                            | Schema.Class | full generation request (model/messages/provider/reasoning/route) |
-|  [02]   | `Generated.ChatResponse`                                    | Schema.Class | non-stream completion + usage                                     |
-|  [03]   | `Generated.ChatGenerationTokenUsage`                        | Schema.Class | prompt/completion/cost token usage                                |
-|  [04]   | `Generated.ProviderPreferences`                             | Schema.Class | upstream routing + sort policy                                    |
-|  [05]   | `Generated.ChatGenerationParamsReasoningEffortEnum`         | enum         | reasoning-effort control                                          |
-|  [06]   | `Generated.ChatGenerationParamsRouteEnum`                   | enum         | recovery routing policy                                           |
-|  [07]   | `Generated.CacheControlEphemeral`                           | Schema.Class | prompt-caching breakpoint                                         |
-|  [08]   | `Generated.ReasoningDetail*`                                | Schema union | reasoning trace parts                                             |
-|  [09]   | `Generated.Client` + `Generated.make(httpClient, options?)` | client       | raw endpoint access + ClientError                                 |
+| [INDEX] | [SYMBOL]                                  | [FAMILY]     | [CAPABILITY]                                                      |
+| :-----: | :---------------------------------------- | :----------- | :---------------------------------------------------------------- |
+|  [01]   | `ChatGenerationParams`                    | Schema.Class | full generation request (model/messages/provider/reasoning/route) |
+|  [02]   | `ChatResponse`                            | Schema.Class | non-stream completion + usage                                     |
+|  [03]   | `ChatGenerationTokenUsage`                | Schema.Class | prompt/completion/cost token usage                                |
+|  [04]   | `ProviderPreferences`                     | Schema.Class | upstream routing + sort policy                                    |
+|  [05]   | `ChatGenerationParamsReasoningEffortEnum` | enum         | reasoning-effort control                                          |
+|  [06]   | `ChatGenerationParamsRouteEnum`           | enum         | recovery routing policy                                           |
+|  [07]   | `CacheControlEphemeral`                   | Schema.Class | prompt-caching breakpoint                                         |
+|  [08]   | `ReasoningDetail*`                        | Schema union | reasoning trace parts                                             |
+|  [09]   | `Client` + `make(httpClient, options?)`   | client       | raw endpoint access + ClientError                                 |
 
 ## [06]-[INTEGRATION]
 

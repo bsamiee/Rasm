@@ -60,52 +60,55 @@
 
 [ENTRYPOINT_SCOPE]: ProblemSpec fluent pipeline
 - rail: sensitivity-analysis
+- every surface is a `ProblemSpec` method; `.sample`/`.evaluate`/`.analyze` and the parallel/distributed variants take `(func, *args, **kwargs)`, adding the keywords shown; setters take `np.ndarray`.
 
-| [INDEX] | [SURFACE]                                                                                        | [ENTRY_FAMILY] | [RAIL]                            |
-| :-----: | :----------------------------------------------------------------------------------------------- | :------------- | :-------------------------------- |
-|  [01]   | `ProblemSpec.sample(func, *args, **kwargs)`                                                      | pipeline       | call a sample function and store  |
-|  [02]   | `ProblemSpec.evaluate(func, *args, **kwargs)`                                                    | pipeline       | evaluate model on stored samples  |
-|  [03]   | `ProblemSpec.analyze(func, *args, **kwargs)`                                                     | pipeline       | run analysis on stored results    |
-|  [04]   | `ProblemSpec.evaluate_parallel(func, *args, nprocs=None, **kwargs)`                              | parallel eval  | parallel model evaluation         |
-|  [05]   | `ProblemSpec.analyze_parallel(func, *args, nprocs=None, **kwargs)`                               | parallel       | parallel analysis                 |
-|  [06]   | `ProblemSpec.evaluate_distributed(func, *args, nprocs=1, servers=None, verbose=False, **kwargs)` | distributed    | distributed evaluation            |
-|  [07]   | `ProblemSpec.set_samples(samples: np.ndarray)`                                                   | setter         | inject pre-computed sample matrix |
-|  [08]   | `ProblemSpec.set_results(results: np.ndarray)`                                                   | setter         | inject pre-computed model results |
-|  [09]   | `ProblemSpec.to_df()`                                                                            | export         | convert analysis to DataFrame     |
-|  [10]   | `ProblemSpec.plot(**kwargs)`                                                                     | visualization  | plot sensitivity indices          |
-|  [11]   | `ProblemSpec.heatmap(metric=None, index=None, title=None, ax=None)`                              | visualization  | heatmap of indices                |
-|  [12]   | `ProblemSpec.samples` (property)                                                                 | accessor       | stored sample matrix              |
-|  [13]   | `ProblemSpec.results` (property)                                                                 | accessor       | stored result array               |
-|  [14]   | `ProblemSpec.analysis` (property)                                                                | accessor       | stored analysis result            |
+| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [RAIL]                            |
+| :-----: | :------------------------------------------------------------- | :------------- | :-------------------------------- |
+|  [01]   | `.sample`                                                      | pipeline       | call a sample function and store  |
+|  [02]   | `.evaluate`                                                    | pipeline       | evaluate model on stored samples  |
+|  [03]   | `.analyze`                                                     | pipeline       | run analysis on stored results    |
+|  [04]   | `.evaluate_parallel(nprocs=None)`                              | parallel eval  | parallel model evaluation         |
+|  [05]   | `.analyze_parallel(nprocs=None)`                               | parallel       | parallel analysis                 |
+|  [06]   | `.evaluate_distributed(nprocs=1, servers=None, verbose=False)` | distributed    | distributed evaluation            |
+|  [07]   | `.set_samples(samples)`                                        | setter         | inject pre-computed sample matrix |
+|  [08]   | `.set_results(results)`                                        | setter         | inject pre-computed model results |
+|  [09]   | `.to_df()`                                                     | export         | convert analysis to DataFrame     |
+|  [10]   | `.plot(**kwargs)`                                              | visualization  | plot sensitivity indices          |
+|  [11]   | `.heatmap(metric=None, index=None, title=None, ax=None)`       | visualization  | heatmap of indices                |
+|  [12]   | `.samples` (property)                                          | accessor       | stored sample matrix              |
+|  [13]   | `.results` (property)                                          | accessor       | stored result array               |
+|  [14]   | `.analysis` (property)                                         | accessor       | stored analysis result            |
 
 [ENTRYPOINT_SCOPE]: sampling functions
 - rail: sensitivity-analysis
+- every sampler takes `(problem, N, ..., seed=None)` and returns an `ndarray`; `saltelli.sample` is the deprecated alias, `sobol.sample` the maintained Saltelli/Sobol design; `fast_sampler` `M` is the interference factor, `finite_diff` `delta` the perturbation step, and `ff` fixes size by `num_vars` (no `N`).
 
-| [INDEX] | [SURFACE]                                                                                                           | [METHOD] | [RAIL]                                                                                                    |
-| :-----: | :------------------------------------------------------------------------------------------------------------------ | :------- | :-------------------------------------------------------------------------------------------------------- |
-|  [01]   | `saltelli.sample(problem, N, calc_second_order=True, skip_values=None) -> ndarray`                                  | Saltelli | Sobol quasi-random sample (deprecated alias path; `sobol.sample` is the maintained Saltelli/Sobol design) |
-|  [02]   | `sobol.sample(problem, N, *, calc_second_order=True, scramble=True, skip_values=0, seed=None)`                      | Sobol    | Sobol sequence sample (auto-scales bounds from `problem`)                                                 |
-|  [03]   | `morris.sample(problem, N, num_levels=4, optimal_trajectories=None, local_optimization=True, seed=None) -> ndarray` | Morris   | trajectory sample                                                                                         |
-|  [04]   | `latin.sample(problem, N, seed=None)`                                                                               | LHS      | Latin hypercube sample                                                                                    |
-|  [05]   | `fast_sampler.sample(problem, N, M=4, seed=None)`                                                                   | FAST     | FAST frequency-domain search-curve sample (`M` = interference factor)                                     |
-|  [06]   | `finite_diff.sample(problem, N, delta=0.01, seed=None, skip_values=1024) -> ndarray`                                | DGSM     | finite-difference gradient sample for DGSM (`delta` = perturbation step)                                  |
-|  [07]   | `ff.sample(problem, seed=None)`                                                                                     | FF       | fractional-factorial two-level design (no `N`; size fixed by `num_vars`)                                  |
+| [INDEX] | [SURFACE]                                                                         | [METHOD] | [SAMPLE]                              |
+| :-----: | :-------------------------------------------------------------------------------- | :------- | :------------------------------------ |
+|  [01]   | `saltelli.sample(calc_second_order=True, skip_values=None)`                       | Saltelli | Sobol quasi-random sample             |
+|  [02]   | `sobol.sample(*, calc_second_order=True, scramble=True, skip_values=0)`           | Sobol    | Sobol sequence (bounds auto-scaled)   |
+|  [03]   | `morris.sample(num_levels=4, optimal_trajectories=None, local_optimization=True)` | Morris   | trajectory sample                     |
+|  [04]   | `latin.sample()`                                                                  | LHS      | Latin hypercube sample                |
+|  [05]   | `fast_sampler.sample(M=4)`                                                        | FAST     | FAST frequency search-curve sample    |
+|  [06]   | `finite_diff.sample(delta=0.01, skip_values=1024)`                                | DGSM     | finite-difference gradient sample     |
+|  [07]   | `ff.sample()`                                                                     | FF       | fractional-factorial two-level design |
 
 [ENTRYPOINT_SCOPE]: analyze functions
 - rail: sensitivity-analysis
+- every analyzer takes `(problem, [X,] Y, ..., seed=None)` (methods needing input samples take `X` before `Y`); `num_resamples=100`, `conf_level=0.95`, `print_to_console=False` are shared resampling/reporting keywords, and `sobol.analyze` adds `parallel=`/`n_processors=`/`keep_resamples=` for resample parallelism — the row shows the method-specific keywords.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                           | [METHOD] | [INDICES]                                              |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------- | :----------------------------------------------------- |
-|  [01]   | `sobol.analyze(problem, Y, calc_second_order=True, num_resamples=100, conf_level=0.95, print_to_console=False, parallel=False, n_processors=None, keep_resamples=False, seed=None)` | Sobol    | S1/S2/ST                                               |
-|  [02]   | `morris.analyze(problem, X, Y, num_resamples=100, conf_level=0.95, scaled=False, print_to_console=False, num_levels=4, seed=None) -> Dict`                                          | Morris   | mu/mu*/sigma                                           |
-|  [03]   | `fast.analyze(problem, Y, M=4, num_resamples=100, conf_level=0.95, print_to_console=False, seed=None)`                                                                              | FAST     | first-order                                            |
-|  [04]   | `rbd_fast.analyze(problem, X, Y, M=10, num_resamples=100, conf_level=0.95, print_to_console=False, seed=None)`                                                                      | RBD-FAST | first-order                                            |
-|  [05]   | `delta.analyze(problem, X, Y, num_resamples=100, conf_level=0.95, print_to_console=False, seed=None, y_resamples=None, method='all') -> Dict`                                       | delta    | moment-independent                                     |
-|  [06]   | `pawn.analyze(problem, X, Y, S=10, print_to_console=False, seed=None)`                                                                                                              | PAWN     | KS-based                                               |
-|  [07]   | `dgsm.analyze(problem, X, Y, num_resamples=100, conf_level=0.95, print_to_console=False, seed=None)`                                                                                | DGSM     | `vi`/`vi_std`/`dgsm` derivative-based                  |
-|  [08]   | `rsa.analyze(problem, X, Y, bins=20, target='Y', print_to_console=False, seed=None)`                                                                                                | RSA      | regional (binned) sensitivity                          |
-|  [09]   | `hdmr.analyze(problem, X, Y, maxorder=2, maxiter=100, m=2, K=20, R=None, alpha=0.95, lambdax=0.01, print_to_console=False, seed=None) -> Dict`                                      | HDMR     | component-function `Sa`/`Sb`/`ST` expansion            |
-|  [10]   | `ff.analyze(problem, X, Y, second_order=False, print_to_console=False, seed=None)`                                                                                                  | FF       | fractional-factorial main + optional 2nd-order effects |
+| [INDEX] | [SURFACE]                                                                            | [METHOD] | [INDICES]                             |
+| :-----: | :----------------------------------------------------------------------------------- | :------- | :------------------------------------ |
+|  [01]   | `sobol.analyze(calc_second_order=True)`                                              | Sobol    | S1/S2/ST                              |
+|  [02]   | `morris.analyze(scaled=False, num_levels=4)`                                         | Morris   | mu/mu*/sigma                          |
+|  [03]   | `fast.analyze(M=4)`                                                                  | FAST     | first-order                           |
+|  [04]   | `rbd_fast.analyze(M=10)`                                                             | RBD-FAST | first-order                           |
+|  [05]   | `delta.analyze(y_resamples=None, method='all')`                                      | delta    | moment-independent                    |
+|  [06]   | `pawn.analyze(S=10)`                                                                 | PAWN     | KS-based                              |
+|  [07]   | `dgsm.analyze()`                                                                     | DGSM     | `vi`/`vi_std`/`dgsm` derivative-based |
+|  [08]   | `rsa.analyze(bins=20, target='Y')`                                                   | RSA      | regional (binned) sensitivity         |
+|  [09]   | `hdmr.analyze(maxorder=2, maxiter=100, m=2, K=20, R=None, alpha=0.95, lambdax=0.01)` | HDMR     | `Sa`/`Sb`/`ST` component expansion    |
+|  [10]   | `ff.analyze(second_order=False)`                                                     | FF       | main + optional 2nd-order effects     |
 
 [ENTRYPOINT_SCOPE]: utility functions
 - rail: sensitivity-analysis

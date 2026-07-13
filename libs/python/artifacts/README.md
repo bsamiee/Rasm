@@ -1,250 +1,230 @@
 # [PY_ARTIFACTS]
 
-`artifacts` is the host-free, self-contained durable-artifact engine: it turns data, compute, and geometry outputs — and any structured payload — into controllable, layer-clean files keyed by the runtime content key and carrying one kind-discriminated `ArtifactReceipt`. It reads as these domains: a paginated `document` tree (emit/extract inverses, finishing, PDF/UA tagging, reproducible reports), a `visualization` data-to-visual axis (charts, publication tables, AEC diagrams), the `drawing` AEC drawing-production plane (owned ISO/NCS drafting vocabularies + drawing symbols + detail cross-references), the `specification` CSI construction-specification plane (SectionFormat 3-part sections authored into the document tree + MasterFormat/UniFormat/OmniClass classification), the `delivery` ISO 19650 delivery plane (drawing register / sheet-index / container-metadata + issue-for-construction transmittal), the `graphic` 2D primitive toolkit (raster, vector, marks, color, the theme-as-data `style` owner, the `layer` semantic tree), `typography` (font binary, shaping, mathematical typesetting, line-layout), `composition` (figure placement, sheet-sets, imposition), editable `export` (named-layer SVG/PDF/TIFF + IDML), the `exchange` boundary (metadata, credentials, conformance, format detection), temporal `media`, the 3D `scene` plane (render/export/USD), the `core` production spine (receipt/plan the law, `issue` the constructing owner), and the `package` content-addressed compression close. The library is a general science/data surface valid wherever the monorepo needs a file emitted; it owns no UI, no durable store, no IFC/GLB geometry, and no columnar/mesh interchange. This file routes the design pages and registers the external packages.
+`artifacts` is the host-free durable-artifact engine: it folds data, compute, and geometry outputs — and any structured payload — into layer-clean files keyed by the runtime content key and carrying one kind-discriminated `ArtifactReceipt`. It owns no UI, no durable store, no IFC/GLB geometry, and no columnar or mesh interchange — those cross at the content-keyed wire, never by reference.
 
 ## [01]-[ROUTER]
 
-Each router row is one authored design page under `.planning/<domain>/`, grouped in `ARCHITECTURE` `[01]-[DOMAIN_MAP]` order.
+[DOCUMENT]:
+- [01]-[MODEL](.planning/document/model.md): `DocumentNode` tagged-union tree and its content-keyed diff/merge algebra.
+- [02]-[EMIT](.planning/document/emit.md): Emission axis every PDF/Office/text backend lowers from the `DocumentNode` tree.
+- [03]-[LENS](.planning/document/lens.md): `DocumentLens` recover-to inverse rebuilding a node tree from an emitted PDF, raster, or workbook.
+- [04]-[EGRESS](.planning/document/egress.md): `DocumentEgress` encryption, outline, watermark, and redaction finishing over an emitted container.
+- [05]-[TAGGED](.planning/document/tagged.md): `Access` PDF/UA marked-content owner authoring and auditing the structure tree.
+- [06]-[REPORT](.planning/document/report.md): `ReportPlan` reproducible-report composition into the node tree from sections and notebooks.
 
-[document] — paginated structured documents over the one `DocumentNode` tree:
-- [01]-[MODEL](.planning/document/model.md): The single interior `DocumentNode` `msgspec` tagged-union tree (page/section/block/run/table/figure/field/annotation/structure-element) plus the `DocumentDelta` diff/merge algebra keyed by content key — the representation emission lowers FROM and extraction recovers TO, making the two inverses over one node algebra.
-- [02]-[EMIT](.planning/document/emit.md): `DocumentPlan` document-mode emission axis — every `reportlab`/`weasyprint`/`typst` PDF, `pymupdf`/`pypdfium2` render, `pypdf` assembly, `pikepdf` repair, Office, and structured-text backend is a lowering arm folding FROM the `DocumentNode` tree, never a parallel rail; lands the `emit()`/`_emit` node contract plus the absorbed `bound(node, modes, **payload)` one-context-many-formats fan (the former `core/format` — `TemplateTarget` was a 1:1 re-spelling of `DocumentMode`); production lowers and `LENS` recovers.
-- [03]-[LENS](.planning/document/lens.md): `DocumentLens` recover-TO inverse rebuilding a `DocumentNode` tree out of an emitted PDF, scanned raster, or workbook — layout-aware text/word/region extract, per-page `STORY` tree recovery, recovered vector `PATHS` geometry, ruled-table grid, full-text search, in-process OCR, outline/embedded-file/annotation harvest, form-widget recovery with field flags, and ODF/`.docx`/YAML/TOML/XML ingest over the one `_ROUTES` `(arm, default_provider)` table — `LensProvider.PDFOXIDE` (MIT/Apache `pdf_oxide`) the commercial-safe layout-aware default, `LensProvider.band` keying the CORE `to_thread` / GATED `to_process` offload into the runtime columnar corpus lane.
-- [04]-[EGRESS](.planning/document/egress.md): `DocumentEgress` security-and-navigation finishing close over an emitted PDF/Office container — `EgressStep` `Finisher`-row encryption (RC4/AES with a `Permissions` policy), outline authoring, overlay/underlay watermarking, attachment binding, qpdf content-stream rewriting (incl. OCG-layer edit), MuPDF redaction burn-in, and Office decrypt; finishes an artifact, never authors one.
-- [05]-[TAGGED](.planning/document/tagged.md): `Access` PDF/UA tagged-content owner authoring AND auditing the marked-content structure tree — `TAG` folds the `model#NODE` `StructureNode`/`StructEltKind` family and `FigureNode.alt` into the `pikepdf` `/StructTreeRoot`, `AUDIT` walks it into a typed `StructureAudit`, threading its `conformant` verdict into `exchange/conformance#SIGN`.
-- [06]-[REPORT](.planning/document/report.md): `ReportPlan` reproducible-report composition over a `COMPOSE_ARMS` async dispatch producing the `DocumentNode` tree — `Section` value-object composition, `jinja2` sandboxed templating, `papermill`/`nbclient` parameterized-notebook execution with `jupytext`/`nbconvert` lowering, and `pymupdf.Story` HTML-to-PDF reflow; binds figures keyed by content key, re-renders nothing.
+[VISUALIZATION]:
+- [07]-[CHART_SPEC](.planning/visualization/chart/spec.md): `ChartSpec` chart-authoring union over the host-free 2D engines, palette-threaded.
+- [08]-[CHART_EXPORT](.planning/visualization/chart/export.md): `ChartExport` host-free render/format dispatch with the vegafusion pre-pass.
+- [09]-[TABLE](.planning/visualization/table.md): `TablePlan` great-tables publication-table owner exporting HTML/LaTeX/PDF.
+- [10]-[DIAGRAM_LAYOUT](.planning/visualization/diagram/layout.md): `DiagramLayout` coordinate assignment emitting the ten diagram kinds.
+- [11]-[DIAGRAM_DRAW](.planning/visualization/diagram/draw.md): `DiagramDraw` named-layer SVG and editable .drawio emission over one draw target.
+- [12]-[DIAGRAM_GLYPHSET](.planning/visualization/diagram/glyphset.md): `DiagramGlyph` bounded diagram-primitive vocabulary both owners compose.
+- [13]-[DIAGRAM_SCHEMATIC](.planning/visualization/diagram/schematic.md): `Schematic` named-symbol producer the seven marks cannot express.
+- [14]-[DIAGRAM_SOLAR](.planning/visualization/diagram/solar.md): pvlib SPA solar-ephemeris and generated sun-path furniture owner.
 
-[visualization] — data -> visual artifact:
-- [07]-[CHART_SPEC](.planning/visualization/chart/spec.md): `ChartSpec` chart-authoring tagged union over the host-free 2D engines — `altair` Vega-Lite, `lets-plot` grammar-of-graphics, `matplotlib` publication — each case palette-threaded from `graphic/color/derive#DERIVE`, discriminated by one `ChartEngineTag` literal, handing the themed result to `CHART_EXPORT`.
-- [08]-[CHART_EXPORT](.planning/visualization/chart/export.md): `ChartExport` host-free render/format dispatch folding the chart case, `RenderPolicy`, and target `ExportFormat` to bytes over `vl-convert-python` (Rust V8, zero browser) and in-process `lets-plot`, carrying the `VegaTransform` vegafusion pre-pass IN-PAGE (`Passthrough`/`Inline`/`State` folding ONE self-contained spec plus the typed `PrePassEvidence`); lands the `emit()`/`_emit` node contract with the pre-run input key; the flat-SVG/raster handoff consumed by `composition/compose#COMPOSE` as DATA parents.
-- [09]-[TABLE](.planning/visualization/table.md): `TablePlan` publication-quality `great-tables` owner (BYO-DataFrame, polars first-class) producing journal tables — spanners, scientific value formatting, uncertainty merges, inline nanoplots, data-driven coloring, `opt_*` theme — exported HTML/LaTeX/PDF, the third artifact pillar beside documents and charts.
-- [10]-[DIAGRAM_LAYOUT](.planning/visualization/diagram/layout.md): `DiagramLayout` data-driven diagram coordinate assignment folding a `data/tabular#GRAPH` adjacency frame into positioned `glyphset#GLYPHSET` marks over the closed `LayoutPolicy` `Force`/`Radial`/`Layered`/`Projected`/`Constrained` cases across five engines (`rustworkx` `Pos2DMapping` spring/topological, `fast-sugiyama` native-Rust layered placement superseding `grandalf`, `pyelk` ELK orthogonal+ports+nesting, `kiwisolver` Cassowary `Constrained` solve, `grandalf` parity/spline-route fallback), the `Radial` `CIRCULAR`/`SHELL` ring modes, and deterministic projection — emitting all ten `DiagramKind` (the AEC sun-path/circulation/stacking/program/site PLUS the general node-link/flowchart/entity-relation/Sankey/section-callout) threading the `NodeShape`/`Port`/`weight`/`EndCap` topology under the V15 area law (area-segmented stacking bands, `sqrt(area)` program boxes, true `Area` site polygons from typed `ring`/`footprint` columns, plan-anchored `Constrained` circulation/section placement, composed solar `furniture`); coordinates only.
-- [11]-[DIAGRAM_DRAW](.planning/visualization/diagram/draw.md): `DiagramDraw` named-layer diagram emission folding the positioned `DiagramGlyph` sequence into the egress the `DrawTarget` selects — the `drawsvg` named-layer SVG arm (default, bucketing each mark into its named `Group` by `GlyphStyle.layer` for `export/layered#LAYERED`, lowering all nineteen `NodeShape` silhouettes and the typed `EndCap` terminal defs, with `ziafont`/`ziamath` `<path>` label/formula outlining under `TextRun`) or the `drawpyo` editable-`.drawio` arm (a standalone diagrams.net file); palette-indexed, composites nothing.
-- [12]-[DIAGRAM_GLYPHSET](.planning/visualization/diagram/glyphset.md): `DiagramGlyph` bounded data-driven diagram-primitive vocabulary — one closed `tagged_union` over the seven marks `Node`/`Edge`/`Swimlane`/`Annotation`/`Marker`/`Area`/`Fragment` carrying typed geometry-topology-and-`GlyphStyle` payload (the `NodeShape`/`Port`/`weight`/`EndCap` topology axes, the true-polygon `Area` ring with its measured magnitude, the solar-furniture `Fragment` path, and the closed `TextAnchor`/`TextRun`/`SubLayout` vocabularies) keyed by the layout node/edge index — the shared grammar the layout and draw owners compose across the general/technical AND AEC diagram classes; emits no SVG, computes no coordinates.
-- [13]-[DIAGRAM_SCHEMATIC](.planning/visualization/diagram/schematic.md): `Schematic` named-symbol producer over the `schemdraw` catalog — the closed `SchematicSpec` union (`circuit`/`flow`/`dsp` symbol rows, `logic` boolean-expression networks, `kmap`/`truth_table`/`timing`/`bitfield` data payloads) authored as relative-placement data rows, rendered font-independent through the path-text SVG backend; lands `emit()` minting `ArtifactReceipt.Diagram`; the diagram class the seven marks cannot express.
-- [14]-[DIAGRAM_SOLAR](.planning/visualization/diagram/solar.md): `Site`/`positions`/`day_arc`/`analemma`/`solstices` `pvlib` SPA solar-ephemeris owner plus the `SolarProjection` hemisphere folds and the generated sun-path `furniture` (horizon, altitude rings, compass, labeled date arcs, hour lines) as vector fragments — composed by `DIAGRAM_LAYOUT`'s `SUN_PATH` arm and styled by `DIAGRAM_DRAW`; NONE entry.
+[DRAWING]:
+- [15]-[DRAWING_REGIME](.planning/drawing/regime.md): Closed drafting vocabulary and BIND substrate every drawing consumer reads; mints no receipt.
+- [16]-[DRAWING_STANDARD](.planning/drawing/standard.md): `Standard` ezdxf symbol-table lowering of the regime onto a DXF document.
+- [17]-[DRAWING_DIMENSION](.planning/drawing/dimension.md): `Dimension` ISO 129-1 dimensioning producer dual-lowered per target.
+- [18]-[DRAWING_SYMBOL](.planning/drawing/symbol.md): `Symbol` AEC drawing-symbol owner dual-lowered to drawsvg groups and ezdxf blocks.
+- [19]-[DRAWING_ANNOTATE](.planning/drawing/annotate.md): `Annotate` ISO 128-2 leader, keynote, note, and revision-cloud owner, dual-lowered.
+- [20]-[DRAWING_DETAIL](.planning/drawing/detail.md): `Detail` detail-callout owner over a content-keyed block store and the cross-reference DAG.
+- [21]-[DRAWING_SCHEDULE](.planning/drawing/schedule.md): `Schedule` AEC-schedule and BIM QTO owner lowering into the publication-table builder.
 
-[drawing] — AEC drawing-production plane, the owned ISO/NCS drafting vocabularies + drawing symbols + detail cross-references + schedules on top of the pub/print substrate:
-- [15]-[DRAWING_REGIME](.planning/drawing/regime.md): the s1 closed drafting VOCABULARY + BIND substrate — ISO 128 line types/weights, ISO 128-50 materials bound onto pattern-plane fills (`HATCH_BIND`), ISO 5455 scales and ISO 216 paper by derivation, ISO 3098 lettering folded over the `typography/font#FONT` `FaceMetrics` value, the three-schema (AIA/ISO 13567/NCS) `LayerName` codec + the NCS `SheetId` codec, and LCh discipline `PENS` rows resolved through derive by value — read by every drawing, composition, specification, and delivery consumer; mints no receipt exactly as `glyphset`.
-- [16]-[DRAWING_STANDARD](.planning/drawing/standard.md): `Standard` the `ezdxf` symbol-table LOWERING of the regime — `seed`/`graphics`/`dimstyle`/`hatch`/`rgb`/`paper_factor` authoring regime's vocabulary onto a real DXF document plus the DXF-native `_ACI`/`_FILL`/`_DIMSTYLE`/`_TERMINATOR` correspondences and the full ISO 129-1 DIM-variable derivation; composed by `export/dxf#DXF` (`seed`), `drawing/dimension#DIMENSION` (`dimstyle`), and `drawing/annotate#ANNOTATE` (the seeded ISO mleader style).
-- [17]-[DRAWING_DIMENSION](.planning/drawing/dimension.md): `Dimension` ISO 129-1 dimensioning producer over the closed `DimOp` `tagged_union` (`Linear`/`Aligned`/`Angular2L`/`Angular3P`/`AngularCRA`/`Radius`/`Diameter`/`Ordinate`/`Arc3P`/`ArcCRA`/`Chain`/`Baseline`) dual-lowered over `DimTarget` into the `ezdxf` `add_*_dim().render()` native path (DXF/SVG/PDF, ISO tolerance as `dimtol`/`dimlim`/`MTextEditor.stack`) or the `LAYERED` decomposition (`ezdxf.math.Construction*` geometry + self-contained filled/stroked ISO 129-1 terminator marks + `ziafont` ISO 3098 text + `ziamath.Latex` tolerance math into named `export/layered#LAYERED` `Layer` rows, all penned by the discipline sRGB, the tapered-terminator `graphic/vector/region#REGION` stroke-to-outline, composed via `symbol`, a pending growth axis), the `override=` DIM-variables from `drawing/standard#DIMSTYLE`, and the dimension-line offset stack solved by one `kiwisolver` `Solver`; contributes the shared `ArtifactReceipt.Drawing` case.
-- [18]-[DRAWING_SYMBOL](.planning/drawing/symbol.md): `Symbol` AEC drawing-symbol owner over the closed `SymbolKind` `tagged_union` (`Section`/`Elevation`/`Detail`/`Grid`/`MatchLine`/`North`/`ScaleBar`/`Revision`/`KeyPlan`/`Datum`/`BreakLine`) dual-lowered over `SymbolTarget` into `drawsvg` named-layer groups (`schemdraw`-rendered, `ziafont`-outlined) or `ezdxf` reusable blocks, composing `schemdraw` `ElementCompound`/`Segment*` compound geometry over one total `_element` fold + one `kiwisolver` grid-bubble solve (endpoint-pinned, `value()` read back) + `drawing/standard#STANDARD`'s owned ISO `LayerName`/`LineWeight`/`TextHeight`/`Terminator`, its `glyph` PNG projection (`graphic/vector/region#REGION` `rasterize`) feeding the `composition/sheet#SHEET` `NorthArrow.glyph`/`KeyPlan.figure` cells; contributes the shared `ArtifactReceipt.Drawing` case.
-- [19]-[DRAWING_ANNOTATE](.planning/drawing/annotate.md): `Annotate` ISO 128-2 annotation owner over the closed `AnnotateOp` `tagged_union` (`Leader`/`TextNote`/`RevisionCloud`) with nested `LeaderContent` (`Note`/`Keynote`/`Flag`) and `NoteBody` (`Prose`/`Math`) sub-families, dual-lowered over `SymbolTarget` into `drawsvg` named-layer leaders (auto-oriented `Marker` terminator, `ziafont`-outlined content, `ziamath` formula, `Path.A` revision-cloud scallops) or `ezdxf` `add_multileader_mtext`/`add_multileader_block` multileaders (`MTextEditor` content, `add_attdef` keynote block, `add_wipeout` mask, bulged `add_lwpolyline` cloud), composing `drawing/symbol#SYMBOL` `SymbolStyle` + `drawing/standard#STANDARD` `Terminator`/`LineWeight`/`TextHeight`/`LayerName`, `typography/layout#LAYOUT` `LineBrokenRun` Knuth-Plass general notes, `graphic/vector/region#REGION` `skia-pathops` scallop-band offset, and one `kiwisolver` keynote/flag-column solve; contributes the shared `ArtifactReceipt.Drawing` case; carries the recorded GD&T growth obligation — feature-control-frame, datum-symbol, and surface-texture-mark rendering over the `csharp:Rasm.Fabrication/Spec/tolerance` ISO 1101/ASME Y14.5 vocabulary (consumed as source rows, never re-minted).
-- [20]-[DRAWING_DETAIL](.planning/drawing/detail.md): `Detail` detail-management owner over the `Callout` reference value (the `(host, ordinal)` structural discriminant + `target` `DetailRef` + `CalloutBoundary`), the content-keyed `DetailLibrary` `ezdxf`-block store (one detail authored once via `doc.blocks.new` + `add_attdef`, placed N times via `add_auto_blockref`, foreign details through `Importer`/`xref`), and the `rustworkx` `PyDAG(check_cycle=True)` sheet cross-reference DAG (`DAGWouldCycle` mutation-time rejection, `transitive_reduction` minimal graph, `ancestors` revision-impact closure, `node_link_json` content-key wire), projecting the `SymbolKind` bubble the sheet's `Symbol` draws; contributes the shared `ArtifactReceipt.Drawing` case.
-- [21]-[DRAWING_SCHEDULE](.planning/drawing/schedule.md): `Schedule` AEC-scheduling owner over the closed `ScheduleContent` `tagged_union` (`tabular` a settled `polars.DataFrame` + `ScheduleKind` NCS/AIA template, `legend` a `LegendKind` + authored `LegendEntry` set) lowering into `visualization/table#TABLE` `TablePlan.build` — the `ScheduleKind` vocabulary (`DOOR`/`WINDOW`/`ROOM_FINISH`/`WALL_TYPE`/`PARTITION`/`EQUIPMENT`/`PLUMBING_FIXTURE`/`LIGHTING_FIXTURE`/`FINISH`/`HARDWARE_SET`/`PANEL`/`STRUCTURAL_COLUMN`/`STRUCTURAL_BEAM`/`FURNITURE`/`QUANTITY` the canonical `csharp:Rasm.Bim` QTO takeoff) keyed to a `ScheduleTemplate` whose `_schedule_ops` fold DERIVES the `TableOp` sequence (header/stub/spanners/`FmtKind`/missing-value/`hex_ramp` fire-rating coloring/grand-summary counting the key AND `pl.col().sum()`-totalling each `totals` measure/cost column, filtered to the shaped frame's real columns), and the `LegendKind` legends (`LINE_TYPE`/`HATCH_MATERIAL`/`DISCIPLINE_LAYER` derived from `drawing/standard#STANDARD` into `drawsvg` swatches + authored `ABBREVIATION`/`KEYNOTE`/`MATERIAL_FINISH`/`GENERAL_NOTE` legends); shapes the settled `data/tabular` QTO frame, never authors it; contributes the new `ArtifactReceipt.Schedule` case.
+[SPECIFICATION]:
+- [22]-[SECTION](.planning/specification/section.md): `Spec` CSI SectionFormat 3-part producer authored into the `DocumentNode` tree.
+- [23]-[CLASSIFY](.planning/specification/classify.md): `ClassCode` MasterFormat/UniFormat/OmniClass owner and drawing-to-spec resolver.
 
-[specification] — CSI construction-specification plane, authored into the document tree on the pub/print substrate:
-- [22]-[SECTION](.planning/specification/section.md): `Spec` CSI SectionFormat 3-part (General/Products/Execution) producer over the owned article vocabularies (the 15/11/15 published `_ARTICLES` rosters, the four `SpecMethod`s of specifying, the `SubmittalClass` regimes, the `ParagraphRole` content-vs-specifier-note editorial disposition) plus the `PageFormat` `NumberScheme` CSI/UFGS multi-level numbering, lowering the validated section INTO the `document/model#MODEL` `DocumentNode` tree (a `NOTE` paragraph to a decorative `BlockKind.ARTIFACT` the issue strips) and folding the specifier-note / unresolved-fill-in / reference-reconciliation / canonical-order `SpecVerdict`; composes `specification/classify#CLASSIFY` for the `ClassCode` section identity; contributes `ArtifactReceipt.Spec`.
-- [23]-[CLASSIFY](.planning/specification/classify.md): `ClassCode` cross-system classification value object + `ReferenceIndex` drawing<->spec resolver — the MasterFormat (35 divisions/6 subgroups), UniFormat (A-G+Z groups + elements), and OmniClass (15 tables) owned vocabularies authored to exact published cardinality, the `DERIVED_LOGIC` crosswalk over one primary correspondence plus the OmniClass table-alignment invariant, and the bidirectional `resolve`/`coordinate` binding each spec section to the sheets that detail it with the specced-vs-drawn coverage reconciliation; pure substrate, mints no receipt exactly as `drawing/standard#STANDARD`.
+[DELIVERY]:
+- [24]-[REGISTER](.planning/delivery/register.md): `Register` ISO 19650 container-register, sheet-index, and container-metadata owner.
+- [25]-[TRANSMITTAL](.planning/delivery/transmittal.md): `Transmittal` issue-for-construction orchestrator over imposition, archive, and sign.
 
-[delivery] — ISO 19650 delivery plane, issuing the drawn and specified set:
-- [24]-[REGISTER](.planning/delivery/register.md): `Register` ISO 19650 information-container register / drawing-index owner over the closed `RegisterOp` (`Index` great-tables sheet-index / `Container` lxml COBie·BS 1192 XML / `Audit` `RegisterFault.combined` coverage fold / `Render` xlsxwriter spreadsheet + openpyxl round-trip) — the exact NA Table NA.1 suitability (`S0`-`S7`/`A`-`B`/documented-project) + revision (`P`/`C`) + CDE-state owned vocabularies, the `InformationContainer` BS 1192 naming + `composition/sheet#SHEET` `TitleBlock` aggregation, and the one `polars` register `frame` the index and the document `TableNode` both lower from; contributes `ArtifactReceipt.Register`.
-- [25]-[TRANSMITTAL](.planning/delivery/transmittal.md): `Transmittal` ISO 19650 issue-for-construction orchestrator over the closed `Assemble`/`Seal`/`Issue`/`Manifest` union — composing `composition/imposition#IMPOSE` press-form lay, `package/archive#ARCHIVE` content-addressed container, the CONCURRENT `exchange/conformance#CONFORMANCE` PAdES-LTA + `exchange/credential#CREDENTIAL` C2PA sheet-lineage sign over one `anyio` task-group failure boundary, and `delivery/register#REGISTER` as the issued index + `lxml` transmittal-record XML; contributes `ArtifactReceipt.Transmittal`.
+[GRAPHIC]:
+- [26]-[RASTER_IO](.planning/graphic/raster/io.md): `Raster` host-free pixel IO/convert/working-surface owner over pillow and pyvips.
+- [27]-[RASTER_PROCESS](.planning/graphic/raster/process.md): Raster vocabulary owner and produced-raster engine over pillow and scikit-image.
+- [28]-[RASTER_MEASURE](.planning/graphic/raster/measure.md): scikit-image measured-score half producing perceptual and feature scalars.
+- [29]-[VECTOR_PATH](.planning/graphic/vector/path.md): `Path` svgelements metric substrate — point-at-distance, decimation, one tolerance policy.
+- [30]-[VECTOR_REGION](.planning/graphic/vector/region.md): `Region` skia-pathops boolean/offset/stroke-to-outline owner with metric text-on-path.
+- [31]-[VECTOR_PATTERN](.planning/graphic/vector/pattern.md): `PatternSpec` repeating-fill and hatch generator over three lowerings.
+- [32]-[MARKS_MARK](.planning/graphic/marks/mark.md): `Symbology` shared machine-readable-mark vocabulary both codec halves import.
+- [33]-[MARKS_ENCODE](.planning/graphic/marks/encode.md): `Mark` machine-readable-mark generation over segno, python-barcode, and zxing-cpp.
+- [34]-[MARKS_DECODE](.planning/graphic/marks/decode.md): zxing-cpp decode inverse the generation arms cannot express, folding the raster fact.
+- [35]-[COLOR_DERIVE](.planning/graphic/color/derive.md): `Colorimetry` upstream color source — CIE/CAM16/spectral, gamut, CVD, harmony, WCAG.
+- [36]-[COLOR_MANAGED](.planning/graphic/color/managed.md): `ColorManaged` downstream ICC/LUT/CCTF color-managed raster egress.
+- [37]-[STYLE](.planning/graphic/style.md): `Theme` theme-as-data owner carrying type, stroke, palette, ground, and sheet-family rows.
+- [38]-[LAYER](.planning/graphic/layer.md): `LayerPlan` semantic layer tree every layered producer projects into and exporter composes.
 
-[graphic] — 2D graphic-primitive toolkit every visual + document plane composes:
-- [26]-[RASTER_IO](.planning/graphic/raster/io.md): `Raster` host-free pixel IO/convert/working-surface owner over the closed-payload `RasterOp` family — pillow in-process (decode, EXIF transpose, `FitMode` resize, alpha flatten, AVIF/WebP save, montage), pyvips fused decode/downscale/ICC/smartcrop, the `exchange/detect#DETECT` ingress gate, and the `scikit-image` `Transform` arm whose bodies the process/measure siblings own; folds one `RasterFact`, faulting per-slot on the `RasterFault` rail.
-- [27]-[RASTER_PROCESS](.planning/graphic/raster/process.md): The raster plane's vocabulary owner + produced-raster engine — the 161-member `Transform` family, `TransformInput`/`TransformArm`, canonical `RasterFact`, `ConvertFormat`, `Frame`, and the 119-row `TRANSFORMS` `Map` acceptor table; pillow ImageChops/ImageMath/ImageStat/ImageEnhance/Color3DLUT/procedural-gradient arms ungated beside the census-gated `scikit-image` engines; imports nothing raster-internal — io and measure compose downward.
-- [28]-[RASTER_MEASURE](.planning/graphic/raster/measure.md): The `scikit-image` measured-score half producing scalars — `_measure` (contours/entropy/HOG/blobs/LBP/corners), `_register` (optical-flow/phase-correlation), and `_metrics` (the six perceptual-quality scalars) contributed as `MEASURE_TRANSFORMS`, stamping the `RasterFact.score` map, composing the `process#PROCESS` substrate.
-- [29]-[VECTOR_PATH](.planning/graphic/vector/path.md): `Path` svgelements metric substrate — memoized `_parsed` ingress, `PathOp`/`PathResult`/`PathFault` closed families, metric `point_at` arc-length points+tangents, RDP `decimate`, area-weighted `centroid`, `flatten`/`subpaths`/`project`/`compose`/`reflect`/`polar`, `Length` unit egress, the one `Tolerance` policy row; d-string egress; NONE entry.
-- [30]-[VECTOR_REGION](.planning/graphic/vector/region.md): `Region` pathops emission owner — boolean/offset/stroke-to-outline/warp/wind/contains, ALL document emission via `drawsvg` (`document` + `PaintSpec` flat/linear/radial gradient defs), resvg `rasterize` + `RenderPolicy`, and METRIC text-on-path composing `typography/shape#SHAPE` `PositionedGlyphRun.on_path()` outlines at path arc-length positions; NONE entry.
-- [31]-[VECTOR_PATTERN](.planning/graphic/vector/pattern.md): `PatternSpec` repeating-fill generator — `StrokeFamily`/`DensityLaw` (paper-constant vs model-true under the ISO 5455 factor), the `HatchFill` pattern/solid/gradient fill kinds re-homed from the drawing plane, 12 owned-name `PRESETS` DATA rows, THREE lowerings off one `_segments` generator (`to_dxf` `set_pattern_fill(definition=)`, `to_svg` `drawsvg.Pattern` tiles, `to_geometry` pathops-clipped real hatch); NONE entry.
-- [32]-[MARKS_MARK](.planning/graphic/marks/mark.md): `Symbology` shared marks vocabulary — the 22-member symbology roster, `MarkClass` routing, the `DecodeSource` raster/pixels union, `MarkFault`/`MarkPayload`, and the total `TAXONOMY` class-and-carrier `Map` both codec halves import; NONE entry, the encode⇄decode cycle break.
-- [33]-[MARKS_ENCODE](.planning/graphic/marks/encode.md): `Mark` host-free machine-readable-mark generation owner over the closed `Symbology` vocabulary — `segno` QR/Micro-QR structured-append with the full `SvgStyle` band, `python-barcode` linear 1D over `SVGWriter`, and `zxing-cpp` 2D-matrix DataMatrix/PDF417/Aztec/MaxiCode/rMQR `create_barcode` encode, the generation half `MARKS_DECODE` inverts.
-- [34]-[MARKS_DECODE](.planning/graphic/marks/decode.md): `_zxing_decode` machine-readable-mark decode inverse the generation arms cannot express — `zxing-cpp` `read_barcodes` recovering text/format/validity/quad-position from a raster mark, the one `MarkOp` arm crossing the gated subprocess seam (because `read_barcodes` opens its raster through gated Pillow), folding the shared `RasterFact`.
-- [35]-[COLOR_DERIVE](.planning/graphic/color/derive.md): `Colorimetry` receipt-free color-derivation substrate over `colour-science` + `coloraide` — CIE/CAM16/spectral conversion with the measurement-side `SpectralShape` resample, gamut/CVD/harmony/WCAG, `interpolate`/`mix`/`mask` + the 15-operator Porter-Duff compose, the 28-member `Metric` measurement block, re-homed `Palette`/`hex_ramp`, canonical `AdaptMethod`; returns `Derivation` VALUES on the runtime interpreter lane — the `Color` receipt case is `managed`'s mint.
-- [36]-[COLOR_MANAGED](.planning/graphic/color/managed.md): `ColorManaged` ICC/LUT/CCTF color-managed raster-egress owner — the `colour-science` grade chain plus pyvips/libvips `icc_transform` inside the worker seam, contributing `ArtifactReceipt.Preview`; the `Plate`/`Lut`/`Swatch` terminals mint `ArtifactReceipt.Color` (pikepdf `/Separation`/`/DeviceN` plate authoring, `LUT3D`/`write_LUT` grade baking, CxF3 swatch graduation).
-- [37]-[STYLE](.planning/graphic/style.md): `Theme` theme-as-DATA SELECT owner — `TypeSystem`/`TypeRow` modular type scale with per-role variable-axis pins (font `INSTANCE`) and OpenType feature presets (shape `FeatureSpec`), `Emphasis` stroke hierarchy over regime `LineWeight` keys, `PaletteSpec` derive seeds, `GroundRow` figure-ground/blend conventions, `Entourage` silhouette rows, and `SheetFamily`/`PageMaster` grid rows — one row set per office style; switching styles is switching one `Theme`; NONE entry.
-- [38]-[LAYER](.planning/graphic/layer.md): `LayerPlan` semantic layer TREE — the bounded `LayerIntent` roster, `BlendMode` compositing vocabulary, `LayerContent` fragment/keyed/entities payloads, ISO 13567 (via regime `LayerName`) vs editorial naming schemas, and the `flattened`/`zsorted` folds every layered writer consumes; the nine projectors project INTO it and `export/layered#LAYERED` composes it; NONE entry.
+[TYPOGRAPHY]:
+- [39]-[FONT](.planning/typography/font.md): `FontEngineering` fonttools subset/instance/axis/outline/embed-audit owner.
+- [40]-[SHAPE](.planning/typography/shape.md): `Shaping` uharfbuzz text-shaping, bidi reorder, and COLRv1 glyph-render owner.
+- [41]-[MATH](.planning/typography/math.md): `Formula` one ziamath mathematical-typesetting owner every formula consumer routes through.
+- [42]-[LAYOUT](.planning/typography/layout.md): `LineLayout` line-break, hyphenation, and Knuth-Plass paragraph-fit owner.
 
-[typography] — font binary + glyph shaping + line-layout:
-- [39]-[FONT](.planning/typography/font.md): `FontEngineering` font-binary owner over `fonttools` — `subset.Subsetter` footprint reduction, `varLib.instancer` partial-axis instancing under `AxisLimit`, `fvar`/`STAT` axis introspection into `AxisCatalog`, the `SVGPathPen` outline bridge, embed-completeness audit, and the `FaceMetrics` OT-metrics value (uharfbuzz cap/x-height) regime and style consume; lands the `emit()`/`_emit` node contract with the key minted over the `(source-font ⊕ job)` INPUT — the key-over-input proof case.
-- [40]-[SHAPE](.planning/typography/shape.md): `Shaping` text-shaping-and-glyph-render owner — `uharfbuzz` `Face`/`Font`/`Buffer`/`shape` producing `PositionedGlyphRun` on the core, the `python-bidi` UAX#9 reorder pass on the worker lane, and `blackrenderer` COLRv1/COLRv0 `drawGlyph` color-glyph raster; the run consumed by `document/emit`, `composition/compose`, and `layout`.
-- [41]-[MATH](.planning/typography/math.md): `Formula` THE mathematical-typesetting owner over `ziamath` — the `mathml`/`latex`/`mixed` source union, the uharfbuzz `MathConstants` tier (`has_math_data`/`get_math_constant(OTMathConstant)`), `seat()` baseline seating, and the inline `render` fold dimension/annotate/draw compose; lands `emit()` minting `ArtifactReceipt.Document` for standalone formula artifacts.
-- [42]-[LAYOUT](.planning/typography/layout.md): `LineLayout` paragraph line-layout owner folding the shaped run and a measure into line-broken runs — `uniseg` UAX#14 break positions, `pyphen` soft-hyphenation, and a hand-rolled Knuth-Plass Box/Glue/Penalty total-fit dynamic program.
+[COMPOSITION]:
+- [43]-[COMPOSE](.planning/composition/compose.md): `Figure` post-render figure and section placement owner emitting flat SVG.
+- [44]-[SHEET](.planning/composition/sheet.md): `Sheet` single-sheet title-block/frame owner and the multi-sheet register.
+- [45]-[IMPOSITION](.planning/composition/imposition.md): `Imposition` n-up, booklet, and signature press-imposition owner.
 
-[composition] — assembling artifacts into pages/sheets:
-- [43]-[COMPOSE](.planning/composition/compose.md): `Figure` post-render placement owner over the closed-payload `FigureOp` union — scale-to-fit, n-up tile, crop, rotate-place, registration-overlay over the `graphic/vector/path#PATH` `svgelements` substrate on the core, `resvg-py` raster floor, plus `pillow` draw/filter/metadata on the worker lane; emits FLAT-SVG, routes named-layer authoring to `export/layered`.
-- [44]-[SHEET](.planning/composition/sheet.md): `Sheet` single-sheet title-block/frame/field owner over the closed `SheetOp` union (`Frame`/`Place`/`Fill`/`Stamp`/`Preview`) across `reportlab`/`typst`/`weasyprint` under one `Standard` profile and `pymupdf` `show_pdf_page`/`add_ocg`/`set_ocmd`/`insert_htmlbox` placement — the exact ISO 5457 Table 2 zone grid, the ISO 7200 `TitleBlockAudit`, `Viewport` ISO 5455 scale binding over `svgelements.Matrix`, and the `SheetSet` multi-sheet assembly numbering each `drawing/standard#STANDARD` `SheetId` and projecting `registered()` to `delivery/register#REGISTER` + `scheduled()` to `visualization/table#TABLE`.
-- [45]-[IMPOSITION](.planning/composition/imposition.md): `Imposition` n-up/booklet/signature press-imposition owner over the closed-payload `ImposeOp` union — the `Scheme` `NUP`/`BOOKLET`/`SIGNATURE` `Plan`-row page-order and `Geometry`/`Imposed` value family over `pymupdf.show_pdf_page` and `pdfimpose`; the dedicated multi-sheet engine distinct from the `egress#IMPOSE` finishing step.
+[EXPORT]:
+- [46]-[LAYERED](.planning/export/layered.md): `LayeredExport` editable-export owner — SVG layers, PDF OCG, PSD/PSB, layered TIFF, ORA.
+- [47]-[INDESIGN](.planning/export/indesign.md): `Idml` SimpleIDML template-mutation hand-off; contributes the Office receipt.
+- [48]-[DXF](.planning/export/dxf.md): `Dxf` ezdxf CAD-exchange owner over the DXF-op family and the geospatial bridge.
 
-[export] — editable layered hand-off for Illustrator/InDesign + DXF CAD exchange:
-- [46]-[LAYERED](.planning/export/layered.md): `LayeredExport` editable-export owner over the closed `ExportTarget` — SVG named layers, PDF optional-content groups, OpenRaster `ORA` packages (`pyvips`/`lxml`/`stream-zip`), native Photoshop `PSD`/`PSB` channel-stack documents (`psd-tools` standing author, `PhotoshopAPI` the gated native writer, `imagecodecs` channel codecs), and Photoshop-compatible layered TIFF through `psdtags`/`tifffile`, binding placed sources as named editable layers rather than flattened path soup.
-- [47]-[INDESIGN](.planning/export/indesign.md): `Idml` SimpleIDML template-mutation hand-off over the closed `IdmlStep` family, mutating one InDesign-exported `.idml` template through its named XML structure and contributing `ArtifactReceipt.Office`.
-- [48]-[DXF](.planning/export/dxf.md): `Dxf` CAD-exchange editable hand-off owner over the closed-payload `DxfOp` `tagged_union` (`New`/`Read`/`Recover`/`Render`/`Query`/`Bridge`) over `ezdxf` — fresh-document authoring, conforming read, damaged-file `recover` salvage, the seven-backend render lowering into `composition/sheet#SHEET` (`PyMuPdfBackend` PDF) and `graphic/vector/path#PATH` (`SVGBackend` SVG), EQL/spatial query, and the DXF↔SVG↔GeoJSON↔glyph `Bridge` (`make_path`/`flattening`/`from_vertices`/`render_lines`/`addons.geo`/`addons.text2path`) at the vertex/`d`-string wire; contributes `ArtifactReceipt.Cad`.
+[EXCHANGE]:
+- [49]-[METADATA](.planning/exchange/metadata.md): `MetaCarrier` descriptive EXIF/IPTC/XMP/ICC read/write axis over raster, PDF, and media.
+- [50]-[CREDENTIAL](.planning/exchange/credential.md): `Provenance` c2pa-python content-credential sign/read/embed owner keyed by content.
+- [51]-[CONFORMANCE](.planning/exchange/conformance.md): `Conformance` pyhanko PAdES sign/stamp/augment/audit owner folding one verdict.
+- [52]-[DETECT](.planning/exchange/detect.md): `Detect` format-identification gate over puremagic with a python-magic fallback.
 
-[exchange] — metadata / provenance / format identification at the boundary:
-- metadata: [METADATA](.planning/exchange/metadata.md) owns descriptive metadata read/write. `MetaCarrier` selects raster over `pyexiftool` plus `pillow` ICC detail, PDF over `pikepdf`, and media over `av`; the fold returns `(ContentKey, MetaFacts, bytes)` for `ArtifactReceipt.Metadata`.
-- [49]-[CREDENTIAL](.planning/exchange/credential.md): `Provenance` C2PA content-credential owner over `c2pa-python` — the closed `tagged_union` `Sign`/`Read`/`ReadFragment`/`Embed` (Verify folded into Read's `validation_state`/`validation_results` evidence, `ReadFragment` the fragmented-BMFF read, `Embed` the `format_embeddable` sidecar→embedded JUMBF rewrap) binding a tamper-evident manifest into the image/BMFF/audio signable set, the `SignerSpec` `cert_key`/`callback` union (with the `CallbackSigner.ed25519` in-process no-HSM digest-signer over `ed25519_sign`) over a `C2paSigningAlg` row, the full 18-member IPTC `DigitalSource` intent vocabulary, and the `resource_to_stream` thumbnail extraction into `CredentialEvidence.resources`; returns the `(ContentKey, CredentialEvidence)` pair the consumer projects onto the four-scalar `ArtifactReceipt.Credential`, keying the signed buffer into the `csharp:Rasm.Persistence` store; PDF/raw-camera stays the `conformance` rail's.
-- [50]-[CONFORMANCE](.planning/exchange/conformance.md): `Conformance` PDF cryptographic-conformance close over `pyhanko` — the closed `tagged_union` `sign`/`stamp`/`augment`/`reserve`/`audit` (PAdES B-B/B-T/B-LT/B-LTA signing, the signer-free `/DocTimeStamp` proof-of-existence `stamp`, the LTV `augment` archival refresh, the seed-value `reserve` future-signer field-prep with `SigCertConstraints`, and the resilient multi-signature `audit`) under `PadesLevel`/`CertifyPerm`/`Digest`, the `SignerSource` `PemKey`/`Pkcs12Bundle`/`ExternalSig` credential union, the `Appearance` invisible/visible drawing-sheet seal (`TextStampStyle` + scan-to-verify `QRStampStyle`), and the `DssPolicy` write policy, folding a `ConformanceVerdict` that consumes the `typography/font#FONT` embed-audit and `document/tagged#ACCESS` structural result; contributes `ArtifactReceipt.Verdict`.
-- [51]-[DETECT](.planning/exchange/detect.md): `Detect` dual-engine media-type/format-identification gate — the `DetectEngine` `PUREMAGIC`/`LIBMAGIC`/`LAYERED` axis (the `puremagic` in-process `to_thread` default over a confidence roster + `single_deep_scan` exact OOXML/CFBF subtype, the `python-magic` libmagic fallback offloaded on the caller-threaded runtime lane (`Modality.PROCESS`, `RetryClass.OCCT`), and the escalate-`UNKNOWN`-only layered composition) and the `DetectProfile` `MIME`/`DESCRIBE`/`IDENTITY` output vocabulary, folding one `Source` (`Buffer`/`File`, `@beartype(FAULT_CONF)` ingress) into a typed `DetectIdentity` (`MediaClass`/`Container`/`Trust`/`confidence`) admitted through `DetectSettings` env; the s1 ingest-boundary format-ID substrate the document/raster/Office owners import downward before per-format dispatch, importing nothing artifacts-internal; contributes no receipt.
+[MEDIA]:
+- [53]-[CONTAINER](.planning/media/container.md): `Media` container/codec spine — mux, demux, encode, transcode, HDR/color, HLS/DASH.
+- [54]-[FILTERGRAPH](.planning/media/filtergraph.md): `FilterNode` capability-detected native-vs-substitute filter-routing core.
+- [55]-[AUDIO](.planning/media/audio.md): `_encode_audio` av audio-stream encode, resample, and master arm.
+- [56]-[TIMELINE](.planning/media/timeline.md): `Timeline` non-linear editing over the container and filtergraph spine.
+- [57]-[SUBTITLE](.planning/media/subtitle.md): `Subtitle` pysubs2 parse/convert/retime/restyle, passthrough-mux, and burn-in owner.
+- [58]-[ANALYSIS](.planning/media/analysis.md): `Analysis` read-side waveform, spectrogram, loudness, silence, scene, and thumbnail owner.
+- [59]-[SYNTHESIS](.planning/media/synthesis.md): `Synthesis` numpy oscillator/noise/FM/AM/sweep/ADSR generation into the audio encoder.
 
-[media] — temporal media, the container/codec/filter/timeline/subtitle/analysis/synthesis plane over in-process `av` (PyAV) with capability-detection filter routing:
-- [52]-[CONTAINER](.planning/media/container.md): `Media` container/codec SPINE and the shared `Media`/`MediaOp`/`MediaProfile`/`MediaEvidence`/`MediaFault`/`ContainerFormat`/`ColorProfile` family over the closed `EncodeVideo`/`EncodeAudio`/`Mux`/`Transcode`/`Remux` `MediaOp` — the mux/demux capsule, the `av.codecs_available`/`bitstream_filters_available` registry probes before minting, real HDR via the integer-`AVCOL`-code `ColorProfile` over `yuv420p10le`, `av.codec.hwaccel.HWAccel` VideoToolbox decode, HLS/DASH/fMP4 segmented `io_open` sinks to a `UPath` root, `VideoFrame.from_dlpack` device ingest, and the `_seek`/`_decode_video`/`_decode_window` read inverses; `Media.encode` IS the `core/plan#PLAN` `ArtifactWork.work` thunk, contributing the shared `ArtifactReceipt.Media` case (HDR tag + segment-count facts). Absorbs the former `video.py`.
-- [53]-[FILTERGRAPH](.planning/media/filtergraph.md): the capability-detection filter-routing CORE — one closed `FilterNode` family (`Scale`/`Crop`/`Fps`/`Format`/`ColorGrade`/`Denoise`/`TextBurn`/`SubtitleBurn`/`Xfade`/`Concat`/`Amix`) and the `build_graph`/`link_clips`/`cross_dissolve` builders routing each op to its native `av.filter` when `av.filter.filters_available` (the 448-set probe) exposes it AND it wires in-process, else a verified substitute (`drawtext`→Pillow `ImageFont(RAQM)` RGBA numpy-composite, `eq`→`curves`+`hue`, `hqdn3d`→`nlmeans`, `xfade`→numpy cross-dissolve since the native filter fails in-process `configure()`), multi-input pads via `FilterContext.link_to`, explicit `abuffersink`; mints no receipt, its filter-node-count fact riding the composing producer's `Media` band.
-- [54]-[TIMELINE](.planning/media/timeline.md): `Timeline` non-linear-editing layer over the container/filtergraph spine — the closed `TimelineOp` (`Trim`/`Concat`/`Segment`/`Xfade`) composing `media/container#CONTAINER` `_seek`/`_decode_window`/`_encode_video` and `media/filtergraph#FILTER` `cross_dissolve`/`link_clips`: `Trim` frame-accurate seek+zero-base, `Concat` the two DERIVED strategies (lossless `Packet` re-stamp vs re-encode by clip-param match), `Segment` the container `SEGMENT` segmented sink, `Xfade` the numpy dissolve; each `Clip` a parent `ContentKey` so a multi-clip timeline is the media plane's strongest `core/plan#PLAN` `ArtifactPipeline` DAG; contributes the shared `Media` case (clip/segment counts).
-- [55]-[AUDIO](.planning/media/audio.md): `_encode_audio` temporal-artifact AUDIO-stream encode arm over `av` — `AudioFrame.from_ndarray`/`AudioResampler` reframe to the codec frame size, the `MediaProfile.voiced` stream-configure projection, the `Master`/`Stage` `loudnorm`/`alimiter` mastering chain, and the `_decode_audio` inverse the `analysis`/`synthesis` pages compose — composing the `media/container#CONTAINER` container/profile/evidence family, re-owning no vocabulary; contributes the same `ArtifactReceipt.Media` case.
-- [56]-[SUBTITLE](.planning/media/subtitle.md): `Subtitle` timed-text owner over the closed `SubtitleOp` (`Convert`/`Retime`/`Restyle`/`Mux`/`BurnIn`) — `pysubs2` multi-dialect parse/convert/retime/restyle (the eleven `FORMAT_IDENTIFIERS` folded to one `SubtitleDialect`, `parse_tags` override-aware styled fragments, `load_from_whisper` ASR bridge), passthrough soft-subtitle mux into an `av` container, and `typography/shape#SHAPE` RGBA overlay burn-in (the `filters_available`-selected substitute when libass is absent); contributes the shared `ArtifactReceipt.Media` case with event/style counts in the facts band.
-- [57]-[ANALYSIS](.planning/media/analysis.md): `Analysis` read-side measurement owner over the closed `AnalysisOp` (`Waveform`/`Spectrogram`/`Loudness`/`Silence`/`SceneDetect`/`Thumbnail`) — each capability-routed native-vs-substitute by the `media/filtergraph#FILTER` probe: `showwavespic`/`showspectrumpic` audio→image, `av.filter.loudnorm.stats` two-pass EBU R128, `select='gt(scene,t)'` cut-frame counting, `thumbnail` pick, else numpy envelope/STFT/RMS-threshold and `graphic/raster/measure#MEASURE` SSIM; composes `media/audio#MEDIA` `_decode_audio`; contributes the shared `Media` case with scene-cut/silence/LUFS facts.
-- [58]-[SYNTHESIS](.planning/media/synthesis.md): `Synthesis` generator owner over the closed `SynthOp` (`Oscillator`/`Noise`/`Additive`/`Fm`/`Am`/`Sweep`/`Impulse`) — numpy-native `np.cumsum` phase-accumulation oscillators (band-limited harmonic sums), `np.random.Generator` white/pink/brown noise, FM/AM, `np.interp` ADSR, and `np.cumsum`-instantaneous-frequency chirp (no `compute` generation owner exists), encoded through `media/audio#MEDIA` `_encode_audio` reusing its `Pcm`/`Master` vocabulary; contributes the shared `Media` case with `fundamental_hz`/`waveform`/`duration` facts.
+[SCENE]:
+- [60]-[RENDER](.planning/scene/render.md): `Scene3d` pyvista/VTK offscreen render, field-filter pipeline, and CSG owner on the worker lane.
+- [61]-[EXPORT](.planning/scene/export.md): Scene-file export-law owner — glTF/VRML/OBJ/HTML and the orbit rgb24 frame seam.
+- [62]-[STAGE](.planning/scene/stage.md): `StageOp` usd-core USD/USDZ stage-authoring owner.
 
-[scene] — 3D / spatial visualization:
-- [59]-[RENDER](.planning/scene/render.md): `Scene3d` 3D scientific-visualization render owner over the closed-payload `SceneOp` (`Image`/`Export`/`Frames`/`Ingest`/`Compose`) — `pyvista`/VTK datasets, the closed `FieldFilter` clip/slice/threshold/contour/warp/glyph/streamlines/decimate + mesh-repair family, PBR + classic-lighting materials, offscreen software-GL render on the native-VTK worker lane, emitting the orbit rgb24 frame sequence `media/container#CONTAINER` ingests; owns the hoisted `SceneTarget` file-target vocabulary its `SceneOp.Export` keys; every arm mints `(ContentKey, ArtifactReceipt)`.
-- [60]-[EXPORT](.planning/scene/export.md): 3D scene-file export-LAW owner composing render's hoisted `SceneTarget` downward — the `ROW` policy table, `Sink` strategies, and `_EXPORTER` rows the `render_worker` seam entries compose (`USD`/`USDZ` delegated to `stage`); scene emits FILES — a scene bundle is `package/archive`'s emit over scene-file parent keys, a work-graph DATA edge, never a package import; holds the `geometry/mesh` boundary — scene-file serialization, not raw mesh codec.
-- [61]-[STAGE](.planning/scene/stage.md): `StageOp` USD/USDZ stage-authoring owner over the closed `RenderExport`/`MeshAuthor` cases — the gated `vtkUSDExporter` layer write and the wheel-available `pxr.Usd.Stage` direct author from the `RENDER` `surface_arrays` buffers over the `UsdGeom`/`Vt`/`Gf` schema, the `MeshScene` PrimKind/material/`LabelsAPI`/`Kind` authoring payload, and the `package_usdz` AR deliverable close.
+[CORE]:
+- [63]-[PLAN](.planning/core/plan.md): `ArtifactPipeline` content-keyed sub-graph-elision plan over the runtime session lane.
+- [64]-[ISSUE](.planning/core/issue.md): `ArtifactIssue` constructing owner folding producer emit sets into the pipeline and drain.
+- [65]-[RECEIPT](.planning/core/receipt.md): `ArtifactReceipt` one receipt union every producer contributes one case to.
 
-[core] — production spine:
-- [62]-[PLAN](.planning/core/plan.md): `ArtifactPipeline` content-keyed sub-graph-elision plan folding each producer's `ContentIdentity` into `runtime/execution#LANE` `Admit.keyed = (ContentKey, Work)` units over one `rustworkx.PyDiGraph` (`topological_generations` fronts, `digraph_find_cycle` gate, `ancestors` target closure) with a Critical-Path-Method `Schedule` driving min-slack front order, the synchronous graph kernel offloaded onto `anyio.to_thread`; the third reuse-fabric consumer of the `core/receipt#RECEIPT` `contribute` fold; `of(warm=)` seeds the in-session elision cache and `Admission(keyed=KeyedThread)` threads classification + source key for the AppHost→Persistence `Admit` row (host-wire gated); owns no cache/store/scheduler/drain.
-- [63]-[ISSUE](.planning/core/issue.md): `ArtifactIssue` THE constructing owner — `issue(IssueRequest)` over the closed `sheet_set | diagram_suite | document_package | single` union, folding terminal producers' `emit()` node sets into `ArtifactPipeline.of(nodes, lane=, warm=, targets=)` and draining the CPM fronts through the runtime `LanePolicy.drain`; the one composition root hosts and siblings invoke, importing everything downward, imported by nothing in artifacts. The former one-context-many-formats fan is `document/emit#DOCUMENT`'s absorbed `DocumentPlan.bound`.
-- [64]-[RECEIPT](.planning/core/receipt.md): The ONE 23-case `ArtifactReceipt` tagged union (22 production cases + `Color`) keyed by the runtime content key and wired through the runtime `ReceiptContributor` port — every producer contributes one case, never a parallel receipt rail; declares the re-homed `ConformanceVerdict` conformance mints; derives `ArtifactKind`/`_KEYS` from the case roster; `contribute` records `domain="artifact"` measures through the runtime `Metrics.record` arm; `graduates` projects any receipt into the compute `HandoffAxis(artifact=)` handoff keyed by `ContentIdentity` under the governed residual-ceiling policy row.
-
-[package] — content-addressed compression / archive / delta over one shared bundle vocabulary:
-- [65]-[BUNDLE](.planning/package/bundle.md): `Bundle` shared package-plane vocabulary and port floor — the pre-run key-over-input `Bundle` carrier, `CompressionAlgo` (7 rows) + the `CodecProfile` knob-struct union, `InPlaceSegments`/`FirmwareLayout`, `BundleManifest`/`ManifestRow`, `BundleEvidence.measure` + the one `receipt(key)` projection onto the eight-scalar `Bundle` case, and the `PackWorker` port codec/archive/delta compose downward; NONE entry.
-- [66]-[CODEC](.planning/package/codec.md): `Codec` single-blob compression producer over ZSTD/LZ4/BROTLI/GZIP composing `bundle#BUNDLE` downward — the live zlib-ng GZIP band (`gzip_ng`/`gzip_ng_threaded` block-fan, per-block CRCs recombined via `crc32_combine`), dict-aware zstd frame recovery, the `_walked` anamorphism, bomb bounds; `emit()` per the one entry contract, minting `ArtifactReceipt.Bundle`.
-- [67]-[ARCHIVE](.planning/package/archive.md): `Archive` multi-file archive half — the `py7zr` `SevenZipFile.writeall`/`extractall`/`test` 7z and `stream-zip`/`stream-unzip` bounded-memory ZIP arms with AES sentinels, THE reproducible-ZIP owner (scene bundles route here as DATA parents), and the multi-entry `unpack`/`list`/`BundleManifest` inverse; first-class `emit()` composing `bundle#BUNDLE`.
-- [68]-[DELTA](.planning/package/delta.md): `Delta` binary diff/patch arm — `detools` `create_patch`/`apply_patch`/`patch_info` over the `DeltaKnobs` `CodecProfile` case, first-class `emit()` whose node `parents` name the base bundle key, composing `bundle#BUNDLE`.
+[PACKAGE]:
+- [66]-[BUNDLE](.planning/package/bundle.md): `Bundle` shared package-plane vocabulary and port floor; mints no receipt.
+- [67]-[CODEC](.planning/package/codec.md): `Codec` single-blob ZSTD/LZ4/BROTLI/GZIP compression producer composing the bundle.
+- [68]-[ARCHIVE](.planning/package/archive.md): `Archive` multi-file 7z/ZIP archive half and the reproducible-ZIP owner.
+- [69]-[DELTA](.planning/package/delta.md): `Delta` detools binary diff/patch arm over parent-keyed delta nodes.
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Every domain rendering library this folder uses. Versions are centralized in the one Python manifest; substrate packages live in `[3]-[SUBSTRATE_PACKAGES]` below. Native system dependencies stay outside this registry and are owned by the provisioning surface that supplies them.
+Domain libraries admitted by this folder; versions centralize in the one Python manifest and corroborate against this folder's `.api/`. Native system dependencies stay outside the registry, owned by the provisioning surface that supplies them.
 
-[Documents]:
+[DOCUMENTS]:
 - `reportlab`
-- `weasyprint` - `HTML.write_pdf`, `Document.make_bookmark_tree` outline
-- `typst` - `PDF_TYPST` mode with PDF/A via `pdf_standards`, the reusable `Compiler` world, `query`/`eval` introspection, `sys_inputs` data binding
+- `weasyprint` - HTML-to-PDF with outline tree
+- `typst` - PDF/A compile with data binding
 - `pymupdf`
 - `pypdfium2`
-- `pdf-oxide` - Rust PDF extract/render/create/forms (abi3), rationalized against the pdfplumber/pypdf/pypdfium2/pymupdf stack per concern
-- `pypdf` - assembly plus `PdfWriter.encrypt`/outline/`Transformation`/`merge_page` egress finishing
-- `pikepdf` - repair/linearize plus `Encryption`/`Permissions`/`Outline`/`add_overlay`/`add_underlay`/`as_form_xobject`/`AttachedFileSpec` egress
+- `pdf-oxide` - Rust PDF extract/render/create/forms
+- `pypdf` - assembly and outline/transform egress
+- `pikepdf` - repair, encrypt, overlay, and structure-tree authoring
 - `python-docx`
 - `python-pptx`
 - `openpyxl`
-- `xlsxwriter` - Write-only XLSX emit with charts/formats/conditional formatting
-- `python-calamine` - Fast read-only XLSX/XLS/ODS ingest into the corpus lane
-- `odfpy` - OpenDocument ODT/ODS/ODP read/write
-- `docxtpl` - jinja2 DOCX template render over python-docx
-- `msoffcrypto-tool` - Encrypted Office document decrypt at the ingest boundary
-- `pdfplumber` - Page text/table/word geometry extraction over pdfminer
-- `ocrmypdf` - OCR text layer over a scanned PDF on the tesseract/ghostscript Forge native floor
+- `xlsxwriter` - write-only XLSX with charts and formats
+- `python-calamine` - fast read-only XLSX/XLS/ODS ingest
+- `odfpy` - OpenDocument read/write
+- `docxtpl` - jinja2 DOCX template render
+- `msoffcrypto-tool` - encrypted Office decrypt at ingest
+- `pdfplumber` - page text/table/word geometry extraction
+- `ocrmypdf` - OCR text layer over scanned PDF
 - `lxml`
 - `ruamel-yaml`
 - `tomlkit`
-
-[Reporting]:
 - `jinja2`
 - `papermill`
 - `nbclient`
-- `nbconvert` - Notebook export to HTML/PDF/script over the executed notebook tree
-- `jupytext` - Notebook/text round-trip for diffable report sources
+- `nbconvert` - notebook export to HTML/PDF/script
+- `jupytext` - notebook/text round-trip
 
-[Charts]:
+[VISUALIZATION]:
 - `altair`
 - `matplotlib`
-- `lets-plot` - Second host-free chart engine beside the `vl-convert` Vega export path
-- `vl-convert-python` - Primary host-free static chart export
-- `vegafusion` - Chart `EXPORT` transform pre-pass
+- `lets-plot` - second host-free chart engine
+- `vl-convert-python` - primary host-free chart export
+- `vegafusion` - chart export transform pre-pass
+- `great-tables` - publication-table producer
+- `polars` - first-class table and frame substrate
 
-[Scene3d]:
+[DIAGRAMS]:
+- `rustworkx` - graph layout, detail DAG, and plan producer graph
+- `grandalf` - Sugiyama layout fallback until fast-sugiyama parity
+- `pyelk` - ELK layered/orthogonal/ports/nesting layout
+- `fast-sugiyama` - Rust Sugiyama layered placement
+- `kiwisolver` - Cassowary constraint-layout solver
+- `ziafont` - glyph text-to-SVG-path outlining
+- `ziamath` - math-to-SVG rendering
+- `schemdraw` - native-SVG schematic diagrams
+- `drawpyo` - draw.io editable export
+- `pvlib` - NREL solar-position ephemeris
+
+[IMAGING]:
+- `pillow` - raster IO/transform/ICC, annotation, metadata
+- `scikit-image` - measured-score and transform arms
+- `pyvips` - fused libvips decode/downscale/ICC/smartcrop
+- `resvg-py` - SVG-to-raster render
+- `tifffile` - TIFF container IO and layered-TIFF writer
+- `psdtags` - Photoshop TIFF image resources
+- `imagecodecs` - PackBits/ZIP channel codecs
+
+[VECTOR_CAD]:
+- `svgelements` - pure-Python SVG geometry and parse
+- `skia-pathops` - boolean/offset/stroke-to-outline
+- `drawsvg` - hierarchical named-layer SVG authoring
+- `ezdxf` - DXF model, render backend, block store, symbol-table lowering
+
+[MARKS]:
+- `segno` - QR/Micro-QR
+- `python-barcode` - linear 1D symbologies
+- `zxing-cpp` - 2D-matrix symbology encode/decode
+
+[COLOR]:
+- `colour-science`
+- `coloraide` - CSS-space parse/interpolate/gamut-map
+- `colour-cxf` - CxF3 spot/spectral color exchange
+
+[TYPOGRAPHY]:
+- `fonttools`
+- `uharfbuzz` - OpenType shaping and outline bridge
+- `blackrenderer` - COLRv1 color-glyph render
+- `python-bidi` - UAX#9 bidirectional reorder
+- `uniseg` - Unicode line/grapheme/word segmentation
+- `pyphen` - language-aware soft-hyphenation
+- `opentype-feature-freezer` - freeze OpenType features into the default set
+- `vharfbuzz` - HarfBuzz shaping QA and buffer-diff
+- `PyICU` - ICU line-break/bidi/collation (gated `<3.15`, sdist-only)
+
+[EXCHANGE]:
+- `pyhanko` - PAdES PDF signing and conformance
+- `c2pa-python` - C2PA content-credential sign/verify
+- `puremagic` - pure-Python format sniffer, default detect path
+- `python-magic` - libmagic format-ID power path
+- `pyexiftool` - cross-format descriptive-metadata read/write
+
+[EDITABLE_EXPORT]:
+- `simpleidml` - IDML package and template mutation
+- `PhotoshopAPI` - native PSD/PSB layered writer (gated `<3.15`)
+- `psd-tools` - PSD read/inspect and pixel author
+- `pdfimpose` - saddle/wire/card/cut/fold/signature page-order
+
+[MEDIA]:
+- `av` - PyAV container/codec/filtergraph
+- `pysubs2` - subtitle parse/convert/retime/restyle
+
+[SCENE]:
 - `pyvista`
 - `vtk`
-- `usd-core` - USD/USDA/USDC scene authoring and stage composition for 3D scene export
+- `usd-core` - USD/USDA/USDC scene authoring
 
-[Tables]:
-- `great-tables`
-- `polars` - First-class table/frame substrate for publication tables and diagram graph inputs
-
-[Imaging]:
-- `pillow` - Raster I/O/transform/`ImageCms`, plus figure annotation and metadata surfaces
-- `scikit-image`
-- `segno` - QR/Micro-QR, dependency-free serializers, replaces qrcode
-- `python-barcode` - Linear 1D symbologies only — Code128/EAN/UPC/ITF/Code39/Codabar — beside the segno QR arm
-- `zxing-cpp` - 2D-matrix symbology owner beside the python-barcode linear arm
-- `pyvips` - Fast libvips raster pipeline — resize/thumbnail/format-convert/composite — on the libvips Forge native floor
-- `resvg-py` - Resvg SVG-to-raster render with accurate font/filter support
-- `svgelements` - Pure-Python SVG geometry/transform/parse for `figures/compose`
-- `skia-pathops` - Skia boolean/offset/stroke-to-outline path operations for `graphic/vector/region`, beside the `shapely` planar set-op surface.
-- `drawsvg` - Hierarchical named-layer SVG authoring for `export/layered`
-- `tifffile` - TIFF container IO, extratag authoring, ICC/metadata fields, and Photoshop-compatible layered TIFF writer boundary.
-- `psdtags` - Photoshop TIFF image resources, layer records, and layer/mask source data encoded through `tifffile` extratags.
-- `python-magic`
-- `puremagic` - pure-Python format sniffer, the default `exchange/detect` path beside the libmagic power path
-
-[Color]:
-- `colour-science`
-- `coloraide` - CSS-space color parse/interpolate/gamut-map for web-facing palette egress
-- `colour-cxf` - CxF3 spot/spectral color exchange for the print/separations plane (device-link/proof transforms route through Pillow `ImageCms`)
-
-[Typography]:
-- `fonttools`
-- `pyhanko`
-- `uharfbuzz` - OpenType shaping pipeline, COLRv1 `PaintFuncs`, `Font.set_variations`, and the `draw_glyph_with_pen` fontTools outline bridge
-- `blackrenderer` - COLRv1 color-glyph raster/SVG rendering over the uharfbuzz/fontTools paint chain
-- `python-bidi` - UAX#9 bidirectional reorder pass before HarfBuzz shaping for mixed-direction Perso-Arabic runs, feeding `typography/shape`
-- `uniseg` - Unicode line, grapheme, and word segmentation for line-break opportunities and paragraph layout.
-- `pyphen` - Language-aware soft-hyphenation dictionaries for tight measures and Knuth-Plass penalty rows.
-- `opentype-feature-freezer` - freeze OpenType features into the default glyph set for `typography/font`.
-- `vharfbuzz` - HarfBuzz shaping QA and buffer-diff beside `uharfbuzz` for `typography/shape`.
-- `PyICU` - ICU locale line-break/bidi/collation (gated `python_version<'3.15'`; sdist-only, needs ICU native).
-
-[Composition]:
-- `pdfimpose` - Saddle-stitch, wire, cards, cut/fold, and signature page-order computation for `ImposedPlan`
-
-[Editable export]:
-- `simpleidml` - IDML package mutation and page/layer/template composition for the InDesign export owner.
-- `PhotoshopAPI` - native PSD/PSB layered writer for `export/layered`; gated `python_version<'3.15'`
-- `psd-tools` - PSD read/inspect plus pixel author beside the `PhotoshopAPI` writer.
-- `imagecodecs` - PackBits/ZIP channel codecs for layered raster egress.
-
-[CAD exchange]:
-- `ezdxf` - DXF document/entity model, render backend, drawing block store, and symbol-table lowering
-
-[Diagrams]:
-- `grandalf` - Sugiyama hierarchy layout and edge routing beside `rustworkx`, fallback until `fast-sugiyama` parity lands.
-- `pyelk` - ELK layered/orthogonal/ports/nesting diagram layout for the node-link/ER/flowchart diagram pages.
-- `fast-sugiyama` - fast Sugiyama layered placement (Rust/abi3) replacing `grandalf` placement.
-- `kiwisolver` - Cassowary constraint-layout solver promoted to a direct surface.
-- `ziafont` - font glyph text-to-SVG-path for label glyph runs.
-- `ziamath` - math-to-SVG rendering for annotation math.
-- `schemdraw` - native-SVG schematic diagrams.
-- `drawpyo` - draw.io / diagrams.net export.
-- `pvlib` - NREL solar-position ephemeris feeding the `visualization/diagram` sun-path
-
-[Provenance]:
-- `c2pa-python` - C2PA content-credential manifest sign/verify keyed by the content key, feeding `provenance/credential`
-
-[Metadata]:
-- `pyexiftool` - cross-format descriptive-metadata read/write over the exiftool binary, the sole `exchange/metadata` carrier arm.
-
-[Compression]:
+[COMPRESSION]:
 - `zstandard`
 - `lz4`
 - `brotli`
-- `zlib-ng` - Accelerated gzip/zlib container compression behind the `GZIP` codec row.
+- `zlib-ng` - accelerated gzip/zlib behind the GZIP codec
 - `py7zr`
-- `stream-zip` - Streaming ZIP archive emit without buffering the whole archive
-- `stream-unzip` - Streaming ZIP archive ingest without buffering the whole archive
-- `detools` - Binary-diff/patch generation for incremental artifact delta bundles
-
-[Media]:
-- `av` - PyAV container/codec/filtergraph for the `media/` plane; native filters and verified substitutes
-- `pysubs2` - subtitle parse/convert/retime/restyle model for `media/subtitle`.
-
-[UNLOCKED_ADMITTED_SURFACES]: capabilities the new pages reach through existing package rows:
-- `pikepdf` XMP — `Pdf.open_metadata()` scalar read/write, the in-process PDF/XMP path beside the `/OCProperties` surgery the `PdfSurgery` arm uses.
-- `pyvips` ICC — the fused decode/downscale/ICC/smartcrop streaming pipeline reached through the Forge `libvips` runtime.
-
-[ADMITTED_LOCAL_OVERLAYS]: these packages have root manifest rows and folder `.api` catalogues; production pages consume them only through their owning planning files.
-- `grandalf` — `visualization/diagram/layout` hierarchy coordinate assignment and edge routing beside the admitted `rustworkx` graph substrate.
-- `uniseg` + `pyphen` — `typography/layout` Unicode line-break segmentation plus language-aware hyphenation feeding the paragraph-fit owner.
-- `simpleidml` — `export/indesign` IDML package mutation over template, layer, spread, page, XML, and imported asset operations.
-- `psdtags` + `tifffile` — `export/layered` Photoshop-compatible layered TIFF output and TIFF extratag authoring.
-- `pyexiftool` — `exchange/metadata` raster carrier, `pikepdf` PDF and `av` MEDIA carriers.
-- `pdfimpose` — `composition/imposition` saddle/wire/card/cut/fold/signature page-order computation normalized into local placement facts.
-- `polars` + `rustworkx` + `lz4` + `zlib-ng` — overlays for table/diagram/package owners; `rustworkx` also owns the detail `PyDAG` and `core/plan` producer graph.
+- `stream-zip` - streaming ZIP emit
+- `stream-unzip` - streaming ZIP ingest
+- `detools` - binary diff/patch for delta bundles
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Cross-cutting substrate libraries this folder consumes; canonical registry lives at `libs/python/.planning/README.md` and branch `libs/python/.api/`.
+Cross-cutting substrate consumed from the branch registry; the branch `libs/python/.planning` README and `libs/python/.api/` own the full contracts and API evidence.
 
 [TYPING_RAILS]:
 - `expression`

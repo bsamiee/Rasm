@@ -50,13 +50,13 @@
 - rail: render
 - Weight/style directives are constants; color is four parameterized constructors over a `Color` (`color`/`brightColor` for foreground, `bgColor`/`bgColorBright` for background). The 32 named color constants (`Ansi.red`, `Ansi.bgBlueBright`, …) are fixed rows over those four constructors — reach for the constant when the color is literal, the constructor when the `Color` is computed.
 
-| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY] | [RAIL]                                               |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :--------------------------------------------------- |
-|  [01]   | `Ansi.bold` / `Ansi.italicized` / `Ansi.underlined` / `Ansi.strikethrough` | style          | text-weight/decoration directive constants           |
-|  [02]   | `Ansi.color(c)` / `Ansi.brightColor(c)`                                    | fg constructor | foreground normal / bright from a `Color`            |
-|  [03]   | `Ansi.bgColor(c)` / `Ansi.bgColorBright(c)`                                | bg constructor | background normal / bright from a `Color`            |
-|  [04]   | `Ansi.red`/`green`/…/`whiteBright` (16 fg constants)                       | fg row         | fixed foreground rows over `color`/`brightColor`     |
-|  [05]   | `Ansi.bgRed`/…/`bgWhiteBright` (16 bg constants)                           | bg row         | fixed background rows over `bgColor`/`bgColorBright` |
+| [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [RAIL]                                      |
+| :-----: | :---------------------------------------------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `Ansi.bold` / `italicized` / `underlined` / `strikethrough` | style          | text weight + decoration constants          |
+|  [02]   | `Ansi.color(c)` / `Ansi.brightColor(c)`                     | fg constructor | foreground normal / bright of a `Color`     |
+|  [03]   | `Ansi.bgColor(c)` / `Ansi.bgColorBright(c)`                 | bg constructor | background normal / bright of a `Color`     |
+|  [04]   | `Ansi.red`/`green`/…/`whiteBright` (16 fg constants)        | fg row         | literal rows over `color`/`brightColor`     |
+|  [05]   | `Ansi.bgRed`/…/`bgWhiteBright` (16 bg constants)            | bg row         | literal rows over `bgColor`/`bgColorBright` |
 
 [ENTRYPOINT_SCOPE]: cursor + erase + bell directives (`Ansi`)
 - rail: render
@@ -85,10 +85,10 @@
 - rail: render
 - `AnsiDoc.render` is the terminal renderer: it lowers `Doc<Ansi>` through the chosen layout algorithm and, at each `PushAnnotation`/`PopAnnotation` stream event, emits the accumulated `Ansi` escape sequence and its reset — so nested styles restore correctly. This replaces `Doc.render` (which drops annotations) at the terminal edge.
 
-| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [RAIL]                                                         |
-| :-----: | :---------------------------------------------------------------- | :------------- | :------------------------------------------------------------- |
-|  [01]   | `AnsiDoc.render(self, config)` / `AnsiDoc.render(config)`         | render façade  | dual: lower + resolve `Ansi` to escape codes -> `string`       |
-|  [02]   | `AnsiDoc.cursorTo(col, row?)`/`cursorUp`/`eraseLines(n)`/`beep`/… | directive doc  | the `Ansi` control directives as composable `Doc<Ansi>` values |
+| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [RAIL]                                                   |
+| :-----: | :-------------------------------------------------------- | :------------- | :------------------------------------------------------- |
+|  [01]   | `AnsiDoc.render(self, config)` / `AnsiDoc.render(config)` | render façade  | dual: lower + resolve `Ansi` to escape codes -> `string` |
+|  [02]   | `AnsiDoc.cursorTo`/`cursorUp`/`eraseLines`/`beep`/…       | directive doc  | `Ansi` control directives as `Doc<Ansi>` values          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

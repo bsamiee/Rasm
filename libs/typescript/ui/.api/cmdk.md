@@ -19,30 +19,46 @@
 - rail: view/command-palette
 - `CommandFilter` is the swap point for match ranking; `State` is what `useCommandState` selects over. Both are the seam a design page composes — a custom scorer and a store selector for the empty/count rows.
 
-| [INDEX] | [SYMBOL]                                                                                                                                           | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                                   |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------- |
-|  [01]   | `CommandFilter = (value: string, search: string, keywords?: string[]) => number`                                                                   | scorer         | `filter` prop; returns 0..1 relevance, 0 hides the item               |
-|  [02]   | `State = { search: string; value: string; selectedItemId?: string; filtered: { count: number; items: Map<string, number>; groups: Set<string> } }` | store snapshot | the shape `useCommandState` selects over                              |
-|  [03]   | `defaultFilter: CommandFilter`                                                                                                                     | default scorer | command-score fuzzy ranking; the `filter` default; wrap or replace it |
+```ts signature
+type CommandFilter = (value: string, search: string, keywords?: string[]) => number
+type State = { search: string; value: string; selectedItemId?: string; filtered: { count: number; items: Map<string, number>; groups: Set<string> } }
+declare const defaultFilter: CommandFilter
+```
+
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                          |
+| :-----: | :-------------- | :------------- | :----------------------------------------------------------- |
+|  [01]   | `CommandFilter` | scorer         | `filter` prop; returns 0..1 relevance, 0 hides the item      |
+|  [02]   | `State`         | store snapshot | the shape `useCommandState` selects over                     |
+|  [03]   | `defaultFilter` | default scorer | command-score fuzzy ranking; wrap or replace it via `filter` |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the compound component and its store hook
 - rail: view/command-palette
-- one root owns the machine; children are slots. Every primitive is a `ForwardRefExoticComponent` accepting `asChild`. Root and `CommandDialog` share the full control surface; `CommandDialog` adds the Radix portal shell.
+- one root owns the machine; children are slots. Every primitive is a `ForwardRefExoticComponent` accepting `asChild`. Root and `CommandDialog` share the full control surface; `CommandDialog` adds the Radix portal shell. Per-component props are the keyed roster below.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                           | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                       |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | `Command` (compound root; bare alias `CommandRoot`) props: `label`, `shouldFilter`, `filter`, `value`, `defaultValue`, `onValueChange`, `loop`, `disablePointerSelection`, `vimBindings`, `asChild` | root           | the palette state machine; controlled selection via `value`/`onValueChange`               |
-|  [02]   | `Command.Input` (`CommandInput`) props: `value`, `onValueChange(search)` (+ `<input>` attrs)                                                                                                        | search input   | search-value source; controlled for async filtering                                       |
-|  [03]   | `Command.List` (`CommandList`) props: `label`; CSS var `--cmdk-list-height`                                                                                                                         | result list    | scroll container; animate height by result count                                          |
-|  [04]   | `Command.Item` (`CommandItem`) props: `value`, `onSelect(value)`, `keywords`, `disabled`, `forceMount`, `asChild`                                                                                   | item           | selectable command; `value` = stable command key, `keywords` = alias tokens               |
-|  [05]   | `Command.Group` (`CommandGroup`) props: `heading`, `value`, `forceMount`                                                                                                                            | group          | labeled cohort; shown together when any child matches                                     |
-|  [06]   | `Command.Separator` (`CommandSeparator`) props: `alwaysRender`                                                                                                                                      | separator      | visible on empty search unless `alwaysRender`                                             |
-|  [07]   | `Command.Empty` (`CommandEmpty`)                                                                                                                                                                    | empty row      | auto-renders when the filtered count is 0                                                 |
-|  [08]   | `Command.Loading` (`CommandLoading`) props: `progress`, `label`                                                                                                                                     | loading row    | async-source progress indicator                                                           |
-|  [09]   | `Command.Dialog` (`CommandDialog`) props: `RadixDialog.DialogProps` + `overlayClassName`, `contentClassName`, `container` + all root props                                                          | modal palette  | palette inside a Radix Dialog with a portal target                                        |
-|  [10]   | `useCommandState<T>(selector: (state: State) => T): T`                                                                                                                                              | store hook     | subscribe to `filtered.count`/`search` for custom empty/count rows without list re-render |
+| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                               |
+| :-----: | :--------------------------------------- | :------------- | :---------------------------------------------------------------- |
+|  [01]   | `Command` / `CommandRoot`                | root           | the palette state machine; controlled via `value`/`onValueChange` |
+|  [02]   | `Command.Input` / `CommandInput`         | search input   | search-value source; controlled for async filtering               |
+|  [03]   | `Command.List` / `CommandList`           | result list    | scroll container; animate height by result count                  |
+|  [04]   | `Command.Item` / `CommandItem`           | item           | selectable command; `value`=command key, `keywords`=aliases       |
+|  [05]   | `Command.Group` / `CommandGroup`         | group          | labeled cohort; shown together when any child matches             |
+|  [06]   | `Command.Separator` / `CommandSeparator` | separator      | visible on empty search unless `alwaysRender`                     |
+|  [07]   | `Command.Empty` / `CommandEmpty`         | empty row      | auto-renders when the filtered count is 0                         |
+|  [08]   | `Command.Loading` / `CommandLoading`     | loading row    | async-source progress indicator                                   |
+|  [09]   | `Command.Dialog` / `CommandDialog`       | modal palette  | palette inside a Radix Dialog with a portal target                |
+|  [10]   | `useCommandState<T>(selector)`           | store hook     | subscribe to `filtered.count`/`search` for empty/count rows       |
+
+- [01]-[ROOT]: `label`, `shouldFilter`, `filter`, `value`, `defaultValue`, `onValueChange`, `loop`, `disablePointerSelection`, `vimBindings`, `asChild`.
+- [02]-[INPUT]: `value`, `onValueChange(search)` (+ `<input>` attrs).
+- [03]-[LIST]: `label`; CSS var `--cmdk-list-height`.
+- [04]-[ITEM]: `value`, `onSelect(value)`, `keywords`, `disabled`, `forceMount`, `asChild` — `value` = stable command key, `keywords` = alias tokens.
+- [05]-[GROUP]: `heading`, `value`, `forceMount`.
+- [06]-[SEPARATOR]: `alwaysRender`.
+- [08]-[LOADING]: `progress`, `label`.
+- [09]-[DIALOG]: `RadixDialog.DialogProps` + `overlayClassName`, `contentClassName`, `container` + all root props.
+- [10]-[STATE]: `useCommandState<T>(selector: (state: State) => T): T`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

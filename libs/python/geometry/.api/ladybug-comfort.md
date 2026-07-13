@@ -21,28 +21,35 @@
 [PUBLIC_TYPE_SCOPE]: comfort collections (`ladybug_comfort.collection`)
 - rail: energy / comfort
 
-All subclass `collection.base.ComfortCollection`: they take aligned `ladybug-core` `DataCollection`s (or read an `EPW` via `from_epw`) and expose every comfort result as a matching collection. The comfort model is the class; the result is a property, never a parallel method family.
+All subclass `collection.base.ComfortCollection`: they take aligned `ladybug-core` `DataCollection`s (or read an `EPW` via `from_epw`) and expose every comfort result as a matching collection. The comfort model is the class; the result is a property, never a parallel method family. Symbols elide the `collection.` prefix; exact result members are rostered in the entrypoints results rows.
 
-| [INDEX] | [SYMBOL]                                                                                                  | [TYPE_FAMILY] | [CAPABILITY]                                                                                                                          |
-| :-----: | :-------------------------------------------------------------------------------------------------------- | :------------ | :------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `collection.pmv.PMV`                                                                                      | Fanger PMV    | `predicted_mean_vote`, `percentage_people_dissatisfied`, `standard_effective_temperature`, `thermal_condition`, `percent_comfortable` |
-|  [02]   | `collection.utci.UTCI`                                                                                    | UTCI          | `universal_thermal_climate_index`, the 2/5/7/9/11-point `thermal_condition_*`, heat/cold-stress percentages                           |
-|  [03]   | `collection.adaptive.Adaptive`                                                                            | adaptive      | `neutral_temperature`, `degrees_from_neutral`, `prevailing_outdoor_temperature`, `thermal_condition`                                  |
-|  [04]   | `collection.pet.PET`                                                                                      | PET (MEMI)    | `physiologic_equivalent_temperature`, `core_body_temperature`, `skin_temperature`, `pet_category`                                     |
-|  [05]   | `collection.solarcal.OutdoorSolarCal` / `IndoorSolarCal` / `HorizontalSolarCal` / `HorizontalRefSolarCal` | SolarCal MRT  | `mean_radiant_temperature`, `mrt_delta`, short/longwave ERF; the MRT source for PMV/UTCI/PET                                          |
+| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :------------------------------------------------------ | :------------ | :---------------------------------------------------- |
+|  [01]   | `pmv.PMV`                                               | Fanger PMV    | Fanger PMV/PPD/SET; `standard_effective_temperature`  |
+|  [02]   | `utci.UTCI`                                             | UTCI          | UTCI; `thermal_condition_*` (2/5/7/9/11-point)        |
+|  [03]   | `adaptive.Adaptive`                                     | adaptive      | `neutral_temperature`, `degrees_from_neutral`         |
+|  [04]   | `adaptive.Adaptive`                                     | adaptive      | `prevailing_outdoor_temperature`, `thermal_condition` |
+|  [05]   | `pet.PET`                                               | PET (MEMI)    | `physiologic_equivalent_temperature`, `pet_category`  |
+|  [06]   | `pet.PET`                                               | PET (MEMI)    | `core_body_temperature`, `skin_temperature`           |
+|  [07]   | `solarcal.OutdoorSolarCal` / `IndoorSolarCal`           | SolarCal MRT  | `mean_radiant_temperature`, `mrt_delta`               |
+|  [08]   | `solarcal.HorizontalSolarCal` / `HorizontalRefSolarCal` | SolarCal MRT  | short/longwave ERF; MRT for PMV/UTCI/PET              |
 
 [PUBLIC_TYPE_SCOPE]: comfort parameters and visualization (`parameter`, `chart`)
 - rail: energy / comfort
 
-`Parameter` objects are the config carriers: serializable thresholds and standard selectors that parameterize a `ComfortCollection`. They carry `from_dict`/`to_dict`/`from_string` and `is_comfortable`/`thermal_condition` predicates.
+`Parameter` objects are the config carriers: serializable thresholds and standard selectors that parameterize a `ComfortCollection`. They carry `from_dict`/`to_dict`/`from_string` and `is_comfortable`/`thermal_condition` predicates. `Parameter` symbols elide the `parameter.` prefix.
 
-| [INDEX] | [SYMBOL]                                                                                         | [TYPE_FAMILY]       | [CAPABILITY]                                                                                 |
-| :-----: | :----------------------------------------------------------------------------------------------- | :------------------ | :------------------------------------------------------------------------------------------- |
-|  [01]   | `parameter.pmv.PMVParameter`                                                                     | PMV config          | `ppd_comfort_thresh`, `humid_ratio` bounds, `still_air_threshold`; `discomfort_reason`       |
-|  [02]   | `parameter.utci.UTCIParameter`                                                                   | UTCI config         | the cold/heat stress thresholds; `original_utci_category`, the n-point `thermal_condition_*` |
-|  [03]   | `parameter.adaptive.AdaptiveParameter`                                                           | adaptive config     | `ashrae_or_en` standard, `conditioning`, `neutral_offset`, air-speed method                  |
-|  [04]   | `parameter.pet.PETParameter` / `parameter.solarcal.SolarCalParameter`                            | PET/SolarCal config | body parameters, posture, reflectance/exposure config                                        |
-|  [05]   | `chart.polygonpmv.PolygonPMV` / `chart.polygonutci.PolygonUTCI` / `chart.adaptive.AdaptiveChart` | chart               | comfort polygons over a `ladybug.psychchart.PsychrometricChart`                              |
+| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]       | [CAPABILITY]                                                |
+| :-----: | :------------------------------------------------ | :------------------ | :---------------------------------------------------------- |
+|  [01]   | `pmv.PMVParameter`                                | PMV config          | `ppd_comfort_thresh`, `humid_ratio` bounds                  |
+|  [02]   | `pmv.PMVParameter`                                | PMV config          | `still_air_threshold`, `discomfort_reason`                  |
+|  [03]   | `utci.UTCIParameter`                              | UTCI config         | cold/heat stress thresholds; `original_utci_category`       |
+|  [04]   | `utci.UTCIParameter`                              | UTCI config         | n-point `thermal_condition_*`                               |
+|  [05]   | `adaptive.AdaptiveParameter`                      | adaptive config     | `ashrae_or_en`, `conditioning`, `neutral_offset`, air-speed |
+|  [06]   | `pet.PETParameter` / `solarcal.SolarCalParameter` | PET/SolarCal config | body/posture/reflectance/exposure config                    |
+|  [07]   | `chart.polygonpmv.PolygonPMV`                     | chart               | PMV comfort polygon over a `PsychrometricChart`             |
+|  [08]   | `chart.polygonutci.PolygonUTCI`                   | chart               | UTCI comfort polygon                                        |
+|  [09]   | `chart.adaptive.AdaptiveChart`                    | chart               | adaptive comfort chart                                      |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -51,44 +58,60 @@ All subclass `collection.base.ComfortCollection`: they take aligned `ladybug-cor
 
 Pure scalar functions (SI/radians in, comfort scalar out) — the heat-balance kernels the collections vectorize. The model is the named function; the standard variant is an argument or a sibling function, never a class. These vectorize cleanly under `numpy` for the spatial map.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                         | [CALL_SHAPE]           | [CAPABILITY]                                                                                   |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | `pmv.predicted_mean_vote(ta, tr, vel, rh, met, clo, wme=0, still_air_threshold=0.1)`                                                                                                                                              | scalar climate + body  | Fanger PMV + PPD + SET dict (the full pierce SET model)                                        |
-|  [02]   | `pmv.fanger_pmv(...)` / `pmv.pierce_set(...)` / `pmv.ppd_from_pmv(pmv)` / `pmv.pmv_from_ppd(ppd)`                                                                                                                                 | scalars                | the underlying Fanger/Pierce models and PMV<->PPD map                                          |
-|  [03]   | `utci.universal_thermal_climate_index(ta, tr, vel, rh)`                                                                                                                                                                           | scalar climate         | UTCI in degrees C                                                                              |
-|  [04]   | `pet.physiologic_equivalent_temperature(ta, tr, vel, rh, met, clo, ...)` / `pet.pet_category(pet)`                                                                                                                                | scalar climate + body  | PET via the MEMI heat-balance model                                                            |
-|  [05]   | `adaptive.adaptive_comfort_ashrae55(t_prevail, to)` / `adaptive_comfort_en15251(t_prevail, to)` / `adaptive_comfort_conditioned(t_prevail, to, conditioning, model)` / `cooling_effect_ashrae55`/`_en15251`/`_en16798`            | prevailing + operative | the adaptive comfort models + air-speed cooling effect (EN-16798 via `cooling_effect_en16798`) |
-|  [06]   | `solarcal.outdoor_sky_heat_exch(...)` / `indoor_sky_heat_exch(...)` / `erf_from_body_solar_flux(...)` / `mrt_delta_from_erf(...)`                                                                                                 | solar flux             | SolarCal MRT-delta heat exchange                                                               |
-|  [07]   | `at.apparent_temperature(ta, rh, ws)` / `di.discomfort_index(ta, rh)` / `hi.heat_index(ta, rh)` / `humidex.humidex(ta, tdp)` / `wbgt.wet_bulb_globe_temperature(...)` / `wc.windchill_temp(ta, ws)` / `ts.thermal_sensation(...)` | scalar climate         | the simple heat/cold indices + warning categories                                              |
-|  [08]   | `degreetime.heating_degree_time(...)` / `cooling_degree_time(...)` / `clo.schiavon_clo(adapt_temp, max_clo=1, min_clo=0.46, ...)`                                                                                                 | temperature            | degree-time accumulation; adaptive-temp clothing estimate                                      |
+| [INDEX] | [SURFACE]                                                             | [CALL_SHAPE]           | [CAPABILITY]                           |
+| :-----: | :-------------------------------------------------------------------- | :--------------------- | :------------------------------------- |
+|  [01]   | `pmv.predicted_mean_vote(ta, tr, vel, rh, met, clo, ...)`             | scalar climate + body  | Fanger PMV/PPD + Pierce SET dict       |
+|  [02]   | `pmv.fanger_pmv(...)` / `pmv.pierce_set(...)`                         | scalars                | underlying Fanger / Pierce models      |
+|  [03]   | `pmv.ppd_from_pmv(pmv)` / `pmv.pmv_from_ppd(ppd)`                     | scalars                | PMV <-> PPD map                        |
+|  [04]   | `utci.universal_thermal_climate_index(ta, tr, vel, rh)`               | scalar climate         | UTCI in degrees C                      |
+|  [05]   | `pet.physiologic_equivalent_temperature(ta, tr, vel, rh, ...)`        | scalar climate + body  | PET via the MEMI heat-balance model    |
+|  [06]   | `pet.pet_category(pet)`                                               | scalar climate         | PET category band                      |
+|  [07]   | `adaptive.adaptive_comfort_ashrae55(t_prevail, to)`                   | prevailing + operative | ASHRAE-55 adaptive                     |
+|  [08]   | `adaptive.adaptive_comfort_en15251(t_prevail, to)`                    | prevailing + operative | EN-15251 adaptive                      |
+|  [09]   | `adaptive.adaptive_comfort_conditioned(t_prevail, to, ...)`           | prevailing + operative | conditioned adaptive (`conditioning`)  |
+|  [10]   | `adaptive.cooling_effect_ashrae55` / `_en15251` / `_en16798`          | prevailing + operative | air-speed cooling effect (EN-16798)    |
+|  [11]   | `solarcal.outdoor_sky_heat_exch(...)` / `indoor_sky_heat_exch(...)`   | solar flux             | SolarCal sky heat exchange             |
+|  [12]   | `solarcal.erf_from_body_solar_flux(...)` / `mrt_delta_from_erf(...)`  | solar flux             | ERF -> MRT-delta                       |
+|  [13]   | `at.apparent_temperature(ta, rh, ws)` / `di.discomfort_index(ta, rh)` | scalar climate         | apparent temp / discomfort index       |
+|  [14]   | `hi.heat_index(ta, rh)` / `humidex.humidex(ta, tdp)`                  | scalar climate         | heat index / humidex                   |
+|  [15]   | `wbgt.wet_bulb_globe_temperature(...)` / `wc.windchill_temp(ta, ws)`  | scalar climate         | WBGT / wind chill                      |
+|  [16]   | `ts.thermal_sensation(...)`                                           | scalar climate         | thermal-sensation index + warning band |
+|  [17]   | `degreetime.heating_degree_time(...)` / `cooling_degree_time(...)`    | temperature            | heating / cooling degree-time          |
+|  [18]   | `clo.schiavon_clo(adapt_temp, max_clo=1, min_clo=0.46, ...)`          | temperature            | adaptive-temp clothing estimate        |
 
 [ENTRYPOINT_SCOPE]: comfort-collection construction and results (`collection`)
 - rail: energy / comfort
 
-A `ComfortCollection` takes aligned `ladybug-core` collections (or an `EPW` via `from_epw`) plus an optional `Parameter`, and exposes every result as a `DataCollection`. `from_epw(epw, include_wind=True, include_sun=True, ...)` is the one-call weather-to-comfort path.
+A `ComfortCollection` takes aligned `ladybug-core` collections (or an `EPW` via `from_epw`) plus an optional `Parameter`, and exposes every result as a `DataCollection`. `from_epw(epw, include_wind=True, include_sun=True, ...)` is the one-call weather-to-comfort path. The MRT feed is `OutdoorSolarCal(location, direct_normal_solar, diffuse_horizontal_solar, horizontal_infrared, surface_temperatures, ...)`.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                             | [CALL_SHAPE]                       | [CAPABILITY]                                         |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :--------------------------------- | :--------------------------------------------------- |
-|  [01]   | `PMV(air_temperature, rel_humidity, rad_temperature=None, air_speed=None, met_rate=None, clo_value=None, external_work=None, comfort_parameter=None)`                                 | `DataCollection`s + `PMVParameter` | build the PMV calculator over time-series            |
-|  [02]   | `PMV.from_epw(epw, include_wind=True, include_sun=True, met_rate=None, clo_value=None, external_work=None, pmv_parameter=None)`                                                       | `EPW` + flags                      | weather-to-PMV in one call (sun -> MRT via SolarCal) |
-|  [03]   | `UTCI(air_temperature, rel_humidity, rad_temperature=None, wind_speed=None, comfort_parameter=None)` / `UTCI.from_epw(epw, include_wind=True, include_sun=True, utci_parameter=None)` | `DataCollection`s / `EPW`          | UTCI calculator                                      |
-|  [04]   | `Adaptive(...)` / `Adaptive.from_air_and_rad_temp(...)` / `PET(...)` / `PET.from_epw(...)`                                                                                            | `DataCollection`s / `EPW`          | adaptive and PET calculators                         |
-|  [05]   | `pmv.PMV.predicted_mean_vote` / `.percentage_people_dissatisfied` / `.thermal_condition` / `.is_comfortable` / `.percent_comfortable`                                                 | property                           | results as `DataCollection`s (one per metric)        |
-|  [06]   | `utci.UTCI.universal_thermal_climate_index` / `.thermal_condition_nine_point` / `.percent_strong_heat_stress`                                                                         | property                           | UTCI index + categorical stress collections          |
-|  [07]   | `OutdoorSolarCal(location, direct_normal_solar, diffuse_horizontal_solar, horizontal_infrared, surface_temperatures, ...)` / `.mean_radiant_temperature`                              | `Location` + solar colls           | SolarCal MRT feeding PMV/UTCI/PET `rad_temperature`  |
+| [INDEX] | [SURFACE]                                                         | [CALL_SHAPE]            | [CAPABILITY]                         |
+| :-----: | :---------------------------------------------------------------- | :---------------------- | :----------------------------------- |
+|  [01]   | `PMV(air_temperature, rel_humidity, rad_temperature=None, ...)`   | `DataCollection`s       | build PMV over time-series           |
+|  [02]   | `PMV.from_epw(epw, include_wind=True, include_sun=True, ...)`     | `EPW` + flags           | weather-to-PMV (sun -> MRT)          |
+|  [03]   | `UTCI(air_temperature, rel_humidity, ...)`                        | `DataCollection`s       | build UTCI over time-series          |
+|  [04]   | `UTCI.from_epw(epw, include_wind=True, include_sun=True, ...)`    | `EPW` + flags           | weather-to-UTCI                      |
+|  [05]   | `Adaptive(...)` / `Adaptive.from_air_and_rad_temp(...)`           | `DataCollection`s/`EPW` | adaptive calculators                 |
+|  [06]   | `PET(...)` / `PET.from_epw(...)`                                  | `DataCollection`s/`EPW` | PET calculators                      |
+|  [07]   | `pmv.PMV.predicted_mean_vote` / `.percentage_people_dissatisfied` | property                | PMV results as `DataCollection`s     |
+|  [08]   | `.thermal_condition` / `.is_comfortable` / `.percent_comfortable` | property                | PMV categorical results              |
+|  [09]   | `utci.UTCI.universal_thermal_climate_index`                       | property                | UTCI index collection                |
+|  [10]   | `.thermal_condition_nine_point` / `.percent_strong_heat_stress`   | property                | UTCI categorical stress              |
+|  [11]   | `OutdoorSolarCal(...)` / `.mean_radiant_temperature`              | `Location` + solar      | SolarCal MRT feeds `rad_temperature` |
 
 [ENTRYPOINT_SCOPE]: comfort parameters and spatial maps (`parameter`, `map`)
 - rail: energy / comfort
 
-`Parameter` objects round-trip through `from_dict`/`to_dict`/`from_string`. The `map.*` kernels operate over honeybee-radiance MRT/irradiance matrices for the per-sensor comfort map the recipes drive.
+`Parameter` objects round-trip through `from_dict`/`to_dict`/`from_string`. The `map.*` kernels operate over honeybee-radiance MRT/irradiance matrices for the per-sensor comfort map the recipes drive. The `PMVParameter(ppd_comfort_thresh=None, humid_ratio_upper=None, humid_ratio_lower=None, still_air_threshold=None)` and `AdaptiveParameter(ashrae_or_en=None, neutral_offset=None, conditioning=None, ...)` slots default to the 10% PPD / 0.1 m/s still-air standard.
 
-| [INDEX] | [SURFACE]                                                                                                                                                              | [CALL_SHAPE]        | [CAPABILITY]                                                                         |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------ | :----------------------------------------------------------------------------------- |
-|  [01]   | `PMVParameter(ppd_comfort_thresh=None, humid_ratio_upper=None, humid_ratio_lower=None, still_air_threshold=None)` / `.from_dict(d)` / `.to_dict()` / `.from_string(s)` | thresholds          | PMV comfort config (unset slots resolve to the 10% PPD / 0.1 m/s still-air defaults) |
-|  [02]   | `UTCIParameter(...)` / `AdaptiveParameter(ashrae_or_en=None, neutral_offset=None, conditioning=None, ...)` / `PETParameter(...)` / `SolarCalParameter(...)`            | thresholds/standard | the per-model config carriers                                                        |
-|  [03]   | `<Parameter>.is_comfortable(value, ...)` / `.thermal_condition(value, ...)`                                                                                            | comfort value       | comfort predicate + categorical condition from config                                |
-|  [04]   | `map.mrt.shortwave_mrt_map(location, longwave_data, sun_up_hours, indirect_ill, direct_ill=None, ref_ill=None, ...)` / `longwave_mrt_map(...)`                         | radiance matrices   | per-sensor MRT map from radiance irradiance                                          |
-|  [05]   | `map.tcp.tcp_total(comfort_result, ...)` / `tcp_model_schedules(...)` / `map.air.air_map(...)`                                                                         | comfort matrix      | thermal-comfort-percent map and air-temperature map                                  |
+| [INDEX] | [SURFACE]                                                                   | [CALL_SHAPE]      | [CAPABILITY]                           |
+| :-----: | :-------------------------------------------------------------------------- | :---------------- | :------------------------------------- |
+|  [01]   | `PMVParameter(...)` / `.from_dict(d)` / `.to_dict()` / `.from_string(s)`    | thresholds        | PMV comfort config (unset -> defaults) |
+|  [02]   | `UTCIParameter(...)` / `AdaptiveParameter(...)`                             | thresholds/std    | UTCI + adaptive config carriers        |
+|  [03]   | `PETParameter(...)` / `SolarCalParameter(...)`                              | thresholds/std    | PET + SolarCal config carriers         |
+|  [04]   | `<Parameter>.is_comfortable(value, ...)` / `.thermal_condition(value, ...)` | comfort value     | comfort predicate + condition          |
+|  [05]   | `map.mrt.shortwave_mrt_map(...)` / `longwave_mrt_map(...)`                  | radiance matrices | per-sensor MRT map from radiance       |
+|  [06]   | `map.tcp.tcp_total(comfort_result, ...)` / `tcp_model_schedules(...)`       | comfort matrix    | thermal-comfort-percent map            |
+|  [07]   | `map.air.air_map(...)`                                                      | comfort matrix    | air-temperature map                    |
 
 ## [04]-[INTEGRATION_PATTERNS]
 

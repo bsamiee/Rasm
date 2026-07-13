@@ -473,11 +473,10 @@ const codexPrompt = (label, task, schema, o) => {
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every survey/research lane routes here: terra by default; CODEX=false restores a fully native run. QUOTA
-// FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at
-// the role's Claude twin (terra->opus, sol->fable, luna->sonnet) — the caller owns the re-dispatch; the
-// sonnet wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the
-// lane's self-report) so a failed lane's unmapped territory is exact even when it died before writing anything.
+// Every survey/research lane routes here: terra by default; CODEX=false restores a fully native run. QUOTA FALLBACK: a codex receipt whose failure
+// matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->fable, luna->sonnet) — the caller owns
+// the re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the lane's
+// self-report) so a failed lane's unmapped territory is exact even when it died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
     agent(

@@ -223,15 +223,15 @@ public static class RecoveryRoutes {
 }
 ```
 
-| [INDEX] | [POLICY]           | [VALUE]                                                    | [BINDING]                                                                                                             |
-| :-----: | :----------------- | :--------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | recovery point     | `(Timeline, Lsn)` + per-stream `StreamState.Version`       | a real version via `IdentifySystem` + `FetchStreamStateAsync`; never the global `EventSequenceNumber` or a wall clock |
-|  [02]   | objective source   | `ResolvedProfile.Recovery` (graph-defined, AppHost-filled) | never a locally re-declared `RecoveryObjective` record                                                                |
-|  [03]   | pg recovery        | base backup + WAL replay to coordinate                     | the Marten stream restores to an exact version                                                                        |
-|  [04]   | WAL RPO projection | byte lag ÷ `RecoveryContext.WalBytesPerSecond`             | an explicit throughput policy row; a segment-size-as-rate literal is deleted                                          |
-|  [05]   | blob recovery      | `ObjectStore.Head` over `(key, sealedAt)` manifest         | byte-identical by hash; `412`-noop on re-replicate; lag = oldest missing seal's age                                   |
-|  [06]   | snapshot floor     | `Snapshots.Verify` at backup time                          | a torn sealed checkpoint faults before cold storage                                                                   |
-|  [07]   | objective gauge    | measured RPO/RTO `RecoveryFact`                            | a breach is a typed health signal, never SLA prose                                                                    |
+| [INDEX] | [POLICY]           | [VALUE]                                              | [BINDING]                                                |
+| :-----: | :----------------- | :--------------------------------------------------- | :------------------------------------------------------- |
+|  [01]   | recovery point     | `(Timeline, Lsn)` + per-stream `StreamState.Version` | never the global `EventSequenceNumber` or a wall clock   |
+|  [02]   | objective source   | `ResolvedProfile.Recovery` (AppHost-filled)          | never a locally re-declared `RecoveryObjective`          |
+|  [03]   | pg recovery        | base backup + WAL replay to coordinate               | the Marten stream restores to an exact version           |
+|  [04]   | WAL RPO projection | byte lag ÷ `RecoveryContext.WalBytesPerSecond`       | explicit throughput row; no segment-size-as-rate literal |
+|  [05]   | blob recovery      | `ObjectStore.Head` over `(key, sealedAt)` manifest   | byte-identical by hash; lag = oldest missing seal's age  |
+|  [06]   | snapshot floor     | `Snapshots.Verify` at backup time                    | a torn sealed checkpoint faults before cold storage      |
+|  [07]   | objective gauge    | measured RPO/RTO `RecoveryFact`                      | a breach is a typed health signal, never SLA prose       |
 
 ## [03]-[POINT_IN_TIME_RESTORE]
 
@@ -393,11 +393,11 @@ public static class PointInTimeRestore {
 }
 ```
 
-| [INDEX] | [POLICY]           | [VALUE]                                                             | [BINDING]                                                                                                  |
-| :-----: | :----------------- | :------------------------------------------------------------------ | :--------------------------------------------------------------------------------------------------------- |
-|  [01]   | step dispatch      | generated `RestoreStep.Switch`, ranked order                        | compile-time exhaustive; a 7th step breaks the build, never a silent `_` arm                               |
-|  [02]   | verify ladder      | `Snapshots.Verify` over raw bytes                                   | the ONE 8-tier ladder; never a stringly lineage check                                                      |
-|  [03]   | timeline guard     | `RecoveryPoint.Continues(archive)`                                  | a forked timeline faults; re-bootstrap is not resume                                                       |
-|  [04]   | recovery point     | WAL replay to `(Timeline, Lsn)`                                     | a real version, never an approximate timestamp                                                             |
-|  [05]   | projection rebuild | inline re-fold + async lanes `StartAllAsync`, proven head-caught-up | no redundant inline re-rebuild; a stalled lane fails on `WaitForNonStaleData` bounded by the settled `Rto` |
-|  [06]   | commit point       | re-attest (`Unauthored`-reachable) + AS-OF content-address compare  | content identity equals the target; not verify-by-success                                                  |
+| [INDEX] | [POLICY]           | [VALUE]                                   | [BINDING]                                                  |
+| :-----: | :----------------- | :---------------------------------------- | :--------------------------------------------------------- |
+|  [01]   | step dispatch      | generated `RestoreStep.Switch`, ranked    | exhaustive; a 7th step breaks the build                    |
+|  [02]   | verify ladder      | `Snapshots.Verify` over raw bytes         | the ONE 8-tier ladder; never a stringly lineage check      |
+|  [03]   | timeline guard     | `RecoveryPoint.Continues(archive)`        | a forked timeline faults; re-bootstrap is not resume       |
+|  [04]   | recovery point     | WAL replay to `(Timeline, Lsn)`           | a real version, never an approximate timestamp             |
+|  [05]   | projection rebuild | inline re-fold + async `StartAllAsync`    | `WaitForNonStaleData` proves head-caught-up, `Rto`-bounded |
+|  [06]   | commit point       | re-attest + AS-OF content-address compare | `Unauthored`-reachable; content identity equals target     |

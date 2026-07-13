@@ -6,25 +6,25 @@ The Google Generative AI (Gemini) binding onto `@effect/ai`: it resolves the pro
 
 ## [01]-[ASYMMETRY]
 
-| [INDEX] | [COLUMN]               | [GOOGLE]                                              | [OPENAI]          | [ANTHROPIC]                | [BEDROCK]       |
-| :-----: | :--------------------- | :---------------------------------------------------- | :---------------- | :------------------------- | :-------------- |
-|  [01]   | provider id            | `"google"`                                            | openai            | anthropic                  | amazon-bedrock  |
-|  [02]   | language model         | `GoogleLanguageModel` (generateContent)               | Responses         | Messages                   | Converse        |
-|  [03]   | embedding model        | raw client only (`EmbedContent`)                      | curated ×2        | —                          | —               |
-|  [04]   | tokenizer              | — (raw `CountTokens` only)                            | `make({model})`   | value                      | —               |
-|  [05]   | provider-defined tools | 4 (`GoogleTool`)                                      | 4                 | 5 families                 | 8               |
-|  [06]   | telemetry module       | —                                                     | `OpenAiTelemetry` | —                          | —               |
-|  [07]   | model-id kind          | free-form `string` (no enum)                          | enum              | 21-id enum                 | 91-id enum      |
-|  [08]   | auth                   | `Redacted` apiKey only                                | +org/project      | +version                   | SigV4 keys      |
-|  [09]   | per-request Config     | `GoogleLanguageModel/Config` (+`toolConfig`)          | `strict`          | `disableParallelToolCalls` | Converse fields |
-|  [10]   | streaming fold         | `GenerateContentResponse` re-emit (no distinct union) | 49-member         | 8-member                   | 11-member       |
-|  [11]   | `withConfigOverride`   | — (no per-effect override)                            | ✓                 | ✓                          | ✓               |
+| [INDEX] | [COLUMN]               | [GOOGLE]                                | [OPENAI]          | [ANTHROPIC]                | [BEDROCK]       |
+| :-----: | :--------------------- | :-------------------------------------- | :---------------- | :------------------------- | :-------------- |
+|  [01]   | provider id            | `"google"`                              | openai            | anthropic                  | amazon-bedrock  |
+|  [02]   | language model         | `GoogleLanguageModel` (generateContent) | Responses         | Messages                   | Converse        |
+|  [03]   | embedding model        | raw client only (`EmbedContent`)        | curated ×2        | —                          | —               |
+|  [04]   | tokenizer              | — (raw `CountTokens` only)              | `make({model})`   | value                      | —               |
+|  [05]   | provider-defined tools | 4 (`GoogleTool`)                        | 4                 | 5 families                 | 8               |
+|  [06]   | telemetry module       | —                                       | `OpenAiTelemetry` | —                          | —               |
+|  [07]   | model-id kind          | free-form `string` (no enum)            | enum              | 21-id enum                 | 91-id enum      |
+|  [08]   | auth                   | `Redacted` apiKey only                  | +org/project      | +version                   | SigV4 keys      |
+|  [09]   | per-request Config     | `Config` (+`toolConfig`)                | `strict`          | `disableParallelToolCalls` | Converse fields |
+|  [10]   | streaming fold         | `GenerateContentResponse` re-emit       | 49-member         | 8-member                   | 11-member       |
+|  [11]   | `withConfigOverride`   | — (no per-effect override)              | ✓                 | ✓                          | ✓               |
 
 ## [02]-[CLIENT]
 
 `GoogleClient` is a `Context.TagClass` (id `@effect/ai-google/GoogleClient`) wrapping the generated `Client` plus curated generateContent entrypoints. Distinct from the OpenAI/Anthropic siblings, the streaming surface re-emits the SAME `GenerateContentResponse` schema per chunk rather than a distinct tagged event union — consumers fold `response.candidates[]` deltas, not `event.type`. `streamRequest` decodes arbitrary SSE against a `Schema`.
 
-```ts contract
+```ts signature
 export interface Service {
   readonly client: Generated.Client
   readonly streamRequest: <A, I, R>(request: HttpClientRequest.HttpClientRequest, schema: Schema.Schema<A, I, R>) => Stream.Stream<A, AiError.AiError, R>
@@ -35,7 +35,7 @@ export interface Service {
 
 ONE constructor pattern, three arities over `apiKey`/`apiUrl`/`transformClient` — no `organizationId`/`projectId` (Gemini authenticates by API key alone). `apiUrl` default is asymmetric between arities: `make` → host root, `layer`/`layerConfig` → the `/v1beta` versioned root. `make` requires `HttpClient | Scope`; the layers require `HttpClient`; `layerConfig` adds `ConfigError`.
 
-```ts contract
+```ts signature
 declare const make: (options: {
   readonly apiKey?: Redacted.Redacted | undefined
   readonly apiUrl?: string | undefined    // make default "https://generativelanguage.googleapis.com"
@@ -49,7 +49,7 @@ declare const layerConfig: (options: { apiKey?: Config.Config<Redacted | undefin
 
 `GoogleLanguageModel` binds generateContent onto the core `LanguageModel`/`Model` contracts. The model argument is `(string & {}) | Model` where `Model = string` — Gemini ships no generated model-id enum, so autocomplete is open. ONE model/layer family, narrower than OpenAI/Anthropic: `model`/`make`/`layer` only — no `modelWithTokenizer`/`layerWithTokenizer` (no tokenizer binding) and no `withConfigOverride` (per-effect override is absent; use the `Config` tag directly).
 
-```ts contract
+```ts signature
 export type Model = string
 declare const model: (model: (string & {}) | Model, config?: Omit<Config.Service, "model">) => AiModel.Model<"google", LanguageModel.LanguageModel, GoogleClient>
 declare const make:  (options: { model: (string & {}) | Model; config?: Omit<Config.Service, "model"> }) => Effect.Effect<LanguageModel.Service, never, GoogleClient>
@@ -58,7 +58,7 @@ declare const layer: (options: { model; config? }) => Layer.Layer<LanguageModel.
 
 `Config` (tag `@effect/ai-google/GoogleLanguageModel/Config`, `static getOrUndefined`) is the `GenerateContentRequest` minus SDK-owned keys (`contents`/`tools`/`toolConfig`/`systemInstruction`) made partial, with a re-added partial `toolConfig.functionCallingConfig` (the mode-less function-calling policy). It is the tier-routing seam `ai/model.ts` writes per call.
 
-```ts contract
+```ts signature
 namespace Config {
   interface Service extends Simplify<Partial<Omit<typeof Generated.GenerateContentRequest.Encoded, "contents"|"tools"|"toolConfig"|"systemInstruction">>> {
     readonly toolConfig: Partial<{ readonly functionCallingConfig: Omit<typeof Generated.FunctionCallingConfig.Encoded, "mode"> }>
@@ -66,32 +66,31 @@ namespace Config {
 }
 ```
 
-The `declare module` augmentations attach an optional `google` key — ONE boundary-hook pattern. `google.thoughtSignature` is the reasoning-continuity carrier threaded across many part interfaces; `FinishPartMetadata.google` is the single surface aggregating grounding, safety, URL-context, and usage off a finished response — the `safetyRatings` slot is what the `ai/model.ts` guardrail gate reads for output moderation.
+The `declare module` augmentations attach an optional `google` key — ONE boundary-hook pattern. `google.thoughtSignature` is the reasoning-continuity carrier threaded across the Prompt and Response part interfaces below; `FinishPartMetadata.google` is the single surface aggregating `groundingMetadata?`, `safetyRatings?`, `urlContextMetadata?`, and `usageMetadata?` off a finished response — the `safetyRatings?` slot is what the `ai/model.ts` guardrail gate reads for output moderation.
 
-| [INDEX] | [AUGMENTS] | [INTERFACES]                                                                                       | [GOOGLE_SLOT]                                                                   |
-| :-----: | :--------- | :------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `Prompt`   | `Reasoning/Text/ToolCall PartOptions`                                                              | `thoughtSignature?`                                                             |
-|  [02]   | `Response` | `Text{Start,Delta}`, `Reasoning{,Start,Delta}`, `ToolParams{Start,Delta}`, `ToolCall` PartMetadata | `thoughtSignature?`                                                             |
-|  [03]   | `Response` | `FinishPartMetadata`                                                                               | `groundingMetadata?`, `safetyRatings?`, `urlContextMetadata?`, `usageMetadata?` |
+| [INDEX] | [AUGMENTS] | [INTERFACES]                                                                                       | [GOOGLE_SLOT]       |
+| :-----: | :--------- | :------------------------------------------------------------------------------------------------- | :------------------ |
+|  [01]   | `Prompt`   | `Reasoning/Text/ToolCall PartOptions`                                                              | `thoughtSignature?` |
+|  [02]   | `Response` | `Text{Start,Delta}`, `Reasoning{,Start,Delta}`, `ToolParams{Start,Delta}`, `ToolCall` PartMetadata | `thoughtSignature?` |
 
 ## [04]-[TOOL]
 
 `GoogleTool` exports four provider-executed tool constructors (`requiresHandler:false` — the provider runs them), each ONE instance of `<Mode extends Tool.FailureMode | undefined>(args) => Tool.ProviderDefined<"Google<Name>", { …; failureMode: Mode extends undefined ? "error" : Mode }, false>`. Only `CodeExecution` carries model-supplied `parameters` and a real `success` schema; the other three are grounding switches (`EmptyParams`, `Void` success).
 
-| [INDEX] | [CTOR]                  | [TAG]                   | [ARGS]                         | [PARAMETERS_SUCCESS]                                                 |
-| :-----: | :---------------------- | :---------------------- | :----------------------------- | :------------------------------------------------------------------- |
-|  [01]   | `CodeExecution`         | `GoogleCodeExecution`   | `{}`                           | `{ language: ExecutableCodeLanguage; code }` / `CodeExecutionResult` |
-|  [02]   | `GoogleSearch`          | `GoogleSearch`          | `{}`                           | `EmptyParams` / `Void` — grounding for Gemini search                 |
-|  [03]   | `GoogleSearchRetrieval` | `GoogleSearchRetrieval` | `{ mode?; dynamicThreshold? }` | `EmptyParams` / `Void` — retired Gemini 1.5 dynamic retrieval        |
-|  [04]   | `UrlContext`            | `GoogleUrlContext`      | `{}`                           | `EmptyParams` / `Void`                                               |
+| [INDEX] | [CTOR]                  | [TAG]                   | [PARAMETERS_SUCCESS]                                                 |
+| :-----: | :---------------------- | :---------------------- | :------------------------------------------------------------------- |
+|  [01]   | `CodeExecution`         | `GoogleCodeExecution`   | `{ language: ExecutableCodeLanguage; code }` / `CodeExecutionResult` |
+|  [02]   | `GoogleSearch`          | `GoogleSearch`          | `EmptyParams` / `Void`                                               |
+|  [03]   | `GoogleSearchRetrieval` | `GoogleSearchRetrieval` | `EmptyParams` / `Void`                                               |
+|  [04]   | `UrlContext`            | `GoogleUrlContext`      | `EmptyParams` / `Void`                                               |
 
-`GoogleSearchRetrieval.args.mode` is `DynamicRetrievalConfigMode` (`MODE_UNSPECIFIED | MODE_DYNAMIC`), its `dynamicThreshold` (0.0–1.0) gates the model's autonomous decision to search; `GoogleSearch` is the search row. `failure` is `Schema.Never` on all four.
+`GoogleSearch` is the current search-grounding switch and `UrlContext` the URL-context switch; `GoogleSearchRetrieval` is the retired Gemini 1.5 dynamic-retrieval path, taking `{ mode?; dynamicThreshold? }` — `args.mode` is `DynamicRetrievalConfigMode` (`MODE_UNSPECIFIED | MODE_DYNAMIC`) and `dynamicThreshold` (0.0–1.0) gates the model's autonomous decision to search. `failure` is `Schema.Never` on all four.
 
 ## [05]-[CONFIG]
 
 `GoogleConfig` (`Context.TagClass`, id `@effect/ai-google/GoogleConfig`, `static getOrUndefined`) is the request-scoped client transform — a per-request `HttpClient` mutation without rebuilding transport, dual data-first/data-last. Mirrors `OpenAiConfig.withClientTransform` exactly.
 
-```ts contract
+```ts signature
 namespace GoogleConfig { interface Service { readonly transformClient?: (client: HttpClient) => HttpClient } }
 declare const withClientTransform: { (t: (c: HttpClient) => HttpClient): <A,E,R>(self) => …; <A,E,R>(self, t): … }
 ```

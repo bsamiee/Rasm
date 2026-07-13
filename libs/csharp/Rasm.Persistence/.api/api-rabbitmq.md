@@ -31,7 +31,7 @@
 |  [07]   | `IEndpointResolver`                                                 | endpoint resolver | multi-endpoint connection ordering                     |
 |  [08]   | `SslOption`                                                         | TLS option        | server cert validation + client cert                   |
 |  [09]   | `ICredentialsProvider`                                              | credential source | rotatable credential provider                          |
-|  [10]   | `CreateChannelOptions.OutstandingPublisherConfirmationsRateLimiter` | confirm limiter   | default `ThrottlingRateLimiter(128, 50)` back-pressure |
+|  [10]   | `.OutstandingPublisherConfirmationsRateLimiter`                     | confirm limiter   | default `ThrottlingRateLimiter(128, 50)` back-pressure |
 
 [PUBLIC_TYPE_SCOPE]: message, properties, and consumer family
 - rail: amqp-egress
@@ -48,10 +48,12 @@
 |  [06]   | `AsyncEventingBasicConsumer`                                               | consumer             | event-based async consumer            |
 |  [07]   | `AsyncDefaultBasicConsumer`                                                | consumer base        | override-based async consumer base    |
 |  [08]   | `Events.BasicDeliverEventArgs`                                             | delivery event       | tag, body, properties of one delivery |
-|  [09]   | `Events.BasicAckEventArgs` / `BasicNackEventArgs` / `BasicReturnEventArgs` | confirm/return event | publisher-confirm / unroutable return |
-|  [10]   | `BasicGetResult`                                                           | poll result          | one polled message (`BasicGetAsync`)  |
-|  [11]   | `QueueDeclareOk`                                                           | declare result       | queue name + message/consumer counts  |
-|  [12]   | `CachedString`                                                             | interned string      | pre-encoded exchange/routing-key key  |
+|  [09]   | `Events.BasicAckEventArgs`                                                 | confirm event        | publisher-confirm ack                 |
+|  [10]   | `Events.BasicNackEventArgs`                                                | confirm event        | publisher-confirm nack                |
+|  [11]   | `Events.BasicReturnEventArgs`                                              | return event         | unroutable message return             |
+|  [12]   | `BasicGetResult`                                                           | poll result          | one polled message (`BasicGetAsync`)  |
+|  [13]   | `QueueDeclareOk`                                                           | declare result       | queue name + message/consumer counts  |
+|  [14]   | `CachedString`                                                             | interned string      | pre-encoded exchange/routing-key key  |
 
 [PUBLIC_TYPE_SCOPE]: routing, observability, and exception family
 - rail: amqp-egress
@@ -83,23 +85,23 @@
 |  [02]   | `ConnectionFactory.CreateConnectionAsync(ct)`                                                                                             | async connect | opens a recovering connection             |
 |  [03]   | `CreateConnectionAsync(IEnumerable<AmqpTcpEndpoint>, clientProvidedName, ct)`                                                             | async connect | connects across an endpoint list          |
 |  [04]   | `IConnection.CreateChannelAsync(CreateChannelOptions?, ct)`                                                                               | async open    | opens a channel (confirm policy bound)    |
-|  [05]   | `new CreateChannelOptions(publisherConfirmationsEnabled, publisherConfirmationTrackingEnabled, rateLimiter, consumerDispatchConcurrency)` | ctor          | publisher-confirm + dispatch policy       |
-|  [06]   | `IConnection.UpdateSecretAsync(newSecret, reason, ct)`                                                                                    | async runtime | rotates OAuth2 token on a live connection |
+|  [05]   | `new CreateChannelOptions(…)`                                                                                                            | ctor          | publisher-confirm + dispatch policy       |
+|  [06]   | `IConnection.UpdateSecretAsync(newSecret, reason, ct)`                                                                                    | async runtime | rotates OAuth2 token on live connection   |
 |  [07]   | `IConnection.CloseAsync(reasonCode, reasonText, timeout, abort, ct)`                                                                      | async close   | graceful connection close                 |
 
 [ENTRYPOINT_SCOPE]: topology declaration
 - rail: amqp-egress
 
-Every topology method is idempotent server-side and carries `noWait`/`passive`/`arguments` so quorum-queue and dead-letter arguments (`x-queue-type`, `x-dead-letter-exchange`, `x-message-ttl`, `x-max-priority`) pass through the `arguments` dictionary.
+Every surface is an `IChannel` method, idempotent server-side and carrying `noWait`/`passive`/`arguments` so quorum-queue and dead-letter arguments (`x-queue-type`, `x-dead-letter-exchange`, `x-message-ttl`, `x-max-priority`) pass through the `arguments` dictionary.
 
-| [INDEX] | [SURFACE]                                                                                            | [CALL_SHAPE]   | [CAPABILITY]                        |
-| :-----: | :--------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------- |
-|  [01]   | `IChannel.ExchangeDeclareAsync(exchange, type, durable, autoDelete, arguments, passive, noWait, ct)` | async topology | declares an exchange                |
-|  [02]   | `IChannel.QueueDeclareAsync(queue, durable, exclusive, autoDelete, arguments, …)`                    | async topology | declares a queue → `QueueDeclareOk` |
-|  [03]   | `IChannel.QueueBindAsync(queue, exchange, routingKey, arguments, noWait, ct)`                        | async topology | binds a queue to an exchange        |
-|  [04]   | `IChannel.ExchangeBindAsync` / `ExchangeUnbindAsync`                                                 | async topology | exchange-to-exchange binding        |
-|  [05]   | `IChannel.QueueDeleteAsync(queue, ifUnused, ifEmpty, …)` / `QueuePurgeAsync(queue, ct)`              | async topology | drop / purge a queue                |
-|  [06]   | `IChannel.MessageCountAsync(queue, ct)` / `ConsumerCountAsync(queue, ct)`                            | async probe    | queue depth / consumer count        |
+| [INDEX] | [SURFACE]                                                              | [CALL_SHAPE]   | [CAPABILITY]                        |
+| :-----: | :--------------------------------------------------------------------- | :------------- | :---------------------------------- |
+|  [01]   | `ExchangeDeclareAsync(exchange, type, durable, autoDelete, …)`         | async topology | declares an exchange                |
+|  [02]   | `QueueDeclareAsync(queue, durable, exclusive, autoDelete, …)`          | async topology | declares a queue → `QueueDeclareOk` |
+|  [03]   | `QueueBindAsync(queue, exchange, routingKey, …)`                       | async topology | binds a queue to an exchange        |
+|  [04]   | `ExchangeBindAsync` / `ExchangeUnbindAsync`                            | async topology | exchange-to-exchange binding        |
+|  [05]   | `QueueDeleteAsync(queue, ifUnused, ifEmpty, …)` / `QueuePurgeAsync(…)` | async topology | drop / purge a queue                |
+|  [06]   | `MessageCountAsync(queue, ct)` / `ConsumerCountAsync(queue, ct)`       | async probe    | queue depth / consumer count        |
 
 [ENTRYPOINT_SCOPE]: publish, consume, and acknowledge
 - rail: amqp-egress
@@ -108,10 +110,10 @@ Every topology method is idempotent server-side and carries `noWait`/`passive`/`
 
 | [INDEX] | [SURFACE]                                                                                              | [CALL_SHAPE]  | [CAPABILITY]                                |
 | :-----: | :----------------------------------------------------------------------------------------------------- | :------------ | :------------------------------------------ |
-|  [01]   | `IChannel.BasicPublishAsync<T>(exchange, routingKey, mandatory, basicProperties, body, ct)`            | async publish | publishes (awaits confirm if tracking on)   |
-|  [02]   | `IChannel.BasicPublishAsync<T>(CachedString exchange, CachedString routingKey, …)`                     | async publish | hot-path publish with interned keys         |
-|  [03]   | `IChannel.GetNextPublishSequenceNumberAsync(ct)`                                                       | async confirm | next publisher-confirm sequence number      |
-|  [04]   | `IChannel.BasicConsumeAsync(queue, autoAck, consumerTag, noLocal, exclusive, arguments, consumer, ct)` | async consume | starts an async consumer                    |
+|  [01]   | `IChannel.BasicPublishAsync<T>(exchange, routingKey, mandatory, …)`                                    | async publish | publishes; confirms if tracking on          |
+|  [02]   | `IChannel.BasicPublishAsync<T>(CachedString exchange, …)`                                              | async publish | hot-path publish with interned keys         |
+|  [03]   | `IChannel.GetNextPublishSequenceNumberAsync(ct)`                                                       | async confirm | next publisher-confirm sequence #           |
+|  [04]   | `IChannel.BasicConsumeAsync(queue, autoAck, consumer, …)`                                              | async consume | starts an async consumer                    |
 |  [05]   | `IChannel.BasicGetAsync(queue, autoAck, ct)`                                                           | async poll    | pulls one message (`BasicGetResult?`)       |
 |  [06]   | `IChannel.BasicQosAsync(prefetchSize, prefetchCount, global, ct)`                                      | async flow    | sets the consumer prefetch window           |
 |  [07]   | `IChannel.BasicAckAsync(deliveryTag, multiple, ct)`                                                    | async ack     | acknowledges one/all up-to delivery         |
@@ -119,19 +121,21 @@ Every topology method is idempotent server-side and carries `noWait`/`passive`/`
 |  [09]   | `IChannel.BasicRejectAsync(deliveryTag, requeue, ct)`                                                  | async reject  | rejects one delivery                        |
 |  [10]   | `IChannel.BasicCancelAsync(consumerTag, noWait, ct)`                                                   | async cancel  | cancels a consumer                          |
 |  [11]   | `AsyncEventingBasicConsumer.ReceivedAsync += handler`                                                  | event wire    | `BasicDeliverEventArgs` delivery callback   |
-|  [12]   | `IChannel.TxSelectAsync` / `TxCommitAsync` / `TxRollbackAsync`                                         | async tx      | AMQP transaction (rarely used vs. confirms) |
+|  [12]   | `IChannel.TxSelectAsync` / `TxCommitAsync` / `TxRollbackAsync`                                         | async tx      | AMQP transaction (legacy vs. confirms)      |
 
 [ENTRYPOINT_SCOPE]: recovery and observability wiring
 - rail: amqp-egress
 
-| [INDEX] | [SURFACE]                                                                              | [CALL_SHAPE] | [CAPABILITY]                                 |
-| :-----: | :------------------------------------------------------------------------------------- | :----------- | :------------------------------------------- |
-|  [01]   | `IConnection.RecoverySucceededAsync += handler`                                        | event wire   | fires after automatic recovery completes     |
-|  [02]   | `IConnection.ConnectionRecoveryErrorAsync += handler`                                  | event wire   | fires on a recovery attempt failure          |
-|  [03]   | `IConnection.ConnectionBlockedAsync += handler`                                        | event wire   | broker flow-control / resource-alarm block   |
-|  [04]   | `IConnection.ConnectionShutdownAsync += handler` / `CallbackExceptionAsync += handler` | event wire   | shutdown / callback-fault hook               |
-|  [05]   | `RabbitMQActivitySource.ContextInjector` / `ContextExtractor`                          | telemetry    | W3C trace-context propagation via headers    |
-|  [06]   | `RabbitMQActivitySource.{PublisherSourceName, SubscriberSourceName}`                   | telemetry    | `ActivitySource` names for OTel registration |
+Each `IConnection` recovery event subscribes via `+= handler`; the `RabbitMQActivitySource` rows are the OTel trace-context seam.
+
+| [INDEX] | [SURFACE]                                                            | [CALL_SHAPE] | [CAPABILITY]                          |
+| :-----: | :----------------------------------------------------------------- | :----------- | :------------------------------------ |
+|  [01]   | `IConnection.RecoverySucceededAsync`                                | event wire   | fires after automatic recovery        |
+|  [02]   | `IConnection.ConnectionRecoveryErrorAsync`                          | event wire   | fires on a recovery attempt failure   |
+|  [03]   | `IConnection.ConnectionBlockedAsync`                                | event wire   | broker flow-control / resource alarm  |
+|  [04]   | `IConnection.ConnectionShutdownAsync` / `CallbackExceptionAsync`    | event wire   | shutdown / callback-fault hook        |
+|  [05]   | `RabbitMQActivitySource.ContextInjector` / `ContextExtractor`       | telemetry    | W3C trace-context via headers         |
+|  [06]   | `RabbitMQActivitySource.{PublisherSourceName, SubscriberSourceName}`| telemetry    | `ActivitySource` names for OTel       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

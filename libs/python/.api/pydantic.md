@@ -84,82 +84,99 @@
 | :-----: | :------------------------------ | :--------------- | :-------------------------------------------------------- |
 |  [01]   | `ValidationError`               | validation error | structured field error container; `.errors()` / `.json()` |
 |  [02]   | `PydanticUserError`             | config error     | invalid model/usage configuration                         |
-|  [03]   | `PydanticSchemaGenerationError` | schema error     | core schema could not be generated for a type             |
+|  [03]   | `PydanticSchemaGenerationError` | schema error     | type admits no core schema                                |
 |  [04]   | `PydanticInvalidForJsonSchema`  | schema error     | type has no JSON Schema representation                    |
 |  [05]   | `PydanticUndefinedAnnotation`   | schema error     | a forward-ref annotation is unresolved at build time      |
 |  [06]   | `PydanticImportError`           | import error     | missing optional dependency (e.g. `email-validator`)      |
 |  [07]   | `PydanticForbiddenQualifier`    | usage error      | disallowed `ClassVar`/`Final` qualifier on a field        |
 
-[PUBLIC_TYPE_SCOPE]: constrained / network / secret / encoded types (selection)
+[PUBLIC_TYPE_SCOPE]: constrained numeric and domain scalars
 - rail: validation
 
-| [INDEX] | [SYMBOL]                                                                                                                                 | [TYPE_FAMILY]      | [RAIL]                                                      |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------- | :----------------- | :---------------------------------------------------------- |
-|  [01]   | `Strict{Bool,Int,Float,Str,Bytes}`                                                                                                       | strict scalars     | no-coercion typed scalars                                   |
-|  [02]   | `Positive{Int,Float}` / `NonNegative{Int,Float}` / `Negative*` / `NonPositive*`                                                          | sign-bounded       | sign-constrained numeric aliases                            |
-|  [03]   | `FiniteFloat`                                                                                                                            | constrained        | rejects `inf`/`nan`                                         |
-|  [04]   | `conint`/`confloat`/`condecimal`/`constr`/`conbytes`/`condate`/`conlist`/`conset`/`confrozenset`                                         | constraint factory | callable constructors for ad-hoc bounded types              |
-|  [05]   | `AnyUrl`/`HttpUrl`/`AnyHttpUrl`/`FileUrl`/`FtpUrl`/`WebsocketUrl`/`AnyWebsocketUrl`                                                      | URL types          | parsed/validated URL value objects                          |
-|  [06]   | `PostgresDsn`/`MySQLDsn`/`MariaDBDsn`/`CockroachDsn`/`MongoDsn`/`RedisDsn`/`KafkaDsn`/`AmqpDsn`/`NatsDsn`/`ClickHouseDsn`/`SnowflakeDsn` | DSN types          | scheme-checked connection strings                           |
-|  [07]   | `UrlConstraints`                                                                                                                         | annotation         | scheme/host/port constraints for custom URL types           |
-|  [08]   | `IPvAnyAddress`/`IPvAnyInterface`/`IPvAnyNetwork`                                                                                        | IP types           | validated IPv4/IPv6 forms                                   |
-|  [09]   | `SecretStr`/`SecretBytes`/`Secret`                                                                                                       | secret types       | value hidden in `repr`/serialization; `.get_secret_value()` |
-|  [10]   | `Json`/`JsonValue`                                                                                                                       | JSON types         | parse-on-validate JSON field / recursive JSON value type    |
-|  [11]   | `Base64Bytes`/`Base64Str`/`Base64UrlBytes`/`Base64UrlStr`/`EncodedBytes`/`EncodedStr`/`EncoderProtocol`/`Base64Encoder`                  | encoded            | transparent encode/decode on validate/serialize             |
-|  [12]   | `EmailStr`/`NameEmail`                                                                                                                   | email types        | RFC email validation (needs `email-validator`)              |
-|  [13]   | `AwareDatetime`/`NaiveDatetime`/`PastDatetime`/`FutureDatetime`/`PastDate`/`FutureDate`                                                  | temporal           | tz-aware / temporal-bound datetime constraints              |
-|  [14]   | `FilePath`/`DirectoryPath`/`NewPath`/`SocketPath`/`ImportString`                                                                         | path/import        | existence-checked paths / dotted-path importer              |
-|  [15]   | `UUID1`..`UUID8`/`PaymentCardNumber`/`ByteSize`                                                                                          | domain scalars     | version-checked UUID / Luhn card / human byte size          |
+| [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY]      | [RAIL]                                     |
+| :-----: | :--------------------------------------------------------- | :----------------- | :----------------------------------------- |
+|  [01]   | `Strict{Bool,Int,Float,Str,Bytes}`                         | strict scalars     | no-coercion typed scalars                  |
+|  [02]   | `{Positive,NonNegative,Negative,NonPositive}{Int,Float}`   | sign-bounded       | sign-constrained numeric aliases           |
+|  [03]   | `FiniteFloat`                                              | constrained        | rejects `inf`/`nan`                        |
+|  [04]   | `con{int,float,decimal,str,bytes,date,list,set,frozenset}` | constraint factory | callable ad-hoc bounded-type constructors  |
+|  [05]   | `UUID1`..`UUID8` / `PaymentCardNumber` / `ByteSize`        | domain scalars     | version-checked UUID, Luhn card, byte size |
+
+[PUBLIC_TYPE_SCOPE]: network, DSN, and IP types
+- rail: validation
+
+| [INDEX] | [SYMBOL]                                                                                 | [TYPE_FAMILY] | [RAIL]                     |
+| :-----: | :--------------------------------------------------------------------------------------- | :------------ | :------------------------- |
+|  [01]   | `{Any,Http,AnyHttp,File,Ftp,Websocket,AnyWebsocket}Url`                                  | URL types     | parsed/validated URLs      |
+|  [02]   | `{Postgres,MySQL,MariaDB,Cockroach,Mongo,Redis,Kafka,Amqp,Nats,ClickHouse,Snowflake}Dsn` | DSN types     | scheme-checked connections |
+|  [03]   | `UrlConstraints`                                                                         | annotation    | scheme/host/port bounds    |
+|  [04]   | `IPvAny{Address,Interface,Network}`                                                      | IP types      | validated IPv4/IPv6 forms  |
+
+[PUBLIC_TYPE_SCOPE]: secret, encoded, JSON, email, temporal, and path types
+- rail: validation
+
+| [INDEX] | [SYMBOL]                                                                           | [TYPE_FAMILY] | [RAIL]                             |
+| :-----: | :--------------------------------------------------------------------------------- | :------------ | :--------------------------------- |
+|  [01]   | `Secret` / `Secret{Str,Bytes}`                                                     | secret types  | `.get_secret_value()`, repr-hidden |
+|  [02]   | `Json` / `JsonValue`                                                               | JSON types    | parse-on-validate / recursive JSON |
+|  [03]   | `Base64{Bytes,Str,UrlBytes,UrlStr,Encoder}`/`Encoded{Bytes,Str}`/`EncoderProtocol` | encoded       | encode/decode on validate          |
+|  [04]   | `EmailStr` / `NameEmail`                                                           | email types   | RFC email; needs `email-validator` |
+|  [05]   | `{Aware,Naive,Past,Future}Datetime` / `{Past,Future}Date`                          | temporal      | tz-aware/temporal-bound datetimes  |
+|  [06]   | `{File,Directory,New,Socket}Path` / `ImportString`                                 | path/import   | existence path; dotted-path import |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: model operations
+[ENTRYPOINT_SCOPE]: model operations on `BaseModel`
 - rail: validation
+- `model_validate*` carry `strict, from_attributes, context, by_alias, by_name`; `model_dump*` carry `mode, include, exclude, by_alias, exclude_*, round_trip, context, serialize_as_any, fallback, warnings`
+- `model_json_schema` carries `by_alias, ref_template, schema_generator, mode`; `model_rebuild` carries `force, raise_errors, _types_namespace`
 
-| [INDEX] | [SURFACE]                                                                                                                                                             | [ENTRY_FAMILY]  | [RAIL]                                                  |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------ |
-|  [01]   | `BaseModel(**data)`                                                                                                                                                   | constructor     | validate and construct model                            |
-|  [02]   | `BaseModel.model_validate(obj, *, strict, from_attributes, context, by_alias, by_name)`                                                                               | class method    | validate dict or attribute object                       |
-|  [03]   | `BaseModel.model_validate_json(json_data, *, strict, context, by_alias, by_name)`                                                                                     | class method    | validate JSON bytes/str through pydantic-core           |
-|  [04]   | `BaseModel.model_validate_strings(obj, *, strict, context)`                                                                                                           | class method    | validate an all-string mapping (env/query coercion)     |
-|  [05]   | `BaseModel.model_dump(*, mode, include, exclude, by_alias, exclude_unset, exclude_defaults, exclude_none, round_trip, context, serialize_as_any, fallback, warnings)` | instance method | serialize to dict                                       |
-|  [06]   | `BaseModel.model_dump_json(*, indent, include, exclude, by_alias, exclude_*, round_trip, context, serialize_as_any, fallback)`                                        | instance method | serialize to JSON string (core serializer)              |
-|  [07]   | `BaseModel.model_copy(*, update, deep)`                                                                                                                               | instance method | copy with field overrides                               |
-|  [08]   | `BaseModel.model_construct(_fields_set, **values)`                                                                                                                    | class method    | construct WITHOUT validation (trusted data fast path)   |
-|  [09]   | `BaseModel.model_json_schema(*, by_alias, ref_template, schema_generator, mode)`                                                                                      | class method    | JSON Schema dict for the model                          |
-|  [10]   | `BaseModel.model_rebuild(*, force, raise_errors, _types_namespace)`                                                                                                   | class method    | resolve deferred forward refs after definition          |
-|  [11]   | `BaseModel.model_post_init(context, /)`                                                                                                                               | hook            | post-construction hook (overridable)                    |
-|  [12]   | `BaseModel.model_fields` / `model_computed_fields` / `model_fields_set` / `model_extra` / `model_config`                                                              | introspection   | field map / computed map / set fields / extras / config |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY]  | [RAIL]                                                |
+| :-----: | :------------------------------------------------------- | :-------------- | :---------------------------------------------------- |
+|  [01]   | `BaseModel(**data)`                                      | constructor     | validate and construct model                          |
+|  [02]   | `model_validate(obj, *, ...)`                            | class method    | validate dict or attribute object                     |
+|  [03]   | `model_validate_json(json_data, *, ...)`                 | class method    | validate JSON bytes/str through pydantic-core         |
+|  [04]   | `model_validate_strings(obj, *, ...)`                    | class method    | validate all-string mapping (env/query coercion)      |
+|  [05]   | `model_dump(*, mode, ...)`                               | instance method | serialize to dict                                     |
+|  [06]   | `model_dump_json(*, indent, ...)`                        | instance method | serialize to JSON string (core serializer)            |
+|  [07]   | `model_copy(*, update, deep)`                            | instance method | copy with field overrides                             |
+|  [08]   | `model_construct(_fields_set, **values)`                 | class method    | construct WITHOUT validation (trusted data fast path) |
+|  [09]   | `model_json_schema(*, ...)`                              | class method    | JSON Schema dict for the model                        |
+|  [10]   | `model_rebuild(*, ...)`                                  | class method    | resolve deferred forward refs after definition        |
+|  [11]   | `model_post_init(context, /)`                            | hook            | post-construction hook (overridable)                  |
+|  [12]   | `model_{fields,computed_fields,fields_set,extra,config}` | introspection   | field/computed/set-fields/extra/config maps           |
 
 [ENTRYPOINT_SCOPE]: TypeAdapter, validate_call, create_model
 - rail: validation
+- `TypeAdapter.validate_*` carry `strict, from_attributes, context, experimental_allow_partial, by_alias, by_name`; `dump_*` carry `mode, include, exclude, by_alias, round_trip, context, serialize_as_any`; `json_schema*` carry `by_alias, ref_template, schema_generator, mode`; `create_model` closes on `validators, **field_definitions`
 
-| [INDEX] | [SURFACE]                                                                                                                 | [ENTRY_FAMILY]  | [RAIL]                                                                         |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------ | :-------------- | :----------------------------------------------------------------------------- |
-|  [01]   | `TypeAdapter(type, *, config, _parent_depth)`                                                                             | constructor     | adapter for any annotated type                                                 |
-|  [02]   | `TypeAdapter.validate_python(obj, /, *, strict, from_attributes, context, experimental_allow_partial, by_alias, by_name)` | instance method | validate Python object; `experimental_allow_partial` decodes truncated streams |
-|  [03]   | `TypeAdapter.validate_json(data, /, *, strict, context, experimental_allow_partial)`                                      | instance method | validate JSON bytes/str                                                        |
-|  [04]   | `TypeAdapter.validate_strings(obj, /, *, strict, context)`                                                                | instance method | validate all-string mapping                                                    |
-|  [05]   | `TypeAdapter.dump_python(instance, /, *, mode, include, exclude, by_alias, round_trip, context, serialize_as_any)`        | instance method | serialize to Python                                                            |
-|  [06]   | `TypeAdapter.dump_json(instance, /, *, indent, by_alias, exclude_*, context)`                                             | instance method | serialize to JSON bytes                                                        |
-|  [07]   | `TypeAdapter.json_schema(*, by_alias, ref_template, schema_generator, mode)`                                              | instance method | JSON Schema for the type                                                       |
-|  [08]   | `TypeAdapter.json_schemas(inputs, *, by_alias, ref_template, schema_generator)`                                           | static method   | combined `$defs` schema for many adapters                                      |
-|  [09]   | `validate_call(func, /, *, config, validate_return)`                                                                      | decorator       | validate function arguments (and return)                                       |
-|  [10]   | `create_model(model_name, /, *, config, base, validators, **field_definitions)`                                           | factory         | programmatic `BaseModel` subclass                                              |
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]  | [RAIL]                                    |
+| :-----: | :--------------------------------------------------- | :-------------- | :---------------------------------------- |
+|  [01]   | `TypeAdapter(type, *, config, _parent_depth)`        | constructor     | adapter for any annotated type            |
+|  [02]   | `validate_python(obj, /, *, ...)`                    | instance method | validate Python object                    |
+|  [03]   | `validate_json(data, /, *, ...)`                     | instance method | validate JSON bytes/str                   |
+|  [04]   | `validate_strings(obj, /, *, ...)`                   | instance method | validate all-string mapping               |
+|  [05]   | `dump_python(instance, /, *, ...)`                   | instance method | serialize to Python                       |
+|  [06]   | `dump_json(instance, /, *, ...)`                     | instance method | serialize to JSON bytes                   |
+|  [07]   | `json_schema(*, ...)`                                | instance method | JSON Schema for the type                  |
+|  [08]   | `json_schemas(inputs, *, ...)`                       | static method   | combined `$defs` schema for many adapters |
+|  [09]   | `validate_call(func, /, *, config, validate_return)` | decorator       | validate function arguments (and return)  |
+|  [10]   | `create_model(model_name, /, *, config, base, ...)`  | factory         | programmatic `BaseModel` subclass         |
 
 [ENTRYPOINT_SCOPE]: decorator hooks and active rails
 - rail: validation
+- rows [06]-[08] live under `pydantic.experimental.{pipeline,missing_sentinel,arguments_schema}`
+- serializers and `computed_field` carry `return_type, when_used`; `computed_field` adds `alias, title, repr`; `field_validator` adds `check_fields`; `generate_arguments_schema` carries `schema_type, parameters_callback`
 
-| [INDEX] | [SURFACE]                                                                                                     | [ENTRY_FAMILY] | [RAIL]                                                                       |
-| :-----: | :------------------------------------------------------------------------------------------------------------ | :------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `field_validator(field, /, *fields, mode, check_fields)`                                                      | decorator      | attach field validator to model                                              |
-|  [02]   | `model_validator(*, mode)`                                                                                    | decorator      | attach model-level validator                                                 |
-|  [03]   | `field_serializer(field, /, *fields, mode, return_type, when_used)`                                           | decorator      | attach field serializer to model                                             |
-|  [04]   | `model_serializer(f, /, *, mode, return_type, when_used)`                                                     | decorator      | attach whole-model serializer                                                |
-|  [05]   | `computed_field(func, /, *, alias, title, return_type, repr, when_used)`                                      | decorator      | declare computed property field                                              |
-|  [06]   | `pydantic.experimental.pipeline.validate_as(tp)`                                                              | builder        | fluent `.transform()`/`.constrain()`/`.gt()` `Annotated` validation pipeline |
-|  [07]   | `pydantic.experimental.missing_sentinel.MISSING`                                                              | sentinel       | distinguishes "absent" from `None` on optional fields (omitted from dump)    |
-|  [08]   | `pydantic.experimental.arguments_schema.generate_arguments_schema(func, *, schema_type, parameters_callback)` | builder        | core schema for a callable's argument signature                              |
+| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                                          |
+| :-----: | :--------------------------------------------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `field_validator(field, /, *fields, mode, check_fields)`   | decorator      | attach field validator to model                 |
+|  [02]   | `model_validator(*, mode)`                                 | decorator      | attach model-level validator                    |
+|  [03]   | `field_serializer(field, /, *fields, mode, ...)`           | decorator      | attach field serializer to model                |
+|  [04]   | `model_serializer(f, /, *, mode, ...)`                     | decorator      | attach whole-model serializer                   |
+|  [05]   | `computed_field(func, /, *, ...)`                          | decorator      | declare computed property field                 |
+|  [06]   | `pipeline.validate_as(tp)`                                 | builder        | fluent `Annotated` transform/constrain pipeline |
+|  [07]   | `missing_sentinel.MISSING`                                 | sentinel       | absent-vs-`None` sentinel, omitted from dump    |
+|  [08]   | `arguments_schema.generate_arguments_schema(func, *, ...)` | builder        | core schema for a callable's argument signature |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

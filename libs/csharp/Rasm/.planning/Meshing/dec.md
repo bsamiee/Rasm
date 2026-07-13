@@ -19,7 +19,7 @@ Every cotangent weight in this page routes THE one `Meshing/mesh` `Cotangent` ow
 - Growth: a new DEC operator (a primal-dual wedge, a bundle-valued star) is one field on the settled `DiscreteCalculus` carrier plus one assembly fold arm here; a new connection discretization is one assembly member producing the same `(SparseMatrix, SpectralAssemblyReceipt)` pair under the same symmetry gate; a boundary-aware holonomy variant extends `DistributeHolonomy` behind its topology gate; a new basis normalization is one policy row on the settled spectral vocabulary — zero new receipt families, zero sibling kernels.
 - Boundary: this page assembles and never re-owns — a `DiscreteCalculus`/`SpectralBasis`/`SpectralFilter` redeclaration here is the named collapse violation (the `Rasm.Compute` adjoint seam binds the `Numerics/spectral` spellings); a local cotangent expression instead of `Cotangent.OfLengths`/`OfEdges` re-opens the three-path duplication this partition killed. The CR system REJECTS a flipped intrinsic snapshot (`Unsupported`) — CR edge sources are encoded against original-mesh edges, and running them over flipped connectivity would silently misattribute sources (the signpost transfer that would lift this gate is recorded growth, not a default). The Gauss-Bonnet gate is count-independent (never divided by cone count) and integer-anchored (`0.25` floor accepts any accumulation that rounds to the correct integer) — loosening it to a relative epsilon admits non-integer cone prescriptions that make the connection non-trivial. `HodgeDecomposeDetailed` recovers `δβ` by orthogonality — re-introducing an indefinite co-exact solve on the hot path is the named performance-and-correctness defect (the residual gates already witness the orthogonality recovery). Assembly folds and outer-product accumulations are named statement-kernel exemptions (allocation-sensitive triplet scatter); the public surface stays `Fin`-railed and exception-free.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -366,15 +366,25 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-| [INDEX] | [AXIS_CONCERN]     | [OWNER]                                                                                                      | [KIND]                                                                                                                            | [RAIL]                                                                          | [CASES] |
-| :-----: | :----------------- | :----------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------ | :-----: |
-|  [01]   | DEC assembly       | `DecAssembly.Build`                                                                                          | one kernel over the frozen intrinsic snapshot, `∂∂ = 0` gated                                                                     | `Build → Fin<DiscreteCalculus>`                                                 |    —    |
-|  [02]   | Face row           | `IntrinsicTriangle`                                                                                          | one private per-face row serving DEC/CR/holonomy/divergence folds                                                                 | carrier                                                                         |    1    |
-|  [03]   | Connection heat    | `BuildCrouzeixRaviartHeatSystemDetailed`                                                                     | Hermitian-real block system, symmetry-residual gated                                                                              | `→ Fin<(SparseMatrix, SpectralAssemblyReceipt)>`                                |    —    |
-|  [04]   | Trivial connection | `DistributeHolonomy`                                                                                         | CDS cone 1-form, Gauss-Bonnet integer gate                                                                                        | `→ Fin<Arr<double>>`                                                            |    —    |
-|  [05]   | Harmonic + Hodge   | `BuildHarmonicOneForms` / `HodgeDecomposeDetailed` / `WhitneyVectorAt` / `HodgeSolutionOf` + `HodgeVectorAt` | genus-dim Star1-orthonormal basis + `ω = dα + δβ + η` components + Whitney lift + the memoized field-facing point-evaluation seat | `→ Fin<HarmonicOneFormBasis>` / `→ Fin<HodgeDecomposition>` / `→ Fin<Vector3d>` |    —    |
-|  [06]   | Heat scaffold      | `ComputeTriangleGradients` / `ComputeIntrinsicVertexDivergence`                                              | extrinsic + intrinsic gradient/divergence pair                                                                                    | pure folds                                                                      |    2    |
-|  [07]   | Spectral basis     | `ComputeSpectralBasisDetailed` + `SpectralBasisBundle`                                                       | generalized eigen over the (L, M) pencil, cache-truncated                                                                         | `→ Fin<SpectralBasisBundle>`                                                    |    —    |
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes; the per-axis collapse kind, and the harmonic-Hodge member family, ride the indexed notes below.
+
+| [INDEX] | [AXIS_CONCERN]     | [OWNER]                                  | [RAIL]                                           | [CASES] |
+| :-----: | :----------------- | :--------------------------------------- | :----------------------------------------------- | :-----: |
+|  [01]   | DEC assembly       | `DecAssembly.Build`                      | `Build → Fin<DiscreteCalculus>`                  |    —    |
+|  [02]   | Face row           | `IntrinsicTriangle`                      | carrier                                          |    1    |
+|  [03]   | Connection heat    | `BuildCrouzeixRaviartHeatSystemDetailed` | `→ Fin<(SparseMatrix, SpectralAssemblyReceipt)>` |    —    |
+|  [04]   | Trivial connection | `DistributeHolonomy`                     | `→ Fin<Arr<double>>`                             |    —    |
+|  [05]   | Harmonic + Hodge   | `BuildHarmonicOneForms`                  | `→ Fin<HarmonicOneFormBasis>`                    |    —    |
+|  [06]   | Heat scaffold      | `ComputeTriangleGradients`               | pure folds                                       |    2    |
+|  [07]   | Spectral basis     | `ComputeSpectralBasisDetailed`           | `→ Fin<SpectralBasisBundle>`                     |    —    |
+
+- [01]-[DEC_ASSEMBLY]: one kernel over the frozen intrinsic snapshot, `∂∂ = 0` gated.
+- [02]-[FACE_ROW]: one private per-face row serving DEC/CR/holonomy/divergence folds.
+- [03]-[CONNECTION_HEAT]: Hermitian-real block system, symmetry-residual gated.
+- [04]-[TRIVIAL_CONNECTION]: CDS cone 1-form, Gauss-Bonnet integer gate.
+- [05]-[HARMONIC_HODGE]: genus-dim Star1-orthonormal basis + `ω = dα + δβ + η` components + Whitney lift + the memoized field-facing point-evaluation seat; the family adds `HodgeDecomposeDetailed` / `WhitneyVectorAt` / `HodgeSolutionOf` + `HodgeVectorAt` over `→ Fin<HodgeDecomposition>` / `→ Fin<Vector3d>`.
+- [06]-[HEAT_SCAFFOLD]: extrinsic + intrinsic gradient/divergence pair; the pair adds `ComputeIntrinsicVertexDivergence`.
+- [07]-[SPECTRAL_BASIS]: generalized eigen over the (L, M) pencil, cache-truncated; the bundle projection is `SpectralBasisBundle`.
 
 `Build`, `AssembleDecOperators`, `HodgeDecomposeDetailed`, `HodgeVectorAt`, `BuildCrouzeixRaviartHeatSystemDetailed`, `EmitCrouzeixRaviartPair`, `DistributeHolonomy`, `ComputeIntrinsicStar1`, and `ComputeSpectralBasisDetailed` are transcription-complete; the residual folds, receipt constructors, harmonic-basis MGS, the `WhitneyVectorAt` lift, the `HodgeSolutionOf` edge-integrate-and-decompose memo body, and scatter kernels are signature-fixed with their bodies the algorithms the `[04]` contracts specify — every invariant they compute lands as a gated receipt field, so no signature-fixed body can silently weaken.
 

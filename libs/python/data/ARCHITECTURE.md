@@ -1,88 +1,171 @@
 # [PY_DATA_ARCHITECTURE]
 
-The domain map of `data` — the host-free data-interchange companion. A `tabular` interchange core (columnar scan, lakehouse, query, materialize, contract, interop, egress) plus the `spatial`, `gridded`, `graph`, and `impact` planes, each a real domain concept. The module set is a provable import DAG: `tabular/interop < tabular/columnar < {tabular/contract, tabular/egress, graph/graph, gridded/store, gridded/field} < {tabular/lakehouse, tabular/query, tabular/profile, gridded/ragged, gridded/virtual, spatial/geospatial, spatial/mesh} < {tabular/materialize, spatial/catalog, spatial/query, impact/impact} < spatial/grid` — every `from rasm.data.*` fence import binds a strictly-earlier module, and the `[02]-[SEAMS]` ledger declares every eager intra-data edge beside the cross-`libs/` and cross-language rows.
-
-Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
+`data` maps host-free data interchange onto one module per domain concept, each closing its whole concern behind a single polymorphic owner. A `tabular` interchange core carries the columnar, lakehouse, query, materialize, contract, interop, and egress spine, and the `spatial`, `gridded`, `graph`, and `impact` planes each own a distinct domain. Every `from rasm.data.*` import binds a strictly-earlier module, so the module set is a provable acyclic DAG; `[02]-[SEAMS]` records only the cross-`libs/` and cross-language crossings, never an intra-`data` composition.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
 data/
-├── tabular/              # Columnar, relational, and lakehouse interchange plane + its object-store egress leg
-│   ├── interop.py        # Backend-agnostic frame owner, FieldShape minter, and Arrow PyCapsule zero-copy carrier
-│   ├── columnar.py       # Dataset-ref owner, the one request-scoped DuckDbSession rail (extension policy rows), engine scan plans, typed egress
-│   ├── lakehouse.py      # Lakehouse owner over LakeOp lifecycle and table-format bindings
-│   ├── query.py          # Query engine over QuerySpec frontends (sql/rel/agnostic/ir/remote/streaming/federated) to uniform Arrow; datafusion
-│   ├── materialize.py    # DerivedSnapshot/PartitionBundle CDC-materialization composing lakehouse+query+columnar downward; partition-delta
-│   ├── contract.py       # Dataframely covenant and pandera quality gate folded on one ContractClaim; FieldShape imported downward from interop
-│   ├── profile.py        # QualityProfile owner over pointblank Thresholds, graded data-quality plane emitting a frame the artifacts renderer renders
-│   └── egress.py         # Object-store egress owner over one StoreOp axis keyed by ContentIdentity
-├── spatial/              # Vector + raster claims, DuckDB-spatial engine, DGG plane, STAC catalog, mesh-file exchange
-│   ├── geospatial.py     # CLAIMS plane: vector/raster geo claims (RasterGeoClaim carries transform), VectorOp/RasterOp axes + Linear/Geodesic
-│   ├── query.py          # SpatialQuery/SpatialEngine DuckDB-spatial join/transform/H3-SQL engine over the shared DuckDbSession rail; the in-DB half
-│   ├── grid.py           # GridSystem h3ronpy DGG plane (in-frame vectorized cell algebra) + polars-st GeoLift/GeoFrameOp frame-native geometry
-│   ├── catalog.py        # StacCatalog owner over search, item table, asset-href egress, and catalog claims
-│   └── mesh.py           # Mesh-file exchange owner over backend axis and point-cloud row
-├── gridded/              # Chunked N-D dense/virtual/ragged tensor stores + CF labelled-field store
-│   ├── store.py          # Dense chunked N-D tensor store owner over zarr write, cubed plan, and tensorstore async read
-│   ├── virtual.py        # SOLE manifest-cube owner: virtualizarr manifest parsers + native addressing, ManifestWrite export/registration axis
-│   ├── ragged.py         # Ragged N-D store owner over awkward, with from_arrow/to_arrow zero-copy bridge to the interop Arrow carrier
-│   └── field.py          # CF owner ONLY: FieldDataset over netcdf4/h5netcdf/Zarr CF engines, flox grouped/resampled reductions, content-keyed egress
-├── graph/                # Rustworkx graph payloads with networkx codec lane, typed result receipts
-│   └── graph.py          # Graph-payload owner: n-arm _run_rx kernel + the GPL-confined Leiden/Louvain/Infomap split, carried WeightSelector payloads
-└── impact/               # Material environmental-impact: EPD declaration ingest + LCA compute, normalized to one EN 15804 carrier
-    └── impact.py         # MaterialImpact owner folding the five-source ImpactSource axis into one canonical EN 15804 indicator × stage matrix
+├── tabular/              # Columnar, relational, and lakehouse interchange plane and its object-store egress
+│   ├── interop.py        # Backend-agnostic frame owner, FieldShape minter, and Arrow zero-copy carrier
+│   ├── columnar.py       # Dataset-ref owner and the one request-scoped DuckDbSession scan rail
+│   ├── lakehouse.py      # Lakehouse owner over the LakeOp lifecycle and table-format bindings
+│   ├── query.py          # Query engine folding every QuerySpec frontend to uniform Arrow
+│   ├── materialize.py    # CDC materialization composing lakehouse, query, and columnar downward
+│   ├── contract.py       # Covenant and quality gate folded on one ContractClaim
+│   ├── profile.py        # Quality-profile owner grading a frame the artifacts renderer renders
+│   └── egress.py         # Object-store egress owner over one StoreOp axis keyed by content identity
+├── spatial/              # Vector and raster claims, the DuckDB-spatial engine, the DGG plane, STAC catalog, mesh exchange
+│   ├── geospatial.py     # Vector and raster geo claims over the VectorOp and RasterOp axes
+│   ├── query.py          # DuckDB-spatial join, transform, and H3 engine on the shared session rail
+│   ├── grid.py           # GridSystem DGG plane and frame-native geometry algebra
+│   ├── catalog.py        # StacCatalog owner over search, item table, and asset-href egress
+│   └── mesh.py           # Mesh-file exchange owner over the backend axis and point-cloud row
+├── gridded/              # Chunked N-D dense, virtual, and ragged tensor stores plus the CF labelled-field store
+│   ├── store.py          # Dense chunked N-D tensor store over zarr write and async read
+│   ├── virtual.py        # Sole manifest-cube owner and its manifest write and registration axis
+│   ├── ragged.py         # Ragged N-D store over awkward with a zero-copy Arrow bridge
+│   └── field.py          # CF field-dataset owner over the CF engines and grouped reductions
+├── graph/                # Rustworkx graph payloads with a networkx codec lane and typed receipts
+│   └── graph.py          # Graph-payload owner over the run kernel and the community-detection split
+└── impact/               # Material environmental impact: EPD ingest and LCA compute on one EN 15804 carrier
+    └── impact.py         # MaterialImpact owner folding the ImpactSource axis into one EN 15804 matrix
 ```
 
 ## [02]-[SEAMS]
 
-```text seams
-tabular/contract    →   python:data/tabular/interop               # [SHAPE]: FieldShape/Backend/FrameInterop imported downward in one module-top
-tabular/profile     →   python:data/tabular/interop               # [SHAPE]: FieldShape drives the schema probe
-tabular/lakehouse   →   python:data/tabular/columnar              # [PORT]: DatasetKind/DatasetRef admission + DuckDbSession/DuckDbExtension rail
-tabular/query       →   python:data/tabular/columnar              # [RECEIPT]: QueryReceipt + the one exported predicate_count fold
-tabular/materialize →   python:data/tabular/columnar              # [CONTENT_KEY]: the public arrow_bytes canonical whole-table fold keys each
-tabular/materialize →   python:data/tabular/lakehouse             # [PORT]: Lakehouse/TableFormat source identity + the ChangeFeed load_cdf surface
-tabular/materialize →   python:data/tabular/query                 # [PORT]: awaited QueryEngine.run recompute over QuerySpec
-gridded/ragged      →   python:data/tabular/interop               # [WIRE]: ArrowCStream.of the one public carrier construction
-gridded/virtual     →   python:data/gridded/field                 # [SHAPE]: FieldReceipt family minted downward by the absorbed manifest owner
-spatial/geospatial  →   python:data/tabular/columnar              # [RECEIPT]: QueryReceipt.railed over coverage/egress Arrow bytes
-spatial/query       →   python:data/tabular/columnar              # [PORT]: DuckDbSession rail (SPATIAL prelude + H3 supplement rows) + QueryReceipt
-spatial/grid        →   python:data/spatial/query                 # [PORT]: engine_bin composes the in-DB H3 binning leg (two-substrate law)
-spatial/grid        →   python:data/tabular/columnar              # [RECEIPT]: QueryReceipt.railed over the cell frame
-spatial/catalog     →   python:data/gridded/virtual               # [PORT]: FieldVirtual + ManifestWrite(cube)/VirtualReference.apply registration
-spatial/catalog     →   python:data/spatial/geospatial            # [SHAPE]: RasterGeoClaim with transform + Resampling constructed from STAC
-spatial/catalog     →   python:data/tabular/egress                # [PORT]: ObjectEgress.GetRange archival byte windows
-spatial/catalog     →   python:data/tabular/columnar              # [RECEIPT]: QueryReceipt over the encoded STAC table
-spatial/mesh        →   python:data/tabular/columnar              # [RECEIPT]: QueryReceipt.railed named-array/point-record Arrow egress
-graph/graph         →   python:data/tabular/columnar              # [WIRE]: node-keyed GraphResult.frame left-joined as enrichment
-impact              →   python:data/tabular/columnar              # [WIRE]: the assessment frame rides the public arrow_bytes fold
-impact              →   python:data/tabular/contract              # [SHAPE]: MaterialImpact.gated proves _WIRE_SHAPES through the one contract gate
-impact              →   python:data/tabular/interop               # [SHAPE]: Backend/FieldShape/FrameInterop the gate's lowering vocabulary
-impact              →   python:data/tabular/profile               # [RECEIPT]: MaterialImpact.profiled grades the frame through QualityProfile
-tabular             →   csharp:Rasm.Compute/Runtime               # [SHAPE]: DOE dataset study input
-spatial/mesh        →   python:runtime/evidence                   # [CONTENT_KEY]: ContentIdentity over mesh point coordinates
-tabular/egress      →   python:runtime/evidence                   # [CONTENT_KEY]: ContentIdentity over put payload + e-tag
-tabular/*           ←   python:runtime                            # [PORT]: TransportResource remote connection
-tabular             ←   python:artifacts/document                  # [WIRE]: to_corpus_row flat record (the columnar Corpus arm)
-tabular             ←   python:runtime/evidence                   # [CONTENT_KEY]: ContentIdentity content-key
-spatial/geospatial  ←   python:artifacts/export                   # [WIRE]: addons.geo GeoProxy GeoJSON georeferenced wire; CRS authority stays here
-tabular/columnar    ←   python:runtime/transport                  # [TRANSPORT]: ResourceRef path resolution through fsspec/UPath
-*                   →   python:runtime                            # [RECEIPT]: Receipt contribution
-spatial/mesh        ←   python:geometry/scan                      # [SHAPE]: Arrow point-record columnar bridge x/y/z
-spatial/mesh        ←   python:geometry/mesh                      # [BOUNDARY]: mesh-file decode/encode + GLB preview here; repair returns in-memory
-spatial/mesh        →   python:geometry/mesh                      # [SHAPE]: MeshPayload cell-block topology
-tabular             →   python:compute/experiments/study          # [SHAPE]: FrameAdmission/FrameInterop DOE-frame admission arm
-tabular/*           →   csharp:Rasm.Persistence                   # [CONTENT_KEY]: C#-seed ContentKey stamped on outputs, federated as durable reuse
-tabular/query       ⇄   csharp:Rasm.Persistence/Query/federation  # [WIRE]: Substrait binary plan interchange — outbound minted by QuerySpec.Federated
-tabular/query       →   python:runtime/observability              # [RECEIPT]: QueryReceipt.lineage_edges column-level lineage contribution
-tabular/profile     →   python:artifacts/visualization/table      # [SHAPE]: QualityProfile frame rendered by the great-tables tier
-gridded/virtual     →   csharp:Rasm.Persistence                   # [CONTENT_KEY]: icechunk as-of snapshot identity reproduced from the XxHash128 seed
-spatial/geospatial  →   csharp:Rasm.Compute                       # [SHAPE]: native GeoArrow buffers (geoarrow_wire) sharing the GLB wire layout
-spatial/geospatial  ←   csharp:Rasm.Bim/Semantics/geospatial      # [WIRE]: GeoFeature WKB decode via shapely
-spatial/mesh        →   python:geometry/scan/ingestion            # [SHAPE]: data COPC arm decode leaving the pdal filter-graph owner unchanged
-impact              ←   python:runtime                            # [PORT]: TransportResource for the EC3 + openLCA server endpoints
-impact              →   python:runtime/observability              # [RECEIPT]: ImpactReceipt contribution keyed by ContentIdentity
-impact              →   csharp:Rasm.Materials                     # [WIRE]: EN 15804 set enters Discipline.Environmental
-impact              ⇄   csharp:Rasm.Persistence                   # [CONTENT_KEY]: EPD/LCA identity deduped in the durable reuse ledger
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: Data package Python-peer seam registry
+    accDescr: Data sub-domain owners exchanging content identity, transport, receipts, wires, and frame shapes with the Python runtime, artifacts, geometry, and compute siblings, edge rails colored by kind and nodes classed by seam direction.
+    subgraph data[DATA]
+        Tabular[Tabular interchange]
+        Egress[Object egress]
+        Query[Query engine]
+        Profile[Quality profile]
+        Geospatial[Geospatial claims]
+        Mesh[Mesh exchange]
+        Impact[Material impact]
+    end
+    Runtime{{python:runtime}}
+    Artifacts{{python:artifacts}}
+    Geometry{{python:geometry}}
+    Compute([python:compute])
+    Egress e1@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
+    Mesh e2@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
+    Query e3@-->|"[RECEIPT]: QueryReceipt"| Runtime
+    Runtime e4@-->|"[TRANSPORT]: ResourceRef"| Tabular
+    Runtime e5@-->|"[TRANSPORT]: ResourceRef"| Impact
+    Artifacts e6@-->|"[WIRE]: CorpusRow"| Tabular
+    Profile e7@-->|"[SHAPE]: QualityProfile"| Artifacts
+    Artifacts e8@-->|"[WIRE]: GeoJSON"| Geospatial
+    Mesh e9@<-->|"[SHAPE]: MeshPayload"| Geometry
+    Tabular e10@-->|"[SHAPE]: FrameAdmission"| Compute
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
+    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    class Tabular,Egress,Query,Profile,Geospatial,Mesh,Impact primary
+    class Runtime,Artifacts,Geometry external
+    class Compute annotation
+    class e1,e2,e6,e8 edgeData
+    class e3 edgeSuccess
+    class e4,e5 edgeExternal
+    class e7,e9,e10 edgeControl
 ```
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: Data package C#-peer seam registry
+    accDescr: Data sub-domain owners exchanging frame shapes, content keys, plan wires, and the environmental set with the Rasm.Compute, Persistence, Materials, and Bim C# peers, edge rails colored by kind and nodes classed by seam direction.
+    subgraph data[DATA]
+        Tabular[Tabular interchange]
+        Query[Query engine]
+        Geospatial[Geospatial claims]
+        Virtual[Manifest cube]
+        Impact[Material impact]
+    end
+    Persistence[(Rasm.Persistence)]
+    Compute([Rasm.Compute])
+    Materials([Rasm.Materials])
+    Bim([Rasm.Bim])
+    Tabular e1@-->|"[SHAPE]: DoeDataset"| Compute
+    Geospatial e2@-->|"[SHAPE]: GeoArrow"| Compute
+    Tabular e3@-->|"[CONTENT_KEY]: ContentKey"| Persistence
+    Query e4@<-->|"[WIRE]: SubstraitPlan"| Persistence
+    Virtual e5@-->|"[CONTENT_KEY]: IcechunkKey"| Persistence
+    Impact e6@<-->|"[CONTENT_KEY]: EpdLcaKey"| Persistence
+    Impact e7@-->|"[WIRE]: Environmental"| Materials
+    Bim e8@-->|"[WIRE]: GeoFeatureWkb"| Geospatial
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    class Tabular,Query,Geospatial,Virtual,Impact primary
+    class Persistence data
+    class Compute,Materials,Bim annotation
+    class e1,e2 edgeControl
+    class e3,e4,e5,e6,e7,e8 edgeData
+```
+
+Two fences partition by peer runtime: the Python siblings carry the in-process content, transport, receipt, and frame contracts, and the C# peers carry the cross-runtime wire, durable content keys, and the environmental set. Each collapsed edge stands for every contract at that kind between the two owners, and the owning pages enumerate the rest.
+
+An intra-`data` relation is composition, never a seam, so the acyclic import DAG belongs to the codemap, not this registry.
+
+Every `[CONTENT_KEY]` edge derives one typed identity through the runtime `ContentIdentity` primitive over the public `arrow_bytes` fold, never a per-page hash, and each crossing agrees with its counterpart page verbatim. A single-sided edge is declared on the producing side and binds its counterpart when that page lands its mirror row.

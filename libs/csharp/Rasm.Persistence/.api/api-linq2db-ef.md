@@ -63,18 +63,22 @@ bridge installs (distinct from the `LinqToDBContextOptionsBuilder` fluent surfac
 [ENTRYPOINT_SCOPE]: bulk copy (`LinqToDBForEFTools`, `where T : class`)
 - rail: store-provider
 
-Three arities — explicit `BulkCopyOptions`, `int maxBatchSize` shorthand, and plain. The
-async form mirrors both `IEnumerable<T>` and `IAsyncEnumerable<T>` sources, returning
-`Task<BulkCopyRowsCopied>`. The option shapes are CORE-linq2db members riding the bridge transitively — `BulkCopyOptions` (with `BulkCopyType`/`KeepIdentity`/`MaxBatchSize` slots) and the `BulkCopyType` enum (`Default`/`RowByRow`/`MultipleRows`/`ProviderSpecific` — `ProviderSpecific` lowers to PG binary COPY; verified against the restored linq2db assembly). `BulkCopyRowsCopied` is the typed receipt (rows copied + the
-options that produced it).
+Three arities — explicit `BulkCopyOptions`, `int maxBatchSize` shorthand, and plain. The sync
+form returns `BulkCopyRowsCopied`; the async form mirrors both `IEnumerable<T>` and
+`IAsyncEnumerable<T>` sources, returning `Task<BulkCopyRowsCopied>`. The option shapes are
+CORE-linq2db members riding the bridge transitively — `BulkCopyOptions` (with `BulkCopyType`/
+`KeepIdentity`/`MaxBatchSize` slots) and the `BulkCopyType` enum (`Default`/`RowByRow`/
+`MultipleRows`/`ProviderSpecific` — `ProviderSpecific` lowers to PG binary COPY; verified
+against the restored linq2db assembly). `BulkCopyRowsCopied` is the typed receipt carrying rows
+copied and the options that produced it.
 
-| [INDEX] | [SURFACE]                                                                       | [RETURNS]                  | [CAPABILITY]                          |
-| :-----: | :------------------------------------------------------------------------------ | :------------------------- | :------------------------------------ |
-|  [01]   | `BulkCopy<T>(context, BulkCopyOptions, IEnumerable<T>)`                         | `BulkCopyRowsCopied`       | bulk insert with explicit options     |
-|  [02]   | `BulkCopy<T>(context, int maxBatchSize, IEnumerable<T>)`                        | `BulkCopyRowsCopied`       | bulk insert with batch-size shorthand |
-|  [03]   | `BulkCopy<T>(context, IEnumerable<T>)`                                          | `BulkCopyRowsCopied`       | bulk insert with default options      |
-|  [04]   | `BulkCopyAsync<T>(context, BulkCopyOptions / int / —, IEnumerable<T>, ct)`      | `Task<BulkCopyRowsCopied>` | async over `IEnumerable<T>`           |
-|  [05]   | `BulkCopyAsync<T>(context, BulkCopyOptions / int / —, IAsyncEnumerable<T>, ct)` | `Task<BulkCopyRowsCopied>` | async over `IAsyncEnumerable<T>`      |
+| [INDEX] | [SURFACE]                                                                       | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------------------------------ | :------------------------------------ |
+|  [01]   | `BulkCopy<T>(context, BulkCopyOptions, IEnumerable<T>)`                         | bulk insert with explicit options     |
+|  [02]   | `BulkCopy<T>(context, int maxBatchSize, IEnumerable<T>)`                        | bulk insert with batch-size shorthand |
+|  [03]   | `BulkCopy<T>(context, IEnumerable<T>)`                                          | bulk insert with default options      |
+|  [04]   | `BulkCopyAsync<T>(context, BulkCopyOptions / int / —, IEnumerable<T>, ct)`      | async over `IEnumerable<T>`           |
+|  [05]   | `BulkCopyAsync<T>(context, BulkCopyOptions / int / —, IAsyncEnumerable<T>, ct)` | async over `IAsyncEnumerable<T>`      |
 
 [ENTRYPOINT_SCOPE]: query lift, value-insert, mapping/metadata extraction
 - rail: store-provider
@@ -135,15 +139,16 @@ runs the supplied `Action<LinqToDBContextOptionsBuilder>` (interceptors, mapping
 custom `DataOptions`). `Initialize`/`ClearCaches` activate and reset the bridge's static
 caches; `EnableChangeTracker` (static `bool`) gates whether lifted reads feed the EF change
 tracker.
+- note: `UseLinqToDB<TContext>` constrains `where TContext : DbContextOptionsBuilder`
 
-| [INDEX] | [SURFACE]                                                                                                           | [CALL_SHAPE]      | [CAPABILITY]                      |
-| :-----: | :------------------------------------------------------------------------------------------------------------------ | :---------------- | :-------------------------------- |
-|  [01]   | `UseLinqToDB<TContext>(builder, Action<LinqToDBContextOptionsBuilder>?)` `where TContext : DbContextOptionsBuilder` | builder extension | admit bridge + configure options  |
-|  [02]   | `LinqToDBContextOptionsBuilder.AddInterceptor(IInterceptor)`                                                        | fluent call       | admit a LINQ To DB interceptor    |
-|  [03]   | `LinqToDBContextOptionsBuilder.AddMappingSchema(MappingSchema)`                                                     | fluent call       | admit a mapping schema            |
-|  [04]   | `LinqToDBContextOptionsBuilder.AddCustomOptions(Func<DataOptions,DataOptions>)`                                     | fluent call       | rewrite the `DataOptions`         |
-|  [05]   | `LinqToDBForEFTools.Initialize()` / `ClearCaches()`                                                                 | static call       | activate bridge / reset caches    |
-|  [06]   | `LinqToDBForEFTools.EnableChangeTracker`                                                                            | static property   | gate change-tracker feed (`bool`) |
+| [INDEX] | [SURFACE]                                                                       | [CALL_SHAPE]      | [CAPABILITY]                      |
+| :-----: | :------------------------------------------------------------------------------ | :---------------- | :-------------------------------- |
+|  [01]   | `UseLinqToDB<TContext>(builder, Action<LinqToDBContextOptionsBuilder>?)`        | builder extension | admit bridge + configure options  |
+|  [02]   | `LinqToDBContextOptionsBuilder.AddInterceptor(IInterceptor)`                    | fluent call       | admit a LINQ To DB interceptor    |
+|  [03]   | `LinqToDBContextOptionsBuilder.AddMappingSchema(MappingSchema)`                 | fluent call       | admit a mapping schema            |
+|  [04]   | `LinqToDBContextOptionsBuilder.AddCustomOptions(Func<DataOptions,DataOptions>)` | fluent call       | rewrite the `DataOptions`         |
+|  [05]   | `LinqToDBForEFTools.Initialize()` / `ClearCaches()`                             | static call       | activate bridge / reset caches    |
+|  [06]   | `LinqToDBForEFTools.EnableChangeTracker`                                        | static property   | gate change-tracker feed (`bool`) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

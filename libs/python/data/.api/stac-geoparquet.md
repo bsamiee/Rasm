@@ -18,16 +18,17 @@
 [PUBLIC_TYPE_SCOPE]: interchange carriers and schema axis
 - rail: STAC catalog
 
-The interchange carrier is `pyarrow.RecordBatchReader` (zero-copy streaming). The schema axis is `ACCEPTED_SCHEMA_OPTIONS` — a `pa.Schema`, an `InferredSchema` instance, or a `Literal['FirstBatch', 'FullFile', 'ChunksToDisk']`; the GeoParquet output version is `SUPPORTED_PARQUET_SCHEMA_VERSIONS = Literal['1.0.0', '1.1.0']` (default `'1.1.0'`). The arrow internals are underscore-private; the public entries are the `stac_geoparquet.arrow`, `stac_geoparquet.json_reader`, and `stac_geoparquet.pgstac_reader` namespaces.
+The interchange carrier is `pyarrow.RecordBatchReader` (zero-copy streaming). The schema axis is `ACCEPTED_SCHEMA_OPTIONS` — a `pa.Schema`, an `InferredSchema` instance, or a `Literal['FirstBatch', 'FullFile', 'ChunksToDisk']`; the GeoParquet output version is `SUPPORTED_PARQUET_SCHEMA_VERSIONS = Literal['1.0.0', '1.1.0']` (default `'1.1.0'`). The arrow internals are underscore-private; the public entries are the `stac_geoparquet.arrow`, `stac_geoparquet.json_reader`, and `stac_geoparquet.pgstac_reader` namespaces. The `arrow.` prefix drops from the `arrow.*` symbols in the grid.
 
-| [INDEX] | [SYMBOL]                                                                     | [TYPE_FAMILY]    | [CAPABILITY]                                                                         |
-| :-----: | :--------------------------------------------------------------------------- | :--------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `pa.RecordBatchReader`                                                       | Arrow carrier    | the streamed STAC item table (from/to the parse functions)                           |
-|  [02]   | `arrow.ACCEPTED_SCHEMA_OPTIONS`                                              | schema axis      | `pa.Schema` \| `InferredSchema` \| `Literal['FirstBatch','FullFile','ChunksToDisk']` |
-|  [03]   | `arrow.InferredSchema`                                                       | schema builder   | two-pass schema accumulator: `update_from_items`/`update_from_json`/`manual_updates` |
-|  [04]   | `arrow.SUPPORTED_PARQUET_SCHEMA_VERSIONS` / `DEFAULT_PARQUET_SCHEMA_VERSION` | version constant | `Literal['1.0.0','1.1.0']` set / default `'1.1.0'` GeoParquet schema version         |
-|  [05]   | `arrow.DEFAULT_JSON_CHUNK_SIZE`                                              | chunk constant   | default NDJSON/item batch size (`65536`)                                             |
-|  [06]   | `pgstac_reader.PgstacRowFactory`                                             | pgstac reader    | build STAC items from pgstac database rows (requires the `psycopg` extra)            |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY]    | [CAPABILITY]                                                                  |
+| :-----: | :---------------------------------- | :--------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `pa.RecordBatchReader`              | Arrow carrier    | the streamed STAC item table (from/to the parse functions)                    |
+|  [02]   | `ACCEPTED_SCHEMA_OPTIONS`           | schema axis      | `pa.Schema`/`InferredSchema`/inference `Literal` union (values in the lead)   |
+|  [03]   | `InferredSchema`                    | schema builder   | two-pass accumulator: `update_from_items`/`update_from_json`/`manual_updates` |
+|  [04]   | `SUPPORTED_PARQUET_SCHEMA_VERSIONS` | version constant | `Literal['1.0.0','1.1.0']` set                                                |
+|  [05]   | `DEFAULT_PARQUET_SCHEMA_VERSION`    | version constant | default `'1.1.0'` GeoParquet schema version                                   |
+|  [06]   | `DEFAULT_JSON_CHUNK_SIZE`           | chunk constant   | default NDJSON/item batch size (`65536`)                                      |
+|  [07]   | `pgstac_reader.PgstacRowFactory`    | pgstac reader    | build STAC items from pgstac database rows (requires the `psycopg` extra)     |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -35,29 +36,39 @@ The interchange carrier is `pyarrow.RecordBatchReader` (zero-copy streaming). Th
 - rail: STAC catalog
 
 The Arrow functions are reachable only as `stac_geoparquet.arrow.X` (none are top-level). `parse_stac_items_to_arrow` takes the schema as the `ACCEPTED_SCHEMA_OPTIONS` union (default `'FullFile'`); `parse_stac_ndjson_to_arrow` takes an explicit `pa.Schema` (or `None`).
+- call: `arrow.parse_stac_items_to_arrow(items, chunk_size=65536, schema='FullFile', tmpdir=None) -> RecordBatchReader`
+- call: `arrow.parse_stac_ndjson_to_arrow(path, *, chunk_size=65536, schema=None, limit=None) -> RecordBatchReader`
+- call: `arrow.to_parquet(table, output_path, *, schema_version='1.1.0', collections=None, collection_metadata=None, filesystem=None, **kwargs) -> None`
+- call: `arrow.parse_stac_items_to_parquet(items, *, chunk_size=65536, schema='FirstBatch', output_path, tmpdir=None, schema_version='1.1.0', filesystem=None, **kwargs) -> str`
+- call: `arrow.parse_stac_ndjson_to_parquet(input_path, output_path, *, chunk_size=65536, schema=None, limit=None, schema_version='1.1.0', collections=None, collection_metadata=None, filesystem=None, **kwargs) -> None`
+- call: `arrow.parse_stac_ndjson_to_delta_lake(input_path, table_or_uri, *, chunk_size=65536, schema=None, limit=None, schema_version='1.1.0', **kwargs) -> None`
 
-| [INDEX] | [SURFACE]                               | [CALL_SHAPE]                                                                                                                                                                                                 | [CAPABILITY]                             |
-| :-----: | :-------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------- |
-|  [01]   | `arrow.parse_stac_items_to_arrow`       | `parse_stac_items_to_arrow(items, chunk_size=65536, schema='FullFile', tmpdir=None) -> RecordBatchReader`                                                                                                    | `pystac.Item`/dict iterable -> Arrow     |
-|  [02]   | `arrow.parse_stac_ndjson_to_arrow`      | `parse_stac_ndjson_to_arrow(path, *, chunk_size=65536, schema=None, limit=None) -> RecordBatchReader`                                                                                                        | STAC NDJSON file(s) -> Arrow             |
-|  [03]   | `arrow.to_parquet`                      | `to_parquet(table, output_path, *, schema_version='1.1.0', collections=None, collection_metadata=None, filesystem=None, **kwargs) -> None`                                                                   | Arrow table/reader -> GeoParquet         |
-|  [04]   | `arrow.parse_stac_items_to_parquet`     | `parse_stac_items_to_parquet(items, *, chunk_size=65536, schema='FirstBatch', output_path, tmpdir=None, schema_version='1.1.0', filesystem=None, **kwargs) -> str`                                           | items -> GeoParquet in one call          |
-|  [05]   | `arrow.parse_stac_ndjson_to_parquet`    | `parse_stac_ndjson_to_parquet(input_path, output_path, *, chunk_size=65536, schema=None, limit=None, schema_version='1.1.0', collections=None, collection_metadata=None, filesystem=None, **kwargs) -> None` | NDJSON -> GeoParquet                     |
-|  [06]   | `arrow.parse_stac_ndjson_to_delta_lake` | `parse_stac_ndjson_to_delta_lake(input_path, table_or_uri, *, chunk_size=65536, schema=None, limit=None, schema_version='1.1.0', **kwargs) -> None`                                                          | NDJSON -> Delta Lake (`deltalake` extra) |
+| [INDEX] | [SURFACE]                               | [CAPABILITY]                             |
+| :-----: | :-------------------------------------- | :--------------------------------------- |
+|  [01]   | `arrow.parse_stac_items_to_arrow`       | `pystac.Item`/dict iterable -> Arrow     |
+|  [02]   | `arrow.parse_stac_ndjson_to_arrow`      | STAC NDJSON file(s) -> Arrow             |
+|  [03]   | `arrow.to_parquet`                      | Arrow table/reader -> GeoParquet         |
+|  [04]   | `arrow.parse_stac_items_to_parquet`     | items -> GeoParquet in one call          |
+|  [05]   | `arrow.parse_stac_ndjson_to_parquet`    | NDJSON -> GeoParquet                     |
+|  [06]   | `arrow.parse_stac_ndjson_to_delta_lake` | NDJSON -> Delta Lake (`deltalake` extra) |
 
 [ENTRYPOINT_SCOPE]: rehydrate, NDJSON readers, and legacy geopandas trio
 - rail: STAC catalog
 
 `stac_table_to_items` is a generator over plain item dicts (pair with `pystac.Item.from_dict` to rebuild the model). `json_reader.read_json`/`read_json_chunked` are the NDJSON-to-dict readers that feed the parse functions. The geopandas trio (`to_dict`/`to_geodataframe`/`to_item_collection`) is the top-level re-export and remains supported.
+- call: `arrow.stac_table_to_items(table) -> Iterable[dict]`; `arrow.stac_table_to_ndjson(table, dest) -> None`
+- call: `json_reader.read_json(path) -> Iterable[dict]`; `read_json_chunked(path, chunk_size, limit=None)`
+- call: `to_geodataframe(items, add_self_link=False, dtype_backend=None, datetime_precision='ns') -> GeoDataFrame`
+- call: `to_item_collection(df) -> pystac.ItemCollection`; `to_dict(record) -> dict`
 
-| [INDEX] | [SURFACE]                    | [CALL_SHAPE]                                                                                               | [CAPABILITY]                       |
-| :-----: | :--------------------------- | :--------------------------------------------------------------------------------------------------------- | :--------------------------------- |
-|  [01]   | `arrow.stac_table_to_items`  | `stac_table_to_items(table) -> Iterable[dict]`                                                             | Arrow STAC table -> item dicts     |
-|  [02]   | `arrow.stac_table_to_ndjson` | `stac_table_to_ndjson(table, dest) -> None`                                                                | Arrow STAC table -> NDJSON file    |
-|  [03]   | `json_reader.read_json`      | `read_json(path) -> Iterable[dict]`; `read_json_chunked(path, chunk_size, limit=None)`                     | STAC NDJSON file(s) -> dict stream |
-|  [04]   | `to_geodataframe`            | `to_geodataframe(items, add_self_link=False, dtype_backend=None, datetime_precision='ns') -> GeoDataFrame` | items -> geopandas (legacy)        |
-|  [05]   | `to_item_collection`         | `to_item_collection(df) -> pystac.ItemCollection`                                                          | `GeoDataFrame` -> STAC (legacy)    |
-|  [06]   | `to_dict`                    | `to_dict(record) -> dict`                                                                                  | a parquet row -> a STAC item dict  |
+| [INDEX] | [SURFACE]                    | [CAPABILITY]                       |
+| :-----: | :--------------------------- | :--------------------------------- |
+|  [01]   | `arrow.stac_table_to_items`  | Arrow STAC table -> item dicts     |
+|  [02]   | `arrow.stac_table_to_ndjson` | Arrow STAC table -> NDJSON file    |
+|  [03]   | `json_reader.read_json`      | STAC NDJSON file(s) -> dict stream |
+|  [04]   | `to_geodataframe`            | items -> geopandas (legacy)        |
+|  [05]   | `to_item_collection`         | `GeoDataFrame` -> STAC (legacy)    |
+|  [06]   | `to_dict`                    | a parquet row -> a STAC item dict  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

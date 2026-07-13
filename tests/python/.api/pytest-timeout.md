@@ -13,14 +13,14 @@
 
 The resolved per-item settings and the diagnostic dump the plugin emits on breach.
 
-| [INDEX] | [SYMBOL]                               | [KIND]          | [CAPABILITY]                                                                                         |
-| :-----: | :------------------------------------- | :-------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `pytest_timeout.Settings`              | settings tuple  | fields `timeout`, `method`, `func_only`, `disable_debugger_detection` — the resolved per-item policy |
-|  [02]   | `pytest_timeout.DEFAULT_METHOD`        | method default  | `signal` where SIGALRM exists, else `thread`                                                         |
-|  [03]   | `pytest_timeout.dump_stacks(terminal)` | diagnostic dump | writes every other thread's traceback at timeout onto the terminal writer passed as `terminal`       |
-|  [04]   | `pytest_timeout.is_debugging()`        | debugger probe  | suppresses the timer under a detected debugger unless detection is disabled                          |
+| [INDEX] | [SYMBOL]                               | [KIND]          | [CAPABILITY]                                                              |
+| :-----: | :------------------------------------- | :-------------- | :------------------------------------------------------------------------ |
+|  [01]   | `pytest_timeout.Settings`              | settings tuple  | the resolved per-item policy; the four `Settings` fields sit in the fence |
+|  [02]   | `pytest_timeout.DEFAULT_METHOD`        | method default  | `signal` where SIGALRM exists, else `thread`                              |
+|  [03]   | `pytest_timeout.dump_stacks(terminal)` | diagnostic dump | dumps every other thread's traceback to the `terminal` writer on breach   |
+|  [04]   | `pytest_timeout.is_debugging()`        | debugger probe  | suppresses the timer under a detected debugger unless detection is off    |
 
-```python contract
+```python signature
 class Settings(NamedTuple):
     timeout: float | None
     method: str            # 'signal' | 'thread'
@@ -35,17 +35,17 @@ def pytest_timeout_cancel_timer(item: Item) -> bool | None: ...
 
 The config key, marker, and CLI/env surface resolving a per-test ceiling.
 
-| [INDEX] | [SURFACE]                                                                           | [KIND]            | [CAPABILITY]                                                                    |
-| :-----: | :---------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `timeout` (ini)                                                                     | config key        | session-wide seconds; `0` means no timeout — the estate sets the string `"30"`  |
-|  [02]   | `@pytest.mark.timeout(seconds, *, method=None, func_only=None)`                     | per-test override | overrides the ini ceiling and mechanism for one test                            |
-|  [03]   | `--timeout <seconds>` · `PYTEST_TIMEOUT` (env)                                      | CLI/env override  | run-time ceiling above the ini value                                            |
-|  [04]   | `--timeout-method <signal\|thread>` · `timeout_method` (ini)                        | mechanism         | `signal` uses SIGALRM (main-thread only), `thread` a timer thread (any context) |
-|  [05]   | `timeout_func_only` (ini) · `func_only` marker arg                                  | scope             | times only the test body, excluding fixture setup/teardown                      |
-|  [06]   | `--session-timeout <seconds>` · `session_timeout` (ini)                             | session ceiling   | caps total session time, checked between tests                                  |
-|  [07]   | `--timeout-disable-debugger-detection` · `timeout_disable_debugger_detection` (ini) | debugger policy   | keeps the timer armed under a debugger                                          |
+| [INDEX] | [SURFACE]                                      | [KIND]            | [CAPABILITY]                                                     |
+| :-----: | :--------------------------------------------- | :---------------- | :--------------------------------------------------------------- |
+|  [01]   | `timeout` (ini)                                | config key        | session-wide seconds; `0` = no timeout; the estate sets `"30"`   |
+|  [02]   | `@pytest.mark.timeout(seconds, ...)`           | per-test override | overrides the ini ceiling; `method`/`func_only` kwargs per test  |
+|  [03]   | `--timeout <seconds>` · `PYTEST_TIMEOUT` (env) | CLI/env override  | run-time ceiling above the ini value                             |
+|  [04]   | `--timeout-method <signal\|thread>`            | mechanism         | `signal` = SIGALRM (main thread); `thread` = timer (any context) |
+|  [05]   | `timeout_func_only` (ini) · `func_only` arg    | scope             | times only the test body, excluding fixture setup/teardown       |
+|  [06]   | `--session-timeout <seconds>`                  | session ceiling   | caps total session time, checked between tests                   |
+|  [07]   | `--timeout-disable-debugger-detection`         | debugger policy   | keeps the timer armed under a debugger                           |
 
-```python contract
+```python signature
 # ini keys (addini): timeout, timeout_method, timeout_func_only,
 #                    timeout_disable_debugger_detection, session_timeout
 # marker: @pytest.mark.timeout(30, method="thread", func_only=True)

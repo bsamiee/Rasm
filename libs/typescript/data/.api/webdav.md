@@ -14,36 +14,52 @@
 
 [PUBLIC_TYPE_SCOPE]: the client factory, auth rows, and result shapes
 - rail: boundaries
+- `createClient(remoteURL, options)` mints the `WebDAVClient`; `options` carry the auth row (`authType: AuthType`, `username`/`password`, `token: { access_token, token_type, refresh_token? }`, `ha1`) and the transport row (`headers`, `httpAgent`/`httpsAgent`, `withCredentials`, `maxBodyLength`/`maxContentLength`, `remoteBasePath`, `contactHref`, `entityDecoder`).
+- result shapes: `FileStat` (`filename`, `basename`, `lastmod`, `size`, `type: "file" \| "directory"`, `etag`, `mime?`, `props?`), `ResponseDataDetailed<T>` (`data`, `headers`, `status`, `statusText`), `DiskQuota` (`used`, `available: "unknown" \| "unlimited" \| number`), `LockResponse` (`serverTimeout`, `token`).
 
-| [INDEX] | [SYMBOL]                                                                                                                                                         | [TYPE_FAMILY] | [CONSUMER]                                                                       |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------ | :------------------------------------------------------------------------------- |
-|  [01]   | `createClient(remoteURL, options)` → `WebDAVClient`                                                                                                              | factory       | one client per origin row, held as a scoped service                              |
-|  [02]   | options auth (`authType: AuthType`, `username`/`password`, `token: { access_token, token_type, refresh_token? }`, `ha1`)                                         | auth row      | `AuthType.Auto \| Password \| Digest \| Token \| None` — credential kind is data |
-|  [03]   | options transport (`headers`, `httpAgent`/`httpsAgent`, `withCredentials`, `maxBodyLength`/`maxContentLength`, `remoteBasePath`, `contactHref`, `entityDecoder`) | transport     | agent pooling, header policy, LOCK owner contact, XML-expansion bounds           |
-|  [04]   | `FileStat` (`filename`, `basename`, `lastmod`, `size`, `type: "file" \| "directory"`, `etag`, `mime?`, `props?`)                                                 | stat fact     | the census/diff unit; `etag` is the poll-watch change key                        |
-|  [05]   | `ResponseDataDetailed<T>` (`data`, `headers`, `status`, `statusText`)                                                                                            | receipt       | every read's `details: true` projection                                          |
-|  [06]   | `DiskQuota` (`used`, `available: "unknown" \| "unlimited" \| number`)                                                                                            | quota fact    | capacity row for transfer admission                                              |
-|  [07]   | `LockResponse` (`serverTimeout`, `token`)                                                                                                                        | lock fact     | the RFC 4918 token `unlock` requires                                             |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CONSUMER]                                                                       |
+| :-----: | :------------------------ | :------------ | :------------------------------------------------------------------------------- |
+|  [01]   | `createClient` factory    | factory       | one client per origin row, held as a scoped service                              |
+|  [02]   | `options` auth row        | auth row      | `AuthType.Auto \| Password \| Digest \| Token \| None` — credential kind is data |
+|  [03]   | `options` transport row   | transport     | agent pooling, header policy, LOCK owner contact, XML-expansion bounds           |
+|  [04]   | `FileStat`                | stat fact     | the census/diff unit; `etag` is the poll-watch change key                        |
+|  [05]   | `ResponseDataDetailed<T>` | receipt       | every read's `details: true` projection                                          |
+|  [06]   | `DiskQuota`               | quota fact    | capacity row for transfer admission                                              |
+|  [07]   | `LockResponse`            | lock fact     | the RFC 4918 token `unlock` requires                                             |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: census, transfer, namespace, and locks
 - rail: boundaries
 
-| [INDEX] | [SURFACE]                                                                                                   | [ENTRY_FAMILY] | [CONSUMER]                                                        |
-| :-----: | :---------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------- |
-|  [01]   | `getDirectoryContents(path, { deep?, glob?, includeSelf?, details? })`                                      | census         | recursive walk in one PROPFIND; the poll-watch snapshot source    |
-|  [02]   | `stat(path, { details? })` / `exists(path)` / `getQuota({ details?, path? })`                               | attrs          | point facts; etag/size/lastmod diff inputs                        |
-|  [03]   | `getFileContents(filename, { format: "binary" \| "text", details?, onDownloadProgress? })`                  | whole read     | browser-safe read lane                                            |
-|  [04]   | `createReadStream(filename, { range?: { start, end? }, callback? })` → `Readable`                           | ranged read    | node stream lane; `range.start` is the download-resume arm        |
-|  [05]   | `putFileContents(filename, data, { overwrite?, contentLength?, onUploadProgress? }): Promise<boolean>`      | whole write    | browser-safe write lane; `false` = 412 refused, a typed fact      |
-|  [06]   | `createWriteStream(filename, { overwrite? }, callback?)` → `Writable`                                       | streamed write | node sink lane; completion callback is the third positional arg   |
-|  [07]   | `partialUpdateFileContents(filePath, start, end, data)`                                                     | ranged write   | byte-offset patch — a server capability flag, degrade to full put |
-|  [08]   | `copyFile(filename, destination, { shallow? })` / `moveFile(filename, destinationFilename, { overwrite? })` | server-side    | zero-byte-transfer copy/move — the capability flag SFTP rows lack |
-|  [09]   | `deleteFile(filename)` / `createDirectory(path, { recursive? })`                                            | namespace      | tree maintenance                                                  |
-|  [10]   | `lock(path, { refreshToken?, timeout? })` → `LockResponse` / `unlock(path, token)`                          | lock           | exclusive-write coordination against concurrent DAV writers       |
-|  [11]   | `search(path, { details? })` / `customRequest(path, requestOptions)` / `getDAVCompliance(path)`             | probe          | server capability probing and escape-hatch verbs                  |
-|  [12]   | `getHeaders()` / `setHeaders(headers)` / `getFileDownloadLink(filename)` / `getFileUploadLink(filename)`    | session        | header policy swap; presigned-style basic-auth links              |
+| [INDEX] | [SURFACE]                                                                                                   | [ENTRY_FAMILY] |
+| :-----: | :---------------------------------------------------------------------------------------------------------- | :------------- |
+|  [01]   | `getDirectoryContents(path, { deep?, glob?, includeSelf?, details? })`                                      | census         |
+|  [02]   | `stat(path, { details? })` / `exists(path)` / `getQuota({ details?, path? })`                               | attrs          |
+|  [03]   | `getFileContents(filename, { format: "binary" \| "text", details?, onDownloadProgress? })`                  | whole read     |
+|  [04]   | `createReadStream(filename, { range?: { start, end? }, callback? })` → `Readable`                           | ranged read    |
+|  [05]   | `putFileContents(filename, data, { overwrite?, contentLength?, onUploadProgress? }): Promise<boolean>`      | whole write    |
+|  [06]   | `createWriteStream(filename, { overwrite? }, callback?)` → `Writable`                                       | streamed write |
+|  [07]   | `partialUpdateFileContents(filePath, start, end, data)`                                                     | ranged write   |
+|  [08]   | `copyFile(filename, destination, { shallow? })` / `moveFile(filename, destinationFilename, { overwrite? })` | server-side    |
+|  [09]   | `deleteFile(filename)` / `createDirectory(path, { recursive? })`                                            | namespace      |
+|  [10]   | `lock(path, { refreshToken?, timeout? })` → `LockResponse` / `unlock(path, token)`                          | lock           |
+|  [11]   | `search(path, { details? })` / `customRequest(path, requestOptions)` / `getDAVCompliance(path)`             | probe          |
+|  [12]   | `getHeaders()` / `setHeaders(headers)` / `getFileDownloadLink(filename)` / `getFileUploadLink(filename)`    | session        |
+
+[CONSUMER_NOTES]:
+- [01]-[CENSUS]: recursive walk in one PROPFIND; the poll-watch snapshot source.
+- [02]-[ATTRS]: point facts; `etag`/`size`/`lastmod` diff inputs.
+- [03]-[WHOLE_READ]: browser-safe read lane.
+- [04]-[RANGED_READ]: node stream lane; `range.start` is the download-resume arm.
+- [05]-[WHOLE_WRITE]: browser-safe write lane; `false` = 412 refused, a typed fact.
+- [06]-[STREAMED_WRITE]: node sink lane; the completion callback is the third positional arg.
+- [07]-[RANGED_WRITE]: byte-offset patch — a server capability flag, degrade to full put.
+- [08]-[SERVER_SIDE]: zero-byte-transfer copy/move — the capability flag SFTP rows lack.
+- [09]-[NAMESPACE]: tree maintenance.
+- [10]-[LOCK]: exclusive-write coordination against concurrent DAV writers.
+- [11]-[PROBE]: server capability probing and escape-hatch verbs.
+- [12]-[SESSION]: header policy swap; presigned-style basic-auth links.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -15,47 +15,56 @@
 
 [PUBLIC_TYPE_SCOPE]: primary export functions
 - rail: model-asset
+- `to_onnx(model, X, name, initial_types, target_opset, options, white_op, black_op, final_types, dtype, naming, model_optim, verbose)` is the high-level route; `convert_sklearn(model, name, initial_types, doc_string, target_opset, custom_conversion_functions, custom_shape_calculators, custom_parsers, options, intermediate, white_op, black_op, final_types, dtype, naming, model_optim, verbose)` adds the explicit custom-hook parameters
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                   | [ENTRY_FAMILY] | [RAIL]                                         |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :--------------------------------------------- |
-|  [01]   | `to_onnx(model, X, name, initial_types, target_opset, options, white_op, black_op, final_types, dtype, naming, model_optim, verbose)`                                                                                                       | primary export | converts fitted estimator to `onnx.ModelProto` |
-|  [02]   | `convert_sklearn(model, name, initial_types, doc_string, target_opset, custom_conversion_functions, custom_shape_calculators, custom_parsers, options, intermediate, white_op, black_op, final_types, dtype, naming, model_optim, verbose)` | full export    | lower-level export with explicit custom hooks  |
+| [INDEX] | [SYMBOL]          | [ENTRY_FAMILY] | [CAPABILITY]                                   |
+| :-----: | :---------------- | :------------- | :--------------------------------------------- |
+|  [01]   | `to_onnx`         | primary export | converts fitted estimator to `onnx.ModelProto` |
+|  [02]   | `convert_sklearn` | full export    | lower-level export with explicit custom hooks  |
 
 [PUBLIC_TYPE_SCOPE]: converter and parser registration
 - rail: model-asset
+- `update_registered_converter(model, alias, shape_fct, convert_fct, overwrite, parser, options)` registers a converter; `update_registered_parser(model, parser_fct)`, `get_model_alias(model_type)`, `get_latest_tested_opset_version()`, `supported_converters(from_sklearn)`, and `wrap_as_onnx_mixin(model, target_opset)` are the parser, introspection, opset, and mixin entries
 
-| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [RAIL]                                        |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------- |
-|  [01]   | `update_registered_converter(model, alias, shape_fct, convert_fct, overwrite, parser, options)` | registration   | registers a custom estimator converter        |
-|  [02]   | `update_registered_parser(model, parser_fct)`                                                   | registration   | registers a custom parser for an estimator    |
-|  [03]   | `get_model_alias(model_type)`                                                                   | introspection  | returns the registered ONNX alias for a type  |
-|  [04]   | `get_latest_tested_opset_version()`                                                             | opset query    | returns the highest tested ONNX opset version |
-|  [05]   | `supported_converters(from_sklearn)`                                                            | introspection  | lists all registered converter aliases        |
-|  [06]   | `wrap_as_onnx_mixin(model, target_opset)`                                                       | mixin factory  | wraps a fitted estimator as an ONNX mixin     |
+| [INDEX] | [SYMBOL]                          | [ENTRY_FAMILY] | [CAPABILITY]                                  |
+| :-----: | :-------------------------------- | :------------- | :-------------------------------------------- |
+|  [01]   | `update_registered_converter`     | registration   | registers a custom estimator converter        |
+|  [02]   | `update_registered_parser`        | registration   | registers a custom parser for an estimator    |
+|  [03]   | `get_model_alias`                 | introspection  | returns the registered ONNX alias for a type  |
+|  [04]   | `get_latest_tested_opset_version` | opset query    | returns the highest tested ONNX opset version |
+|  [05]   | `supported_converters`            | introspection  | lists all registered converter aliases        |
+|  [06]   | `wrap_as_onnx_mixin`              | mixin factory  | wraps a fitted estimator as an ONNX mixin     |
 
 [PUBLIC_TYPE_SCOPE]: algebra and operator building
 - rail: model-asset
 
-| [INDEX] | [SYMBOL]                                            | [PACKAGE_ROLE]  | [CAPABILITY]                                                                          |
-| :-----: | :-------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `algebra.OnnxOperator`                              | operator base   | base class for ONNX operator node builders (chains into a graph)                      |
-|  [02]   | `algebra.onnx_operator.OnnxSubEstimator`            | sub-graph       | embeds a fitted sub-estimator as an ONNX sub-graph inside a custom converter          |
-|  [03]   | `algebra.onnx_ops`                                  | operator module | versioned standard operator node classes (`OnnxAdd`, `OnnxMatMul`, `OnnxAbs_13`, ...) |
-|  [04]   | `algebra.custom_ops` \| `algebra.complex_functions` | custom op       | custom-domain op nodes and composite complex-function builders                        |
-|  [05]   | `algebra.type_helper` \| `algebra.graph_state`      | build state     | type annotation/mapping helpers and graph-construction state carrier                  |
+| [INDEX] | [SYMBOL]                                 | [PACKAGE_ROLE]  | [CAPABILITY]                                                             |
+| :-----: | :--------------------------------------- | :-------------- | :----------------------------------------------------------------------- |
+|  [01]   | `algebra.OnnxOperator`                   | operator base   | base class for ONNX operator node builders (chains into a graph)         |
+|  [02]   | `algebra.onnx_operator.OnnxSubEstimator` | sub-graph       | embeds a fitted sub-estimator as an ONNX sub-graph in a custom converter |
+|  [03]   | `algebra.onnx_ops`                       | operator module | versioned standard operator nodes (`OnnxAdd`, `OnnxAbs_13`, ...)         |
+|  [04]   | `algebra.custom_ops`                     | custom op       | custom-domain op node classes                                            |
+|  [05]   | `algebra.complex_functions`              | custom op       | composite complex-function builders                                      |
+|  [06]   | `algebra.type_helper`                    | build state     | type annotation and mapping helpers                                      |
+|  [07]   | `algebra.graph_state`                    | build state     | graph-construction state carrier                                         |
 
 [PUBLIC_TYPE_SCOPE]: initial-type vocabulary and cast transformers
 - rail: model-asset
 
 `common.data_types` is the `initial_types`/`final_types` declaration vocabulary — each `*TensorType([rows, cols])` names an ONNX graph input/output tensor; `None` in a shape dimension is the dynamic batch axis. `sklapi` transformers slot at the pipeline front to pin the numeric dtype, neutralizing the float32 ONNX-runtime drift against scikit-learn's float64 fit.
 
-| [INDEX] | [SYMBOL]                                                                                      | [PACKAGE_ROLE] | [CAPABILITY]                                                     |
-| :-----: | :-------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------- |
-|  [01]   | `common.data_types.FloatTensorType([None, n])` \| `DoubleTensorType`                          | input type     | float32 / float64 tensor input declaration for `initial_types`   |
-|  [02]   | `common.data_types.Int64TensorType` \| `StringTensorType` \| `BooleanTensorType`              | input type     | integer / string / boolean tensor inputs (categorical pipelines) |
-|  [03]   | `common.data_types.guess_data_type(X)` \| `guess_tensor_type(dtype)` \| `guess_numpy_type(t)` | type inference | infer `initial_types` from a sample array / dtype                |
-|  [04]   | `sklapi.CastTransformer(dtype=np.float64)`                                                    | pipeline step  | dtype-cast transformer that pins float64 at the pipeline front   |
-|  [05]   | `sklapi.ReplaceTransformer`                                                                   | pipeline step  | value-replacement transformer for ONNX-safe preprocessing        |
+| [INDEX] | [SYMBOL]                                       | [PACKAGE_ROLE] | [CAPABILITY]                                                 |
+| :-----: | :--------------------------------------------- | :------------- | :----------------------------------------------------------- |
+|  [01]   | `common.data_types.FloatTensorType([None, n])` | input type     | float32 tensor input declaration for `initial_types`         |
+|  [02]   | `common.data_types.DoubleTensorType`           | input type     | float64 tensor input declaration                             |
+|  [03]   | `common.data_types.Int64TensorType`            | input type     | integer tensor input (categorical pipelines)                 |
+|  [04]   | `common.data_types.StringTensorType`           | input type     | string tensor input (categorical pipelines)                  |
+|  [05]   | `common.data_types.BooleanTensorType`          | input type     | boolean tensor input (categorical pipelines)                 |
+|  [06]   | `common.data_types.guess_data_type(X)`         | type inference | infer `initial_types` from a sample array                    |
+|  [07]   | `common.data_types.guess_tensor_type(dtype)`   | type inference | infer the tensor type from a dtype                           |
+|  [08]   | `common.data_types.guess_numpy_type(t)`        | type inference | infer the numpy type from a type object                      |
+|  [09]   | `sklapi.CastTransformer(dtype=np.float64)`     | pipeline step  | dtype-cast transformer pinning float64 at the pipeline front |
+|  [10]   | `sklapi.ReplaceTransformer`                    | pipeline step  | value-replacement transformer for ONNX-safe preprocessing    |
 
 ## [03]-[LOCAL_ADMISSION]
 

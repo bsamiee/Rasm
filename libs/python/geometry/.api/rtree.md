@@ -20,24 +20,32 @@
 
 `Index` (aliased `Rtree`) is the query carrier; `RtreeContainer` is the sibling variant storing live Python objects instead of pickled payloads; `Item` is the hydrated query entry returned under `objects=True`.
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]                                                                                             |
-| :-----: | :--------------- | :------------ | :------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Index`          | index carrier | insert/delete plus `intersection`/`nearest`/`count`/`contains`; disk or memory backing; stream bulk load |
-|  [02]   | `RtreeContainer` | object index  | same query surface keyed by live Python objects, no pickling of the payload                              |
-|  [03]   | `Item`           | result entry  | `id`, `bbox`, `bounds`, `object`, and `get_object()` for a hydrated hit under `objects=True`             |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]                                                                              |
+| :-----: | :--------------- | :------------ | :---------------------------------------------------------------------------------------- |
+|  [01]   | `Index`          | index carrier | insert/delete, `intersection`/`nearest`/`count`/`contains`; disk/memory; stream bulk load |
+|  [02]   | `RtreeContainer` | object index  | same query surface keyed by live Python objects, no pickling of the payload               |
+|  [03]   | `Item`           | result entry  | `id`, `bbox`, `bounds`, `object`, `get_object()` for a hydrated hit (`objects=True`)      |
 
 [PUBLIC_TYPE_SCOPE]: property and enum family
 - rail: mesh/spatial
 
 `Property` carries the index configuration; the `RT_*` module constants seed its `type`/`variant`/`storage` slots. `RTreeError` is the single failure type.
 
-| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY] | [CAPABILITY]                                                                                                                                                                                                                                                                                    |
-| :-----: | :--------------------------------------- | :------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Property`                               | config        | `dimension`, `type`, `variant`, `storage`, `leaf_capacity`, `index_capacity`, `fill_factor`, `near_minimum_overlap_factor`, `tight_mbr`, `pagesize`, `buffering_capacity`, `overwrite`, `filename`, `dat_extension`/`idx_extension`, `tpr_horizon`; `as_dict`/`initialize_from_dict` round-trip |
-|  [02]   | `RT_RTree` / `RT_MVRTree` / `RT_TPRTree` | index type    | seeds `Property.type`: static R-tree, multi-version, or time-parameterized                                                                                                                                                                                                                      |
-|  [03]   | `RT_Linear` / `RT_Quadratic` / `RT_Star` | split variant | seeds `Property.variant`: linear, quadratic, or R*-tree split (default `RT_Star`)                                                                                                                                                                                                               |
-|  [04]   | `RT_Memory` / `RT_Disk`                  | storage       | seeds `Property.storage`: in-memory or file-backed pages                                                                                                                                                                                                                                        |
-|  [05]   | `RTreeError`                             | failure       | libspatialindex fault surfaced as a Python exception                                                                                                                                                                                                                                            |
+| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY] | [CAPABILITY]                                                            |
+| :-----: | :--------------------------------------- | :------------ | :---------------------------------------------------------------------- |
+|  [01]   | `Property`                               | config        | slots fenced below; `as_dict`/`initialize_from_dict` round-trip         |
+|  [02]   | `RT_RTree` / `RT_MVRTree` / `RT_TPRTree` | index type    | seeds `Property.type`: static, multi-version, or time-parameterized     |
+|  [03]   | `RT_Linear` / `RT_Quadratic` / `RT_Star` | split variant | seeds `Property.variant`: linear/quadratic/R* split (default `RT_Star`) |
+|  [04]   | `RT_Memory` / `RT_Disk`                  | storage       | seeds `Property.storage`: in-memory or file-backed pages                |
+|  [05]   | `RTreeError`                             | failure       | libspatialindex fault surfaced as a Python exception                    |
+
+```python signature
+# rtree.index.Property config slots (settable attributes):
+dimension; type; variant; storage
+leaf_capacity; index_capacity; fill_factor; near_minimum_overlap_factor; tight_mbr
+pagesize; buffering_capacity; overwrite
+filename; dat_extension; idx_extension; tpr_horizon
+```
 
 ## [03]-[ENTRYPOINTS]
 
@@ -69,16 +77,16 @@
 [ENTRYPOINT_SCOPE]: vectorized batch, persistence, and payload
 - rail: mesh/spatial
 
-`intersection_v`/`nearest_v` take numpy `(n, d)` min/max arrays and return numpy id-and-count arrays for a whole batch in one native call; `dumps`/`loads` are the pickle payload codec; `flush`/`close` commit and release disk storage; `bounds`/`get_bounds`/`leaves`/`get_size`/`valid` introspect the tree.
+`intersection_v`/`nearest_v` take numpy `(n, d)` min/max arrays and return numpy id-and-count arrays for a whole batch in one native call; `nearest_v(mins, maxs, num_results=1, max_dists=None, strict=False, return_max_dists=False)` batches k-nearest with an optional distance cutoff. `dumps`/`loads` are the pickle payload codec; `flush`/`close` commit and release disk storage; `bounds`/`get_bounds`/`leaves`/`get_size`/`valid` introspect the tree.
 
-| [INDEX] | [SURFACE]                                                                                    | [ENTRY_FAMILY] | [CAPABILITY]                                     |
-| :-----: | :------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------- |
-|  [01]   | `intersection_v(mins, maxs)`                                                                 | batch          | ids plus per-box counts for a numpy query batch  |
-|  [02]   | `nearest_v(mins, maxs, num_results=1, max_dists=None, strict=False, return_max_dists=False)` | batch          | batched k-nearest with optional distance cutoff  |
-|  [03]   | `bounds` / `get_bounds(coordinate_interleaved=None)`                                         | introspect     | overall index MBR in the chosen coordinate order |
-|  [04]   | `leaves()` / `get_size()` / `valid()`                                                        | introspect     | leaf-node layout, entry count, and validity      |
-|  [05]   | `flush()` / `close()`                                                                        | persist        | commit dirty pages and release the disk index    |
-|  [06]   | `dumps(obj) -> bytes` / `loads(bytes) -> object`                                             | payload        | pickle codec for the stored object payload       |
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [CAPABILITY]                                     |
+| :-----: | :--------------------------------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `intersection_v(mins, maxs)`                         | batch          | ids plus per-box counts for a numpy query batch  |
+|  [02]   | `nearest_v(mins, maxs, ...)`                         | batch          | batched k-nearest with optional distance cutoff  |
+|  [03]   | `bounds` / `get_bounds(coordinate_interleaved=None)` | introspect     | overall index MBR in the chosen coordinate order |
+|  [04]   | `leaves()` / `get_size()` / `valid()`                | introspect     | leaf-node layout, entry count, and validity      |
+|  [05]   | `flush()` / `close()`                                | persist        | commit dirty pages and release the disk index    |
+|  [06]   | `dumps(obj) -> bytes` / `loads(bytes) -> object`     | payload        | pickle codec for the stored object payload       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

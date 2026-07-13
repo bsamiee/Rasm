@@ -22,43 +22,43 @@
 - rail: platform/browser
 - Each entry is a `Layer` that satisfies a `@effect/platform` Tag with a browser implementation. `BrowserRuntime.runMain` is the `RunMain` instance (`@effect/platform/Runtime`) that boots the app with exit-code, logging, and interrupt handling — the one boot law (`runtime browser/boot`; a second boot is the named defect).
 
-| [INDEX] | [SYMBOL]                                                                 | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                                                |
-| :-----: | :----------------------------------------------------------------------- | :------------ | :------------------------------------------------------------------------------------------------- |
-|  [01]   | `BrowserRuntime.runMain`                                                 | `RunMain`     | `runtime browser/boot` single-boot law                                                             |
-|  [02]   | `BrowserKeyValueStore.layerLocalStorage` / `layerSessionStorage`         | KV layer      | `runtime browser/persist`, EventLog identity; satisfies `KeyValueStore`                            |
-|  [03]   | `BrowserWorker.layer` / `layerPlatform` / `layerManager` / `layerWorker` | worker client | `runtime browser/fetch` decode worker pool; satisfies `WorkerManager`/`Spawner`                    |
-|  [04]   | `BrowserWorkerRunner.layer` / `make` / `layerMessagePort`                | worker runner | worker-side entrypoint (`ui/viewer` GLB decode); satisfies `PlatformRunner`                        |
-|  [05]   | `BrowserHttpClient.layerXMLHttpRequest`                                  | HTTP client   | `runtime net/client` browser client; XHR progress + arraybuffer; OTLP export transport             |
-|  [06]   | `BrowserHttpClient.currentXHRResponseType` / `withXHRArrayBuffer`        | XHR control   | force arraybuffer response for binary frames                                                       |
-|  [07]   | `BrowserSocket.layerWebSocket` / `layerWebSocketConstructor`             | socket layer  | `runtime net/channel`, `wire` transport, EventLog WS sync; satisfies `Socket.WebSocketConstructor` |
-|  [08]   | `BrowserStream.fromEventListenerWindow` / `fromEventListenerDocument`    | DOM stream    | `runtime browser/boot` connectivity/visibility event rows                                          |
+| [INDEX] | [SYMBOL]                                                                 | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                         |
+| :-----: | :----------------------------------------------------------------------- | :------------ | :------------------------------------------ |
+|  [01]   | `BrowserRuntime.runMain`                                                 | `RunMain`     | `browser/boot` single-boot law              |
+|  [02]   | `BrowserKeyValueStore.layerLocalStorage` / `layerSessionStorage`         | KV layer      | `browser/persist`; EventLog identity        |
+|  [03]   | `BrowserWorker.layer` / `layerPlatform` / `layerManager` / `layerWorker` | worker client | `browser/fetch` decode worker pool          |
+|  [04]   | `BrowserWorkerRunner.layer` / `make` / `layerMessagePort`                | worker runner | worker entry; `ui/viewer` GLB decode        |
+|  [05]   | `BrowserHttpClient.layerXMLHttpRequest`                                  | HTTP client   | `net/client` browser XHR; OTLP transport    |
+|  [06]   | `BrowserHttpClient.currentXHRResponseType` / `withXHRArrayBuffer`        | XHR control   | force arraybuffer for binary frames         |
+|  [07]   | `BrowserSocket.layerWebSocket` / `layerWebSocketConstructor`             | socket layer  | `net/channel`, `wire`, EventLog WS sync     |
+|  [08]   | `BrowserStream.fromEventListenerWindow` / `fromEventListenerDocument`    | DOM stream    | `browser/boot` connectivity/visibility rows |
 
 [PUBLIC_TYPE_SCOPE]: Web-API capability services
 - rail: platform/browser
-- Each is a `Context.Tag` + `layer` over a browser Web API, with a tagged error rail. `ui`/`browser` declare the runtime-capability port and this package provides the Layer at app composition (`ui` never imports `browser`).
+- Each is a `Context.Tag` + `layer` over a browser Web API with a tagged error rail (`ClipboardError`/`GeolocationError`/`PermissionsError`). `ui`/`browser` declare the runtime-capability port and this package provides the Layer at app composition (`ui` never imports `browser`).
 
-| [INDEX] | [SYMBOL]                                                                               | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                     |
-| :-----: | :------------------------------------------------------------------------------------- | :------------ | :------------------------------------------------------ |
-|  [01]   | `Clipboard.Clipboard` / `Clipboard.layer` / `ClipboardError`                           | `Context.Tag` | `ui` copy/paste capability; read/write text + blob      |
-|  [02]   | `Geolocation.Geolocation` / `Geolocation.layer` / `watchPosition` / `GeolocationError` | `Context.Tag` | `ui`/`viewer` position + watch stream                   |
-|  [03]   | `Permissions.Permissions` / `Permissions.layer` / `PermissionsError`                   | `Context.Tag` | permission-state query/observe over the Permissions API |
+| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                     |
+| :-----: | :----------------------------------------------------- | :------------ | :-------------------------------------- |
+|  [01]   | `Clipboard.Clipboard` / `.layer`                       | `Context.Tag` | `ui` copy/paste; read/write text + blob |
+|  [02]   | `Geolocation.Geolocation` / `.layer` / `watchPosition` | `Context.Tag` | `ui`/`viewer` position + watch stream   |
+|  [03]   | `Permissions.Permissions` / `.layer`                   | `Context.Tag` | permission-state query/observe          |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: runtime boot + platform-service composition
 - rail: platform/browser
-- `runMain` is the terminal boot; every other entry is a `Layer` merged into the app's context that satisfies an abstract `@effect/platform` Tag. Worker spawn is parameterized by a `spawn(id)` factory returning `Worker | SharedWorker | MessagePort` — one worker law, every worker kind as the factory's return.
+- `runMain(effect, { disableErrorReporting?, disablePrettyLogger?, teardown? })` is the terminal boot; every other entry is a `Layer` merged into the app's context that satisfies an abstract `@effect/platform` Tag. Worker spawn is parameterized by a `spawn(id)` factory returning `Worker | SharedWorker | MessagePort` — `BrowserWorker.layer(spawn)` yields `Layer<WorkerManager | Spawner>` and `Worker.makePool`/`makePoolLayer` compose over it. `fromEventListenerWindow`/`fromEventListenerDocument` take `(type, opts?)`.
 
-| [INDEX] | [SURFACE]                                                                                                            | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                                         |
-| :-----: | :------------------------------------------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `BrowserRuntime.runMain(effect, { disableErrorReporting?, disablePrettyLogger?, teardown? })`                        | boot            | `runtime browser/boot` — the one `runMain`                                  |
-|  [02]   | `BrowserKeyValueStore.layerLocalStorage` / `layerSessionStorage`                                                     | KV layer        | satisfies `KeyValueStore`; `EventLog.layerIdentityKvs` backing              |
-|  [03]   | `BrowserWorker.layer(spawn: (id: number) => Worker \| SharedWorker \| MessagePort): Layer<WorkerManager \| Spawner>` | worker client   | `runtime browser/fetch`; `Worker.makePool`/`makePoolLayer` composes over it |
-|  [04]   | `BrowserWorkerRunner.layer` / `layerMessagePort(port)` / `make(self)`                                                | worker runner   | worker-side runner entrypoint Layer                                         |
-|  [05]   | `BrowserHttpClient.layerXMLHttpRequest` + `withXHRArrayBuffer(effect)`                                               | HTTP client     | `runtime net/client` browser client; binary-frame download                  |
-|  [06]   | `BrowserSocket.layerWebSocket(url, opts?)` / `layerWebSocketConstructor`                                             | socket layer    | `EventLogRemote.layerWebSocket` WS constructor                              |
-|  [07]   | `BrowserStream.fromEventListenerWindow(type, opts?)` / `fromEventListenerDocument(type, opts?)`                      | DOM stream      | connectivity/visibility/network `Stream` rows                               |
-|  [08]   | `Geolocation.watchPosition(opts?)` / `Clipboard.layer` / `Permissions.layer`                                         | Web-API service | `ui`/`viewer` capability Layers                                             |
+| [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                           |
+| :-----: | :--------------------------------------------------------------------- | :-------------- | :-------------------------------------------- |
+|  [01]   | `BrowserRuntime.runMain(effect, opts)`                                 | boot            | `browser/boot` — the one `runMain`            |
+|  [02]   | `BrowserKeyValueStore.layerLocalStorage` / `layerSessionStorage`       | KV layer        | `EventLog.layerIdentityKvs` backing           |
+|  [03]   | `BrowserWorker.layer(spawn)`                                           | worker client   | `browser/fetch` decode pool                   |
+|  [04]   | `BrowserWorkerRunner.layer` / `layerMessagePort(port)` / `make(self)`  | worker runner   | worker-side runner entrypoint Layer           |
+|  [05]   | `BrowserHttpClient.layerXMLHttpRequest` + `withXHRArrayBuffer(effect)` | HTTP client     | `net/client`; binary-frame download           |
+|  [06]   | `BrowserSocket.layerWebSocket(url)` / `layerWebSocketConstructor`      | socket layer    | `EventLogRemote.layerWebSocket` constructor   |
+|  [07]   | `BrowserStream.fromEventListenerWindow` / `fromEventListenerDocument`  | DOM stream      | connectivity/visibility/network `Stream` rows |
+|  [08]   | `Geolocation.watchPosition` / `Clipboard.layer` / `Permissions.layer`  | Web-API service | `ui`/`viewer` capability Layers               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

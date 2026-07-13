@@ -13,13 +13,14 @@
 
 Worker-identity helpers a fixture or conftest reads to branch on execution role.
 
-| [INDEX] | [SYMBOL]                                              | [KIND]     | [CAPABILITY]                                                                           |
-| :-----: | :---------------------------------------------------- | :--------- | :------------------------------------------------------------------------------------- |
-|  [01]   | `xdist.get_xdist_worker_id(request_or_session)`       | worker id  | returns `gw0`/`gw1`/… on a worker, `master` on the controller or a non-distributed run |
-|  [02]   | `xdist.is_xdist_worker(request_or_session)`           | role probe | true inside a worker subprocess                                                        |
-|  [03]   | `xdist.is_xdist_controller` · `xdist.is_xdist_master` | role probe | true on the controlling process orchestrating workers                                  |
+| [INDEX] | [SYMBOL]                    | [KIND]     | [CAPABILITY]                                                                           |
+| :-----: | :-------------------------- | :--------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `xdist.get_xdist_worker_id` | worker id  | returns `gw0`/`gw1`/… on a worker, `master` on the controller or a non-distributed run |
+|  [02]   | `xdist.is_xdist_worker`     | role probe | true inside a worker subprocess                                                        |
+|  [03]   | `xdist.is_xdist_controller` | role probe | true on the controlling process orchestrating workers                                  |
+|  [04]   | `xdist.is_xdist_master`     | role probe | legacy alias of `xdist.is_xdist_controller`                                            |
 
-```python contract
+```python signature
 def get_xdist_worker_id(request_or_session: FixtureRequest | Session) -> str: ...  # 'gw0' | 'master'
 def is_xdist_worker(request_or_session: FixtureRequest | Session) -> bool: ...
 def is_xdist_controller(request_or_session: FixtureRequest | Session) -> bool: ...
@@ -29,17 +30,17 @@ def is_xdist_controller(request_or_session: FixtureRequest | Session) -> bool: .
 
 CLI surface controlling worker count, scheduling mode, and restart tolerance.
 
-| [INDEX] | [SURFACE]                                             | [KIND]       | [CAPABILITY]                                                                           |
-| :-----: | :---------------------------------------------------- | :----------- | :------------------------------------------------------------------------------------- |
-|  [01]   | `-n <n>` · `--numprocesses <n>`                       | worker count | `auto` sizes to CPUs, `logical` to logical cores, an int fixes the count; `0` disables |
-|  [02]   | `--maxprocesses <n>`                                  | worker cap   | ceiling on workers when `-n auto` derives the count                                    |
-|  [03]   | `--dist <mode>`                                       | scheduler    | `load`/`loadscope`/`loadfile`/`loadgroup`/`worksteal`/`each`/`no`                      |
-|  [04]   | `--max-worker-restart <n>`                            | crash budget | max worker restarts before the session aborts                                          |
-|  [05]   | `--maxschedchunk <n>`                                 | chunk cap    | caps later dispatch batches under `load`; the initial round still seeds two per worker |
-|  [06]   | `--tx <spec>` · `--px <spec>`                         | transport    | `--tx` adds an execnet gateway spec; `--px` adds a proxy gateway routed by `via=`      |
-|  [07]   | `--dist loadgroup` + `@pytest.mark.xdist_group(name)` | group pin    | routes same-group tests to one worker for shared-resource affinity                     |
+| [INDEX] | [SURFACE]                        | [KIND]       | [CAPABILITY]                                                               |
+| :-----: | :------------------------------- | :----------- | :------------------------------------------------------------------------- |
+|  [01]   | `-n <n>` · `--numprocesses <n>`  | worker count | `auto` = CPUs, `logical` = logical cores, int fixes count; `0` disables    |
+|  [02]   | `--maxprocesses <n>`             | worker cap   | ceiling on workers when `-n auto` derives the count                        |
+|  [03]   | `--dist <mode>`                  | scheduler    | `load`/`loadscope`/`loadfile`/`loadgroup`/`worksteal`/`each`/`no`          |
+|  [04]   | `--max-worker-restart <n>`       | crash budget | max worker restarts before the session aborts                              |
+|  [05]   | `--maxschedchunk <n>`            | chunk cap    | caps later `load` dispatch batches; the initial round seeds two per worker |
+|  [06]   | `--tx <spec>` · `--px <spec>`    | transport    | `--tx` adds an execnet gateway; `--px` a proxy gateway routed by `via=`    |
+|  [07]   | `@pytest.mark.xdist_group(name)` | group pin    | under `--dist loadgroup`; routes same-group tests to one worker            |
 
-```python contract
+```python signature
 # --dist scheduler vocabulary (choices enforced by the option):
 #   load       — round-robin dynamic dispatch, no affinity
 #   loadscope  — group by module::class, one scope per worker

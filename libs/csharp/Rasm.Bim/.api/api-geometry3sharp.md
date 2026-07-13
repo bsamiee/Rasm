@@ -41,12 +41,14 @@
 [PUBLIC_TYPE_SCOPE]: vector and index value types
 - rail: geometry
 
-| [INDEX] | [SYMBOL]   | [TYPE_FAMILY]  | [FIELDS]                                                                                                                                                                                           |
-| :-----: | :--------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Vector3d` | mutable struct | `double x`, `y`, `z`; the canonical position type                                                                                                                                                  |
-|  [02]   | `Vector3f` | mutable struct | `float x`, `y`, `z`; the normal and color type; static anchors `AxisX`/`AxisY`/`AxisZ`/`Zero`/`One` (`AxisZ` the default up-normal a projection substitutes when a mesh carries no normal channel) |
-|  [03]   | `Vector2f` | mutable struct | `float x`, `y`; the UV type                                                                                                                                                                        |
-|  [04]   | `Index3i`  | mutable struct | `int a`, `b`, `c`; a triangle's three vertex indices                                                                                                                                               |
+| [INDEX] | [SYMBOL]   | [TYPE_FAMILY]  | [FIELDS]                                                                                 |
+| :-----: | :--------- | :------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `Vector3d` | mutable struct | `double x`, `y`, `z`; the canonical position type                                        |
+|  [02]   | `Vector3f` | mutable struct | `float x`, `y`, `z`; the normal/color type; anchors `AxisX`/`AxisY`/`AxisZ`/`Zero`/`One` |
+|  [03]   | `Vector2f` | mutable struct | `float x`, `y`; the UV type                                                              |
+|  [04]   | `Index3i`  | mutable struct | `int a`, `b`, `c`; a triangle's three vertex indices                                     |
+
+- [02]-[VECTOR3F]: `AxisZ` is the default up-normal a projection substitutes when a mesh carries no normal channel.
 
 [PUBLIC_TYPE_SCOPE]: read result and options
 - rail: geometry
@@ -66,20 +68,21 @@
 
 [ENTRYPOINT_SCOPE]: `StandardMeshReader` — read and dispatch
 - rail: geometry
+- note: rows [07]-[10] are `static StandardMeshReader` members (prefix elided in the surface cell).
 
-| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [RAIL]                                           |
-| :-----: | :----------------------------------------------------------------------- | :------------- | :----------------------------------------------- |
-|  [01]   | `StandardMeshReader(bool bIncludeDefaultReaders = true)`                 | constructor    | registers OBJ/STL/OFF/G3 default handlers        |
-|  [02]   | `MeshBuilder` property                                                   | builder slot   | the `IMeshBuilder` sink; default `DMesh3Builder` |
-|  [03]   | `Read(Stream, string sExtension, ReadOptions)`                           | stream read    | returns `IOReadResult`; in-memory, no file path  |
-|  [04]   | `Read(string sFilename, ReadOptions)`                                    | file read      | path-dispatched read; returns `IOReadResult`     |
-|  [05]   | `SupportsFormat(string sExtension)`                                      | capability     | `true` when a registered handler claims the ext  |
-|  [06]   | `AddFormatHandler(MeshFormatReader)`                                     | registration   | adds a handler; throws on duplicate extension    |
-|  [07]   | `StandardMeshReader.ReadMesh(Stream, string sExtension)`                 | static read    | returns first `DMesh3` or `null` on non-`Ok`     |
-|  [08]   | `StandardMeshReader.ReadMesh(string sFilename)`                          | static read    | path-overload of [07]; first `DMesh3` or `null`  |
-|  [09]   | `StandardMeshReader.ReadFile(Stream, string, ReadOptions, IMeshBuilder)` | static read    | reads into a caller-supplied builder             |
-|  [10]   | `StandardMeshReader.ReadFile(string, ReadOptions, IMeshBuilder)`         | static read    | path-overload reading into a supplied builder    |
-|  [11]   | `warningEvent` (`ParsingMessagesHandler`)                                | diagnostics    | per-parse warning callback                       |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                           |
+| :-----: | :------------------------------------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `StandardMeshReader(bool bIncludeDefaultReaders = true)` | constructor    | registers OBJ/STL/OFF/G3 default handlers        |
+|  [02]   | `MeshBuilder` property                                   | builder slot   | the `IMeshBuilder` sink; default `DMesh3Builder` |
+|  [03]   | `Read(Stream, string sExtension, ReadOptions)`           | stream read    | returns `IOReadResult`; in-memory, no file path  |
+|  [04]   | `Read(string sFilename, ReadOptions)`                    | file read      | path-dispatched read; returns `IOReadResult`     |
+|  [05]   | `SupportsFormat(string sExtension)`                      | capability     | `true` when a registered handler claims the ext  |
+|  [06]   | `AddFormatHandler(MeshFormatReader)`                     | registration   | adds a handler; throws on duplicate extension    |
+|  [07]   | `ReadMesh(Stream, string sExtension)`                    | static read    | returns first `DMesh3` or `null` on non-`Ok`     |
+|  [08]   | `ReadMesh(string sFilename)`                             | static read    | path-overload of [07]; first `DMesh3` or `null`  |
+|  [09]   | `ReadFile(Stream, string, ReadOptions, IMeshBuilder)`    | static read    | reads into a caller-supplied builder             |
+|  [10]   | `ReadFile(string, ReadOptions, IMeshBuilder)`            | static read    | path-overload reading into a supplied builder    |
+|  [11]   | `warningEvent` (`ParsingMessagesHandler`)                | diagnostics    | per-parse warning callback                       |
 
 [ENTRYPOINT_SCOPE]: `MeshFormatReader` — per-format handler
 - rail: geometry

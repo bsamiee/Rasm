@@ -36,36 +36,52 @@ the process-global `SchemaRegistry`/`VocabularyRegistry`/`DialectRegistry`/`Form
 `JsonSchemaNode`); it doubles as a `$ref`-resolvable base document. `EvaluationOptions` carries the
 evaluate-time policy; `EvaluationResults` is the recursive verdict tree.
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]        | [CAPABILITY]                                                                                                                                      |
-| :-----: | :----------------------- | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `JsonSchema`             | compiled schema      | `IBaseDocument`; `FromText`/`FromFile`/`Build` factories, `Evaluate`, `Root`, `BaseUri`, `BoolValue`, static `True`/`False`, implicit from `bool` |
-|  [02]   | `JsonSchemaNode`         | compiled node        | the built node tree `JsonSchema.Root` exposes; `FindSubschema` target                                                                             |
-|  [03]   | `JsonSchemaBuilder`      | fluent builder       | composes a schema in-code (`Add(keyword, …)`, `RefRoot`, `Build`); static `Empty`/`True`/`False`                                                  |
-|  [04]   | `BuildOptions`           | parse-time policy    | `Default`, `SchemaRegistry`, `VocabularyRegistry`, `DialectRegistry`, `Dialect`                                                                   |
-|  [05]   | `EvaluationOptions`      | evaluate-time policy | `Default`, `OutputFormat`, `RequireFormatValidation`, `FormatRegistry`, `Culture`, annotation-collection knobs                                    |
-|  [06]   | `EvaluationResults`      | verdict tree         | `IsValid`, `EvaluationPath`, `InstanceLocation`, `SchemaLocation`, `Details`, `Annotations`, `Errors`, `Parent`, `ToList`/`ToFlag`                |
-|  [07]   | `OutputFormat`           | output tier enum     | `Flag` (boolean only), `List` (flat failure list), `Hierarchical` (nested tree)                                                                   |
-|  [08]   | `IBaseDocument`          | document contract    | the `$ref`/`$dynamicRef`-resolvable schema-document seam                                                                                          |
-|  [09]   | `JsonSchemaException`    | build failure        | thrown when schema JSON is not a valid schema                                                                                                     |
-|  [10]   | `RefResolutionException` | resolution failure   | thrown when a `$ref`/`$dynamicRef` cannot resolve against the registry                                                                            |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]        | [CAPABILITY]                                                                    |
+| :-----: | :----------------------- | :------------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `JsonSchema`             | compiled schema      | parse-once immutable value; `$ref`-resolvable base document                     |
+|  [02]   | `JsonSchemaNode`         | compiled node        | the built node tree `JsonSchema.Root` exposes; `FindSubschema` target           |
+|  [03]   | `JsonSchemaBuilder`      | fluent builder       | composes a schema in-code without JSON text                                     |
+|  [04]   | `BuildOptions`           | parse-time policy    | the parse-time registry set and dialect pin                                     |
+|  [05]   | `EvaluationOptions`      | evaluate-time policy | output tier, format assertion, culture, annotation knobs                        |
+|  [06]   | `EvaluationResults`      | verdict tree         | recursive per-keyword verdict; boolean, location, and detail rails              |
+|  [07]   | `OutputFormat`           | output tier enum     | `Flag` (boolean only), `List` (flat failure list), `Hierarchical` (nested tree) |
+|  [08]   | `IBaseDocument`          | document contract    | the `$ref`/`$dynamicRef`-resolvable schema-document seam                        |
+|  [09]   | `JsonSchemaException`    | build failure        | thrown when schema JSON is not a valid schema                                   |
+|  [10]   | `RefResolutionException` | resolution failure   | thrown when a `$ref`/`$dynamicRef` cannot resolve against the registry          |
+
+Member surface per type:
+- [01]-`JsonSchema`: `FromText`/`FromFile`/`Build` factories, `Evaluate`, `Root`, `BaseUri`, `BoolValue`, static `True`/`False`, implicit from `bool`.
+- [03]-`JsonSchemaBuilder`: `Add(keyword, …)`, `RefRoot`, `Build`; static `Empty`/`True`/`False`.
+- [04]-`BuildOptions`: `Default`, `SchemaRegistry`, `VocabularyRegistry`, `DialectRegistry`, `Dialect`.
+- [05]-`EvaluationOptions`: `Default`, `OutputFormat`, `RequireFormatValidation`, `FormatRegistry`, `Culture`, annotation-collection knobs.
+- [06]-`EvaluationResults`: `IsValid`, `EvaluationPath`, `InstanceLocation`, `SchemaLocation`, `Details`, `Annotations`, `Errors`, `Parent`, `ToList`/`ToFlag`.
 
 [PUBLIC_TYPE_SCOPE]: dialect, vocabulary, meta-schema, and format registries
 - rail: validation
 
 Draft/version behavior is a `Dialect` (a keyword-handler set); a `Vocabulary` is a keyword bundle a
 meta-schema declares; `MetaSchemas` holds the built-in draft meta-schemas; the four process-global
-registries own dialect/vocabulary/document/format resolution.
+registries own dialect/vocabulary/document/format resolution. `ValidatingJsonConverter` lives in the
+`Json.Schema.Serialization` namespace.
 
-| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]       | [CAPABILITY]                                                                                                                                                    |
-| :-----: | :-------------------------------------- | :------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Dialect`                               | draft behavior      | static `Draft06`/`Draft07`/`Draft201909`/`Draft202012`/`V1_2026` (`V1` alias); `Default`, `Id`, `RefIgnoresSiblingKeywords`, `AllowUnknownKeywords`             |
-|  [02]   | `DialectRegistry`                       | dialect resolver    | `Global`; `Register(Dialect)`/`Unregister(Uri)`                                                                                                                 |
-|  [03]   | `Vocabulary`                            | keyword bundle      | static `Draft201909_*`/`Draft202012_*` (`Core`/`Validation`/`Applicator`/`Format*`/`Unevaluated`/…); `Id`, `Keywords`                                           |
-|  [04]   | `VocabularyRegistry`                    | vocabulary resolver | `Global`; `Register(Vocabulary)`/`Unregister(Uri)`                                                                                                              |
-|  [05]   | `MetaSchemas`                           | built-in schemas    | `Draft6`/`Draft7`/`Draft201909`/`Draft202012` schemas + `*Id` `Uri` constants                                                                                   |
-|  [06]   | `SchemaRegistry`                        | document resolver   | `Global`; `Register(IBaseDocument)`, `Get(Uri)`, `Fetch` (external `Func<Uri, …, IBaseDocument?>`), `CreateBundle`                                              |
-|  [07]   | `Format` / `FormatRegistry`             | format assertion    | named-format validators; `FormatRegistry.Global`, `Register`/`Get`/`Unregister`; `PredicateFormat`/`RegexFormat`/`UnknownFormat` leaves                         |
-|  [08]   | `Serialization.ValidatingJsonConverter` | POCO gate           | a `JsonConverterFactory` validating a `JsonElement` against a mapped `JsonSchema` during `System.Text.Json` deserialization (`MapType<T>`, `EvaluationOptions`) |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]       | [CAPABILITY]                                               |
+| :-----: | :-------------------------- | :------------------ | :--------------------------------------------------------- |
+|  [01]   | `Dialect`                   | draft behavior      | the draft keyword-handler set; pins version semantics      |
+|  [02]   | `DialectRegistry`           | dialect resolver    | `Global`; `Register(Dialect)`/`Unregister(Uri)`            |
+|  [03]   | `Vocabulary`                | keyword bundle      | a meta-schema's keyword bundle; static per-draft sets      |
+|  [04]   | `VocabularyRegistry`        | vocabulary resolver | `Global`; `Register(Vocabulary)`/`Unregister(Uri)`         |
+|  [05]   | `MetaSchemas`               | built-in schemas    | the pre-registered built-in draft meta-schema documents    |
+|  [06]   | `SchemaRegistry`            | document resolver   | `$ref` document registration, lookup, fetch hook, bundling |
+|  [07]   | `Format` / `FormatRegistry` | format assertion    | named-format validators and the global format registry     |
+|  [08]   | `ValidatingJsonConverter`   | POCO gate           | schema-gated `System.Text.Json` deserialization            |
+
+Member surface per type:
+- [01]-`Dialect`: static `Draft06`/`Draft07`/`Draft201909`/`Draft202012`/`V1_2026` (`V1` alias); `Default`, `Id`, `RefIgnoresSiblingKeywords`, `AllowUnknownKeywords`.
+- [03]-`Vocabulary`: static `Draft201909_*`/`Draft202012_*` (`Core`/`Validation`/`Applicator`/`Format*`/`Unevaluated`/…); `Id`, `Keywords`.
+- [05]-`MetaSchemas`: `Draft6`/`Draft7`/`Draft201909`/`Draft202012` schemas + `*Id` `Uri` constants.
+- [06]-`SchemaRegistry`: `Global`; `Register(IBaseDocument)`, `Get(Uri)`, `Fetch` (external `Func<Uri, …, IBaseDocument?>`), `CreateBundle`.
+- [07]-`Format` / `FormatRegistry`: named-format validators; `FormatRegistry.Global`, `Register`/`Get`/`Unregister`; `PredicateFormat`/`RegexFormat`/`UnknownFormat` leaves.
+- [08]-`ValidatingJsonConverter`: a `JsonConverterFactory` validating a `JsonElement` against a mapped `JsonSchema` during `System.Text.Json` deserialization (`MapType<T>`, `EvaluationOptions`).
 
 ## [03]-[ENTRYPOINTS]
 
@@ -75,23 +91,24 @@ registries own dialect/vocabulary/document/format resolution.
 The pre-frozen document-lane schema parses ONCE to a reusable `JsonSchema`; the parsed schema is
 immutable and thread-safe for concurrent `Evaluate`.
 
-| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [CAPABILITY]                                         |
-| :-----: | :----------------------------------------------------------------------- | :------------- | :--------------------------------------------------- |
-|  [01]   | `JsonSchema.FromText(string, BuildOptions?, Uri?, JsonDocumentOptions?)` | static factory | parses schema JSON text into a compiled `JsonSchema` |
-|  [02]   | `JsonSchema.FromFile(string, BuildOptions?, Uri?)`                       | static factory | parses a schema file                                 |
-|  [03]   | `JsonSchema.Build(JsonElement, BuildOptions?, Uri?)`                     | static factory | builds from an already-parsed `JsonElement`          |
-|  [04]   | `new JsonSchemaBuilder().Add(keyword, …).Build()`                        | fluent build   | composes a schema in-code without JSON text          |
+| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [CAPABILITY]                                |
+| :-----: | :----------------------------------------------------------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `JsonSchema.FromText(string, BuildOptions?, Uri?, JsonDocumentOptions?)` | static factory | parses schema JSON text to a `JsonSchema`   |
+|  [02]   | `JsonSchema.FromFile(string, BuildOptions?, Uri?)`                       | static factory | parses a schema file                        |
+|  [03]   | `JsonSchema.Build(JsonElement, BuildOptions?, Uri?)`                     | static factory | builds from an already-parsed `JsonElement` |
+|  [04]   | `new JsonSchemaBuilder().Add(keyword, …).Build()`                        | fluent build   | composes a schema in-code without JSON text |
 
 [ENTRYPOINT_SCOPE]: evaluate an instance
 - rail: validation
+- note: `Evaluate` takes the `System.Text.Json` `JsonElement`; a `JsonNode` is read via `JsonSerializer`/`RootElement` first
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                                                                                                                                        |
-| :-----: | :----------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `JsonSchema.Evaluate(JsonElement, EvaluationOptions?)` | evaluate       | folds one instance to `EvaluationResults` (the `System.Text.Json` `JsonElement` overload — a `JsonNode` is read via `JsonSerializer`/`RootElement`) |
-|  [02]   | `EvaluationResults.IsValid`                            | verdict        | the boolean matching the server-side `jsonb_matches_schema` `bool`                                                                                  |
-|  [03]   | `EvaluationResults.Details`                            | failure rail   | the per-keyword nested verdicts under `OutputFormat.List`/`Hierarchical`                                                                            |
-|  [04]   | `EvaluationResults.Errors` / `Annotations`             | detail maps    | keyword→message errors and keyword→`JsonElement` annotations                                                                                        |
-|  [05]   | `EvaluationResults.ToFlag()` / `ToList()`              | reshape        | collapses the tree to flag or flat-list shape in place                                                                                              |
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                                            |
+| :-----: | :----------------------------------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `JsonSchema.Evaluate(JsonElement, EvaluationOptions?)` | evaluate       | folds one instance to `EvaluationResults`               |
+|  [02]   | `EvaluationResults.IsValid`                            | verdict        | the boolean matching server-side `jsonb_matches_schema` |
+|  [03]   | `EvaluationResults.Details`                            | failure rail   | per-keyword nested verdicts under `List`/`Hierarchical` |
+|  [04]   | `EvaluationResults.Errors` / `Annotations`             | detail maps    | keyword→message errors and keyword→`JsonElement` maps   |
+|  [05]   | `EvaluationResults.ToFlag()` / `ToList()`              | reshape        | collapses the tree to flag or flat-list shape in place  |
 
 [ENTRYPOINT_SCOPE]: policy, dialect, and reference resolution
 - rail: validation

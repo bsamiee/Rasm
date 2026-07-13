@@ -38,97 +38,105 @@
 [PUBLIC_TYPE_SCOPE]: style, review, metadata, and unit types
 - rail: office
 
-| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]    | [CAPABILITY]                                                                                                                           |
-| :-----: | :-------------------------------------- | :---------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `styles.styles.Styles`                  | style catalog     | add/lookup/default/by-id, `latent_styles`                                                                                              |
-|  [02]   | `styles.style.BaseStyle`                | style base        | name/style_id/type/builtin/priority/hidden/locked/quick                                                                                |
-|  [03]   | `styles.style._ParagraphStyle`          | paragraph style   | + font/`paragraph_format`/base_style/next_paragraph_style                                                                              |
-|  [04]   | `styles.style._CharacterStyle`          | character style   | named run style with font                                                                                                              |
-|  [05]   | `styles.latent.LatentStyles`            | latent catalog    | built-in latent style defaults + `add_latent_style`                                                                                    |
-|  [06]   | `comments.Comments`                     | comment catalog   | `add_comment`/`get` over the comments part                                                                                             |
-|  [07]   | `comments.Comment`                      | comment           | author/initials/timestamp/comment_id + block content                                                                                   |
-|  [08]   | `settings.Settings`                     | document settings | `odd_and_even_pages_header_footer` toggle                                                                                              |
-|  [09]   | `opc.coreprops.CoreProperties`          | metadata          | the 15 OOXML core-property fields                                                                                                      |
-|  [10]   | `shared.Length`                         | unit base         | EMU value object (`Inches`/`Pt`/`Cm`/`Mm`/`Emu`/`Twips`)                                                                               |
-|  [11]   | `shared.RGBColor`                       | color             | run-font color value object (`from_string` parse)                                                                                      |
-|  [12]   | `enum.text.WD_ALIGN_PARAGRAPH`          | alignment enum    | paragraph alignment (`enum.text` also `WD_BREAK`/`WD_LINE_SPACING`/`WD_UNDERLINE`/`WD_TAB_ALIGNMENT`/`WD_TAB_LEADER`/`WD_COLOR_INDEX`) |
-|  [13]   | `enum.section.WD_SECTION_START`         | section enum      | section start kind (`enum.section` also `WD_ORIENTATION`/`WD_HEADER_FOOTER`)                                                           |
-|  [14]   | `enum.style.WD_STYLE_TYPE`              | style-kind enum   | the `add_style` discriminant (`PARAGRAPH`/`CHARACTER`/`TABLE`/`LIST`; `enum.style` also `WD_BUILTIN_STYLE`)                            |
-|  [15]   | `enum.table.WD_CELL_VERTICAL_ALIGNMENT` | cell-align enum   | `_Cell.vertical_alignment` (`enum.table` also `WD_TABLE_ALIGNMENT`/`WD_ROW_HEIGHT_RULE`/`WD_TABLE_DIRECTION`)                          |
+The `WD_*` enums sit under `enum.<module>`; beyond the representative rows below, `enum.text` also carries `WD_BREAK`/`WD_LINE_SPACING`/`WD_UNDERLINE`/`WD_TAB_ALIGNMENT`/`WD_TAB_LEADER`/`WD_COLOR_INDEX`, `enum.section` also `WD_ORIENTATION`/`WD_HEADER_FOOTER`, `enum.style` also `WD_BUILTIN_STYLE`, `enum.table` also `WD_TABLE_ALIGNMENT`/`WD_ROW_HEIGHT_RULE`/`WD_TABLE_DIRECTION`.
+
+| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]    | [CAPABILITY]                                                      |
+| :-----: | :-------------------------------------- | :---------------- | :---------------------------------------------------------------- |
+|  [01]   | `styles.styles.Styles`                  | style catalog     | add/lookup/default/by-id, `latent_styles`                         |
+|  [02]   | `styles.style.BaseStyle`                | style base        | name/style_id/type/builtin/priority/hidden/locked/quick           |
+|  [03]   | `styles.style._ParagraphStyle`          | paragraph style   | + font/`paragraph_format`/base_style/next_paragraph_style         |
+|  [04]   | `styles.style._CharacterStyle`          | character style   | named run style with font                                         |
+|  [05]   | `styles.latent.LatentStyles`            | latent catalog    | built-in latent style defaults + `add_latent_style`               |
+|  [06]   | `comments.Comments`                     | comment catalog   | `add_comment`/`get` over the comments part                        |
+|  [07]   | `comments.Comment`                      | comment           | author/initials/timestamp/comment_id + block content              |
+|  [08]   | `settings.Settings`                     | document settings | `odd_and_even_pages_header_footer` toggle                         |
+|  [09]   | `opc.coreprops.CoreProperties`          | metadata          | the 15 OOXML core-property fields                                 |
+|  [10]   | `shared.Length`                         | unit base         | EMU value object (`Inches`/`Pt`/`Cm`/`Mm`/`Emu`/`Twips`)          |
+|  [11]   | `shared.RGBColor`                       | color             | run-font color value object (`from_string` parse)                 |
+|  [12]   | `enum.text.WD_ALIGN_PARAGRAPH`          | alignment enum    | paragraph alignment                                               |
+|  [13]   | `enum.section.WD_SECTION_START`         | section enum      | section start kind                                                |
+|  [14]   | `enum.style.WD_STYLE_TYPE`              | style-kind enum   | `add_style` discriminant (`PARAGRAPH`/`CHARACTER`/`TABLE`/`LIST`) |
+|  [15]   | `enum.table.WD_CELL_VERTICAL_ALIGNMENT` | cell-align enum   | `_Cell.vertical_alignment`                                        |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document factory, content, save
 - rail: office
 
-`Document(docx=None)` is the single open-or-create factory; the `add_*` rows mint block content and return the created owner. Picture/section sizing takes `Length` value objects (ints are tolerated but the owner forbids them).
+`Document(docx=None)` is the single open-or-create factory; the `add_*` rows mint block content and return the created owner. Picture/section sizing takes `Length` value objects (ints are tolerated but the owner forbids them). The `SURFACE` names drop the `Document.` prefix; `add_picture` and `add_comment` carry the full typed signatures `add_picture(image_path_or_stream: str \| IO[bytes], width: int \| Length \| None = None, height: int \| Length \| None = None) -> InlineShape` and `add_comment(runs: Run \| Sequence[Run], text: str = '', author: str = '', initials: str \| None = '') -> Comment`.
 
-| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                                                                                                                    | [CAPABILITY]                              |
-| :-----: | :---------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------- |
-|  [01]   | `Document`                    | `Document(docx: str \| IO[bytes] \| None = None) -> document.Document`                                                                          | open a file/stream or create from default |
-|  [02]   | `Document.add_paragraph`      | `add_paragraph(text='', style: str \| ParagraphStyle \| None = None) -> Paragraph`                                                              | add a styled paragraph                    |
-|  [03]   | `Document.add_heading`        | `add_heading(text='', level=1) -> Paragraph`                                                                                                    | add a heading (level 0 = title)           |
-|  [04]   | `Document.add_table`          | `add_table(rows, cols, style: str \| _TableStyle \| None = None) -> Table`                                                                      | add a table                               |
-|  [05]   | `Document.add_picture`        | `add_picture(image_path_or_stream: str \| IO[bytes], width: int \| Length \| None = None, height: int \| Length \| None = None) -> InlineShape` | add a document-level inline picture       |
-|  [06]   | `Document.add_section`        | `add_section(start_type: WD_SECTION = WD_SECTION.NEW_PAGE) -> Section`                                                                          | add a section                             |
-|  [07]   | `Document.add_page_break`     | `add_page_break() -> Paragraph`                                                                                                                 | add a page break                          |
-|  [08]   | `Document.add_comment`        | `add_comment(runs: Run \| Sequence[Run], text: str = '', author: str = '', initials: str \| None = '') -> Comment`                              | anchor a comment over runs (since 1.1)    |
-|  [09]   | `Document.save`               | `save(path_or_stream: str \| IO[bytes])`                                                                                                        | serialize to a path or stream             |
-|  [10]   | `Document.iter_inner_content` | `iter_inner_content() -> Iterator[Paragraph \| Table]`                                                                                          | walk body blocks in document order        |
+| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                                                       |
+| :-----: | :------------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `Document`           | `Document(docx: str \| IO[bytes] \| None = None) -> document.Document`             |
+|  [02]   | `add_paragraph`      | `add_paragraph(text='', style: str \| ParagraphStyle \| None = None) -> Paragraph` |
+|  [03]   | `add_heading`        | `add_heading(text='', level=1) -> Paragraph` (level 0 = title)                     |
+|  [04]   | `add_table`          | `add_table(rows, cols, style: str \| _TableStyle \| None = None) -> Table`         |
+|  [05]   | `add_picture`        | `add_picture(image_path_or_stream, width=None, height=None) -> InlineShape`        |
+|  [06]   | `add_section`        | `add_section(start_type: WD_SECTION = WD_SECTION.NEW_PAGE) -> Section`             |
+|  [07]   | `add_page_break`     | `add_page_break() -> Paragraph`                                                    |
+|  [08]   | `add_comment`        | `add_comment(runs, text='', author='', initials='') -> Comment`                    |
+|  [09]   | `save`               | `save(path_or_stream: str \| IO[bytes])`                                           |
+|  [10]   | `iter_inner_content` | `iter_inner_content() -> Iterator[Paragraph \| Table]`                             |
 
 [ENTRYPOINT_SCOPE]: inline run, table, and section authoring
 - rail: office
 
 The `Run` inline surface is where text/break/picture/tab live; `Table`/`_Cell`/`_Row` own grid growth, merging, and geometry; `Section` owns page geometry and the header/footer triad.
 
-| [INDEX] | [SURFACE]                             | [CALL_SHAPE]                                                                                | [CAPABILITY]                                                            |
-| :-----: | :------------------------------------ | :------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------- |
-|  [01]   | `Paragraph.add_run`                   | `add_run(text: str \| None = None, style: str \| CharacterStyle \| None = None) -> Run`     | add a styled run                                                        |
-|  [02]   | `Paragraph.insert_paragraph_before`   | `insert_paragraph_before(text=None, style=None) -> Paragraph`                               | insert before this paragraph                                            |
-|  [03]   | `Run.add_break`                       | `add_break(break_type: WD_BREAK = WD_BREAK.LINE)`                                           | inline line/page/column break                                           |
-|  [04]   | `Run.add_picture`                     | `add_picture(image_path_or_stream, width=None, height=None) -> InlineShape`                 | run-level inline picture (flows with text)                              |
-|  [05]   | `Run.add_tab` / `add_text`            | `add_tab()` / `add_text(text: str) -> _Text`                                                | inline tab / append a discrete text segment                             |
-|  [06]   | `Run.mark_comment_range`              | `mark_comment_range(last_run: Run, comment_id: int) -> None`                                | bind a comment range this run starts to `last_run`                      |
-|  [07]   | `Table.add_row` / `add_column`        | `add_row() -> _Row` / `add_column(width: Length) -> _Column`                                | grow the grid (column width is mandatory `Length`)                      |
-|  [08]   | `Table.cell`                          | `cell(row_idx, col_idx) -> _Cell`                                                           | address a cell (also `row_cells`/`column_cells`)                        |
-|  [09]   | `_Cell.merge` / `add_table`           | `merge(other_cell: _Cell) -> _Cell` / `add_table(rows, cols) -> Table`                      | span the rectangular region; nest a table                               |
-|  [10]   | `Section.header` / `footer`           | `header -> _Header` (also `first_page_header`/`even_page_header` + footer mirrors)          | the header/footer triad                                                 |
-|  [11]   | `_Header.add_paragraph` / `add_table` | `add_paragraph(text='', style=None) -> Paragraph` / `add_table(rows, cols, width) -> Table` | author header/footer story content                                      |
-|  [12]   | `Styles.add_style`                    | `add_style(name: str, style_type: WD_STYLE_TYPE, builtin: bool = False) -> BaseStyle`       | mint a reusable named style (also `default`/`get_by_id`/`get_style_id`) |
-|  [13]   | `LatentStyles.add_latent_style`       | `add_latent_style(name: str) -> _LatentStyle`                                               | add a latent (UI-deferred) built-in style row                           |
+| [INDEX] | [SURFACE]                             | [CALL_SHAPE]                                                                                |
+| :-----: | :------------------------------------ | :------------------------------------------------------------------------------------------ |
+|  [01]   | `Paragraph.add_run`                   | `add_run(text: str \| None = None, style: str \| CharacterStyle \| None = None) -> Run`     |
+|  [02]   | `Paragraph.insert_paragraph_before`   | `insert_paragraph_before(text=None, style=None) -> Paragraph`                               |
+|  [03]   | `Run.add_break`                       | `add_break(break_type: WD_BREAK = WD_BREAK.LINE)`                                           |
+|  [04]   | `Run.add_picture`                     | `add_picture(image_path_or_stream, width=None, height=None) -> InlineShape`                 |
+|  [05]   | `Run.add_tab` / `add_text`            | `add_tab()` / `add_text(text: str) -> _Text`                                                |
+|  [06]   | `Run.mark_comment_range`              | `mark_comment_range(last_run: Run, comment_id: int) -> None`                                |
+|  [07]   | `Table.add_row` / `add_column`        | `add_row() -> _Row` / `add_column(width: Length) -> _Column`                                |
+|  [08]   | `Table.cell`                          | `cell(row_idx, col_idx) -> _Cell`                                                           |
+|  [09]   | `_Cell.merge` / `add_table`           | `merge(other_cell: _Cell) -> _Cell` / `add_table(rows, cols) -> Table`                      |
+|  [10]   | `Section.header` / `footer`           | `header -> _Header` (also `first_page_header`/`even_page_header` + footer mirrors)          |
+|  [11]   | `_Header.add_paragraph` / `add_table` | `add_paragraph(text='', style=None) -> Paragraph` / `add_table(rows, cols, width) -> Table` |
+|  [12]   | `Styles.add_style`                    | `add_style(name: str, style_type: WD_STYLE_TYPE, builtin: bool = False) -> BaseStyle`       |
+|  [13]   | `LatentStyles.add_latent_style`       | `add_latent_style(name: str) -> _LatentStyle`                                               |
 
 [ENTRYPOINT_SCOPE]: typography and block-geometry direct formatting
 - rail: office
 
-`Run.font` (a `Font`) carries character-level direct formatting the named-style catalog does not name; `Paragraph.paragraph_format` (a `ParagraphFormat`) carries block-level geometry. Both are tri-state (`True`/`False`/`None=inherit`).
+`Run.font` (a `Font`) carries character-level direct formatting the named-style catalog does not name; `Paragraph.paragraph_format` (a `ParagraphFormat`) carries block-level geometry. Both are tri-state (`True`/`False`/`None=inherit`). `ParagraphFormat.tab_stops -> TabStops` grows a tab via `add_tab_stop(position: Length, alignment: WD_TAB_ALIGNMENT, leader: WD_TAB_LEADER)`.
 
-| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                                                                                                                                                            | [CAPABILITY]                             |
-| :-----: | :----------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------- |
-|  [01]   | `Font.size` / `name` / `color` | `size -> Length` / `name -> str` / `color -> ColorFormat (rgb / theme_color / type)`                                                                                                    | run face, size, and color value          |
-|  [02]   | `Font` weight/slope            | `bold` / `italic` / `underline (bool \| WD_UNDERLINE)` / `strike` / `double_strike`                                                                                                     | emphasis tri-states                      |
-|  [03]   | `Font` caps + position         | `all_caps` / `small_caps` / `subscript` / `superscript`                                                                                                                                 | caps variants and vertical position      |
-|  [04]   | `Font` decorative + script     | `highlight_color (WD_COLOR_INDEX)` / `shadow` / `outline` / `emboss` / `imprint` / `hidden` / `rtl` / `complex_script` / `cs_bold` / `cs_italic` / `math` / `snap_to_grid` / `no_proof` | highlight, effects, complex-script + RTL |
-|  [05]   | `ParagraphFormat` indents      | `left_indent` / `right_indent` / `first_line_indent` (all `Length`)                                                                                                                     | block indentation                        |
-|  [06]   | `ParagraphFormat` spacing      | `space_before` / `space_after` (`Length`) / `line_spacing` / `line_spacing_rule (WD_LINE_SPACING)`                                                                                      | inter-paragraph and line spacing         |
-|  [07]   | `ParagraphFormat` flow         | `alignment (WD_ALIGN_PARAGRAPH)` / `keep_together` / `keep_with_next` / `page_break_before` / `widow_control`                                                                           | justification and pagination controls    |
-|  [08]   | `ParagraphFormat.tab_stops`    | `tab_stops -> TabStops` (`add_tab_stop(position: Length, alignment: WD_TAB_ALIGNMENT, leader: WD_TAB_LEADER)`)                                                                          | per-paragraph tab grid                   |
+| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                                                                          |
+| :-----: | :----------------------------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | `Font.size` / `name` / `color` | `size -> Length` / `name -> str` / `color -> ColorFormat (rgb / theme_color / type)`                  |
+|  [02]   | `Font` weight/slope            | `bold` / `italic` / `underline (bool \| WD_UNDERLINE)` / `strike` / `double_strike`                   |
+|  [03]   | `Font` caps + position         | `all_caps` / `small_caps` / `subscript` / `superscript`                                               |
+|  [04]   | `Font` decorative              | `highlight_color (WD_COLOR_INDEX)` / `shadow` / `outline` / `emboss` / `imprint` / `hidden`           |
+|  [05]   | `Font` complex-script          | `rtl` / `complex_script` / `cs_bold` / `cs_italic` / `math` / `snap_to_grid` / `no_proof`             |
+|  [06]   | `ParagraphFormat` indents      | `left_indent` / `right_indent` / `first_line_indent` (all `Length`)                                   |
+|  [07]   | `ParagraphFormat` spacing      | `space_before` / `space_after` (`Length`) / `line_spacing` / `line_spacing_rule (WD_LINE_SPACING)`    |
+|  [08]   | `ParagraphFormat` flow         | `alignment` / `keep_together` / `keep_with_next` / `page_break_before` / `widow_control` (align enum) |
+|  [09]   | `ParagraphFormat.tab_stops`    | `tab_stops -> TabStops`                                                                               |
 
 [ENTRYPOINT_SCOPE]: accessors, grid geometry, review, and metadata
 - rail: office
 
-| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]                                                                                                                                                                                                                                            | [CAPABILITY]                                                                                                                                                                                         |
-| :-----: | :-------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Document.paragraphs` / `tables` / `sections` | `paragraphs -> list[Paragraph]` / `tables -> list[Table]` / `sections -> Sections`                                                                                                                                                                      | body block + section collections                                                                                                                                                                     |
-|  [02]   | `Document.styles` / `inline_shapes`           | `styles -> Styles` / `inline_shapes -> InlineShapes`                                                                                                                                                                                                    | the named-style catalog / all inline pictures                                                                                                                                                        |
-|  [03]   | `Document.comments` / `settings`              | `comments -> Comments` / `settings -> Settings`                                                                                                                                                                                                         | the comment collection (mirror of `add_comment`) / the settings part                                                                                                                                 |
-|  [04]   | `Document.core_properties`                    | `core_properties -> CoreProperties`                                                                                                                                                                                                                     | `author`/`title`/`subject`/`keywords`/`category`/`comments`/`content_status`/`created`/`modified`/`last_modified_by`/`last_printed`/`identifier`/`language`/`revision`/`version` (the full OOXML 15) |
-|  [05]   | `Section` page geometry                       | `orientation (WD_ORIENTATION)` / `page_width` / `page_height` / `left_margin` / `right_margin` / `top_margin` / `bottom_margin` / `gutter` / `header_distance` / `footer_distance` (all `Length`)                                                       | page size + the four margins + gutter + header/footer offsets                                                                                                                                        |
-|  [06]   | `Section.different_first_page_header_footer`  | `different_first_page_header_footer -> bool` (+ `Settings.odd_and_even_pages_header_footer`)                                                                                                                                                            | the two toggles that activate the first-page / even-page header-footer slots                                                                                                                         |
-|  [07]   | `Section.iter_inner_content` / `start_type`   | `iter_inner_content() -> Iterator[Paragraph \| Table]` / `start_type -> WD_SECTION`                                                                                                                                                                     | walk this section's body blocks / section break kind                                                                                                                                                 |
-|  [08]   | `Table` grid controls                         | `autofit -> bool` / `alignment (WD_TABLE_ALIGNMENT)` / `table_direction (WD_TABLE_DIRECTION)` / `style`                                                                                                                                                 | autofit, justification, RTL grid, style                                                                                                                                                              |
-|  [09]   | `_Cell` / `_Row` geometry                     | `_Cell.grid_span -> int` / `_Cell.vertical_alignment (WD_CELL_VERTICAL_ALIGNMENT)` / `_Cell.width (Length)` / `_Row.height (Length)` / `_Row.height_rule (WD_ROW_HEIGHT_RULE)` / `_Row.grid_cols_before` / `_Row.grid_cols_after`                       | merged-span width, vertical align, row height policy, leading/trailing skipped grid cells                                                                                                            |
-|  [10]   | `Run` / `Paragraph` page-break detection      | `Run.contains_page_break -> bool` / `Run.iter_inner_content() -> Iterator[str \| Drawing \| RenderedPageBreak]` / `Paragraph.rendered_page_breaks -> list[RenderedPageBreak]` / `Paragraph.hyperlinks -> list[Hyperlink]`                               | rendered-page-break + drawing walk; hyperlink read axis for `document/lens`                                                                                                                          |
-|  [11]   | `BaseStyle` / `_ParagraphStyle`               | `name` / `style_id` / `type` / `builtin` / `priority` / `hidden` / `locked` / `quick_style` / `unhide_when_used` / `delete()` ; (`_ParagraphStyle` adds) `font -> Font` / `paragraph_format -> ParagraphFormat` / `base_style` / `next_paragraph_style` | style identity, UI-priority/visibility flags, deletion, and paragraph-style inheritance                                                                                                              |
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                                            |
+| :-----: | :------------------------- | :------------------------------------------------------------------------------------------------------ |
+|  [01]   | `Document` collections     | `paragraphs -> list[Paragraph]` / `tables -> list[Table]` / `sections -> Sections`                      |
+|  [02]   | `Document` catalogs        | `styles -> Styles` / `inline_shapes -> InlineShapes` / `comments -> Comments` / `settings -> Settings`  |
+|  [03]   | `Document.core_properties` | `core_properties -> CoreProperties` (15 OOXML fields; see metadata axis)                                |
+|  [04]   | `Section` page size        | `orientation (WD_ORIENTATION)` / `page_width` / `page_height`                                           |
+|  [05]   | `Section` margins          | `left_margin` / `right_margin` / `top_margin` / `bottom_margin` (all `Length`)                          |
+|  [06]   | `Section` offsets          | `gutter` / `header_distance` / `footer_distance` (all `Length`)                                         |
+|  [07]   | `Section` toggles          | `different_first_page_header_footer -> bool` (+ `Settings.odd_and_even_pages_header_footer`)            |
+|  [08]   | `Section` iter + start     | `iter_inner_content() -> Iterator[Paragraph \| Table]` / `start_type -> WD_SECTION`                     |
+|  [09]   | `Table` grid controls      | `autofit -> bool` / `alignment (WD_TABLE_ALIGNMENT)` / `table_direction (WD_TABLE_DIRECTION)` / `style` |
+|  [10]   | `_Cell` geometry           | `grid_span -> int` / `vertical_alignment (WD_CELL_VERTICAL_ALIGNMENT)` / `width (Length)`               |
+|  [11]   | `_Row` geometry            | `height (Length)` / `height_rule (WD_ROW_HEIGHT_RULE)` / `grid_cols_before` / `grid_cols_after`         |
+|  [12]   | `Run` page-break           | `contains_page_break -> bool` / `iter_inner_content() -> Iterator[str \| Drawing \| RenderedPageBreak]` |
+|  [13]   | `Paragraph` read axis      | `rendered_page_breaks -> list[RenderedPageBreak]` / `hyperlinks -> list[Hyperlink]`                     |
+|  [14]   | `BaseStyle` identity       | `name` / `style_id` / `type` / `builtin` / `delete()`                                                   |
+|  [15]   | `BaseStyle` flags          | `priority` / `hidden` / `locked` / `quick_style` / `unhide_when_used`                                   |
+|  [16]   | `_ParagraphStyle` adds     | `font -> Font` / `paragraph_format -> ParagraphFormat` / `base_style` / `next_paragraph_style`          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

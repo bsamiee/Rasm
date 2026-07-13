@@ -18,11 +18,13 @@
 [PUBLIC_TYPE_SCOPE]: cloud, index, and result family
 - rail: scan-processing
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]       | [CAPABILITY]                                                                                                               |
-| :-----: | :------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `PointCloud`         | point cloud         | `points`/`normals` `Nx4` array views and `covs` `list[4x4]`; `point(i)`/`normal(i)`/`cov(i)` per-index; `size()`/`empty()` |
-|  [02]   | `KdTree`             | spatial index       | parallel nearest-neighbor, KNN, and batch search                                                                           |
-|  [03]   | `RegistrationResult` | registration result | `T_target_source`, `converged`, `iterations`, `num_inliers`, `error`, `H`/`b`                                              |
+`PointCloud` exposes `points`/`normals` as `Nx4` array views and `covs` as `list[4x4]`, with `point(i)`/`normal(i)`/`cov(i)` per-index accessors and `size()`/`empty()`.
+
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]       | [CAPABILITY]                                                                  |
+| :-----: | :------------------- | :------------------ | :---------------------------------------------------------------------------- |
+|  [01]   | `PointCloud`         | point cloud         | `Nx4` points/normals + `covs` `list[4x4]` (accessors in lead)                 |
+|  [02]   | `KdTree`             | spatial index       | parallel nearest-neighbor, KNN, and batch search                              |
+|  [03]   | `RegistrationResult` | registration result | `T_target_source`, `converged`, `iterations`, `num_inliers`, `error`, `H`/`b` |
 
 [PUBLIC_TYPE_SCOPE]: voxel map and factor family
 - rail: scan-processing
@@ -57,16 +59,16 @@ Voxel maps share `insert`/`set_lru`/`size`/`voxel_points`; the optional attribut
 [ENTRYPOINT_SCOPE]: preprocessing and attribute estimation
 - rail: scan-processing
 
-`preprocess_points`/`voxelgrid_sampling` are overloaded on numpy array or `PointCloud` input; estimation rows mutate the cloud in place.
+`preprocess_points(points, downsampling_resolution=0.25, num_neighbors=10, num_threads=1)` fuses downsample + KdTree + normals/covs; `preprocess_points`/`voxelgrid_sampling` are overloaded on numpy array or `PointCloud` input. Estimation rows take `(points, tree=None, num_neighbors=20, num_threads=1)` and mutate the cloud in place.
 
-| [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY] | [CAPABILITY]                             |
-| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :--------------------------------------- |
-|  [01]   | `preprocess_points(points, downsampling_resolution=0.25, num_neighbors=10, num_threads=1)` | preprocess     | downsample plus KdTree plus normals/covs |
-|  [02]   | `voxelgrid_sampling(points, downsampling_resolution, num_threads=1)`                       | downsample     | voxel-grid downsample to `PointCloud`    |
-|  [03]   | `estimate_normals(points, tree=None, num_neighbors=20, num_threads=1)`                     | estimate       | in-place normal estimation               |
-|  [04]   | `estimate_covariances(points, tree=None, num_neighbors=20, num_threads=1)`                 | estimate       | in-place covariance estimation           |
-|  [05]   | `estimate_normals_covariances(points, tree=None, num_neighbors=20, num_threads=1)`         | estimate       | in-place normals and covariances         |
-|  [06]   | `read_ply(filename) -> PointCloud`                                                         | read           | XYZ-only test PLY intake                 |
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------------------------- | :------------- | :--------------------------------------- |
+|  [01]   | `preprocess_points(points, ...)`                                     | preprocess     | downsample plus KdTree plus normals/covs |
+|  [02]   | `voxelgrid_sampling(points, downsampling_resolution, num_threads=1)` | downsample     | voxel-grid downsample to `PointCloud`    |
+|  [03]   | `estimate_normals(points, ...)`                                      | estimate       | in-place normal estimation               |
+|  [04]   | `estimate_covariances(points, ...)`                                  | estimate       | in-place covariance estimation           |
+|  [05]   | `estimate_normals_covariances(points, ...)`                          | estimate       | in-place normals and covariances         |
+|  [06]   | `read_ply(filename) -> PointCloud`                                   | read           | XYZ-only test PLY intake                 |
 
 [ENTRYPOINT_SCOPE]: search, voxel, and result accessors
 - rail: scan-processing

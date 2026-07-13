@@ -17,40 +17,41 @@
 
 [PUBLIC_TYPE_SCOPE]: the `Resource` value + detector contract
 - rail: observability/resource
-- `Resource` is an immutable attribute bundle with a `merge` monoid (`AppIdentity` base ⊕ detector output ⊕ env) and an async-attribute channel: `asyncAttributesPending` flags detectors that resolve a `Promise` (machine-id, service-instance-id), and `waitForAsyncAttributes()` is the barrier the SDK awaits before first export. Resource sources are ONE parameterized family — every enricher implements `ResourceDetector.detect(config?): DetectedResource`, so a new source is a detector row in the `detectResources` set, never a new constructor.
+- `Resource` is an immutable attribute bundle with a `merge` monoid (`AppIdentity` base ⊕ detector output ⊕ env) and an async-attribute channel: `asyncAttributesPending` flags detectors that resolve a `Promise` (machine-id, service-instance-id), and `waitForAsyncAttributes()` is the barrier the SDK awaits before first export. Resource sources are ONE parameterized family — every enricher implements `ResourceDetector.detect(config?): DetectedResource`, so a new source is a detector row in the `detectResources` set, never a new constructor. The detector value shape is `RawResourceAttribute = [string, MaybePromise<AttributeValue | undefined>]` with `MaybePromise<T> = T | Promise<T>`.
 
-| [INDEX] | [SYMBOL]                                                                                                                                      | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                                  |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------------------------- |
-|  [01]   | `Resource { attributes: Attributes; schemaUrl?; asyncAttributesPending? }`                                                                    | resource value    | the identity bundle both export lanes stamp on every signal          |
-|  [02]   | `Resource.merge(other: Resource \| null): Resource`                                                                                           | monoid            | fold `AppIdentity` base ⊕ detector ⊕ env into one resource           |
-|  [03]   | `Resource.waitForAsyncAttributes?(): Promise<void>` / `getRawAttributes(): RawResourceAttribute[]`                                            | async barrier     | await pending detectors; read unresolved `[key, MaybePromise]` pairs |
-|  [04]   | `ResourceDetector { detect(config?): DetectedResource }`                                                                                      | detector contract | the one enricher interface `detectResources` folds                   |
-|  [05]   | `DetectedResource { attributes?: DetectedResourceAttributes }` / `RawResourceAttribute = [string, MaybePromise<AttributeValue \| undefined>]` | detector output   | sync-or-async attribute map a detector returns                       |
-|  [06]   | `ResourceDetectionConfig { detectors?: ResourceDetector[] }` / `MaybePromise<T> = T \| Promise<T>`                                            | run config        | the ordered detector set + the async-attribute value shape           |
+| [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                |
+| :-----: | :------------------------------------------------------------- | :---------------- | :------------------------------------------------- |
+|  [01]   | `Resource { attributes; schemaUrl?; asyncAttributesPending? }` | resource value    | identity bundle both lanes stamp on every signal   |
+|  [02]   | `Resource.merge(other: Resource \| null): Resource`            | monoid            | fold base ⊕ detector ⊕ env into one resource       |
+|  [03]   | `Resource.waitForAsyncAttributes?(): Promise<void>`            | async barrier     | await pending detectors before first export        |
+|  [04]   | `getRawAttributes(): RawResourceAttribute[]`                   | raw read          | unresolved `[key, MaybePromise]` pairs             |
+|  [05]   | `ResourceDetector { detect(config?): DetectedResource }`       | detector contract | the one enricher interface `detectResources` folds |
+|  [06]   | `DetectedResource { attributes?: DetectedResourceAttributes }` | detector output   | sync-or-async attribute map a detector returns     |
+|  [07]   | `ResourceDetectionConfig { detectors?: ResourceDetector[] }`   | run config        | the ordered detector set `detectResources` runs    |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: resource construction
 - rail: observability/resource
-- The `AppIdentity`-derived resource is `defaultResource()` (which seeds `service.name` + core's `SDK_INFO` `telemetry.sdk.*`) merged with `resourceFromAttributes(AppIdentity attributes)`. `emptyResource()` is the merge identity element. The facade's `Resource.layer({ serviceName, serviceVersion, attributes })` sits directly on top of `resourceFromAttributes`, so design code composes the facade layer and this constructor is the concrete builder it delegates to.
+- The `AppIdentity`-derived resource is `defaultResource()` (which seeds `service.name` + core's `SDK_INFO` `telemetry.sdk.*`) merged with `resourceFromAttributes(AppIdentity attributes)`, `options.schemaUrl?` setting the schema URL. `emptyResource()` is the merge identity element. The facade's `Resource.layer({ serviceName, serviceVersion, attributes })` sits directly on top of `resourceFromAttributes`, so design code composes the facade layer and this constructor is the concrete builder it delegates to.
 
-| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                          |
-| :-----: | :----------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `resourceFromAttributes(attributes, options?: { schemaUrl? }): Resource` | constructor    | the `AppIdentity`-attribute resource behind `Resource.layer` |
-|  [02]   | `defaultResource(): Resource`                                            | constructor    | `service.name` + `telemetry.sdk.*` seed; the merge base      |
-|  [03]   | `emptyResource(): Resource`                                              | identity       | the `merge` identity element for optional-resource folds     |
-|  [04]   | `defaultServiceName(): string`                                           | default        | recovery `service.name` when `AppIdentity` omits one         |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                     |
+| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `resourceFromAttributes(attributes, options?): Resource` | constructor    | `AppIdentity` resource behind `Resource.layer`          |
+|  [02]   | `defaultResource(): Resource`                            | constructor    | `service.name` + `telemetry.sdk.*` seed; the merge base |
+|  [03]   | `emptyResource(): Resource`                              | identity       | the `merge` identity element                            |
+|  [04]   | `defaultServiceName(): string`                           | default        | recovery `service.name` when `AppIdentity` omits one    |
 
 [ENTRYPOINT_SCOPE]: environment detectors
 - rail: observability/resource/detect
 - `detectResources({ detectors })` runs the detector family and returns a `Resource` whose async attributes resolve lazily; it is merged onto the `AppIdentity` base. `envDetector` ingests `OTEL_RESOURCE_ATTRIBUTES`/`OTEL_SERVICE_NAME` (via core's env readers); the host/os/process/serviceInstanceId detectors add environment facts a multi-tenant deployment attributes on — the node platform reads `os`/`process`, the browser platform degrades these to a `noop` detector.
 
-| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                              |
-| :-----: | :------------------------------------------------------------ | :------------- | :--------------------------------------------------------------- |
-|  [01]   | `detectResources(config?: ResourceDetectionConfig): Resource` | detector fold  | run an ordered `ResourceDetector[]` into one merged resource     |
-|  [02]   | `envDetector`                                                 | detector       | `OTEL_RESOURCE_ATTRIBUTES` / `OTEL_SERVICE_NAME` ingestion       |
-|  [03]   | `hostDetector` / `osDetector`                                 | detector       | `host.*` / `os.*` attributes (node; browser → noop)              |
-|  [04]   | `processDetector` / `serviceInstanceIdDetector`               | detector       | `process.*` / async `service.instance.id` (node; browser → noop) |
+| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                        |
+| :-----: | :---------------------------------------------- | :------------- | :--------------------------------------------------------- |
+|  [01]   | `detectResources(config?): Resource`            | detector fold  | run an ordered `ResourceDetector[]` into one resource      |
+|  [02]   | `envDetector`                                   | detector       | `OTEL_RESOURCE_ATTRIBUTES` / `OTEL_SERVICE_NAME` ingestion |
+|  [03]   | `hostDetector` / `osDetector`                   | detector       | `host.*` / `os.*` attributes                               |
+|  [04]   | `processDetector` / `serviceInstanceIdDetector` | detector       | `process.*` / async `service.instance.id`                  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

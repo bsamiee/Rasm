@@ -18,7 +18,7 @@
 |  [03]   | `DefaultConfig`      | config mapping            | per-service knobs (`core.reset_boto3_session`, passthrough) forwarded into `mock_aws` |
 |  [04]   | `DEFAULT_ACCOUNT_ID` | constant `"123456789012"` | the `moto.core` account id backends key under for the static test credentials         |
 
-```python contract
+```python signature
 class ThreadedMotoServer:
     def __init__(self, ip_address: str = "0.0.0.0", port: int = 5000, verbose: bool = True) -> None: ...
     def start(self) -> None: ...
@@ -28,15 +28,15 @@ class ThreadedMotoServer:
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                               | [KIND]              | [CAPABILITY]                                                                              |
-| :-----: | :------------------------------------------------------ | :------------------ | :---------------------------------------------------------------------------------------- |
-|  [01]   | `mock_aws(func=None, config=None)`                      | decorator + context | one unified intercept over every AWS service; wraps a callable or brackets a `with` block |
-|  [02]   | `ThreadedMotoServer(ip_address, port, verbose).start()` | server boot         | binds a real loopback HTTP endpoint an SDK or `s3fs` client targets by `endpoint_url`     |
-|  [03]   | `.get_host_and_port()`                                  | endpoint read       | resolves the ephemeral `(host, port)` after `port=0` bind — never a hardcoded host port   |
-|  [04]   | `POST {endpoint}/moto-api/reset`                        | backend reset       | drops all process-global backend state; the server-lane analogue of `mock_aws` teardown   |
-|  [05]   | `moto.backends.get_backend(name)`                       | backend handle      | in-process backend registry keyed by service name — `.reset()` per account/region         |
+| [INDEX] | [SURFACE]                          | [KIND]              | [CAPABILITY]                                                                 |
+| :-----: | :--------------------------------- | :------------------ | :--------------------------------------------------------------------------- |
+|  [01]   | `mock_aws(func=None, config=None)` | decorator + context | unified intercept over every AWS service; wraps a callable or a `with` block |
+|  [02]   | `ThreadedMotoServer(...).start()`  | server boot         | binds a loopback HTTP endpoint an SDK or `s3fs` targets by `endpoint_url`    |
+|  [03]   | `.get_host_and_port()`             | endpoint read       | resolves the ephemeral `(host, port)` after a `port=0` bind                  |
+|  [04]   | `POST {endpoint}/moto-api/reset`   | backend reset       | drops all process-global backend state; the server-lane `mock_aws` teardown  |
+|  [05]   | `moto.backends.get_backend(name)`  | backend handle      | in-process backend registry by service name; `.reset()` per account/region   |
 
-```python contract
+```python signature
 def mock_aws(func: Callable[P, T] | None = None, config: DefaultConfig | None = None) -> MockAWS | Callable[P, T]: ...
 # ObjectStore double: ephemeral bind, resolve endpoint, project an s3fs view over it.
 server = ThreadedMotoServer(ip_address="127.0.0.1", port=0, verbose=False); server.start()

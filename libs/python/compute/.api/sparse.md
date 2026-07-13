@@ -30,15 +30,16 @@
 [PUBLIC_TYPE_SCOPE]: shared array members
 - rail: array
 
-| [INDEX] | [MEMBER_FAMILY] | [MEMBERS]                                                                                                                   |
-| :-----: | :-------------- | :-------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | properties      | `nnz`, `ndim`, `size`, `dtype`, `density`, `fill_value`, `shape`, `nbytes`, `T`, `mT`, `real`, `imag`, `device`             |
-|  [02]   | densify/convert | `todense`, `maybe_densify(max_size, min_density)`, `asformat`, `astype`, `to_device`, `from_numpy`, `from_scipy_sparse`     |
-|  [03]   | reduction       | `reduce(method, axis, keepdims, **kwargs)`, `sum`, `prod`, `mean`, `std`, `var`, `max`, `min`, `amax`, `amin`, `all`, `any` |
-|  [04]   | transform       | `reshape`, `transpose`, `swapaxes`, `flatten`, `squeeze`, `clip`, `conj`, `round`/`round_`, `isnan`, `isinf`, `nonzero`     |
-|  [05]   | COO-only        | `from_iter`, `linear_loc`, `tocsr`, `tocsc`, `to_scipy_sparse`, `enable_caching`, `copy`                                    |
-|  [06]   | GCXS-only       | `from_iter`, `from_coo`, `change_compressed_axes`, `compressed_axes`, `tocoo`, `todok`, `to_scipy_sparse`, `copy`           |
-|  [07]   | DOK-only        | `from_coo`, `to_coo` (DOK carries no `to_scipy_sparse`; round-trip DOK->COO->scipy)                                         |
+| [INDEX] | [MEMBER_FAMILY] | [MEMBERS]                                                                                                         |
+| :-----: | :-------------- | :---------------------------------------------------------------------------------------------------------------- |
+|  [01]   | properties      | `nnz`, `ndim`, `size`, `dtype`, `density`, `fill_value`, `shape`, `nbytes`, `T`, `mT`, `real`, `imag`, `device`   |
+|  [02]   | densify/convert | `todense`, `maybe_densify`, `asformat`, `astype`, `to_device`, `from_numpy`, `from_scipy_sparse`                  |
+|  [03]   | reduction       | `reduce`, `sum`, `prod`, `mean`, `std`, `var`, `max`, `min`, `amax`, `amin`, `all`, `any`                         |
+|  [04]   | transform       | `reshape`, `transpose`, `swapaxes`, `flatten`, `squeeze`, `clip`, `conj`, `round`/`round_`                        |
+|  [05]   | predicate       | `isnan`, `isinf`, `nonzero`                                                                                       |
+|  [06]   | COO-only        | `from_iter`, `linear_loc`, `tocsr`, `tocsc`, `to_scipy_sparse`, `enable_caching`, `copy`                          |
+|  [07]   | GCXS-only       | `from_iter`, `from_coo`, `change_compressed_axes`, `compressed_axes`, `tocoo`, `todok`, `to_scipy_sparse`, `copy` |
+|  [08]   | DOK-only        | `from_coo`, `to_coo` (DOK carries no `to_scipy_sparse`; round-trip DOK->COO->scipy)                               |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -77,21 +78,22 @@
 - rail: array
 - math, comparison, and bitwise functions follow the NumPy ufunc signature with broadcasting
 
-| [INDEX] | [FAMILY]      | [MEMBERS]                                                                                                                                                   |
-| :-----: | :------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | dispatch      | `elemwise(func, *args, **kwargs)`, `where(condition, x=None, y=None)`                                                                                       |
-|  [02]   | binary ufunc  | `add`, `subtract`, `multiply`, `divide`, `floor_divide`, `remainder`, `pow`, `maximum`, `minimum`, `logaddexp`, `nextafter`, `copysign`, `hypot`, `signbit` |
-|  [03]   | reduction     | `sum`, `prod`, `mean`, `std`, `var`, `max`, `min`, `all`, `any`, `argmax`, `argmin`, `nonzero`                                                              |
-|  [04]   | nan reduction | `nansum`, `nanprod`, `nanmean`, `nanmax`, `nanmin`, `nanreduce(arr, method, identity, axis, keepdims)`                                                      |
-|  [05]   | math          | `abs`, `sqrt`, `square`, `exp`, `log`, `log2`, `log10`, `log1p`, `expm1`, `sign`, `reciprocal`, `negative`, `positive`                                      |
-|  [06]   | trig          | `sin`, `cos`, `tan`, `sinh`, `cosh`, `tanh`, `asin`, `acos`, `atan`, `asinh`, `acosh`, `atanh`, `atan2`                                                     |
-|  [07]   | rounding      | `ceil`, `floor`, `round`, `trunc`                                                                                                                           |
-|  [08]   | comparison    | `equal`, `not_equal`, `less`, `less_equal`, `greater`, `greater_equal`                                                                                      |
-|  [09]   | logic         | `logical_and`, `logical_or`, `logical_xor`, `logical_not`, `isfinite`, `isinf`, `isnan`, `isposinf`, `isneginf`                                             |
-|  [10]   | bitwise       | `bitwise_and`, `bitwise_or`, `bitwise_xor`, `bitwise_invert`, `bitwise_not`, `bitwise_left_shift`, `bitwise_right_shift`                                    |
-|  [11]   | sort/search   | `sort(x, /, *, axis=-1, descending=False)`, `unique_values(x)`, `unique_counts(x)`, `diff(x, axis=-1, n=1)`, `interp(x, xp, fp)`                            |
-|  [12]   | dtype         | `result_type(*arrays_and_dtypes)`, `can_cast(from_, to)`, `isdtype(dtype, kind)`, `astype(x, dtype)`, `finfo`, `iinfo`                                      |
-|  [13]   | numba backend | `sparse.numba_backend` re-exports the same array classes and operations under Numba JIT dispatch                                                            |
+| [INDEX] | [FAMILY]      | [MEMBERS]                                                                                                                |
+| :-----: | :------------ | :----------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | dispatch      | `elemwise(func, *args, **kwargs)`, `where(condition, x=None, y=None)`                                                    |
+|  [02]   | binary ufunc  | `add`, `subtract`, `multiply`, `divide`, `floor_divide`, `remainder`, `pow`                                              |
+|  [03]   | pairwise      | `maximum`, `minimum`, `logaddexp`, `nextafter`, `copysign`, `hypot`, `signbit`                                           |
+|  [04]   | reduction     | `sum`, `prod`, `mean`, `std`, `var`, `max`, `min`, `all`, `any`, `argmax`, `argmin`, `nonzero`                           |
+|  [05]   | nan reduction | `nansum`, `nanprod`, `nanmean`, `nanmax`, `nanmin`, `nanreduce(arr, method, identity, axis, keepdims)`                   |
+|  [06]   | math          | `abs`, `sqrt`, `square`, `exp`, `log`, `log2`, `log10`, `log1p`, `expm1`, `sign`, `reciprocal`, `negative`, `positive`   |
+|  [07]   | trig          | `sin`, `cos`, `tan`, `sinh`, `cosh`, `tanh`, `asin`, `acos`, `atan`, `asinh`, `acosh`, `atanh`, `atan2`                  |
+|  [08]   | rounding      | `ceil`, `floor`, `round`, `trunc`                                                                                        |
+|  [09]   | comparison    | `equal`, `not_equal`, `less`, `less_equal`, `greater`, `greater_equal`                                                   |
+|  [10]   | logic         | `logical_and`, `logical_or`, `logical_xor`, `logical_not`, `isfinite`, `isinf`, `isnan`, `isposinf`, `isneginf`          |
+|  [11]   | bitwise       | `bitwise_and`, `bitwise_or`, `bitwise_xor`, `bitwise_invert`, `bitwise_not`, `bitwise_left_shift`, `bitwise_right_shift` |
+|  [12]   | sort/search   | `sort(x, /, *, axis=-1, descending=False)`, `unique_values`, `unique_counts`, `diff(x, axis=-1, n=1)`, `interp`          |
+|  [13]   | dtype         | `result_type(*arrays_and_dtypes)`, `can_cast(from_, to)`, `isdtype(dtype, kind)`, `astype(x, dtype)`, `finfo`, `iinfo`   |
+|  [14]   | numba backend | `sparse.numba_backend` re-exports the same array classes and operations under Numba JIT dispatch                         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

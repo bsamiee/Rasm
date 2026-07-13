@@ -17,18 +17,24 @@
 
 `PluginOptions` is `Partial<>` of one config bag — every axis a policy value validated by `parsePluginOptions`/`validateEnvironmentConfig` (a zod schema internally). The load-bearing axes are `target` (React runtime — must match the installed React so `_c` resolves), `compilationMode` (which functions compile), and `panicThreshold` (bail-out severity). `gating`/`dynamicGating` enable incremental rollout: both the compiled and original function are emitted and a runtime flag picks. `environment` is the inference + emission bag: it tunes ref/effect inference AND carries the dev-validator emission flags (`enableEmitHookGuards`/`enableChangeDetectionForDebugging`/`enableEmitInstrumentForget`/`enableEmitFreeze`) that wire compiled dev output to `react-compiler-runtime` (`[ENVIRONMENT_EMISSION]`) — extend it, never fork the plugin.
 
-| [INDEX] | [OPTION]                                                                                                  | [TYPE_VALUES]                                                                       | [DECISION_BOUNDARY]                                                                                                      |
-| :-----: | :-------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `target`                                                                                                  | `"17" \| "18" \| "19" \| { kind: "donotuse_meta_internal"; runtimeModule: string }` | React runtime; `"19"` → built-in `react/compiler-runtime`; 17/18 → `{ runtimeModule: "react-compiler-runtime" }`         |
-|  [02]   | `compilationMode`                                                                                         | `"infer" \| "annotation" \| "syntax" \| "all"`                                      | `infer` (components+hooks by heuristic, default); `annotation` = only `"use memo"`; `all` = every fn                     |
-|  [03]   | `panicThreshold`                                                                                          | `"none" \| "critical_errors" \| "all_errors"`                                       | `none` (prod: skip a fn on any diagnostic, never break the build) vs strict CI                                           |
-|  [04]   | `sources`                                                                                                 | `Array<string> \| ((filename: string) => boolean) \| null`                          | which files compile — the include predicate                                                                              |
-|  [05]   | `gating` / `dynamicGating`                                                                                | `{ source: string; importSpecifierName: string } \| null`                           | static/runtime rollout: emit compiled + original, a flag picks                                                           |
-|  [06]   | `logger`                                                                                                  | `{ logEvent(filename: string \| null, event: LoggerEvent): void } \| null`          | the compile-diagnostic sink (success/error/skip/timing events)                                                           |
-|  [07]   | `environment`                                                                                             | `Partial<EnvironmentConfig>`                                                        | inference tuning (ref/effect assumptions) + dev-validator emission flags (`[ENVIRONMENT_EMISSION]`) — extend, never fork |
-|  [08]   | `noEmit` / `eslintSuppressionRules` / `flowSuppressions` / `ignoreUseNoForget` / `customOptOutDirectives` | `boolean` / lint config                                                             | analyze-only + suppression/opt-out control                                                                               |
+Types are the signature below; the table carries the decision per axis.
 
-```ts contract
+| [INDEX] | [OPTION]                   | [DECISION_BOUNDARY]                                                                         |
+| :-----: | :------------------------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | `target`                   | React runtime; `"19"` = built-in `react/compiler-runtime`, 17/18 = `react-compiler-runtime` |
+|  [02]   | `compilationMode`          | `infer` (components+hooks by heuristic, default); `annotation` = only `"use memo"`; `all`   |
+|  [03]   | `panicThreshold`           | `none` (prod: skip a fn on any diagnostic, never break the build) vs strict CI              |
+|  [04]   | `sources`                  | which files compile — the include predicate                                                 |
+|  [05]   | `gating` / `dynamicGating` | static/runtime rollout: emit compiled + original, a flag picks                              |
+|  [06]   | `logger`                   | the compile-diagnostic sink (success/error/skip/timing events)                              |
+|  [07]   | `environment`              | inference tuning + the dev-validator emission flags; extend, never fork                     |
+|  [08]   | `noEmit`                   | analyze-only: compile + diagnose, emit nothing (the CI gate mode)                           |
+|  [09]   | `eslintSuppressionRules`   | skip a fn already carrying a suppressed ESLint rule                                         |
+|  [10]   | `flowSuppressions`         | skip a fn under a Flow suppression comment                                                  |
+|  [11]   | `ignoreUseNoForget`        | compile even a `"use no memo"`-marked fn                                                    |
+|  [12]   | `customOptOutDirectives`   | extend the opt-out directive vocabulary                                                     |
+
+```ts signature
 type PluginOptions = Partial<{
   target: CompilerReactTarget                              // "17" | "18" | "19" | { kind: "donotuse_meta_internal"; runtimeModule: string }
   compilationMode: "infer" | "annotation" | "syntax" | "all"
@@ -50,35 +56,43 @@ declare function BabelPluginReactCompiler(babel: typeof BabelCore): BabelCore.Pl
 
 The `environment` axes decide whether the compiler emits a dev-validator call into each compiled body and which module/export it imports. None is a boolean — each is one `ExternalFunction`-shaped config `{ source: string; importSpecifierName: string }` (nullable, default `null` = off), so the flag is a parameterized import target: `enableEmitHookGuards: { source: "react-compiler-runtime", importSpecifierName: "$dispatcherGuard" }` emits `import { $dispatcherGuard } from "react-compiler-runtime"` plus the guard call at each body head. This is the reciprocal seam to `.api/react-compiler-runtime.md`'s dev-validator surface — the flag names the emit, the runtime owns the implementation — and the calls are stripped from production output.
 
-| [INDEX] | [ENVIRONMENT_FLAG]                  | [PAYLOAD]                                                                                                                        | [EMITTED_CALL]                                                                                                                                                                |
-| :-----: | :---------------------------------- | :------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `enableEmitHookGuards`              | `{ source; importSpecifierName } \| null`                                                                                        | `$dispatcherGuard(kind: GuardKind)` — wraps each compiled body, throws on a conditional / renamed / indirectly-called hook (the runtime source comment names this exact flag) |
-|  [02]   | `enableChangeDetectionForDebugging` | `{ source; importSpecifierName } \| null`                                                                                        | `$structuralCheck(old, new, name, fn, kind, loc)` — deep-diffs a compiler-assumed-stable value against recompute and `console.error`s the divergence path                     |
-|  [03]   | `enableEmitInstrumentForget`        | `{ fn: { source; importSpecifierName }; gating: { source; importSpecifierName } \| null; globalGating: string \| null } \| null` | `useRenderCounter(name)` — rerender probe into `renderCounterRegistry`; the richer shape carries a per-emit `gating` external-fn and a `globalGating` env-var name            |
-|  [04]   | `enableEmitFreeze`                  | `{ source; importSpecifierName } \| null`                                                                                        | `$makeReadOnly()` — the reserved deep-freeze; runtime stubs it (throws), so this flag stays off until the runtime lands it                                                    |
+| [INDEX] | [ENVIRONMENT_FLAG]                  | [EMITTED_CALL]                                    |
+| :-----: | :---------------------------------- | :------------------------------------------------ |
+|  [01]   | `enableEmitHookGuards`              | `$dispatcherGuard(kind: GuardKind)`               |
+|  [02]   | `enableChangeDetectionForDebugging` | `$structuralCheck(old, new, name, fn, kind, loc)` |
+|  [03]   | `enableEmitInstrumentForget`        | `useRenderCounter(name)`                          |
+|  [04]   | `enableEmitFreeze`                  | `$makeReadOnly()`                                 |
+
+- [01]-[HOOK_GUARDS]: wraps each compiled body; throws on a conditional, renamed, or indirectly-called hook (the runtime source comment names this exact flag).
+- [02]-[CHANGE_DETECTION]: deep-diffs a compiler-assumed-stable value against recompute and `console.error`s the divergence path.
+- [03]-[INSTRUMENT_FORGET]: rerender probe into `renderCounterRegistry`; the richer payload adds a per-emit `gating` external-fn and a `globalGating` env-var name (`{ fn; gating; globalGating }`).
+- [04]-[EMIT_FREEZE]: the reserved deep-freeze; the runtime stubs it (throws), so the flag stays off until the runtime lands it.
 
 ## [03]-[DIRECTIVE_CONTROL]
 
 The per-function escape hatch is a string directive, not a config fork: `"use memo"` opts a function IN (`OPT_IN_DIRECTIVES`), `"use no memo"` opts it OUT (`OPT_OUT_DIRECTIVES`) — the one admitted way to exclude a component the compiler mis-handles, and a defect marker to remove, never a standing pattern. `compilationMode: "annotation"` inverts the default so ONLY `"use memo"` functions compile. `customOptOutDirectives`/`ignoreUseNoForget` retune the opt-out vocabulary at the config seam.
 
-| [INDEX] | [SYMBOL]                                                                 | [KIND]        | [CAPABILITY_BOUNDARY]                                             |
-| :-----: | :----------------------------------------------------------------------- | :------------ | :---------------------------------------------------------------- |
-|  [01]   | `OPT_IN_DIRECTIVES` / `OPT_OUT_DIRECTIVES`                               | directive set | `"use memo"` / `"use no memo"` — the per-fn compile toggle        |
-|  [02]   | `findDirectiveEnablingMemoization` / `findDirectiveDisablingMemoization` | probe         | detect the directive on a function body (the compiler's own gate) |
-|  [03]   | `customOptOutDirectives` / `ignoreUseNoForget` (options)                 | config axis   | retune / ignore the opt-out directive vocabulary                  |
+| [INDEX] | [SYMBOL]                                                                 | [KIND]        | [CAPABILITY_BOUNDARY]                      |
+| :-----: | :----------------------------------------------------------------------- | :------------ | :----------------------------------------- |
+|  [01]   | `OPT_IN_DIRECTIVES` / `OPT_OUT_DIRECTIVES`                               | directive set | the per-fn opt-in / opt-out compile toggle |
+|  [02]   | `findDirectiveEnablingMemoization` / `findDirectiveDisablingMemoization` | probe         | detect the directive on a fn body          |
+|  [03]   | `customOptOutDirectives` / `ignoreUseNoForget` (options)                 | config axis   | retune/ignore the opt-out vocabulary       |
 
 ## [04]-[PROGRAMMATIC_AND_DIAGNOSTICS]
 
 Beyond the plugin, the package exposes the compile entry points and the diagnostic rail — used by tests, custom bundler integrations, and the `logger` sink, not by `ui` source. `CompilerError`/`CompilerDiagnostic` carry `ErrorCategory` + `ErrorSeverity` so a build can classify a bail-out; `LoggerEvent` is the discriminated event the `logger.logEvent` sink receives. `Effect`/`ValueKind`/`ValueReason` are the compiler's internal HIR inference algebra (exported for tooling, not a consumer surface).
 
-| [INDEX] | [SYMBOL]                                                                                                 | [KIND]        | [CAPABILITY_BOUNDARY]                                                                                 |
-| :-----: | :------------------------------------------------------------------------------------------------------- | :------------ | :---------------------------------------------------------------------------------------------------- |
-|  [01]   | `compile` / `compileProgram` / `runBabelPluginReactCompiler(text, file, language, options, includeAst?)` | compile entry | programmatic compile of a fn/program/source — custom integration/tests                                |
-|  [02]   | `parsePluginOptions(options)` / `validateEnvironmentConfig(env)`                                         | config codec  | normalize/validate `PluginOptions`/`EnvironmentConfig` before use                                     |
-|  [03]   | `CompilerError` / `CompilerErrorDetail` / `CompilerDiagnostic`                                           | diagnostic    | the typed bail-out carrier the `logger` + `panicThreshold` classify                                   |
-|  [04]   | `ErrorCategory` / `ErrorSeverity` / `CompilerSuggestionOperation` / `LintRules`                          | vocabulary    | diagnostic severity/category + the lint-rule roster                                                   |
-|  [05]   | `LoggerEvent`                                                                                            | event union   | `CompileSuccess`/`CompileError`/`CompileDiagnostic`/`CompileSkip`/`Timing`/… — the `logEvent` payload |
-|  [06]   | `Effect` / `ValueKind` / `ValueReason` / `ProgramContext` / `printHIR`                                   | internal HIR  | the compiler's inference algebra + debug printers (tooling, not consumer)                             |
+| [INDEX] | [SYMBOL]                                                                        | [KIND]        | [CAPABILITY_BOUNDARY]                  |
+| :-----: | :------------------------------------------------------------------------------ | :------------ | :------------------------------------- |
+|  [01]   | `compile` / `compileProgram`                                                    | compile entry | programmatic fn/program compile        |
+|  [02]   | `runBabelPluginReactCompiler(text, file, language, options, includeAst?)`       | compile entry | raw source→compiled program            |
+|  [03]   | `parsePluginOptions(options)` / `validateEnvironmentConfig(env)`                | config codec  | normalize/validate config before use   |
+|  [04]   | `CompilerError` / `CompilerErrorDetail` / `CompilerDiagnostic`                  | diagnostic    | typed bail-out the `logger` classifies |
+|  [05]   | `ErrorCategory` / `ErrorSeverity` / `CompilerSuggestionOperation` / `LintRules` | vocabulary    | severity/category + lint-rule roster   |
+|  [06]   | `LoggerEvent`                                                                   | event union   | the `logEvent` payload union ([07])    |
+|  [07]   | `Effect` / `ValueKind` / `ValueReason` / `ProgramContext` / `printHIR`          | internal HIR  | HIR algebra + debug printers (tooling) |
+
+- [07]-[LOGGER_EVENT]: `CompileSuccess`/`CompileError`/`CompileDiagnostic`/`CompileSkip`/`Timing`/… — the union `logger.logEvent` receives.
 
 ## [05]-[STACKING]
 

@@ -40,18 +40,20 @@ The in-Rhino plugin assembly never references `Speckle.Sdk` or `Speckle.Objects`
 [PUBLIC_TYPE_SCOPE]: `Speckle.Sdk` operations, client, transports
 - rail: sync
 
-| [INDEX] | [SYMBOL]                                                                            | [TYPE_FAMILY]       | [CAPABILITY]                                                            |
-| :-----: | :---------------------------------------------------------------------------------- | :------------------ | :---------------------------------------------------------------------- |
-|  [01]   | `IOperations`                                                                       | operations contract | INTERFACE; DI-resolved `Send`/`Receive`/`Serialize` (`Speckle.Sdk.Api`) |
-|  [02]   | `Operations : IOperations`                                                          | operations impl     | INSTANCE class; DI primary-ctor; no static `Send`/`Receive`             |
-|  [03]   | `IClient : IDisposable`                                                             | client contract     | GraphQL resources, `Account`, `ServerUrl`, `GQLClient`                  |
-|  [04]   | `Client : ISpeckleGraphQLClient, IClient`                                           | client impl         | sealed; DI-constructed GraphQL client                                   |
-|  [05]   | `ITransport`                                                                        | transport contract  | `SaveObject`/`GetObject`/`CopyObjectAndChildren`/`HasObjects`           |
-|  [06]   | `IServerTransport : ITransport`                                                     | server contract     | server-bound transport marker                                           |
-|  [07]   | `ServerTransport : IServerTransport, ITransport, IBlobCapableTransport, ICloneable` | transport (server)  | sealed; remote server object store                                      |
-|  [08]   | `SQLiteTransport : ITransport, IBlobCapableTransport, ICloneable`                   | transport (local)   | sealed; default local SQLite cache                                      |
-|  [09]   | `MemoryTransport : ITransport, IBlobCapableTransport, ICloneable`                   | transport (memory)  | sealed; in-process object store                                         |
-|  [10]   | `ProgressArgs`                                                                      | progress value      | `readonly record struct (ProgressEvent, long Count, long? Total)`       |
+Each concrete transport is `sealed` and implements `ITransport, IBlobCapableTransport, ICloneable`; the SYMBOL column carries only the distinguishing base.
+
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]       | [CAPABILITY]                                                      |
+| :-----: | :---------------------------------------- | :------------------ | :---------------------------------------------------------------- |
+|  [01]   | `IOperations`                             | operations contract | INTERFACE; DI-resolved `Send`/`Receive`/`Serialize`               |
+|  [02]   | `Operations : IOperations`                | operations impl     | INSTANCE class; DI primary-ctor; no static `Send`/`Receive`       |
+|  [03]   | `IClient : IDisposable`                   | client contract     | GraphQL resources, `Account`, `ServerUrl`, `GQLClient`            |
+|  [04]   | `Client : ISpeckleGraphQLClient, IClient` | client impl         | sealed; DI-constructed GraphQL client                             |
+|  [05]   | `ITransport`                              | transport contract  | `SaveObject`/`GetObject`/`CopyObjectAndChildren`/`HasObjects`     |
+|  [06]   | `IServerTransport : ITransport`           | server contract     | server-bound transport marker                                     |
+|  [07]   | `ServerTransport : IServerTransport`      | transport (server)  | sealed; remote server object store                                |
+|  [08]   | `SQLiteTransport`                         | transport (local)   | sealed; default local SQLite cache                                |
+|  [09]   | `MemoryTransport`                         | transport (memory)  | sealed; in-process object store                                   |
+|  [10]   | `ProgressArgs`                            | progress value      | `readonly record struct (ProgressEvent, long Count, long? Total)` |
 
 [PUBLIC_TYPE_SCOPE]: `Speckle.Sdk` serialisation, credentials, DI
 - rail: sync
@@ -68,41 +70,47 @@ The in-Rhino plugin assembly never references `Speckle.Sdk` or `Speckle.Objects`
 [PUBLIC_TYPE_SCOPE]: `Speckle.Objects.Geometry` roster
 - rail: sync
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]                                                                                     |
-| :-----: | :------------------------- | :------------ | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `Point : Base`             | geometry      | `ITransformable<Point>`, `IEquatable<Point>`                                                     |
-|  [02]   | `Vector : Base`            | geometry      | `IHasBoundingBox`, `ITransformable<Vector>`                                                      |
-|  [03]   | `Plane : Base`             | geometry      | `ITransformable<Plane>`                                                                          |
-|  [04]   | `Line : Base`              | curve         | `ICurve`, `IHasBoundingBox`, `ITransformable<Line>`                                              |
-|  [05]   | `Polyline : Base`          | curve         | `ICurve`, `IHasArea`, `IHasBoundingBox`, `ITransformable`                                        |
-|  [06]   | `Arc : Base`               | curve         | `ICurve`, `ITransformable<Arc>`                                                                  |
-|  [07]   | `Circle : Base`            | curve         | `ICurve`, `IHasArea`, `IHasBoundingBox`                                                          |
-|  [08]   | `Ellipse : Base`           | curve         | `ICurve`, `IHasArea`                                                                             |
-|  [09]   | `Curve : Base`             | curve         | `ICurve`, `ITransformable<Curve>`, `IDisplayValue<Polyline>`                                     |
-|  [10]   | `Polycurve : Base`         | curve         | `ICurve`, `IHasArea`, `IHasBoundingBox`, `ITransformable`                                        |
-|  [11]   | `Spiral : Base`            | curve         | `ICurve`, `IDisplayValue<Polyline>`                                                              |
-|  [12]   | `Mesh : Base`              | geometry      | `IHasBoundingBox`, `IHasVolume`, `IHasArea`, `ITransformable<Mesh>`                              |
-|  [13]   | `Brep : Base`              | geometry      | `IHasArea`, `IHasVolume`, `IHasBoundingBox`, `ITransformable<Brep>`, `IDisplayValue<List<Mesh>>` |
-|  [14]   | `BrepX : RawEncodedObject` | geometry      | raw-encoded brep payload                                                                         |
-|  [15]   | `Surface : Base`           | geometry      | `IHasArea`, `ITransformable<Surface>`                                                            |
-|  [16]   | `Box : Base`               | geometry      | `IHasVolume`, `IHasArea`, `IHasBoundingBox`                                                      |
-|  [17]   | `Pointcloud : Base`        | geometry      | `IHasBoundingBox`, `ITransformable<Pointcloud>`                                                  |
+Every roster type derives `Base` except `BrepX : RawEncodedObject`; the SYMBOL column drops the shared `: Base`.
+
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [CAPABILITY]                                                                                     |
+| :-----: | :----------- | :------------ | :----------------------------------------------------------------------------------------------- |
+|  [01]   | `Point`      | geometry      | `ITransformable<Point>`, `IEquatable<Point>`                                                     |
+|  [02]   | `Vector`     | geometry      | `IHasBoundingBox`, `ITransformable<Vector>`                                                      |
+|  [03]   | `Plane`      | geometry      | `ITransformable<Plane>`                                                                          |
+|  [04]   | `Line`       | curve         | `ICurve`, `IHasBoundingBox`, `ITransformable<Line>`                                              |
+|  [05]   | `Polyline`   | curve         | `ICurve`, `IHasArea`, `IHasBoundingBox`, `ITransformable`                                        |
+|  [06]   | `Arc`        | curve         | `ICurve`, `ITransformable<Arc>`                                                                  |
+|  [07]   | `Circle`     | curve         | `ICurve`, `IHasArea`, `IHasBoundingBox`                                                          |
+|  [08]   | `Ellipse`    | curve         | `ICurve`, `IHasArea`                                                                             |
+|  [09]   | `Curve`      | curve         | `ICurve`, `ITransformable<Curve>`, `IDisplayValue<Polyline>`                                     |
+|  [10]   | `Polycurve`  | curve         | `ICurve`, `IHasArea`, `IHasBoundingBox`, `ITransformable`                                        |
+|  [11]   | `Spiral`     | curve         | `ICurve`, `IDisplayValue<Polyline>`                                                              |
+|  [12]   | `Mesh`       | geometry      | `IHasBoundingBox`, `IHasVolume`, `IHasArea`, `ITransformable<Mesh>`                              |
+|  [13]   | `Brep`       | geometry      | `IHasArea`, `IHasVolume`, `IHasBoundingBox`, `ITransformable<Brep>`, `IDisplayValue<List<Mesh>>` |
+|  [14]   | `BrepX`      | geometry      | `: RawEncodedObject`; raw-encoded brep payload                                                   |
+|  [15]   | `Surface`    | geometry      | `IHasArea`, `ITransformable<Surface>`                                                            |
+|  [16]   | `Box`        | geometry      | `IHasVolume`, `IHasArea`, `IHasBoundingBox`                                                      |
+|  [17]   | `Pointcloud` | geometry      | `IHasBoundingBox`, `ITransformable<Pointcloud>`                                                  |
 
 [PUBLIC_TYPE_SCOPE]: `Speckle.Objects.Data` host-object family
 - rail: sync
 
-| [INDEX] | [SYMBOL]                                                                          | [TYPE_FAMILY]    | [CAPABILITY]                                         |
-| :-----: | :-------------------------------------------------------------------------------- | :--------------- | :--------------------------------------------------- |
-|  [01]   | `DataObject : Base, IDataObject, IProperties, IDisplayValue<IReadOnlyList<Base>>` | host-object base | `name`/`displayValue`/`properties` carrier           |
-|  [02]   | `RevitObject : DataObject, IRevitObject`                                          | host-object      | Revit-sourced data object                            |
-|  [03]   | `RhinoObject : DataObject, IRhinoObject`                                          | host-object      | Rhino-sourced data object                            |
-|  [04]   | `ArchicadObject : DataObject, IArchicadObject`                                    | host-object      | Archicad-sourced data object                         |
-|  [05]   | `TeklaObject : DataObject, ITeklaObject`                                          | host-object      | Tekla-sourced data object                            |
-|  [06]   | `Civil3dObject : DataObject, ICivilObject`                                        | host-object      | Civil3D-sourced data object                          |
-|  [07]   | `AutocadObject : DataObject, IAutocadObject`                                      | host-object      | AutoCAD-sourced data object                          |
-|  [08]   | `EtabsObject : DataObject, ICsiObject`                                            | host-object      | ETABS/CSI-sourced data object                        |
-|  [09]   | `ArcgisObject : DataObject, IGisObject`                                           | host-object      | ArcGIS-sourced data object                           |
-|  [10]   | `NavisworksObject` / `MicrostationObject` / `TsdObject`                           | host-object      | Navisworks / MicroStation / TSD-sourced data objects |
+The family base is `DataObject : Base, IDataObject, IProperties, IDisplayValue<IReadOnlyList<Base>>`; each host-object row derives `DataObject` and adds its host marker interface (SYMBOL `: DataObject, I<Host>Object`).
+
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]    | [CAPABILITY]                               |
+| :-----: | :------------------- | :--------------- | :----------------------------------------- |
+|  [01]   | `DataObject`         | host-object base | `name`/`displayValue`/`properties` carrier |
+|  [02]   | `RevitObject`        | host-object      | Revit-sourced data object                  |
+|  [03]   | `RhinoObject`        | host-object      | Rhino-sourced data object                  |
+|  [04]   | `ArchicadObject`     | host-object      | Archicad-sourced data object               |
+|  [05]   | `TeklaObject`        | host-object      | Tekla-sourced data object                  |
+|  [06]   | `Civil3dObject`      | host-object      | Civil3D-sourced data object                |
+|  [07]   | `AutocadObject`      | host-object      | AutoCAD-sourced data object                |
+|  [08]   | `EtabsObject`        | host-object      | ETABS/CSI-sourced (`ICsiObject`)           |
+|  [09]   | `ArcgisObject`       | host-object      | ArcGIS-sourced (`IGisObject`)              |
+|  [10]   | `NavisworksObject`   | host-object      | Navisworks-sourced data object             |
+|  [11]   | `MicrostationObject` | host-object      | MicroStation-sourced data object           |
+|  [12]   | `TsdObject`          | host-object      | TSD-sourced data object                    |
 
 The model exposes no `BuiltElements` namespace and no typed built-element classes; the unified `Speckle.Objects.Data` family is the sole host-object roster. Built-element geometry rides `DataObject.displayValue` as `List<Base>` (`IDisplayValue<IReadOnlyList<Base>>`), distinct from `Brep.displayValue` (`List<Mesh>`); `IDisplayValue<out T>` is the generic display-value contract.
 
@@ -111,17 +119,21 @@ The model exposes no `BuiltElements` namespace and no typed built-element classe
 [SPECKLE_SYNC]: INSTANCE `IOperations` send/receive over the DI-resolved surface
 - rail: sync
 
-| [INDEX] | [SURFACE]          | [CALL_SHAPE]                                                                                                                                                                                                                                                     | [CAPABILITY]                                       |
-| :-----: | :----------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `Send`             | `Task<(string rootObjId, IReadOnlyDictionary<string, ObjectReference> convertedReferences)> Send(Base value, IServerTransport transport, bool useDefaultCache, IProgress<ProgressArgs>? onProgressAction = null, CancellationToken cancellationToken = default)` | server-transport send; `rootObjId` is content hash |
-|  [02]   | `Send`             | `Task<(string rootObjId, IReadOnlyDictionary<string, ObjectReference> convertedReferences)> Send(Base value, ITransport transport, bool useDefaultCache, IProgress<ProgressArgs>? onProgressAction = null, CancellationToken cancellationToken = default)`       | single-transport send                              |
-|  [03]   | `Send`             | `Task<(string rootObjId, IReadOnlyDictionary<string, ObjectReference> convertedReferences)> Send(Base value, IReadOnlyCollection<ITransport> transports, IProgress<ProgressArgs>? onProgressAction = null, CancellationToken cancellationToken = default)`       | multi-transport send (no implicit local cache)     |
-|  [04]   | `Send2`            | `Task<SerializeProcessResults> Send2(Uri url, string streamId, string? authorizationToken, Base value, IProgress<ProgressArgs>? onProgressAction, CancellationToken cancellationToken, SerializeProcessOptions? options = null)`                                 | direct-to-URL send pipeline                        |
-|  [05]   | `Receive`          | `Task<Base> Receive(string objectId, ITransport? remoteTransport = null, ITransport? localTransport = null, IProgress<ProgressArgs>? onProgressAction = null, CancellationToken cancellationToken = default)`                                                    | local-then-remote receive                          |
-|  [06]   | `Receive2`         | `Task<Base> Receive2(Uri url, string streamId, string objectId, string? authorizationToken, IProgress<ProgressArgs>? onProgressAction, CancellationToken cancellationToken, DeserializeProcessOptions? options = null)`                                          | direct-from-URL receive pipeline                   |
-|  [07]   | `Serialize`        | `string Serialize(Base value, CancellationToken cancellationToken = default)`                                                                                                                                                                                    | object-to-JSON                                     |
-|  [08]   | `SerializeNew`     | `string SerializeNew(Base value)`                                                                                                                                                                                                                                | object-to-JSON over the System.Text.Json pipeline  |
-|  [09]   | `DeserializeAsync` | `Task<Base> DeserializeAsync(string value, CancellationToken cancellationToken = default)`                                                                                                                                                                       | JSON-to-`Base`                                     |
+```csharp signature
+// --- transport-bound send: rootObjId is the content hash -> UInt128 ContentKey; the multi-transport form takes no implicit local cache ---
+Task<(string rootObjId, IReadOnlyDictionary<string, ObjectReference> convertedReferences)> Send(Base value, IServerTransport transport, bool useDefaultCache, IProgress<ProgressArgs>? onProgressAction = null, CancellationToken cancellationToken = default)
+Task<(string rootObjId, IReadOnlyDictionary<string, ObjectReference> convertedReferences)> Send(Base value, ITransport transport, bool useDefaultCache, IProgress<ProgressArgs>? onProgressAction = null, CancellationToken cancellationToken = default)
+Task<(string rootObjId, IReadOnlyDictionary<string, ObjectReference> convertedReferences)> Send(Base value, IReadOnlyCollection<ITransport> transports, IProgress<ProgressArgs>? onProgressAction = null, CancellationToken cancellationToken = default)
+// --- local-then-remote receive ---
+Task<Base> Receive(string objectId, ITransport? remoteTransport = null, ITransport? localTransport = null, IProgress<ProgressArgs>? onProgressAction = null, CancellationToken cancellationToken = default)
+// --- URL-bound serialisation-V2 pipeline; bypasses the explicit transport stack ---
+Task<SerializeProcessResults> Send2(Uri url, string streamId, string? authorizationToken, Base value, IProgress<ProgressArgs>? onProgressAction, CancellationToken cancellationToken, SerializeProcessOptions? options = null)
+Task<Base> Receive2(Uri url, string streamId, string objectId, string? authorizationToken, IProgress<ProgressArgs>? onProgressAction, CancellationToken cancellationToken, DeserializeProcessOptions? options = null)
+// --- object-to-JSON / JSON-to-Base; SerializeNew runs the System.Text.Json pipeline ---
+string Serialize(Base value, CancellationToken cancellationToken = default)
+string SerializeNew(Base value)
+Task<Base> DeserializeAsync(string value, CancellationToken cancellationToken = default)
+```
 
 `IOperations` is resolved from DI (`Operations(ILogger<Operations>, ISdkActivityFactory, ISdkMetricsFactory, ISerializeProcessFactory, IDeserializeProcessFactory) : IOperations`); the `Operations` type carries no static `Send`/`Receive`, so the `SpeckleLikeDiff` rail binds the instance members only. That rail uses the transport-bound `Send`/`Receive` overloads (entries `[1]`-`[3]`, `[5]`); `Send2`/`Receive2` are the URL-bound serialisation-V2 pipeline overloads that bypass the explicit transport stack. The `Send` tuple's `rootObjId` (first element) is the content hash of the sent graph and maps directly to the Persistence `UInt128 ContentKey`; `convertedReferences` carries the detached-child `ObjectReference` map. `Receive` returns the root `Base` for the requested `objectId`.
 
@@ -130,24 +142,28 @@ V2 pipeline tuning (`Send2`/`Receive2`): `SerializeProcessOptions(bool SkipCache
 [SPECKLE_TRANSPORT]: transport and serializer construction
 - rail: sync
 
-| [INDEX] | [SURFACE]                                    | [CALL_SHAPE]                                                                                                                                                                                                    | [CAPABILITY]               |
-| :-----: | :------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------- |
-|  [01]   | `ServerTransport`                            | `ServerTransport(ISpeckleHttp http, ISdkActivityFactory activityFactory, Account account, string streamId, int timeoutSeconds = 60, string? blobStorageFolder = null)`                                          | remote server store ctor   |
-|  [02]   | `SQLiteTransport`                            | `SQLiteTransport(string? basePath = null, string? applicationName = null, string? scope = null)`                                                                                                                | local SQLite cache ctor    |
-|  [03]   | `MemoryTransport`                            | `MemoryTransport(ConcurrentDictionary<string, string>? objects = null, bool blobStorageEnabled = false, string? basePath = null, string? applicationName = null)`                                               | in-process store ctor      |
-|  [04]   | `SpeckleObjectSerializer`                    | `SpeckleObjectSerializer(IReadOnlyCollection<ITransport> writeTransports, IProgress<ProgressArgs>? onProgressAction = null, bool trackDetachedChildren = false, CancellationToken cancellationToken = default)` | write-transport serializer |
-|  [05]   | `SpeckleObjectSerializer.Serialize`          | `string Serialize(Base baseObj)`                                                                                                                                                                                | serialize to JSON          |
-|  [06]   | `SpeckleObjectDeserializer.DeserializeAsync` | `ValueTask<Base> DeserializeAsync(string? rootObjectJson)`                                                                                                                                                      | deserialize from JSON      |
+```csharp signature
+// --- transport constructors: remote server store / local SQLite cache / in-process store ---
+ServerTransport(ISpeckleHttp http, ISdkActivityFactory activityFactory, Account account, string streamId, int timeoutSeconds = 60, string? blobStorageFolder = null)
+SQLiteTransport(string? basePath = null, string? applicationName = null, string? scope = null)
+MemoryTransport(ConcurrentDictionary<string, string>? objects = null, bool blobStorageEnabled = false, string? basePath = null, string? applicationName = null)
+// --- write-transport serializer + deserializer ---
+SpeckleObjectSerializer(IReadOnlyCollection<ITransport> writeTransports, IProgress<ProgressArgs>? onProgressAction = null, bool trackDetachedChildren = false, CancellationToken cancellationToken = default)
+string SpeckleObjectSerializer.Serialize(Base baseObj)
+ValueTask<Base> SpeckleObjectDeserializer.DeserializeAsync(string? rootObjectJson)
+```
 
 [SPECKLE_DI]: `AddSpeckleSdk` registration on `IServiceCollection` (namespace `Speckle.Sdk`)
 - rail: sync
 
-| [INDEX] | [SURFACE]       | [CALL_SHAPE]                                                                                                                                                                                               | [CAPABILITY]                 |
-| :-----: | :-------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------- |
-|  [01]   | `AddSpeckleSdk` | `IServiceCollection AddSpeckleSdk(this IServiceCollection serviceCollection, SpeckleSdkOptions speckleSdkOptions)`                                                                                         | options-driven register      |
-|  [02]   | `AddSpeckleSdk` | `IServiceCollection AddSpeckleSdk(this IServiceCollection serviceCollection, Application application, string applicationVersion, string? speckleVersion = null, IEnumerable<Assembly>? assemblies = null)` | application register         |
-|  [03]   | `AddSpeckleSdk` | `IServiceCollection AddSpeckleSdk(this IServiceCollection serviceCollection, Application application, string applicationVersion, string? speckleVersion, params Assembly[] assemblies)`                    | params register              |
-|  [04]   | `AddSpeckleSdk` | `IServiceCollection AddSpeckleSdk(this IServiceCollection serviceCollection, Application application, string applicationVersion, params Assembly[] assemblies)`                                            | params register (no version) |
+Every overload is `IServiceCollection AddSpeckleSdk(this IServiceCollection serviceCollection, …)`, and the application overloads lead with `Application application, string applicationVersion`; the SURFACE column carries only the trailing parameters that distinguish each.
+
+| [INDEX] | [SURFACE]                                                                 | [CAPABILITY]                 |
+| :-----: | :------------------------------------------------------------------------ | :--------------------------- |
+|  [01]   | `SpeckleSdkOptions speckleSdkOptions`                                     | options-driven register      |
+|  [02]   | `string? speckleVersion = null, IEnumerable<Assembly>? assemblies = null` | application register         |
+|  [03]   | `string? speckleVersion, params Assembly[] assemblies`                    | params register              |
+|  [04]   | `params Assembly[] assemblies`                                            | params register (no version) |
 
 `AddSpeckleSdk` registers `IOperations`, `IClient`, the transport factories, and the serialisation pipeline into the container; the `SpeckleLikeDiff` rail resolves `IOperations` from the wired provider. `Base` member surface: `id` (`string?`, null until the graph is deserialized from a transport), `applicationId` (`string?`), `speckle_type` (`string`, derived type discriminator), `GetId(bool decompose = false)` (`[Obsolete]`; full-serialize content hash matching the `Operations` send path), `GetTotalChildrenCount()`. `Account`: `token`, `refreshToken`, `serverInfo` (`ServerInfo`), `userInfo` (`UserInfo`), `id` (lazy MD5 of `email + url`), `isDefault`, `isOnline` (`[Obsolete]`), `GetHashedEmail()`, `GetHashedServer()`. `Mesh`: `vertices` (`List<double>`, required), `faces` (`List<int>`, required), `colors` (`List<int>`, ARGB), `textureCoordinates` (`List<double>`), `units` (`string`, required); `VerticesCount` is `vertices.Count / 3`.
 

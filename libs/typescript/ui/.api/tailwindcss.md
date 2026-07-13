@@ -17,47 +17,70 @@
 [PUBLIC_TYPE_SCOPE]: the `@theme` namespace vocabulary — one namespace generates a variable + its utilities
 - rail: token
 
-| [INDEX] | [SYMBOL]                                                                                                   | [TYPE_FAMILY]       | [CONSUMER]                                                                                                                                                                                                                         |
-| :-----: | :--------------------------------------------------------------------------------------------------------- | :------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `--color-*`                                                                                                | color namespace     | `token/theme` — each `--color-<hue>-<step>` (OKLCH) emits `bg-`/`text-`/`border-`/`ring-`/… utilities; the plane extends the stock palette with project hues (this install carries `mauve`/`olive`/`mist`/`taupe` beyond the base) |
-|  [02]   | `--font-*` / `--font-weight-*` / `--tracking-*` / `--leading-*`                                            | type namespace      | `token/scale` — font families, weights, letter-spacing, line-height; drive `font-`/`tracking-`/`leading-` utilities                                                                                                                |
-|  [03]   | `--text-*` (+ paired `--text-*--line-height`)                                                              | text-size namespace | `token/scale` — the type scale; each step emits a `text-<step>` utility carrying its default line-height                                                                                                                           |
-|  [04]   | `--spacing` / `--radius-*` / `--breakpoint-*` / `--container-*` / `--aspect-*`                             | layout namespace    | `token/scale` — the single `--spacing` multiplier drives every `p-`/`m-`/`gap-`/`w-`/`h-`; radius, responsive breakpoints, container queries, aspect ratios                                                                        |
-|  [05]   | `--shadow-*` / `--inset-shadow-*` / `--drop-shadow-*` / `--text-shadow-*` / `--blur-*` / `--perspective-*` | effect namespace    | `token/theme` — elevation, inner shadow, filter blur, and 3D perspective token families                                                                                                                                            |
-|  [06]   | `--ease-*` / `--animate-*` / `--default-transition-*`                                                      | motion namespace    | `token/scale` — easing curves and named keyframe animations (the `tw-animate-css` motion rows land here); the motion-token half of the scale plane                                                                                 |
+| [INDEX] | [SYMBOL]                                                                                                   | [TYPE_FAMILY]       |
+| :-----: | :--------------------------------------------------------------------------------------------------------- | :------------------ |
+|  [01]   | `--color-*`                                                                                                | color namespace     |
+|  [02]   | `--font-*` / `--font-weight-*` / `--tracking-*` / `--leading-*`                                            | type namespace      |
+|  [03]   | `--text-*` (+ paired `--text-*--line-height`)                                                              | text-size namespace |
+|  [04]   | `--spacing` / `--radius-*` / `--breakpoint-*` / `--container-*` / `--aspect-*`                             | layout namespace    |
+|  [05]   | `--shadow-*` / `--inset-shadow-*` / `--drop-shadow-*` / `--text-shadow-*` / `--blur-*` / `--perspective-*` | effect namespace    |
+|  [06]   | `--ease-*` / `--animate-*` / `--default-transition-*`                                                      | motion namespace    |
+
+- [01]-[COLOR_NAMESPACE]: `token/theme` — each `--color-<hue>-<step>` (OKLCH) emits `bg-`/`text-`/`border-`/`ring-`/… utilities; the plane extends the stock palette with project hues (this install carries `mauve`/`olive`/`mist`/`taupe` beyond the base).
+- [02]-[TYPE_NAMESPACE]: `token/scale` — font families, weights, letter-spacing, line-height; drive `font-`/`tracking-`/`leading-` utilities.
+- [03]-[TEXT_SIZE_NAMESPACE]: `token/scale` — the type scale; each step emits a `text-<step>` utility carrying its default line-height.
+- [04]-[LAYOUT_NAMESPACE]: `token/scale` — the single `--spacing` multiplier drives every `p-`/`m-`/`gap-`/`w-`/`h-`; radius, responsive breakpoints, container queries, aspect ratios.
+- [05]-[EFFECT_NAMESPACE]: `token/theme` — elevation, inner shadow, filter blur, and 3D perspective token families.
+- [06]-[MOTION_NAMESPACE]: `token/scale` — easing curves and named keyframe animations (the `tw-animate-css` motion rows land here); the motion-token half of the scale plane.
 
 [PUBLIC_TYPE_SCOPE]: the typed JS plugin surface (`tailwindcss/plugin`)
 - rail: token
 
-| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]   | [CONSUMER]                                                                                                                             |
-| :-----: | :----------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Config` / `UserConfig` / `ThemeConfig`                | config type     | `token/theme` — the theme-config shape when a token axis is authored in JS rather than `@theme` CSS (rare; the CSS path is canonical)  |
-|  [02]   | `PluginAPI` / `PluginCreator` / `PluginWithOptions<T>` | plugin type     | `token/scale`, `token/theme` — the API a programmatic plugin receives; `withOptions` is the parameterized-plugin variant               |
-|  [03]   | `CssInJs` / `NamedUtilityValue` / `PluginUtils`        | css-object type | `token/scale` — the CSS-in-JS object shape `addUtilities`/`matchUtilities`/`addComponents` consume                                     |
-|  [04]   | `DarkModeStrategy` / `ContentFile`                     | policy type     | `token/theme` — dark-mode selector strategy and the content-source descriptor (the `@custom-variant dark` + `@source` CSS equivalents) |
+| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]   |
+| :-----: | :----------------------------------------------------- | :-------------- |
+|  [01]   | `Config` / `UserConfig` / `ThemeConfig`                | config type     |
+|  [02]   | `PluginAPI` / `PluginCreator` / `PluginWithOptions<T>` | plugin type     |
+|  [03]   | `CssInJs` / `NamedUtilityValue` / `PluginUtils`        | css-object type |
+|  [04]   | `DarkModeStrategy` / `ContentFile`                     | policy type     |
+
+- [01]-[CONFIG_TYPE]: `token/theme` — the theme-config shape when a token axis is authored in JS rather than `@theme` CSS (rare; the CSS path is canonical).
+- [02]-[PLUGIN_TYPE]: `token/scale`, `token/theme` — the API a programmatic plugin receives; `withOptions` is the parameterized-plugin variant.
+- [03]-[CSS_OBJECT_TYPE]: `token/scale` — the CSS-in-JS object shape `addUtilities`/`matchUtilities`/`addComponents` consume.
+- [04]-[POLICY_TYPE]: `token/theme` — dark-mode selector strategy and the content-source descriptor (the `@custom-variant dark` + `@source` CSS equivalents).
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the CSS-first directive surface — the primary authoring rail
 - rail: token
 
-| [INDEX] | [SURFACE]                                                                                                        | [ENTRY_FAMILY]         | [CONSUMER]                                                                                                                                                                                                       |
-| :-----: | :--------------------------------------------------------------------------------------------------------------- | :--------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `@import "tailwindcss";`                                                                                         | engine entry           | `token/theme` — the one entry pulling preflight + theme + utilities; the branch's single global stylesheet imports it                                                                                            |
-|  [02]   | `@theme { --color-brand-500: oklch(...); }` / `@theme inline` / `@theme static` / `@theme reference`             | define tokens          | `token/theme`, `token/scale` — declare token namespaces; `inline` substitutes values, `reference` imports without emitting variables, `static` emits every variable unconditionally                              |
-|  [03]   | `@utility name { … }` / `@variant hover { … }` / `@custom-variant dark (&:where([data-theme=dark] *))` + `@slot` | custom utility/variant | `token/scale`, `act/gesture` — author a token-driven utility, apply a variant inside custom CSS, or define a data-attribute-driven variant (the theme/state selectors)                                           |
-|  [04]   | `@apply bg-surface text-fg` / `theme(--color-brand-500)` / `--spacing(4)` / `--alpha(var(--color-fg) / 60%)`     | inline / read          | `view/primitive` — inline existing utilities into a component base layer; `theme()`/`--spacing()` read token values and `--alpha()` derives an OKLCH opacity variant (`color-mix` in oklab) inside arbitrary CSS |
-|  [05]   | `@source "../app"` / `@reference "../theme.css"` / `@plugin "./rac"` / `@config "./legacy.js"`                   | wiring                 | `token/theme` — declare class-detection sources, import theme into a scoped stylesheet without duplication, and load a JS plugin/retired config                                                                  |
+| [INDEX] | [SURFACE]                                                                                                    | [ENTRY_FAMILY]         |
+| :-----: | :----------------------------------------------------------------------------------------------------------- | :--------------------- |
+|  [01]   | `@import "tailwindcss";`                                                                                     | engine entry           |
+|  [02]   | `@theme { --color-brand-500: oklch(...); }` / `@theme inline` / `@theme static` / `@theme reference`         | define tokens          |
+|  [03]   | `@utility name { … }` / `@variant hover { … }` / `@custom-variant dark (&:where([data-theme=dark] *))`       | custom utility/variant |
+|  [04]   | `@apply bg-surface text-fg` / `theme(--color-brand-500)` / `--spacing(4)` / `--alpha(var(--color-fg) / 60%)` | inline / read          |
+|  [05]   | `@source "../app"` / `@reference "../theme.css"` / `@plugin "./rac"` / `@config "./legacy.js"`               | wiring                 |
+
+- [01]-[ENGINE_ENTRY]: `token/theme` — the one entry pulling preflight + theme + utilities; the branch's single global stylesheet imports it.
+- [02]-[DEFINE_TOKENS]: `token/theme`, `token/scale` — declare token namespaces; `inline` substitutes values, `reference` imports without emitting variables, `static` emits every variable unconditionally.
+- [03]-[CUSTOM_UTILITY_VARIANT]: `token/scale`, `act/gesture` — author a token-driven utility, apply a variant inside custom CSS, or define a data-attribute-driven variant (the theme/state selectors); `@slot` marks the variant body insertion point.
+- [04]-[INLINE_READ]: `view/primitive` — inline existing utilities into a component base layer; `theme()`/`--spacing()` read token values and `--alpha()` derives an OKLCH opacity variant (`color-mix` in oklab) inside arbitrary CSS.
+- [05]-[WIRING]: `token/theme` — declare class-detection sources, import theme into a scoped stylesheet without duplication, and load a JS plugin/retired config.
 
 [ENTRYPOINT_SCOPE]: build integration and the typed JS compat API
 - rail: token
 
-| [INDEX] | [SURFACE]                                                                                                                                                       | [ENTRY_FAMILY]       | [CONSUMER]                                                                                                                                       |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `import tailwindcss from '@tailwindcss/vite'` → `tailwindcss({ optimize })` in `vite.config` plugins                                                            | build plugin         | the app Vite build — the one integration point; scans sources, resolves `@theme`/`@utility`, emits optimized CSS                                 |
-|  [02]   | `import plugin from 'tailwindcss/plugin'` → `plugin(({ addUtilities, matchUtilities, addVariant, matchVariant, addBase, addComponents, theme }) => …, config?)` | JS plugin            | `token/scale` — a programmatic utility/variant generator when a token family is algorithmic rather than enumerated in `@theme`                   |
-|  [03]   | `plugin.withOptions((opts) => api => …, (opts) => config)`                                                                                                      | parameterized plugin | `token/scale` — a plugin accepting options; the parameterized form when one plugin serves many token configurations                              |
-|  [04]   | `import colors from 'tailwindcss/colors'` / `import defaultTheme from 'tailwindcss/defaultTheme'` / `tailwindcss/lib/util/flattenColorPalette`                  | default values       | `token/theme` — the stock OKLCH palette and default theme objects, and the palette-flatten util, read when seeding or extending `@theme` from JS |
+| [INDEX] | [SURFACE]                                                                                      | [ENTRY_FAMILY]       |
+| :-----: | :--------------------------------------------------------------------------------------------- | :------------------- |
+|  [01]   | `import tailwindcss from '@tailwindcss/vite'` → `tailwindcss({ optimize })`                    | build plugin         |
+|  [02]   | `import plugin from 'tailwindcss/plugin'` → `plugin(fn, config?)`                              | JS plugin            |
+|  [03]   | `plugin.withOptions((opts) => api => …, (opts) => config)`                                     | parameterized plugin |
+|  [04]   | `tailwindcss/colors` / `tailwindcss/defaultTheme` / `tailwindcss/lib/util/flattenColorPalette` | default values       |
+
+- [01]-[BUILD_PLUGIN]: the app Vite build, listed in `vite.config` plugins — the one integration point; scans sources, resolves `@theme`/`@utility`, emits optimized CSS.
+- [02]-[JS_PLUGIN]: `token/scale` — a programmatic utility/variant generator when a token family is algorithmic rather than enumerated in `@theme`; the callback receives `addUtilities`/`matchUtilities`/`addVariant`/`matchVariant`/`addBase`/`addComponents`/`theme`.
+- [03]-[PARAMETERIZED_PLUGIN]: `token/scale` — a plugin accepting options; the parameterized form when one plugin serves many token configurations.
+- [04]-[DEFAULT_VALUES]: `token/theme` — the stock OKLCH palette and default theme objects (`import colors`/`import defaultTheme`) and the palette-flatten util, read when seeding or extending `@theme` from JS.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -25,7 +25,7 @@ jsdom is the FIDELITY DOM of the `_testkit` unit lane: real `parse5` parsing, re
 |  [06]   | `requestInterceptor`         | function             | build an `undici`-compatible interceptor that inspects/synthesizes requests  |
 |  [07]   | `toughCookie`                | namespace            | the re-exported `tough-cookie` module (`Cookie`, `MemoryCookieStore`, …)     |
 
-```ts contract
+```ts signature
 // SOURCE-VERIFIED shapes (no bundled .d.ts). runScripts absent ⇒ scripts do NOT run (the safe default); getInternalVMContext() throws unless runScripts was set.
 declare class JSDOM {
   constructor(html?: string | Buffer, options?: ConstructorOptions)
@@ -54,7 +54,7 @@ interface ConstructorOptions {
 
 Subresource loading is ONE parameterized option, not a class hierarchy — the pre-v29 `ResourceLoader` subclassing pattern was removed. `resources` discriminates on three shapes: `undefined` (no automatic subresource fetch; XHR still works), `"usable"` (fetch with defaults), or an object `{ userAgent?, dispatcher?, interceptors? }` where `dispatcher` is any `undici` `Dispatcher` (proxy, mock-agent, custom pool). `requestInterceptor(fn)` is the lightweight per-request hook when a full dispatcher is overkill.
 
-```ts contract
+```ts signature
 import { JSDOM, requestInterceptor } from "jsdom"
 // A dispatcher routes real fetches; an interceptor inspects/synthesizes them — compose both to sandbox network in a spec.
 new JSDOM(html, {
@@ -73,11 +73,11 @@ Scripts inside the DOM using synchronous `XMLHttpRequest` bypass all resource cu
 
 ## [03]-[CONSOLE_AND_COOKIES]
 
-| [INDEX] | [SURFACE]                                                      | [CAPABILITY]                                                                                                                                                       |
-| :-----: | :------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new VirtualConsole()` (an `EventEmitter`) + `.on(method, fn)` | subscribe to `log`/`warn`/`error`/`info`/`dir`/… and the `jsdomError` event                                                                                        |
-|  [02]   | `virtualConsole.forwardTo(console, { jsdomErrors? })`          | mirror output to a real console; `jsdomErrors` = `undefined` (forward all) \| `string[]` (only those types) \| `"none"` — v29 dropped the pre-`forwardTo` `sendTo` |
-|  [03]   | `new CookieJar(store?, options?)`                              | a `tough-cookie` jar; pass a shared jar to correlate cookies across instances                                                                                      |
+| [INDEX] | [SURFACE]                                             | [CAPABILITY]                                                                   |
+| :-----: | :---------------------------------------------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `new VirtualConsole()` + `.on(method, fn)`            | `EventEmitter`; subscribe to `log`/`warn`/`error`/`info`/… + `jsdomError`      |
+|  [02]   | `virtualConsole.forwardTo(console, { jsdomErrors? })` | mirror to a real console; `jsdomErrors`: `undefined` \| `string[]` \| `"none"` |
+|  [03]   | `new CookieJar(store?, options?)`                     | `tough-cookie` jar; a shared jar correlates cookies across instances           |
 
 The `jsdomError` event on `VirtualConsole` is where uncaught in-DOM script errors and resource-load failures surface — a fidelity spec subscribes to it rather than letting jsdom default-forward to `console.error`. Match `jsdomError` categories (`"unhandled-exception"`, `"not-implemented"`, `"resource-loading"`) on the category token, never on message text.
 

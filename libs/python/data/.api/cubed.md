@@ -31,16 +31,18 @@
 [PUBLIC_TYPE_SCOPE]: `cubed.Array` members
 - rail: chunked-compute
 
-| [INDEX] | [MEMBER]                                                       | [KIND]   | [ROLE]                                                                                                                                                                             |
-| :-----: | :------------------------------------------------------------- | :------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `compute(*, executor, callbacks, optimize_graph, resume, ...)` | method   | materialize this array                                                                                                                                                             |
-|  [02]   | `rechunk(chunks, *, min_mem)`                                  | method   | change chunk layout                                                                                                                                                                |
-|  [03]   | `visualize(filename, format, optimize_graph, ...)`             | method   | render the task graph                                                                                                                                                              |
-|  [04]   | `chunks`                                                       | property | per-axis chunk tuple                                                                                                                                                               |
-|  [05]   | `chunksize`                                                    | property | single-chunk shape                                                                                                                                                                 |
-|  [06]   | `npartitions`                                                  | property | total chunk count                                                                                                                                                                  |
-|  [07]   | `blocks[selection]`                                            | property | block-level indexing view                                                                                                                                                          |
-|  [08]   | `spec`                                                         | property | the array's execution `Spec` (`spec.work_dir`/`allowed_mem`/`reserved_mem`/`executor_name`) — read the budget/executor off a materialized output array rather than re-passing them |
+`spec` reads the execution `Spec` (`work_dir`/`allowed_mem`/`reserved_mem`/`executor_name`) off a materialized output array rather than re-passing budget and executor.
+
+| [INDEX] | [MEMBER]                                                       | [KIND]   | [ROLE]                       |
+| :-----: | :------------------------------------------------------------- | :------- | :--------------------------- |
+|  [01]   | `compute(*, executor, callbacks, optimize_graph, resume, ...)` | method   | materialize this array       |
+|  [02]   | `rechunk(chunks, *, min_mem)`                                  | method   | change chunk layout          |
+|  [03]   | `visualize(filename, format, optimize_graph, ...)`             | method   | render the task graph        |
+|  [04]   | `chunks`                                                       | property | per-axis chunk tuple         |
+|  [05]   | `chunksize`                                                    | property | single-chunk shape           |
+|  [06]   | `npartitions`                                                  | property | total chunk count            |
+|  [07]   | `blocks[selection]`                                            | property | block-level indexing view    |
+|  [08]   | `spec`                                                         | property | the array's execution `Spec` |
 
 [CALLBACK_TELEMETRY]:
 - `Callback` subclasses observe `on_compute_start(ComputeStartEvent)` / `on_compute_end(ComputeEndEvent)`, `on_operation_start(OperationStartEvent)` / `on_operation_end(OperationEndEvent)`, and `on_task_end(TaskEndEvent)`.
@@ -70,23 +72,23 @@ Array-API creation factories; every factory accepts `chunks=` and `spec=` to bin
 [ENTRYPOINT_SCOPE]: execution, store, blockwise, and reduce (`cubed`)
 - rail: chunked-compute
 
-| [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY] | [RAIL]                         |
-| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :----------------------------- |
-|  [01]   | `compute(*arrays, executor, callbacks, optimize_graph, optimize_function, resume, ...)`    | execute        | materialize one or more arrays |
-|  [02]   | `store(sources, targets, executor, ...)`                                                   | persist        | write arrays to Zarr targets   |
-|  [03]   | `to_zarr(x, store, path, executor, ...)`                                                   | persist        | write array to Zarr            |
-|  [04]   | `visualize(*arrays, filename='cubed', format, optimize_graph, ...)`                        | inspect        | render task graph diagram      |
-|  [05]   | `measure_reserved_mem(executor, work_dir, ...)`                                            | inspect        | calibrate executor overhead    |
-|  [06]   | `raise_if_computes()`                                                                      | inspect        | assert no eager compute fires  |
-|  [07]   | `map_blocks(func, *args, dtype, chunks, drop_axis, new_axis, spec) -> Array`               | blockwise      | apply func per chunk           |
-|  [08]   | `map_overlap(func, *args, depth, boundary, trim, ...) -> Array`                            | blockwise      | apply func over haloed blocks  |
-|  [09]   | `apply_gufunc(func, signature, *args, axes, output_dtypes, vectorize, allow_rechunk, ...)` | gufunc         | generalized ufunc              |
-|  [10]   | `rechunk(x, chunks, *, min_mem)`                                                           | reshape        | change chunk specification     |
-|  [11]   | `concat(arrays, /, *, axis)` / `stack(arrays, /, *, axis)`                                 | combine        | concatenate or stack arrays    |
-|  [12]   | `reshape(x, /, shape)` / `broadcast_to(x, /, shape, *, chunks)`                            | reshape        | reshape or broadcast           |
-|  [13]   | `where(condition, x1, x2, /)` / `pad(x, pad_width, mode, ...)`                             | transform      | conditional select or pad      |
-|  [14]   | `nanmean` / `nansum` / `nanmax` / `nanmin` / `nanprod` / `nanstd` / `nanvar` / `nanmedian` | reduce         | NaN-aware reductions           |
-|  [15]   | `nanargmax` / `nanargmin` / `nancumsum` / `nancumprod`                                     | reduce         | NaN-aware arg/cumulative ops   |
+| [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY] | [RAIL]                     |
+| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :------------------------- |
+|  [01]   | `compute(*arrays, executor, callbacks, optimize_graph, optimize_function, resume, ...)`    | execute        | materialize arrays         |
+|  [02]   | `store(sources, targets, executor, ...)`                                                   | persist        | write arrays to Zarr       |
+|  [03]   | `to_zarr(x, store, path, executor, ...)`                                                   | persist        | write array to Zarr        |
+|  [04]   | `visualize(*arrays, filename='cubed', format, optimize_graph, ...)`                        | inspect        | render task graph          |
+|  [05]   | `measure_reserved_mem(executor, work_dir, ...)`                                            | inspect        | calibrate overhead         |
+|  [06]   | `raise_if_computes()`                                                                      | inspect        | assert no eager compute    |
+|  [07]   | `map_blocks(func, *args, dtype, chunks, drop_axis, new_axis, spec) -> Array`               | blockwise      | apply func per chunk       |
+|  [08]   | `map_overlap(func, *args, depth, boundary, trim, ...) -> Array`                            | blockwise      | apply func over halos      |
+|  [09]   | `apply_gufunc(func, signature, *args, axes, output_dtypes, vectorize, allow_rechunk, ...)` | gufunc         | generalized ufunc          |
+|  [10]   | `rechunk(x, chunks, *, min_mem)`                                                           | reshape        | change chunk specification |
+|  [11]   | `concat(arrays, /, *, axis)` / `stack(arrays, /, *, axis)`                                 | combine        | concatenate or stack       |
+|  [12]   | `reshape(x, /, shape)` / `broadcast_to(x, /, shape, *, chunks)`                            | reshape        | reshape or broadcast       |
+|  [13]   | `where(condition, x1, x2, /)` / `pad(x, pad_width, mode, ...)`                             | transform      | conditional select or pad  |
+|  [14]   | `nanmean` / `nansum` / `nanmax` / `nanmin` / `nanprod` / `nanstd` / `nanvar` / `nanmedian` | reduce         | NaN-aware reductions       |
+|  [15]   | `nanargmax` / `nanargmin` / `nancumsum` / `nancumprod`                                     | reduce         | NaN-aware arg/cumulative   |
 
 [ENTRYPOINT_SCOPE]: linear algebra (`cubed.array_api.linalg`)
 - rail: chunked-compute

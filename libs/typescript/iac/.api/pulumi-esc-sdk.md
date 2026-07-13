@@ -22,18 +22,26 @@
 
 [METHOD_SCOPE]: `EscApi` — the families at `org/project/env` arity
 - rail: environment
+- Every method takes `(org, project, env, …)` arity and is `Promise`-shaped; the members below list only the trailing args that differ. `cloneEnvironment` takes `(org, srcProject, srcEnv, destProject, destEnv, options?)`, `checkEnvironment` takes `(org, env: EnvironmentDefinition)`, and `listEnvironments` takes `(org, continuationToken?)`.
 
-| [INDEX] | [FAMILY]        | [MEMBERS]                                                                                                                                                                                                                                                                                                                                    |
-| :-----: | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | roster          | `listEnvironments(org, continuationToken?)` → `OrgEnvironments`                                                                                                                                                                                                                                                                              |
-|  [02]   | definition CRUD | `createEnvironment`, `getEnvironment` → `{ environment: EnvironmentDefinition, yaml }`, `getEnvironmentAtVersion`, `updateEnvironment(org, project, env, values: EnvironmentDefinition)`, `updateEnvironmentYaml(org, project, env, yaml)`, `deleteEnvironment`, `cloneEnvironment(org, srcProject, srcEnv, destProject, destEnv, options?)` |
-|  [03]   | open/read       | `openEnvironment` → `OpenEnvironment { id }`, `readOpenEnvironment(org, project, env, openSessionID)`, `openAndReadEnvironment` (the composed spelling), `readOpenEnvironmentProperty(…, openSessionID, property)`, `openEnvironmentAtVersion` / `openAndReadEnvironmentAtVersion`                                                           |
-|  [04]   | validation      | `checkEnvironment(org, env: EnvironmentDefinition)` / `checkEnvironmentYaml(org, yaml)` → `CheckEnvironment` with `diagnostics`                                                                                                                                                                                                              |
-|  [05]   | operator        | `decryptEnvironment(org, project, env)` — plaintext definition read, operator-only                                                                                                                                                                                                                                                           |
-|  [06]   | history         | `listEnvironmentRevisions(…, before?, count?)`; revision tags: `listEnvironmentRevisionTags`, `getEnvironmentRevisionTag`, `createEnvironmentRevisionTag(…, tag, revision)`, `updateEnvironmentRevisionTag`, `deleteEnvironmentRevisionTag`                                                                                                  |
-|  [07]   | labels          | `listEnvironmentTags`, `getEnvironmentTag`, `createEnvironmentTag(…, tag, value)`, `updateEnvironmentTag`, `deleteEnvironmentTag`                                                                                                                                                                                                            |
+| [INDEX] | [FAMILY]           | [MEMBERS]                                                                                                     |
+| :-----: | :----------------- | :------------------------------------------------------------------------------------------------------------ |
+|  [01]   | roster             | `listEnvironments` → `OrgEnvironments`                                                                        |
+|  [02]   | definition read    | `getEnvironment` → `{ environment: EnvironmentDefinition, yaml }`, `getEnvironmentAtVersion`                  |
+|  [03]   | create/update      | `createEnvironment`, `updateEnvironment(values: EnvironmentDefinition)`, `updateEnvironmentYaml(yaml)`        |
+|  [04]   | delete/clone       | `deleteEnvironment`, `cloneEnvironment`                                                                       |
+|  [05]   | open               | `openEnvironment` → `OpenEnvironment { id }`, `openEnvironmentAtVersion`                                      |
+|  [06]   | open + read        | `openAndReadEnvironment`, `openAndReadEnvironmentAtVersion`                                                   |
+|  [07]   | read               | `readOpenEnvironment(openSessionID)`, `readOpenEnvironmentProperty(openSessionID, property)`                  |
+|  [08]   | validation         | `checkEnvironment` / `checkEnvironmentYaml(yaml)` → `CheckEnvironment` with `diagnostics`                     |
+|  [09]   | operator           | `decryptEnvironment` — plaintext definition read, operator-only                                               |
+|  [10]   | revisions          | `listEnvironmentRevisions(before?, count?)`                                                                   |
+|  [11]   | revision tag read  | `listEnvironmentRevisionTags`, `getEnvironmentRevisionTag`                                                    |
+|  [12]   | revision tag write | `createEnvironmentRevisionTag(tag, revision)`, `updateEnvironmentRevisionTag`, `deleteEnvironmentRevisionTag` |
+|  [13]   | env tag read       | `listEnvironmentTags`, `getEnvironmentTag`                                                                    |
+|  [14]   | env tag write      | `createEnvironmentTag(tag, value)`, `updateEnvironmentTag`, `deleteEnvironmentTag`                            |
 
-```ts contract
+```ts signature
 // the definition shape writes travel as — imports is the composition DAG
 interface EnvironmentDefinition { imports?: Array<string>; values?: EnvironmentDefinitionValues }
 interface EnvironmentDefinitionValues {

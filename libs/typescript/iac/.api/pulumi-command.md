@@ -21,42 +21,45 @@
 
 [LIFECYCLE_SCOPE]: the one polymorphic command surface
 - rail: cluster-bootstrap
-- `local.Command` and `remote.Command` are the SAME lifecycle shape; local-vs-remote is the transport axis and the remote arm adds exactly one required field (`connection`). The CRUD slots are independent shell strings, so one resource owns create/update/delete without three resource kinds. `triggers` (any-typed values — a `random.RandomId.hex`, a `tls` fingerprint, a file `Asset`) forces re-run: with `update` present the resource updates, else it replaces via `create`. `logging` gates whether captured output is echoed to the CLI (mark secret outputs and set `none` for credential-bearing steps); capture into `stdout`/`stderr` is unconditional.
+- `local.Command` and `remote.Command` are the SAME lifecycle shape (`new Command(name, CommandArgs, opts?)` with `static get`/`isInstance`); local-vs-remote is the transport axis and the remote arm adds exactly one required field (`connection`). The CRUD slots are independent shell strings, so one resource owns create/update/delete without three resource kinds. `triggers` (any-typed values — a `random.RandomId.hex`, a `tls` fingerprint, a file `Asset`) forces re-run: with `update` present the resource updates, else it replaces via `create`. `logging` gates whether captured output is echoed to the CLI (mark secret outputs and set `none` for credential-bearing steps); capture into `stdout`/`stderr` is unconditional.
 
-| [INDEX] | [SYMBOL]                                                              | [SLOT]        | [SHAPE_BOUNDARY]                                                                                                      |
-| :-----: | :-------------------------------------------------------------------- | :------------ | :-------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `local.Command` / `remote.Command`                                    | class         | `new Command(name, CommandArgs, opts?)` → `CustomResource`; `static get`, `static isInstance`                         |
-|  [02]   | `CommandArgs.create` / `.update` / `.delete`                          | CRUD          | `Input<string>`; `delete` env carries `PULUMI_COMMAND_STDOUT`/`STDERR` from the prior create/update                   |
-|  [03]   | `CommandArgs.triggers`                                                | discriminator | `Input<any[]>`; value change → update (or replace when no `update`)                                                   |
-|  [04]   | `CommandArgs.environment` / `.stdin`                                  | input         | `Input<{[k]: Input<string>}>` / `Input<string>`                                                                       |
-|  [05]   | `CommandArgs.logging`                                                 | secrecy       | `Input<Logging>` = `"stdout" \| "stderr" \| "stdoutAndStderr" \| "none"`                                              |
-|  [06]   | `CommandArgs.addPreviousOutputInEnv`                                  | chaining      | `Input<boolean>` (default `true`); injects prior run stdout/stderr as env for the next                                |
-|  [07]   | `local` extras: `interpreter` / `dir` / `assetPaths` / `archivePaths` | host          | `Input<string[]>` shell (default `["/bin/sh","-c"]` / `["cmd","/C"]`), cwd, glob capture → `assets`/`archive` outputs |
-|  [08]   | `remote.CommandArgs.connection`                                       | transport     | `Input<ConnectionArgs>` (required)                                                                                    |
-|  [09]   | `Command.stdout` / `.stderr`                                          | output        | `Output<string>` (always present); the bootstrap result threads downstream via `.apply`/`pulumi.all`                  |
+| [INDEX] | [SYMBOL]                                      | [SLOT]        | [SHAPE_BOUNDARY]                                                         |
+| :-----: | :-------------------------------------------- | :------------ | :----------------------------------------------------------------------- |
+|  [01]   | `local.Command` / `remote.Command`            | class         | `new Command(name, CommandArgs, opts?)` → `CustomResource`               |
+|  [02]   | `CommandArgs.create` / `.update` / `.delete`  | CRUD          | `Input<string>`; `delete` env carries `PULUMI_COMMAND_STDOUT`/`STDERR`   |
+|  [03]   | `CommandArgs.triggers`                        | discriminator | `Input<any[]>`; value change → update (or replace when no `update`)      |
+|  [04]   | `CommandArgs.environment` / `.stdin`          | input         | `Input<{[k]: Input<string>}>` / `Input<string>`                          |
+|  [05]   | `CommandArgs.logging`                         | secrecy       | `Input<Logging>` = `"stdout" \| "stderr" \| "stdoutAndStderr" \| "none"` |
+|  [06]   | `CommandArgs.addPreviousOutputInEnv`          | chaining      | `Input<boolean>` (default `true`); injects prior stdout/stderr as env    |
+|  [07]   | `local` `interpreter`                         | host          | `Input<string[]>` shell, default `["/bin/sh","-c"]` / `["cmd","/C"]`     |
+|  [08]   | `local` `dir` / `assetPaths` / `archivePaths` | host          | cwd for the process; glob capture → `assets` / `archive` outputs         |
+|  [09]   | `remote.CommandArgs.connection`               | transport     | `Input<ConnectionArgs>` (required)                                       |
+|  [10]   | `Command.stdout` / `.stderr`                  | output        | `Output<string>` always present; threads via `.apply`/`pulumi.all`       |
 
 [CONNECTION_SCOPE]: `types.input.remote.ConnectionArgs` — the VPS/metal SSH seam
 - rail: cluster-bootstrap
 - The remote transport target. `host` is the only required field; `proxy` nests a full `ProxyConnectionArgs` for bastion/jump-host reach. Every credential field is `Input<string>` so it binds a `tls`/`doppler`/`random` `Output`, never a literal.
 
-| [INDEX] | [FIELD]                             | [TYPE]                            | [MEANING]                                                          |
-| :-----: | :---------------------------------- | :-------------------------------- | :----------------------------------------------------------------- |
-|  [01]   | `host`                              | `Input<string>`                   | target address (required)                                          |
-|  [02]   | `port` / `user`                     | `Input<number>` / `Input<string>` | SSH port (default 22), login (default `root`)                      |
-|  [03]   | `privateKey` / `privateKeyPassword` | `Input<string>`                   | PEM key + optional passphrase; bind `tls.PrivateKey.privateKeyPem` |
-|  [04]   | `password`                          | `Input<string>`                   | password auth alternative                                          |
-|  [05]   | `agentSocketPath` / `hostKey`       | `Input<string>`                   | SSH-agent socket, pinned host public key                           |
-|  [06]   | `perDialTimeout` / `dialErrorLimit` | `Input<number>`                   | per-dial timeout (s), retry ceiling before failing the step        |
-|  [07]   | `proxy`                             | `Input<ProxyConnectionArgs>`      | bastion hop (same field set, its own `host`)                       |
+| [INDEX] | [FIELD]                             | [TYPE]                            | [MEANING]                                                   |
+| :-----: | :---------------------------------- | :-------------------------------- | :---------------------------------------------------------- |
+|  [01]   | `host`                              | `Input<string>`                   | target address (required)                                   |
+|  [02]   | `port` / `user`                     | `Input<number>` / `Input<string>` | SSH port (default 22), login (default `root`)               |
+|  [03]   | `privateKey` / `privateKeyPassword` | `Input<string>`                   | PEM key + passphrase; bind `tls.PrivateKey.privateKeyPem`   |
+|  [04]   | `password`                          | `Input<string>`                   | password auth alternative                                   |
+|  [05]   | `agentSocketPath` / `hostKey`       | `Input<string>`                   | SSH-agent socket, pinned host public key                    |
+|  [06]   | `perDialTimeout` / `dialErrorLimit` | `Input<number>`                   | per-dial timeout (s), retry ceiling before failing the step |
+|  [07]   | `proxy`                             | `Input<ProxyConnectionArgs>`      | bastion hop (same field set, its own `host`)                |
 
 [COPY_SCOPE]: remote asset staging
 - rail: cluster-bootstrap
 - Stage local files onto the target before/after a `remote.Command`; `dependsOn` threads ordering. `source` is any `pulumi.asset.Asset | Archive` (a rendered config, a `FileArchive` of manifests), so staged content is an `Output`-derived value, not a checked-in path.
 
-| [INDEX] | [SYMBOL]              | [SHAPE_BOUNDARY]                                                                                                                            |
-| :-----: | :-------------------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `remote.CopyToRemote` | `new CopyToRemote(name, { connection, source: Asset\|Archive, remotePath, triggers? }, opts?)` → outputs `connection`/`source`/`remotePath` |
-|  [02]   | `remote.CopyFile`     | DEPRECATED single-file copy — superseded by `CopyToRemote`; never author it                                                                 |
+- Outputs mirror the args per the abi-note; `CopyToRemote` exposes `connection`/`source`/`remotePath`.
+
+| [INDEX] | [SYMBOL]              | [SHAPE_BOUNDARY]                                                                               |
+| :-----: | :-------------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `remote.CopyToRemote` | `new CopyToRemote(name, { connection, source: Asset\|Archive, remotePath, triggers? }, opts?)` |
+|  [02]   | `remote.CopyFile`     | DEPRECATED single-file copy — superseded by `CopyToRemote`; never author it                    |
 
 ## [03]-[UNCONDITIONAL_INVOKE]
 
@@ -64,11 +67,11 @@
 - rail: fabric
 - Unconditional shell reads that run on EVERY preview/up (no CRUD lifecycle, no state) — the read-side complement to the lifecycle `Command`. `run` returns an eager `Promise` for use inside an `async` inline program; `runOutput` returns an `Output<RunResult>` that threads a shell fact through the resource graph (feed `dependsOn`, `triggers`, or a downstream `Input`). `RunArgs.command` is required; the rest mirrors the local `Command` input slots.
 
-| [INDEX] | [SURFACE]                                              | [SHAPE_BOUNDARY]                                                                                                    |
-| :-----: | :----------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `local.run(RunArgs, InvokeOptions?)`                   | `Promise<RunResult>`; eager read, `command` required + `dir`/`environment`/`interpreter`/`logging`/`stdin`/`asset*` |
-|  [02]   | `local.runOutput(RunOutputArgs, InvokeOutputOptions?)` | `Output<RunResult>`; graph-threaded read (Input-typed args)                                                         |
-|  [03]   | `RunResult.stdout` / `.stderr`                         | `string`; `stdout`/`stderr` always present, plus resolved `assets`/`archive`                                        |
+| [INDEX] | [SURFACE]                                              | [SHAPE_BOUNDARY]                                                              |
+| :-----: | :----------------------------------------------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `local.run(RunArgs, InvokeOptions?)`                   | `Promise<RunResult>`; eager read, `command` required (rest mirrors `Command`) |
+|  [02]   | `local.runOutput(RunOutputArgs, InvokeOutputOptions?)` | `Output<RunResult>`; graph-threaded read (Input-typed args)                   |
+|  [03]   | `RunResult.stdout` / `.stderr`                         | `string`; both always present, plus resolved `assets`/`archive`               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

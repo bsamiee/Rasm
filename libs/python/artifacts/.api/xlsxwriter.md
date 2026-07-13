@@ -21,144 +21,151 @@
 
 `Workbook` is the sole top-level export and the only object constructed directly; `Worksheet`, `Chartsheet`, `Format`, and `Chart` are minted by `add_worksheet`/`add_chartsheet`/`add_format`/`add_chart` and never instantiated by the consumer. The `exceptions` module roots every input/file failure under `XlsxWriterException`, branching into `XlsxInputError` (data/name/range) and `XlsxFileError` (zip/image/theme).
 
-| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [RAIL]                                                                                                     |
-| :-----: | :------------------------------------------ | :------------ | :--------------------------------------------------------------------------------------------------------- |
-|  [01]   | `xlsxwriter.Workbook`                       | writer root   | open/own the XLSX container and mint sheets, formats, charts                                               |
-|  [02]   | `xlsxwriter.worksheet.Worksheet`            | sheet writer  | row-major cell emission plus tables/validation/charts                                                      |
-|  [03]   | `xlsxwriter.chartsheet.Chartsheet`          | chart sheet   | a sheet holding a single full-page chart                                                                   |
-|  [04]   | `xlsxwriter.format.Format`                  | cell style    | reusable number/font/fill/border/align style object                                                        |
-|  [05]   | `xlsxwriter.chart.Chart`                    | chart builder | `add_chart`-minted chart; `add_series`/`set_*_axis`/`combine`                                              |
-|  [06]   | `xlsxwriter.exceptions.XlsxWriterException` | error root    | base of every xlsxwriter failure                                                                           |
-|  [07]   | `xlsxwriter.exceptions.XlsxInputError`      | error branch  | `DuplicateWorksheetName`/`InvalidWorksheetName`/`DuplicateTableName`/`OverlappingRange`/`EmptyChartSeries` |
-|  [08]   | `xlsxwriter.exceptions.XlsxFileError`       | error branch  | `FileCreateError`/`FileSizeError`/`UndefinedImageSize`/`UnsupportedImageFormat`/`ThemeFileError`           |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY] | [RAIL]                                                        |
+| :-----: | :------------------------------------------ | :------------ | :------------------------------------------------------------ |
+|  [01]   | `xlsxwriter.Workbook`                       | writer root   | open/own the XLSX container and mint sheets, formats, charts  |
+|  [02]   | `xlsxwriter.worksheet.Worksheet`            | sheet writer  | row-major cell emission plus tables/validation/charts         |
+|  [03]   | `xlsxwriter.chartsheet.Chartsheet`          | chart sheet   | a sheet holding a single full-page chart                      |
+|  [04]   | `xlsxwriter.format.Format`                  | cell style    | reusable number/font/fill/border/align style object           |
+|  [05]   | `xlsxwriter.chart.Chart`                    | chart builder | `add_chart`-minted chart; `add_series`/`set_*_axis`/`combine` |
+|  [06]   | `xlsxwriter.exceptions.XlsxWriterException` | error root    | base of every xlsxwriter failure                              |
+|  [07]   | `xlsxwriter.exceptions.XlsxInputError`      | error branch  | data/name/range faults                                        |
+|  [08]   | `xlsxwriter.exceptions.XlsxFileError`       | error branch  | zip/image/theme faults                                        |
+
+- [07]-[XLSX_INPUT_ERROR]: `DuplicateWorksheetName`/`InvalidWorksheetName`/`DuplicateTableName`/`OverlappingRange`/`EmptyChartSeries`.
+- [08]-[XLSX_FILE_ERROR]: `FileCreateError`/`FileSizeError`/`UndefinedImageSize`/`UnsupportedImageFormat`/`ThemeFileError`.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Workbook` lifecycle and minting
 - rail: spreadsheet
 
-The constructor `options` dict carries the streaming and coercion policy: `constant_memory=True` flushes each completed row to `tmpdir` and holds only the active row; `in_memory=True` keeps the temp file in RAM when a disk path is unavailable; `tmpdir` redirects the spill directory; `use_zip64=True` lifts the 4 GiB archive ceiling; `strings_to_numbers`/`strings_to_formulas`/`strings_to_urls` govern `write` auto-coercion; `default_date_format` sets the implicit datetime format; `remove_timezone` strips tz from datetimes; `nan_inf_to_errors` maps NaN/Inf to Excel error codes; `max_url_length` bounds hyperlink length; `date_1904` selects the Mac epoch. `add_worksheet`/`add_chartsheet`/`add_format`/`add_chart` mint the objects consumed by the write path, and `close` is the single serialization trigger.
+The constructor `options` dict carries the streaming and coercion policy: `constant_memory=True` flushes each completed row to `tmpdir` and holds only the active row; `in_memory=True` keeps the temp file in RAM when a disk path is unavailable; `tmpdir` redirects the spill directory; `use_zip64=True` lifts the 4 GiB archive ceiling; `strings_to_numbers`/`strings_to_formulas`/`strings_to_urls` govern `write` auto-coercion; `default_date_format` sets the implicit datetime format; `remove_timezone` strips tz from datetimes; `nan_inf_to_errors` maps NaN/Inf to Excel error codes; `max_url_length` bounds hyperlink length; `date_1904` selects the Mac epoch. `add_worksheet`/`add_chartsheet`/`add_format`/`add_chart` mint the objects consumed by the write path, and `close` is the single serialization trigger. The `[SURFACE]` cell carries the full call over the `Workbook` scope: `filename` is `str \| IO[AnyStr] \| os.PathLike \| None`, a mutator returns `Literal[0, -1]` (0 applied, -1 rejected) and a void setter returns `None`; `set_custom_property` value is `bool \| datetime \| int \| float \| Decimal \| Fraction \| Any` typed by `property_type` in `'bool'/'date'/'number'/'number_int'/'text'`, `set_calc_mode` mode is `'auto'/'manual'/'auto_except_tables'`, and `add_signed_vba_project` carries `project_is_stream=False, signature_is_stream=False`.
 
-| [INDEX] | [SURFACE]                             | [CALL_SHAPE]                                                                                                                                                                                                 | [CAPABILITY]                                                                                                 |
-| :-----: | :------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Workbook.__init__`                   | `Workbook(filename: str \| IO[AnyStr] \| os.PathLike \| None = None, options: Dict[str, Any] \| None = None) -> None`                                                                                        | open a workbook on a path or stream; `options` carries `constant_memory`, `in_memory`, `tmpdir`, `use_zip64` |
-|  [02]   | `Workbook.add_worksheet`              | `add_worksheet(name: str \| None = None, worksheet_class=None) -> Worksheet`                                                                                                                                 | mint a data sheet (auto-named when `name` omitted)                                                           |
-|  [03]   | `Workbook.add_chartsheet`             | `add_chartsheet(name: str \| None = None, chartsheet_class=None) -> Chartsheet`                                                                                                                              | mint a single-chart full-page sheet                                                                          |
-|  [04]   | `Workbook.add_format`                 | `add_format(properties: Dict[str, Any] \| None = None) -> Format`                                                                                                                                            | mint a reusable cell-style object                                                                            |
-|  [05]   | `Workbook.add_chart`                  | `add_chart(options: Dict[str, Any]) -> Chart \| None`                                                                                                                                                        | mint a chart by `{'type','subtype'}`; insert via `Worksheet.insert_chart`                                    |
-|  [06]   | `Workbook.define_name`                | `define_name(name: str, formula: str) -> Literal[0, -1]`                                                                                                                                                     | register a workbook- or sheet-scoped defined name                                                            |
-|  [07]   | `Workbook.add_vba_project`            | `add_vba_project(vba_project: str \| BinaryIO, is_stream: bool = False) -> Literal[0, -1]`                                                                                                                   | embed an extracted `vbaProject.bin` for a macro-enabled `.xlsm`                                              |
-|  [08]   | `Workbook.set_properties`             | `set_properties(properties: Dict[str, Any]) -> None`                                                                                                                                                         | set document core properties (title/author/subject/keywords/created)                                         |
-|  [09]   | `Workbook.set_custom_property`        | `set_custom_property(name: str, value: bool \| datetime \| int \| float \| Decimal \| Fraction \| Any, property_type: Literal['bool','date','number','number_int','text'] \| None = None) -> Literal[0, -1]` | add one typed custom document property                                                                       |
-|  [10]   | `Workbook.get_worksheet_by_name`      | `get_worksheet_by_name(name: str) -> Worksheet \| None`                                                                                                                                                      | polymorphic lookup of a minted sheet by name                                                                 |
-|  [11]   | `Workbook.worksheets`                 | `worksheets() -> List[Worksheet]`                                                                                                                                                                            | enumerate minted sheets in tab order                                                                         |
-|  [12]   | `Workbook.set_calc_mode`              | `set_calc_mode(mode: Literal['auto','manual','auto_except_tables'], calc_id=None) -> None`                                                                                                                   | recalc policy                                                                                                |
-|  [13]   | `Workbook.read_only_recommended`      | `read_only_recommended() -> None`                                                                                                                                                                            | flag the file read-only-recommended on open                                                                  |
-|  [14]   | `Workbook.add_signed_vba_project`     | `add_signed_vba_project(vba_project, signature, project_is_stream=False, signature_is_stream=False) -> Literal[0, -1]`                                                                                       | embed a digitally-signed `vbaProject.bin` + signature for a trusted macro `.xlsm`                            |
-|  [15]   | `Workbook.set_size` / `set_tab_ratio` | `set_size(width, height) -> None` / `set_tab_ratio(tab_ratio: float) -> None`                                                                                                                                | workbook window pixel size / sheet-tab-to-scrollbar ratio                                                    |
-|  [16]   | `Workbook.use_zip64`                  | `use_zip64() -> None`                                                                                                                                                                                        | enable zip64 at runtime (the method form of the `use_zip64` option, lifting the 4 GiB ceiling)               |
-|  [17]   | `Workbook.get_default_url_format`     | `get_default_url_format() -> Format`                                                                                                                                                                         | the implicit hyperlink `Format` `write_url` applies — reuse it to extend link styling                        |
-|  [18]   | `Workbook.close`                      | `close() -> None`                                                                                                                                                                                            | flush, package, and write the `.xlsx`/`.xlsm` container                                                      |
+| [INDEX] | [SURFACE]                                                        | [CAPABILITY]                                                      |
+| :-----: | :--------------------------------------------------------------- | :---------------------------------------------------------------- |
+|  [01]   | `Workbook(filename=None, options=None)`                          | open a workbook on a path or stream                               |
+|  [02]   | `add_worksheet(name=None, worksheet_class=None) -> Worksheet`    | mint a data sheet (auto-named when `name` omitted)                |
+|  [03]   | `add_chartsheet(name=None, chartsheet_class=None) -> Chartsheet` | mint a single-chart full-page sheet                               |
+|  [04]   | `add_format(properties=None) -> Format`                          | mint a reusable cell-style object                                 |
+|  [05]   | `add_chart(options) -> Chart \| None`                            | mint a chart by `{'type','subtype'}`; insert via `insert_chart`   |
+|  [06]   | `define_name(name, formula)`                                     | register a workbook- or sheet-scoped defined name                 |
+|  [07]   | `add_vba_project(vba_project, is_stream=False)`                  | embed an extracted `vbaProject.bin` for a macro `.xlsm`           |
+|  [08]   | `set_properties(properties)`                                     | set core document properties (title/author/subject/keywords)      |
+|  [09]   | `set_custom_property(name, value, property_type=None)`           | add one typed custom document property                            |
+|  [10]   | `get_worksheet_by_name(name) -> Worksheet \| None`               | polymorphic lookup of a minted sheet by name                      |
+|  [11]   | `worksheets() -> List[Worksheet]`                                | enumerate minted sheets in tab order                              |
+|  [12]   | `set_calc_mode(mode, calc_id=None)`                              | recalc policy                                                     |
+|  [13]   | `read_only_recommended()`                                        | flag the file read-only on open                                   |
+|  [14]   | `add_signed_vba_project(vba_project, signature, …)`              | embed a signed `vbaProject.bin` + signature for a trusted `.xlsm` |
+|  [15]   | `set_size(width, height)` / `set_tab_ratio(tab_ratio)`           | window pixel size / sheet-tab-to-scrollbar ratio                  |
+|  [16]   | `use_zip64()`                                                    | enable zip64 at runtime, lifting the 4 GiB ceiling                |
+|  [17]   | `get_default_url_format() -> Format`                             | the implicit hyperlink `Format` `write_url` applies               |
+|  [18]   | `close()`                                                        | flush, package, and write the `.xlsx`/`.xlsm` container           |
 
 [ENTRYPOINT_SCOPE]: `Worksheet` row-major writes
 - rail: spreadsheet
 
-Under `constant_memory` cells are written in strict row-major order; a row is sealed when the next-higher row is touched. `write` discriminates the value type and dispatches to the typed writers; `write_row`/`write_column` accept a sequence and an optional shared `cell_format`.
+Under `constant_memory` cells are written in strict row-major order; a row is sealed when the next-higher row is touched, and `set_row` height/format applies before the row's cells. `write` discriminates the value type and dispatches to the typed writers; `write_row`/`write_column` accept a sequence and an optional shared `cell_format`. The `[SURFACE]` cell carries the full call over the `Worksheet` scope: a positional cell is `(row, col, …)`, `<range>` abbreviates the block `(first_row, first_col, last_row, last_col)`, `cell_format` is `Format \| None = None`, and the typed writers return a `Literal[0, -1, …]` status code.
 
-| [INDEX] | [SURFACE]                               | [CALL_SHAPE]                                                                                                                                                           | [CAPABILITY]                                                                        |
-| :-----: | :-------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `Worksheet.write`                       | `write(row: int, col: int, *args) -> Literal[0, -1] \| Any`                                                                                                            | type-dispatching cell write (str/number/bool/datetime/url)                          |
-|  [02]   | `Worksheet.write_row`                   | `write_row(row: int, col: int, data, cell_format: Format \| None = None) -> Literal[0] \| Any`                                                                         | write a sequence across one row                                                     |
-|  [03]   | `Worksheet.write_column`                | `write_column(row: int, col: int, data, cell_format: Format \| None = None) -> Literal[0] \| Any`                                                                      | write a sequence down one column                                                    |
-|  [04]   | `Worksheet.write_string`                | `write_string(row: int, col: int, string: str, cell_format: Format \| None = None) -> Literal[0, -1, -2]`                                                              | write a string cell                                                                 |
-|  [05]   | `Worksheet.write_number`                | `write_number(row: int, col: int, number: int \| float \| Fraction, cell_format: Format \| None = None) -> Literal[0, -1]`                                             | write a numeric cell                                                                |
-|  [06]   | `Worksheet.write_boolean`               | `write_boolean(row: int, col: int, boolean: bool, cell_format: Format \| None = None)`                                                                                 | write a boolean cell                                                                |
-|  [07]   | `Worksheet.write_datetime`              | `write_datetime(row: int, col: int, date: datetime, cell_format: Format \| None = None) -> Literal[0, -1]`                                                             | write a date/time cell (number-formatted)                                           |
-|  [08]   | `Worksheet.write_formula`               | `write_formula(row: int, col: int, formula: str, cell_format: Format \| None = None, value=0) -> Literal[0, -1, -2]`                                                   | write a formula with cached value                                                   |
-|  [09]   | `Worksheet.write_blank`                 | `write_blank(row: int, col: int, blank: Any, cell_format: Format \| None = None)`                                                                                      | write a formatted empty cell                                                        |
-|  [10]   | `Worksheet.write_url`                   | `write_url(row: int, col: int, url: str, cell_format: Format \| None = None, string: str \| None = None, tip: str \| None = None) -> Literal[0, -1, -2, -3]`           | write a hyperlink (external/internal/mailto)                                        |
-|  [11]   | `Worksheet.write_rich_string`           | `write_rich_string(row: int, col: int, *args) -> Literal[0, -1, -2, -3]`                                                                                               | write a multi-format string (alternating `Format`/text segments)                    |
-|  [12]   | `Worksheet.write_array_formula`         | `write_array_formula(first_row, first_col, last_row, last_col, formula: str, cell_format=None, value=0) -> Literal[0, -1]`                                             | write a CSE array formula over a range                                              |
-|  [13]   | `Worksheet.write_dynamic_array_formula` | `write_dynamic_array_formula(first_row, first_col, last_row, last_col, formula: str, cell_format=None, value=0) -> Literal[0, -1]`                                     | write an Excel 365 spilling dynamic-array formula                                   |
-|  [14]   | `Worksheet.set_column`                  | `set_column(first_col: int, last_col: int, width: float \| None = None, cell_format: Format \| None = None, options: Dict[str, Any] \| None = None) -> Literal[0, -1]` | set column width/default format/visibility                                          |
-|  [15]   | `Worksheet.set_row`                     | `set_row(row: int, height: float \| None = None, cell_format: Format \| None = None, options: Dict[str, Any] \| None = None) -> Literal[0, -1]`                        | set row height/default format (call before writing the row under `constant_memory`) |
-|  [16]   | `Worksheet.freeze_panes`                | `freeze_panes(row: int, col: int, top_row: int \| None = None, left_col: int \| None = None, pane_type: int = 0) -> None`                                              | freeze header rows/columns                                                          |
+| [INDEX] | [SURFACE]                                                                     | [CAPABILITY]                                      |
+| :-----: | :---------------------------------------------------------------------------- | :------------------------------------------------ |
+|  [01]   | `write(row, col, *args)`                                                      | type-dispatching write (str/number/bool/date/url) |
+|  [02]   | `write_row(row, col, data, cell_format=None)`                                 | write a sequence across one row                   |
+|  [03]   | `write_column(row, col, data, cell_format=None)`                              | write a sequence down one column                  |
+|  [04]   | `write_string(row, col, string, cell_format=None)`                            | write a string cell                               |
+|  [05]   | `write_number(row, col, number, cell_format=None)`                            | write a numeric cell                              |
+|  [06]   | `write_boolean(row, col, boolean, cell_format=None)`                          | write a boolean cell                              |
+|  [07]   | `write_datetime(row, col, date, cell_format=None)`                            | write a date/time cell (number-formatted)         |
+|  [08]   | `write_formula(row, col, formula, cell_format=None, value=0)`                 | write a formula with cached value                 |
+|  [09]   | `write_blank(row, col, blank, cell_format=None)`                              | write a formatted empty cell                      |
+|  [10]   | `write_url(row, col, url, cell_format=None, string=None, tip=None)`           | write a hyperlink (external/internal/mailto)      |
+|  [11]   | `write_rich_string(row, col, *args)`                                          | multi-format string; `Format`/text segments       |
+|  [12]   | `write_array_formula(<range>, formula, value=0)`                              | write a CSE array formula over a range            |
+|  [13]   | `write_dynamic_array_formula(<range>, formula, value=0)`                      | Excel 365 spilling dynamic-array formula          |
+|  [14]   | `set_column(first_col, last_col, width=None, cell_format=None, options=None)` | set column width/default format/visibility        |
+|  [15]   | `set_row(row, height=None, cell_format=None, options=None)`                   | set row height/default format                     |
+|  [16]   | `freeze_panes(row, col, top_row=None, left_col=None, pane_type=0)`            | freeze header rows/columns                        |
 
 [ENTRYPOINT_SCOPE]: `Worksheet` structured-feature family
 - rail: spreadsheet
 
-These are the higher-level Excel features layered over cells. `add_table`, `add_sparkline`, `data_validation`, and `conditional_format` accept an `options` dict carrying the full feature parameters. Under `constant_memory` these remain available except `add_table`, which the streaming flush cannot back-patch.
+These are the higher-level Excel features layered over cells. `add_table`, `add_sparkline`, `data_validation`, and `conditional_format` accept an `options` dict carrying the full feature parameters. Under `constant_memory` these remain available except `add_table`, which the streaming flush cannot back-patch. The `[SURFACE]` cell drops the `Worksheet.` scope; `options` is `Dict[str, Any] \| None = None`, `<range>` opens the block `(first_row, first_col, last_row, last_col)`, and each surface returns a `Literal[0, -1, …]` code.
 
-| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                                                                                            | [CAPABILITY]                                                                                                                                                                                                      |
-| :-----: | :----------------------------- | :---------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Worksheet.conditional_format` | `conditional_format(first_row, first_col, last_row, last_col, options: Dict[str, Any]) -> Literal[0, -1, -2]`           | cell/3-color-scale/data-bar/icon-set/formula conditional styling                                                                                                                                                  |
-|  [02]   | `Worksheet.data_validation`    | `data_validation(first_row, first_col, last_row, last_col, options: Dict[str, Any]) -> Literal[0, -1, -2]`              | dropdown lists, ranges, input/error messages                                                                                                                                                                      |
-|  [03]   | `Worksheet.add_table`          | `add_table(first_row, first_col, last_row, last_col, options: Dict[str, Any] \| None = None) -> Literal[0, -1, -2, -3]` | banded structured table with header/totals (no `constant_memory`)                                                                                                                                                 |
-|  [04]   | `Worksheet.add_sparkline`      | `add_sparkline(row, col, options: Dict[str, Any]) -> Literal[0, -1, -2]`                                                | inline line/column/win-loss sparkline                                                                                                                                                                             |
-|  [05]   | `Worksheet.autofilter`         | `autofilter(first_row, first_col, last_row, last_col) -> None`                                                          | declare a filterable header range                                                                                                                                                                                 |
-|  [06]   | `Worksheet.filter_column`      | `filter_column(col, criteria: str) -> None`                                                                             | apply a filter expression to one autofilter column                                                                                                                                                                |
-|  [07]   | `Worksheet.merge_range`        | `merge_range(first_row, first_col, last_row, last_col, data: Any, cell_format: Format \| None = None) -> int`           | merge a cell range with one formatted value (delegates to the typed `write`, so it returns that writer's code)                                                                                                    |
-|  [08]   | `Worksheet.insert_chart`       | `insert_chart(row, col, chart: Chart, options: Dict[str, Any] \| None = None) -> Literal[0, -1]`                        | embed an `add_chart` object at an anchor                                                                                                                                                                          |
-|  [09]   | `Worksheet.insert_image`       | `insert_image(row, col, source: str \| BytesIO, options: Dict[str, Any] \| None = None) -> Literal[0, -1, -2]`          | embed a PNG/JPEG/GIF/BMP from path or in-memory stream                                                                                                                                                            |
-|  [10]   | `Worksheet.insert_textbox`     | `insert_textbox(row, col, text: str, options: Dict[str, Any] \| None = None) -> Literal[0, -1]`                         | place a floating text box                                                                                                                                                                                         |
-|  [11]   | `Worksheet.write_comment`      | `write_comment(row, col, comment: str, options: Dict[str, Any] \| None = None) -> Literal[0, -1, -2]`                   | attach a cell comment/note                                                                                                                                                                                        |
-|  [12]   | `Worksheet.protect`            | `protect(password: str = "", options: Dict[str, Any] \| None = None) -> None`                                           | sheet protection with feature allowances                                                                                                                                                                          |
-|  [13]   | `Worksheet.add_write_handler`  | `add_write_handler(user_type: type, user_function: Callable[[Worksheet, int, int, Any, Format \| None], Any]) -> None`  | register a type->writer so `write` natively dispatches a custom value type (e.g. a `numpy.datetime64`, `polars`/`pandas` scalar, `decimal.Decimal`); THE polymorphic write-extension hook — no per-type call site |
-|  [14]   | `Worksheet.embed_image`        | `embed_image(row, col, source: str \| BytesIO \| Image, options: Dict[str, Any] \| None = None) -> Literal[0, -1]`      | embed an image IN a cell (Excel-365 `IMAGE()` cell, scales with the cell) vs floating `insert_image`                                                                                                              |
-|  [15]   | `Worksheet.insert_checkbox`    | `insert_checkbox(row, col, boolean: bool, cell_format: Format \| None = None)`                                          | a boolean checkbox cell (Excel-365)                                                                                                                                                                               |
-|  [16]   | `Worksheet.filter_column_list` | `filter_column_list(col, filters: List[str]) -> None`                                                                   | multi-value ("in" set) autofilter, the list mirror of `filter_column`                                                                                                                                             |
-|  [17]   | `Worksheet.ignore_errors`      | `ignore_errors(options: Dict[str, Any] \| None = None) -> Literal[0, -1]`                                               | suppress the green-triangle error markers over a range (e.g. number-as-text)                                                                                                                                      |
-|  [18]   | `Worksheet.autofit`            | `autofit(max_width: int = 1790) -> None`                                                                                | size every column to its widest written cell at `close` (post-write only)                                                                                                                                         |
+| [INDEX] | [SURFACE]                                              | [CAPABILITY]                                                             |
+| :-----: | :----------------------------------------------------- | :----------------------------------------------------------------------- |
+|  [01]   | `conditional_format(<range>, options)`                 | cell/3-color-scale/data-bar/icon-set/formula conditional styling         |
+|  [02]   | `data_validation(<range>, options)`                    | dropdown lists, ranges, input/error messages                             |
+|  [03]   | `add_table(<range>, options=None)`                     | banded structured table with header/totals (no `constant_memory`)        |
+|  [04]   | `add_sparkline(row, col, options)`                     | inline line/column/win-loss sparkline                                    |
+|  [05]   | `autofilter(<range>)`                                  | declare a filterable header range                                        |
+|  [06]   | `filter_column(col, criteria)`                         | apply a filter expression to one autofilter column                       |
+|  [07]   | `merge_range(<range>, data, cell_format=None)`         | merge a range to one formatted value; returns the `write` code           |
+|  [08]   | `insert_chart(row, col, chart, options=None)`          | embed an `add_chart` object at an anchor                                 |
+|  [09]   | `insert_image(row, col, source, options=None)`         | embed a PNG/JPEG/GIF/BMP from path or in-memory stream                   |
+|  [10]   | `insert_textbox(row, col, text, options=None)`         | place a floating text box                                                |
+|  [11]   | `write_comment(row, col, comment, options=None)`       | attach a cell comment/note                                               |
+|  [12]   | `protect(password="", options=None)`                   | sheet protection with feature allowances                                 |
+|  [13]   | `add_write_handler(user_type, user_function)`          | type->writer hook so `write` dispatches a custom value type              |
+|  [14]   | `embed_image(row, col, source, options=None)`          | in-cell Excel-365 `IMAGE()` vs floating `insert_image`                   |
+|  [15]   | `insert_checkbox(row, col, boolean, cell_format=None)` | a boolean checkbox cell (Excel-365)                                      |
+|  [16]   | `filter_column_list(col, filters)`                     | multi-value ("in" set) autofilter, the list mirror of `filter_column`    |
+|  [17]   | `ignore_errors(options=None)`                          | suppress green-triangle error markers over a range (e.g. number-as-text) |
+|  [18]   | `autofit(max_width=1790)`                              | size every column to its widest written cell at `close` (post-write)     |
+
+- [13]-[WRITE_HANDLER]: `user_function` is `Callable[[Worksheet, int, int, Any, Format \| None], Any]` — the `(worksheet, row, col, value, cell_format)` shape `write` invokes to natively dispatch a custom value type (a `numpy.datetime64`, a `polars`/`pandas` scalar, a `decimal.Decimal`), never a per-type call site.
 
 [ENTRYPOINT_SCOPE]: `Worksheet` page setup and print layout
 - rail: spreadsheet
 
-A printable report artifact (the export-bundle target) sets orientation, paper, fit-to-pages, margins, header/footer, print area, and repeated title rows on the sheet. These are sheet-state setters, available under `constant_memory` (they touch sheet metadata, not back-patched cell XML), never a parallel "page" object.
+A printable report artifact (the export-bundle target) sets orientation, paper, fit-to-pages, margins, header/footer, print area, and repeated title rows on the sheet. These are sheet-state setters, available under `constant_memory` (they touch sheet metadata, not back-patched cell XML), never a parallel "page" object. The `[SURFACE]` cell drops the `Worksheet.` scope; a setter returns `None` and `print_area` returns `Literal[0, -1]`.
 
-| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]                                                             | [CAPABILITY]                                                        |
-| :-----: | :----------------------------------------- | :----------------------------------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | `Worksheet.set_landscape` / `set_portrait` | `set_landscape() -> None` / `set_portrait() -> None`                     | page orientation                                                    |
-|  [02]   | `Worksheet.set_paper`                      | `set_paper(paper_size: int) -> None`                                     | paper size code (`9`=A4, `1`=Letter, ...)                           |
-|  [03]   | `Worksheet.fit_to_pages`                   | `fit_to_pages(width: int, height: int) -> None`                          | scale the print to W×H pages (`fit_to_pages(1, 0)` = one page wide) |
-|  [04]   | `Worksheet.set_margins`                    | `set_margins(left=0.7, right=0.7, top=0.75, bottom=0.75) -> None`        | print margins in inches                                             |
-|  [05]   | `Worksheet.set_header` / `set_footer`      | `set_header(header='', options=None, margin=None) -> None`               | header/footer with `&P`/`&N`/`&D` field codes                       |
-|  [06]   | `Worksheet.print_area`                     | `print_area(first_row, first_col, last_row, last_col) -> Literal[0, -1]` | bound the printable range                                           |
-|  [07]   | `Worksheet.repeat_rows` / `repeat_columns` | `repeat_rows(first_row, last_row=None) -> None`                          | repeat title rows/cols on every printed page                        |
-|  [08]   | `Worksheet.set_zoom` / `set_tab_color`     | `set_zoom(zoom=100) -> None` / `set_tab_color(color) -> None`            | screen zoom / sheet-tab color                                       |
-|  [09]   | `Worksheet.set_default_row`                | `set_default_row(height=None, hide_unused_rows=False) -> None`           | default row height; hide trailing empty rows                        |
+| [INDEX] | [SURFACE]                                                            | [CAPABILITY]                                                    |
+| :-----: | :------------------------------------------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | `set_landscape()` / `set_portrait()`                                 | page orientation                                                |
+|  [02]   | `set_paper(paper_size)`                                              | paper size code (`9`=A4, `1`=Letter, ...)                       |
+|  [03]   | `fit_to_pages(width, height)`                                        | scale print to W×H pages (`fit_to_pages(1, 0)` = one page wide) |
+|  [04]   | `set_margins(left=0.7, right=0.7, top=0.75, bottom=0.75)`            | print margins in inches                                         |
+|  [05]   | `set_header(header='', options=None, margin=None)` / `set_footer(…)` | header/footer with `&P`/`&N`/`&D` field codes                   |
+|  [06]   | `print_area(first_row, first_col, last_row, last_col)`               | bound the printable range                                       |
+|  [07]   | `repeat_rows(first_row, last_row=None)` / `repeat_columns(…)`        | repeat title rows/cols on every printed page                    |
+|  [08]   | `set_zoom(zoom=100)` / `set_tab_color(color)`                        | screen zoom / sheet-tab color                                   |
+|  [09]   | `set_default_row(height=None, hide_unused_rows=False)`               | default row height; hide trailing empty rows                    |
 
 [ENTRYPOINT_SCOPE]: `Chart` builder
 - rail: spreadsheet — `add_chart({'type': ..., 'subtype': ...})` mints the object; `insert_chart` anchors it
 
-`Chart` is minted by `Workbook.add_chart` with `type` in `column`/`bar`/`line`/`area`/`pie`/`doughnut`/`scatter`/`stock`/`radar`. Series reference worksheet ranges by `=Sheet1!$A$1:$A$10` strings; `combine` overlays a second chart type (column+line Pareto). A `Chartsheet` from `add_chartsheet` hosts a single full-page chart via its own `set_chart`.
+`Chart` is minted by `Workbook.add_chart` with `type` in `column`/`bar`/`line`/`area`/`pie`/`doughnut`/`scatter`/`stock`/`radar`. Series reference worksheet ranges by `=Sheet1!$A$1:$A$10` strings; `combine` overlays a second chart type (column+line Pareto). A `Chartsheet` from `add_chartsheet` hosts a single full-page chart via its own `set_chart`. The `[SURFACE]` cell drops the `Chart.` scope; `options` is a `Dict[str, Any]` and setters return `None`; the connector setters take `options=None` and the blank-policy setters a single `option` string.
 
-| [INDEX] | [SURFACE]                                                             | [CALL_SHAPE]                                                 | [CAPABILITY]                                                                                     |
-| :-----: | :-------------------------------------------------------------------- | :----------------------------------------------------------- | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `Chart.add_series`                                                    | `add_series(options: Dict[str, Any] \| None = None) -> None` | one data series (`values`/`categories`/`name`/`line`/`fill`/`trendline`/`data_labels`/`y2_axis`) |
-|  [02]   | `Chart.set_x_axis` / `set_y_axis`                                     | `set_x_axis(options: Dict[str, Any]) -> None`                | primary axis name/range/number format/gridlines/log                                              |
-|  [03]   | `Chart.set_x2_axis` / `set_y2_axis`                                   | `set_y2_axis(options: Dict[str, Any]) -> None`               | the secondary axes a `combine`d series (`'y2_axis': True`) binds to (Pareto)                     |
-|  [04]   | `Chart.set_title`                                                     | `set_title(options: Dict[str, Any] \| None = None) -> None`  | chart title and font                                                                             |
-|  [05]   | `Chart.set_legend`                                                    | `set_legend(options: Dict[str, Any]) -> None`                | legend position/visibility/font                                                                  |
-|  [06]   | `Chart.set_style`                                                     | `set_style(style_id: int = 2) -> None`                       | apply one of the 48 built-in Excel chart styles                                                  |
-|  [07]   | `Chart.set_size`                                                      | `set_size(options: Dict[str, Any] \| None = None) -> None`   | chart pixel dimensions and scaling                                                               |
-|  [08]   | `Chart.set_plotarea` / `set_chartarea`                                | `set_plotarea(options: Dict[str, Any]) -> None`              | plot-area / chart-area fill, border, gradient                                                    |
-|  [09]   | `Chart.set_table`                                                     | `set_table(options: Dict[str, Any] \| None = None) -> None`  | render a data table beneath the plot                                                             |
-|  [10]   | `Chart.combine`                                                       | `combine(chart: Chart \| None = None) -> None`               | overlay a second chart type on a shared (or `y2`) axis                                           |
-|  [11]   | `Chart.set_high_low_lines` / `set_drop_lines` / `set_up_down_bars`    | `set_high_low_lines(options=None) -> None`                   | stock/line connectors and up-down bars                                                           |
-|  [12]   | `Chart.show_blanks_as` / `show_na_as_empty_cell` / `show_hidden_data` | `show_blanks_as(option: str) -> None`                        | gap/zero/connect policy for blank & `#N/A` cells                                                 |
+| [INDEX] | [SURFACE]                                                     | [CAPABILITY]                                           |
+| :-----: | :------------------------------------------------------------ | :----------------------------------------------------- |
+|  [01]   | `add_series(options=None)`                                    | one data series bound to worksheet ranges              |
+|  [02]   | `set_x_axis(options)` / `set_y_axis(options)`                 | primary axis name/range/number format/gridlines/log    |
+|  [03]   | `set_x2_axis(options)` / `set_y2_axis(options)`               | secondary axes a `combine`d series binds to (Pareto)   |
+|  [04]   | `set_title(options=None)`                                     | chart title and font                                   |
+|  [05]   | `set_legend(options)`                                         | legend position/visibility/font                        |
+|  [06]   | `set_style(style_id=2)`                                       | apply one of the 48 built-in Excel chart styles        |
+|  [07]   | `set_size(options=None)`                                      | chart pixel dimensions and scaling                     |
+|  [08]   | `set_plotarea(options)` / `set_chartarea(options)`            | plot-area / chart-area fill, border, gradient          |
+|  [09]   | `set_table(options=None)`                                     | render a data table beneath the plot                   |
+|  [10]   | `combine(chart=None)`                                         | overlay a second chart type on a shared (or `y2`) axis |
+|  [11]   | `set_high_low_lines`, `set_drop_lines`, `set_up_down_bars`    | stock/line connectors and up-down bars                 |
+|  [12]   | `show_blanks_as`, `show_na_as_empty_cell`, `show_hidden_data` | gap/zero/connect policy for blank & `#N/A` cells       |
+
+- [01]-[SERIES]: `add_series` options carry `values`/`categories`/`name`/`line`/`fill`/`trendline`/`data_labels`/`y2_axis`.
 
 [ENTRYPOINT_SCOPE]: `Format` style minting
 - rail: spreadsheet
 
-`Format` is constructed by `add_format`; its `set_*` family configures number format, font, alignment, fill, border, rotation, indent, and protection. Equivalent properties pass as the `add_format({...})` dict in one call. The style object is shared by reference across cells and sheets to keep the format table small.
+`Format` is constructed by `add_format`; its `set_*` family configures number format, font, alignment, fill, border, rotation, indent, and protection. Equivalent properties pass as the `add_format({...})` dict in one call. The style object is shared by reference across cells and sheets to keep the format table small. The `[SURFACE]` cell drops the `Format.` scope; `set_align` alignment is a `Literal['left','center','right','top','vcenter', …]` and every setter returns `None`.
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                                                         | [CAPABILITY]                      |
-| :-----: | :---------------------- | :----------------------------------------------------------------------------------- | :-------------------------------- |
-|  [01]   | `Format.set_num_format` | `set_num_format(num_format: str) -> None`                                            | apply an Excel number-format code |
-|  [02]   | `Format.set_bold`       | `set_bold(bold: bool = True) -> None`                                                | toggle bold font                  |
-|  [03]   | `Format.set_align`      | `set_align(alignment: Literal['left','center','right','top','vcenter',...]) -> None` | horizontal/vertical alignment     |
-|  [04]   | `Format.set_bg_color`   | `set_bg_color(bg_color: str \| Color) -> None`                                       | set cell fill color               |
-|  [05]   | `Format.set_border`     | `set_border(style: int = 1) -> None`                                                 | set the cell border style         |
+| [INDEX] | [SURFACE]                    | [CAPABILITY]                      |
+| :-----: | :--------------------------- | :-------------------------------- |
+|  [01]   | `set_num_format(num_format)` | apply an Excel number-format code |
+|  [02]   | `set_bold(bold=True)`        | toggle bold font                  |
+|  [03]   | `set_align(alignment)`       | horizontal/vertical alignment     |
+|  [04]   | `set_bg_color(bg_color)`     | set cell fill color               |
+|  [05]   | `set_border(style=1)`        | set the cell border style         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

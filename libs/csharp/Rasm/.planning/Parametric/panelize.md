@@ -210,15 +210,21 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes, and the per-axis collapse strategy rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]       | [OWNER]                    | [KIND]                                                                    | [RAIL]                      | [CASES] |
-| :-----: | :------------------- | :------------------------- | :------------------------------------------------------------------------ | :-------------------------- | :-----: |
-|  [01]   | Panelization algebra | `PanelOp` + `Panelization` | `[Union]` map/planarize folded by ONE `Apply`                             | `Apply → Fin<PanelResult>`  |    2    |
-|  [1a]   | Family axis          | `PanelFamily`              | `[Union]` family-as-data — lattice via substrate, seeded via sample suite | payload                     |    2    |
-|  [1b]   | Panel wire           | `PanelField`               | SoA polygons/UV/frames/defects/adjacency — graph results as columns       | value                       |    —    |
-|  [1c]   | Policy row           | `PanelPolicy`              | planarity budget · rounds · threaded substrate policies                   | value (`IValidityEvidence`) |    —    |
-|  [1d]   | Evidence             | `PanelReceipt`             | census · max/mean planarity · singular count · rounds — the gate reads it | value                       |    —    |
+| [INDEX] | [AXIS_CONCERN]       | [OWNER]                    | [RAIL]                      | [CASES] |
+| :-----: | :------------------- | :------------------------- | :-------------------------- | :-----: |
+|  [01]   | Panelization algebra | `PanelOp` + `Panelization` | `Apply → Fin<PanelResult>`  |    2    |
+|  [02]   | Family axis          | `PanelFamily`              | payload                     |    2    |
+|  [03]   | Panel wire           | `PanelField`               | value                       |    —    |
+|  [04]   | Policy row           | `PanelPolicy`              | value (`IValidityEvidence`) |    —    |
+|  [05]   | Evidence             | `PanelReceipt`             | value                       |    —    |
+
+- [01]-[PANELIZATION_ALGEBRA]: `[Union]` map/planarize folded by ONE `Apply`.
+- [02]-[FAMILY_AXIS]: `[Union]` family-as-data — lattice via substrate, seeded via sample suite.
+- [03]-[PANEL_WIRE]: SoA polygons/UV/frames/defects/adjacency — graph results as columns.
+- [04]-[POLICY_ROW]: planarity budget · rounds · threaded substrate policies.
+- [05]-[EVIDENCE]: census · max/mean planarity · singular count · rounds — the gate reads it.
 
 The `Apply` fold, both family arms, `Assemble`'s transient graph fold, and `PlanarizeOf`'s budget-gated round fold carry real composed bodies; `Reprovenance`, `LatticeBuild`, `SeededCells`, `SharedWalls`, `AdjacencyColumns`, `PlanarityOf`, `Frames`, and `ProjectRound` are signature-pinned kernels whose contracts the `Auto` bullet and the `[04]` cards fix. The field solve, the seed suite, the heat distances, the pullback Newton, and the graph algorithms are all composed owners — the only local mathematics is the Newell plane fit, the equidistance wall lerp, and the proximal projection round, exactly the trio no admitted surface carries.
 

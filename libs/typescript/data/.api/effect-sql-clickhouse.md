@@ -14,24 +14,34 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                                                                                                         | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                            |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------- |
-|  [01]   | `ClickhouseClient` (Tag) / `interface ClickhouseClient`                                                                          | service Tag     | `lane/olap` at-scale row; `ClickhouseClient \| SqlClient`      |
-|  [02]   | `ClickhouseClient.param(dataType, value): Statement.Fragment`                                                                    | typed param     | ClickHouse-typed parameter splice (`{p: DateTime}` forms)      |
-|  [03]   | `ClickhouseClient.asCommand(effect)`                                                                                             | mode transform  | route statements through command mode (DDL, mutations)         |
-|  [04]   | `ClickhouseClient.insertQuery({ table, values, format? })`                                                                       | bulk ingest     | streamed insert — the fact/meter fan-in ingestion path         |
-|  [05]   | `ClickhouseClient.withQueryId` / `.withClickhouseSettings`                                                                       | per-query knobs | query-id correlation; settings scoped to a fiber               |
-|  [06]   | `ClickhouseClientConfig extends ClickHouseClientConfigOptions` (+ `spanAttributes`/`transformResultNames`/`transformQueryNames`) | config          | url/auth/compression from the backing client, `Config`-sourced |
-|  [07]   | `currentClientMethod` (`"query" \| "command" \| "insert"`) / `currentQueryId` / `currentClickhouseSettings`                      | FiberRef        | ambient execution-mode coordinates                             |
+[PUBLIC_TYPE_SCOPE]: the `ClickhouseClient` service and its OLAP-native additions
+- rail: data/lane
+- `ClickhouseClient extends SqlClient` — the layer yields both Tags; OLAP rows compose the neutral `SqlClient` and reach the concrete Tag only for `param`/`insertQuery`/`asCommand`/`withClickhouseSettings`. `ClickhouseClientConfig` extends `ClickHouseClientConfigOptions` with the shared `spanAttributes`/`transformResultNames`/`transformQueryNames` transforms.
+
+| [INDEX] | [SYMBOL]                                                      | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                              |
+| :-----: | :------------------------------------------------------------ | :-------------- | :----------------------------------------------- |
+|  [01]   | `ClickhouseClient` (Tag) / `interface ClickhouseClient`       | service Tag     | `lane/olap` at-scale row                         |
+|  [02]   | `ClickhouseClient.param(dataType, value): Statement.Fragment` | typed param     | ClickHouse-typed param splice (`{p: DateTime}`)  |
+|  [03]   | `ClickhouseClient.asCommand(effect)`                          | mode transform  | route through command mode (DDL, mutations)      |
+|  [04]   | `ClickhouseClient.insertQuery({ table, values, format? })`    | bulk ingest     | streamed insert — fact/meter fan-in path         |
+|  [05]   | `ClickhouseClient.withQueryId` / `.withClickhouseSettings`    | per-query knobs | query-id correlation; settings scoped to a fiber |
+|  [06]   | `ClickhouseClientConfig`                                      | config          | url/auth/compression; `Config`-sourced           |
+|  [07]   | `currentClientMethod` (`"query" \| "command" \| "insert"`)    | FiberRef        | ambient execution-mode coordinate                |
+|  [08]   | `currentQueryId`                                              | FiberRef        | query-id correlation coordinate                  |
+|  [09]   | `currentClickhouseSettings`                                   | FiberRef        | fiber-scoped settings coordinate                 |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                        |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------- |
-|  [01]   | `ClickhouseClient.layer(config): Layer<ClickhouseClient \| SqlClient, ConfigError \| SqlError>` | driver layer   | fixed-config at-scale row                  |
-|  [02]   | `ClickhouseClient.layerConfig(Config.Wrap<ClickhouseClientConfig>)`                             | driver layer   | env/secret resolution — the standing row   |
-|  [03]   | `ClickhouseClient.make(config): Effect<ClickhouseClient, SqlError, Scope>`                      | scoped make    | construction inside a larger acquire graph |
-|  [04]   | `ClickhouseClient.makeCompiler(transform?)`                                                     | compiler       | identifier-transform harness               |
+[ENTRYPOINT_SCOPE]: constructing the driver Layer
+- rail: data/lane
+- `layer`/`layerConfig` provide `ClickhouseClient \| SqlClient` in one Layer, error `ConfigError \| SqlError`; `make` returns `Effect<ClickhouseClient, SqlError, Scope>`.
+
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                  |
+| :-----: | :------------------------------------------------------------------ | :------------- | :----------------------------------- |
+|  [01]   | `ClickhouseClient.layer(config)`                                    | driver layer   | fixed-config at-scale row            |
+|  [02]   | `ClickhouseClient.layerConfig(Config.Wrap<ClickhouseClientConfig>)` | driver layer   | env/secret resolution, standing row  |
+|  [03]   | `ClickhouseClient.make(config)`                                     | scoped make    | scoped construction in acquire graph |
+|  [04]   | `ClickhouseClient.makeCompiler(transform?)`                         | compiler       | identifier-transform harness         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -23,29 +23,29 @@
 
 `AbstractImpositor` is the closed imposition base every schema subclasses; the seven concrete impositors live one-per-`pdfimpose.schema.<name>` submodule, each paired with a module-level `impose(...)` convenience function that constructs the impositor from keyword args and runs it. The owner composes the module-level `impose` functions, not the impositor classes directly — the class hierarchy is the substrate whose semantics (the matrix fold, the creep, the bind-edge rotation) the owner depends on but never instantiates. `perfect` is a documentation-only placeholder submodule that exposes no `impose` and no impositor — perfect-binding has no provider schema, so the `composition/imposition#IMPOSE` owner correctly keeps `PERFECT_BIND` on its local `show_pdf_page` placement arm.
 
-| [INDEX] | [SYMBOL]                                    | [PACKAGE_ROLE]  | [CAPABILITY]                                                                                                            |
-| :-----: | :------------------------------------------ | :-------------- | :---------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `schema.AbstractImpositor`                  | imposition base | abstract base: owns `impose`/`matrixes`/`stack_matrixes`/`insert_sheets`/`crop_marks`/`bind_marks` over a `pymupdf` doc |
-|  [02]   | `schema.saddle.SaddleImpositor`             | saddle-stitch   | magazine/newspaper inserted-sheet booklet (subclass of `HardcoverImpositor`); `mark=['crop']` only                      |
-|  [03]   | `schema.hardcover.HardcoverImpositor`       | sewn signatures | real-book folded-and-cut multi-page signatures bound as a hardcover block                                               |
-|  [04]   | `schema.cutstackfold.CutStackFoldImpositor` | cut-stack-fold  | one book: pages printed, cut, stacked, folded, bound (subclass of `AbstractImpositor`)                                  |
-|  [05]   | `schema.copycutfold.CopyCutFoldImpositor`   | copy-cut-fold   | many copies of one book: cut and folded per copy (subclass of `CutStackFoldImpositor`)                                  |
-|  [06]   | `schema.wire.WireImpositor`                 | wire-bound      | individual pages cut, stacked, wire-bound (subclass of `CardsImpositor`)                                                |
-|  [07]   | `schema.cards.CardsImpositor`               | cut flash-cards | front/back card sheets (question/answer), `back=` controls the verso source order                                       |
-|  [08]   | `schema.onepagezine.OnePageZineImpositor`   | one-page zine   | single-sheet 8-page fold-zine with a poster on the unfolded back                                                        |
-|  [09]   | `schema.perfect`                            | placeholder     | doc-only submodule, no `impose`/impositor — perfect-bind has no provider schema (local arm owns it)                     |
+| [INDEX] | [SYMBOL]                                    | [PACKAGE_ROLE]  | [CAPABILITY]                                                          |
+| :-----: | :------------------------------------------ | :-------------- | :-------------------------------------------------------------------- |
+|  [01]   | `schema.AbstractImpositor`                  | imposition base | abstract base owning the matrix/creep/bind fold over a `pymupdf` doc  |
+|  [02]   | `schema.saddle.SaddleImpositor`             | saddle-stitch   | magazine inserted-sheet booklet; subclass of `HardcoverImpositor`     |
+|  [03]   | `schema.hardcover.HardcoverImpositor`       | sewn signatures | real-book folded-and-cut multi-page signatures, hardcover-bound       |
+|  [04]   | `schema.cutstackfold.CutStackFoldImpositor` | cut-stack-fold  | one book: printed, cut, stacked, folded, bound; `AbstractImpositor`   |
+|  [05]   | `schema.copycutfold.CopyCutFoldImpositor`   | copy-cut-fold   | many cut-and-folded copies; subclass of `CutStackFoldImpositor`       |
+|  [06]   | `schema.wire.WireImpositor`                 | wire-bound      | individual pages cut, stacked, wire-bound; `CardsImpositor`-derived   |
+|  [07]   | `schema.cards.CardsImpositor`               | cut flash-cards | front/back card sheets (Q/A); `back=` orders the verso source         |
+|  [08]   | `schema.onepagezine.OnePageZineImpositor`   | one-page zine   | single-sheet 8-page fold-zine with a poster on the unfolded back      |
+|  [09]   | `schema.perfect`                            | placeholder     | doc-only submodule, no `impose`/impositor; perfect-bind has no schema |
 
 [PUBLIC_TYPE_SCOPE]: the geometry value object and binding vocabulary
 - rail: imposition
 
 `Margins` is the four-edge margin value object the `imargin`/`omargin` arguments accept (a single positional broadcasts to all four edges, no argument is all-zero); `BIND2ANGLE` is the closed binding-edge→rotation-angle table the owner mirrors when it derives recto/verso rotation. The owner maps its local `Geometry.binding` to a `BIND2ANGLE` key string and its `Geometry.gutter` to `imargin`, never re-deriving the rotation.
 
-| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]      | [CAPABILITY]                                                                                              |
-| :-----: | :------------------- | :------------------ | :-------------------------------------------------------------------------------------------------------- |
-|  [01]   | `schema.Margins`     | margin value object | `Margins(left, right, top, bottom)`; one positional broadcasts to all four, none → all-zero (`dataclass`) |
-|  [02]   | `schema.BIND2ANGLE`  | `dict[str, int]`    | binding-edge → page-rotation map: `{'left':0, 'top':90, 'right':180, 'bottom':270}`                       |
-|  [03]   | `DEFAULT_PAPER_SIZE` | `str`               | module default destination paper name (`'A4'`) for the CLI/`size=` path                                   |
-|  [04]   | `VERSION`            | `str`               | package version string (`'2.9.0'`)                                                                        |
+| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]      | [CAPABILITY]                                                                        |
+| :-----: | :------------------- | :------------------ | :---------------------------------------------------------------------------------- |
+|  [01]   | `schema.Margins`     | margin value object | `Margins(left, right, top, bottom)`; lone positional → all four, none → all-zero    |
+|  [02]   | `schema.BIND2ANGLE`  | `dict[str, int]`    | binding-edge → page-rotation map: `{'left':0, 'top':90, 'right':180, 'bottom':270}` |
+|  [03]   | `DEFAULT_PAPER_SIZE` | `str`               | module default destination paper name (`'A4'`) for the CLI/`size=` path             |
+|  [04]   | `VERSION`            | `str`               | package version string (`'2.9.0'`)                                                  |
 
 [PUBLIC_TYPE_SCOPE]: the creep model
 - rail: imposition
@@ -62,19 +62,23 @@ Creep (gutter shingling) is a `Callable[[int], float]`: given the sheet count, r
 
 The two signature helpers compute the n-across×n-down layout that maximally fills a destination sheet — `compute_signature` from explicit source/dest sizes, `size2signature` from a destination size plus inner/outer margins. The owner authors its own `(geometry.across, geometry.down)` signature, so these are documented as the substrate behind the `size=`/auto-signature path rather than a member the owner calls — they are the proof the provider's signature math exists and need not be re-implemented locally.
 
-| [INDEX] | [SYMBOL]                   | [CALL_SHAPE]                                                         | [CAPABILITY]                                                      |
-| :-----: | :------------------------- | :------------------------------------------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | `schema.compute_signature` | `compute_signature(source, dest) -> tuple[int, int]`                 | maximal `(across, down)` fitting `source`-sized pages into `dest` |
-|  [02]   | `schema.size2signature`    | `size2signature(destsize, *, sourcesize, imargin, omargin) -> tuple` | signature + margins for a destination paper size                  |
+Signature-helper call shapes:
+- [01]: `compute_signature(source, dest) -> tuple[int, int]`
+- [02]: `size2signature(destsize, *, sourcesize, imargin, omargin) -> tuple`
+
+| [INDEX] | [SYMBOL]            | [CAPABILITY]                                  |
+| :-----: | :------------------ | :-------------------------------------------- |
+|  [01]   | `compute_signature` | maximal `(across, down)` fit `source`->`dest` |
+|  [02]   | `size2signature`    | signature + margins for a dest paper size     |
 
 [PUBLIC_TYPE_SCOPE]: fault family
 - rail: imposition
 
 `UserError` is the package's sole error type and — critically — derives directly from `BaseException`, not `Exception` (MRO: `UserError → BaseException → object`). A bare `except Exception` therefore does not catch it; the `composition/imposition#IMPOSE` owner must name it explicitly in its `_FAULTS` raise tuple (as `PdfImposeUserError`), which is exactly what the page's `runtime/faults#FAULTS` `async_boundary(..., catch=_FAULTS)` does. The underlying `pymupdf.FileDataError`/`EmptyFileError` faults (corrupt or zero-page source) are `RuntimeError`-derived and ride the same tuple through the `pymupdf` dependency.
 
-| [INDEX] | [SYMBOL]    | [PACKAGE_ROLE] | [CAPABILITY]                                                                                                                                                                                    |
-| :-----: | :---------- | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `UserError` | user fault     | invalid imposition request (bad page count, unparseable size, conflicting sizing); subclasses `BaseException` directly, so `except Exception` misses it — name it in the boundary `catch` tuple |
+| [INDEX] | [SYMBOL]    | [PACKAGE_ROLE] | [CAPABILITY]                                                                     |
+| :-----: | :---------- | :------------- | :------------------------------------------------------------------------------- |
+|  [01]   | `UserError` | user fault     | invalid imposition request: bad page count, unparseable size, conflicting sizing |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -83,51 +87,71 @@ The two signature helpers compute the n-across×n-down layout that maximally fil
 
 The owner-composed surface: one module-level `impose(files, output, *, ...)` per schema submodule. `files` is a `Sequence[str | pathlib.Path | io.BytesIO]` and `output` is `str | pathlib.Path | io.BytesIO`, so the owner passes `(io.BytesIO(source),)` and an `io.BytesIO()` sink for fully in-memory operation. The keyword set differs per schema — there is no single uniform `impose` shape; the owner selects the kwargs valid for the chosen schema. `mark` accepts only `['crop']` (every other token silently ignored). The three sizing modes `signature` / `folds` / `size` are mutually exclusive — supplying more than one raises `UserError`; the owner uses `signature=(across, down)` exclusively.
 
-| [INDEX] | [SURFACE]                    | [CALL_SHAPE]                                                                                                                                    | [CAPABILITY]                                                                              |
-| :-----: | :--------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | `schema.saddle.impose`       | `impose(files, output, *, folds=None, signature=None, size=None, imargin=0, omargin=0, mark=None, last=0, bind='left', creep=nocreep, group=1)` | saddle-stitch booklet; the owner's `BOOKLET` (group=1) and `SIGNATURE` (group>1) arms     |
-|  [02]   | `schema.hardcover.impose`    | `impose(files, output, *, folds=None, signature=None, size=None, imargin=0, omargin=0, mark=None, last=0, bind='left', group=1)`                | sewn folded-signature book; no `creep` kwarg (signature creep handled by `folds`/`group`) |
-|  [03]   | `schema.cutstackfold.impose` | `impose(files, output, *, imargin=0, omargin=0, last=0, mark=None, signature=None, size=None, bind='left', creep=nocreep, group=0)`             | one cut-stack-fold book; the owner's `CUT_AND_STACK` arm                                  |
-|  [04]   | `schema.copycutfold.impose`  | `impose(files, output, *, imargin=0, omargin=0, last=0, mark=None, signature=None, size=None, bind='left', creep=nocreep, group=0)`             | many cut-and-folded copies; the owner's `COME_AND_GO` arm                                 |
-|  [05]   | `schema.wire.impose`         | `impose(files, output, *, imargin=0, omargin=0, last=0, mark=None, signature=None, size=None)`                                                  | wire-bound stacked pages; no `bind`/`creep`/`group` (cards-derived layout)                |
-|  [06]   | `schema.cards.impose`        | `impose(files, output, *, imargin=0, omargin=0, mark=None, signature=None, size=None, back='', bind='left')`                                    | front/back flash-cards; `back=` orders verso sources, no `creep`/`group`/`last`           |
-|  [07]   | `schema.onepagezine.impose`  | `impose(files, output, *, omargin=0, last=0, mark=None, bind='left')`                                                                           | single-sheet 8-page fold-zine; no `imargin`/`signature`/`creep`/`group` (fixed 2×4 fold)  |
-|  [08]   | `schema.perfect.impose`      | _(absent — module exposes nothing)_                                                                                                             | perfect-bind has no provider schema; the local placement arm owns `PERFECT_BIND`          |
+Per-schema `impose` call shapes:
+- [01]: `schema.saddle.impose(files, output, *, folds=None, signature=None, size=None, imargin=0, omargin=0, mark=None, last=0, bind='left', creep=nocreep, group=1)`
+- [02]: `schema.hardcover.impose(files, output, *, folds=None, signature=None, size=None, imargin=0, omargin=0, mark=None, last=0, bind='left', group=1)`
+- [03]: `schema.cutstackfold.impose(files, output, *, imargin=0, omargin=0, last=0, mark=None, signature=None, size=None, bind='left', creep=nocreep, group=0)`
+- [04]: `schema.copycutfold.impose(files, output, *, imargin=0, omargin=0, last=0, mark=None, signature=None, size=None, bind='left', creep=nocreep, group=0)`
+- [05]: `schema.wire.impose(files, output, *, imargin=0, omargin=0, last=0, mark=None, signature=None, size=None)`
+- [06]: `schema.cards.impose(files, output, *, imargin=0, omargin=0, mark=None, signature=None, size=None, back='', bind='left')`
+- [07]: `schema.onepagezine.impose(files, output, *, omargin=0, last=0, mark=None, bind='left')`
+- [08]: `schema.perfect.impose` — absent (module exposes nothing)
+
+| [INDEX] | [SURFACE]                    | [CAPABILITY]                                                                    |
+| :-----: | :--------------------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `schema.saddle.impose`       | saddle-stitch booklet; owner's `BOOKLET` (group=1) + `SIGNATURE` (group>1) arms |
+|  [02]   | `schema.hardcover.impose`    | sewn folded-signature book; no `creep` kwarg (creep via `folds`/`group`)        |
+|  [03]   | `schema.cutstackfold.impose` | one cut-stack-fold book; owner's `CUT_AND_STACK` arm                            |
+|  [04]   | `schema.copycutfold.impose`  | many cut-and-folded copies; owner's `COME_AND_GO` arm                           |
+|  [05]   | `schema.wire.impose`         | wire-bound stacked pages; no `bind`/`creep`/`group` (cards-derived layout)      |
+|  [06]   | `schema.cards.impose`        | front/back flash-cards; `back=` orders verso sources, no `creep`/`group`/`last` |
+|  [07]   | `schema.onepagezine.impose`  | single-sheet 8-page fold-zine; no `imargin`/`signature`/`creep`/`group`         |
+|  [08]   | `schema.perfect.impose`      | perfect-bind has no schema; local placement arm owns `PERFECT_BIND`             |
 
 [ENTRYPOINT_SCOPE]: shared `impose` keyword vocabulary
 - rail: imposition
 
-The keyword semantics shared across the schemas that expose them. The owner reads each from its `Geometry`/`Marks` value objects: `signature ← (geometry.across, geometry.down)`, `imargin ← geometry.gutter`, `bind ← geometry.binding`, `creep ← geometry.creep` closure, `mark ← ['crop'] if marks else []`.
+The keyword semantics shared across the schemas that expose them. The owner reads each from its `Geometry`/`Marks` value objects: `signature ← (geometry.across, geometry.down)`, `imargin ← geometry.gutter`, `bind ← geometry.binding`, `creep ← geometry.creep` closure, `mark ← ['crop'] if marks else []`. The `signature`/`folds`/`size` sizing modes are mutually exclusive.
 
-| [INDEX] | [KEYWORD]   | [TYPE]                               | [CAPABILITY]                                                                                              |
-| :-----: | :---------- | :----------------------------------- | :-------------------------------------------------------------------------------------------------------- |
-|  [01]   | `signature` | `tuple[int, int]`                    | `(n_across, n_down)` source-page matrix per destination sheet; mutually exclusive with `folds`/`size`     |
-|  [02]   | `folds`     | `str`                                | fold sequence as `'h'`/`'v'` characters; mutually exclusive with `signature`/`size`                       |
-|  [03]   | `size`      | `str`                                | destination paper name parsed by `papersize.parse_papersize`; mutually exclusive with `signature`/`folds` |
-|  [04]   | `imargin`   | `float \| Margins \| Decimal`        | inner (gutter) margin between adjacent imposed pages, pt                                                  |
-|  [05]   | `omargin`   | `float \| Margins \| str \| Decimal` | outer margin around the imposed sheet, pt (or a `Margins` for per-edge control)                           |
-|  [06]   | `bind`      | `str`                                | binding edge `'left'`/`'right'`/`'top'`/`'bottom'` → recto/verso rotation via `BIND2ANGLE`                |
-|  [07]   | `creep`     | `Callable[[int], float]`             | per-sheet gutter shingle: sheet-count → inward shift pt (`nocreep` default)                               |
-|  [08]   | `group`     | `int`                                | sheets per fold group before binding (`0`/`1` ungrouped, `>1` batched signatures)                         |
-|  [09]   | `last`      | `int`                                | number of trailing source pages pinned to the document end (blank-fill pages inserted before them)        |
-|  [10]   | `mark`      | `list[str]`                          | overlay marks; only `['crop']` is honored, every other token silently ignored                             |
-|  [11]   | `back`      | `str`                                | (cards only) verso-source ordering control                                                                |
+| [INDEX] | [KEYWORD]   | [TYPE]                               | [CAPABILITY]                                                                      |
+| :-----: | :---------- | :----------------------------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `signature` | `tuple[int, int]`                    | `(n_across, n_down)` source-page matrix per destination sheet                     |
+|  [02]   | `folds`     | `str`                                | fold sequence as `'h'`/`'v'` characters                                           |
+|  [03]   | `size`      | `str`                                | destination paper name parsed by `papersize.parse_papersize`                      |
+|  [04]   | `imargin`   | `float \| Margins \| Decimal`        | inner (gutter) margin between adjacent imposed pages, pt                          |
+|  [05]   | `omargin`   | `float \| Margins \| str \| Decimal` | outer margin around the imposed sheet, pt (or `Margins` per-edge)                 |
+|  [06]   | `bind`      | `str`                                | binding edge → recto/verso rotation via `BIND2ANGLE`                              |
+|  [07]   | `creep`     | `Callable[[int], float]`             | per-sheet gutter shingle: sheet-count → inward shift pt (`nocreep` default)       |
+|  [08]   | `group`     | `int`                                | sheets per fold group before binding (`0`/`1` ungrouped, `>1` batched signatures) |
+|  [09]   | `last`      | `int`                                | trailing source pages pinned to the doc end (blank-fill inserted before them)     |
+|  [10]   | `mark`      | `list[str]`                          | overlay marks; only `['crop']` is honored, every other token silently ignored     |
+|  [11]   | `back`      | `str`                                | (cards only) verso-source ordering control                                        |
 
 [ENTRYPOINT_SCOPE]: the impositor methods and the placement core
 - rail: imposition
 
 The substrate the module `impose` functions drive — documented so the owner understands the provider's page-placement model (and confirms it is the same MuPDF core `pymupdf` owns) rather than re-deriving it. `AbstractImpositor.matrixes(pages)` yields the per-page affine `Matrix` sequence, `stack_matrixes`/`insert_sheets` assemble destination sheets, `crop_marks`/`bind_marks` overlay the marks, and `impose(files, output)` (the 2-arg instance method, distinct from the keyword-rich module function that constructs the impositor first) runs the whole fold over a `pymupdf` reader/writer. `open_pdf`/`read`/`write` are the I/O boundary (`pdfimpose.pdf.Reader`/`Writer`/`readpdf` wrap `pymupdf.Document`).
 
-| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]                                                                           | [CAPABILITY]                                                                                    |
-| :-----: | :-------------------------------------------- | :------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------- |
-|  [01]   | `AbstractImpositor.init`                      | `init(self, last=0, omargin=<Margins>, mark=[])`                                       | base impositor state; subclasses add `bind`/`signature`/`creep`/`group`/`folds`/`back`          |
-|  [02]   | `AbstractImpositor.impose`                    | `impose(self, files, output)` (2-arg instance method)                                  | run the full imposition fold; the module `impose(...)` constructs the impositor then calls this |
-|  [03]   | `AbstractImpositor.matrixes`                  | `matrixes(self, pages: int) -> Iterator[Matrix]`                                       | per-page affine `pymupdf.Matrix` placement sequence                                             |
-|  [04]   | `AbstractImpositor.stack_matrixes`            | `stack_matrixes(self, matrixes, step, repeat)`                                         | tile a matrix block across stacked destination sheets                                           |
-|  [05]   | `AbstractImpositor.insert_sheets`             | `insert_sheets(self, matrixes, sheets, pages, pagespersheet)`                          | materialize destination sheets from the matrix plan                                             |
-|  [06]   | `AbstractImpositor.crop_marks` / `bind_marks` | `(*, number, total, matrix, outputsize, inputsize)`                                    | overlay crop / binding marks at the sheet edges                                                 |
-|  [07]   | `AbstractImpositor.blank_page_number`         | `blank_page_number(self, source) -> int`                                               | count of blank pages padded to fill the final signature                                         |
-|  [08]   | `pdf.readpdf` / `pdf.Reader` / `pdf.Writer`   | `readpdf(file: str \| Document \| Path \| BytesIO)`; `Reader(files)`; `Writer(output)` | the `pymupdf.Document` read/write boundary the impositor uses                                   |
+Impositor method call shapes:
+- [01]: `AbstractImpositor.init(self, last=0, omargin=<Margins>, mark=[])`
+- [02]: `AbstractImpositor.impose(self, files, output)` — the 2-arg instance method
+- [03]: `AbstractImpositor.matrixes(self, pages: int) -> Iterator[Matrix]`
+- [04]: `AbstractImpositor.stack_matrixes(self, matrixes, step, repeat)`
+- [05]: `AbstractImpositor.insert_sheets(self, matrixes, sheets, pages, pagespersheet)`
+- [06]: `AbstractImpositor.crop_marks` / `bind_marks(*, number, total, matrix, outputsize, inputsize)`
+- [07]: `AbstractImpositor.blank_page_number(self, source) -> int`
+- [08]: `pdf.readpdf(file: str | Document | Path | BytesIO)`; `pdf.Reader(files)`; `pdf.Writer(output)`
+
+| [INDEX] | [SURFACE]                                     | [CAPABILITY]                                                                           |
+| :-----: | :-------------------------------------------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `AbstractImpositor.init`                      | base impositor state; subclasses add `bind`/`signature`/`creep`/`group`/`folds`/`back` |
+|  [02]   | `AbstractImpositor.impose`                    | run the full imposition fold (module `impose(...)` builds the impositor first)         |
+|  [03]   | `AbstractImpositor.matrixes`                  | per-page affine `pymupdf.Matrix` placement sequence                                    |
+|  [04]   | `AbstractImpositor.stack_matrixes`            | tile a matrix block across stacked destination sheets                                  |
+|  [05]   | `AbstractImpositor.insert_sheets`             | materialize destination sheets from the matrix plan                                    |
+|  [06]   | `AbstractImpositor.crop_marks` / `bind_marks` | overlay crop / binding marks at the sheet edges                                        |
+|  [07]   | `AbstractImpositor.blank_page_number`         | count of blank pages padded to fill the final signature                                |
+|  [08]   | `pdf.readpdf` / `pdf.Reader` / `pdf.Writer`   | the `pymupdf.Document` read/write boundary the impositor uses                          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

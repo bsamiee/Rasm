@@ -19,69 +19,87 @@
 [PUBLIC_TYPE_SCOPE]: dataset, scan, query, and storage owners
 - rail: lance-format
 
-| [INDEX] | [SYMBOL]                                                                                         | [PACKAGE_ROLE]     | [CAPABILITY]                                                              |
-| :-----: | :----------------------------------------------------------------------------------------------- | :----------------- | :------------------------------------------------------------------------ |
-|  [01]   | `lance.LanceDataset`                                                                             | dataset handle     | versioned Lance dataset; scan, mutate, index, version, blob owner         |
-|  [02]   | `lance.LanceScanner`                                                                             | scan builder       | projection/filter/limit/nearest/FTS scan config to Arrow                  |
-|  [03]   | `lance.LanceFragment`                                                                            | fragment handle    | sub-file unit; fragment-scoped scan and write-progress unit               |
-|  [04]   | `lance.FragmentMetadata`                                                                         | fragment metadata  | physical metadata for a fragment (for `commit` transactions)              |
-|  [05]   | `lance.MergeInsertBuilder`                                                                       | upsert builder     | conditional matched/not-matched merge-insert with conflict retry          |
-|  [06]   | `lance.LanceOperation`                                                                           | operation algebra  | transactional dataset mutation cases for `commit`/`commit_batch`          |
-|  [07]   | `lance.Transaction`                                                                              | transaction record | a committed/uncommitted operation snapshot                                |
-|  [08]   | `lance.Index` / `lance.IndexProgress`                                                            | index descriptor   | index metadata returned by `list_indices`; build-progress callback record |
-|  [09]   | `lance.FullTextQuery` (`MatchQuery`/`PhraseQuery`/`BooleanQuery`/`BoostQuery`/`MultiMatchQuery`) | FTS query algebra  | structured BM25 full-text query tree with `Occur`/`FullTextOperator`      |
-|  [10]   | `lance.Blob` / `lance.BlobArray` / `lance.BlobColumn` / `lance.BlobFile`                         | blob storage       | large-object column values stored in separate physical files              |
-|  [11]   | `lance.Session`                                                                                  | runtime session    | shared cache/handle reused across `dataset()` opens                       |
-|  [12]   | `lance.LanceNamespace`                                                                           | catalog binding    | namespace-client + `table_id` open over a Lance catalog                   |
-|  [13]   | `lance.ScanStatistics` / `lance.DataStatistics` / `lance.FieldStatistics`                        | scan/data stats    | per-scan and per-field statistics receipts (`scan_stats_callback`)        |
+| [INDEX] | [SYMBOL]                              | [PACKAGE_ROLE]     | [CAPABILITY]                                                       |
+| :-----: | :------------------------------------ | :----------------- | :----------------------------------------------------------------- |
+|  [01]   | `lance.LanceDataset`                  | dataset handle     | versioned Lance dataset; scan, mutate, index, version, blob owner  |
+|  [02]   | `lance.LanceScanner`                  | scan builder       | projection/filter/limit/nearest/FTS scan config to Arrow           |
+|  [03]   | `lance.LanceFragment`                 | fragment handle    | sub-file unit; fragment-scoped scan and write-progress unit        |
+|  [04]   | `lance.FragmentMetadata`              | fragment metadata  | physical metadata for a fragment (for `commit` transactions)       |
+|  [05]   | `lance.MergeInsertBuilder`            | upsert builder     | conditional matched/not-matched merge-insert with conflict retry   |
+|  [06]   | `lance.LanceOperation`                | operation algebra  | transactional dataset mutation cases for `commit`/`commit_batch`   |
+|  [07]   | `lance.Transaction`                   | transaction record | a committed/uncommitted operation snapshot                         |
+|  [08]   | `lance.Index` / `lance.IndexProgress` | index descriptor   | index metadata from `list_indices`; build-progress callback record |
+|  [09]   | `lance.FullTextQuery`                 | FTS query algebra  | structured BM25 full-text query tree                               |
+|  [10]   | `lance.Blob`                          | blob storage       | in-memory large-object value                                       |
+|  [11]   | `lance.BlobArray`                     | blob storage       | Arrow extension array of blobs                                     |
+|  [12]   | `lance.BlobColumn`                    | blob storage       | blob-typed column accessor                                         |
+|  [13]   | `lance.BlobFile`                      | blob storage       | file-like handle to one blob in a separate physical file           |
+|  [14]   | `lance.Session`                       | runtime session    | shared cache/handle reused across `dataset()` opens                |
+|  [15]   | `lance.LanceNamespace`                | catalog binding    | namespace-client + `table_id` open over a Lance catalog            |
+|  [16]   | `lance.ScanStatistics`                | scan stats         | per-scan statistics receipt (`scan_stats_callback`)                |
+|  [17]   | `lance.DataStatistics`                | data stats         | dataset-level data statistics receipt                              |
+|  [18]   | `lance.FieldStatistics`               | field stats        | per-field statistics receipt                                       |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: dataset open and scan-to-Arrow
 - rail: lance-format
+- call: `lance.dataset(uri, version=None, asof=None, block_size=None, *, storage_options=None, default_scan_options=None, session=None, namespace_client=None, table_id=None) -> LanceDataset`
+- call: `lance.write_dataset(data_obj, uri, schema=None, mode='create', *, max_rows_per_file=1048576, max_rows_per_group=1024, max_bytes_per_file, data_storage_version=None, storage_options=None, enable_stable_row_ids=False, auto_cleanup_options=None) -> LanceDataset`
+- call: `LanceDataset.scanner(columns=None, filter=None, limit=None, offset=None, nearest=None, batch_size=None, full_text_query=None, *, prefilter=None, with_row_id=None, fast_search=None, use_scalar_index=None, order_by=None, late_materialization=None, blob_handling=None, scan_stats_callback=None) -> LanceScanner`; `to_table`/`to_batches` take the same projection/predicate/`nearest`/`full_text_query` args
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                                                                             | [ENTRY_FAMILY] | [RAIL]                                    |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------- |
-|  [01]   | `lance.dataset(uri, version=None, asof=None, block_size=None, *, storage_options=None, default_scan_options=None, session=None, namespace_client=None, table_id=None) -> LanceDataset`                                                                                                                                | open           | open dataset / snapshot by URI            |
-|  [02]   | `lance.write_dataset(data_obj, uri, schema=None, mode='create', *, max_rows_per_file=1048576, max_rows_per_group=1024, max_bytes_per_file, data_storage_version=None, storage_options=None, enable_stable_row_ids=False, auto_cleanup_options=None) -> LanceDataset`                                                  | write          | write Arrow/Reader to Lance               |
-|  [03]   | `LanceDataset.scanner(columns=None, filter=None, limit=None, offset=None, nearest=None, batch_size=None, full_text_query=None, *, prefilter=None, with_row_id=None, fast_search=None, use_scalar_index=None, order_by=None, late_materialization=None, blob_handling=None, scan_stats_callback=None) -> LanceScanner` | scan           | build column/predicate/vector/FTS scan    |
-|  [04]   | `LanceDataset.to_table(columns=None, filter=None, limit=None, offset=None, nearest=None, *, prefilter=None, full_text_query=None, fast_search=None, order_by=None) -> pa.Table`                                                                                                                                       | materialize    | scan to Arrow Table                       |
-|  [05]   | `LanceDataset.to_batches(columns=None, filter=None, limit=None, *, full_text_query=None, ...) -> Iterator[pa.RecordBatch]`                                                                                                                                                                                            | stream         | scan to Arrow RecordBatch stream          |
-|  [06]   | `LanceDataset.count_rows(filter=None) -> int`                                                                                                                                                                                                                                                                         | aggregate      | count rows matching predicate             |
-|  [07]   | `LanceDataset.take(indices, columns=None) -> pa.Table` / `take_blobs(blob_column, ids=None, indices=None) -> List[BlobFile]`                                                                                                                                                                                          | gather         | row-index gather; blob-column gather      |
-|  [08]   | `LanceDataset.sample(num_rows, columns=None, randomize_order=True) -> pa.Table` / `head(num_rows, columns=None)`                                                                                                                                                                                                      | sample         | random/head row sample                    |
-|  [09]   | `LanceDataset.sql(sql) -> SqlQueryBuilder` / `filter(expr)`                                                                                                                                                                                                                                                           | query          | DataFusion-SQL builder; expression filter |
-|  [10]   | `LanceDataset.join(...)` / `join_asof(...)` / `sort_by(...)`                                                                                                                                                                                                                                                          | relational     | dataset-level join/asof-join/sort         |
+| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [RAIL]                                    |
+| :-----: | :------------------------------------------------------------- | :------------- | :---------------------------------------- |
+|  [01]   | `lance.dataset(...)`                                           | open           | open dataset / snapshot by URI            |
+|  [02]   | `lance.write_dataset(...)`                                     | write          | write Arrow/Reader to Lance               |
+|  [03]   | `LanceDataset.scanner(...)`                                    | scan           | build column/predicate/vector/FTS scan    |
+|  [04]   | `LanceDataset.to_table(...)`                                   | materialize    | scan to an Arrow `Table`                  |
+|  [05]   | `LanceDataset.to_batches(...)`                                 | stream         | scan to an Arrow `RecordBatch` stream     |
+|  [06]   | `LanceDataset.count_rows(filter=None)`                         | aggregate      | count rows matching a predicate           |
+|  [07]   | `LanceDataset.take(indices, columns=None)`                     | gather         | row-index gather                          |
+|  [08]   | `LanceDataset.take_blobs(blob_column, ids=None, indices=None)` | gather         | blob-column gather to `BlobFile`          |
+|  [09]   | `LanceDataset.sample(num_rows, ...)` / `head(num_rows, ...)`   | sample         | random/head row sample                    |
+|  [10]   | `LanceDataset.sql(sql)` / `filter(expr)`                       | query          | DataFusion-SQL builder; expression filter |
+|  [11]   | `LanceDataset.join(...)` / `join_asof(...)` / `sort_by(...)`   | relational     | dataset-level join/asof-join/sort         |
 
 [ENTRYPOINT_SCOPE]: mutation, schema evolution, and merge-insert
 - rail: lance-format
+- call: `LanceDataset.delete(predicate, *, conflict_retries=10, retry_timeout=30s) -> DeleteResult`; `LanceDataset.update(updates: dict[str,str], where=None, *, conflict_retries=10) -> UpdateResult`; `LanceDataset.add_columns(transforms, read_columns=None, batch_size=None)`; `LanceDataset.commit(operation: LanceOperation, *, read_version=None)` / `commit_batch([...])`
 
-| [INDEX] | [SURFACE]                                                                                         | [ENTRY_FAMILY] | [RAIL]                                           |
-| :-----: | :------------------------------------------------------------------------------------------------ | :------------- | :----------------------------------------------- |
-|  [01]   | `LanceDataset.insert(data_obj, *, mode='append')`                                                 | append         | append/overwrite rows into the dataset           |
-|  [02]   | `LanceDataset.delete(predicate, *, conflict_retries=10, retry_timeout=30s) -> DeleteResult`       | mutation       | delete rows by SQL/Arrow predicate               |
-|  [03]   | `LanceDataset.update(updates: dict[str,str], where=None, *, conflict_retries=10) -> UpdateResult` | mutation       | SQL-expression column update with conflict retry |
-|  [04]   | `LanceDataset.merge_insert(on) -> MergeInsertBuilder`                                             | upsert         | begin conditional merge-insert                   |
-|  [05]   | `LanceDataset.merge(data_obj, left_on, right_on=None)`                                            | column-merge   | add columns by joining an external reader        |
-|  [06]   | `LanceDataset.add_columns(transforms, read_columns=None, batch_size=None)`                        | schema         | add columns via SQL exprs / BatchUDF / reader    |
-|  [07]   | `LanceDataset.alter_columns(*alterations: AlterColumn)` / `drop_columns(columns)`                 | schema         | rename/retype/nullability change; drop cols      |
-|  [08]   | `LanceDataset.commit(operation: LanceOperation, *, read_version=None)` / `commit_batch([...])`    | transaction    | low-level transactional commit of operations     |
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [RAIL]                                           |
+| :-----: | :------------------------------------------------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `LanceDataset.insert(data_obj, *, mode='append')`                    | append         | append/overwrite rows into the dataset           |
+|  [02]   | `LanceDataset.delete(...)`                                           | mutation       | delete rows by SQL/Arrow predicate               |
+|  [03]   | `LanceDataset.update(...)`                                           | mutation       | SQL-expression column update with conflict retry |
+|  [04]   | `LanceDataset.merge_insert(on)`                                      | upsert         | begin a conditional merge-insert                 |
+|  [05]   | `LanceDataset.merge(data_obj, left_on, right_on=None)`               | column-merge   | add columns by joining an external reader        |
+|  [06]   | `LanceDataset.add_columns(...)`                                      | schema         | add columns via SQL exprs / BatchUDF / reader    |
+|  [07]   | `LanceDataset.alter_columns(*alterations)` / `drop_columns(columns)` | schema         | rename/retype/nullability change; drop cols      |
+|  [08]   | `LanceDataset.commit(...)` / `commit_batch([...])`                   | transaction    | low-level transactional commit of operations     |
 
 [ENTRYPOINT_SCOPE]: index, version, and maintenance
 - rail: lance-format
+- note: table surfaces are `LanceDataset` methods unless prefixed `lance.`
+- note: scalar/FTS index kinds — `BTREE`/`BITMAP`/`LABEL_LIST`/`ZONEMAP`/`BLOOMFILTER`/`RTREE` (predicate) and `INVERTED`/`FTS`/`NGRAM` (BM25)
+- call: `LanceDataset.create_index(column, index_type, *, name=None, metric='L2', replace=False, num_partitions=None, num_sub_vectors=None, ivf_centroids=None, pq_codebook=None, accelerator=None, train=True) -> LanceDataset`
+- call: `LanceDataset.cleanup_old_versions(older_than: timedelta = None, retain_versions: int = None, *, delete_unverified=False, error_if_tagged_old_versions=True) -> CleanupStats`; `optimize.compact_files(*, target_rows_per_fragment, materialize_deletions, num_threads, batch_size) -> CompactionMetrics`
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                | [ENTRY_FAMILY]   | [RAIL]                                                                                 |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------- | :------------------------------------------------------------------------------------- |
-|  [01]   | `LanceDataset.create_index(column, index_type, *, name=None, metric='L2', replace=False, num_partitions=None, num_sub_vectors=None, ivf_centroids=None, pq_codebook=None, accelerator=None, train=True) -> LanceDataset` | vector index     | build ANN index (`IVF_PQ`/`IVF_HNSW_PQ`/`IVF_HNSW_SQ`)                                 |
-|  [02]   | `LanceDataset.create_scalar_index(column, index_type, *, replace=True, train=True)`                                                                                                                                      | scalar/FTS index | `BTREE`/`BITMAP`/`LABEL_LIST`/`INVERTED`/`FTS`/`NGRAM`/`ZONEMAP`/`BLOOMFILTER`/`RTREE` |
-|  [03]   | `LanceDataset.list_indices() -> List[Index]` / `describe_indices()` / `index_statistics(name)` / `has_index(name)` / `drop_index(name)` / `prewarm_index(name)`                                                          | index admin      | enumerate / describe / warm / drop indices                                             |
-|  [04]   | `LanceDataset.version -> int` / `latest_version -> int` / `versions() -> List[dict]`                                                                                                                                     | snapshot         | current/latest scalar version; full history                                            |
-|  [05]   | `LanceDataset.checkout_version(version) -> LanceDataset` / `checkout_latest()` / `restore()`                                                                                                                             | time-travel      | open a snapshot; restore an old version as new                                         |
-|  [06]   | `LanceDataset.tags` (`Tags`: `create`/`delete`/`update`/`list`) / `branches` / `create_branch(name)`                                                                                                                     | tag/branch       | named version tags and branch refs                                                     |
-|  [07]   | `LanceDataset.optimize -> DatasetOptimizer`; `optimize.compact_files(*, target_rows_per_fragment, materialize_deletions, num_threads, batch_size) -> CompactionMetrics`; `optimize.optimize_indices(**kwargs)`           | maintenance      | compaction and ANN/scalar index rebuild                                                |
-|  [08]   | `LanceDataset.cleanup_old_versions(older_than: timedelta = None, retain_versions: int = None, *, delete_unverified=False, error_if_tagged_old_versions=True) -> CleanupStats`                                            | maintenance      | prune old versions (`older_than` is a delta)                                           |
-|  [09]   | `LanceDataset.stats` / `io_stats_snapshot()` / `io_stats_incremental()`; `lance.iops_counter()` / `lance.bytes_read_counter()`                                                                                           | observability    | data/IO statistics receipts and counters                                               |
-|  [10]   | `lance.batch_udf(output_schema=None, checkpoint_file=None)`; `lance.blob_field(name, *, nullable=True) -> pa.Field`; `lance.json_to_schema(...)` / `lance.schema_to_json(...)`                                           | helpers          | checkpointed batch UDF; blob field; schema JSON                                        |
+| [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY]   | [RAIL]                                               |
+| :-----: | :---------------------------------------------------------- | :--------------- | :--------------------------------------------------- |
+|  [01]   | `create_index(...)`                                         | vector index     | ANN index (`IVF_PQ`/`IVF_HNSW_PQ`/`IVF_HNSW_SQ`)     |
+|  [02]   | `create_scalar_index(...)`                                  | scalar/FTS index | build a scalar or BM25 index (kinds in `- note:`)    |
+|  [03]   | `list_indices` / `describe_indices` / `index_statistics`    | index admin      | enumerate and describe indices                       |
+|  [04]   | `has_index` / `drop_index` / `prewarm_index`                | index admin      | probe, drop, and warm indices                        |
+|  [05]   | `version` / `latest_version` / `versions`                   | snapshot         | current/latest version; full history                 |
+|  [06]   | `checkout_version` / `checkout_latest` / `restore`          | time-travel      | open a snapshot; restore an old version as new       |
+|  [07]   | `tags` / `branches` / `create_branch(name)`                 | tag/branch       | named version tags and branch refs (`Tags` accessor) |
+|  [08]   | `optimize` / `.compact_files` / `.optimize_indices`         | maintenance      | compaction and ANN/scalar index rebuild              |
+|  [09]   | `cleanup_old_versions(...)`                                 | maintenance      | prune old versions (`older_than` is a delta)         |
+|  [10]   | `stats` / `io_stats_snapshot` / `io_stats_incremental`      | observability    | data/IO statistics receipts                          |
+|  [11]   | `lance.iops_counter` / `lance.bytes_read_counter`           | observability    | process-wide IO counters                             |
+|  [12]   | `lance.batch_udf(output_schema=None, checkpoint_file=None)` | helpers          | checkpointed resumable batch UDF                     |
+|  [13]   | `lance.blob_field(name, *, nullable=True) -> pa.Field`      | helpers          | build a blob-typed Arrow field                       |
+|  [14]   | `lance.json_to_schema(...)` / `lance.schema_to_json(...)`   | helpers          | schema JSON round-trip                               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

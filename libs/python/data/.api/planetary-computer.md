@@ -21,42 +21,44 @@
 
 `sign` and `sign_inplace` are the `modifier=` callables for `pystac_client.Client.open`/`search`; they dispatch on input type and return the same shape with Azure Blob HREFs replaced by SAS-signed URLs. The top-level `__all__` exports only the `sign_*`/`set_subscription_key`/`get_container_client`/`get_adlfs_filesystem` functions — the response models below are internal (`planetary_computer.sas` for `SASToken`/`SignedLink`/`SASBase`, `planetary_computer.settings` for `Settings`) and are consumed indirectly through the signing rail, not imported at the boundary. `SASToken`/`SignedLink` are the `pydantic` response models the token fetch deserializes; `Settings` carries `subscription_key` and `sas_url` resolved from `PC_SDK_*` environment variables or `~/.planetarycomputer/settings.env`.
 
-| [INDEX] | [SYMBOL]     | [MODULE]                      | [TYPE_FAMILY]     | [RAIL]                                                                            |
-| :-----: | :----------- | :---------------------------- | :---------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `SASToken`   | `planetary_computer.sas`      | token model       | `pydantic` SAS token response (`token`, `msft:expiry`) with `sign`/`ttl`          |
-|  [02]   | `SignedLink` | `planetary_computer.sas`      | signed-link model | `pydantic` signed-HREF response (`href`, `msft:expiry`)                           |
-|  [03]   | `SASBase`    | `planetary_computer.sas`      | model base        | `pydantic` base carrying the `msft:expiry` expiry field                           |
-|  [04]   | `Settings`   | `planetary_computer.settings` | configuration     | `pydantic` settings holding `subscription_key`/`sas_url` from `PC_SDK_*` env/file |
+| [INDEX] | [SYMBOL]     | [MODULE]                      | [TYPE_FAMILY]     | [RAIL]                                                           |
+| :-----: | :----------- | :---------------------------- | :---------------- | :--------------------------------------------------------------- |
+|  [01]   | `SASToken`   | `planetary_computer.sas`      | token model       | SAS token response (`token`, `msft:expiry`) with `sign`/`ttl`    |
+|  [02]   | `SignedLink` | `planetary_computer.sas`      | signed-link model | signed-HREF response (`href`, `msft:expiry`)                     |
+|  [03]   | `SASBase`    | `planetary_computer.sas`      | model base        | base carrying the `msft:expiry` expiry field                     |
+|  [04]   | `Settings`   | `planetary_computer.settings` | configuration     | `subscription_key`/`sas_url` from `PC_SDK_*` env or settings.env |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: signing dispatch
 - rail: catalog-signing
+- call: each typed `sign_*(obj, copy: bool = True)` returns the same shape — `sign(obj: Any) -> Any`, `sign_url(str) -> str`, `sign_item(Item) -> Item`, `sign_asset(Asset) -> Asset`, `sign_item_collection(ItemCollection) -> ItemCollection`; `sign_inplace(obj)` is `copy=False`, `sign_assets(item)` the deprecated `sign_item` alias
 
-`sign` is a `singledispatch` surface: it dispatches on the runtime type of `obj` and rewrites only Azure Blob Storage HREFs (`*.blob.core.windows.net`), returning unsigned URLs and already-signed URLs (`st`/`se`/`sp` present) unchanged. `copy` clones STAC objects before mutation; it has no effect on immutable strings or on the `ItemSearch` row. `sign_inplace` is `sign(obj, copy=False)`. The typed `sign_*` rows are the registered overloads, callable directly when the input type is fixed.
+`sign` is a `singledispatch` surface: it dispatches on the runtime type of `obj` and rewrites only Azure Blob Storage HREFs (`*.blob.core.windows.net`), returning unsigned URLs and already-signed URLs (`st`/`se`/`sp` present) unchanged. `copy` clones STAC objects before mutation; it has no effect on immutable strings or on the `ItemSearch` row.
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]                                                                                 | [CAPABILITY]                                                     |
-| :-----: | :--------------------- | :------------------------------------------------------------------------------------------- | :--------------------------------------------------------------- |
-|  [01]   | `sign`                 | `sign(obj: Any, copy: bool = True) -> Any`                                                   | dispatch-sign any supported object; raises `TypeError` on others |
-|  [02]   | `sign_inplace`         | `sign_inplace(obj: Any) -> Any`                                                              | `sign(obj, copy=False)` mutate-in-place modifier                 |
-|  [03]   | `sign_url`             | `sign_url(url: str, copy: bool = True) -> str`                                               | sign a single Azure Blob URL; passthrough otherwise              |
-|  [04]   | `sign_item`            | `sign_item(item: Item, copy: bool = True) -> Item`                                           | sign all assets of a `pystac` `Item`, add `msft:expiry`          |
-|  [05]   | `sign_asset`           | `sign_asset(asset: Asset, copy: bool = True) -> Asset`                                       | sign one `pystac` `Asset` HREF                                   |
-|  [06]   | `sign_item_collection` | `sign_item_collection(item_collection: ItemCollection, copy: bool = True) -> ItemCollection` | sign every item's assets in an `ItemCollection`                  |
-|  [07]   | `sign_assets`          | `sign_assets(item: Item) -> Item`                                                            | deprecated alias of `sign_item` (emits `FutureWarning`)          |
+| [INDEX] | [SURFACE]              | [CAPABILITY]                                                     |
+| :-----: | :--------------------- | :--------------------------------------------------------------- |
+|  [01]   | `sign`                 | dispatch-sign any supported object; raises `TypeError` on others |
+|  [02]   | `sign_inplace`         | `sign(obj, copy=False)` mutate-in-place modifier                 |
+|  [03]   | `sign_url`             | sign a single Azure Blob URL; passthrough otherwise              |
+|  [04]   | `sign_item`            | sign all assets of a `pystac` `Item`, add `msft:expiry`          |
+|  [05]   | `sign_asset`           | sign one `pystac` `Asset` HREF                                   |
+|  [06]   | `sign_item_collection` | sign every item's assets in an `ItemCollection`                  |
+|  [07]   | `sign_assets`          | deprecated alias of `sign_item` (emits `FutureWarning`)          |
 
 [ENTRYPOINT_SCOPE]: token, configuration, and Azure filesystem
 - rail: catalog-signing
 
-`set_subscription_key` injects the API key into the process-level `Settings` so token requests carry `Ocp-Apim-Subscription-Key`. `get_container_client`/`get_adlfs_filesystem` build Azure SDK handles credentialed with a fresh SAS token; each raises `ImportError` when its optional dependency (`azure-storage-blob`, `adlfs`) is absent. `SASToken.sign` appends the token to an HREF; `SASToken.ttl` reports remaining validity seconds.
+`set_subscription_key` injects the API key into the process-level `Settings` so token requests carry `Ocp-Apim-Subscription-Key`. `get_container_client`/`get_adlfs_filesystem` build Azure SDK handles credentialed with a fresh SAS token; each raises `ImportError` when its optional dependency (`azure-storage-blob`, `adlfs`) is absent.
+- call: `set_subscription_key(key: str) -> None`; `get_container_client(account_name: str, container_name: str) -> azure.storage.blob.ContainerClient` and `get_adlfs_filesystem(...) -> adlfs.AzureBlobFileSystem` share the arg pair; `SASToken.sign(href: str) -> SignedLink`, `SASToken.ttl() -> float`
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]                                                                                         | [CAPABILITY]                                             |
-| :-----: | :--------------------- | :--------------------------------------------------------------------------------------------------- | :------------------------------------------------------- |
-|  [01]   | `set_subscription_key` | `set_subscription_key(key: str) -> None`                                                             | set the process-level PC API subscription key            |
-|  [02]   | `get_container_client` | `get_container_client(account_name: str, container_name: str) -> azure.storage.blob.ContainerClient` | SAS-credentialed Azure `ContainerClient` (needs `azure`) |
-|  [03]   | `get_adlfs_filesystem` | `get_adlfs_filesystem(account_name: str, container_name: str) -> adlfs.AzureBlobFileSystem`          | SAS-credentialed `adlfs` filesystem (needs `adlfs`)      |
-|  [04]   | `SASToken.sign`        | `sign(href: str) -> SignedLink`                                                                      | append this token to an HREF, return a `SignedLink`      |
-|  [05]   | `SASToken.ttl`         | `ttl() -> float`                                                                                     | seconds the token remains valid                          |
+| [INDEX] | [SURFACE]              | [CAPABILITY]                                             |
+| :-----: | :--------------------- | :------------------------------------------------------- |
+|  [01]   | `set_subscription_key` | set the process-level PC API subscription key            |
+|  [02]   | `get_container_client` | SAS-credentialed Azure `ContainerClient` (needs `azure`) |
+|  [03]   | `get_adlfs_filesystem` | SAS-credentialed `adlfs` filesystem (needs `adlfs`)      |
+|  [04]   | `SASToken.sign`        | append this token to an HREF, return a `SignedLink`      |
+|  [05]   | `SASToken.ttl`         | seconds the token remains valid                          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

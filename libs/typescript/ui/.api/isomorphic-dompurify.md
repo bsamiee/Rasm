@@ -16,44 +16,56 @@
 
 [PUBLIC_TYPE_SCOPE]: the re-exported DOMPurify type surface
 - rail: sanitize
-- Every type is re-exported from `dompurify`; `Config` is the policy vocabulary and the hook types are the extension surface.
+- Every type is re-exported from `dompurify`; `Config` is the policy vocabulary and the hook types are the extension surface. The default export is the `DOMPurify` instance (`sanitize`/`addHook`/`setConfig`/`isValidAttribute`/`removed`/`version`/`isSupported`).
 
-| [INDEX] | [SYMBOL]                                                                                                                   | [TYPE_FAMILY]      | [CONSUMER_BOUNDARY]                                                                                                               |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------- | :----------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Config`                                                                                                                   | policy vocabulary  | the one allow/deny + return-mode record every `sanitize` call parameterizes                                                       |
-|  [02]   | `DOMPurify`                                                                                                                | instance interface | the default export shape: `sanitize`/`addHook`/`setConfig`/`isValidAttribute`/`removed`/`version`/`isSupported`                   |
-|  [03]   | `HookName` / `NodeHook` / `ElementHook` / `DocumentFragmentHook` / `UponSanitizeElementHook` / `UponSanitizeAttributeHook` | hook types         | the six-entry-point extension axis + their hook-function signatures                                                               |
-|  [04]   | `UponSanitizeElementHookEvent` / `UponSanitizeAttributeHookEvent`                                                          | hook event         | the `allowedTags`/`allowedAttributes`/`attrName`/`attrValue` mutation payload passed to `upon*` hooks                             |
-|  [05]   | `RemovedElement` / `RemovedAttribute`                                                                                      | audit row          | the `removed[]` diagnostic — what the last sanitize stripped, for a telemetry/quarantine receipt                                  |
-|  [06]   | `WindowLike`                                                                                                               | window shape       | `Pick<globalThis, 'DocumentFragment'\|'HTMLTemplateElement'\|'Node'\|'Element'\|…>` — the jsdom/native window the sanitizer needs |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]      | [CONSUMER_BOUNDARY]                                                    |
+| :-----: | :------------------------------------ | :----------------- | :--------------------------------------------------------------------- |
+|  [01]   | `Config`                              | policy vocabulary  | the one allow/deny + return-mode record every `sanitize` parameterizes |
+|  [02]   | `DOMPurify`                           | instance interface | the default-export instance shape; methods listed in the lead          |
+|  [03]   | `HookName`                            | hook entry union   | the string union of the entry points keying every `addHook`            |
+|  [04]   | `NodeHook`                            | hook fn            | per-element mutation callback, before/after the element pass           |
+|  [05]   | `ElementHook`                         | hook fn            | per-element attribute-pass mutation callback                           |
+|  [06]   | `DocumentFragmentHook`                | hook fn            | shadow-DOM fragment-pass mutation callback                             |
+|  [07]   | `UponSanitizeElementHook`             | decision hook fn   | inspect or override the element allow decision                         |
+|  [08]   | `UponSanitizeAttributeHook`           | decision hook fn   | inspect or override the attribute allow decision                       |
+|  [09]   | `UponSanitizeElementHookEvent`        | hook event         | the `allowedTags`/`allowedAttributes` mutation payload                 |
+|  [10]   | `UponSanitizeAttributeHookEvent`      | hook event         | the `attrName`/`attrValue` mutation payload                            |
+|  [11]   | `RemovedElement` / `RemovedAttribute` | audit row          | the `removed[]` diagnostic — what the last sanitize stripped           |
+|  [12]   | `WindowLike`                          | window shape       | the jsdom/native window shape (`DocumentFragment`, `Node`, `Element`)  |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the sanitize gate — one config-discriminated operation
 - rail: sanitize
 - `sanitize` is overloaded on the `Config` return flags; the same call is the string gate, the Trusted Types gate, the DOM/fragment gate, or the in-place scrubber — one operation, mode as data.
+- Every overload is `sanitize(dirty, cfg?)` with `dirty: string | Node`; the `Config` return flag selects the return type. `isValidAttribute` returns `boolean`, `removed` is `(RemovedElement | RemovedAttribute)[]`.
 
-| [INDEX] | [SURFACE]                                                                                                   | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                                                 |
-| :-----: | :---------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `sanitize(dirty: string \| Node, cfg?: Config): string`                                                     | string gate    | the default — DOM-bound wire text before `dangerouslySetInnerHTML`; `view/compose.md` rich content, `intl/message.md` HTML messages |
-|  [02]   | `sanitize(dirty, cfg & { RETURN_TRUSTED_TYPE: true }): TrustedHTML`                                         | CSP gate       | strict-CSP surfaces — feeds a `TrustedHTML` sink under a `TRUSTED_TYPES_POLICY`                                                     |
-|  [03]   | `sanitize(dirty, cfg & { RETURN_DOM: true \| RETURN_DOM_FRAGMENT: true }): HTMLElement \| DocumentFragment` | DOM gate       | when the caller needs a node, not a string, without a re-parse                                                                      |
-|  [04]   | `sanitize(dirty: Node, cfg & { IN_PLACE: true }): Node`                                                     | in-place scrub | scrub an existing detached node tree without serialization                                                                          |
-|  [05]   | `setConfig(cfg?: Config)` / `clearConfig()`                                                                 | global policy  | pin a project-wide allow-list once (`ALLOWED_TAGS`/`USE_PROFILES`); clear to defaults                                               |
-|  [06]   | `isValidAttribute(tag, attr, value): boolean` / `removed: (RemovedElement \| RemovedAttribute)[]`           | policy probe   | pre-check one attribute; read what the last call stripped for an audit row                                                          |
-|  [07]   | `isSupported: boolean` / `version: string` / `clearWindow(): void`                                          | runtime state  | `isSupported` gates the browser path; `clearWindow` resets the cached node jsdom window between SSR renders                         |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                          |
+| :-----: | :----------------------------------------------- | :------------- | :----------------------------------------------------------- |
+|  [01]   | `sanitize(dirty, cfg?)` → `string`               | string gate    | default DOM-bound wire text before `dangerouslySetInnerHTML` |
+|  [02]   | `+ RETURN_TRUSTED_TYPE` → `TrustedHTML`          | CSP gate       | a `TrustedHTML` sink under a `TRUSTED_TYPES_POLICY`          |
+|  [03]   | `+ RETURN_DOM` → `HTMLElement`                   | DOM gate       | a node, not a string, without a re-parse                     |
+|  [04]   | `+ RETURN_DOM_FRAGMENT` → `DocumentFragment`     | DOM gate       | a detached fragment, without a re-parse                      |
+|  [05]   | `+ IN_PLACE` (`dirty: Node`) → `Node`            | in-place scrub | scrub a detached node tree without serialization             |
+|  [06]   | `setConfig(cfg?)` / `clearConfig()`              | global policy  | pin a project-wide allow-list; clear to defaults             |
+|  [07]   | `isValidAttribute(tag, attr, value)` / `removed` | policy probe   | pre-check one attribute; read what the last call stripped    |
+|  [08]   | `isSupported` / `version` / `clearWindow()`      | runtime state  | gate the browser path; reset the cached node jsdom window    |
 
-[ENTRYPOINT_SCOPE]: hooks — the extension axis (six entry points)
+[ENTRYPOINT_SCOPE]: hooks — the extension axis
 - rail: sanitize
-- `addHook`/`removeHook` are overloaded by entry-point group; a hook mutates the node/attribute mid-sanitize. `removeHooks(entryPoint)` clears one point; `removeAllHooks()` clears all.
+- `addHook(entryPoint, fn)` binds a hook by entry-point string; a hook mutates the node/attribute mid-sanitize. Teardown is `removeHook(entryPoint, fn?)` / `removeHooks(entryPoint)` / `removeAllHooks()`.
 
-| [INDEX] | [SURFACE]                                                                                                                 | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                    |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------ | :------------- | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | `addHook('beforeSanitizeElements'\|'afterSanitizeElements'\|'uponSanitizeShadowNode', NodeHook)`                          | node hook      | per-element mutation before/after the element pass                                                     |
-|  [02]   | `addHook('beforeSanitizeAttributes'\|'afterSanitizeAttributes', ElementHook)`                                             | element hook   | per-element attribute-pass mutation                                                                    |
-|  [03]   | `addHook('beforeSanitizeShadowDOM'\|'afterSanitizeShadowDOM', DocumentFragmentHook)`                                      | fragment hook  | shadow-DOM fragment pass                                                                               |
-|  [04]   | `addHook('uponSanitizeElement', UponSanitizeElementHook)` / `addHook('uponSanitizeAttribute', UponSanitizeAttributeHook)` | decision hook  | inspect/override the allow decision with the hook-event payload (e.g. enforce a link-target allowlist) |
-|  [05]   | `removeHook(entryPoint, fn?)` / `removeHooks(entryPoint)` / `removeAllHooks()`                                            | hook teardown  | remove one hook, all hooks at a point, or every hook                                                   |
+| [INDEX] | [ENTRY_POINT]              | [HOOK_TYPE]                 | [ROLE]                                        |
+| :-----: | :------------------------- | :-------------------------- | :-------------------------------------------- |
+|  [01]   | `beforeSanitizeElements`   | `NodeHook`                  | element pass, before                          |
+|  [02]   | `afterSanitizeElements`    | `NodeHook`                  | element pass, after                           |
+|  [03]   | `uponSanitizeShadowNode`   | `NodeHook`                  | shadow-node pass                              |
+|  [04]   | `beforeSanitizeAttributes` | `ElementHook`               | attribute pass, before                        |
+|  [05]   | `afterSanitizeAttributes`  | `ElementHook`               | attribute pass, after                         |
+|  [06]   | `beforeSanitizeShadowDOM`  | `DocumentFragmentHook`      | shadow-DOM fragment pass, before              |
+|  [07]   | `afterSanitizeShadowDOM`   | `DocumentFragmentHook`      | shadow-DOM fragment pass, after               |
+|  [08]   | `uponSanitizeElement`      | `UponSanitizeElementHook`   | inspect/override the element allow decision   |
+|  [09]   | `uponSanitizeAttribute`    | `UponSanitizeAttributeHook` | inspect/override the attribute allow decision |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

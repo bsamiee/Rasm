@@ -15,15 +15,22 @@
 
 The 2×2 pattern: `{registration, authentication} × {options, verify}`. Each entry takes ONE options object and returns a `Promise`; the verify results are typed rails, not thrown exceptions. `Parameters<typeof …>[0]` aliases (`GenerateRegistrationOptionsOpts`, …) are exported for each options bag.
 
-| [INDEX] | [ENTRYPOINT]                          | [INPUT]                                          | [OUTPUT_BOUNDARY]                                                     |
-| :-----: | :------------------------------------ | :----------------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `generateRegistrationOptions(opts)`   | `rpName`/`rpID`/`userName` + policy              | `Promise<PublicKeyCredentialCreationOptionsJSON>` — the mint          |
-|  [02]   | `verifyRegistrationResponse(opts)`    | `response` + `expectedChallenge`/`Origin`/`RPID` | `Promise<VerifiedRegistrationResponse>` — discriminated on `verified` |
-|  [03]   | `generateAuthenticationOptions(opts)` | `rpID` + `allowCredentials`/`userVerification`   | `Promise<PublicKeyCredentialRequestOptionsJSON>` — the challenge      |
-|  [04]   | `verifyAuthenticationResponse(opts)`  | `response` + `credential` + `expectedChallenge`  | `Promise<VerifiedAuthenticationResponse>` — carries `newCounter`      |
-|  [05]   | `supportedCOSEAlgorithmIdentifiers`   | const                                            | the default COSE alg allow-list `supportedAlgorithmIDs` narrows       |
+| [INDEX] | [ENTRYPOINT]                          | [INPUT]                                          | [OUTPUT_BOUNDARY]                        |
+| :-----: | :------------------------------------ | :----------------------------------------------- | :--------------------------------------- |
+|  [01]   | `generateRegistrationOptions(opts)`   | `rpName`/`rpID`/`userName` + policy              | `PublicKeyCredentialCreationOptionsJSON` |
+|  [02]   | `verifyRegistrationResponse(opts)`    | `response` + `expectedChallenge`/`Origin`/`RPID` | `VerifiedRegistrationResponse`           |
+|  [03]   | `generateAuthenticationOptions(opts)` | `rpID` + `allowCredentials`/`userVerification`   | `PublicKeyCredentialRequestOptionsJSON`  |
+|  [04]   | `verifyAuthenticationResponse(opts)`  | `response` + `credential` + `expectedChallenge`  | `VerifiedAuthenticationResponse`         |
+|  [05]   | `supportedCOSEAlgorithmIdentifiers`   | const                                            | `COSEAlgorithmIdentifier[]`              |
 
-```ts contract
+[OUTPUT_BOUNDARY] role per entry:
+- [01]-[REG_MINT]: the mint.
+- [02]-[REG_VERIFY]: discriminated on `verified`.
+- [03]-[AUTH_MINT]: the challenge.
+- [04]-[AUTH_VERIFY]: carries `newCounter` — the replay/clone defense.
+- [05]-[COSE_ALLOW]: the default COSE alg allow-list `supportedAlgorithmIDs` narrows.
+
+```ts signature
 // Phase 1 — mint. attestationType selects the trust demand; the format verifier roster is dispatched internally, not by the caller.
 declare function generateRegistrationOptions(opts: {
   rpName: string; rpID: string; userName: string
@@ -44,7 +51,7 @@ declare function verifyRegistrationResponse(opts: {
 }): Promise<VerifiedRegistrationResponse>
 ```
 
-```ts contract
+```ts signature
 // The verdict is a typed rail. Registration discriminates on `verified`; the credential is extracted only on the true arm.
 type VerifiedRegistrationResponse =
   | { verified: false; registrationInfo?: never }
@@ -69,31 +76,49 @@ type VerifiedAuthenticationResponse = { verified: boolean; authenticationInfo: {
 
 The type surface is the boundary contract between the browser response and the RP: the `…JSON` shapes are the wire ingress (decoded, never trusted raw), `WebAuthnCredential` is the persisted state, and the tagged scalars key the ceremony policy.
 
-| [INDEX] | [SYMBOL]                                                         | [TYPE_FAMILY] | [ROLE_BOUNDARY]                                                                                                |
-| :-----: | :--------------------------------------------------------------- | :------------ | :------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `WebAuthnCredential`                                             | record        | `{ id: Base64URLString; publicKey: Uint8Array; counter: number; transports? }` — the stored passkey            |
-|  [02]   | `RegistrationResponseJSON` / `AuthenticationResponseJSON`        | wire ingress  | the browser's signed response — the `verify*` input, `Schema`-decoded at the edge                              |
-|  [03]   | `PublicKeyCredentialCreationOptionsJSON` / `…RequestOptionsJSON` | wire egress   | the ceremony options serialized to the browser                                                                 |
-|  [04]   | `AttestationFormat`                                              | union         | `'fido-u2f'\|'packed'\|'android-safetynet'\|'android-key'\|'tpm'\|'apple'\|'none'` — the internal verifier key |
-|  [05]   | `CredentialDeviceType` / `AuthenticatorTransportFuture`          | union         | `'singleDevice'\|'multiDevice'`; `'ble'\|'cable'\|'hybrid'\|'internal'\|'nfc'\|'smart-card'\|'usb'`            |
-|  [06]   | `Base64URLString` / `COSEAlgorithmIdentifier`                    | brand / id    | the ID encoding; the COSE signature-algorithm identifier                                                       |
-|  [07]   | `AuthenticatorSelectionCriteria` / `…ExtensionsClientInputs`     | policy        | resident-key/UV demands and the client-extension inputs (`opts.extensions`)                                    |
+| [INDEX] | [SYMBOL]                                                         | [TYPE_FAMILY] |
+| :-----: | :--------------------------------------------------------------- | :------------ |
+|  [01]   | `WebAuthnCredential`                                             | record        |
+|  [02]   | `RegistrationResponseJSON` / `AuthenticationResponseJSON`        | wire ingress  |
+|  [03]   | `PublicKeyCredentialCreationOptionsJSON` / `…RequestOptionsJSON` | wire egress   |
+|  [04]   | `AttestationFormat`                                              | union         |
+|  [05]   | `CredentialDeviceType` / `AuthenticatorTransportFuture`          | union         |
+|  [06]   | `Base64URLString` / `COSEAlgorithmIdentifier`                    | brand / id    |
+|  [07]   | `AuthenticatorSelectionCriteria` / `…ExtensionsClientInputs`     | policy        |
+
+[ROLE_BOUNDARY] per type:
+- [01]-[CREDENTIAL]: `{ id: Base64URLString; publicKey: Uint8Array; counter: number; transports? }` — the stored passkey.
+- [02]-[RESPONSE_IN]: the browser's signed response — the `verify*` input, `Schema`-decoded at the edge.
+- [03]-[OPTIONS_OUT]: the ceremony options serialized to the browser.
+- [04]-[ATTESTATION_FMT]: `'fido-u2f'\|'packed'\|'android-safetynet'\|'android-key'\|'tpm'\|'apple'\|'none'` — the internal verifier key.
+- [05]-[DEVICE_TRANSPORT]: `'singleDevice'\|'multiDevice'`; `'ble'\|'cable'\|'hybrid'\|'internal'\|'nfc'\|'smart-card'\|'usb'`.
+- [06]-[ENCODING_ID]: the ID encoding; the COSE signature-algorithm identifier.
+- [07]-[POLICY]: resident-key/UV demands and the client-extension inputs (`opts.extensions`).
 
 ## [03]-[TRUST_AND_HELPERS]
 
 Two module-singleton services own the attestation trust anchors, and the `./helpers` subpath exposes the low-level codec/parse primitives the ceremonies compose — the surface a bespoke verifier or a debugging path reaches for. The attestation-format verifiers are SEED DATA on the one verify pattern, dispatched by `fmt` inside `verifyRegistrationResponse`; `SettingsService` supplies their root certs, `MetadataService` their AAGUID metadata.
 
-| [INDEX] | [SURFACE]                                                                                 | [PRODUCES_OWNS]                   | [CAPABILITY]                                                                                             |
-| :-----: | :---------------------------------------------------------------------------------------- | :-------------------------------- | :------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SettingsService` (singleton)                                                             | `set`/`getRootCertificates(opts)` | the attestation root-cert store keyed by `RootCertIdentifier` (`AttestationFormat \| 'mds'`)             |
-|  [02]   | `MetadataService` / `BaseMetadataService`                                                 | `initialize`/`getStatement`       | FIDO MDS catalog-bound blob load + AAGUID metadata; `'strict'`/`'permissive'` unregistered-AAGUID policy |
-|  [03]   | `./helpers` `iso.{isoBase64URL,isoCBOR,isoCrypto,isoUint8Array}`                          | isomorphic codecs                 | runtime-portable base64url/CBOR/WebCrypto/byte primitives                                                |
-|  [04]   | `./helpers` `cose` (namespace)                                                            | COSE key/alg vocabulary           | `COSEALG`/`COSEKEYS`/`COSEKTY`/`COSEPublicKey` decode for the credential public key                      |
-|  [05]   | `./helpers` `parseAuthenticatorData` / `decodeClientDataJSON` / `decodeAttestationObject` | structured decode                 | the authenticator-data/client-data/attestation parsers the ceremonies fold                               |
-|  [06]   | `./helpers` `generateChallenge` / `generateUserID`                                        | `Promise<Uint8Array>`             | WebCrypto RNG for the challenge/user handle (or supply `opts.challenge`/`userID`)                        |
-|  [07]   | `./helpers` `verifySignature` / `toHash` / `validateCertificatePath` / `verifyMDSBlob`    | crypto ops                        | the signature/hash/cert-path/MDS primitives the verifiers reuse                                          |
+| [INDEX] | [SURFACE]                                                                                 | [PRODUCES_OWNS]                   |
+| :-----: | :---------------------------------------------------------------------------------------- | :-------------------------------- |
+|  [01]   | `SettingsService` (singleton)                                                             | `set`/`getRootCertificates(opts)` |
+|  [02]   | `MetadataService` / `BaseMetadataService`                                                 | `initialize`/`getStatement`       |
+|  [03]   | `./helpers` `iso.{isoBase64URL,isoCBOR,isoCrypto,isoUint8Array}`                          | isomorphic codecs                 |
+|  [04]   | `./helpers` `cose` (namespace)                                                            | COSE key/alg vocabulary           |
+|  [05]   | `./helpers` `parseAuthenticatorData` / `decodeClientDataJSON` / `decodeAttestationObject` | structured decode                 |
+|  [06]   | `./helpers` `generateChallenge` / `generateUserID`                                        | `Promise<Uint8Array>`             |
+|  [07]   | `./helpers` `verifySignature` / `toHash` / `validateCertificatePath` / `verifyMDSBlob`    | crypto ops                        |
 
-```ts contract
+[CAPABILITY] per surface:
+- [01]-[ROOT_CERTS]: the attestation root-cert store keyed by `RootCertIdentifier` (`AttestationFormat \| 'mds'`).
+- [02]-[METADATA]: FIDO MDS blob load + AAGUID metadata; `'strict'`/`'permissive'` unregistered-AAGUID policy.
+- [03]-[ISO_CODECS]: runtime-portable base64url/CBOR/WebCrypto/byte primitives.
+- [04]-[COSE]: `COSEALG`/`COSEKEYS`/`COSEKTY`/`COSEPublicKey` decode for the credential public key.
+- [05]-[PARSE]: the authenticator-data/client-data/attestation parsers the ceremonies fold.
+- [06]-[RNG]: WebCrypto RNG for the challenge/user handle (or supply `opts.challenge`/`userID`).
+- [07]-[CRYPTO_OPS]: the signature/hash/cert-path/MDS primitives the verifiers reuse.
+
+```ts signature
 // Enterprise/direct attestation is configured once, not per-ceremony: the root certs are the trust anchors the fmt verifier validates the attestation cert chain against.
 declare const SettingsService: {
   setRootCertificates(opts: { identifier: AttestationFormat | 'mds'; certificates: (Uint8Array | string)[] }): void

@@ -42,19 +42,23 @@ System.Text.Json member roster lives in `api-thinktecture-json.md` and the deep 
 [MESSAGEPACK_TYPES]: MessagePack formatter surface (namespaces `Thinktecture`, `Thinktecture.Formatters`)
 - rail: snapshot-codec
 
-| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]     | [CAPABILITY]                                                                                            |
-| :-----: | :------------------------------------------------------------------ | :----------------- | :------------------------------------------------------------------------------------------------------ |
-|  [01]   | `ThinktectureMessageFormatterResolver`                              | formatter resolver | `: IFormatterResolver`; `Instance`, `GetFormatter<T>` over generated owners                             |
-|  [02]   | `ThinktectureMessagePackFormatter<T, TKey, TValidationError>`       | class formatter    | `: IMessagePackFormatter<T?>`; keyed reference-type owners (constrained `class`)                        |
-|  [03]   | `ThinktectureStructMessagePackFormatter<T, TKey, TValidationError>` | struct formatter   | `: IMessagePackFormatter<T>, IMessagePackFormatter<T?>`; keyed value-type owners (constrained `struct`) |
+Both keyed formatters are generic over `<T, TKey, TValidationError>` and key their generated owner; the resolver routes each owner onto its reference or value formatter.
+
+| [INDEX] | [SYMBOL]                                    | [PACKAGE_ROLE]     | [CAPABILITY]                                            |
+| :-----: | :------------------------------------------ | :----------------- | :------------------------------------------------------ |
+|  [01]   | `ThinktectureMessageFormatterResolver`      | formatter resolver | `: IFormatterResolver`; `Instance`, `GetFormatter<T>`   |
+|  [02]   | `ThinktectureMessagePackFormatter<…>`       | class formatter    | `: IMessagePackFormatter<T?>`                           |
+|  [03]   | `ThinktectureStructMessagePackFormatter<…>` | struct formatter   | `: IMessagePackFormatter<T>, IMessagePackFormatter<T?>` |
 
 [JSON_TYPES]: System.Text.Json codec roots (deep roster `api-thinktecture-json.md`)
 - rail: snapshot-codec
 
-| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]    | [CAPABILITY]                                                                                |
-| :-----: | :------------------------------------------------------------------ | :---------------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `ThinktectureJsonConverterFactory`                                  | converter factory | `: JsonConverterFactory`; admits all generated owners on `JsonSerializerOptions.Converters` |
-|  [02]   | `ThinktectureSpanParsableJsonConverterFactory<T, TValidationError>` | span factory      | builds the zero-allocation UTF-8-span converter for span-parsable owners                    |
+Both roots register on `JsonSerializerOptions.Converters`; the span factory is generic over `<T, TValidationError>`.
+
+| [INDEX] | [SYMBOL]                                          | [PACKAGE_ROLE]    | [CAPABILITY]                                                  |
+| :-----: | :------------------------------------------------ | :---------------- | :------------------------------------------------------------ |
+|  [01]   | `ThinktectureJsonConverterFactory`                | converter factory | `: JsonConverterFactory`; admits all generated owners         |
+|  [02]   | `ThinktectureSpanParsableJsonConverterFactory<…>` | span factory      | zero-allocation UTF-8-span converter for span-parsable owners |
 
 [EF_TYPES]: EF Core store roots (deep roster `api-thinktecture-ef.md`)
 - rail: store-provider
@@ -74,22 +78,22 @@ The convention plugin, options extension, MessagePack `SerializationContext`, an
 
 The resolver constructor optionally receives `skipObjectsWithMessagePackFormatterAttribute`; filtering routes through `MetadataLookup.FindMetadataForConversion` on `SerializationFrameworks.MessagePack`.
 
-| [INDEX] | [SURFACE]                                                          | [CALL_SHAPE]         | [CAPABILITY]                                                     |
-| :-----: | :----------------------------------------------------------------- | :------------------- | :--------------------------------------------------------------- |
-|  [01]   | `ThinktectureMessageFormatterResolver.Instance`                    | static resolver      | the singleton composed into the resolver chain                   |
-|  [02]   | `new ThinktectureMessageFormatterResolver(skipObjectsWith…: true)` | resolver constructor | skips owners already carrying a `[MessagePackFormatter]`         |
-|  [03]   | `GetFormatter<T>()`                                                | resolver call        | returns the keyed reference/struct formatter, or `null` to defer |
+| [INDEX] | [SURFACE]                                                          | [CALL_SHAPE]    | [CAPABILITY]                                   |
+| :-----: | :----------------------------------------------------------------- | :-------------- | :--------------------------------------------- |
+|  [01]   | `ThinktectureMessageFormatterResolver.Instance`                    | static resolver | singleton in the resolver chain                |
+|  [02]   | `new ThinktectureMessageFormatterResolver(skipObjectsWith…: true)` | resolver ctor   | skips owners with `[MessagePackFormatter]`     |
+|  [03]   | `GetFormatter<T>()`                                                | resolver call   | reference/struct formatter, or `null` to defer |
 
 [ENTRYPOINT_SCOPE]: System.Text.Json codec admission
 - rail: snapshot-codec
 
 The factory constructor optionally receives `skipObjectsWithJsonConverterAttribute` and a `Func<Type, bool>?` span-deserialization opt-out callback.
 
-| [INDEX] | [SURFACE]                                                                 | [CALL_SHAPE]      | [CAPABILITY]                                                 |
-| :-----: | :------------------------------------------------------------------------ | :---------------- | :----------------------------------------------------------- |
-|  [01]   | `new ThinktectureJsonConverterFactory()`                                  | converter factory | admits all generated owners                                  |
-|  [02]   | `new ThinktectureJsonConverterFactory(skipObjectsWith…: true [, optOut])` | converter factory | skips attributed owners; gates span deserialization per type |
-|  [03]   | `CanConvert` / `CreateConverter`                                          | factory overrides | resolves the span, string, or keyed converter per type       |
+| [INDEX] | [SURFACE]                                                      | [CALL_SHAPE]      | [CAPABILITY]                                   |
+| :-----: | :------------------------------------------------------------- | :---------------- | :--------------------------------------------- |
+|  [01]   | `new ThinktectureJsonConverterFactory()`                       | converter factory | admits all generated owners                    |
+|  [02]   | `new ThinktectureJsonConverterFactory(skipObjectsWith…: true)` | converter factory | skips attributed owners; per-type span opt-out |
+|  [03]   | `CanConvert` / `CreateConverter`                               | factory overrides | resolves span/string/keyed converter per type  |
 
 [ENTRYPOINT_SCOPE]: EF value-converter admission
 - rail: store-provider

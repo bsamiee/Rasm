@@ -18,44 +18,44 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: solar-position result frames
-- rail: diagram — `pvlib.solarposition` returns a `pandas.DataFrame`/`Series` indexed by the input `DatetimeIndex`; the columns are the closed vocabulary a consumer reads by name, never re-derived. Apparent angles are atmospheric-refraction-corrected (the true, geometric angles carry no `apparent_` prefix).
+- rail: diagram — `pvlib.solarposition` returns a `pandas.DataFrame`/`Series` indexed by the input `DatetimeIndex`; the columns are the closed vocabulary a consumer reads by name, never re-derived. Every angle column is in degrees. Apparent angles are atmospheric-refraction-corrected (the true, geometric angles carry no `apparent_` prefix).
 
-| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]  | [CAPABILITY]                                                                                                              |
-| :-----: | :--------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `apparent_zenith`            | position column | refraction-corrected zenith angle in degrees (`90 - apparent_elevation`); the sun-path altitude source                    |
-|  [02]   | `zenith`                     | position column | true geometric zenith angle in degrees                                                                                    |
-|  [03]   | `apparent_elevation`         | position column | refraction-corrected altitude above horizon in degrees (negative below horizon)                                           |
-|  [04]   | `elevation`                  | position column | true geometric altitude in degrees                                                                                        |
-|  [05]   | `azimuth`                    | position column | solar azimuth in degrees clockwise from north (`0`=N, `90`=E, `180`=S, `270`=W); the compass-tick source                  |
-|  [06]   | `equation_of_time`           | position column | equation of time in minutes (`get_solarposition`/`spa_python`/`ephemeris` frames); feeds `hour_angle`                     |
-|  [07]   | `sunrise`/`sunset`/`transit` | rise/set frame  | `sun_rise_set_transit_spa` columns — timezone-aware `Timestamp`s of sunrise, sunset, and solar noon transit per input day |
+| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]  | [CAPABILITY]                                                                     |
+| :-----: | :--------------------------- | :-------------- | :------------------------------------------------------------------------------- |
+|  [01]   | `apparent_zenith`            | position column | refraction-corrected zenith (`90 - apparent_elevation`); altitude source         |
+|  [02]   | `zenith`                     | position column | true geometric zenith                                                            |
+|  [03]   | `apparent_elevation`         | position column | refraction-corrected altitude above horizon (negative below horizon)             |
+|  [04]   | `elevation`                  | position column | true geometric altitude                                                          |
+|  [05]   | `azimuth`                    | position column | azimuth clockwise from north (`0`=N,`90`=E,`180`=S,`270`=W); compass-tick source |
+|  [06]   | `equation_of_time`           | position column | equation of time in minutes (SPA/`ephemeris` frames); feeds `hour_angle`         |
+|  [07]   | `sunrise`/`sunset`/`transit` | rise/set frame  | `sun_rise_set_transit_spa` cols; tz-aware sunrise/sunset/transit per day         |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: SPA solar position
-- rail: diagram — `pvlib.solarposition`; every function is numpy-vectorized over a `pandas.DatetimeIndex` (`time`/`times`), never a per-timestamp Python loop; `latitude`/`longitude` are scalar degrees (north/east positive), `altitude` metres
+- rail: diagram — `pvlib.solarposition`; every function is numpy-vectorized over a `pandas.DatetimeIndex` (`time`/`times`), never a per-timestamp Python loop; `latitude`/`longitude` are scalar degrees (north/east positive), `altitude` metres. Each row's leading positional args are `(time|times, latitude, longitude)` and it returns a `DataFrame` except `nrel_earthsun_distance` (`Series`) and `hour_angle` (`ndarray`); the SPA backends share `how='numpy', delta_t=67.0, numthreads=4`; `altitude`/`pressure`/`temperature`/`atmos_refract` tune the refraction model and `delta_t` the TT-UT1 offset. The `…` tail is that shared kwarg set.
 
-| [INDEX] | [SURFACE]                                | [CALL_SHAPE]                                                                                                                                                   | [CAPABILITY]                                                                                                                                                                                                        |
-| :-----: | :--------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `solarposition.get_solarposition`        | `get_solarposition(time, latitude, longitude, altitude=None, pressure=None, method='nrel_numpy', temperature=12, **kwargs) -> DataFrame`                       | the dispatch entry — `method` selects the SPA backend (`'nrel_numpy'` default, `'nrel_numba'`, `'pyephem'`, `'ephemeris'`, `'nrel_c'`); returns the apparent/true zenith/elevation/azimuth + equation-of-time frame |
-|  [02]   | `solarposition.spa_python`               | `spa_python(time, latitude, longitude, altitude=0, pressure=101325, temperature=12, delta_t=67.0, atmos_refract=None, how='numpy', numthreads=4) -> DataFrame` | the direct NREL SPA (pure-Python, vectorized); `pressure`/`temperature`/`atmos_refract` drive the refraction correction, `delta_t` the TT-UT1 offset                                                                |
-|  [03]   | `solarposition.sun_rise_set_transit_spa` | `sun_rise_set_transit_spa(times, latitude, longitude, how='numpy', delta_t=67.0, numthreads=4) -> DataFrame`                                                   | SPA sunrise/sunset/solar-transit `Timestamp`s per day — the labeled-date-arc endpoint source                                                                                                                        |
-|  [04]   | `solarposition.nrel_earthsun_distance`   | `nrel_earthsun_distance(time, how='numpy', delta_t=67.0, numthreads=4) -> Series`                                                                              | Earth-Sun distance in astronomical units (AU); the extraterrestrial-irradiance / apparent-sun-radius scale factor                                                                                                   |
-|  [05]   | `solarposition.hour_angle`               | `hour_angle(times, longitude, equation_of_time) -> ndarray`                                                                                                    | solar hour angle in degrees from the equation-of-time column — the hour-line arc parameter                                                                                                                          |
-|  [06]   | `solarposition.ephemeris`                | `ephemeris(time, latitude, longitude, pressure=101325, temperature=12) -> DataFrame`                                                                           | the pure-Python (no-scipy) fallback engine; adds a `solar_time` column, lower accuracy than SPA                                                                                                                     |
+| [INDEX] | [CALL_SHAPE]                                     | [CAPABILITY]                                                               |
+| :-----: | :----------------------------------------------- | :------------------------------------------------------------------------- |
+|  [01]   | `get_solarposition(…, method='nrel_numpy')`      | dispatch entry; `method` picks the SPA backend; zenith/azimuth + EoT frame |
+|  [02]   | `spa_python(…, atmos_refract=None)`              | direct NREL SPA (pure-Python, vectorized); the high-accuracy default       |
+|  [03]   | `sun_rise_set_transit_spa(…)`                    | SPA sunrise/sunset/solar-transit `Timestamp`s per day; date-arc source     |
+|  [04]   | `nrel_earthsun_distance(…)`                      | Earth-Sun distance in AU; the apparent-sun-radius scale factor             |
+|  [05]   | `hour_angle(times, longitude, equation_of_time)` | solar hour angle from the EoT column; hour-line arc parameter              |
+|  [06]   | `ephemeris(…)`                                   | pure-Python no-scipy fallback; adds `solar_time`; lower accuracy than SPA  |
 
 [ENTRYPOINT_SCOPE]: analytical closed forms and the Location aggregator
-- rail: diagram — the day-of-year closed forms feed a scipy-free sampling path; `Location` is the convenience owner binding latitude/longitude/altitude/tz once
+- rail: diagram — the day-of-year closed forms feed a scipy-free sampling path; `Location` is the convenience owner binding latitude/longitude/altitude/tz once. The four `declination_*`/`equation_of_time_*` closed forms take `(dayofyear) -> numeric`.
 
-| [INDEX] | [SURFACE]                                      | [CALL_SHAPE]                                                                                                                                    | [CAPABILITY]                                                                                                                                                                               |
-| :-----: | :--------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `solarposition.declination_spencer71`          | `declination_spencer71(dayofyear) -> numeric`                                                                                                   | solar declination (Spencer 1971 Fourier series), radians                                                                                                                                   |
-|  [02]   | `solarposition.declination_cooper69`           | `declination_cooper69(dayofyear) -> numeric`                                                                                                    | solar declination (Cooper 1969), radians — the solstice/equinox arc source                                                                                                                 |
-|  [03]   | `solarposition.equation_of_time_spencer71`     | `equation_of_time_spencer71(dayofyear) -> numeric`                                                                                              | equation of time in minutes (Spencer 1971)                                                                                                                                                 |
-|  [04]   | `solarposition.equation_of_time_pvcdrom`       | `equation_of_time_pvcdrom(dayofyear) -> numeric`                                                                                                | equation of time in minutes (PVCDROM)                                                                                                                                                      |
-|  [05]   | `solarposition.hour_angle`                     | `hour_angle(times, longitude, equation_of_time) -> ndarray`                                                                                     | hour angle in degrees (shared with the SPA path)                                                                                                                                           |
-|  [06]   | `solarposition.sun_rise_set_transit_geometric` | `sun_rise_set_transit_geometric(times, latitude, longitude, declination, equation_of_time) -> (sunrise, sunset, transit)`                       | geometric rise/set/transit from the analytical declination + EoT (no SPA)                                                                                                                  |
-|  [07]   | `Location.get_solarposition`                   | `Location(latitude, longitude, tz='UTC', altitude=0, name=None).get_solarposition(times, pressure=None, temperature=12, **kwargs) -> DataFrame` | the site-bound aggregator — one `Location` carries lat/lon/altitude/tz, `get_solarposition`/`get_sun_rise_set_transit` forward to the `solarposition` functions with the site rows applied |
+| [INDEX] | [CALL_SHAPE]                                                              | [CAPABILITY]                                                 |
+| :-----: | :------------------------------------------------------------------------ | :----------------------------------------------------------- |
+|  [01]   | `declination_spencer71(dayofyear)`                                        | solar declination (Spencer 1971 Fourier series), radians     |
+|  [02]   | `declination_cooper69(dayofyear)`                                         | solar declination (Cooper 1969), radians; equinox-arc source |
+|  [03]   | `equation_of_time_spencer71(dayofyear)`                                   | equation of time in minutes (Spencer 1971)                   |
+|  [04]   | `equation_of_time_pvcdrom(dayofyear)`                                     | equation of time in minutes (PVCDROM)                        |
+|  [05]   | `hour_angle(times, longitude, equation_of_time) -> ndarray`               | hour angle in degrees (shared with the SPA path)             |
+|  [06]   | `sun_rise_set_transit_geometric(…, declination, equation_of_time)`        | geometric rise/set/transit from declination + EoT (no SPA)   |
+|  [07]   | `Location(latitude, longitude, tz, altitude).get_solarposition(times, …)` | site-bound aggregator forwarding to the module               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

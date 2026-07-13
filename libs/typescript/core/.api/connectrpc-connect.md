@@ -17,29 +17,30 @@
 
 [PUBLIC_TYPE_SCOPE]: the transport, the typed client, and per-call options
 - rail: interchange/invoke
-- `Transport` is the two-method protocol abstraction (`unary`/`stream`); `Client<Desc>` is the descriptor-derived typed client; `CallOptions` is the per-call knob record. Streaming request/response messages are `AsyncIterable<MessageShape<...>>`, the direct `effect` `Stream` bridge.
+- `Transport` is the two-method protocol abstraction (`unary`/`stream`); `Client<Desc>` is the descriptor-derived typed client; `CallOptions` is the per-call knob record carrying `timeoutMs`/`headers`/`signal`/`onHeader`/`onTrailer`/`contextValues`. `ContextValues` carries `.get`/`.set`/`.delete`. Streaming request/response messages are `AsyncIterable<MessageShape<...>>`, the direct `effect` `Stream` bridge.
 
-| [INDEX] | [SYMBOL]                                                                              | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                                                    |
-| :-----: | :------------------------------------------------------------------------------------ | :--------------- | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | `Transport` (`.unary`, `.stream`)                                                     | protocol port    | `interchange/invoke` — the arm supplied by `connect-web`; `createClient` is generic over it            |
-|  [02]   | `Client<Desc extends DescService>`                                                    | typed client     | `interchange/invoke` — unary→`Promise`, server-stream→`AsyncIterable`, derived from the descriptor     |
-|  [03]   | `CallOptions` (`timeoutMs`/`headers`/`signal`/`onHeader`/`onTrailer`/`contextValues`) | call knobs       | every call — `signal` binds Effect interruption, `timeoutMs`≤0 disables the default                    |
-|  [04]   | `CallbackClient<Desc>` / `AnyClient`                                                  | client variant   | the callback and dynamic-method flavors; `wire` uses the promise `Client`, these are the surface floor |
-|  [05]   | `Interceptor` = `(next) => (req) => Promise<res>`                                     | middleware       | trace propagation, auth, logging — the layered onion around a call                                     |
-|  [06]   | `UnaryRequest` / `UnaryResponse` / `StreamRequest` / `StreamResponse`                 | interceptor io   | `stream:false\|true` discriminant + `message`/`method`/`header`/`trailer`/`signal`/`contextValues`     |
-|  [07]   | `ContextValues` (`.get`/`.set`/`.delete`) / `ContextKey<T>`                           | per-call context | tenant, deadline, HLC carried through interceptors without global state                                |
+| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                             |
+| :-----: | :------------------------------------------------ | :--------------- | :-------------------------------------------------------------- |
+|  [01]   | `Transport` (`.unary`, `.stream`)                 | protocol port    | from `connect-web`; `createClient` is generic over it           |
+|  [02]   | `Client<Desc extends DescService>`                | typed client     | unary→`Promise`, stream→`AsyncIterable`; from descriptor        |
+|  [03]   | `CallOptions`                                     | call knobs       | `signal` binds interruption; `timeoutMs`≤0 disables the default |
+|  [04]   | `CallbackClient<Desc>` / `AnyClient`              | client variant   | callback + dynamic flavors; `wire` uses the promise `Client`    |
+|  [05]   | `Interceptor` = `(next) => (req) => Promise<res>` | middleware       | the layered onion around a call — trace, auth, logging          |
+|  [06]   | `UnaryRequest` / `UnaryResponse`                  | interceptor io   | `stream:false` arm — `message`/`method`/`header`/`signal`       |
+|  [07]   | `StreamRequest` / `StreamResponse`                | interceptor io   | `stream:true` arm — `message`, `trailer`, `contextValues`       |
+|  [08]   | `ContextValues` / `ContextKey<T>`                 | per-call context | tenant, deadline, HLC through interceptors without global state |
 
 [PUBLIC_TYPE_SCOPE]: the fault algebra `interchange/codec` folds
 - rail: interchange/codec
-- `ConnectError` is the one transport fault; `Code` is the closed 16-value gRPC-aligned enum that maps to the `HopReason` vocabulary. `details` are protobuf `Any`-wrapped messages the server attaches, decoded by `findDetails`.
+- `ConnectError` (`code`/`metadata`/`details`/`rawMessage`/`cause`) is the one transport fault; `Code` is the closed 16-value gRPC-aligned enum that maps to the `HopReason` vocabulary. `details` are protobuf `Any`-wrapped messages the server attaches, decoded by `findDetails`.
 
-| [INDEX] | [SYMBOL]                                                          | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                                       |
-| :-----: | :---------------------------------------------------------------- | :--------------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | `ConnectError` (`code`/`metadata`/`details`/`rawMessage`/`cause`) | transport fault  | `interchange/codec` `fromConnect` fold source; caught at `Effect.tryPromise`              |
-|  [02]   | `Code` (`Canceled`…`Unauthenticated`, 1–16)                       | closed code enum | the retryability + `HopReason` discriminant; `Match.exhaustive` over it                   |
-|  [03]   | `ConnectError.from(reason, code?)` (static)                       | normalizer       | folds any caught value → `ConnectError`; `AbortError`/`TimeoutError`→`Canceled`           |
-|  [04]   | `ConnectError.findDetails(desc \| registry)`                      | detail decode    | decodes `Any`-wrapped protobuf error details into typed messages                          |
-|  [05]   | `ServiceImpl` / `MethodImpl` / `HandlerContext` / `ConnectRouter` | server-side      | present in the surface, OUT of `wire`'s client role — a `wire` import is the named defect |
+| [INDEX] | [SYMBOL]                                                          | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                               |
+| :-----: | :---------------------------------------------------------------- | :--------------- | :------------------------------------------------ |
+|  [01]   | `ConnectError`                                                    | transport fault  | `fromConnect` fold source; at `Effect.tryPromise` |
+|  [02]   | `Code` (`Canceled`…`Unauthenticated`, 1–16)                       | closed code enum | retryability + `HopReason`; `Match.exhaustive`    |
+|  [03]   | `ConnectError.from(reason, code?)`                                | normalizer       | any reason → `ConnectError` (Abort→Canceled)      |
+|  [04]   | `ConnectError.findDetails(desc \| registry)`                      | detail decode    | `Any`-wrapped error details → typed messages      |
+|  [05]   | `ServiceImpl` / `MethodImpl` / `HandlerContext` / `ConnectRouter` | server-side      | OUT of `wire`'s client role; import is the defect |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -47,28 +48,47 @@
 - rail: interchange/invoke
 - `createClient(service, transport)` is the one client factory; the `service` is the codegen `DescService`, the `transport` the `connect-web` factory output. `createContextValues`/`createContextKey` build the per-call context; `applyInterceptors` composes the onion.
 
-| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `createClient<T extends DescService>(service: T, transport: Transport): Client<T>`              | client         | `interchange/invoke` — the capability SDK from the emitted descriptor              |
-|  [02]   | `createCallbackClient(service, transport)` / `makeAnyClient(service, createMethod)`             | client variant | the callback / dynamic flavors; the promise client is `wire`'s path                |
-|  [03]   | `createContextValues()` / `createContextKey(defaultValue, { description? })`                    | context        | per-call tenant/deadline/HLC keys threaded to interceptors                         |
-|  [04]   | `applyInterceptors(next, interceptors)`                                                         | onion          | compose trace + auth + retry interceptors around the invocation                    |
-|  [05]   | `encodeBinaryHeader(value, desc?)` / `decodeBinaryHeader(value, type?)` / `appendHeaders(...h)` | `-bin` header  | protobuf-in-header codec (Connect/gRPC `-bin` metadata); header merge              |
-|  [06]   | `ConnectError.from(reason, code?)` / `err.findDetails(desc)`                                    | fault fold     | `interchange/codec` — normalize a caught reason, decode typed error details        |
-|  [07]   | `createRouterTransport(routes, options?)` / `cors`                                              | in-proc / CORS | in-memory `Transport` for kit-driven specs; CORS metadata helper (server-adjacent) |
+| [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                        |
+| :-----: | :------------------------------------------------- | :-------------- | :--------------------------------------------------------- |
+|  [01]   | `createClient(service, transport): Client<T>`      | client          | the capability SDK from the emitted `DescService`          |
+|  [02]   | `createCallbackClient(service, transport)`         | client variant  | the callback flavor; the promise client is `wire`'s path   |
+|  [03]   | `makeAnyClient(service, createMethod)`             | dynamic client  | the dynamic-method flavor over an arbitrary method map     |
+|  [04]   | `createContextValues()`                            | context bag     | the per-call `ContextValues` store                         |
+|  [05]   | `createContextKey(default, { description? })`      | context key     | per-call tenant/deadline/HLC keys threaded to interceptors |
+|  [06]   | `applyInterceptors(next, interceptors)`            | onion           | compose trace + auth + retry interceptors around the call  |
+|  [07]   | `encodeBinaryHeader(value, desc?)`                 | `-bin` write    | encode a protobuf message into `-bin` header metadata      |
+|  [08]   | `decodeBinaryHeader(value, type?)`                 | `-bin` read     | decode `-bin` header metadata into a protobuf message      |
+|  [09]   | `appendHeaders(...h)`                              | header merge    | merge multiple `Headers` into one                          |
+|  [10]   | `ConnectError.from(reason, code?)`                 | fault normalize | normalize any caught reason → `ConnectError`               |
+|  [11]   | `err.findDetails(desc)`                            | detail decode   | decode typed `Any`-wrapped error details                   |
+|  [12]   | `createRouterTransport(routes, options?)` / `cors` | in-proc / CORS  | in-memory `Transport` for kit specs; CORS helper           |
 
 [ENTRYPOINT_SCOPE]: the `./protocol` toolkit — building a custom Effect-native transport
 - rail: interchange/invoke
 - `./protocol` is the kit a fully `Effect`-owned `Transport` is assembled from over the shared `@effect/platform` `HttpClient`, instead of the fetch-bound `connect-web` factories: the method-URL builder, the serialization lookup, the call runners, the envelope stream codec, the async-iterable transforms, and the deadline/abort signal helpers.
 
-| [INDEX] | [SURFACE]                                                                                                | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                          |
-| :-----: | :------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `createMethodUrl(baseUrl, method)` / `createMethodSerializationLookup` / `createClientMethodSerializers` | url + codec    | `<baseUrl>/<pkg>.<Service>/<Method>` + the binary/JSON `Serialization` pair  |
-|  [02]   | `runUnaryCall(opts)` / `runStreamingCall(opts)`                                                          | call runner    | the transport-internal invocation a custom `Transport.unary`/`.stream` wraps |
-|  [03]   | `encodeEnvelope` / `createEnvelopeReadableStream` / `EnvelopedMessage` / `transformSplitEnvelope`        | envelope codec | the length-prefixed frame codec under gRPC-web/Connect streaming             |
-|  [04]   | `pipe` / `createAsyncIterable` / `makeIterableAbortable` / `sinkAllBytes` / `transformParseEnvelope`     | async-iterable | the stream-transform algebra a custom transport folds a body through         |
-|  [05]   | `createDeadlineSignal(timeoutMs)` / `createLinkedAbortController` / `getAbortSignalReason`               | signal         | deadline + linked-abort wiring bound to Effect interruption                  |
-|  [06]   | `createFetchClient` / `universalClientRequestToFetch` / `contentTypeMatcher`                             | fetch adapter  | the `fetch`↔universal-client bridge a custom transport builds on             |
+| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                 |
+| :-----: | :--------------------------------- | :------------- | :-------------------------------------------------- |
+|  [01]   | `createMethodUrl(baseUrl, method)` | url build      | `<baseUrl>/<pkg>.<Service>/<Method>` route          |
+|  [02]   | `createMethodSerializationLookup`  | codec lookup   | per-method binary/JSON `Serialization` lookup       |
+|  [03]   | `createClientMethodSerializers`    | codec pair     | the binary/JSON `Serialization` pair for a method   |
+|  [04]   | `runUnaryCall(opts)`               | unary runner   | the invocation a custom `Transport.unary` wraps     |
+|  [05]   | `runStreamingCall(opts)`           | stream runner  | the invocation a custom `Transport.stream` wraps    |
+|  [06]   | `encodeEnvelope`                   | envelope write | length-prefix a frame for streaming egress          |
+|  [07]   | `createEnvelopeReadableStream`     | envelope read  | read length-prefixed frames off a body stream       |
+|  [08]   | `EnvelopedMessage`                 | envelope shape | the `{ flags, data }` frame record                  |
+|  [09]   | `transformSplitEnvelope`           | envelope split | split a body into enveloped frames                  |
+|  [10]   | `pipe`                             | compose        | thread a body through the transform algebra         |
+|  [11]   | `createAsyncIterable`              | source         | lift values into an `AsyncIterable` body            |
+|  [12]   | `makeIterableAbortable`            | abort          | make an iterable abortable on signal                |
+|  [13]   | `sinkAllBytes`                     | sink           | drain a byte iterable to one buffer                 |
+|  [14]   | `transformParseEnvelope`           | parse          | parse enveloped frames back to messages             |
+|  [15]   | `createDeadlineSignal(timeoutMs)`  | deadline       | deadline `AbortSignal` bound to Effect interruption |
+|  [16]   | `createLinkedAbortController`      | linked abort   | chain an abort to a parent signal                   |
+|  [17]   | `getAbortSignalReason`             | abort reason   | read the reason off an aborted signal               |
+|  [18]   | `createFetchClient`                | fetch client   | the universal client over `fetch`                   |
+|  [19]   | `universalClientRequestToFetch`    | request map    | map a universal request to a `fetch` request        |
+|  [20]   | `contentTypeMatcher`               | content type   | match the response content-type to a codec          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

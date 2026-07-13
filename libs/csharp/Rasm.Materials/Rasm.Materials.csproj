@@ -9,28 +9,16 @@
         <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Color Spectral">
-        <PackageReference Include="Wacton.Unicolour" />
-        <PackageReference Include="Wacton.Unicolour.Datasets" />
-    </ItemGroup>
-
-    <ItemGroup Label="Quantities">
-        <PackageReference Include="UnitsNet" />
-    </ItemGroup>
-
-    <ItemGroup Label="Section Catalogue">
+    <ItemGroup Label="Section Capacity">
         <PackageReference Include="VividOrange.Profiles.Catalogue" />
-        <PackageReference Include="VividOrange.Sections" />
         <PackageReference Include="VividOrange.Sections.SectionProperties" />
+        <PackageReference Include="VividOrange.Sections" />
+        <PackageReference Include="VividOrange.InteractionDiagram" />
     </ItemGroup>
 
-    <ItemGroup Label="Structural Material Data">
+    <ItemGroup Label="Material Standards">
         <PackageReference Include="VividOrange.Materials" />
         <PackageReference Include="VividOrange.Standards" />
-    </ItemGroup>
-
-    <ItemGroup Label="Section Capacity Engine">
-        <PackageReference Include="VividOrange.InteractionDiagram" />
     </ItemGroup>
 
     <ItemGroup Label="Property Uncertainty">
@@ -38,27 +26,30 @@
         <PackageReference Include="VividOrange.Uncertainties.Quantities" />
     </ItemGroup>
 
-    <ItemGroup Label="Numerics">
-        <PackageReference Include="MathNet.Numerics" />
-    </ItemGroup>
-
-    <ItemGroup Label="Memory Planes">
-        <PackageReference Include="CommunityToolkit.HighPerformance" />
-    </ItemGroup>
-
-    <ItemGroup Label="Graph Algorithms">
-        <PackageReference Include="QuikGraph" />
-    </ItemGroup>
-
-    <ItemGroup Label="Wire Serializers">
+    <ItemGroup Label="Appearance">
+        <PackageReference Include="Wacton.Unicolour.Datasets" />
         <PackageReference Include="MessagePack" />
         <PackageReference Include="MessagePackAnalyzer" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup Label="Functional Core">
         <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.MessagePack" />
     </ItemGroup>
 
-    <ItemGroup Label="Wire Mapping">
+    <ItemGroup Label="Numeric">
+        <PackageReference Include="UnitsNet" />
+        <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+    </ItemGroup>
+
+    <ItemGroup Label="Mapping Graph">
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
+        <PackageReference Include="QuikGraph" />
+    </ItemGroup>
+
+    <ItemGroup Label="Color Science">
+        <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>
 
     <ItemGroup Label="System Usings">

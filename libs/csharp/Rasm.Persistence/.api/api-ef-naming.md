@@ -25,21 +25,21 @@ generated migrations carry the rewritten names.
 [NAMING_TYPES]: convention plugin, rewriter contract, and rewriter rows
 - rail: schema-tooling
 
-The rewriter classes are `public` but `Internal`-namespaced — consumers extend the policy through the
-`INameRewriter` contract plus the DI plugin, never by referencing a sealed rewriter type. The five
-built-in rewriters are the `NamingConvention` enum cases the `Use*` extensions select.
+Every symbol below is `EFCore.NamingConventions.Internal`-namespaced and `public`; consumers extend the
+policy through the `INameRewriter` contract plus the DI plugin, never by referencing a sealed rewriter
+type. The five built-in rewriters are the `NamingConvention` enum cases the `Use*` extensions select.
 
-| [INDEX] | [SYMBOL]                     | [NAMESPACE]                         | [PACKAGE_ROLE]         | [CAPABILITY]                                                            |
-| :-----: | :--------------------------- | :---------------------------------- | :--------------------- | :---------------------------------------------------------------------- |
-|  [01]   | `INameRewriter`              | `EFCore.NamingConventions.Internal` | rewriter contract      | `string RewriteName(string name)` — the extension point                 |
-|  [02]   | `NamingConvention`           | `EFCore.NamingConventions.Internal` | policy enum            | `None`/`SnakeCase`/`LowerCase`/`CamelCase`/`UpperCase`/`UpperSnakeCase` |
-|  [03]   | `NamingConventionSetPlugin`  | `EFCore.NamingConventions.Internal` | `IConventionSetPlugin` | injects `NameRewritingConvention` into the convention set               |
-|  [04]   | `NameRewritingConvention`    | `EFCore.NamingConventions.Internal` | model convention       | applies the rewriter across entity/property/key/FK/index add events     |
-|  [05]   | `SnakeCaseNameRewriter`      | `EFCore.NamingConventions.Internal` | rewriter row           | writes snake_case (culture-aware)                                       |
-|  [06]   | `LowerCaseNameRewriter`      | `EFCore.NamingConventions.Internal` | rewriter row           | writes lowercase                                                        |
-|  [07]   | `UpperCaseNameRewriter`      | `EFCore.NamingConventions.Internal` | rewriter row           | writes UPPERCASE                                                        |
-|  [08]   | `CamelCaseNameRewriter`      | `EFCore.NamingConventions.Internal` | rewriter row           | writes camelCase                                                        |
-|  [09]   | `UpperSnakeCaseNameRewriter` | `EFCore.NamingConventions.Internal` | rewriter row           | writes UPPER_SNAKE_CASE (`: SnakeCaseNameRewriter`)                     |
+| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]         | [CAPABILITY]                                                            |
+| :-----: | :--------------------------- | :--------------------- | :---------------------------------------------------------------------- |
+|  [01]   | `INameRewriter`              | rewriter contract      | `string RewriteName(string name)` — the extension point                 |
+|  [02]   | `NamingConvention`           | policy enum            | `None`/`SnakeCase`/`LowerCase`/`CamelCase`/`UpperCase`/`UpperSnakeCase` |
+|  [03]   | `NamingConventionSetPlugin`  | `IConventionSetPlugin` | injects `NameRewritingConvention` into the convention set               |
+|  [04]   | `NameRewritingConvention`    | model convention       | applies the rewriter across entity/property/key/FK/index add events     |
+|  [05]   | `SnakeCaseNameRewriter`      | rewriter row           | writes snake_case (culture-aware)                                       |
+|  [06]   | `LowerCaseNameRewriter`      | rewriter row           | writes lowercase                                                        |
+|  [07]   | `UpperCaseNameRewriter`      | rewriter row           | writes UPPERCASE                                                        |
+|  [08]   | `CamelCaseNameRewriter`      | rewriter row           | writes camelCase                                                        |
+|  [09]   | `UpperSnakeCaseNameRewriter` | rewriter row           | writes UPPER_SNAKE_CASE (`: SnakeCaseNameRewriter`)                     |
 
 `INameRewriter` contract:
 - `string RewriteName(string name)` — the single rewrite hook every built-in rewriter implements and a custom convention overrides; `NameRewritingConvention` calls it once per emitted table/column/key/index/constraint identifier.

@@ -55,104 +55,113 @@
 [PUBLIC_TYPE_SCOPE]: backend implementation enum
 - rail: dataframe-agnostic
 
-| [INDEX] | [SYMBOL]                                                                                                      | [TYPE_FAMILY] | [ROLE]                                                                                                                |
-| :-----: | :------------------------------------------------------------------------------------------------------------ | :------------ | :-------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Implementation.{PANDAS,MODIN,CUDF,PYARROW,PYSPARK,PYSPARK_CONNECT,POLARS,DASK,DUCKDB,IBIS,SQLFRAME,UNKNOWN}` | enum member   | backend identity; `PYARROW.value == 'pyarrow'`, never an `ARROW` member; `PYSPARK_CONNECT` is distinct from `PYSPARK` |
-|  [02]   | `Implementation.from_backend(backend)`                                                                        | classmethod   | build from native namespace module, string, or `Implementation`                                                       |
-|  [03]   | `Implementation.from_native_namespace(ns)`                                                                    | classmethod   | build from an imported native namespace module                                                                        |
-|  [04]   | `Implementation.to_native_namespace()`                                                                        | method        | return the native namespace module for the backend                                                                    |
-|  [05]   | `Implementation.name`                                                                                         | enum attr     | member name; `PYARROW.name.lower() == 'pyarrow'`                                                                      |
+`Implementation` enumerates `PANDAS`, `MODIN`, `CUDF`, `PYARROW`, `PYSPARK`, `PYSPARK_CONNECT`, `POLARS`, `DASK`, `DUCKDB`, `IBIS`, `SQLFRAME`, `UNKNOWN`; the pyarrow member is `PYARROW` with `PYARROW.value == 'pyarrow'` (never an `ARROW` member), and `PYSPARK_CONNECT` is distinct from `PYSPARK`.
+
+| [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY] | [ROLE]                                             |
+| :-----: | :----------------------------------------- | :------------ | :------------------------------------------------- |
+|  [01]   | `Implementation.from_backend(backend)`     | classmethod   | build from native namespace, string, or member     |
+|  [02]   | `Implementation.from_native_namespace(ns)` | classmethod   | build from an imported native namespace module     |
+|  [03]   | `Implementation.to_native_namespace()`     | method        | return the native namespace module for the backend |
+|  [04]   | `Implementation.name`                      | enum attr     | member name; `PYARROW.name.lower() == 'pyarrow'`   |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: frame and series construction
 - rail: dataframe-agnostic
 
-| [INDEX] | [SURFACE]                                                                                                  | [ENTRY_FAMILY] | [RAIL]                                                                                                |
-| :-----: | :--------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------- |
-|  [01]   | `from_native(native, *, pass_through=False, eager_only=False, series_only=False, allow_series=None)`       | intake adapter | wrap any backend frame or series; `pass_through` returns the object unchanged when not narwhalifiable |
-|  [02]   | `to_native(narwhals_object, *, pass_through=False)`                                                        | export adapter | unwrap to underlying native frame                                                                     |
-|  [03]   | `narwhalify(func=None, *, pass_through=True, eager_only=False, series_only=False, allow_series=True)`      | decorator      | auto-wrap / unwrap function arguments                                                                 |
-|  [04]   | `from_dict(data, schema=None, *, backend=None, native_namespace=None)`                                     | dict intake    | build from `{name: values}` mapping                                                                   |
-|  [05]   | `from_dicts(data, schema=None, *, backend=None)`                                                           | dict intake    | build from list of row dicts                                                                          |
-|  [06]   | `from_arrow(native_frame, *, backend)`                                                                     | Arrow intake   | build from any `__arrow_c_stream__` table                                                             |
-|  [07]   | `from_numpy(data, schema=None, *, backend)`                                                                | numpy intake   | build from 2-D NumPy array                                                                            |
-|  [08]   | `new_series(name, values, dtype=None, *, backend)`                                                         | series factory | create named typed series                                                                             |
-|  [09]   | `read_csv(source, *, backend, **kwargs)`                                                                   | IO intake      | read CSV to eager `DataFrame`                                                                         |
-|  [10]   | `read_parquet(source, *, backend, **kwargs)`                                                               | IO intake      | read Parquet to eager `DataFrame`                                                                     |
-|  [11]   | `scan_csv(source, *, backend, **kwargs)`                                                                   | IO intake      | scan CSV to `LazyFrame`                                                                               |
-|  [12]   | `scan_parquet(source, *, backend, **kwargs)`                                                               | IO intake      | scan Parquet to `LazyFrame`                                                                           |
-|  [13]   | `get_native_namespace(*obj)`                                                                               | introspection  | the native backend module for a wrapped object                                                        |
-|  [14]   | `to_py_scalar(scalar_like)`                                                                                | scalar export  | coerce a backend scalar to a Python scalar                                                            |
-|  [15]   | `generate_temporary_column_name(n_bytes, columns)`                                                         | naming         | collision-free temp column name                                                                       |
-|  [16]   | `is_ordered_categorical(series)`                                                                           | introspection  | whether a categorical series is ordered                                                               |
-|  [17]   | `maybe_align_index` / `maybe_convert_dtypes` / `maybe_get_index` / `maybe_reset_index` / `maybe_set_index` | pandas escape  | pandas-index operations that no-op on non-pandas backends                                             |
-|  [18]   | `show_versions()`                                                                                          | diagnostics    | print narwhals + installed backend versions                                                           |
+`from_native`/`narwhalify` share the `pass_through`/`eager_only`/`series_only`/`allow_series` flags; `pass_through=True` returns a non-narwhalifiable object unchanged. Every dict/Arrow/NumPy/IO factory takes a `backend=` selector for the output backend.
+
+| [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY] | [RAIL]                                         |
+| :-----: | :--------------------------------------------------------------------- | :------------- | :--------------------------------------------- |
+|  [01]   | `from_native(native, *, ...)`                                          | intake adapter | wrap any backend frame or series               |
+|  [02]   | `to_native(narwhals_object, *, pass_through=False)`                    | export adapter | unwrap to underlying native frame              |
+|  [03]   | `narwhalify(func=None, *, ...)`                                        | decorator      | auto-wrap / unwrap function arguments          |
+|  [04]   | `from_dict(data, schema=None, *, backend=None, native_namespace=None)` | dict intake    | build from `{name: values}` mapping            |
+|  [05]   | `from_dicts(data, schema=None, *, backend=None)`                       | dict intake    | build from list of row dicts                   |
+|  [06]   | `from_arrow(native_frame, *, backend)`                                 | Arrow intake   | build from any `__arrow_c_stream__` table      |
+|  [07]   | `from_numpy(data, schema=None, *, backend)`                            | numpy intake   | build from 2-D NumPy array                     |
+|  [08]   | `new_series(name, values, dtype=None, *, backend)`                     | series factory | create named typed series                      |
+|  [09]   | `read_csv(source, *, backend, **kwargs)`                               | IO intake      | read CSV to eager `DataFrame`                  |
+|  [10]   | `read_parquet(source, *, backend, **kwargs)`                           | IO intake      | read Parquet to eager `DataFrame`              |
+|  [11]   | `scan_csv(source, *, backend, **kwargs)`                               | IO intake      | scan CSV to `LazyFrame`                        |
+|  [12]   | `scan_parquet(source, *, backend, **kwargs)`                           | IO intake      | scan Parquet to `LazyFrame`                    |
+|  [13]   | `get_native_namespace(*obj)`                                           | introspection  | the native backend module for a wrapped object |
+|  [14]   | `to_py_scalar(scalar_like)`                                            | scalar export  | coerce a backend scalar to a Python scalar     |
+|  [15]   | `generate_temporary_column_name(n_bytes, columns)`                     | naming         | collision-free temp column name                |
+|  [16]   | `is_ordered_categorical(series)`                                       | introspection  | whether a categorical series is ordered        |
+|  [17]   | `maybe_*`                                                              | pandas escape  | pandas-index operations, no-op off pandas      |
+|  [18]   | `show_versions()`                                                      | diagnostics    | print narwhals + installed backend versions    |
+
+- [17]-[PANDAS_ESCAPE]: `maybe_align_index`, `maybe_convert_dtypes`, `maybe_get_index`, `maybe_reset_index`, and `maybe_set_index` are pandas-index operations that no-op on non-pandas backends.
 
 [ENTRYPOINT_SCOPE]: DataFrame operations
 - rail: dataframe-agnostic
 
-| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY] | [RAIL]                                                             |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------- |
-|  [01]   | `DataFrame.select(*exprs, **named_exprs)`                                  | projection     | select and transform columns                                       |
-|  [02]   | `DataFrame.with_columns(*exprs, **named_exprs)`                            | mutation       | add or replace columns                                             |
-|  [03]   | `DataFrame.filter(*predicates, **constraints)`                             | filter         | row filter by expression                                           |
-|  [04]   | `DataFrame.group_by(*keys, drop_null_keys)`                                | aggregation    | grouped aggregation builder                                        |
-|  [05]   | `DataFrame.join(other, on, how, ...)`                                      | join           | hash join with strategy                                            |
-|  [06]   | `DataFrame.join_asof(other, left_on, right_on, ...)`                       | join           | asof (sorted) join                                                 |
-|  [07]   | `DataFrame.sort(by, *more_by, descending, ...)`                            | sort           | sort by one or more columns                                        |
-|  [08]   | `DataFrame.rename(mapping)`                                                | mutation       | rename columns                                                     |
-|  [09]   | `DataFrame.drop(*columns, strict)`                                         | projection     | drop named columns                                                 |
-|  [10]   | `DataFrame.drop_nulls(subset)`                                             | filter         | drop rows with nulls in subset                                     |
-|  [11]   | `DataFrame.unique(subset, keep, ...)`                                      | dedup          | deduplicate rows                                                   |
-|  [12]   | `DataFrame.collect_schema()`                                               | metadata       | retrieve `Schema`                                                  |
-|  [13]   | `DataFrame.get_column(name)`                                               | column access  | extract named `Series`                                             |
-|  [14]   | `DataFrame.lazy(backend, session)`                                         | deferred       | convert to `LazyFrame`                                             |
-|  [15]   | `DataFrame.head(n)` / `.tail(n)`                                           | window         | first or last n rows                                               |
-|  [16]   | `DataFrame.pivot(on, index, values, ...)`                                  | reshape        | pivot to wide format                                               |
-|  [17]   | `DataFrame.unpivot(on, index)`                                             | reshape        | melt to long format                                                |
-|  [18]   | `DataFrame.iter_rows(*, named, buffer_size)`                               | iteration      | row-by-row iterator                                                |
-|  [19]   | `DataFrame.iter_columns()`                                                 | iteration      | iterate columns as `Series`                                        |
-|  [20]   | `DataFrame.row(index)` / `DataFrame.rows(*, named)`                        | row access     | single row tuple / all rows                                        |
-|  [21]   | `DataFrame.item(row, column)`                                              | scalar access  | single cell as Python scalar                                       |
-|  [22]   | `DataFrame.explode(columns, *more)`                                        | reshape        | explode list columns to rows                                       |
-|  [23]   | `DataFrame.gather_every(n, offset)`                                        | sampling       | every n-th row                                                     |
-|  [24]   | `DataFrame.sample(n, *, fraction, with_replacement, seed)`                 | sampling       | random row sample                                                  |
-|  [25]   | `DataFrame.is_unique()` / `is_duplicated()` / `is_empty()`                 | predicate      | per-row uniqueness mask, empty check                               |
-|  [26]   | `DataFrame.estimated_size(unit)` / `DataFrame.shape` / `DataFrame.columns` | metadata       | in-memory size, `(rows, cols)`, column names                       |
-|  [27]   | `DataFrame.implementation`                                                 | metadata       | the backend `Implementation` member                                |
-|  [28]   | `DataFrame.clone()` / `DataFrame.pipe(fn, *a, **k)`                        | clone/compose  | deep clone; apply a frame-level callable                           |
-|  [29]   | `DataFrame.null_count()`                                                   | metadata       | per-column null counts as one-row frame                            |
-|  [30]   | `DataFrame.from_dict` / `from_dicts` / `from_numpy` / `from_arrow`         | classmethod    | backend-bound constructors on the class                            |
-|  [31]   | `DataFrame.write_csv(file)` / `DataFrame.write_parquet(file)`              | IO export      | serialize to CSV / Parquet                                         |
-|  [32]   | `DataFrame.to_dict(*, as_series)` / `to_numpy()`                           | export         | column dict (of `Series` or arrays) / 2-D array                    |
-|  [33]   | `DataFrame.to_native()`                                                    | export         | unwrap to backend-native frame                                     |
-|  [34]   | `DataFrame.to_polars()` / `to_pandas()` / `to_arrow()`                     | export         | lower to `polars.DataFrame` / `pandas.DataFrame` / `pyarrow.Table` |
+Every surface below is a `DataFrame` method.
+
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                          |
+| :-----: | :------------------------------------------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `select(*exprs, **named_exprs)`                          | projection     | select and transform columns                    |
+|  [02]   | `with_columns(*exprs, **named_exprs)`                    | mutation       | add or replace columns                          |
+|  [03]   | `filter(*predicates, **constraints)`                     | filter         | row filter by expression                        |
+|  [04]   | `group_by(*keys, drop_null_keys)`                        | aggregation    | grouped aggregation builder                     |
+|  [05]   | `join(other, on, how, ...)`                              | join           | hash join with strategy                         |
+|  [06]   | `join_asof(other, left_on, right_on, ...)`               | join           | asof (sorted) join                              |
+|  [07]   | `sort(by, *more_by, descending, ...)`                    | sort           | sort by one or more columns                     |
+|  [08]   | `rename(mapping)`                                        | mutation       | rename columns                                  |
+|  [09]   | `drop(*columns, strict)`                                 | projection     | drop named columns                              |
+|  [10]   | `drop_nulls(subset)`                                     | filter         | drop rows with nulls in subset                  |
+|  [11]   | `unique(subset, keep, ...)`                              | dedup          | deduplicate rows                                |
+|  [12]   | `collect_schema()`                                       | metadata       | retrieve `Schema`                               |
+|  [13]   | `get_column(name)`                                       | column access  | extract named `Series`                          |
+|  [14]   | `lazy(backend, session)`                                 | deferred       | convert to `LazyFrame`                          |
+|  [15]   | `head(n)` / `tail(n)`                                    | window         | first or last n rows                            |
+|  [16]   | `pivot(on, index, values, ...)`                          | reshape        | pivot to wide format                            |
+|  [17]   | `unpivot(on, index)`                                     | reshape        | melt to long format                             |
+|  [18]   | `iter_rows(*, named, buffer_size)`                       | iteration      | row-by-row iterator                             |
+|  [19]   | `iter_columns()`                                         | iteration      | iterate columns as `Series`                     |
+|  [20]   | `row(index)` / `rows(*, named)`                          | row access     | single row tuple / all rows                     |
+|  [21]   | `item(row, column)`                                      | scalar access  | single cell as Python scalar                    |
+|  [22]   | `explode(columns, *more)`                                | reshape        | explode list columns to rows                    |
+|  [23]   | `gather_every(n, offset)`                                | sampling       | every n-th row                                  |
+|  [24]   | `sample(n, *, fraction, with_replacement, seed)`         | sampling       | random row sample                               |
+|  [25]   | `is_unique()` / `is_duplicated()` / `is_empty()`         | predicate      | per-row uniqueness mask, empty check            |
+|  [26]   | `estimated_size(unit)` / `shape` / `columns`             | metadata       | in-memory size, `(rows, cols)`, column names    |
+|  [27]   | `implementation`                                         | metadata       | the backend `Implementation` member             |
+|  [28]   | `clone()` / `pipe(fn, *a, **k)`                          | clone/compose  | deep clone; apply a frame-level callable        |
+|  [29]   | `null_count()`                                           | metadata       | per-column null counts as one-row frame         |
+|  [30]   | `from_dict` / `from_dicts` / `from_numpy` / `from_arrow` | classmethod    | backend-bound constructors on the class         |
+|  [31]   | `write_csv(file)` / `write_parquet(file)`                | IO export      | serialize to CSV / Parquet                      |
+|  [32]   | `to_dict(*, as_series)` / `to_numpy()`                   | export         | column dict (of `Series` or arrays) / 2-D array |
+|  [33]   | `to_native()`                                            | export         | unwrap to backend-native frame                  |
+|  [34]   | `to_polars()` / `to_pandas()` / `to_arrow()`             | export         | lower to a `polars`/`pandas`/`pyarrow` frame    |
 
 [ENTRYPOINT_SCOPE]: LazyFrame operations
 - rail: dataframe-agnostic
 
-| [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY] | [RAIL]                                   |
-| :-----: | :---------------------------------------------------------------------------- | :------------- | :--------------------------------------- |
-|  [01]   | `LazyFrame.collect(backend, ...)`                                             | materialise    | execute graph, return `DataFrame`        |
-|  [02]   | `LazyFrame.select(*exprs, **named_exprs)`                                     | projection     | select columns                           |
-|  [03]   | `LazyFrame.with_columns(*exprs, **named)`                                     | mutation       | add or replace columns                   |
-|  [04]   | `LazyFrame.filter(*predicates, **constraints)`                                | filter         | row filter                               |
-|  [05]   | `LazyFrame.group_by(*keys, drop_null_keys)`                                   | aggregation    | grouped aggregation builder              |
-|  [06]   | `LazyFrame.join(other, on, how, ...)`                                         | join           | hash join                                |
-|  [07]   | `LazyFrame.sort(by, *more_by, descending, ...)`                               | sort           | sort                                     |
-|  [08]   | `LazyFrame.sink_parquet(file)`                                                | IO export      | streaming write to Parquet               |
-|  [09]   | `LazyFrame.with_row_index(name, *, order_by)`                                 | mutation       | add row index column                     |
-|  [10]   | `LazyFrame.top_k(k, *, by, reverse)`                                          | ranking        | top-k rows by column                     |
-|  [11]   | `LazyFrame.explode(columns, *more)`                                           | reshape        | explode list columns to rows             |
-|  [12]   | `LazyFrame.gather_every(n, offset)`                                           | sampling       | every n-th row                           |
-|  [13]   | `LazyFrame.drop(*columns, strict)` / `drop_nulls(subset)` / `rename(mapping)` | mutation       | drop/rename/null-filter columns          |
-|  [14]   | `LazyFrame.unique(subset, *, keep)` / `unpivot(on, index)`                    | reshape        | deduplicate / melt to long               |
-|  [15]   | `LazyFrame.head(n)` / `tail(n)`                                               | window         | first or last n rows                     |
-|  [16]   | `LazyFrame.columns` / `LazyFrame.implementation`                              | metadata       | column names; backend identity           |
-|  [17]   | `LazyFrame.pipe(fn, *a, **k)`                                                 | compose        | apply a lazy-frame-level callable        |
-|  [18]   | `LazyFrame.collect_schema()`                                                  | metadata       | retrieve `Schema` without execute        |
-|  [19]   | `LazyFrame.lazy()` / `LazyFrame.to_native()`                                  | export         | identity / unwrap to backend lazy object |
+Every surface below is a `LazyFrame` method.
+
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                                   |
+| :-----: | :------------------------------------------------------------------ | :------------- | :--------------------------------------- |
+|  [01]   | `collect(backend, ...)`                                             | materialise    | execute graph, return `DataFrame`        |
+|  [02]   | `select(*exprs, **named_exprs)`                                     | projection     | select columns                           |
+|  [03]   | `with_columns(*exprs, **named)`                                     | mutation       | add or replace columns                   |
+|  [04]   | `filter(*predicates, **constraints)`                                | filter         | row filter                               |
+|  [05]   | `group_by(*keys, drop_null_keys)`                                   | aggregation    | grouped aggregation builder              |
+|  [06]   | `join(other, on, how, ...)`                                         | join           | hash join                                |
+|  [07]   | `sort(by, *more_by, descending, ...)`                               | sort           | sort                                     |
+|  [08]   | `sink_parquet(file)`                                                | IO export      | streaming write to Parquet               |
+|  [09]   | `with_row_index(name, *, order_by)`                                 | mutation       | add row index column                     |
+|  [10]   | `top_k(k, *, by, reverse)`                                          | ranking        | top-k rows by column                     |
+|  [11]   | `explode(columns, *more)`                                           | reshape        | explode list columns to rows             |
+|  [12]   | `gather_every(n, offset)`                                           | sampling       | every n-th row                           |
+|  [13]   | `drop(*columns, strict)` / `drop_nulls(subset)` / `rename(mapping)` | mutation       | drop/rename/null-filter columns          |
+|  [14]   | `unique(subset, *, keep)` / `unpivot(on, index)`                    | reshape        | deduplicate / melt to long               |
+|  [15]   | `head(n)` / `tail(n)`                                               | window         | first or last n rows                     |
+|  [16]   | `columns` / `implementation`                                        | metadata       | column names; backend identity           |
+|  [17]   | `pipe(fn, *a, **k)`                                                 | compose        | apply a lazy-frame-level callable        |
+|  [18]   | `collect_schema()`                                                  | metadata       | retrieve `Schema` without execute        |
+|  [19]   | `lazy()` / `to_native()`                                            | export         | identity / unwrap to backend lazy object |
 
 [ENTRYPOINT_SCOPE]: grouped aggregation
 - rail: dataframe-agnostic
@@ -191,58 +200,65 @@
 [ENTRYPOINT_SCOPE]: Expr combinators
 - rail: dataframe-agnostic
 
-`Expr` is the composable column node returned by `col()`/`lit()`/`nth()`/`when()`; every method returns `Self` so expressions chain. The window/rolling/cumulative/ranking family and `over` are the backend-agnostic analytic surface — never drop to a native window spec.
+`Expr` is the composable column node returned by `col()`/`lit()`/`nth()`/`when()`; every method returns `Self` so expressions chain and every surface below is an `Expr` method. The window/rolling/cumulative/ranking family and `over` are the backend-agnostic analytic surface — never drop to a native window spec. The `rolling_*` aggregates take `(window_size, *, min_samples=None, center=False)`; `ewm_mean` takes `(*, com=None, span=None, half_life=None, alpha=None, adjust=True, min_samples=1, ignore_nulls=False)`.
 
-| [INDEX] | [SURFACE]                                                                                                           | [ENTRY_FAMILY] | [CAPABILITY]                                    |
-| :-----: | :------------------------------------------------------------------------------------------------------------------ | :------------- | :---------------------------------------------- |
-|  [01]   | `Expr.alias(name)` / `Expr.cast(dtype)`                                                                             | rename/type    | rename node; cast to a narwhals dtype           |
-|  [02]   | `Expr.over(*partition_by, order_by=None)`                                                                           | window         | window/partitioned aggregation                  |
-|  [03]   | `Expr.cum_sum/cum_prod/cum_min/cum_max/cum_count(*, reverse=False)`                                                 | cumulative     | running aggregates                              |
-|  [04]   | `Expr.rolling_sum/rolling_mean/rolling_std/rolling_var(window_size, *, min_samples=None, center=False)`             | rolling        | sliding-window aggregates                       |
-|  [05]   | `Expr.ewm_mean(*, com=None, span=None, half_life=None, alpha=None, adjust=True, min_samples=1, ignore_nulls=False)` | rolling        | exponentially-weighted mean                     |
-|  [06]   | `Expr.shift(n)` / `Expr.diff()` / `Expr.rank(method, *, descending)`                                                | sequence       | lag, first difference, rank                     |
-|  [07]   | `Expr.fill_null(value, strategy, limit)` / `Expr.fill_nan(value)`                                                   | null handling  | impute nulls / NaNs                             |
-|  [08]   | `Expr.is_null/is_nan/is_finite/is_in(other)/is_between(lower, upper, closed)`                                       | predicate      | boolean masks                                   |
-|  [09]   | `Expr.is_first_distinct/is_last_distinct/is_duplicated/is_unique/is_close`                                          | predicate      | distinctness and approximate-equality masks     |
-|  [10]   | `Expr.clip(lower_bound, upper_bound)` / `Expr.abs/round(decimals)/floor/ceil`                                       | numeric        | bound and round                                 |
-|  [11]   | `Expr.sum/min/max/mean/median/std/var/quantile(q, interpolation)`                                                   | aggregation    | scalar reductions                               |
-|  [12]   | `Expr.n_unique/count/null_count/len/first/last/mode/skew/kurtosis`                                                  | aggregation    | distinct count, count, extremes, shape stats    |
-|  [13]   | `Expr.replace_strict(old, new=None, *, default, return_dtype=None)`                                                 | map            | exhaustive value remap with default             |
-|  [14]   | `Expr.map_batches(function, return_dtype=None, *, returns_scalar=False)`                                            | escape hatch   | apply a native-frame callable per backend chunk |
-|  [15]   | `Expr.pipe(function, *args, **kwargs)`                                                                              | compose        | thread the expr through a callable              |
-|  [16]   | `Expr.exp/log(base)/sqrt/sin/cos`                                                                                   | math           | elementwise transcendental ops                  |
-|  [17]   | `Expr.drop_nulls/unique/filter(*predicates)/any/all/any_value`                                                      | reshape        | within-expr row filters and reductions          |
+| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [CAPABILITY]                            |
+| :-----: | :----------------------------------------------------------------------- | :------------- | :-------------------------------------- |
+|  [01]   | `alias(name)` / `cast(dtype)`                                            | rename/type    | rename node; cast to a narwhals dtype   |
+|  [02]   | `over(*partition_by, order_by=None)`                                     | window         | window/partitioned aggregation          |
+|  [03]   | `cum_sum/cum_prod/cum_min/cum_max/cum_count(*, reverse=False)`           | cumulative     | running aggregates                      |
+|  [04]   | `rolling_sum/rolling_mean/rolling_std/rolling_var(...)`                  | rolling        | sliding-window aggregates               |
+|  [05]   | `ewm_mean(...)`                                                          | rolling        | exponentially-weighted mean             |
+|  [06]   | `shift(n)` / `diff()` / `rank(method, *, descending)`                    | sequence       | lag, first difference, rank             |
+|  [07]   | `fill_null(value, strategy, limit)` / `fill_nan(value)`                  | null handling  | impute nulls / NaNs                     |
+|  [08]   | `is_null/is_nan/is_finite/is_in(other)/is_between(lower, upper, closed)` | predicate      | boolean masks                           |
+|  [09]   | `is_first_distinct/is_last_distinct/is_duplicated/is_unique/is_close`    | predicate      | distinctness / approx-equality masks    |
+|  [10]   | `clip(lower_bound, upper_bound)` / `abs/round(decimals)/floor/ceil`      | numeric        | bound and round                         |
+|  [11]   | `sum/min/max/mean/median/std/var/quantile(q, interpolation)`             | aggregation    | scalar reductions                       |
+|  [12]   | `n_unique/count/null_count/len/first/last/mode/skew/kurtosis`            | aggregation    | distinct/extreme counts, shape stats    |
+|  [13]   | `replace_strict(old, new=None, *, default, return_dtype=None)`           | map            | exhaustive value remap with default     |
+|  [14]   | `map_batches(function, return_dtype=None, *, returns_scalar=False)`      | escape hatch   | apply a native-frame callable per chunk |
+|  [15]   | `pipe(function, *args, **kwargs)`                                        | compose        | thread the expr through a callable      |
+|  [16]   | `exp/log(base)/sqrt/sin/cos`                                             | math           | elementwise transcendental ops          |
+|  [17]   | `drop_nulls/unique/filter(*predicates)/any/all/any_value`                | reshape        | within-expr row filters and reductions  |
 
 [ENTRYPOINT_SCOPE]: Expr / Series namespace accessors
 - rail: dataframe-agnostic
 
 The five typed namespaces (`.dt`, `.str`, `.cat`, `.list`, `.struct`) plus `.name` carry the per-dtype combinators; they are the only path to temporal/string/list/struct work and are identical on `Expr` and `Series`. Branching on backend type to do string or date work is rejected — use the namespace.
 
-| [INDEX] | [NAMESPACE] | [MEMBERS]                                                                                                                                                                                                                                                                                                  |
-| :-----: | :---------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `.dt`       | `year`/`month`/`day`/`hour`/`minute`/`second`/`millisecond`/`microsecond`/`nanosecond`/`ordinal_day`/`weekday`/`date`/`to_string`/`timestamp`/`truncate`/`offset_by`/`replace_time_zone`/`convert_time_zone`/`total_seconds`/`total_milliseconds`/`total_microseconds`/`total_nanoseconds`/`total_minutes` |
-|  [02]   | `.str`      | `len_chars`/`contains`/`starts_with`/`ends_with`/`slice`/`head`/`tail`/`split`/`replace`/`replace_all`/`strip_chars`/`pad_start`/`pad_end`/`zfill`/`to_lowercase`/`to_uppercase`/`to_titlecase`/`to_date`/`to_datetime`/`to_time`                                                                          |
-|  [03]   | `.cat`      | `get_categories`                                                                                                                                                                                                                                                                                           |
-|  [04]   | `.list`     | `len`/`get(index)`/`contains(item)`/`unique`/`sort`/`min`/`max`/`sum`/`mean`/`median`                                                                                                                                                                                                                      |
-|  [05]   | `.struct`   | `field(name)`                                                                                                                                                                                                                                                                                              |
-|  [06]   | `.name`     | `keep`/`map(function)`/`prefix(prefix)`/`suffix(suffix)`/`to_lowercase`/`to_uppercase`                                                                                                                                                                                                                     |
+| [INDEX] | [NAMESPACE] | [CONCERN]                                   |
+| :-----: | :---------- | :------------------------------------------ |
+|  [01]   | `.dt`       | temporal component and arithmetic accessors |
+|  [02]   | `.str`      | string manipulation accessors               |
+|  [03]   | `.cat`      | categorical accessor                        |
+|  [04]   | `.list`     | list-column accessors                       |
+|  [05]   | `.struct`   | struct-field accessor                       |
+|  [06]   | `.name`     | column-name transforms                      |
+
+- [01]-[DT]: `year`/`month`/`day`/`hour`/`minute`/`second`/`millisecond`/`microsecond`/`nanosecond`/`ordinal_day`/`weekday`/`date`/`to_string`/`timestamp`/`truncate`/`offset_by`/`replace_time_zone`/`convert_time_zone`/`total_seconds`/`total_milliseconds`/`total_microseconds`/`total_nanoseconds`/`total_minutes`.
+- [02]-[STR]: `len_chars`/`contains`/`starts_with`/`ends_with`/`slice`/`head`/`tail`/`split`/`replace`/`replace_all`/`strip_chars`/`pad_start`/`pad_end`/`zfill`/`to_lowercase`/`to_uppercase`/`to_titlecase`/`to_date`/`to_datetime`/`to_time`.
+- [03]-[CAT]: `get_categories`.
+- [04]-[LIST]: `len`/`get(index)`/`contains(item)`/`unique`/`sort`/`min`/`max`/`sum`/`mean`/`median`.
+- [05]-[STRUCT]: `field(name)`.
+- [06]-[NAME]: `keep`/`map(function)`/`prefix(prefix)`/`suffix(suffix)`/`to_lowercase`/`to_uppercase`.
 
 [ENTRYPOINT_SCOPE]: Series eager-only operations
 - rail: dataframe-agnostic
 
-`Series` shares every `Expr` combinator and namespace but, being eager, adds materialized accessors. Use `Series` only past a `DataFrame.get_column`/`iter_columns` boundary; lazy paths stay in `Expr`.
+`Series` shares every `Expr` combinator and namespace but, being eager, adds materialized accessors. Use `Series` only past a `DataFrame.get_column`/`iter_columns` boundary; lazy paths stay in `Expr`. Every surface below is a `Series` method.
 
-| [INDEX] | [SURFACE]                                                                               | [ENTRY_FAMILY]   | [CAPABILITY]                         |
-| :-----: | :-------------------------------------------------------------------------------------- | :--------------- | :----------------------------------- |
-|  [01]   | `Series.from_numpy(name, values, dtype=None, *, backend)` / `Series.from_iterable(...)` | factory          | build a typed series                 |
-|  [02]   | `Series.to_list()` / `to_numpy()` / `to_arrow()` / `to_frame()` / `to_dummies()`        | export           | materialize to Python/Arrow/frame    |
-|  [03]   | `Series.to_native()` / `to_polars()` / `to_pandas()`                                    | export           | unwrap or lower to a backend series  |
-|  [04]   | `Series.value_counts()` / `Series.hist(bins)`                                           | summary          | frequency table / histogram frame    |
-|  [05]   | `Series.arg_min()` / `arg_max()` / `arg_true()`                                         | index reduce     | position of extreme / true values    |
-|  [06]   | `Series.scatter(indices, values)` / `Series.zip_with(mask, other)`                      | combine          | positional set / masked combine      |
-|  [07]   | `Series.item(index)` / `Series.is_sorted(*, descending)` / `Series.is_empty()`          | scalar/predicate | single value, sortedness, emptiness  |
-|  [08]   | `Series.dtype` / `Series.name` / `Series.shape` / `Series.implementation`               | metadata         | dtype, name, shape, backend identity |
-|  [09]   | `Series.sort(*, descending, nulls_last)` / `Series.rename(name)` / `Series.sample(...)` | reshape          | sort, rename, sample                 |
+| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY]   | [CAPABILITY]                         |
+| :-----: | :------------------------------------------------------------------------ | :--------------- | :----------------------------------- |
+|  [01]   | `from_numpy(name, values, dtype=None, *, backend)` / `from_iterable(...)` | factory          | build a typed series                 |
+|  [02]   | `to_list()` / `to_numpy()` / `to_arrow()` / `to_frame()` / `to_dummies()` | export           | materialize to Python/Arrow/frame    |
+|  [03]   | `to_native()` / `to_polars()` / `to_pandas()`                             | export           | unwrap or lower to a backend series  |
+|  [04]   | `value_counts()` / `hist(bins)`                                           | summary          | frequency table / histogram frame    |
+|  [05]   | `arg_min()` / `arg_max()` / `arg_true()`                                  | index reduce     | position of extreme / true values    |
+|  [06]   | `scatter(indices, values)` / `zip_with(mask, other)`                      | combine          | positional set / masked combine      |
+|  [07]   | `item(index)` / `is_sorted(*, descending)` / `is_empty()`                 | scalar/predicate | single value, sortedness, emptiness  |
+|  [08]   | `dtype` / `name` / `shape` / `implementation`                             | metadata         | dtype, name, shape, backend identity |
+|  [09]   | `sort(*, descending, nulls_last)` / `rename(name)` / `sample(...)`        | reshape          | sort, rename, sample                 |
 
 [ENTRYPOINT_SCOPE]: selectors module (`narwhals.selectors`)
 - rail: dataframe-agnostic

@@ -4,13 +4,13 @@ The one crypto authority of the folder: argon2id credential digest-at-rest under
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                                             | [PUBLIC]                               |
-| :-----: | :----------------- | :------------------------------------------------------------------------------------------------- | :------------------------------------- |
-|  [01]   | `FAULT_AND_ALG`    | the folder fault shape, the `KeyAlg` scheme vocabulary                                             | `SignFault`, `KeyAlg`                  |
-|  [02]   | `KEY_MATERIAL`     | `Credential` landing admission, `KeyHandle`/`Ring`, JWKS projection                                | `Material`                             |
-|  [03]   | `CRYPTO_PRIMITIVE` | argon2 digest/verify/derive, HMAC, token RNG, uuid, otplib ports                                   | `Crypto`, `CredentialVerdict`, `Probe` |
-|  [04]   | `SHREDDER`         | the AES-GCM envelope + AES-KW wrap for per-subject crypto-shredding                                | `Shredder`                             |
-|  [05]   | `TOKEN_AUTHORITY`  | JWT mint/verify, remote JWKS rotation, the JWE confidential profile, the single-use stash contract | `Jwt`, `AccessClaims`                  |
+| [INDEX] | [CLUSTER]          | [PUBLIC]                               |
+| :-----: | :----------------- | :------------------------------------- |
+|  [01]   | `FAULT_AND_ALG`    | `SignFault`, `KeyAlg`                  |
+|  [02]   | `KEY_MATERIAL`     | `Material`                             |
+|  [03]   | `CRYPTO_PRIMITIVE` | `Crypto`, `CredentialVerdict`, `Probe` |
+|  [04]   | `SHREDDER`         | `Shredder`                             |
+|  [05]   | `TOKEN_AUTHORITY`  | `Jwt`, `AccessClaims`                  |
 
 ## [02]-[FAULT_AND_ALG]
 

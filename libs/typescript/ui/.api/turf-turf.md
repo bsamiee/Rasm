@@ -19,14 +19,18 @@
 - rail: viewer/geo
 - The value algebra is `geojson` (`@types/geojson`) — `Feature`/`FeatureCollection`/`Geometry`/`Position` and the seven geometry types — re-exported through turf. Turf adds the flexible-input types: `Coord` is ONE coordinate input accepted three ways (`Position | Point | Feature<Point>`) and normalized by `getCoord`, so an op signature never forks per input shape. The unit enums are the bounded `units` option vocabulary every measurement carries.
 
-| [INDEX] | [SYMBOL]                                                                                                     | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                                                                   |
-| :-----: | :----------------------------------------------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------------------------------------------------- |
-|  [01]   | `Feature<G, P>` / `FeatureCollection<G, P>` / `Geometry` / `GeometryCollection` (from `geojson`)             | value carrier   | `viewer/geo` — the decoded wire value; `Schema`-decoded at `wire`, typed through `wire#vocab` in `ui` |
-|  [02]   | `Point` / `LineString` / `Polygon` / `MultiPoint` / `MultiLineString` / `MultiPolygon` / `Position` / `BBox` | geometry type   | the seven GeoJSON geometry shapes + `Position` (`[lng, lat]`) + `BBox` (`[w,s,e,n]`)                  |
-|  [03]   | `AllGeoJSON` = `Feature \| FeatureCollection \| Geometry \| GeometryCollection`                              | any-input union | the input type of `meta` traversal + `truncate`/`clone`/`flip` — one union over every GeoJSON shape   |
-|  [04]   | `Coord` = `Feature<Point> \| Point \| Position`                                                              | flexible coord  | `viewer/geo/project` — the polymorphic point input `getCoord` normalizes; one input, three shapes     |
-|  [05]   | `Units` (`"kilometers" \| "miles" \| "degrees" \| "radians" \| …`) / `AreaUnits` (`+ "acres" \| "hectares"`) | unit vocab      | the bounded `{ units }` option on every measurement; `AreaUnits` for `area`/`convertArea`             |
-|  [06]   | `Grid` (`"point"\|"square"\|"hex"\|"triangle"`) / `Corners` / `Lines` / `Id`                                 | option enum     | the `grid` kind, tangent corners, and `id` types the grid/clip ops accept                             |
+Value types are re-exported from `geojson`; the wire value is `Schema`-decoded at `wire` and typed through `wire#vocab` in `ui`.
+
+| [INDEX] | [SYMBOL]                                                                        | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                  |
+| :-----: | :------------------------------------------------------------------------------ | :-------------- | :----------------------------------- |
+|  [01]   | `Feature<G, P>` / `FeatureCollection<G, P>` / `Geometry` / `GeometryCollection` | value carrier   | `viewer/geo` — decoded wire value    |
+|  [02]   | `Point` / `LineString` / `Polygon` / `Position` / `BBox`                        | geometry type   | single geoms + `Position`/`BBox`     |
+|  [03]   | `MultiPoint` / `MultiLineString` / `MultiPolygon`                               | multi-geometry  | the three multi shapes               |
+|  [04]   | `AllGeoJSON` = `Feature \| FeatureCollection \| Geometry \| GeometryCollection` | any-input union | `meta` + `truncate`/`clone`/`flip`   |
+|  [05]   | `Coord` = `Feature<Point> \| Point \| Position`                                 | flexible coord  | `viewer/geo/project` — `getCoord` in |
+|  [06]   | `Units` (`"kilometers" \| "miles" \| "degrees" \| "radians" \| …`)              | unit vocab      | the `{ units }` measurement option   |
+|  [07]   | `AreaUnits` (`+ "acres" \| "hectares"`)                                         | area unit       | `area` / `convertArea` units         |
+|  [08]   | `Grid` (`"point"\|"square"\|"hex"\|"triangle"`) / `Corners` / `Lines` / `Id`    | option enum     | grid kind, corners, `id` types       |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -34,51 +38,74 @@
 - rail: viewer/geo
 - The parameterized layer the design page composes with. `feature`/`point`/`polygon`/… is ONE constructor pattern instanced per geometry; the `meta` traversal is ONE iteration mechanism over N element granularities (each with an `Each`/`Reduce` pair); `invariant` is ONE accessor normalizing the flexible input. A `viewer/geo` row builds features with the constructors, walks them with `coordEach`/`geomEach`, and reads values with `getCoord`/`getGeom` — never a hand-written coordinate loop.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                    | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                                           |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `feature` / `geometry` / `point`(`s`) / `lineString`(`s`) / `polygon`(`s`) / `multiPoint` / `multiLineString` / `multiPolygon` / `featureCollection` / `geometryCollection`                  | constructor    | `viewer/geo/layers` — build the GeoJSON layer `data`; one `feature(geom, props, opts)` shape per geometry                     |
-|  [02]   | `coordEach` / `coordReduce` / `coordAll` / `geomEach` / `geomReduce` / `propEach` / `propReduce` / `featureEach` / `featureReduce` / `flattenEach` / `segmentEach` / `lineEach` (+ `Reduce`) | traversal      | `viewer/geo` — one iteration mechanism over coord/geom/prop/feature/segment/line granularity; the fold replaces a manual loop |
-|  [03]   | `getCoord` / `getCoords` / `getGeom` / `getType`                                                                                                                                             | accessor       | `viewer/geo/project` — normalize the flexible `Coord`/`Feature`/`Geometry` input to the raw `Position`/coords/geometry        |
-|  [04]   | `getType` / `geojsonType` / `featureOf` / `collectionOf` / `containsNumber`                                                                                                                  | assert         | `viewer/geo` — runtime shape assertions at an op boundary (belt-and-braces under a `Schema` decode)                           |
-|  [05]   | `round` / `radiansToLength` / `lengthToRadians` / `degreesToRadians` / `radiansToDegrees` / `bearingToAzimuth` / `convertLength` / `convertArea`                                             | unit convert   | `viewer/geo` — the unit algebra behind every measurement's `{ units }` option                                                 |
+One `feature(geom, props, opts)` shape per geometry; every traversal fold carries an `Each`/`Reduce` pair and replaces a hand-written loop.
+
+| [INDEX] | [SURFACE]                                                                                 | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]  |
+| :-----: | :---------------------------------------------------------------------------------------- | :-------------- | :------------------- |
+|  [01]   | `feature` / `geometry` / `point`(`s`) / `lineString`(`s`) / `polygon`(`s`)                | constructor     | `viewer/geo/layers`  |
+|  [02]   | `multiPoint` / `multiLineString` / `multiPolygon`                                         | constructor     | `viewer/geo/layers`  |
+|  [03]   | `featureCollection` / `geometryCollection`                                                | collection ctor | `viewer/geo/layers`  |
+|  [04]   | `coordEach` / `coordReduce` / `coordAll` / `geomEach` / `geomReduce`                      | traversal       | `viewer/geo`         |
+|  [05]   | `propEach` / `propReduce` / `featureEach` / `featureReduce`                               | traversal       | `viewer/geo`         |
+|  [06]   | `flattenEach` / `segmentEach` / `lineEach` (+ `Reduce`)                                   | traversal       | `viewer/geo`         |
+|  [07]   | `getCoord` / `getCoords` / `getGeom` / `getType`                                          | accessor        | `viewer/geo/project` |
+|  [08]   | `getType` / `geojsonType` / `featureOf` / `collectionOf` / `containsNumber`               | assert          | `viewer/geo`         |
+|  [09]   | `round` / `radiansToLength` / `lengthToRadians` / `degreesToRadians` / `radiansToDegrees` | unit convert    | `viewer/geo`         |
+|  [10]   | `bearingToAzimuth` / `convertLength` / `convertArea`                                      | unit convert    | `viewer/geo`         |
 
 [ENTRYPOINT_SCOPE]: measurement + transformation/overlay — the core geometry ops
 - rail: viewer/geo
 - The scalar-over-geometry measurements and the geometry→geometry transforms/overlays. Each is a pure function taking a `units`/tolerance/step option; the rosters are SEED DATA — a geometry op is one function in a concern family, and a new derived quantity/shape is a new call, not a new mechanism. The overlay ops (`union`/`intersect`/`difference`) are the JTS/NTS overlay peers.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                           | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                                                                          |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------- | :----------------------------------------------------------------------------------------------------------- |
-|  [01]   | `area` / `bbox` / `bboxPolygon` / `center` / `centroid` / `centerOfMass` / `centerMean` / `centerMedian`                                                                                            | measure (extent) | `viewer/geo/project` — `bbox` → maplibre `fitBounds`; `center`/`centroid` → camera target                    |
-|  [02]   | `distance` / `length` / `bearing` / `midpoint` / `along` / `destination` / `pointToLineDistance` / `pointToPolygonDistance` / `rhumbDistance` / `rhumbBearing` / `rhumbDestination` / `greatCircle` | measure (metric) | `viewer/geo` + `viewer/mark` — planar/rhumb/great-circle distance + bearing; `{ units }`-parameterized       |
-|  [03]   | `buffer` / `simplify` / `convex` / `concave` / `voronoi` / `circle` / `ellipse` / `sector` / `bezierSpline` / `polygonSmooth`                                                                       | construct        | `viewer/geo/layers` — derive an overlay polygon (buffer a selection, hull a point cloud) rendered as GeoJSON |
-|  [04]   | `union` / `intersect` / `difference` / `dissolve` / `bboxClip` / `mask` / `lineOffset`                                                                                                              | overlay          | `viewer/geo` — the NTS-peer boolean overlay; clip/mask a layer to a query polygon                            |
-|  [05]   | `transformRotate` / `transformScale` / `transformTranslate` / `flip` / `rewind` / `truncate` / `cleanCoords` / `clone`                                                                              | mutate           | `viewer/geo` — affine + normalization transforms; `truncate` trims coord precision before re-encode          |
-|  [06]   | `combine` / `explode` / `flatten` / `lineToPolygon` / `polygonToLine` / `polygonize` / `lineChunk` / `lineArc` / `tesselate`                                                                        | convert          | `viewer/geo/layers` — feature-shape conversion between multi/single and line/polygon for layer binding       |
+`bbox` → maplibre `fitBounds`, `center`/`centroid` → camera target; overlay ops are the NTS boolean peer, `truncate` trims precision before re-encode.
+
+| [INDEX] | [SURFACE]                                                                              | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]         |
+| :-----: | :------------------------------------------------------------------------------------- | :--------------- | :-------------------------- |
+|  [01]   | `area` / `bbox` / `bboxPolygon` / `center` / `centroid`                                | measure (extent) | `viewer/geo/project`        |
+|  [02]   | `centerOfMass` / `centerMean` / `centerMedian`                                         | measure (center) | `viewer/geo/project`        |
+|  [03]   | `distance` / `length` / `bearing` / `midpoint` / `along` / `destination`               | measure (metric) | `viewer/geo`, `viewer/mark` |
+|  [04]   | `pointToLineDistance` / `pointToPolygonDistance`                                       | measure (metric) | `viewer/geo`                |
+|  [05]   | `rhumbDistance` / `rhumbBearing` / `rhumbDestination` / `greatCircle`                  | measure (metric) | `viewer/geo`                |
+|  [06]   | `buffer` / `simplify` / `convex` / `concave` / `voronoi`                               | construct        | `viewer/geo/layers`         |
+|  [07]   | `circle` / `ellipse` / `sector` / `bezierSpline` / `polygonSmooth`                     | construct        | `viewer/geo/layers`         |
+|  [08]   | `union` / `intersect` / `difference` / `dissolve` / `bboxClip` / `mask` / `lineOffset` | overlay          | `viewer/geo`                |
+|  [09]   | `transformRotate` / `transformScale` / `transformTranslate`                            | mutate           | `viewer/geo`                |
+|  [10]   | `flip` / `rewind` / `truncate` / `cleanCoords` / `clone`                               | mutate           | `viewer/geo`                |
+|  [11]   | `combine` / `explode` / `flatten` / `lineToPolygon` / `polygonToLine`                  | convert          | `viewer/geo/layers`         |
+|  [12]   | `polygonize` / `lineChunk` / `lineArc` / `tesselate`                                   | convert          | `viewer/geo/layers`         |
 
 [ENTRYPOINT_SCOPE]: boolean predicates + line/segment queries + spatial index
 - rail: viewer/mark
 - The DE-9IM spatial-relationship predicates (the NTS `boolean*` peer) and the line/segment geometric queries, plus turf's own R-tree index for repeated queries. `viewer/mark/selection` uses `booleanPointInPolygon`/`pointsWithinPolygon` for hit-testing and the rbush index to make many-feature selection sub-linear.
 
-| [INDEX] | [SURFACE]                                                                                                                                                               | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                                                                  |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `booleanContains` / `booleanWithin` / `booleanCrosses` / `booleanOverlap` / `booleanDisjoint` / `booleanIntersects` / `booleanTouches` / `booleanEqual`                 | DE-9IM predicate | `viewer/mark/selection` — the NTS-peer spatial-relationship tests; one `boolean` per DE-9IM relation |
-|  [02]   | `booleanPointInPolygon` / `booleanPointOnLine` / `pointsWithinPolygon` / `pointOnFeature` / `nearestPoint`                                                              | point query      | `viewer/mark/selection` — hit-test a click/lasso against features → `GlobalId` set                   |
-|  [03]   | `booleanClockwise` / `booleanConcave` / `booleanParallel` / `booleanValid`                                                                                              | shape predicate  | `viewer/geo` — winding/validity checks before an overlay op or re-encode                             |
-|  [04]   | `lineIntersect` / `lineOverlap` / `lineSegment` / `lineSlice` / `lineSliceAlong` / `lineSplit` / `kinks` / `nearestPointOnLine` / `nearestPointToLine` / `shortestPath` | line query       | `viewer/geo` — polyline geometric queries (snap, split, self-intersection, routing)                  |
-|  [05]   | `geojsonRbush()` → `{ insert, load, search, collides, remove }`                                                                                                         | spatial index    | `viewer/mark/selection` — build ONE R-tree over many features; `search(bbox)` replaces O(n) scans    |
+One `boolean` per DE-9IM relation (the NTS peer); `booleanPointInPolygon`/`pointsWithinPolygon` hit-test a click/lasso → `GlobalId` set, and one rbush index replaces O(n) scans.
+
+| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]     |
+| :-----: | :----------------------------------------------------------------------------------- | :--------------- | :---------------------- |
+|  [01]   | `booleanContains` / `booleanWithin` / `booleanCrosses` / `booleanOverlap`            | DE-9IM predicate | `viewer/mark/selection` |
+|  [02]   | `booleanDisjoint` / `booleanIntersects` / `booleanTouches` / `booleanEqual`          | DE-9IM predicate | `viewer/mark/selection` |
+|  [03]   | `booleanPointInPolygon` / `booleanPointOnLine` / `pointsWithinPolygon`               | point query      | `viewer/mark/selection` |
+|  [04]   | `pointOnFeature` / `nearestPoint`                                                    | point query      | `viewer/mark/selection` |
+|  [05]   | `booleanClockwise` / `booleanConcave` / `booleanParallel` / `booleanValid`           | shape predicate  | `viewer/geo`            |
+|  [06]   | `lineIntersect` / `lineOverlap` / `lineSegment` / `lineSlice` / `lineSliceAlong`     | line query       | `viewer/geo`            |
+|  [07]   | `lineSplit` / `kinks` / `nearestPointOnLine` / `nearestPointToLine` / `shortestPath` | line query       | `viewer/geo`            |
+|  [08]   | `geojsonRbush()` → `{ insert, load, search, collides, remove }`                      | spatial index    | `viewer/mark/selection` |
 
 [ENTRYPOINT_SCOPE]: interpolation + grids + clustering/statistics + projection/random
 - rail: viewer/geo
 - The surface-analysis, tessellation, and spatial-statistics families, plus the projection and random generators. These produce derived FeatureCollections (grids, isolines, clusters) the `viewer/geo/layers` row renders, and the projection ops convert between WGS84 and Web Mercator at the map boundary.
 
-| [INDEX] | [SURFACE]                                                                                                                          | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                    |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | `interpolate` / `isobands` / `isolines` / `tin` / `planepoint`                                                                     | surface        | `viewer/geo/layers` — IDW/TIN interpolation → iso-band/line FeatureCollection for a heat/contour layer |
-|  [02]   | `hexGrid` / `squareGrid` / `triangleGrid` / `pointGrid` / `rectangleGrid` / `sample`                                               | grid           | `viewer/geo` — one grid mechanism, four cell shapes (`Grid` enum); binning/sampling over a bbox        |
-|  [03]   | `clustersKmeans` / `clustersDbscan` / `clusters` / `collect` / `tag`                                                               | cluster        | `viewer/geo/layers` — k-means/DBSCAN clustering + spatial join (`tag`/`collect`) → styled clusters     |
-|  [04]   | `standardDeviationalEllipse` / `directionalMean` / `moranIndex` / `quadratAnalysis` / `nearestNeighborAnalysis` / `distanceWeight` | statistic      | `viewer/probe` — spatial-autocorrelation/dispersion stats over a FeatureCollection                     |
-|  [05]   | `toMercator` / `toWgs84`                                                                                                           | projection     | `viewer/geo/project` — WGS84 ↔ Web-Mercator at the map/camera boundary                                 |
-|  [06]   | `randomPoint` / `randomLineString` / `randomPolygon` / `randomPosition`                                                            | generator      | `dev`/`viewer/probe` — synthetic geometry for specs and benchmark seeding                              |
+IDW/TIN interpolation and clustering yield FeatureCollections the layers row renders; `toMercator`/`toWgs84` reconcile WGS84 ↔ Web-Mercator at the map/camera boundary.
+
+| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]   |
+| :-----: | :----------------------------------------------------------------------------------- | :------------- | :-------------------- |
+|  [01]   | `interpolate` / `isobands` / `isolines` / `tin` / `planepoint`                       | surface        | `viewer/geo/layers`   |
+|  [02]   | `hexGrid` / `squareGrid` / `triangleGrid` / `pointGrid` / `rectangleGrid` / `sample` | grid           | `viewer/geo`          |
+|  [03]   | `clustersKmeans` / `clustersDbscan` / `clusters` / `collect` / `tag`                 | cluster        | `viewer/geo/layers`   |
+|  [04]   | `standardDeviationalEllipse` / `directionalMean` / `moranIndex`                      | statistic      | `viewer/probe`        |
+|  [05]   | `quadratAnalysis` / `nearestNeighborAnalysis` / `distanceWeight`                     | statistic      | `viewer/probe`        |
+|  [06]   | `toMercator` / `toWgs84`                                                             | projection     | `viewer/geo/project`  |
+|  [07]   | `randomPoint` / `randomLineString` / `randomPolygon` / `randomPosition`              | generator      | `dev`, `viewer/probe` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

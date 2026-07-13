@@ -61,7 +61,7 @@
 |  [03]   | `Vectors` / `Vector` / `NamedVectors`               | vector payload   | dense/named dense vector data             |
 |  [04]   | `SparseVector`                                      | sparse payload   | (indices, values) sparse vector           |
 |  [05]   | `Document`                                          | inference input  | text/image for server-side embedding      |
-|  [06]   | `Filter`                                            | query filter     | must/should/must_not condition tree       |
+|  [06]   | `Filter`                                            | query filter     | `must`/`should`/`must_not` condition tree |
 |  [07]   | `Condition`                                         | filter leaf      | field match/range/geo/has-id condition    |
 |  [08]   | `WithPayloadSelector` / `PayloadIncludeSelector`    | payload selector | include/exclude returned payload          |
 |  [09]   | `PayloadSchemaType` / `FieldType` / `TokenizerType` | index type       | payload-index field kind + text tokenizer |
@@ -96,7 +96,7 @@
 |  [01]   | `CreateCollectionAsync(name, VectorParams, …)`                             | async create    | creates a single-vector collection         |
 |  [02]   | `CreateCollectionAsync(name, VectorParamsMap, …)`                          | async create    | creates a named-vector collection          |
 |  [03]   | `RecreateCollectionAsync(name, …)`                                         | async create    | drops then recreates a collection          |
-|  [04]   | `UpdateCollectionAsync(name, …)`                                           | async update    | mutates HNSW/optimizer/quantization config |
+|  [04]   | `UpdateCollectionAsync(name, …)`                                           | async update    | mutates HNSW/optimizer/quantization        |
 |  [05]   | `CollectionExistsAsync(name)` / `DeleteCollectionAsync(name)`              | async lifecycle | existence probe / drop                     |
 |  [06]   | `GetCollectionInfoAsync(name)` / `ListCollectionsAsync()`                  | async read      | collection state / roster                  |
 |  [07]   | `CreatePayloadIndexAsync(name, field, schemaType, …)`                      | async index     | builds a payload field index               |
@@ -122,7 +122,7 @@
 [ENTRYPOINT_SCOPE]: retrieval
 - rail: vector-store-scaleout
 
-`QueryAsync` is the universal retrieval entry: `(name, Query?, IReadOnlyList<PrefetchQuery>?, usingVector, Filter?, scoreThreshold, SearchParams?, limit, offset, payloadSelector, vectorsSelector, ReadConsistency?, ShardKeySelector?, lookupFrom, timeout)`. The legacy `SearchAsync`/`RecommendAsync`/`DiscoverAsync` remain; `*GroupsAsync` group results by a payload field; `*BatchAsync` runs many queries in one request; `SearchMatrixOffsetsAsync`/`SearchMatrixPairsAsync` compute the pairwise similarity matrix; `FacetAsync` aggregates payload-value counts.
+`QueryAsync` is the universal retrieval entry: `(name, Query?, IReadOnlyList<PrefetchQuery>?, usingVector, Filter?, scoreThreshold, SearchParams?, limit, offset, payloadSelector, vectorsSelector, ReadConsistency?, ShardKeySelector?, lookupFrom, timeout)`. The legacy `SearchAsync`/`RecommendAsync`/`DiscoverAsync` remain; `*GroupsAsync` group results by a payload field; `*BatchAsync` runs many queries in one request; `SearchMatrixOffsetsAsync`/`SearchMatrixPairsAsync` compute the pairwise similarity matrix; `FacetAsync` aggregates payload-value counts. `RetrieveAsync` fetches by a `PointId`/`Guid`/`ulong`/`IReadOnlyList<PointId>` id.
 
 | [INDEX] | [SURFACE]                                                                                              | [CALL_SHAPE]    | [CAPABILITY]                              |
 | :-----: | :----------------------------------------------------------------------------------------------------- | :-------------- | :---------------------------------------- |
@@ -132,7 +132,7 @@
 |  [04]   | `SearchBatchAsync` / `SearchGroupsAsync`                                                               | async search    | batched / grouped dense search            |
 |  [05]   | `RecommendAsync` / `RecommendBatchAsync` / `RecommendGroupsAsync`                                      | async recommend | positive/negative example search          |
 |  [06]   | `DiscoverAsync` / `DiscoverBatchAsync`                                                                 | async discover  | context-pair guided discovery search      |
-|  [07]   | `RetrieveAsync(name, PointId \| Guid \| ulong \| IReadOnlyList<PointId>, withPayload, withVectors, …)` | async read      | fetches points by id                      |
+|  [07]   | `RetrieveAsync(name, ids, withPayload, withVectors, …)`                                                | async read      | fetches points by id                      |
 |  [08]   | `ScrollAsync(name, filter, limit, orderBy, …)`                                                         | async scroll    | paged payload-filtered enumeration        |
 |  [09]   | `CountAsync(name, filter, exact)`                                                                      | async count     | filtered point count                      |
 |  [10]   | `FacetAsync(name, key, filter, …)`                                                                     | async facet     | payload-value aggregation                 |
@@ -143,10 +143,11 @@
 
 | [INDEX] | [SURFACE]                                                                                  | [CALL_SHAPE]   | [CAPABILITY]                        |
 | :-----: | :----------------------------------------------------------------------------------------- | :------------- | :---------------------------------- |
-|  [01]   | `CreateSnapshotAsync(name)` / `ListSnapshotsAsync(name)`                                   | async snapshot | per-collection snapshot create/list |
-|  [02]   | `DeleteSnapshotAsync(name, snapshotName)`                                                  | async snapshot | drops a collection snapshot         |
-|  [03]   | `CreateFullSnapshotAsync()` / `ListFullSnapshotsAsync()` / `DeleteFullSnapshotAsync(name)` | async snapshot | whole-storage snapshot              |
-|  [04]   | `HealthAsync()`                                                                            | async probe    | server liveness + version           |
+|  [01]   | `CreateSnapshotAsync(name)` / `ListSnapshotsAsync(name)`      | async snapshot | per-collection snapshot create/list |
+|  [02]   | `DeleteSnapshotAsync(name, snapshotName)`                     | async snapshot | drops a collection snapshot         |
+|  [03]   | `CreateFullSnapshotAsync()` / `ListFullSnapshotsAsync()`      | async snapshot | whole-storage snapshot create/list  |
+|  [04]   | `DeleteFullSnapshotAsync(name)`                               | async snapshot | drops a whole-storage snapshot      |
+|  [05]   | `HealthAsync()`                                               | async probe    | server liveness + version           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

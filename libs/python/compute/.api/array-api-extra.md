@@ -55,46 +55,48 @@
 
 [ENTRYPOINT_SCOPE]: core array extensions
 - rail: array-api
+- every entry accepts a trailing `*, xp=None` namespace override (elided below; `default_dtype` takes `xp` positionally)
 
-| [INDEX] | [SURFACE]                                                                                                                    | [ENTRY_FAMILY] | [RAIL]                                      |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------ |
-|  [01]   | `at(x, idx=UNDEF, /) -> at` then `.set/.add/.subtract/.multiply/.divide/.power/.min/.max(y, /, copy=None, xp=None) -> Array` | indexed update | JAX-style functional indexed update builder |
-|  [02]   | `apply_where(cond, args, f1, f2=None, /, *, fill_value=None, kwargs=None, xp=None) -> Array`                                 | conditional    | two-branch element-wise dispatch            |
-|  [03]   | `argpartition(a, kth, /, axis=-1, *, xp=None)`                                                                               | sort           | indirect partial sort                       |
-|  [04]   | `atleast_nd(x, /, *, ndim, xp=None)`                                                                                         | shape          | broadcast to minimum ndim                   |
-|  [05]   | `broadcast_shapes(*shapes, xp=None) -> tuple[int \| None, ...]`                                                              | shape          | broadcast shape computation                 |
-|  [06]   | `cov(m, /, *, xp=None)`                                                                                                      | statistics     | covariance matrix                           |
-|  [07]   | `create_diagonal(x, /, *, offset=0, xp=None)`                                                                                | linear algebra | diagonal matrix from 1-D                    |
-|  [08]   | `default_dtype(xp, kind='real floating', *, device=None)`                                                                    | dtype          | backend default dtype query                 |
-|  [09]   | `expand_dims(a, /, *, axis=(0,), xp=None)`                                                                                   | shape          | insert axes                                 |
-|  [10]   | `isclose(a, b, *, rtol=1e-5, atol=1e-8, equal_nan=False, xp=None)`                                                           | comparison     | approximate equality                        |
-|  [11]   | `isin(a, b, /, *, assume_unique=False, invert=False, kind=None, xp=None)`                                                    | membership     | element membership test                     |
-|  [12]   | `kron(a, b, /, *, xp=None)`                                                                                                  | linear algebra | Kronecker product                           |
-|  [13]   | `lazy_apply(func, *args, shape=None, dtype=None, as_numpy=False, xp=None, **kwargs) -> Array \| tuple[Array, ...]`           | lazy           | lazy dispatch for graph backends            |
-|  [14]   | `nan_to_num(x, /, *, fill_value=0.0, xp=None)`                                                                               | cleaning       | replace NaN/inf                             |
-|  [15]   | `nunique(x, /, *, xp=None)`                                                                                                  | aggregation    | count unique elements                       |
-|  [16]   | `one_hot(x, /, num_classes, *, dtype=None, axis=-1, xp=None)`                                                                | encoding       | one-hot encoding                            |
-|  [17]   | `pad(x, pad_width, mode='constant', *, constant_values=0, xp=None)`                                                          | shape          | constant-mode padding                       |
-|  [18]   | `partition(a, kth, /, axis=-1, *, xp=None)`                                                                                  | sort           | partial sort along axis                     |
+| [INDEX] | [SURFACE]                                                                           | [ENTRY_FAMILY] | [RAIL]                            |
+| :-----: | :---------------------------------------------------------------------------------- | :------------- | :-------------------------------- |
+|  [01]   | `at(x, idx=UNDEF, /) -> at` then `.<verb>(y, /, copy=None) -> Array`                | indexed update | JAX-style indexed write builder   |
+|  [02]   | `apply_where(cond, args, f1, f2=None, /, *, fill_value=None, kwargs=None) -> Array` | conditional    | two-branch element-wise dispatch  |
+|  [03]   | `argpartition(a, kth, /, axis=-1)`                                                  | sort           | indirect partial sort             |
+|  [04]   | `atleast_nd(x, /, *, ndim)`                                                         | shape          | broadcast to minimum ndim         |
+|  [05]   | `broadcast_shapes(*shapes) -> tuple[int \| None, ...]`                              | shape          | broadcast shape computation       |
+|  [06]   | `cov(m, /)`                                                                         | statistics     | covariance matrix                 |
+|  [07]   | `create_diagonal(x, /, *, offset=0)`                                                | linear algebra | diagonal matrix from 1-D          |
+|  [08]   | `default_dtype(xp, kind='real floating', *, device=None)`                           | dtype          | backend default dtype query       |
+|  [09]   | `expand_dims(a, /, *, axis=(0,))`                                                   | shape          | insert axes                       |
+|  [10]   | `isclose(a, b, *, rtol=1e-5, atol=1e-8, equal_nan=False)`                           | comparison     | approximate equality              |
+|  [11]   | `isin(a, b, /, *, assume_unique=False, invert=False, kind=None)`                    | membership     | element membership test           |
+|  [12]   | `kron(a, b, /)`                                                                     | linear algebra | Kronecker product                 |
+|  [13]   | `lazy_apply(func, *args, shape=None, dtype=None, as_numpy=False, **kwargs)`         | lazy           | lazy dispatch; Array or tuple out |
+|  [14]   | `nan_to_num(x, /, *, fill_value=0.0)`                                               | cleaning       | replace NaN/inf                   |
+|  [15]   | `nunique(x, /)`                                                                     | aggregation    | count unique elements             |
+|  [16]   | `one_hot(x, /, num_classes, *, dtype=None, axis=-1)`                                | encoding       | one-hot encoding                  |
+|  [17]   | `pad(x, pad_width, mode='constant', *, constant_values=0)`                          | shape          | constant-mode padding             |
+|  [18]   | `partition(a, kth, /, axis=-1)`                                                     | sort           | partial sort along axis           |
 
 [ENTRYPOINT_SCOPE]: set, search, and testing
 - rail: array-api
+- every entry accepts a trailing `*, xp=None` namespace override (elided below); `testing.*` is test-scope only
 
-| [INDEX] | [SURFACE]                                                                             | [ENTRY_FAMILY] | [RAIL]                                     |
-| :-----: | :------------------------------------------------------------------------------------ | :------------- | :----------------------------------------- |
-|  [01]   | `searchsorted(x1, x2, /, *, side='left', xp=None)`                                    | search         | binary search                              |
-|  [02]   | `setdiff1d(x1, x2, /, *, assume_unique=False, xp=None)`                               | set            | set difference                             |
-|  [03]   | `sinc(x, /, *, xp=None)`                                                              | math           | normalized sinc                            |
-|  [04]   | `union1d(a, b, /, *, xp=None)`                                                        | set            | set union                                  |
-|  [05]   | `angle(z, /, *, deg=False, xp=None)`                                                  | complex        | phase angle                                |
-|  [06]   | `testing.assert_close(actual, desired, *, rtol=None, atol=0, xp=None, ...)`           | test helper    | approximate equality assert                |
-|  [07]   | `testing.assert_equal(actual, desired, *, xp=None, ...)`                              | test helper    | exact equality assert                      |
-|  [08]   | `testing.assert_less(x, y, *, xp=None, ...)`                                          | test helper    | strict less assert                         |
-|  [09]   | `testing.assert_close_nulp(actual, desired, *, nulp=1, xp=None, ...)`                 | test helper    | ULP-based assert                           |
-|  [10]   | `testing.lazy_xp_function(func, *, allow_dask_compute=False, jax_jit=True, ...)`      | test fixture   | wrap function for lazy backend testing     |
-|  [11]   | `testing.patch_lazy_xp_functions(request, monkeypatch=None, *, xp) -> ContextManager` | test fixture   | patch lazy dispatch for tests              |
-|  [12]   | `testing.jax_autojit(func)`                                                           | test fixture   | auto-`jax.jit` wrapper for lazy assertions |
-|  [13]   | `testing.pickle_flatten(obj, leaf_types) / pickle_unflatten(leaves, aux)`             | test helper    | pickle round-trip flatten for lazy pytrees |
+| [INDEX] | [SURFACE]                                                                        | [ENTRY_FAMILY] | [RAIL]                           |
+| :-----: | :------------------------------------------------------------------------------- | :------------- | :------------------------------- |
+|  [01]   | `searchsorted(x1, x2, /, *, side='left')`                                        | search         | binary search                    |
+|  [02]   | `setdiff1d(x1, x2, /, *, assume_unique=False)`                                   | set            | set difference                   |
+|  [03]   | `sinc(x, /)`                                                                     | math           | normalized sinc                  |
+|  [04]   | `union1d(a, b, /)`                                                               | set            | set union                        |
+|  [05]   | `angle(z, /, *, deg=False)`                                                      | complex        | phase angle                      |
+|  [06]   | `testing.assert_close(actual, desired, *, rtol=None, atol=0, ...)`               | test helper    | approximate equality assert      |
+|  [07]   | `testing.assert_equal(actual, desired, *, ...)`                                  | test helper    | exact equality assert            |
+|  [08]   | `testing.assert_less(x, y, *, ...)`                                              | test helper    | strict less assert               |
+|  [09]   | `testing.assert_close_nulp(actual, desired, *, nulp=1, ...)`                     | test helper    | ULP-based assert                 |
+|  [10]   | `testing.lazy_xp_function(func, *, allow_dask_compute=False, jax_jit=True, ...)` | test fixture   | wrap func for lazy-backend tests |
+|  [11]   | `testing.patch_lazy_xp_functions(request, monkeypatch=None, *, xp)`              | test fixture   | patch lazy dispatch; context mgr |
+|  [12]   | `testing.jax_autojit(func)`                                                      | test fixture   | auto-`jax.jit` lazy wrapper      |
+|  [13]   | `testing.pickle_flatten(obj, leaf_types) / pickle_unflatten(leaves, aux)`        | test helper    | pickle-flatten lazy pytrees      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

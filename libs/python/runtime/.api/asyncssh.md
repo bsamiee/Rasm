@@ -45,21 +45,23 @@
 - rail: transport
 - `connect` takes `options=SSHClientConnectionOptions`; the connection and SFTP client are async context managers registered on one `AsyncExitStack` (`roots.md` `_sftp_session`).
 
-| [INDEX] | [SURFACE]                                                                                         | [ENTRY_FAMILY] | [RAIL]                                        |
-| :-----: | :------------------------------------------------------------------------------------------------ | :------------- | :-------------------------------------------- |
-|  [01]   | `await connect(host='', port=(), *, options=SSHClientConnectionOptions) -> SSHClientConnection`   | connect        | establish a client connection (async ctx mgr) |
-|  [02]   | `await conn.start_sftp_client() -> SFTPClient`                                                    | sftp open      | open an SFTP session (async ctx mgr)          |
-|  [03]   | `await sftp.open(path, pflags_or_mode=FXF_READ, *, block_size=, max_requests=) -> SFTPClientFile` | sftp open file | open a remote file for reading                |
-|  [04]   | `await file.read(size=-1, offset=-1)`                                                             | sftp io        | whole-fetch or offset-bounded chunked read    |
+Return types are the PUBLIC_TYPES rows; the SURFACE cells drop the `-> Type` tail and the `(async ctx mgr)` note the lead already carries.
+
+| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [RAIL]                                     |
+| :-----: | :----------------------------------------------------------------------- | :------------- | :----------------------------------------- |
+|  [01]   | `await connect(host='', port=(), *, options=SSHClientConnectionOptions)` | connect        | establish a client connection              |
+|  [02]   | `await conn.start_sftp_client()`                                         | sftp open      | open an SFTP session                       |
+|  [03]   | `await sftp.open(path, FXF_READ, *, block_size=, max_requests=)`         | sftp open file | open a remote file for reading             |
+|  [04]   | `await file.read(size=-1, offset=-1)`                                    | sftp io        | whole-fetch or offset-bounded chunked read |
 
 [ENTRYPOINT_SCOPE]: connection-options and host-key verification
 - rail: transport
 - `SSHClientConnectionOptions` is built once from the settings model (`roots.md` `_ssh_options`); `read_known_hosts` loads the trust database at admission (`admission.md` `SecretBoundary.known_hosts`, ENTRYPOINTS [02]).
 
-| [INDEX] | [SURFACE]                                                                                           | [ENTRY_FAMILY] | [RAIL]                                                                   |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------- |
-|  [01]   | `SSHClientConnectionOptions(*, password=, known_hosts=SSHKnownHosts) -> SSHClientConnectionOptions` | options        | one config object — password from the settings model, verified host keys |
-|  [02]   | `read_known_hosts(filelist) -> SSHKnownHosts`                                                       | verify         | load the host-key trust database from path(s)                            |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                             |
+| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------------- |
+|  [01]   | `SSHClientConnectionOptions(*, password=, known_hosts=)` | options        | password + verified host keys in one config object |
+|  [02]   | `read_known_hosts(filelist)`                             | verify         | load the host-key trust database from path(s)      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

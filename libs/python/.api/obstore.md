@@ -18,54 +18,71 @@
 [PUBLIC_TYPE_SCOPE]: store backends and config
 - rail: object storage
 
-| [INDEX] | [SYMBOL]                                                                     | [TYPE_FAMILY] | [RAIL]                                               |
-| :-----: | :--------------------------------------------------------------------------- | :------------ | :--------------------------------------------------- |
-|  [01]   | `store.S3Store` / `GCSStore` / `AzureStore`                                  | store         | cloud object-store backends                          |
-|  [02]   | `store.HTTPStore` / `LocalStore` / `MemoryStore`                             | store         | HTTP, local, and memory backends                     |
-|  [03]   | `store.ObjectStore`                                                          | store alias   | canonical store-handle union returned by `from_url`  |
-|  [04]   | `store.ObjectStoreMethods`                                                   | mixin base    | concrete bound-method surface every store subclasses |
-|  [05]   | `S3Config` / `GCSConfig` / `AzureConfig`                                     | config dict   | provider-specific config                             |
-|  [06]   | `ClientConfig` / `RetryConfig` / `BackoffConfig`                             | config dict   | HTTP client and retry/backoff policy                 |
-|  [07]   | `S3CredentialProvider` / `GCSCredentialProvider` / `AzureCredentialProvider` | provider      | sync/async credential refresh callable               |
+| [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY] | [RAIL]                                               |
+| :-----: | :----------------------------------------------- | :------------ | :--------------------------------------------------- |
+|  [01]   | `store.S3Store` / `GCSStore` / `AzureStore`      | store         | cloud object-store backends                          |
+|  [02]   | `store.HTTPStore` / `LocalStore` / `MemoryStore` | store         | HTTP, local, and memory backends                     |
+|  [03]   | `store.ObjectStore`                              | store alias   | canonical store-handle union returned by `from_url`  |
+|  [04]   | `store.ObjectStoreMethods`                       | mixin base    | concrete bound-method surface every store subclasses |
+|  [05]   | `S3Config` / `GCSConfig` / `AzureConfig`         | config dict   | provider-specific config                             |
+|  [06]   | `ClientConfig` / `RetryConfig` / `BackoffConfig` | config dict   | HTTP client and retry/backoff policy                 |
+|  [07]   | `S3CredentialProvider`                           | provider      | S3 sync/async credential refresh callable            |
+|  [08]   | `GCSCredentialProvider`                          | provider      | GCS sync/async credential refresh callable           |
+|  [09]   | `AzureCredentialProvider`                        | provider      | Azure sync/async credential refresh callable         |
 
 [PUBLIC_TYPE_SCOPE]: result, request, buffer, and faults
 - rail: object storage
 
-| [INDEX] | [SYMBOL]                                                                    | [TYPE_FAMILY] | [RAIL]                                                 |
-| :-----: | :-------------------------------------------------------------------------- | :------------ | :----------------------------------------------------- |
-|  [01]   | `Bytes`                                                                     | buffer        | zero-copy bytes wrapper with buffer protocol           |
-|  [02]   | `GetResult`                                                                 | result        | metadata plus `.bytes()` and `.stream(min_chunk_size)` |
-|  [03]   | `ObjectMeta` / `ListResult` / `ListStream`                                  | metadata      | object metadata and stream/list carriers               |
-|  [04]   | `PutResult`                                                                 | result        | put response with `e_tag` and `version`                |
-|  [05]   | `GetOptions` / `PutMode` / `UpdateVersion`                                  | request       | conditional get/put request policy                     |
-|  [06]   | `OffsetRange` / `SuffixRange`                                               | range         | range request shapes                                   |
-|  [07]   | `ReadableFile` / `AsyncReadableFile` / `WritableFile` / `AsyncWritableFile` | file          | buffered object file handles                           |
-|  [08]   | `exceptions.BaseError` and subclasses                                       | fault         | object-store fault hierarchy                           |
+| [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY] | [RAIL]                                                 |
+| :-----: | :----------------------------------------- | :------------ | :----------------------------------------------------- |
+|  [01]   | `Bytes`                                    | buffer        | zero-copy bytes wrapper with buffer protocol           |
+|  [02]   | `GetResult`                                | result        | metadata plus `.bytes()` and `.stream(min_chunk_size)` |
+|  [03]   | `ObjectMeta` / `ListResult` / `ListStream` | metadata      | object metadata and stream/list carriers               |
+|  [04]   | `PutResult`                                | result        | put response with `e_tag` and `version`                |
+|  [05]   | `GetOptions` / `PutMode` / `UpdateVersion` | request       | conditional get/put request policy                     |
+|  [06]   | `OffsetRange` / `SuffixRange`              | range         | range request shapes                                   |
+|  [07]   | `ReadableFile` / `AsyncReadableFile`       | file          | buffered object read handle (sync/async)               |
+|  [08]   | `WritableFile` / `AsyncWritableFile`       | file          | buffered object write handle (sync/async)              |
+|  [09]   | `exceptions.BaseError` and subclasses      | fault         | object-store fault hierarchy                           |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: store construction, credentials, retry, and fsspec bridge
+[ENTRYPOINT_SCOPE]: store construction and credentials
+- rail: object storage
+- every constructor and `from_url` accept `config`, `client_options`, `retry_config`, `credential_provider`; `from_url` adds `url`, `**kwargs` and returns `ObjectStore`
+
+| [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY] | [RAIL]                             |
+| :-----: | :--------------------------------------------------------------------------------- | :------------- | :--------------------------------- |
+|  [01]   | `store.from_url(url, **kwargs) -> ObjectStore`                                     | construct      | URL-dispatched store construction  |
+|  [02]   | `S3Store` / `GCSStore` / `AzureStore` / `HTTPStore` / `LocalStore` / `MemoryStore` | construct      | typed store construction           |
+|  [03]   | `parse_scheme(url) -> Literal["s3","gcs","http","local","memory","azure"]`         | classify       | URL backend classification         |
+|  [04]   | `auth.boto3.*`                                                                     | credential     | AWS boto3 credential provider      |
+|  [05]   | `auth.google.*`                                                                    | credential     | GCS credential provider            |
+|  [06]   | `auth.azure.*`                                                                     | credential     | Azure credential provider          |
+|  [07]   | `auth.earthdata.*`                                                                 | credential     | NASA Earthdata credential provider |
+|  [08]   | `auth.planetary_computer.*`                                                        | credential     | MS Planetary Computer provider     |
+
+[ENTRYPOINT_SCOPE]: fsspec bridge
 - rail: object storage
 
-| [INDEX] | [SURFACE]                                                                                                                        | [ENTRY_FAMILY] | [RAIL]                            |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------- |
-|  [01]   | `store.from_url(url, *, config=None, client_options=None, retry_config=None, credential_provider=None, **kwargs) -> ObjectStore` | construct      | URL-dispatched store construction |
-|  [02]   | `S3Store(...)` / `GCSStore(...)` / `AzureStore(...)` / `HTTPStore(...)` / `LocalStore(...)` / `MemoryStore(...)`                 | construct      | typed store construction          |
-|  [03]   | `parse_scheme(url) -> Literal["s3","gcs","http","local","memory","azure"]`                                                       | classify       | URL backend classification        |
-|  [04]   | `auth.boto3.*` / `auth.google.*` / `auth.azure.*` / `auth.earthdata.*` / `auth.planetary_computer.*`                             | credential     | shipped credential providers      |
-|  [05]   | `fsspec.register(protocols=None, *, asynchronous=False)` / `fsspec.FsspecStore` / `fsspec.BufferedFile`                          | bridge         | adapt obstore into fsspec         |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                               |
+| :-----: | :------------------------------------------------------- | :------------- | :----------------------------------- |
+|  [01]   | `fsspec.register(protocols=None, *, asynchronous=False)` | bridge         | register obstore as fsspec protocols |
+|  [02]   | `fsspec.FsspecStore`                                     | bridge         | fsspec `AsyncFileSystem` adapter     |
+|  [03]   | `fsspec.BufferedFile`                                    | bridge         | fsspec buffered file handle          |
 
 [ENTRYPOINT_SCOPE]: reads, mutation, listing, streaming, and signing
 - rail: object storage
+- every operation has a sync form and an `_async` mirror; the sync name is listed
 
-| [INDEX] | [SURFACE]                                                                                           | [ENTRY_FAMILY] | [RAIL]                                    |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------- |
-|  [01]   | `get` / `get_async` / `head` / `head_async`                                                         | read           | object and metadata reads                 |
-|  [02]   | `get_range` / `get_range_async` / `get_ranges` / `get_ranges_async`                                 | range read     | single and coalesced range reads          |
-|  [03]   | `put` / `put_async` / `delete` / `delete_async` / `copy` / `copy_async` / `rename` / `rename_async` | mutation       | object mutation                           |
-|  [04]   | `list` / `list_with_delimiter` / async mirrors                                                      | listing        | recursive and delimited listings          |
-|  [05]   | `open_reader` / `open_reader_async` / `open_writer` / `open_writer_async`                           | file           | buffered object stream handles            |
-|  [06]   | `sign` / `sign_async`                                                                               | presign        | presigned URLs for signing-capable stores |
+| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [RAIL]                                    |
+| :-----: | :----------------------------------- | :------------- | :---------------------------------------- |
+|  [01]   | `get` / `head`                       | read           | object and metadata reads                 |
+|  [02]   | `get_range` / `get_ranges`           | range read     | single and coalesced range reads          |
+|  [03]   | `put` / `delete` / `copy` / `rename` | mutation       | object mutation                           |
+|  [04]   | `list` / `list_with_delimiter`       | listing        | recursive and delimited listings          |
+|  [05]   | `open_reader` / `open_writer`        | file           | buffered object stream handles            |
+|  [06]   | `sign`                               | presign        | presigned URLs for signing-capable stores |
 
 Every operation exists as both a module-level free function taking `store` first and a bound store method through `ObjectStoreMethods`; callers with a held store use the bound form, and callers threading stores as values use the free-function form.
 

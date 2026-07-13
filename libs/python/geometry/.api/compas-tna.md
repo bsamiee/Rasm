@@ -45,87 +45,94 @@
 [PUBLIC_TYPE_SCOPE]: load, numdata, and scene family
 - rail: load computation, numerical cache, scene rendering
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]          | [CAPABILITY]                                                                                                                                      |
-| :-----: | :------------------- | :--------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `LoadUpdater`        | callable load computer | `compas_tna.loads`; constructed against the form mesh, called as `updater(p, xyz)` to refresh selfweight in place                                 |
-|  [02]   | `FormDiagramNumData` | numerical cache        | `compas_tna.numdata`; wraps a `FormDiagram` into cached numpy arrays (`xyz`/`p`/`q`/`C`/`Q`/`fixed`/`free`) plus `update_formdiagram()` writeback |
-|  [03]   | `FormDiagramObject`  | scene node             | `compas_tna.scene`; Rhino/notebook scene object for a `FormDiagram`                                                                               |
-|  [04]   | `ForceDiagramObject` | scene node             | `compas_tna.scene`; Rhino/notebook scene object for a `ForceDiagram`                                                                              |
+`LoadUpdater` lives in `compas_tna.loads`, `FormDiagramNumData` in `compas_tna.numdata`, and the two scene objects in `compas_tna.scene`.
+
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]          | [CAPABILITY]                                                                      |
+| :-----: | :------------------- | :--------------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `LoadUpdater`        | callable load computer | bound to the form mesh; `updater(p, xyz)` refreshes selfweight in place           |
+|  [02]   | `FormDiagramNumData` | numerical cache        | caches `xyz`/`p`/`q`/`C`/`Q`/`fixed`/`free` numpy arrays + `update_formdiagram()` |
+|  [03]   | `FormDiagramObject`  | scene node             | Rhino/notebook scene object for a `FormDiagram`                                   |
+|  [04]   | `ForceDiagramObject` | scene node             | Rhino/notebook scene object for a `ForceDiagram`                                  |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: FormDiagram construction — `compas_tna.diagrams`
 - rail: form-finding setup
 
-The `create_*` classmethods build the pattern mesh through the `diagram_rectangular`/`diagram_circular`/`diagram_arch` mesh generators, then wrap it as a `FormDiagram`. `supports="corners"` is the default support strategy on the rectangular family.
+The `create_*` classmethods (the `FormDiagram.` prefix elided below) build the pattern mesh through the `diagram_rectangular`/`diagram_circular`/`diagram_arch` generators, then wrap it as a `FormDiagram`. The rectangular family shares `x_span=(0.0,10.0), y_span=(0.0,10.0), supports="corners"`; the circular family shares `center=(5.0,5.0), radius=5.0, n_hoops=8, n_parallels=20, r_oculus=0.0`.
 
-| [INDEX] | [SURFACE]                                                                                                                                                 | [ENTRY_FAMILY] | [RAIL]                             |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------- |
-|  [01]   | `FormDiagram.create_cross(x_span=(0.0,10.0), y_span=(0.0,10.0), n=10, supports="corners")`                                                                | factory        | cross-vault pattern diagram        |
-|  [02]   | `FormDiagram.create_cross_with_diagonal(x_span=(0.0,10.0), y_span=(0.0,10.0), n=10, supports="corners")`                                                  | factory        | cross + diagonal diagram           |
-|  [03]   | `FormDiagram.create_fan(x_span=(0.0,10.0), y_span=(0.0,10.0), n_fans=10, n_hoops=10, supports="corners")`                                                 | factory        | fan pattern diagram                |
-|  [04]   | `FormDiagram.create_parametric_fan(x_span=(0.0,10.0), y_span=(0.0,10.0), n=10, lambd=0.5, supports="corners")`                                            | factory        | parametric fan diagram             |
-|  [05]   | `FormDiagram.create_ortho(x_span=(0.0,10.0), y_span=(0.0,10.0), nx=10, ny=10, supports="corners")`                                                        | factory        | orthogonal grid diagram            |
-|  [06]   | `FormDiagram.create_circular_radial(center=(5.0,5.0), radius=5.0, n_hoops=8, n_parallels=20, r_oculus=0.0, diagonal=False, diagonal_type="split")`        | factory        | circular radial diagram            |
-|  [07]   | `FormDiagram.create_circular_radial_spaced(center=(5.0,5.0), radius=5.0, n_hoops=8, n_parallels=20, r_oculus=0.0, diagonal=False, diagonal_type="split")` | factory        | non-uniform radial diagram         |
-|  [08]   | `FormDiagram.create_circular_spiral(center=(5.0,5.0), radius=5.0, n_hoops=8, n_parallels=20, r_oculus=0.0)`                                               | factory        | spiral radial diagram              |
-|  [09]   | `FormDiagram.create_arch(H=1.0, L=2.0, x0=0.0, n=100)`                                                                                                    | factory        | arch diagram                       |
-|  [10]   | `FormDiagram.create_arch_equally_spaced(L=2.0, x0=0.0, n=100)`                                                                                            | factory        | equally spaced arch diagram        |
-|  [11]   | `FormDiagram.from_mesh(mesh: compas.datastructures.Mesh) -> FormDiagram` / `FormDiagram.from_lines(...)`                                                  | converter      | from a COMPAS `Mesh` or line set   |
-|  [12]   | `ForceDiagram.from_formdiagram(form: FormDiagram) -> ForceDiagram`                                                                                        | factory        | build the reciprocal force diagram |
+| [INDEX] | [SURFACE]                                                              | [PATTERN]                      |
+| :-----: | :--------------------------------------------------------------------- | :----------------------------- |
+|  [01]   | `create_cross(n=10)`                                                   | cross-vault                    |
+|  [02]   | `create_cross_with_diagonal(n=10)`                                     | cross + diagonal               |
+|  [03]   | `create_fan(n_fans=10, n_hoops=10)`                                    | fan                            |
+|  [04]   | `create_parametric_fan(n=10, lambd=0.5)`                               | parametric fan                 |
+|  [05]   | `create_ortho(nx=10, ny=10)`                                           | orthogonal grid                |
+|  [06]   | `create_circular_radial(diagonal=False, diagonal_type="split")`        | circular radial                |
+|  [07]   | `create_circular_radial_spaced(diagonal=False, diagonal_type="split")` | non-uniform radial             |
+|  [08]   | `create_circular_spiral()`                                             | spiral radial                  |
+|  [09]   | `create_arch(H=1.0, L=2.0, x0=0.0, n=100)`                             | arch                           |
+|  [10]   | `create_arch_equally_spaced(L=2.0, x0=0.0, n=100)`                     | equally spaced arch            |
+|  [11]   | `from_mesh(mesh) -> FormDiagram` / `from_lines(...)`                   | converter from `Mesh` or lines |
+|  [12]   | `ForceDiagram.from_formdiagram(form) -> ForceDiagram`                  | reciprocal force diagram       |
 
 [ENTRYPOINT_SCOPE]: equilibrium solvers — `compas_tna.equilibrium`
 - rail: horizontal + vertical equilibrium
 
-`compas_tna.equilibrium.__init__` exports the pure `horizontal_nodal` always; under `not compas.IPY` it adds `horizontal_numpy`, `horizontal_nodal_numpy`, `relax_boundary_openings`, `vertical_from_q`, `vertical_from_zmax`. The `_numpy` variants are the production path. `alpha` is a 0..100 weighting (clamped to 0..1 internally): 100 fixes the form diagram, 0 fixes the force diagram. The solvers return their inputs `(form, force)` for RPC compatibility. `relax_boundary_openings` delegates to `compas_fd.fd_numpy`.
+`compas_tna.equilibrium.__init__` exports the pure `horizontal_nodal` always; under `not compas.IPY` it adds `horizontal_numpy`, `horizontal_nodal_numpy`, `relax_boundary_openings`, `vertical_from_q`, `vertical_from_zmax`. The `_numpy` variants are the production path. `alpha` is a 0..100 weighting (clamped to 0..1 internally): 100 fixes the form diagram, 0 fixes the force diagram. The horizontal pair returns `tuple[FormDiagram, ForceDiagram]` (returning its inputs for RPC compatibility) and shares `alpha, kmax=100`; the vertical solvers share `kmax=100, density=1.0, display=False`. `relax_boundary_openings` delegates to `compas_fd.fd_numpy`.
 
-| [INDEX] | [SURFACE]                                                                                                                 | [ENTRY_FAMILY] | [RAIL]                                                      |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------ | :------------- | :---------------------------------------------------------- |
-|  [01]   | `horizontal_numpy(form, force, alpha=100.0, kmax=100) -> tuple[FormDiagram, ForceDiagram]`                                | solver         | numpy horizontal equilibrium                                |
-|  [02]   | `horizontal_nodal_numpy(form, force, alpha=100, kmax=100) -> tuple[FormDiagram, ForceDiagram]`                            | solver         | nodal horizontal equilibrium                                |
-|  [03]   | `horizontal_nodal(form, force, ...)`                                                                                      | solver         | pure-Python nodal fallback (always exported)                |
-|  [04]   | `vertical_from_q(form, scale=1.0, density=1.0, kmax=100, tol=1e-3, display=False)`                                        | solver         | vertical from force density                                 |
-|  [05]   | `vertical_from_zmax(form, zmax, kmax=100, xtol=1e-2, rtol=1e-3, density=1.0, display=False) -> tuple[FormDiagram, float]` | solver         | vertical scale search for a target crown height             |
-|  [06]   | `relax_boundary_openings(form, fixed: list[int]) -> FormDiagram`                                                          | relaxation     | inward-curving boundary relaxation via `compas_fd.fd_numpy` |
+| [INDEX] | [SURFACE]                                                                           | [RAIL]                                        |
+| :-----: | :---------------------------------------------------------------------------------- | :-------------------------------------------- |
+|  [01]   | `horizontal_numpy(form, force, alpha=100.0, kmax=100)`                              | numpy horizontal equilibrium                  |
+|  [02]   | `horizontal_nodal_numpy(form, force, alpha=100, kmax=100)`                          | nodal horizontal equilibrium                  |
+|  [03]   | `horizontal_nodal(form, force, ...)`                                                | pure-Python nodal fallback (always exported)  |
+|  [04]   | `vertical_from_q(form, scale=1.0, tol=1e-3)`                                        | vertical from force density                   |
+|  [05]   | `vertical_from_zmax(form, zmax, xtol=1e-2, rtol=1e-3) -> tuple[FormDiagram, float]` | vertical scale search for target crown height |
+|  [06]   | `relax_boundary_openings(form, fixed: list[int]) -> FormDiagram`                    | boundary relaxation via `compas_fd.fd_numpy`  |
 
 [ENTRYPOINT_SCOPE]: parallelisation primitives — `compas_tna.equilibrium.parallelisation_numpy`
 - rail: sparse linear algebra
 
 These are the sparse primitives the horizontal solvers call; they are not re-exported from `compas_tna.equilibrium`, so import them from the `parallelisation_numpy` module directly.
 
-| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY] | [RAIL]                                             |
-| :-----: | :-------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `parallelise(A, x, b, known: list[int]) -> ndarray`                                           | numeric        | least-squares parallelisation step with known DOFs |
-|  [02]   | `parallelise_nodal(xy, C, targets, i_nbrs, ij_e, fixed=None, kmax=100, lmin=None, lmax=None)` | numeric        | node-per-node parallelisation step                 |
-|  [03]   | `parallelise_sparse(A, B, X, known, k=1, key=None)`                                           | numeric        | sparse-solve parallelisation step                  |
-|  [04]   | `apply_bounds(x, xmin, xmax)`                                                                 | numeric        | clamp coordinates to length bounds                 |
+| [INDEX] | [SURFACE]                                                                                     | [RAIL]                             |
+| :-----: | :-------------------------------------------------------------------------------------------- | :--------------------------------- |
+|  [01]   | `parallelise(A, x, b, known: list[int]) -> ndarray`                                           | least-squares step with known DOFs |
+|  [02]   | `parallelise_nodal(xy, C, targets, i_nbrs, ij_e, fixed=None, kmax=100, lmin=None, lmax=None)` | node-per-node step                 |
+|  [03]   | `parallelise_sparse(A, B, X, known, k=1, key=None)`                                           | sparse-solve step                  |
+|  [04]   | `apply_bounds(x, xmin, xmax)`                                                                 | clamp coordinates to length bounds |
 
 [ENTRYPOINT_SCOPE]: load computation — `compas_tna.loads`
 - rail: load application
 
 `LoadUpdater` constructs a face matrix once, then its `__call__(p, xyz)` updates `p[:, 2]` in place from `tributary_area * thickness * density + tributary_area * live`. `thickness` is a per-vertex array or a constant.
 
-| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [RAIL]                                                                    |
-| :-----: | :------------------------------------------------------------ | :------------- | :------------------------------------------------------------------------ |
-|  [01]   | `LoadUpdater(mesh, p0, thickness=1.0, density=1.0, live=0.0)` | constructor    | tributary load computer bound to the form mesh and fixed loads `p0` (Nx3) |
-|  [02]   | `LoadUpdater.__call__(p, xyz) -> None`                        | callable       | refresh `p[:,2]` selfweight in place for the current `xyz`                |
-|  [03]   | `LoadUpdater.tributary_areas(xyz) -> ndarray (N,1)`           | method         | per-vertex tributary area for the current coordinates                     |
-|  [04]   | `LoadUpdater.face_matrix() -> scipy.sparse.csr_matrix`        | method         | normalized face-vertex centroid matrix                                    |
+| [INDEX] | [SURFACE]                                                     | [RAIL]                                                           |
+| :-----: | :------------------------------------------------------------ | :--------------------------------------------------------------- |
+|  [01]   | `LoadUpdater(mesh, p0, thickness=1.0, density=1.0, live=0.0)` | tributary load computer bound to the form mesh, loads `p0` (Nx3) |
+|  [02]   | `LoadUpdater.__call__(p, xyz) -> None`                        | refresh `p[:,2]` selfweight in place for the current `xyz`       |
+|  [03]   | `LoadUpdater.tributary_areas(xyz) -> ndarray (N,1)`           | per-vertex tributary area for the current coordinates            |
+|  [04]   | `LoadUpdater.face_matrix() -> scipy.sparse.csr_matrix`        | normalized face-vertex centroid matrix                           |
 
 [ENTRYPOINT_SCOPE]: envelope operations — `compas_tna.envelope`
 - rail: structural bounds application
 
 The `apply_*_to_formdiagram(formdiagram)` methods push the envelope's geometry onto the form diagram's vertex attributes; the `compute_bounds(x, y)`-family take coordinate arrays and return intrados/extrados arrays. Base methods raise `NotImplementedError`; subclasses override per vault geometry.
 
-| [INDEX] | [SURFACE]                                                                                                                                                      | [ENTRY_FAMILY] | [RAIL]                                                                               |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `Envelope(rho=20.0, rho_fill=14.0, is_parametric=False)`                                                                                                       | constructor    | material density bounds                                                              |
-|  [02]   | `Envelope.apply_selfweight_to_formdiagram(formdiagram)`                                                                                                        | method         | apply selfweight load to vertices                                                    |
-|  [03]   | `Envelope.apply_fill_weight_to_formdiagram(formdiagram)`                                                                                                       | method         | apply fill-weight load                                                               |
-|  [04]   | `Envelope.apply_bounds_to_formdiagram(formdiagram)` / `apply_target_heights_to_formdiagram(formdiagram)` / `apply_reaction_bounds_to_formdiagram(formdiagram)` | method         | apply height/target/reaction bounds                                                  |
-|  [05]   | `Envelope.compute_bounds(x, y) -> tuple[ndarray, ndarray]`                                                                                                     | method         | upper/lower bound surfaces at `(x,y)`                                                |
-|  [06]   | `Envelope.compute_middle(x, y) -> ndarray` / `compute_bounds_derivatives(x, y)`                                                                                | method         | mid-surface and bound gradients                                                      |
-|  [07]   | `Envelope.compute_area() -> float` / `compute_volume() -> float` / `compute_selfweight() -> float`                                                             | method         | total area/volume/selfweight (cached as the `area`/`volume`/`selfweight` properties) |
+| [INDEX] | [SURFACE]                                                    | [RAIL]                                          |
+| :-----: | :----------------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | `Envelope(rho=20.0, rho_fill=14.0, is_parametric=False)`     | material density bounds                         |
+|  [02]   | `Envelope.apply_selfweight_to_formdiagram(formdiagram)`      | apply selfweight load to vertices               |
+|  [03]   | `Envelope.apply_fill_weight_to_formdiagram(formdiagram)`     | apply fill-weight load                          |
+|  [04]   | `Envelope.apply_bounds_to_formdiagram(formdiagram)`          | apply height bounds                             |
+|  [05]   | `Envelope.apply_target_heights_to_formdiagram(formdiagram)`  | apply target heights                            |
+|  [06]   | `Envelope.apply_reaction_bounds_to_formdiagram(formdiagram)` | apply reaction bounds                           |
+|  [07]   | `Envelope.compute_bounds(x, y) -> tuple[ndarray, ndarray]`   | upper/lower bound surfaces at `(x,y)`           |
+|  [08]   | `Envelope.compute_middle(x, y) -> ndarray`                   | mid-surface at `(x,y)`                          |
+|  [09]   | `Envelope.compute_bounds_derivatives(x, y)`                  | bound gradients                                 |
+|  [10]   | `Envelope.compute_area() -> float`                           | total area (cached `area` property)             |
+|  [11]   | `Envelope.compute_volume() -> float`                         | total volume (cached `volume` property)         |
+|  [12]   | `Envelope.compute_selfweight() -> float`                     | total selfweight (cached `selfweight` property) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

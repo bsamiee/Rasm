@@ -4,11 +4,11 @@ The one digest-at-rest credential owner: second-factor OTP, recovery codes, and 
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                         | [PUBLIC]                                                                               |
-| :-----: | :-------------- | :----------------------------------------------------------------------------- | :------------------------------------------------------------------------------------- |
-|  [01]   | `DIGEST_IDIOM`  | the shared mint + candidate-resolve fold, the folder fault                     | `Digest`, `CredentialFault`                                                            |
-|  [02]   | `SECOND_FACTOR` | TOTP/HOTP enroll/verify, the replay floor, window projection, recovery codes   | `Otp`, `OtpVerdict`, `RecoverySet`                                                     |
-|  [03]   | `MACHINE_KEY`   | mint / prefix-resolve / rotate / revoke over `Digest`, the api-key scheme seam | `ApiKey`, `ApiKeyRecord`, `MintReceipt`, `ApiKeyStore`, `ApiKeyGuard`, `CurrentApiKey` |
+| [INDEX] | [CLUSTER]       | [PUBLIC]                                                                               |
+| :-----: | :-------------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `DIGEST_IDIOM`  | `Digest`, `CredentialFault`                                                            |
+|  [02]   | `SECOND_FACTOR` | `Otp`, `OtpVerdict`, `RecoverySet`                                                     |
+|  [03]   | `MACHINE_KEY`   | `ApiKey`, `ApiKeyRecord`, `MintReceipt`, `ApiKeyStore`, `ApiKeyGuard`, `CurrentApiKey` |
 
 ## [02]-[DIGEST_IDIOM]
 

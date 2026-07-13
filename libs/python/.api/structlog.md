@@ -49,113 +49,117 @@
 [PUBLIC_TYPE_SCOPE]: stdlib bridge
 - rail: observability
 
-| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY] | [RAIL]                                                                            |
-| :-----: | :------------------------------------- | :------------ | :-------------------------------------------------------------------------------- |
-|  [01]   | `stdlib.ProcessorFormatter`            | formatter     | stdlib `Formatter` rendering both structlog and foreign records through one chain |
-|  [02]   | `stdlib.LoggerFactory`                 | factory       | `logging.getLogger`-backed logger factory                                         |
-|  [03]   | `stdlib.BoundLogger`                   | stdlib logger | bound logger with stdlib level methods + `bind`                                   |
-|  [04]   | `stdlib.AsyncBoundLogger`              | async logger  | `await log.ainfo(...)` async-mirror bound logger                                  |
-|  [05]   | `stdlib.ExtraAdder`                    | processor     | merge a stdlib record's `extra` dict into the event                               |
-|  [06]   | `stdlib.PositionalArgumentsFormatter`  | processor     | apply `%`-style positional args to the event message                              |
-|  [07]   | `stdlib.add_log_level`                 | processor fn  | inject the level name into the event                                              |
-|  [08]   | `stdlib.add_log_level_number`          | processor fn  | inject the numeric level for ordering/filtering                                   |
-|  [09]   | `stdlib.add_logger_name`               | processor fn  | inject the wrapped logger's name as `logger`                                      |
-|  [10]   | `stdlib.filter_by_level`               | processor fn  | drop the event (`DropEvent`) below the stdlib level                               |
-|  [11]   | `stdlib.render_to_log_kwargs`          | processor fn  | hand the event to stdlib as `msg` + `extra` kwargs                                |
-|  [12]   | `stdlib.render_to_log_args_and_kwargs` | processor fn  | hand the event to stdlib as positional args + kwargs                              |
-|  [13]   | `stdlib.recreate_defaults`             | config fn     | rebuild stdlib-integrated default config (`log_level=`)                           |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY] | [RAIL]                                                  |
+| :-----: | :------------------------------------- | :------------ | :------------------------------------------------------ |
+|  [01]   | `stdlib.ProcessorFormatter`            | formatter     | renders structlog and foreign records through one chain |
+|  [02]   | `stdlib.LoggerFactory`                 | factory       | `logging.getLogger`-backed logger factory               |
+|  [03]   | `stdlib.BoundLogger`                   | stdlib logger | bound logger with stdlib level methods + `bind`         |
+|  [04]   | `stdlib.AsyncBoundLogger`              | async logger  | `await log.ainfo(...)` async-mirror bound logger        |
+|  [05]   | `stdlib.ExtraAdder`                    | processor     | merge a stdlib record's `extra` dict into the event     |
+|  [06]   | `stdlib.PositionalArgumentsFormatter`  | processor     | apply `%`-style positional args to the event message    |
+|  [07]   | `stdlib.add_log_level`                 | processor fn  | inject the level name into the event                    |
+|  [08]   | `stdlib.add_log_level_number`          | processor fn  | inject the numeric level for ordering/filtering         |
+|  [09]   | `stdlib.add_logger_name`               | processor fn  | inject the wrapped logger's name as `logger`            |
+|  [10]   | `stdlib.filter_by_level`               | processor fn  | drop the event (`DropEvent`) below the stdlib level     |
+|  [11]   | `stdlib.render_to_log_kwargs`          | processor fn  | hand the event to stdlib as `msg` + `extra` kwargs      |
+|  [12]   | `stdlib.render_to_log_args_and_kwargs` | processor fn  | hand the event to stdlib as positional args + kwargs    |
+|  [13]   | `stdlib.recreate_defaults`             | config fn     | rebuild stdlib-integrated default config (`log_level=`) |
 
 [PUBLIC_TYPE_SCOPE]: processors and renderers
 - rail: observability
 
-| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [RAIL]                                                                                  |
-| :-----: | :------------------------------------ | :------------ | :-------------------------------------------------------------------------------------- |
-|  [01]   | `processors.TimeStamper`              | processor     | add timestamp (`fmt=`, `utc=`, `key=`) to the event                                     |
-|  [02]   | `processors.MaybeTimeStamper`         | processor     | add timestamp only when the key is absent                                               |
-|  [03]   | `processors.add_log_level`            | processor fn  | inject the level name into the event                                                    |
-|  [04]   | `processors.CallsiteParameterAdder`   | processor     | inject selected callsite fields (`parameters=`, `additional_ignores=`)                  |
-|  [05]   | `processors.CallsiteParameter`        | enum          | callsite field selector (`FILENAME`/`LINENO`/`FUNC_NAME`/`MODULE`/`PROCESS`/`THREAD`/…) |
-|  [06]   | `processors.EventRenamer`             | processor     | rename the `event` key (`to=`, `replace_by=`)                                           |
-|  [07]   | `processors.UnicodeDecoder`           | processor     | decode `bytes` values to `str`                                                          |
-|  [08]   | `processors.UnicodeEncoder`           | processor     | encode `str` values to `bytes`                                                          |
-|  [09]   | `processors.StackInfoRenderer`        | processor     | render `stack_info=True` call sites into the event                                      |
-|  [10]   | `processors.ExceptionRenderer`        | processor     | render `exc_info` via an `ExceptionTransformer`                                         |
-|  [11]   | `processors.ExceptionDictTransformer` | processor     | convert an exception into a JSON-safe nested dict                                       |
-|  [12]   | `processors.dict_tracebacks`          | processor fn  | preconfigured `ExceptionRenderer(ExceptionDictTransformer())` for JSON pipelines        |
-|  [13]   | `processors.format_exc_info`          | processor fn  | render `exc_info` to a `exception` traceback string                                     |
-|  [14]   | `processors.ExceptionPrettyPrinter`   | processor     | pretty-print exceptions to a stream (dev only)                                          |
-|  [15]   | `processors.get_processname`          | processor fn  | inject the OS process name                                                              |
-|  [16]   | `processors.JSONRenderer`             | renderer      | serialize the event dict to JSON (`serializer=`, `**dumps_kw`)                          |
-|  [17]   | `processors.KeyValueRenderer`         | renderer      | serialize to `key=value` (`sort_keys=`, `key_order=`, `drop_missing=`)                  |
-|  [18]   | `processors.LogfmtRenderer`           | renderer      | serialize to logfmt                                                                     |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [RAIL]                                                                           |
+| :-----: | :------------------------------------ | :------------ | :------------------------------------------------------------------------------- |
+|  [01]   | `processors.TimeStamper`              | processor     | add timestamp (`fmt=`, `utc=`, `key=`) to the event                              |
+|  [02]   | `processors.MaybeTimeStamper`         | processor     | add timestamp only when the key is absent                                        |
+|  [03]   | `processors.add_log_level`            | processor fn  | inject the level name into the event                                             |
+|  [04]   | `processors.CallsiteParameterAdder`   | processor     | inject selected callsite fields (`parameters=`, `additional_ignores=`)           |
+|  [05]   | `processors.CallsiteParameter`        | enum          | field selector: `FILENAME`/`LINENO`/`FUNC_NAME`/`MODULE`/`PROCESS`/`THREAD`/…    |
+|  [06]   | `processors.EventRenamer`             | processor     | rename the `event` key (`to=`, `replace_by=`)                                    |
+|  [07]   | `processors.UnicodeDecoder`           | processor     | decode `bytes` values to `str`                                                   |
+|  [08]   | `processors.UnicodeEncoder`           | processor     | encode `str` values to `bytes`                                                   |
+|  [09]   | `processors.StackInfoRenderer`        | processor     | render `stack_info=True` call sites into the event                               |
+|  [10]   | `processors.ExceptionRenderer`        | processor     | render `exc_info` via an `ExceptionTransformer`                                  |
+|  [11]   | `processors.ExceptionDictTransformer` | processor     | convert an exception into a JSON-safe nested dict                                |
+|  [12]   | `processors.dict_tracebacks`          | processor fn  | preconfigured `ExceptionRenderer(ExceptionDictTransformer())` for JSON pipelines |
+|  [13]   | `processors.format_exc_info`          | processor fn  | render `exc_info` to a `exception` traceback string                              |
+|  [14]   | `processors.ExceptionPrettyPrinter`   | processor     | pretty-print exceptions to a stream (dev only)                                   |
+|  [15]   | `processors.get_processname`          | processor fn  | inject the OS process name                                                       |
+|  [16]   | `processors.JSONRenderer`             | renderer      | serialize the event dict to JSON (`serializer=`, `**dumps_kw`)                   |
+|  [17]   | `processors.KeyValueRenderer`         | renderer      | serialize to `key=value` (`sort_keys=`, `key_order=`, `drop_missing=`)           |
+|  [18]   | `processors.LogfmtRenderer`           | renderer      | serialize to logfmt                                                              |
 
 [PUBLIC_TYPE_SCOPE]: dev renderer and traceback formatters
 - rail: observability
 
-| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [RAIL]                                                                                        |
-| :-----: | :---------------------------- | :------------ | :-------------------------------------------------------------------------------------------- |
-|  [01]   | `dev.ConsoleRenderer`         | renderer      | colored, column-laid-out human console output (`columns=`, `colors=`, `exception_formatter=`) |
-|  [02]   | `dev.Column`                  | column spec   | one `ConsoleRenderer` column (key + `ColumnFormatter`)                                        |
-|  [03]   | `dev.ColumnFormatter`         | protocol      | column value-formatter protocol                                                               |
-|  [04]   | `dev.KeyValueColumnFormatter` | formatter     | `key=value` column formatter                                                                  |
-|  [05]   | `dev.LogLevelColumnFormatter` | formatter     | level-colored column formatter                                                                |
-|  [06]   | `dev.ColumnStyles`            | dataclass     | per-column color/style configuration                                                          |
-|  [07]   | `dev.RichTracebackFormatter`  | formatter     | Rich-based traceback formatter (default exc formatter)                                        |
-|  [08]   | `dev.plain_traceback`         | formatter fn  | dependency-free plain traceback                                                               |
-|  [09]   | `dev.rich_traceback`          | formatter fn  | Rich traceback (requires `rich`)                                                              |
-|  [10]   | `dev.better_traceback`        | formatter fn  | `better-exceptions` traceback                                                                 |
-|  [11]   | `dev.set_exc_info`            | processor fn  | set `exc_info=True` when an exception is being logged                                         |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [RAIL]                                                                        |
+| :-----: | :---------------------------- | :------------ | :---------------------------------------------------------------------------- |
+|  [01]   | `dev.ConsoleRenderer`         | renderer      | colored column console output (`columns=`, `colors=`, `exception_formatter=`) |
+|  [02]   | `dev.Column`                  | column spec   | one `ConsoleRenderer` column (key + `ColumnFormatter`)                        |
+|  [03]   | `dev.ColumnFormatter`         | protocol      | column value-formatter protocol                                               |
+|  [04]   | `dev.KeyValueColumnFormatter` | formatter     | `key=value` column formatter                                                  |
+|  [05]   | `dev.LogLevelColumnFormatter` | formatter     | level-colored column formatter                                                |
+|  [06]   | `dev.ColumnStyles`            | dataclass     | per-column color/style configuration                                          |
+|  [07]   | `dev.RichTracebackFormatter`  | formatter     | Rich-based traceback formatter (default exc formatter)                        |
+|  [08]   | `dev.plain_traceback`         | formatter fn  | dependency-free plain traceback                                               |
+|  [09]   | `dev.rich_traceback`          | formatter fn  | Rich traceback (requires `rich`)                                              |
+|  [10]   | `dev.better_traceback`        | formatter fn  | `better-exceptions` traceback                                                 |
+|  [11]   | `dev.set_exc_info`            | processor fn  | set `exc_info=True` when an exception is being logged                         |
 
 [PUBLIC_TYPE_SCOPE]: tracebacks, contextvars, testing
 - rail: observability
+- `tracebacks.ExceptionDictTransformer` carries `show_locals, max_frames, suppress, use_rich`
 
-| [INDEX] | [SYMBOL]                                                     | [TYPE_FAMILY] | [RAIL]                                                                                            |
-| :-----: | :----------------------------------------------------------- | :------------ | :------------------------------------------------------------------------------------------------ |
-|  [01]   | `tracebacks.ExceptionDictTransformer`                        | transformer   | `ExcInfo -> list[dict]` JSON-safe stack (`show_locals=`, `max_frames=`, `suppress=`, `use_rich=`) |
-|  [02]   | `tracebacks.Trace` / `tracebacks.Stack` / `tracebacks.Frame` | dataclass     | structured traceback node hierarchy                                                               |
-|  [03]   | `tracebacks.extract`                                         | extractor     | build a `Trace` from `(exc_type, exc_value, traceback)`                                           |
-|  [04]   | `testing.LogCapture`                                         | capture class | processor that appends events to `.entries`                                                       |
-|  [05]   | `testing.CapturingLogger`                                    | test logger   | wrapped logger storing `CapturedCall` records                                                     |
-|  [06]   | `testing.CapturedCall`                                       | event record  | one captured `(method_name, args, kwargs)` record                                                 |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [RAIL]                                                  |
+| :-----: | :------------------------------------ | :------------ | :------------------------------------------------------ |
+|  [01]   | `tracebacks.ExceptionDictTransformer` | transformer   | `ExcInfo -> list[dict]` JSON-safe stack                 |
+|  [02]   | `tracebacks.{Trace,Stack,Frame}`      | dataclass     | structured traceback node hierarchy                     |
+|  [03]   | `tracebacks.extract`                  | extractor     | build a `Trace` from `(exc_type, exc_value, traceback)` |
+|  [04]   | `testing.LogCapture`                  | capture class | processor that appends events to `.entries`             |
+|  [05]   | `testing.CapturingLogger`             | test logger   | wrapped logger storing `CapturedCall` records           |
+|  [06]   | `testing.CapturedCall`                | event record  | one captured `(method_name, args, kwargs)` record       |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: configuration and logger creation
 - rail: observability
+- `configure`/`configure_once` take `processors, wrapper_class, context_class, logger_factory, cache_logger_on_first_use`; `wrap_logger` takes `logger, processors, wrapper_class, context_class, cache_logger_on_first_use, **initial_values`
 
-| [INDEX] | [SURFACE]                                                                                                    | [ENTRY_FAMILY] | [RAIL]                                                              |
-| :-----: | :----------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------ |
-|  [01]   | `get_logger(*args, **initial_values)` (alias `getLogger`)                                                    | logger factory | get a lazily-configured bound logger                                |
-|  [02]   | `configure(processors, wrapper_class, context_class, logger_factory, cache_logger_on_first_use)`             | config         | set the global pipeline (call once at startup)                      |
-|  [03]   | `configure_once(...)`                                                                                        | config         | configure only if not already configured (idempotent for libraries) |
-|  [04]   | `make_filtering_bound_logger(min_level)`                                                                     | class factory  | generate a `FilteringBoundLogger` with only enabled-level methods   |
-|  [05]   | `wrap_logger(logger, processors, wrapper_class, context_class, cache_logger_on_first_use, **initial_values)` | wrapper        | wrap an existing logger with a local pipeline                       |
-|  [06]   | `reset_defaults()`                                                                                           | reset          | restore the default configuration                                   |
-|  [07]   | `get_config()` / `is_configured()`                                                                           | introspection  | current global config dict / configured flag                        |
-|  [08]   | `get_context(bound_logger)`                                                                                  | context query  | the bound logger's current context dict                             |
+| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [RAIL]                                                 |
+| :-----: | :-------------------------------------------------------- | :------------- | :----------------------------------------------------- |
+|  [01]   | `get_logger(*args, **initial_values)` (alias `getLogger`) | logger factory | get a lazily-configured bound logger                   |
+|  [02]   | `configure(...)`                                          | config         | set the global pipeline (call once at startup)         |
+|  [03]   | `configure_once(...)`                                     | config         | configure only if unset (library-safe)                 |
+|  [04]   | `make_filtering_bound_logger(min_level)`                  | class factory  | `FilteringBoundLogger` with only enabled-level methods |
+|  [05]   | `wrap_logger(...)`                                        | wrapper        | wrap an existing logger with a local pipeline          |
+|  [06]   | `reset_defaults()`                                        | reset          | restore the default configuration                      |
+|  [07]   | `get_config()` / `is_configured()`                        | introspection  | current global config dict / configured flag           |
+|  [08]   | `get_context(bound_logger)`                               | context query  | the bound logger's current context dict                |
 
 [ENTRYPOINT_SCOPE]: contextvars ambient context
 - rail: observability
+- members live under `structlog.contextvars`
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY]  | [RAIL]                                                           |
-| :-----: | :----------------------------------------------------- | :-------------- | :--------------------------------------------------------------- |
-|  [01]   | `contextvars.merge_contextvars(logger, method, event)` | processor fn    | merge the ambient context into the event (first in chain)        |
-|  [02]   | `contextvars.bind_contextvars(**kw)`                   | bind            | add keys to the async/thread-local context; returns reset tokens |
-|  [03]   | `contextvars.unbind_contextvars(*keys)`                | unbind          | remove keys from the context                                     |
-|  [04]   | `contextvars.reset_contextvars(**tokens)`              | reset           | restore prior context state from `bind` tokens                   |
-|  [05]   | `contextvars.clear_contextvars()`                      | clear           | remove all keys from the context                                 |
-|  [06]   | `contextvars.get_contextvars()`                        | query           | copy of the current context dict                                 |
-|  [07]   | `contextvars.bound_contextvars(**kw)`                  | context manager | scoped bind/auto-reset over a `with` block                       |
+| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]  | [RAIL]                                                           |
+| :-----: | :----------------------------------------- | :-------------- | :--------------------------------------------------------------- |
+|  [01]   | `merge_contextvars(logger, method, event)` | processor fn    | merge the ambient context into the event (first in chain)        |
+|  [02]   | `bind_contextvars(**kw)`                   | bind            | add keys to the async/thread-local context; returns reset tokens |
+|  [03]   | `unbind_contextvars(*keys)`                | unbind          | remove keys from the context                                     |
+|  [04]   | `reset_contextvars(**tokens)`              | reset           | restore prior context state from `bind` tokens                   |
+|  [05]   | `clear_contextvars()`                      | clear           | remove all keys from the context                                 |
+|  [06]   | `get_contextvars()`                        | query           | copy of the current context dict                                 |
+|  [07]   | `bound_contextvars(**kw)`                  | context manager | scoped bind/auto-reset over a `with` block                       |
 
 [ENTRYPOINT_SCOPE]: bound-logger methods and testing helpers
 - rail: observability
+- async mirrors exist only on `FilteringBoundLogger`
 
-| [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY]  | [RAIL]                                                        |
-| :-----: | :--------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------ |
-|  [01]   | `log.bind(**kw)` / `log.unbind(*keys)` / `log.try_unbind(*keys)` / `log.new(**kw)` | bound op        | derive a child logger with mutated context                    |
-|  [02]   | `log.debug/info/warning/error/critical/exception(event, **kw)`                     | log call        | emit through the processor chain                              |
-|  [03]   | `await log.adebug/ainfo/awarning/aerror(...)` (`FilteringBoundLogger`)             | async log       | async-mirror level methods that offload the chain to a thread |
-|  [04]   | `testing.capture_logs()`                                                           | context manager | capture every event in the block as a list of dicts           |
+| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY]  | [RAIL]                                               |
+| :-----: | :------------------------------------------------------------- | :-------------- | :--------------------------------------------------- |
+|  [01]   | `log.{bind,new}(**kw)` / `log.{unbind,try_unbind}(*keys)`      | bound op        | derive a child logger with mutated context           |
+|  [02]   | `log.debug/info/warning/error/critical/exception(event, **kw)` | log call        | emit through the processor chain                     |
+|  [03]   | `await log.adebug/ainfo/awarning/aerror(...)`                  | async log       | async-mirror levels offloading the chain to a thread |
+|  [04]   | `testing.capture_logs()`                                       | context manager | capture every event in the block as a list of dicts  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

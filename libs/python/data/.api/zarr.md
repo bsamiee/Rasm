@@ -52,18 +52,20 @@
 
 `zarr.codecs.__all__` is `('BloscCname', 'BloscCodec', 'BloscShuffle', 'BytesCodec', 'CastValue', 'Crc32cCodec', 'Endian', 'GzipCodec', 'ScaleOffset', 'ShardingCodec', 'ShardingCodecIndexLocation', 'SubchunkWriteOrder', 'TransposeCodec', 'VLenBytesCodec', 'VLenUTF8Codec', 'ZstdCodec')`. A v3 codec chain is `[array->array transforms..., one array->bytes serializer, bytes->bytes compressors...]`; `BytesCodec` is the canonical serializer, `ShardingCodec` is the special serializer that nests an inner chain per sub-chunk. The legacy filter names (`Delta`, `FixedScaleOffset`, `Quantize`, `BitRound`, `PackBits`, `AsType`) and the alternate compressors (`Blosc`, `Zstd`, `GZip`, `LZ4`, `LZMA`, `BZ2`, `Zlib`, `Shuffle`) live in `numcodecs.zarr3`, NOT `zarr.codecs`.
 
-| [INDEX] | [SYMBOL]                                                           | [CODEC_KIND]            | [ROLE]                                                                           |
-| :-----: | :----------------------------------------------------------------- | :---------------------- | :------------------------------------------------------------------------------- |
-|  [01]   | `BytesCodec(endian=Endian.little)`                                 | array->bytes serializer | canonical fixed-width serializer; `Endian` little/big                            |
-|  [02]   | `ShardingCodec(chunk_shape, codecs, index_codecs, index_location)` | array->bytes serializer | sub-chunk sharding; `ShardingCodecIndexLocation` start/end, `SubchunkWriteOrder` |
-|  [03]   | `VLenUTF8Codec` / `VLenBytesCodec`                                 | array->bytes serializer | variable-length UTF-8 string / bytes serialization                               |
-|  [04]   | `TransposeCodec(order)`                                            | array->array transform  | axis-permute transform applied before serialization                              |
-|  [05]   | `ScaleOffset(scale, offset, dtype, astype)`                        | array->array transform  | linear scale-offset quantization transform                                       |
-|  [06]   | `CastValue(...)`                                                   | array->array transform  | dtype-cast transform                                                             |
-|  [07]   | `BloscCodec(cname, clevel, shuffle, typesize, blocksize)`          | bytes->bytes compressor | Blosc multi-threaded; `BloscCname`, `BloscShuffle`                               |
-|  [08]   | `ZstdCodec(level, checksum)`                                       | bytes->bytes compressor | Zstandard compression                                                            |
-|  [09]   | `GzipCodec(level)`                                                 | bytes->bytes compressor | DEFLATE/gzip compression                                                         |
-|  [10]   | `Crc32cCodec`                                                      | bytes->bytes checksum   | CRC32C integrity checksum appended to chunk bytes                                |
+- call: `BytesCodec(endian=Endian.little)`; `ShardingCodec(chunk_shape, codecs, index_codecs, index_location)` where `index_location` is a `ShardingCodecIndexLocation` (start/end) and `SubchunkWriteOrder` orders sub-chunk writes; `TransposeCodec(order)`; `ScaleOffset(scale, offset, dtype, astype)`; `BloscCodec(cname, clevel, shuffle, typesize, blocksize)`; `ZstdCodec(level, checksum)`; `GzipCodec(level)`
+
+| [INDEX] | [SYMBOL]                           | [CODEC_KIND]            | [ROLE]                                                  |
+| :-----: | :--------------------------------- | :---------------------- | :------------------------------------------------------ |
+|  [01]   | `BytesCodec`                       | array->bytes serializer | canonical fixed-width serializer; `Endian` little/big   |
+|  [02]   | `ShardingCodec`                    | array->bytes serializer | sub-chunk sharding nesting an inner chain per sub-chunk |
+|  [03]   | `VLenUTF8Codec` / `VLenBytesCodec` | array->bytes serializer | variable-length UTF-8 string / bytes serialization      |
+|  [04]   | `TransposeCodec`                   | array->array transform  | axis-permute transform applied before serialization     |
+|  [05]   | `ScaleOffset`                      | array->array transform  | linear scale-offset quantization transform              |
+|  [06]   | `CastValue`                        | array->array transform  | dtype-cast transform                                    |
+|  [07]   | `BloscCodec`                       | bytes->bytes compressor | Blosc multi-threaded; `BloscCname`, `BloscShuffle`      |
+|  [08]   | `ZstdCodec`                        | bytes->bytes compressor | Zstandard compression                                   |
+|  [09]   | `GzipCodec`                        | bytes->bytes compressor | DEFLATE/gzip compression                                |
+|  [10]   | `Crc32cCodec`                      | bytes->bytes checksum   | CRC32C integrity checksum appended to chunk bytes       |
 
 [PUBLIC_TYPE_SCOPE]: codec-role base classes (`zarr.abc.codec`)
 - rail: array-store
@@ -81,28 +83,35 @@
 
 `numcodecs.zarr3` (resolved by the `codecs` registry, available in `zarr>=3.1.3`) wraps the full numcodecs catalog as v3 codecs for the filter/legacy-compressor surface `zarr.codecs` does not carry. The module is marked deprecated upstream and a future-removal candidate; admit a name only when `zarr.codecs` lacks the equivalent.
 
-| [INDEX] | [SYMBOL]                                                                       | [CODEC_KIND]            | [ROLE]                                      |
-| :-----: | :----------------------------------------------------------------------------- | :---------------------- | :------------------------------------------ |
-|  [01]   | `Blosc` / `LZ4` / `Zstd` / `Zlib` / `GZip` / `BZ2` / `LZMA` / `Shuffle`        | bytes->bytes compressor | alternate compressors not in `zarr.codecs`  |
-|  [02]   | `Delta` / `BitRound` / `FixedScaleOffset` / `Quantize` / `PackBits` / `AsType` | array->array filter     | numcodecs filters (quantize/delta/bit-pack) |
-|  [03]   | `PCodec` / `ZFPY`                                                              | array->bytes serializer | scientific-array serializers                |
-|  [04]   | `CRC32` / `CRC32C` / `Adler32` / `Fletcher32` / `JenkinsLookup3`               | bytes->bytes checksum   | integrity checksum codecs                   |
+
+| [INDEX] | [SYMBOL]                                                         | [CODEC_KIND]            | [ROLE]                                      |
+| :-----: | :--------------------------------------------------------------- | :---------------------- | :------------------------------------------ |
+|  [01]   | `Blosc` / `LZ4` / `Zstd` / `Zlib`                                | bytes->bytes compressor | alternate compressors not in `zarr.codecs`  |
+|  [02]   | `GZip` / `BZ2` / `LZMA` / `Shuffle`                              | bytes->bytes compressor | alternate compressors not in `zarr.codecs`  |
+|  [03]   | `Delta` / `BitRound` / `FixedScaleOffset`                        | array->array filter     | numcodecs filters (quantize/delta/bit-pack) |
+|  [04]   | `Quantize` / `PackBits` / `AsType`                               | array->array filter     | numcodecs filters (quantize/delta/bit-pack) |
+|  [05]   | `PCodec` / `ZFPY`                                                | array->bytes serializer | scientific-array serializers                |
+|  [06]   | `CRC32` / `CRC32C` / `Adler32` / `Fletcher32` / `JenkinsLookup3` | bytes->bytes checksum   | integrity checksum codecs                   |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: array creation
 - rail: array-store
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                                | [ENTRY_FAMILY]      | [RETURNS] |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------ | :-------- |
-|  [01]   | `create_array(store, *, name=None, shape, dtype, chunks='auto', shards=None, filters=..., compressors=..., serializer='auto', fill_value=None, order=None, zarr_format=3, attributes=None, chunk_key_encoding=None, dimension_names=None, config=None, overwrite=False)` | creation            | `Array`   |
-|  [02]   | `create(shape, *, chunks=True, dtype=None, compressor=..., fill_value=0, store=None, ...)`                                                                                                                                                                               | creation (v2-style) | `Array`   |
-|  [03]   | `array(data, **kwargs)`                                                                                                                                                                                                                                                  | data intake         | `Array`   |
-|  [04]   | `from_array(store, *, data, write_data=True, name=None, chunks='keep', shards='keep', ...)`                                                                                                                                                                              | data intake         | `Array`   |
-|  [05]   | `zeros(shape, **kwargs)` / `ones(shape, **kwargs)` / `full(shape, fill_value, **kwargs)`                                                                                                                                                                                 | fill creation       | `Array`   |
-|  [06]   | `empty(shape, **kwargs)`                                                                                                                                                                                                                                                 | fill creation       | `Array`   |
-|  [07]   | `zeros_like(a, **kwargs)` / `ones_like(a, ...)` / `full_like(a, ...)` / `empty_like(a, ...)`                                                                                                                                                                             | mirror creation     | `Array`   |
-|  [08]   | `open_like(a, path, **kwargs)`                                                                                                                                                                                                                                           | mirror open         | `Array`   |
+`create_array` is the canonical typed-v3 constructor; `create`/`array`/`from_array` plus the `zeros`/`ones`/`full`/`empty` fill family and their `_like` mirrors share `**kwargs` over the same store/codec surface, each returning an `Array`.
+- call: `create_array(store, *, name=None, shape, dtype, chunks='auto', shards=None, filters=..., compressors=..., serializer='auto', fill_value=None, order=None, zarr_format=3, attributes=None, chunk_key_encoding=None, dimension_names=None, config=None, overwrite=False) -> Array`
+- call: `create(shape, *, chunks=True, dtype=None, compressor=..., fill_value=0, store=None, ...)`; `from_array(store, *, data, write_data=True, name=None, chunks='keep', shards='keep', ...)`; `array(data, **kwargs)`
+
+| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY]      | [RETURNS] |
+| :-----: | :------------------------------------------------------ | :------------------ | :-------- |
+|  [01]   | `create_array`                                          | creation            | `Array`   |
+|  [02]   | `create`                                                | creation (v2-style) | `Array`   |
+|  [03]   | `array`                                                 | data intake         | `Array`   |
+|  [04]   | `from_array`                                            | data intake         | `Array`   |
+|  [05]   | `zeros` / `ones` / `full`                               | fill creation       | `Array`   |
+|  [06]   | `empty`                                                 | fill creation       | `Array`   |
+|  [07]   | `zeros_like` / `ones_like` / `full_like` / `empty_like` | mirror creation     | `Array`   |
+|  [08]   | `open_like`                                             | mirror open         | `Array`   |
 
 [ENTRYPOINT_SCOPE]: group, hierarchy, open, and persistence
 - rail: array-store
@@ -132,34 +141,42 @@ Every synchronous factory above wraps an `async def` of the same name in `zarr.a
 [ENTRYPOINT_SCOPE]: Array operations
 - rail: array-store
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                    | [ENTRY_FAMILY] | [RAIL]                                  |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------- |
-|  [01]   | `Array[selection]` / `Array[selection] = value`                                                                                                                                              | indexing       | NumPy-compatible basic indexing         |
-|  [02]   | `Array.oindex[selection]`                                                                                                                                                                    | indexing       | orthogonal (outer) indexing             |
-|  [03]   | `Array.vindex[selection]`                                                                                                                                                                    | indexing       | vectorized (fancy) indexing             |
-|  [04]   | `Array.coordinate_index` / `Array.blocks[selection]`                                                                                                                                         | indexing       | coordinate / block-level chunk indexing |
-|  [05]   | `Array.get_basic_selection` / `get_orthogonal_selection` / `get_coordinate_selection` / `get_mask_selection` / `get_block_selection` `(selection, *, out=None, fields=None, prototype=None)` | selection      | explicit read selections                |
-|  [06]   | `Array.set_basic_selection` / `set_orthogonal_selection` / `set_coordinate_selection` / `set_mask_selection` / `set_block_selection` `(selection, value, *, fields=None, prototype=None)`    | write          | explicit write selections               |
-|  [07]   | `Array.append(data, axis=0)` / `Array.resize(new_shape)`                                                                                                                                     | mutation       | append / resize in store                |
-|  [08]   | `Array.update_attributes(new_attributes)`                                                                                                                                                    | metadata       | update user attributes                  |
-|  [09]   | `Array.with_config(config)` / `Array.info` / `Array.info_complete()`                                                                                                                         | configuration  | per-array config, info report           |
-|  [10]   | `Array.nchunks` / `nchunks_initialized` / `nbytes_stored()` / `chunks` / `shards` / `cdata_shape`                                                                                            | metadata       | chunk-grid and storage metadata         |
-|  [11]   | `Array.metadata` / `Array.store_path` / `Array.path` / `Array.compressors` / `Array.serializer` / `Array.filters`                                                                            | metadata       | resolved codec pipeline and store path  |
+`Array` indexing splits into the bracket/`oindex`/`vindex`/`blocks` accessors and the explicit `get_*_selection`/`set_*_selection` read/write family; mutation, configuration, and metadata properties round out the surface.
+- call: `get_basic_selection` / `get_orthogonal_selection` / `get_coordinate_selection` / `get_mask_selection` / `get_block_selection` take `(selection, *, out=None, fields=None, prototype=None)`; the `set_*_selection` mirror takes `(selection, value, *, fields=None, prototype=None)`
+
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [RAIL]                                        |
+| :-----: | :------------------------------------------------------------------- | :------------- | :-------------------------------------------- |
+|  [01]   | `Array[selection]` / `Array[selection] = value`                      | indexing       | NumPy-compatible basic indexing               |
+|  [02]   | `Array.oindex[selection]`                                            | indexing       | orthogonal (outer) indexing                   |
+|  [03]   | `Array.vindex[selection]`                                            | indexing       | vectorized (fancy) indexing                   |
+|  [04]   | `Array.coordinate_index` / `Array.blocks[selection]`                 | indexing       | coordinate / block-level chunk indexing       |
+|  [05]   | `Array.get_*_selection`                                              | selection      | basic/orthogonal/coordinate/mask/block reads  |
+|  [06]   | `Array.set_*_selection`                                              | write          | basic/orthogonal/coordinate/mask/block writes |
+|  [07]   | `Array.append(data, axis=0)` / `Array.resize(new_shape)`             | mutation       | append / resize in store                      |
+|  [08]   | `Array.update_attributes(new_attributes)`                            | metadata       | update user attributes                        |
+|  [09]   | `Array.with_config(config)` / `Array.info` / `Array.info_complete()` | configuration  | per-array config, info report                 |
+|  [10]   | `Array.nchunks` / `nchunks_initialized` / `nbytes_stored()`          | metadata       | chunk counts and stored-byte size             |
+|  [11]   | `Array.chunks` / `shards` / `cdata_shape`                            | metadata       | chunk-grid and shard shape                    |
+|  [12]   | `Array.metadata` / `store_path` / `path`                             | metadata       | node metadata and store path                  |
+|  [13]   | `Array.compressors` / `serializer` / `filters`                       | metadata       | resolved codec pipeline                       |
 
 [ENTRYPOINT_SCOPE]: Group operations
 - rail: array-store
 
-| [INDEX] | [SURFACE]                                                                                                    | [ENTRY_FAMILY] | [RAIL]                            |
-| :-----: | :----------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------- |
-|  [01]   | `Group.create_array(name, *, shape, dtype, ...)` / `Group.create_group(name, **kwargs)`                      | creation       | create child array / group        |
-|  [02]   | `Group.create_hierarchy(nodes, *, overwrite=False)`                                                          | bulk creation  | create multiple children          |
-|  [03]   | `Group.require_array(name, *, shape, **kwargs)` / `require_group(name, **kwargs)` / `require_groups(*names)` | idempotent     | open-or-create child              |
-|  [04]   | `Group[path]` / `Group.get(path, default=None)`                                                              | access         | access child by path              |
-|  [05]   | `Group.keys()` / `Group.members(max_depth=0, *, use_consolidated_for_children=True)`                         | enumeration    | list child keys / full subtree    |
-|  [06]   | `Group.arrays()` / `Group.groups()` / `Group.array_keys()` / `Group.group_keys()`                            | enumeration    | iterate child arrays / sub-groups |
-|  [07]   | `Group.move(source, dest)`                                                                                   | mutation       | rename or relocate child          |
-|  [08]   | `Group.update_attributes(new_attributes)`                                                                    | metadata       | update user attributes            |
-|  [09]   | `Group.tree(expand=None, level=None)`                                                                        | inspection     | render subtree as `TreeRepr`      |
+`Group` creates and requires child arrays and groups, enumerates the subtree, and mutates or inspects it; the create/require/`members` signatures hoist to the call lines.
+- call: `Group.create_array(name, *, shape, dtype, ...)`; `Group.create_group(name, **kwargs)`; `Group.require_array(name, *, shape, **kwargs)`; `Group.require_group(name, **kwargs)`; `Group.require_groups(*names)`; `Group.members(max_depth=0, *, use_consolidated_for_children=True)`
+
+| [INDEX] | [SURFACE]                                                                         | [ENTRY_FAMILY] | [RAIL]                            |
+| :-----: | :-------------------------------------------------------------------------------- | :------------- | :-------------------------------- |
+|  [01]   | `Group.create_array` / `Group.create_group`                                       | creation       | create child array / group        |
+|  [02]   | `Group.create_hierarchy(nodes, *, overwrite=False)`                               | bulk creation  | create multiple children          |
+|  [03]   | `Group.require_array` / `require_group` / `require_groups`                        | idempotent     | open-or-create child              |
+|  [04]   | `Group[path]` / `Group.get(path, default=None)`                                   | access         | access child by path              |
+|  [05]   | `Group.keys()` / `Group.members(...)`                                             | enumeration    | list child keys / full subtree    |
+|  [06]   | `Group.arrays()` / `Group.groups()` / `Group.array_keys()` / `Group.group_keys()` | enumeration    | iterate child arrays / sub-groups |
+|  [07]   | `Group.move(source, dest)`                                                        | mutation       | rename or relocate child          |
+|  [08]   | `Group.update_attributes(new_attributes)`                                         | metadata       | update user attributes            |
+|  [09]   | `Group.tree(expand=None, level=None)`                                             | inspection     | render subtree as `TreeRepr`      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

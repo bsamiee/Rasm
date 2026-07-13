@@ -463,9 +463,8 @@ const makeSlots = (cap) => {
 };
 const slot = makeSlots(CAP);
 
-// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope content to the lane
-// report, and returns mechanical orchestration data. Lane law rides developer-instructions; the prompt carries
-// only the task; the output contract sits LAST.
+// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope content to the lane report, and returns mechanical
+// orchestration data. Lane law rides developer-instructions; the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const laneLaw = (schema, o) =>
     (o.fix
@@ -581,8 +580,7 @@ const recon = (task, o) =>
         headline: (r && r.headline) || '',
         failure: (r && r.failure) || (r ? '' : 'lane died'),
     }));
-// Native receipt lane (assay/extdoc verify): normalized into the recon roster shape so a NATIVE cluster and a codex
-// cluster read identically downstream.
+// Native receipt lane (assay/extdoc verify): normalized into the recon roster shape so a NATIVE cluster and a codex cluster read identically downstream.
 const asLane = (label, scope, p) =>
     p.then((r) => ({
         lane: label,

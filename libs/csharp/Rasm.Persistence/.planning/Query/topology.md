@@ -314,16 +314,16 @@ public static class Traversals {
 }
 ```
 
-| [INDEX] | [POLICY]             | [VALUE]                                                                             | [BINDING]                                                                                                                       |
-| :-----: | :------------------- | :---------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | algorithm owner      | QuikGraph `AlgorithmExtensions` facade                                              | never a hand-rolled walk or recursive CTE                                                                                       |
-|  [02]   | dispatch             | the generated `query.Switch(...)`                                                   | exhaustive at compile time; no runtime-silent `_` arm                                                                           |
-|  [03]   | absent root          | `Rooted` (one endpoint) / `Paired` (both ends) → `TopologyFault.RootAbsent`         | a typed fault, never a silent `ElementSet.Empty`/`Route`/`Common(None)`                                                         |
-|  [04]   | result shape         | `ElementSet`-compatible key set                                                     | a topology result composes with the selection algebra                                                                           |
-|  [05]   | cycle detection      | one `StronglyConnectedComponents` probe                                             | shared by `Cycles`/`Order`; never recomputed per arm                                                                            |
-|  [06]   | void resolution      | first-class `Resolve` query case                                                    | the `READ_ROUTING` correctness query has an in-process owner                                                                    |
-|  [07]   | nearest container    | `IsDirectedAcyclicGraph`-gated `OfflineLeastCommonAncestor` over the `Spatial` tree | rooted-tree contract enforced — `Cyclic` railed, never an arbitrary ancestor; `Contain`+`Aggregate`, never stranded at a storey |
-|  [08]   | shortest path        | `ShortestPathsDijkstra` unit weights                                                | no node coordinate here; the geometry-weighted A* is the `pgrouting` lane's                                                     |
-|  [09]   | spatial walks        | the `Spatial` filter (`Contain`∪`Aggregate`)                                        | ancestry/descent/LCA/anchors climb the full tree; `Containment` stays the narrow placement edge                                 |
-|  [10]   | connection adjacency | `OutEdges` ∪ `InEdges` over `Connection`                                            | symmetric — an undirected join reads both sides, never out-only                                                                 |
-|  [11]   | placement / members  | the narrow `Containment` / `Assignment` filters                                     | `Placement` is the one containing storey, `Members` the group reverse read; both filter rows live                               |
+| [INDEX] | [POLICY]             | [VALUE]                                               | [BINDING]                                                |
+| :-----: | :------------------- | :---------------------------------------------------- | :------------------------------------------------------- |
+|  [01]   | algorithm owner      | QuikGraph `AlgorithmExtensions` facade                | never a hand-rolled walk or recursive CTE                |
+|  [02]   | dispatch             | the generated `query.Switch(...)`                     | exhaustive at compile time; no runtime-silent `_` arm    |
+|  [03]   | absent root          | `Rooted`/`Paired` → `TopologyFault.RootAbsent`        | a typed fault, not `Empty`/`Route`/`Common(None)`        |
+|  [04]   | result shape         | `ElementSet`-compatible key set                       | a topology result composes with the selection algebra    |
+|  [05]   | cycle detection      | one `StronglyConnectedComponents` probe               | shared by `Cycles`/`Order`; never recomputed per arm     |
+|  [06]   | void resolution      | first-class `Resolve` query case                      | `READ_ROUTING` correctness query has an in-process owner |
+|  [07]   | nearest container    | `OfflineLeastCommonAncestor` DAG-gated over `Spatial` | rooted-tree contract; `Cyclic` railed, not arbitrary     |
+|  [08]   | shortest path        | `ShortestPathsDijkstra` unit weights                  | no coordinate; geometry-weighted A* is `pgrouting`'s     |
+|  [09]   | spatial walks        | the `Spatial` filter (`Contain`∪`Aggregate`)          | full-tree climb; `Containment` the narrow placement edge |
+|  [10]   | connection adjacency | `OutEdges` ∪ `InEdges` over `Connection`              | symmetric — both sides read, never out-only              |
+|  [11]   | placement / members  | the narrow `Containment` / `Assignment` filters       | `Placement` the storey; `Members` the reverse read       |

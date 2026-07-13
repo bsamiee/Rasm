@@ -123,26 +123,26 @@ Replication detail rows preserve these members:
 [ENTRYPOINT_SCOPE]: data source builder configuration
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]       | [CAPABILITY]                                                                          |
-| :-----: | :--------------------------------- | :----------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `NpgsqlDataSourceBuilder(string?)` | ctor               | creates builder from connection string                                                |
-|  [02]   | `Build`                            | builder call       | yields `NpgsqlDataSource`                                                             |
-|  [03]   | `BuildMultiHost`                   | builder call       | yields `NpgsqlMultiHostDataSource`                                                    |
-|  [04]   | `UseLoggerFactory`                 | builder config     | attaches `ILoggerFactory`                                                             |
-|  [05]   | `EnableParameterLogging`           | builder config     | logs parameter values; redaction-policy decision                                      |
-|  [06]   | `ConfigureTypeLoading`             | builder config     | tunes type-loading behavior via `NpgsqlTypeLoadingOptionsBuilder`                     |
-|  [07]   | `ConfigureTracing`                 | builder config     | tunes OTel tracing via `NpgsqlTracingOptionsBuilder`                                  |
-|  [08]   | `ConfigureJsonOptions`             | builder config     | sets `JsonSerializerOptions` for all JSON paths                                       |
-|  [09]   | `MapEnum<TEnum>`                   | builder mapping    | maps CLR enum to PostgreSQL enum type                                                 |
-|  [10]   | `MapEnum(Type, …)`                 | builder mapping    | maps enum by `Type`                                                                   |
-|  [11]   | `MapComposite<T>`                  | builder mapping    | maps CLR type to PostgreSQL composite type                                            |
-|  [12]   | `MapComposite(Type, …)`            | builder mapping    | maps composite by `Type`                                                              |
-|  [13]   | `EnableDynamicJson`                | builder mapping    | enables JSON mapping; optional `jsonbClrTypes`/`jsonClrTypes` arrays                  |
-|  [14]   | `EnableRecordsAsTuples`            | builder mapping    | maps C# records as PostgreSQL row types                                               |
-|  [15]   | `EnableUnmappedTypes`              | builder mapping    | enables unmapped types                                                                |
-|  [16]   | `UsePeriodicPasswordProvider`      | builder credential | rotates passwords on cadence; success/failure intervals                               |
-|  [17]   | `UsePasswordProvider`              | builder credential | provides password via sync or async callback                                          |
-|  [18]   | `UsePhysicalConnectionInitializer` | builder session    | runs per-session setup on each new physical connection; disqualifies `NoResetOnClose` |
+| [INDEX] | [SURFACE]                          | [CALL_SHAPE]       | [CAPABILITY]                                                                 |
+| :-----: | :--------------------------------- | :----------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `NpgsqlDataSourceBuilder(string?)` | ctor               | creates builder from connection string                                       |
+|  [02]   | `Build`                            | builder call       | yields `NpgsqlDataSource`                                                    |
+|  [03]   | `BuildMultiHost`                   | builder call       | yields `NpgsqlMultiHostDataSource`                                           |
+|  [04]   | `UseLoggerFactory`                 | builder config     | attaches `ILoggerFactory`                                                    |
+|  [05]   | `EnableParameterLogging`           | builder config     | logs parameter values; redaction-policy decision                             |
+|  [06]   | `ConfigureTypeLoading`             | builder config     | tunes type-loading behavior via `NpgsqlTypeLoadingOptionsBuilder`            |
+|  [07]   | `ConfigureTracing`                 | builder config     | tunes OTel tracing via `NpgsqlTracingOptionsBuilder`                         |
+|  [08]   | `ConfigureJsonOptions`             | builder config     | sets `JsonSerializerOptions` for all JSON paths                              |
+|  [09]   | `MapEnum<TEnum>`                   | builder mapping    | maps CLR enum to PostgreSQL enum type                                        |
+|  [10]   | `MapEnum(Type, …)`                 | builder mapping    | maps enum by `Type`                                                          |
+|  [11]   | `MapComposite<T>`                  | builder mapping    | maps CLR type to PostgreSQL composite type                                   |
+|  [12]   | `MapComposite(Type, …)`            | builder mapping    | maps composite by `Type`                                                     |
+|  [13]   | `EnableDynamicJson`                | builder mapping    | enables JSON mapping; optional `jsonbClrTypes`/`jsonClrTypes` arrays         |
+|  [14]   | `EnableRecordsAsTuples`            | builder mapping    | maps C# records as PostgreSQL row types                                      |
+|  [15]   | `EnableUnmappedTypes`              | builder mapping    | enables unmapped types                                                       |
+|  [16]   | `UsePeriodicPasswordProvider`      | builder credential | rotates passwords on cadence; success/failure intervals                      |
+|  [17]   | `UsePasswordProvider`              | builder credential | provides password via sync or async callback                                 |
+|  [18]   | `UsePhysicalConnectionInitializer` | builder session    | per-session setup per new physical connection; disqualifies `NoResetOnClose` |
 
 [ENTRYPOINT_SCOPE]: data source and connection execution
 - rail: store-provider
@@ -190,40 +190,40 @@ Replication detail rows preserve these members:
 
 PostgreSQL advisory locks have NO typed `Npgsql` member — they are server functions composed as SQL through `NpgsqlCommand`/`NpgsqlBatch`; the `_xact_` family auto-releases at transaction end (no explicit unlock), the session family requires an explicit unlock. This is the fenced-lease substrate the coordination owner composes, never a distributed-lock sidecar.
 
-| [INDEX] | [SURFACE]                                                               | [CALL_SHAPE]     | [CAPABILITY]                                                                              |
-| :-----: | :---------------------------------------------------------------------- | :--------------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | `SELECT pg_advisory_xact_lock(@key)` via `NpgsqlCommand`                | SQL over command | transaction-scoped exclusive lock; auto-released at COMMIT/ROLLBACK                       |
-|  [02]   | `SELECT pg_try_advisory_xact_lock(@key)` via `NpgsqlCommand`            | SQL over command | non-blocking try; returns `bool` acquired, transaction-scoped                             |
-|  [03]   | `SELECT pg_advisory_xact_lock_shared(@key)` via `NpgsqlCommand`         | SQL over command | transaction-scoped SHARED lock (readers coexist, writers exclude)                         |
-|  [04]   | `SELECT pg_advisory_lock(@key)` / `pg_advisory_unlock(@key)`            | SQL over command | session-scoped lock requiring explicit unlock (or `pg_advisory_unlock_all()`)             |
-|  [05]   | `NpgsqlBatch` of `pg_advisory_xact_lock` + guarded `UPDATE … RETURNING` | SQL over batch   | one round-trip lock-then-fenced-CAS: the lock and the guarded write share the transaction |
+| [INDEX] | [SURFACE]                                                     | [CAPABILITY]                                                         |
+| :-----: | :------------------------------------------------------------ | :------------------------------------------------------------------- |
+|  [01]   | `SELECT pg_advisory_xact_lock(@key)`                          | transaction-scoped exclusive lock; auto-released at COMMIT/ROLLBACK  |
+|  [02]   | `SELECT pg_try_advisory_xact_lock(@key)`                      | non-blocking try; returns `bool` acquired, transaction-scoped        |
+|  [03]   | `SELECT pg_advisory_xact_lock_shared(@key)`                   | transaction-scoped SHARED lock (readers coexist, writers exclude)    |
+|  [04]   | `SELECT pg_advisory_lock(@key)` / `pg_advisory_unlock(@key)`  | session-scoped lock; explicit unlock (or `pg_advisory_unlock_all()`) |
+|  [05]   | `NpgsqlBatch`: `pg_advisory_xact_lock` + `UPDATE … RETURNING` | one round-trip: lock + guarded CAS in one transaction                |
 
 [ENTRYPOINT_SCOPE]: LISTEN/NOTIFY (asynchronous change notification)
 - rail: store-provider
 
 `LISTEN`/`NOTIFY`/`UNLISTEN` are SQL composed through `NpgsqlCommand`; delivered notifications raise the `NpgsqlConnection.Notification` event and are pumped by `Wait`/`WaitAsync` on an otherwise-idle connection. A `NpgsqlNotificationEventArgs` carries `PID`/`Channel`/`Payload`.
 
-| [INDEX] | [SURFACE]                                                               | [CALL_SHAPE]     | [CAPABILITY]                                                           |
-| :-----: | :---------------------------------------------------------------------- | :--------------- | :--------------------------------------------------------------------- |
-|  [01]   | `NpgsqlConnection.Notification` (`event NotificationEventHandler`)      | event            | raised per delivered `NOTIFY`; args carry `PID`/`Channel`/`Payload`    |
-|  [02]   | `SELECT` / `LISTEN <channel>` via `NpgsqlCommand`                       | SQL over command | subscribes the connection to a channel                                 |
-|  [03]   | `SELECT pg_notify(@channel, @payload)` via `NpgsqlCommand`              | SQL over command | parameterized publish (the `NOTIFY` form that takes a runtime payload) |
-|  [04]   | `NpgsqlConnection.WaitAsync(CancellationToken)`                         | async pump       | awaits the next notification on an idle connection                     |
-|  [05]   | `NpgsqlConnection.WaitAsync(TimeSpan / int timeout, CancellationToken)` | async pump       | bounded wait; returns `bool` (true if a notification arrived)          |
-|  [06]   | `NpgsqlConnection.Wait()` / `Wait(TimeSpan / int timeout)`              | sync pump        | synchronous block for a notification (the blocking twin)               |
+| [INDEX] | [SURFACE]                                              | [CALL_SHAPE]     | [CAPABILITY]                                             |
+| :-----: | :----------------------------------------------------- | :--------------- | :------------------------------------------------------- |
+|  [01]   | `Notification` (`event NotificationEventHandler`)      | event            | raised per delivered `NOTIFY`                            |
+|  [02]   | `SELECT` / `LISTEN <channel>`                          | SQL over command | subscribes the connection to a channel                   |
+|  [03]   | `SELECT pg_notify(@channel, @payload)`                 | SQL over command | parameterized publish; takes a runtime payload           |
+|  [04]   | `WaitAsync(CancellationToken)`                         | async pump       | awaits the next notification on an idle connection       |
+|  [05]   | `WaitAsync(TimeSpan / int timeout, CancellationToken)` | async pump       | bounded wait; `bool` true if a notification arrived      |
+|  [06]   | `Wait()` / `Wait(TimeSpan / int timeout)`              | sync pump        | synchronous block for a notification (the blocking twin) |
 
 [ENTRYPOINT_SCOPE]: replication
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                                                                 | [CALL_SHAPE]     | [CAPABILITY]                                                                |
-| :-----: | :------------------------------------------------------------------------ | :--------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `StartReplication`                                                        | replication call | starts replication; returns `IAsyncEnumerable`                              |
-|  [02]   | `CreatePgOutputReplicationSlot`                                           | replication call | creates pgoutput slot                                                       |
-|  [03]   | `SetReplicationStatus`                                                    | replication call | stamps applied-and-flushed LSN                                              |
-|  [04]   | `SendStatusUpdate`                                                        | replication call | sends feedback flush                                                        |
-|  [05]   | `IdentifySystem`                                                          | replication call | returns `ReplicationSystemIdentification` (`XLogPos`/`Timeline`/`SystemId`) |
-|  [06]   | `TimelineHistory(uint tli, ct)`                                           | replication call | returns the `TimelineHistoryFile` for a timeline                            |
-|  [07]   | `await foreach (ReplicationValue v in tuple)` / `v.Kind` / `v.Get<T>(ct)` | tuple read       | streams a pgoutput row's column values discriminated by `TupleDataKind`     |
+| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]     | [CAPABILITY]                                                    |
+| :-----: | :-------------------------------------------- | :--------------- | :-------------------------------------------------------------- |
+|  [01]   | `StartReplication`                            | replication call | starts replication; returns `IAsyncEnumerable`                  |
+|  [02]   | `CreatePgOutputReplicationSlot`               | replication call | creates pgoutput slot                                           |
+|  [03]   | `SetReplicationStatus`                        | replication call | stamps applied-and-flushed LSN                                  |
+|  [04]   | `SendStatusUpdate`                            | replication call | sends feedback flush                                            |
+|  [05]   | `IdentifySystem`                              | replication call | returns `ReplicationSystemIdentification`                       |
+|  [06]   | `TimelineHistory(uint tli, ct)`               | replication call | returns the `TimelineHistoryFile` for a timeline                |
+|  [07]   | `await foreach (ReplicationValue v in tuple)` | tuple read       | streams column values; `v.Kind`/`v.Get<T>(ct)`, `TupleDataKind` |
 
 `PgOutputReplicationOptions` accepts publication names, protocol version, binary mode, streaming mode, messages, and two-phase policy. The binary importer commit edge is inverted: `Complete`/`CompleteAsync` commits; disposal without it cancels COPY and discards all buffered rows.
 

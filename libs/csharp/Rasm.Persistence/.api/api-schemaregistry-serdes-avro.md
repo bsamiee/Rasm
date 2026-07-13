@@ -54,12 +54,12 @@
 [ENTRYPOINT_SCOPE]: codec invocation (Confluent.Kafka slot)
 - rail: cdc-egress (Avro)
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                                                     |
-| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------------------------------------- |
-|  [01]   | `SerializeAsync(value, context)` -> `Task<byte[]>`       | encode         | registers/resolves the schema, frames the id, writes Avro binary           |
-|  [02]   | `DeserializeAsync(data, isNull, context)` -> `Task<T>`   | decode         | reads the id, fetches the writer schema, decodes against the reader schema |
-|  [03]   | `producerBuilder.SetValueSerializer(avroSerializer)`     | wiring         | mounts the serde on the `Confluent.Kafka` value slot                       |
-|  [04]   | `consumerBuilder.SetValueDeserializer(avroDeserializer)` | wiring         | mounts the serde on the consumer value slot                                |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                                      |
+| :-----: | :------------------------------------------------------- | :------------- | :---------------------------------------------------------- |
+|  [01]   | `SerializeAsync(value, context)` -> `Task<byte[]>`       | encode         | registers/resolves schema, frames id, writes Avro binary    |
+|  [02]   | `DeserializeAsync(data, isNull, context)` -> `Task<T>`   | decode         | reads id, fetches writer schema, decodes against reader `T` |
+|  [03]   | `producerBuilder.SetValueSerializer(avroSerializer)`     | wiring         | mounts the serde on the `Confluent.Kafka` value slot        |
+|  [04]   | `consumerBuilder.SetValueDeserializer(avroDeserializer)` | wiring         | mounts the serde on the consumer value slot                 |
 
 [ENTRYPOINT_SCOPE]: config tunables (`AvroSerializerConfig` / `AvroDeserializerConfig`)
 - rail: cdc-egress (Avro)

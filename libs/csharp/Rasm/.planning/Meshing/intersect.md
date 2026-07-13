@@ -671,16 +671,23 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes; the per-axis kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]   | [OWNER]           | [KIND]                                                                                                     | [RAIL]                                            | [CASES] |
-| :-----: | :--------------- | :---------------- | :--------------------------------------------------------------------------------------------------------- | :------------------------------------------------ | :-----: |
-|  [01]   | Intersection     | `IntersectOp`     | `[Union]` seven cases folded by ONE `Apply` with `Op?` threading                                           | `Intersection.Apply → Fin<IntersectResult>`       |    7    |
-|  [1a]   | Primitive kinds  | `PrimitiveKind`   | `[SmartEnum<string>]` — the 2424 fault payload vocabulary, minted here                                     | payload row (faults compose it)                   |    5    |
-|  [1b]   | Operation kind   | `IntersectKind`   | `[SmartEnum<string>]` + `A`/`B` primitive-pair columns                                                     | discriminant (fault payload derives from the row) |    7    |
-|  [1c]   | Crossing carrier | `Crossing`        | `Implicit` defining-entity construction + `CrossKey` integer merge key                                     | carrier (`Round()` at emission only)              |    —    |
-|  [1d]   | Chain arena      | `CrossingStore`   | single-writer arena (classified-key intern · exact value unification · segments) + `Freeze → CrossLattice` | frozen projection                                 |    —    |
-|  [1e]   | Result           | `IntersectResult` | `[Union]` `Points`/`Segments`/`Chains(Walked, Lattice)` — typed open chains, oriented closed loops         | carrier                                           |    3    |
+| [INDEX] | [AXIS_CONCERN]   | [OWNER]           | [RAIL]                                            | [CASES] |
+| :-----: | :--------------- | :---------------- | :------------------------------------------------ | :-----: |
+|  [01]   | Intersection     | `IntersectOp`     | `Intersection.Apply → Fin<IntersectResult>`       |    7    |
+|  [02]   | Primitive kinds  | `PrimitiveKind`   | payload row (faults compose it)                   |    5    |
+|  [03]   | Operation kind   | `IntersectKind`   | discriminant (fault payload derives from the row) |    7    |
+|  [04]   | Crossing carrier | `Crossing`        | carrier (`Round()` at emission only)              |    —    |
+|  [05]   | Chain arena      | `CrossingStore`   | frozen projection                                 |    —    |
+|  [06]   | Result           | `IntersectResult` | carrier                                           |    3    |
+
+- [01]-[INTERSECTION]: `[Union]` seven cases folded by ONE `Apply` with `Op?` threading.
+- [02]-[PRIMITIVE_KINDS]: `[SmartEnum<string>]` — the 2424 fault payload vocabulary, minted here.
+- [03]-[OPERATION_KIND]: `[SmartEnum<string>]` + `A`/`B` primitive-pair columns.
+- [04]-[CROSSING_CARRIER]: `Implicit` defining-entity construction + `CrossKey` integer merge key.
+- [05]-[CHAIN_ARENA]: single-writer arena (classified-key intern, exact value unification, segments) + `Freeze → CrossLattice`.
+- [06]-[RESULT]: `[Union]` `Points`/`Segments`/`Chains(Walked, Lattice)` — typed open chains, oriented closed loops.
 
 The exact ordering machinery of the prior fence (`Expansion OrderKey` + `Fraction RationalKey` + rounded `Site`) is DEAD: connectivity derives from integer `CrossKey` equality, ordering where still needed (ray hits, coplanar sweeps, multi-crossing constraints) routes the landed `Predicate.Compare` order key, and the one materialization is `Implicit.Round()` at emission.
 

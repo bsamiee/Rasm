@@ -1108,16 +1108,23 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes; the per-axis collapse kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]     | [OWNER]            | [KIND]                                                                                                                            | [RAIL]                                                        | [CASES] |
-| :-----: | :----------------- | :----------------- | :-------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------ | :-----: |
-|  [01]   | Tessellation       | `Tessellation`     | `[Union]` (`Triangulation`/`Tetrahedralization`) over one `SimplexStore` + `Build`/`ToMesh`/`Triangles`/`VoronoiDual`/`LowerHull` | `Tessellation.Build(TessellationOp, Op?) → Fin<Tessellation>` |    2    |
-|  [1a]   | Build modality     | `TessellationOp`   | `[Union]` (`Points`/`Insert`/`Recover`) — one entry, three modalities                                                             | request carrier                                               |    3    |
-|  [1b]   | Dimensional kind   | `TessellationKind` | `[SmartEnum<string>]` + `SimplexArity` column                                                                                     | discriminant (pure)                                           |    2    |
-|  [1c]   | Restoration regime | `TessellationMode` | `[SmartEnum<string>]` + `Restores` column — `Constrained` mandatory for implicit-bearing builds                                   | policy row                                                    |    2    |
-|  [1d]   | Recovery input     | `Constraint`       | `[Union]` (`Segment`/`Facet`/`Crossing` foreign-plane carriage) + `Ends`/`Rebound` re-anchoring                                   | carrier (folded by `RecoverOne`)                              |    3    |
-|  [1e]   | Dual projection    | `DualGraph`        | record — circumcenters · circumradii · dual edges · crossed DT edge                                                               | `VoronoiDual(Op?) → Fin<DualGraph>`                           |    —    |
+| [INDEX] | [AXIS_CONCERN]     | [OWNER]            | [RAIL]                                                        | [CASES] |
+| :-----: | :----------------- | :----------------- | :------------------------------------------------------------ | :-----: |
+|  [01]   | Tessellation       | `Tessellation`     | `Tessellation.Build(TessellationOp, Op?) → Fin<Tessellation>` |    2    |
+|  [02]   | Build modality     | `TessellationOp`   | request carrier                                               |    3    |
+|  [03]   | Dimensional kind   | `TessellationKind` | discriminant (pure)                                           |    2    |
+|  [04]   | Restoration regime | `TessellationMode` | policy row                                                    |    2    |
+|  [05]   | Recovery input     | `Constraint`       | carrier (folded by `RecoverOne`)                              |    3    |
+|  [06]   | Dual projection    | `DualGraph`        | `VoronoiDual(Op?) → Fin<DualGraph>`                           |    —    |
+
+- [01]-[TESSELLATION]: `[Union]` (`Triangulation`/`Tetrahedralization`) over one `SimplexStore` + `Build`/`ToMesh`/`Triangles`/`VoronoiDual`/`LowerHull`.
+- [02]-[BUILD_MODALITY]: `[Union]` (`Points`/`Insert`/`Recover`) — one entry, three modalities.
+- [03]-[DIMENSIONAL_KIND]: `[SmartEnum<string>]` + `SimplexArity` column.
+- [04]-[RESTORATION_REGIME]: `[SmartEnum<string>]` + `Restores` column — `Constrained` mandatory for implicit-bearing builds.
+- [05]-[RECOVERY_INPUT]: `[Union]` (`Segment`/`Facet`/`Crossing` foreign-plane carriage) + `Ends`/`Rebound` re-anchoring.
+- [06]-[DUAL_PROJECTION]: record — circumcenters · circumradii · dual edges · crossed DT edge.
 
 The vertex payload is the landed `Numerics/predicates` `Implicit` carrier — this page mints NO point union of its own; the store-op bodies (`Seeded`, `Cone`, `SplitInsert`, `RecoverOne`+`SteinerOf`, the `RecoverEdge3D`/`Flip23`/`Flip32`/`FacetConform` bistellar family, `Stripped`, `LastLive`/`Anchor` on the store, the `ToMesh` emission fold — `LowerHull` gates onto it) are transcription-complete over the one arena; interior queries ride the anchored star walk, never a table scan; the `SimplexStore` obeys the `Meshing/edit#ARENA_LAW` contract verbatim (single-writer, amortized doubling, publish-by-freeze, no fault union).
 

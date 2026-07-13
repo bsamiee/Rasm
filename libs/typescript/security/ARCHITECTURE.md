@@ -1,17 +1,15 @@
 # [TS_SECURITY_ARCHITECTURE]
 
-The domain map of `security` — the wave-1 identity-and-custody package. Three sub-domains (`crypt`, `authn`, `access`) meet through one crypto authority, one session vocabulary, and one tenancy contract; every stateful obligation is a port Tag the data wave satisfies at app composition, so the folder imports only core.
-
-Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, camelCase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
+`security` owns the identity-and-custody concern — three sub-domains (`crypt`, `authn`, `access`) meeting through one crypto authority, one session vocabulary, and one tenancy contract. Every stateful obligation is a port Tag the data wave satisfies at app composition, so the folder imports only core.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
 security/
 └── src/
-    ├── crypt/                 # The crypto authority: signing, minting, shredding, custody, inbound verification
+    ├── crypt/                 # Crypto authority: signing, minting, shredding, custody, inbound verification
     │   ├── sign.ts            # Argon2id, HMAC egress, opaque tokens, AES-GCM Shredder, jose keys, JWT/JWS/JWKS/JWE
-    │   ├── verify.ts          # The inbound-signature dialect table + one constant-time verify fold over HELD request octets
+    │   ├── verify.ts          # Inbound-signature dialect table + one constant-time verify fold over HELD request octets
     │   └── secret.ts          # DopplerSDK leased-secret custody behind Layer.scoped — download, targeted read, name census
     ├── authn/                 # Authentication: session spine, digest credentials, OAuth, passkeys
     │   ├── session.ts         # Subject/Session/CredentialRef/TokenPair spine, rotation, ports, CSRF egress
@@ -19,33 +17,80 @@ security/
     │   ├── oauth.ts           # Issuer-row OAuth authorization-code ceremony over arctic — url/exchange/refresh/revoke legs per row
     │   └── webauthn.ts        # Both passkey halves as per-runtime subpaths: RP verifier (./server) + browser invocation (./browser)
     └── access/                # Authorization: entitlement fold and the tenancy contract
-        ├── claim.ts           # The entitlement vocabulary + the RBAC-union-ReBAC evaluation fold, resolved once per request
-        └── tenant.ts          # The ambient TenantContext reference + the app.current_tenant RLS shape the data wave enforces
+        ├── claim.ts           # Entitlement vocabulary + the RBAC-union-ReBAC evaluation fold, resolved once per request
+        └── tenant.ts          # Ambient TenantContext reference + the app.current_tenant RLS shape the data wave enforces
 ```
 
 ## [02]-[SEAMS]
 
-```text seams
-access/tenant   ←  typescript:core/value      # [SHAPE]: TenantContext bound as the ambient TenantScope principal
-access/tenant   →  typescript:data/lane       # [BOUNDARY]: app.current_tenant RLS contract + ambient TenantScope read
-authn/session   ←  typescript:data/lane       # [PORT]: SessionStore/IdentityJournal satisfied by scope-built Layers
-access/claim    ←  typescript:data/lane       # [PORT]: ClaimStore/RelationStore satisfied by scope-built Layers
-crypt/sign      →  typescript:data/journal    # [SHAPE]: Shredder five-verb envelope, WrappedKey per-subject ledger
-crypt/verify    →  typescript:runtime/serve   # [BOUNDARY]: Intake held-octets verify seam on the ingress route
-authn/session   →  typescript:runtime/serve   # [PORT]: BearerGuard/ApiKeyGuard HttpApiMiddleware Tags mounted on api routes
-authn/session   ←  typescript:data/lane       # [PORT]: RateLimiterStore backing the credential-verify throttle budgets
-authn/session   ⇄  typescript:runtime/browser # [SHAPE]: CookieSpec.csrf double-submit read at the session plane
-authn/oauth     ⇄  typescript:runtime/browser # [BOUNDARY]: redirect-ceremony continuity (depart/land) at the route plane
-crypt/secret    →  typescript:iac/kube        # [BOUNDARY]: doppler-run leased env injection at the workload entrypoint
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: Security package seam registry
+    accDescr: Security sub-domain owners exchanging identity, custody, and tenancy contracts with the core, data, runtime, and IaC packages, edge rails colored by kind and nodes classed by seam direction.
+    subgraph security[SECURITY]
+        Crypt[Crypt authority]
+        Authn[Authn spine]
+        Access[Access fold]
+    end
+    Core([core])
+    Data[(data)]
+    Runtime{{runtime}}
+    Iac{{iac}}
+    Core e1@-->|"[SHAPE]: TenantContext"| Access
+    Data e2@-->|"[PORT]: ClaimStore"| Access
+    Access e3@-->|"[BOUNDARY]: TenantScope"| Data
+    Data e4@-->|"[PORT]: SessionStore"| Authn
+    Authn e5@-->|"[PORT]: BearerGuard"| Runtime
+    Authn e6@<-->|"[BOUNDARY]: OAuth redirect"| Runtime
+    Authn e7@<-->|"[SHAPE]: CookieSpec"| Runtime
+    Crypt e8@-->|"[SHAPE]: Shredder envelope"| Data
+    Crypt e9@-->|"[BOUNDARY]: Intake verify"| Runtime
+    Crypt e10@-->|"[BOUNDARY]: leased env"| Iac
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    class Crypt,Authn,Access primary
+    class Runtime external
+    class Data data
+    class Core,Iac annotation
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9,e10 edgeControl
 ```
 
 ## [03]-[ORGANIZATION]
 
-`crypt/sign` is the one crypto authority — every digest, signature, token, and envelope in the folder mints there; `crypt/verify` is its inbound mirror, one dialect table over held octets so no route hand-rolls signature checks; `crypt/secret` scopes the Doppler client to exactly the leased surfaces the folder admits. `authn/session` is the identity spine the other ceremonies feed: `credential` funnels three second-factor surfaces through one mint-and-resolve idiom, `oauth` models issuers as vocabulary rows, and `webauthn` splits the passkey ceremony by runtime subpath so the browser bundle never carries the RP verifier. `access` turns verified identity into decisions: `claim` evaluates entitlements once per request, `tenant` states the tenancy contract the data wave enforces as row-level security.
+`crypt/sign` is the sole mint — every digest, signature, token, and envelope originates there; `crypt/verify` mirrors it inbound over held octets so no route hand-rolls a signature check; `crypt/secret` scopes the Doppler client to the leased surfaces the folder admits. `authn/session` is the identity spine the ceremonies feed: `credential` funnels every second factor through one mint-and-resolve idiom, `oauth` models issuers as rows, `webauthn` splits the passkey ceremony by runtime subpath. `access` turns verified identity into decisions: `claim` evaluates entitlements once per request, `tenant` states the tenancy contract the data wave enforces as row-level security.
 
 ## [04]-[BOUNDARIES]
 
-- The folder persists nothing: `SessionStore`, `IdentityJournal`, `ClaimStore`, and `RelationStore` are port Tags; the data wave builds the satisfying Layers and the app root binds them.
-- Content-identity digesting is core's; this folder owns secret derivation and authenticated crypto only.
-- Cookie framing and CSRF are egress projections declared here and consumed by the runtime browser session plane; no browser API is touched here.
-- Tenancy is declared here and enforced in the data wave; the folder never opens a database transaction.
+- Persistence lives outside by construction: every store is a port Tag the data wave satisfies and the app root binds.
+- Content-identity digesting stays core's; this folder owns secret derivation and authenticated crypto only.
+- Cookie framing and CSRF are egress projections declared here and consumed by the runtime browser plane; no browser API is touched here.
+- Tenancy is declared here and enforced in the data wave; the folder opens no database transaction.

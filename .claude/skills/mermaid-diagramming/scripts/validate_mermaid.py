@@ -133,6 +133,7 @@ CANON = frozenset({
     "edgeError",
     "edgeExternal",
     "edgeData",
+    "edgeControl",
     "edgeTrace",
 })
 PALETTE = frozenset({

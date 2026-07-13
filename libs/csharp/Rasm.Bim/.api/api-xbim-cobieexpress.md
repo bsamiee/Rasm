@@ -61,22 +61,31 @@ siblings under the same xBIM lineage and license posture.
  categories/attributes/documents/impacts/representations) → `CobieTypeOrComponent` → `CobieType`/
  `CobieComponent`. Author entities through `model.Instances.New<TEntity>()` inside a transaction.
 
-| [INDEX] | [SYMBOL]                                                                                                                                                                                                                                                                                                                                        | [TYPE_FAMILY]          | [RAIL]                                                                                                                                                                                                |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `CobieReferencedObject` (abstract)                                                                                                                                                                                                                                                                                                              | provenance base        | `Created` (`CobieCreatedInfo`), `ExternalObject` (`CobieExternalObject`), `ExternalSystem` (`CobieExternalSystem`), `ExternalId`/`AltExternalId` — every COBie row's externally-keyed provenance head |
-|  [02]   | `CobieAsset` (abstract)                                                                                                                                                                                                                                                                                                                         | named-asset base       | `: CobieReferencedObject` — `Name`, `Description`, `Categories`, `Attributes`, `Documents`, `Impacts`, `Representations`, `CausingIssues`, `AffectedBy`                                               |
-|  [03]   | `CobieFacility` / `CobieFloor` / `CobieSpace`                                                                                                                                                                                                                                                                                                   | spatial entities       | the IFC building/storey/space spatial breakdown (`SpatialDivision` select, with `CobieSite` at the site level)                                                                                        |
-|  [04]   | `CobieType` / `CobieComponent` (`: CobieTypeOrComponent`)                                                                                                                                                                                                                                                                                       | type/instance          | the equipment TYPE catalogue and its installed instance COMPONENTs                                                                                                                                    |
-|  [05]   | `CobieSystem` / `CobieZone`                                                                                                                                                                                                                                                                                                                     | grouping entities      | `: CobieAsset` logical groupings — a functional system grouping components, a zone grouping spaces (NOT `SpatialDivision`)                                                                            |
-|  [06]   | `CobieSpare` / `CobieResource` / `CobieJob`                                                                                                                                                                                                                                                                                                     | FM-operations          | spare parts, maintenance resources, and the maintenance/operation jobs that consume them                                                                                                              |
-|  [07]   | `CobieContact`                                                                                                                                                                                                                                                                                                                                  | contact entity         | a person/organisation responsible party (keyed by `Email`)                                                                                                                                            |
-|  [08]   | `CobieAttribute`                                                                                                                                                                                                                                                                                                                                | attribute entity       | one Pset property as a COBie attribute (`Name` + `Value` (`AttributeValue` select) + `Unit` + `Stage` (`CobieStageType`) + `AllowedValues`), the `CobieAsset.Attributes` member                       |
-|  [09]   | `CobieDocument` / `CobieConnection` / `CobieCoordinate` / `CobieIssue` / `CobieImpact` / `CobieClassification`                                                                                                                                                                                                                                  | satellite entities     | linked documents, component connections, geometry placement, issues, sustainability impacts, classification references                                                                                |
-|  [10]   | `CobieProject` / `CobieSite` / `CobiePhase` / `CobieCreatedInfo`                                                                                                                                                                                                                                                                                | header entities        | the COBie project/site/phase header and the created-by/created-on provenance record                                                                                                                   |
-|  [11]   | `CobiePickValue` (abstract) + `CobieCategory`/`CobieRole`/`CobieAssetType`/`CobieStageType`/`CobieConnectionType`/`CobieDocumentType`/`CobieJobType`/`CobieJobStatusType`/`CobieIssueType`/`CobieSpareType`/`CobieResourceType`/`CobieImpactType`/`CobieImpactStage`/`CobieApprovalType`/`CobieIssueChance`/`CobieIssueImpact`/`CobieIssueRisk` | pick-list dictionaries | the closed enumeration/classification vocabularies COBie rows reference (the `Issue*` risk/chance/impact triad keys `CobieIssue`)                                                                     |
-|  [12]   | `CobieAreaUnit`/`CobieLinearUnit`/`CobieVolumeUnit`/`CobieCurrencyUnit`/`CobieDurationUnit`/`CobieImpactUnit`                                                                                                                                                                                                                                   | unit pick-values       | the COBie unit dictionaries (the `Planning/cost` currency + `UnitsNet` measure touchpoints)                                                                                                           |
-|  [13]   | `AttributeValue` (select) + `StringValue`/`IntegerValue`/`FloatValue`/`BooleanValue`/`DateTimeValue`                                                                                                                                                                                                                                            | value select           | the typed COBie attribute value (EXPRESS select over the five primitive value structs)                                                                                                                |
-|  [14]   | `EntityFactoryCobieExpress` (`IEntityFactory`)                                                                                                                                                                                                                                                                                                  | entity factory         | the schema entity factory the `CobieModel` constructs entities through                                                                                                                                |
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]          | [RAIL]                                                              |
+| :-----: | :---------------------------------------- | :--------------------- | :------------------------------------------------------------------ |
+|  [01]   | `CobieReferencedObject` (abstract)        | provenance base        | externally-keyed provenance head (members [01])                     |
+|  [02]   | `CobieAsset` (abstract)                   | named-asset base       | `: CobieReferencedObject`; named asset (members [02])               |
+|  [03]   | `CobieFacility`/`CobieFloor`/`CobieSpace` | spatial entities       | IFC building/storey/space (`SpatialDivision`; `CobieSite` at site)  |
+|  [04]   | `CobieType`/`CobieComponent`              | type/instance          | `: CobieTypeOrComponent` — TYPE catalogue + installed COMPONENTs    |
+|  [05]   | `CobieSystem`/`CobieZone`                 | grouping entities      | `: CobieAsset` — system groups components, zone groups spaces       |
+|  [06]   | `CobieSpare`/`CobieResource`/`CobieJob`   | FM-operations          | spare parts, maintenance resources, jobs that consume them          |
+|  [07]   | `CobieContact`                            | contact entity         | a person/organisation responsible party (keyed by `Email`)          |
+|  [08]   | `CobieAttribute`                          | attribute entity       | a `CobieAsset.Attributes` member (members [08])                     |
+|  [09]   | `CobieDocument` + satellites              | satellite entities     | the 6 satellite reference kinds (roster [09])                       |
+|  [10]   | `CobieProject` + header entities          | header entities        | project/site/phase header + created-by/on record (roster [10])      |
+|  [11]   | `CobiePickValue` (abstract) + subtypes    | pick-list dictionaries | 17 closed enumeration/classification vocabularies (roster [11])     |
+|  [12]   | `CobieAreaUnit` + unit pick-values        | unit pick-values       | 6 unit dictionaries — cost currency + `UnitsNet` (roster [12])      |
+|  [13]   | `AttributeValue` (select) + value structs | value select           | EXPRESS select over 5 primitive value structs (roster [13])         |
+|  [14]   | `EntityFactoryCobieExpress`               | entity factory         | `: IEntityFactory` — the schema factory `CobieModel` builds through |
+
+- [01]-[PROVENANCE]: `Created` (`CobieCreatedInfo`), `ExternalObject` (`CobieExternalObject`), `ExternalSystem` (`CobieExternalSystem`), `ExternalId`/`AltExternalId`.
+- [02]-[ASSET]: `Name`, `Description`, `Categories`, `Attributes`, `Documents`, `Impacts`, `Representations`, `CausingIssues`, `AffectedBy`.
+- [08]-[ATTRIBUTE]: `Name` + `Value` (`AttributeValue` select) + `Unit` + `Stage` (`CobieStageType`) + `AllowedValues`.
+- [09]-[SATELLITE]: `CobieDocument`/`CobieConnection`/`CobieCoordinate`/`CobieIssue`/`CobieImpact`/`CobieClassification`.
+- [10]-[HEADER]: `CobieProject`/`CobieSite`/`CobiePhase`/`CobieCreatedInfo`.
+- [11]-[PICK]: `CobieCategory`/`CobieRole`/`CobieAssetType`/`CobieStageType`/`CobieConnectionType`/`CobieDocumentType`/`CobieJobType`/`CobieJobStatusType`/`CobieIssueType`/`CobieSpareType`/`CobieResourceType`/`CobieImpactType`/`CobieImpactStage`/`CobieApprovalType`/`CobieIssueChance`/`CobieIssueImpact`/`CobieIssueRisk` — the `Issue*` risk/chance/impact triad keys `CobieIssue`.
+- [12]-[UNITS]: `CobieAreaUnit`/`CobieLinearUnit`/`CobieVolumeUnit`/`CobieCurrencyUnit`/`CobieDurationUnit`/`CobieImpactUnit`.
+- [13]-[VALUE]: `StringValue`/`IntegerValue`/`FloatValue`/`BooleanValue`/`DateTimeValue`.
 
 [PUBLIC_TYPE_SCOPE]: the `CobieModel` store (`Xbim.IO.CobieExpress`)
 - rail: export
@@ -84,13 +93,15 @@ siblings under the same xBIM lineage and license posture.
  holds the entity graph, the transaction log, and the serialization surface; author through
  `Instances.New<T>()` in a `BeginTransaction` scope and serialize through the save family.
 
-| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]    | [RAIL]                                                                                                                                              |
-| :-----: | :------------------------------------- | :--------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `CobieModel`                           | model store      | `: IModel, IDisposable` — the COBie entity store (`Instances`/`Metadata`/`ModelFactors`/`SchemaVersion`, transactions, STEP21/Esent/spreadsheet IO) |
-|  [02]   | `COBieModelProviderFactory`            | provider factory | `: IModelProviderFactory` — the model-provider wiring (`CreateProvider`/`Use`)                                                                      |
-|  [03]   | `AttributeTypeResolver` (`.Resolvers`) | type resolver    | `: ITypeResolver` — resolves COBie attribute value types on load                                                                                    |
-|  [04]   | `ExcelTypeEnum` (`Xbim.IO.Table`)      | spreadsheet kind | the XLS/XLSX selector the `ExportToTable(Stream, ExcelTypeEnum, …)` overload takes                                                                  |
-|  [05]   | `ModelMapping` (`Xbim.IO.Table`)       | table mapping    | the COBie-spreadsheet column/sheet mapping `GetMapping()` supplies and `ExportToTable`/`ImportFromTable` drive                                      |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]    | [RAIL]                                                                     |
+| :-----: | :------------------------------------- | :--------------- | :------------------------------------------------------------------------- |
+|  [01]   | `CobieModel`                           | model store      | `: IModel, IDisposable` — the COBie entity store (members [01])            |
+|  [02]   | `COBieModelProviderFactory`            | provider factory | `: IModelProviderFactory` — model-provider wiring (`CreateProvider`/`Use`) |
+|  [03]   | `AttributeTypeResolver` (`.Resolvers`) | type resolver    | `: ITypeResolver` — resolves COBie attribute value types on load           |
+|  [04]   | `ExcelTypeEnum` (`Xbim.IO.Table`)      | spreadsheet kind | XLS/XLSX selector for the `ExportToTable(Stream, …)` overload              |
+|  [05]   | `ModelMapping` (`Xbim.IO.Table`)       | table mapping    | `GetMapping()` mapping for `ExportToTable`/`ImportFromTable`               |
+
+- [01]-[STORE]: `CobieModel` exposes `Instances`/`Metadata`/`ModelFactors`/`SchemaVersion` + transactions.
 
 [PUBLIC_TYPE_SCOPE]: the IFC→COBie exchanger (`Xbim.CobieExpress.Exchanger`)
 - rail: export
@@ -99,18 +110,22 @@ siblings under the same xBIM lineage and license posture.
  `.ifc`. The mapping family (`MappingIfc*ToCobie*`) is internal; the public surface is the converter +
  its parameter/mode types.
 
-| [INDEX] | [SYMBOL]                                                                                        | [TYPE_FAMILY]       | [RAIL]                                                                                                                                              |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `IfcToCoBieExpressExchanger`                                                                    | exchanger           | `: XbimExchanger<IModel, IModel>` — iterates `IIfcBuilding` → `CobieFacility` via the `MappingIfc*` family; `Convert()` returns the target `IModel` |
-|  [02]   | `CobieExpressConverter`                                                                         | turnkey converter   | `: ICobieConverter` — `Run(CobieConversionParams)` → `Task<IModel>`; builds a `CobieModel`, runs the exchanger in a transaction, commits            |
-|  [03]   | `ICobieConverter`                                                                               | converter contract  | `Task<IModel> Run(CobieConversionParams)`                                                                                                           |
-|  [04]   | `CobieConversionParams`                                                                         | conversion params   | `Source` (xBIM `IModel`), `NewCobieModel` (`Func<IModel>`), `ExtId`, `SysMode`, `Filter`, `ConfigFile`, `ReportProgress`                            |
-|  [05]   | `EntityIdentifierMode`                                                                          | id-mode enum        | `IfcEntityLabels` / `GloballyUniqueIds` / `None` — how COBie external-ids reference the source IFC                                                  |
-|  [06]   | `SystemExtractionMode` (`[Flags]`)                                                              | system-mode enum    | `System` / `PropertyMaps` / `Types` — what counts as a COBie system during extraction                                                               |
-|  [07]   | `ExternalReferenceMode`                                                                         | ext-ref enum        | which external system/entity-type names COBie writes                                                                                                |
-|  [08]   | `ExportFormatEnum`                                                                              | format enum         | `XLS`/`XLSX`/`JSON`/`XML`/`IFC`/`STEP21` — the COBie export targets                                                                                 |
-|  [09]   | `OutputFilters` / `ObjectFilter` / `PropertyFilter` / `RoleFilter` / `ImportSet`                | extraction filters  | the COBie role/object/property inclusion filters (`OutputFilters` rides `CobieConversionParams.Filter`)                                             |
-|  [10]   | `XbimExchanger<TSource, TTarget>` / `XbimMappings<…>` / `IXbimMappings<…>` / `ProgressReporter` | exchanger framework | the generic mapping-engine base the IFC→COBie family extends                                                                                        |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]       | [RAIL]                                                                     |
+| :-----: | :--------------------------------- | :------------------ | :------------------------------------------------------------------------- |
+|  [01]   | `IfcToCoBieExpressExchanger`       | exchanger           | `: XbimExchanger<IModel, IModel>`; `Convert()` → `CobieFacility`           |
+|  [02]   | `CobieExpressConverter`            | turnkey converter   | `: ICobieConverter`; `Run(...)` → `Task<IModel>`, runs exchanger + commits |
+|  [03]   | `ICobieConverter`                  | converter contract  | `Task<IModel> Run(CobieConversionParams)`                                  |
+|  [04]   | `CobieConversionParams`            | conversion params   | the conversion params (fields [04])                                        |
+|  [05]   | `EntityIdentifierMode`             | id-mode enum        | `IfcEntityLabels`/`GloballyUniqueIds`/`None` — external-id mode            |
+|  [06]   | `SystemExtractionMode` (`[Flags]`) | system-mode enum    | `System`/`PropertyMaps`/`Types` — what counts as a COBie system            |
+|  [07]   | `ExternalReferenceMode`            | ext-ref enum        | which external system/entity-type names COBie writes                       |
+|  [08]   | `ExportFormatEnum`                 | format enum         | `XLS`/`XLSX`/`JSON`/`XML`/`IFC`/`STEP21` — the COBie export targets        |
+|  [09]   | `OutputFilters` + filter family    | extraction filters  | role/object/property inclusion filters (rides `.Filter`; roster [09])      |
+|  [10]   | `XbimExchanger<TSource, TTarget>`  | exchanger framework | the generic mapping-engine base (roster [10])                              |
+
+- [04]-[PARAMS]: `Source` (xBIM `IModel`), `NewCobieModel` (`Func<IModel>`), `ExtId`, `SysMode`, `Filter`, `ConfigFile`, `ReportProgress`.
+- [09]-[FILTERS]: `ObjectFilter`/`PropertyFilter`/`RoleFilter`/`ImportSet`.
+- [10]-[FRAMEWORK]: `XbimMappings<…>`/`IXbimMappings<…>`/`ProgressReporter`.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -120,28 +135,30 @@ siblings under the same xBIM lineage and license posture.
  through the store API, with NO xBIM IFC reader — `BimElement` → `CobieComponent`, its type →
  `CobieType`, spatial parent → `CobieFloor`/`CobieSpace`, Pset → `CobieAttribute`.
 
-| [INDEX] | [SURFACE]                                                                                                                                                          | [ENTRY_FAMILY] | [RAIL]                                                                               |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `new CobieModel()` / `new CobieModel(IModel)` / `new CobieModel(string esentDbFile)`                                                                               | construct      | an in-memory (or Esent-backed) COBie store                                           |
-|  [02]   | `using var txn = model.BeginTransaction(name)` … `txn.Commit()`                                                                                                    | transaction    | author entities inside a transaction scope                                           |
-|  [03]   | `model.Instances.New<CobieFacility>()` (and `New<CobieFloor>`/`New<CobieSpace>`/`New<CobieType>`/`New<CobieComponent>`/`New<CobieSystem>`/`New<CobieAttribute>`/…) | author         | create a COBie entity in the store from the `BimModel` projection                    |
-|  [04]   | `model.SetDefaultEntityInfo(date, email, givenName, familyName)` → `CobieCreatedInfo`                                                                              | provenance     | the default created-by/created-on stamp every authored row inherits                  |
-|  [05]   | `asset.Categories` / `asset.Attributes` / `asset.Documents` (`IOptionalItemSet<T>`)                                                                                | author         | add the Pset attributes, classification categories, and linked documents to an asset |
-|  [06]   | `model.InsertCopy<T>(toCopy, mappings, propTransform, includeInverses, keepLabels)`                                                                                | author         | deep-copy an entity (and inverses) between stores                                    |
+| [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY] | [RAIL]                              |
+| :-----: | :---------------------------------------------------------------------------- | :------------- | :---------------------------------- |
+|  [01]   | `new CobieModel()` / `(IModel)` / `(string esentDbFile)`                      | construct      | in-memory or Esent-backed store     |
+|  [02]   | `using var txn = model.BeginTransaction(name)` … `txn.Commit()`               | transaction    | author in a transaction scope       |
+|  [03]   | `model.Instances.New<T>()`                                                    | author         | author an entity (types [03])       |
+|  [04]   | `model.SetDefaultEntityInfo(date, email, givenName, familyName)`              | provenance     | default provenance stamp            |
+|  [05]   | `asset.Categories` / `asset.Attributes` / `asset.Documents`                   | author         | add attributes/categories/documents |
+|  [06]   | `InsertCopy<T>(toCopy, mappings, propTransform, includeInverses, keepLabels)` | author         | deep-copy an entity + inverses      |
+
+- [03]-[AUTHOR]: `New<CobieFacility>`/`New<CobieFloor>`/`New<CobieSpace>`/`New<CobieType>`/`New<CobieComponent>`/`New<CobieSystem>`/`New<CobieAttribute>`.
 
 [ENTRYPOINT_SCOPE]: serialization and the COBie-spreadsheet bridge
 - rail: export
 - note: the COBie register serializes to the EXPRESS STEP21 form, the COBie spreadsheet (XLS/XLSX), or
  Esent; the spreadsheet `ExportToTable` is the canonical FM-handover deliverable.
 
-| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY]     | [RAIL]                                                       |
-| :-----: | :----------------------------------------------------------------------------------- | :----------------- | :----------------------------------------------------------- |
-|  [01]   | `model.SaveAsStep21(file)` / `SaveAsStep21Zip(file)` / `SaveAsEsent(dbName)`         | save               | the COBie EXPRESS STEP / zipped-STEP / Esent forms           |
-|  [02]   | `model.ExportToTable(file, out report, mapping = null, template = null)`             | save (spreadsheet) | the COBie spreadsheet deliverable (the FM-handover XLS/XLSX) |
-|  [03]   | `model.ExportToTable(Stream, ExcelTypeEnum, out report, mapping, template)`          | save (spreadsheet) | the stream + explicit XLS/XLSX-kind overload                 |
-|  [04]   | `CobieModel.OpenStep21(path/stream, esentDB)` / `OpenStep21Zip(…)` / `OpenEsent(db)` | open               | re-open a persisted COBie register                           |
-|  [05]   | `CobieModel.ImportFromTable(file, out report, mapping = null)` → `CobieModel`        | open (spreadsheet) | round-trip a COBie spreadsheet back into the model           |
-|  [06]   | `CobieModel.GetMapping()` → `ModelMapping`                                           | mapping            | the default COBie-spreadsheet column/sheet mapping           |
+| [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY]     | [RAIL]                       |
+| :-----: | :---------------------------------------------------------------------------- | :----------------- | :--------------------------- |
+|  [01]   | `model.SaveAsStep21` / `SaveAsStep21Zip` / `SaveAsEsent`                      | save               | STEP/zip/Esent forms         |
+|  [02]   | `model.ExportToTable(file, out report, mapping, template)`                    | save (spreadsheet) | FM XLS/XLSX deliverable      |
+|  [03]   | `model.ExportToTable(Stream, ExcelTypeEnum, out report, mapping, template)`   | save (spreadsheet) | stream overload              |
+|  [04]   | `CobieModel.OpenStep21` / `OpenStep21Zip` / `OpenEsent`                       | open               | re-open a register           |
+|  [05]   | `CobieModel.ImportFromTable(file, out report, mapping = null)` → `CobieModel` | open (spreadsheet) | round-trip a spreadsheet     |
+|  [06]   | `CobieModel.GetMapping()` → `ModelMapping`                                    | mapping            | default column/sheet mapping |
 
 [ENTRYPOINT_SCOPE]: turnkey IFC→COBie conversion (terminal file→file handover only)
 - rail: export
@@ -149,11 +166,14 @@ siblings under the same xBIM lineage and license posture.
  transform off the persisted `.ifc`, never a held second authority; the source xBIM model is opened,
  converted, and disposed within the export call.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                              | [ENTRY_FAMILY] | [RAIL]                                                                         |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------- |
-|  [01]   | `new CobieExpressConverter(logger).Run(new CobieConversionParams { Source = xbimIfcModel, NewCobieModel = => new CobieModel, ExtId = GloballyUniqueIds, SysMode = System \| Types, Filter = OutputFilters.Default })` → `Task<IModel>` | convert        | the turnkey async IFC→COBie conversion                                         |
-|  [02]   | `new IfcToCoBieExpressExchanger(source, target, reportProgress, filter, configFile, extId, sysMode, classify).Convert()` → `IModel`                                                                                                    | convert        | the lower-level exchanger (`source`/`target` both xBIM `IModel`)               |
-|  [03]   | `CobieConversionParams { ExtId, SysMode, Filter, ConfigFile, ReportProgress }`                                                                                                                                                         | configure      | the conversion knobs (id mode, system extraction, role/object/property filter) |
+| [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY] | [RAIL]                                 |
+| :-----: | :----------------------------------------------------------------------------- | :------------- | :------------------------------------- |
+|  [01]   | `new CobieExpressConverter(logger).Run(params)` → `Task<IModel>`               | convert        | turnkey async conversion (params [01]) |
+|  [02]   | `new IfcToCoBieExpressExchanger(...).Convert()` → `IModel`                     | convert        | lower-level exchanger (ctor [02])      |
+|  [03]   | `CobieConversionParams { ExtId, SysMode, Filter, ConfigFile, ReportProgress }` | configure      | id-mode/system/filter knobs            |
+
+- [01]-[RUN]: typical params — `Source = xbimIfcModel`, `NewCobieModel = () => new CobieModel`, `ExtId = GloballyUniqueIds`, `SysMode = System | Types`, `Filter = OutputFilters.Default`.
+- [02]-[EXCHANGER]: ctor `(source, target, reportProgress, filter, configFile, extId, sysMode, classify)`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

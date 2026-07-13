@@ -17,31 +17,31 @@
 
 [PUBLIC_TYPE_SCOPE]: the variant vocabulary and the prop bridge
 - rail: token/variant-dispatch
-- `VariantProps` is the type seam from a `cva` component back into React props and `effect`'s `Schema`; `StringToBoolean` is why a `{ true, false }` variant axis accepts a `boolean` prop; `ClassProp` is the `class` XOR `className` shape every generated selector accepts. These types are the contract a design page composes, not incidental exports.
+- `VariantProps<Component extends (...a: any) => any>` = `Omit<OmitUndefined<Parameters<Component>[0]>, "class" | "className">` lifts a `cva` selector's axis union into a component's prop type and `effect`'s `Schema`; `StringToBoolean` is why a `{ true, false }` variant axis accepts a `boolean` prop; `ClassProp` is the `class` XOR `className` union `{ class: ClassValue; className?: never } | { class?: never; className: ClassValue } | { class?: never; className?: never }` every generated selector accepts. These types are the contract a design page composes, not incidental exports.
 
-| [INDEX] | [SYMBOL]                                                                                                                                     | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                                        |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------------------------------- |
-|  [01]   | `VariantProps<Component extends (...a: any) => any>` = `Omit<OmitUndefined<Parameters<Component>[0]>, "class" \| "className">`               | prop extractor    | lift a `cva` selector's axis union into a component's prop type + `Schema` |
-|  [02]   | `ClassValue` (= `clsx.ClassValue`)                                                                                                           | class input       | the value type of every `variants[axis][value]` cell and `base`            |
-|  [03]   | `ClassProp` = `{ class: ClassValue; className?: never } \| { class?: never; className: ClassValue } \| { class?: never; className?: never }` | XOR prop          | the ad-hoc class escape hatch on the selector + `compoundVariants` rows    |
-|  [04]   | `ClassPropKey = "class" \| "className"`                                                                                                      | prop key          | the two accepted ad-hoc class prop names                                   |
-|  [05]   | `StringToBoolean<T>` = `T extends "true" \| "false" ? boolean : T`                                                                           | boolean-axis lift | makes a `{ true, false }` variant axis type as a `boolean` prop            |
-|  [06]   | `OmitUndefined<T>`                                                                                                                           | prop cleaner      | strips `undefined` from extracted axis unions                              |
-|  [07]   | `CxOptions = Parameters<typeof clsx>` / `CxReturn = ReturnType<typeof clsx>`                                                                 | cx alias          | the fold's input/return, re-exported so `cx` needs no `clsx` import        |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                                             |
+| :-----: | :------------------------ | :---------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `VariantProps<Component>` | prop extractor    | lift a `cva` selector's axis union into a component's props + `Schema`          |
+|  [02]   | `ClassValue`              | class input       | `= clsx.ClassValue`; every `variants[axis][value]` cell and `base`              |
+|  [03]   | `ClassProp`               | XOR prop          | the ad-hoc class escape hatch on the selector + `compoundVariants`              |
+|  [04]   | `ClassPropKey`            | prop key          | `"class" \| "className"` — the two accepted ad-hoc class prop names             |
+|  [05]   | `StringToBoolean<T>`      | boolean-axis lift | `T extends "true"\|"false" ? boolean : T`; a `{ true, false }` axis → `boolean` |
+|  [06]   | `OmitUndefined<T>`        | prop cleaner      | strips `undefined` from extracted axis unions                                   |
+|  [07]   | `CxOptions` / `CxReturn`  | cx alias          | `Parameters`/`ReturnType` of `clsx`; re-exported so `cx` needs no import        |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the dispatch factory and the fold re-export
 - rail: token/variant-dispatch
-- `cva` is one polymorphic factory: `base` alone, `base` + `variants`, `defaultVariants` for unspecified axes, and `compoundVariants` for cross-axis rules all flow through the single `config` shape. `cx` is the `clsx` fold surfaced so a `cva` module needs no second import.
+- `cva<T>(base?: ClassValue, config?: Config<T>): (props?: Props<T>) => string` is one polymorphic factory: `base` alone, `base` + `variants`, `defaultVariants` for unspecified axes, and `compoundVariants` for cross-axis rules all flow through the single `config` shape. `cx` is the `clsx` fold surfaced so a `cva` module needs no second import.
 
-| [INDEX] | [SURFACE]                                                                           | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                                                              |
-| :-----: | :---------------------------------------------------------------------------------- | :--------------- | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `cva<T>(base?: ClassValue, config?: Config<T>): (props?: Props<T>) => string`       | dispatch factory | the one per-component variant selector; output feeds `twMerge`                                   |
-|  [02]   | `config.variants: Record<Axis, Record<Value, ClassValue>>`                          | axis table       | the declarative variant→class map; each axis is a prop                                           |
-|  [03]   | `config.defaultVariants?: { [Axis]?: Value }`                                       | axis defaults    | classes applied when a prop omits that axis                                                      |
-|  [04]   | `config.compoundVariants?: ((ConfigVariants \| ConfigVariantsMulti) & ClassProp)[]` | cross-axis rules | classes applied only when several axes match; multi = array-valued match `{ size: ["sm","md"] }` |
-|  [05]   | `cx: typeof clsx` (`cx(...inputs: ClassValue[]): string`)                           | fold re-export   | the `clsx` fold; import from `cva` inside a `cva` module                                         |
+| [INDEX] | [SURFACE]                 | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                                        |
+| :-----: | :------------------------ | :--------------- | :------------------------------------------------------------------------- |
+|  [01]   | `cva(base?, config?)`     | dispatch factory | the per-component selector `(props) => string`; output feeds `twMerge`     |
+|  [02]   | `config.variants`         | axis table       | `Record<Axis, Record<Value, ClassValue>>` — the variant→class map          |
+|  [03]   | `config.defaultVariants`  | axis defaults    | `{ [Axis]?: Value }` — classes applied when a prop omits that axis         |
+|  [04]   | `config.compoundVariants` | cross-axis rules | `(ConfigVariants \| ConfigVariantsMulti) & ClassProp` — several axes match |
+|  [05]   | `cx`                      | fold re-export   | `= typeof clsx`; the `clsx` fold, imported from `cva` in a `cva` module    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -19,7 +19,7 @@ One `Provider` (a `pulumi.ProviderResource`) carries the full auth surface; ever
 |  [01]   | `Provider`     | `pulumi.ProviderResource` | explicit provider instance for fine-grained auth   |
 |  [02]   | `ProviderArgs` | interface                 | the full auth/endpoint bag — all `pulumi.Input<…>` |
 
-```ts contract
+```ts signature
 import * as pulumi from "@pulumi/pulumi"
 export declare class Provider extends pulumi.ProviderResource {
   constructor(name: string, args?: ProviderArgs, opts?: pulumi.ResourceOptions)
@@ -48,7 +48,7 @@ export interface ProviderArgs {
 
 Every resource in every namespace is the SAME parameterized shape — not a per-resource API. Documenting it once is the mechanism; the namespace roster in [03] is seed data. Each class extends `pulumi.CustomResource`, each carries an input `*Args` and a rehydration `*State`, and each namespace pairs resources with `get*` data-source functions.
 
-```ts contract
+```ts signature
 // The uniform resource shape (exemplar: oss.Folder — every resource matches this).
 export declare class Folder extends pulumi.CustomResource {
   constructor(name: string, args: FolderArgs, opts?: pulumi.CustomResourceOptions)   // opts.provider = the Provider
@@ -64,24 +64,28 @@ export declare function getDashboard(args?: GetDashboardArgs, opts?: pulumi.Invo
 
 ## [03]-[NAMESPACE_ROSTER]
 
-18 resource namespaces + `types` + the `Provider`. SEED DATA on the [02] pattern; the telemetry consumer touches `oss`, `alerting`, and `slo` — the rest are prepared rows a future capability finalizes.
+18 resource namespaces + `types` + the `Provider`, all SEED DATA on the [02] pattern. The telemetry consumer touches `oss`, `alerting`, and `slo` (full rosters below); the rest are prepared rows a future capability finalizes.
 
-| [INDEX] | [NAMESPACE]                                                                | [CONSUMED_BY_TELEMETRY] | [OWNS]                                                                                                                                                                                                                                                                                                                                              |
-| :-----: | :------------------------------------------------------------------------- | :---------------------: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `oss`                                                                      |        ● boards         | `Dashboard` (`DashboardArgs { configJson (required), folder?, message?, orgId?, overwrite? }`), `DashboardPublic`, `Folder`, `DataSource`, `DataSourceConfig`, `LibraryPanel`, `Playlist`, `Organization`, `Team`, `User`, `ServiceAccount`, `ServiceAccountToken`, `SsoSettings`, `Annotation` + `get*`                                            |
-|  [02]   | `alerting`                                                                 |        ● alerts         | `RuleGroup` (`RuleGroupArgs { folderUid (required), intervalSeconds (required), rules (required), name?, orgId?, disableProvenance? }`), `ContactPoint` (`name` + one array per channel: `emails`, `slacks`, `webhooks`, …), `NotificationPolicy`, `MuteTiming`, `MessageTemplate`, `AlertEnrichment`, `AlertRuleV0Alpha1`, `RecordingRuleV0Alpha1` |
-|  [03]   | `slo`                                                                      |         ● SLOs          | `Slo` + `getSlos`                                                                                                                                                                                                                                                                                                                                   |
-|  [04]   | `cloud`                                                                    |        prepared         | Grafana Cloud stacks, access policies, plugins                                                                                                                                                                                                                                                                                                      |
-|  [05]   | `machinelearning`                                                          |        prepared         | ML jobs, holidays, outlier detectors                                                                                                                                                                                                                                                                                                                |
-|  [06]   | `oncall`                                                                   |        prepared         | schedules, escalation chains, integrations                                                                                                                                                                                                                                                                                                          |
-|  [07]   | `syntheticmonitoring`                                                      |        prepared         | probes, checks                                                                                                                                                                                                                                                                                                                                      |
-|  [08]   | `cloudprovider`                                                            |        prepared         | AWS/Azure/GCP CloudWatch scrape jobs                                                                                                                                                                                                                                                                                                                |
-|  [09]   | `connections`                                                              |        prepared         | metrics endpoints, collector configs                                                                                                                                                                                                                                                                                                                |
-|  [10]   | `fleetmanagement`                                                          |        prepared         | collector fleet pipelines                                                                                                                                                                                                                                                                                                                           |
-|  [11]   | `frontendobservability`                                                    |        prepared         | RUM apps                                                                                                                                                                                                                                                                                                                                            |
-|  [12]   | `k6`                                                                       |        prepared         | load-test projects (mirrors the `tests/typescript/e2e` k6 lane)                                                                                                                                                                                                                                                                                     |
-|  [13]   | `apps` · `assert` · `assistant` · `enterprise` · `experimental` · `config` |        prepared         | app/enterprise/overlay resource rows                                                                                                                                                                                                                                                                                                                |
-|  [14]   | `types`                                                                    |            —            | shared input/output interface library                                                                                                                                                                                                                                                                                                               |
+[CONSUMED]: the three telemetry-touched namespaces and their full resource rosters
+- [01]-`oss` (boards): `Dashboard` (`DashboardArgs { configJson (required), folder?, message?, orgId?, overwrite? }`), `DashboardPublic`, `Folder`, `DataSource`, `DataSourceConfig`, `LibraryPanel`, `Playlist`, `Organization`, `Team`, `User`, `ServiceAccount`, `ServiceAccountToken`, `SsoSettings`, `Annotation` + `get*`.
+- [02]-`alerting` (alerts): `RuleGroup` (`RuleGroupArgs { folderUid (required), intervalSeconds (required), rules (required), name?, orgId?, disableProvenance? }`), `ContactPoint` (`name` + one array per channel: `emails`, `slacks`, `webhooks`, …), `NotificationPolicy`, `MuteTiming`, `MessageTemplate`, `AlertEnrichment`, `AlertRuleV0Alpha1`, `RecordingRuleV0Alpha1`.
+- [03]-`slo` (SLOs): `Slo` + `getSlos`.
+
+[PREPARED]: the remaining namespaces on the same pattern (`types` is the shared interface library, not a resource row)
+
+| [INDEX] | [NAMESPACE]                                                                | [OWNS]                                         |
+| :-----: | :------------------------------------------------------------------------- | :--------------------------------------------- |
+|  [01]   | `cloud`                                                                    | Grafana Cloud stacks, access policies, plugins |
+|  [02]   | `machinelearning`                                                          | ML jobs, holidays, outlier detectors           |
+|  [03]   | `oncall`                                                                   | schedules, escalation chains, integrations     |
+|  [04]   | `syntheticmonitoring`                                                      | probes, checks                                 |
+|  [05]   | `cloudprovider`                                                            | AWS/Azure/GCP CloudWatch scrape jobs           |
+|  [06]   | `connections`                                                              | metrics endpoints, collector configs           |
+|  [07]   | `fleetmanagement`                                                          | collector fleet pipelines                      |
+|  [08]   | `frontendobservability`                                                    | RUM apps                                       |
+|  [09]   | `k6`                                                                       | load-test projects; mirrors the k6 e2e lane    |
+|  [10]   | `apps` · `assert` · `assistant` · `enterprise` · `experimental` · `config` | app/enterprise/overlay resource rows           |
+|  [11]   | `types`                                                                    | shared input/output interface library          |
 
 ## [04]-[INTEGRATION]
 

@@ -18,72 +18,74 @@
 - rail: store/journal
 - `PgClient extends SqlClient` — providing the `layer` yields both the `PgClient` Tag and the `SqlClient` Tag, so domain rows compose the neutral `SqlClient` and only `journal`/`project` rows needing LISTEN/NOTIFY or jsonb reach for the `PgClient` Tag. `listen`/`notify` are the ONE parameterized channel bus, not a fixed channel roster.
 
-| [INDEX] | [SYMBOL]                                                            | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                                          |
-| :-----: | :------------------------------------------------------------------ | :-------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `PgClient.PgClient` (Tag) / `interface PgClient`                    | service Tag     | `journal`/`project` PG rows; `PgClient \| SqlClient` provided by one layer   |
-|  [02]   | `PgClient.listen(channel: string): Stream<string, SqlError>`        | notify bus      | `project/async` — LISTEN wake stream per channel; one arity, channel is data |
-|  [03]   | `PgClient.notify(channel, payload: string): Effect<void, SqlError>` | notify bus      | `project/inline` post-commit NOTIFY; `journal/outbox` change signal          |
-|  [04]   | `PgClient.json(_: unknown): Fragment`                               | jsonb fragment  | `journal`/`retrieve` jsonb column writes; `PgCustom` = `PgJson` custom type  |
-|  [05]   | `PgClient.config: PgClientConfig`                                   | resolved config | span/transform introspection; `applicationName` correlation                  |
+| [INDEX] | [SYMBOL]                                                            | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                              |
+| :-----: | :------------------------------------------------------------------ | :-------------- | :----------------------------------------------- |
+|  [01]   | `PgClient.PgClient` (Tag) / `interface PgClient`                    | service Tag     | `journal`/`project` PG rows                      |
+|  [02]   | `PgClient.listen(channel: string): Stream<string, SqlError>`        | notify bus      | `project/async` LISTEN wake stream per channel   |
+|  [03]   | `PgClient.notify(channel, payload: string): Effect<void, SqlError>` | notify bus      | `project/inline` NOTIFY; `journal/outbox` signal |
+|  [04]   | `PgClient.json(_: unknown): Fragment`                               | jsonb fragment  | `journal`/`retrieve` jsonb writes; `PgJson` type |
+|  [05]   | `PgClient.config: PgClientConfig`                                   | resolved config | span/transform introspection; `applicationName`  |
 
 [PUBLIC_TYPE_SCOPE]: configuration and bring-your-own pool
 - rail: store/journal
-- `PgClientConfig` parameterizes the pool, TLS, timeouts, and name transforms; secrets are `Redacted`. `PgClientFromPoolOptions.acquire` hands an app-owned `pg.Pool` to the driver so `scope/handle` can share one pool across tenant Layers.
+- `PgClientConfig` parameterizes the pool, TLS, timeouts, and name transforms; secrets are `Redacted`. `PgClientFromPoolOptions.acquire` (`Effect<pg.Pool, SqlError, Scope>`) hands an app-owned `pg.Pool` to the driver so `scope/handle` can share one pool across tenant Layers.
 
-| [INDEX] | [SYMBOL]                                                                                            | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                                        |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------- |
-|  [01]   | `PgClientConfig` (`url`/`host`/`port`/`database`/`ssl`)                                             | connection     | `host/config` provider; `url`/`password` are `Redacted.Redacted`           |
-|  [02]   | `PgClientConfig` (`maxConnections`/`minConnections`/`connectionTTL`/`idleTimeout`/`connectTimeout`) | pool sizing    | `scope/handle` per-app pool budget; `iac` deployment facts                 |
-|  [03]   | `PgClientConfig.transformResultNames`/`transformQueryNames`                                         | name transform | snake_case ⇄ camelCase at the wire; internal rows stay canonical camelCase |
-|  [04]   | `PgClientConfig.transformJson` / `PgClientConfig.types` (`CustomTypesConfig`)                       | codec          | jsonb transform toggle; `pg-types` OID parser overrides (e.g. `numeric`)   |
-|  [05]   | `PgClientConfig.applicationName` / `PgClientConfig.spanAttributes`                                  | telemetry      | `pg_stat_activity` correlation; per-query OTel span attributes             |
-|  [06]   | `PgClientFromPoolOptions` (`acquire: Effect<pg.Pool, SqlError, Scope>`)                             | pool adopt     | `scope/handle` — share one app-owned `pg.Pool` across tenant Layers        |
+| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                                 |
+| :-----: | :------------------------------------------------ | :------------- | :------------------------------------------------------------------ |
+|  [01]   | `url`/`host`/`port`/`database`/`ssl`              | connection     | `host/config` provider; `url`/`password` are `Redacted.Redacted`    |
+|  [02]   | `maxConnections`/`minConnections`/`connectionTTL` | pool sizing    | `scope/handle` per-app pool budget; `iac` deployment facts          |
+|  [03]   | `idleTimeout`/`connectTimeout`                    | pool timeout   | idle reclaim + connect deadline; `iac` facts                        |
+|  [04]   | `transformResultNames`/`transformQueryNames`      | name transform | snake_case ⇄ camelCase at the wire; rows stay camelCase             |
+|  [05]   | `transformJson` / `types` (`CustomTypesConfig`)   | codec          | jsonb toggle; `pg-types` OID parser overrides (`numeric`)           |
+|  [06]   | `applicationName` / `spanAttributes`              | telemetry      | `pg_stat_activity` correlation; per-query OTel span attributes      |
+|  [07]   | `PgClientFromPoolOptions.acquire`                 | pool adopt     | `scope/handle` — share one app-owned `pg.Pool` across tenant Layers |
 
 [PUBLIC_TYPE_SCOPE]: the inherited `SqlClient` core the pg rows compose
 - rail: store/journal
-- The pg-specific surface is thin because the durable law is SQL. These `@effect/sql` members (`.api/effect-sql.md`) carry the journal, projection, and lane contracts; `PgClient` supplies the pooled, LISTEN/NOTIFY-capable connection they run over.
+- The pg-specific surface is thin because the durable law is SQL. These `@effect/sql` members (`.api/effect-sql.md`) carry the journal, projection, and lane contracts; `PgClient` supplies the pooled, LISTEN/NOTIFY-capable connection they run over. The `sql` `Constructor` exposes `in`/`unsafe`/`literal`/`insert`/`update`/`updateValues`/`and`/`or`/`csv`/`join`; `pg` is an `onDialect` arm-KEY, not a `sql.pg` method. `Model.makeRepository`/`makeDataLoaders` build typed tables with `Generated`/`Sensitive`/`DateTimeInsert` variant schemas.
 
-| [INDEX] | [SYMBOL]                                                                                                               | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                                                                                  |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SqlClient.reserve: Effect<Connection, SqlError, Scope>`                                                               | dedicated conn | `capability` session `pg_advisory_lock`; COPY FROM STDIN streaming lane                                              |
-|  [02]   | `SqlClient.withTransaction(effect)`                                                                                    | transaction    | `journal/append` + `outbox` + idempotency-ledger atomic commit; xact locks                                           |
-|  [03]   | `SqlClient.reactive(keys, effect): Stream` / `reactiveMailbox`                                                         | reactive query | `project/inline` read-your-writes via `@effect/experimental` `Reactivity`                                            |
-|  [04]   | `Statement` `sql` `Constructor` (`in`/`unsafe`/`literal`/`insert`/`update`/`updateValues`/`and`/`or`/`csv`/`join`)     | statement      | every `journal`/`project`/`retrieve` row; safe interpolation, no string glue                                         |
-|  [05]   | `sql.onDialect({ sqlite, pg, mysql, mssql, clickhouse })` (the `pg` arm here) / `sql.onDialectOrElse({ orElse, pg? })` | dialect switch | ONE journal/projection statement across the PG spine and the sqlite lanes; `pg` is an arm-KEY, not a `sql.pg` method |
-|  [06]   | `SqlSchema.findAll`/`findOne`/`single`                                                                                 | result decode  | `project` typed row decode into `Schema` models; parse-fail is a typed rail                                          |
-|  [07]   | `SqlResolver.ordered`/`grouped`/`findById`                                                                             | batch resolver | `project`/`retrieve` N+1 elimination — request-batched, `DataLoader`-style                                           |
-|  [08]   | `Model.makeRepository`/`makeDataLoaders` (`Generated`/`Sensitive`/`DateTimeInsert`)                                    | table model    | typed CRUD + insert/update variant schemas over a `journal`/`project` table                                          |
-|  [09]   | `SqlStream.asyncPauseResume` / `SqlError` / `ResultLengthMismatch`                                                     | stream/fault   | `pg-cursor` backpressured result stream; the one tagged SQL error rail                                               |
-|  [10]   | `SqlEventJournal` / `SqlEventLogServer` / `SqlPersistedQueue`                                                          | sql backing    | SQL storage for the `@effect/experimental` EventLog server + persisted queue                                         |
+| [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                               |
+| :-----: | :----------------------------------------------------------------- | :------------- | :------------------------------------------------ |
+|  [01]   | `SqlClient.reserve: Effect<Connection, SqlError, Scope>`           | dedicated conn | `capability` `pg_advisory_lock`; COPY lane        |
+|  [02]   | `SqlClient.withTransaction(effect)`                                | transaction    | `journal/append`+`outbox`+idempotency commit      |
+|  [03]   | `SqlClient.reactive(keys, effect): Stream` / `reactiveMailbox`     | reactive query | `project/inline` read-your-writes; `Reactivity`   |
+|  [04]   | `Statement` `sql` `Constructor`                                    | statement      | `journal`/`project`/`retrieve` rows; safe interp  |
+|  [05]   | `sql.onDialect({ sqlite, pg, mysql, mssql, clickhouse })`          | dialect switch | ONE statement across PG spine + sqlite lanes      |
+|  [06]   | `sql.onDialectOrElse({ orElse, pg? })`                             | dialect switch | default arm plus an optional `pg` override        |
+|  [07]   | `SqlSchema.findAll`/`findOne`/`single`                             | result decode  | `project` decode to `Schema`; parse-fail rail     |
+|  [08]   | `SqlResolver.ordered`/`grouped`/`findById`                         | batch resolver | `project`/`retrieve` N+1 kill; `DataLoader`-style |
+|  [09]   | `Model.makeRepository`/`makeDataLoaders`                           | table model    | typed CRUD over a `journal`/`project` table       |
+|  [10]   | `SqlStream.asyncPauseResume` / `SqlError` / `ResultLengthMismatch` | stream/fault   | `pg-cursor` stream; one tagged SQL error rail     |
+|  [11]   | `SqlEventJournal` / `SqlEventLogServer` / `SqlPersistedQueue`      | sql backing    | SQL for the EventLog server + persisted queue     |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing the driver Layer
 - rail: store/journal
-- `layer` is the app-root row; `layerConfig` wraps every field in `Config` for env/secret-mount resolution; `layerFromPool` adopts an app-owned pool. All three provide `PgClient | SqlClient` in one Layer.
+- `layer` is the app-root row; `layerConfig` wraps every field in `Config` for env/secret-mount resolution; `layerFromPool` adopts an app-owned pool. All three provide `PgClient \| SqlClient` in one Layer — `layer`/`layerFromPool` error `SqlError`, `layerConfig` adds `ConfigError`. `make`/`fromPool` return `Effect<PgClient, SqlError, Scope \| Reactivity>`; `makeCompiler` returns a `Statement.Compiler` and drives the raw-SQL testkit harness at `tests/typescript/_testkit`.
 
-| [INDEX] | [SURFACE]                                                                                                          | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                 |
-| :-----: | :----------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `PgClient.layer(config: PgClientConfig): Layer<PgClient \| SqlClient, SqlError>`                                   | driver layer   | `scope/handle` per-app driver row (fixed config)                                    |
-|  [02]   | `PgClient.layerConfig(config: Config.Wrap<PgClientConfig>): Layer<PgClient \| SqlClient, ConfigError \| SqlError>` | driver layer   | `host/config` env/secret-mount resolution — the standing app-root row               |
-|  [03]   | `PgClient.layerFromPool(options: PgClientFromPoolOptions): Layer<PgClient \| SqlClient, SqlError>`                 | driver layer   | `scope/handle` shared-pool tenancy fan-out                                          |
-|  [04]   | `PgClient.make(config)` / `PgClient.fromPool(options): Effect<PgClient, SqlError, Scope \| Reactivity>`            | scoped make    | scoped construction inside a larger acquire graph                                   |
-|  [05]   | `PgClient.makeCompiler(transform?, transformJson?): Statement.Compiler`                                            | compiler       | custom identifier transform / raw-SQL testkit harness (`tests/typescript/_testkit`) |
+| [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                   |
+| :-----: | :---------------------------------------------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `PgClient.layer(config: PgClientConfig)`                    | driver layer   | `scope/handle` per-app driver row (fixed config)      |
+|  [02]   | `PgClient.layerConfig(config: Config.Wrap<PgClientConfig>)` | driver layer   | `host/config` env/secret resolution; standing row     |
+|  [03]   | `PgClient.layerFromPool(options: PgClientFromPoolOptions)`  | driver layer   | `scope/handle` shared-pool tenancy fan-out            |
+|  [04]   | `PgClient.make(config)` / `PgClient.fromPool(options)`      | scoped make    | scoped construction inside a larger acquire graph     |
+|  [05]   | `PgClient.makeCompiler(transform?, transformJson?)`         | compiler       | custom identifier transform / raw-SQL testkit harness |
 
 [ENTRYPOINT_SCOPE]: the pg journal patterns — SQL over `reserve`/`withTransaction`/`listen`
 - rail: store/journal
-- The advisory-lock, COPY, idempotency, and SKIP-LOCKED capabilities are `sql` statements, not driver methods. Each is one parameterized fragment run over the inherited surface, so a new lane is a new statement, never a new API.
+- The advisory-lock, COPY, idempotency, and SKIP-LOCKED capabilities are `sql` statements, not driver methods. Each is one parameterized fragment run over the inherited surface, so a new lane is a new statement, never a new API. The RLS GUC binds through `set_config(..., true)` inside `withTransaction` because a bare `SET LOCAL` cannot bind parameters.
 
-| [INDEX] | [SURFACE]                                                                                                                                | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                       |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
-|  [01]   | `sql`\``INSERT … ON CONFLICT (idempotency_key) DO UPDATE … RETURNING (xmax = 0) AS inserted`\`                                           | idempotency    | `journal/outbox` — the `(xmax = 0)` first-writer claim    |
-|  [02]   | `client.withTransaction(`\``SELECT pg_advisory_xact_lock($claim)`\`` *>> append)`                                                        | xact lock      | `journal/append` OCC serialization; lock frees at commit  |
-|  [03]   | `Effect.scoped(client.reserve.pipe(Effect.flatMap((conn) => `\``SELECT pg_advisory_lock($k)`\`\`))`                                      | session lock   | `project/rebuild` singleton compaction; explicit unlock   |
-|  [04]   | `sql`\``… FOR UPDATE SKIP LOCKED LIMIT $n`\`                                                                                             | async lane     | `project/async` — competing-consumer checkpoint drain     |
-|  [05]   | `client.reserve` → `conn` → `pg` `COPY … FROM STDIN` write stream                                                                        | COPY bulk      | `journal`/`retrieve` bulk ingest over a dedicated conn    |
-|  [06]   | `client.listen(channel)` ⇒ `Stream` woken by `project/inline`'s `client.notify(channel, id)`                                             | notify wake    | `project/async` LISTEN/NOTIFY-woken checkpoint lanes      |
-|  [07]   | `sql`\``SELECT set_config('app.current_tenant', ${tenantId}, true)`\`` inside withTransaction` (bare `SET LOCAL` cannot bind parameters) | RLS GUC        | `scope/tenant` — per-transaction tenant scope, not a fork |
-|  [08]   | `client.reactive(keys, query): Stream` ← `Reactivity.invalidate(keys)`                                                                   | reactive read  | `project/inline` read-your-writes signal after an append  |
+| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                        |
+| :-----: | :----------------------------------------------------------------------- | :------------- | :----------------------------------------- |
+|  [01]   | `sql`\``INSERT … ON CONFLICT (idempotency_key) … RETURNING (xmax = 0)`\` | idempotency    | `journal/outbox` first-writer claim        |
+|  [02]   | `client.withTransaction(`\``SELECT pg_advisory_xact_lock($claim)`\``)`   | xact lock      | `journal/append` OCC; lock frees at commit |
+|  [03]   | `client.reserve` → `conn` → `sql`\``SELECT pg_advisory_lock($k)`\`       | session lock   | `project/rebuild` compaction; unlock       |
+|  [04]   | `sql`\``… FOR UPDATE SKIP LOCKED LIMIT $n`\`                             | async lane     | `project/async` competing-consumer drain   |
+|  [05]   | `client.reserve` → `conn` → `COPY … FROM STDIN` write stream             | COPY bulk      | `journal`/`retrieve` bulk ingest           |
+|  [06]   | `client.listen(channel)` ⇒ `Stream` ← `client.notify(channel, id)`       | notify wake    | `project/async` LISTEN/NOTIFY-woken lanes  |
+|  [07]   | `sql`\``SELECT set_config('app.current_tenant', ${tenantId}, true)`\`    | RLS GUC        | `scope/tenant` per-transaction scope       |
+|  [08]   | `client.reactive(keys, query): Stream` ← `Reactivity.invalidate(keys)`   | reactive read  | `project/inline` read-your-writes          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

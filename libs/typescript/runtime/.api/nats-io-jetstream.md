@@ -14,37 +14,44 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: streams, consumers, messages
+[PUBLIC_TYPE_SCOPE]: streams, consumers, messages; the `StreamConfig`/`ConsumerConfig` field rosters are keyed below the table
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                                                                                                                                | [TYPE_FAMILY]  | [CONSUMER]                                                                    |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `JetStreamClient` (`publish`, `consumers`)                                                                                                              | client         | the engine surface `jetstream(nc)` mints                                      |
-|  [02]   | `JetStreamManager` (`streams.add/update/info/delete`, `consumers.*`)                                                                                    | admin          | stream ensure at engine Layer build                                           |
-|  [03]   | `StreamConfig` (`name`, `subjects`, `max_age`, `duplicate_window`, `retention`, `storage`, `num_replicas`)                                              | stream shape   | topic rows compiled to streams; durations in nanoseconds                      |
-|  [04]   | `ConsumerConfig` (`ack_policy`, `deliver_policy`, `durable_name`, `opt_start_seq`, `opt_start_time`, `replay_policy`, `idle_heartbeat`, `flow_control`) | consumer shape | anchored replay + durable consumption                                         |
-|  [05]   | `PubAck` (`stream`, `seq`, `duplicate`)                                                                                                                 | receipt        | `Fanout.Receipt` projection — `duplicate` is idempotency evidence             |
-|  [06]   | `JsMsg` (`subject`, `seq`, `data`, `headers?`, `ack()`, `ackAck()`, `nak(millis?)`, `term(reason?)`)                                                    | message        | the ack algebra the consume lane folds                                        |
-|  [07]   | `ConsumerMessages` (async iterable, `close()`)                                                                                                          | delivery       | lifted through `Stream.fromAsyncIterable` under a scoped bracket              |
-|  [08]   | `DeliverPolicy` (`All`, `Last`, `New`, `LastPerSubject`, `StartSequence`, `StartTime`)                                                                  | anchor rows    | the `Fanout.Anchor` compilation target                                        |
-|  [09]   | `AckPolicy` (`None`, `All`, `Explicit`)                                                                                                                 | ack rows       | `Explicit` on the durable consume lane; ordered consumers are fixed to `None` |
-|  [10]   | `ReplayPolicy` (`Instant`, `Original`)                                                                                                                  | replay pacing  | original-timing replay is a growth row on the ordered lane                    |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]  | [CONSUMER]                                                                               |
+| :-----: | :----------------- | :------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `JetStreamClient`  | client         | `publish`, `consumers`; the engine surface `jetstream(nc)` mints                         |
+|  [02]   | `JetStreamManager` | admin          | `streams.add/update/info/delete`, `consumers.*`; stream ensure at Layer build            |
+|  [03]   | `StreamConfig`     | stream shape   | topic rows compiled to streams; durations in nanoseconds; fields keyed below             |
+|  [04]   | `ConsumerConfig`   | consumer shape | anchored replay + durable consumption; fields keyed below                                |
+|  [05]   | `PubAck`           | receipt        | `stream`, `seq`, `duplicate` — `Fanout.Receipt`; `duplicate` is idempotency evidence     |
+|  [06]   | `JsMsg`            | message        | `subject`, `seq`, `data`, `headers?`; the ack algebra the consume lane folds             |
+|  [07]   | `ConsumerMessages` | delivery       | async iterable + `close()`; lifted through `Stream.fromAsyncIterable`                    |
+|  [08]   | `DeliverPolicy`    | anchor rows    | `All`/`Last`/`New`/`LastPerSubject`/`StartSequence`/`StartTime` — `Fanout.Anchor` target |
+|  [09]   | `AckPolicy`        | ack rows       | `None`/`All`/`Explicit`; `Explicit` durable, ordered consumers fixed to `None`           |
+|  [10]   | `ReplayPolicy`     | replay pacing  | `Instant`/`Original`; original-timing replay is a growth row on the ordered lane         |
+
+- [03]-[STREAMCONFIG]: `name`, `subjects`, `max_age`, `duplicate_window`, `retention`, `storage`, `num_replicas`.
+- [04]-[CONSUMERCONFIG]: `ack_policy`, `deliver_policy`, `durable_name`, `opt_start_seq`, `opt_start_time`, `replay_policy`, `idle_heartbeat`, `flow_control`.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: publish, consume, administer
+[ENTRYPOINT_SCOPE]: publish, consume, administer; the `js.publish` options shape is keyed below the table
 - rail: boundaries
 
-| [INDEX] | [SURFACE]                                                                                                         | [ENTRY_FAMILY] | [CONSUMER]                                                                                           |
-| :-----: | :---------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `jetstream(nc)` / `jetstreamManager(nc)`                                                                          | mint           | engine Layer build over the core connection                                                          |
-|  [02]   | `js.publish(subject, payload?, { msgID, expect?: { lastMsgID, lastSequence, lastSubjectSequence, streamName } })` | publish        | dedup-windowed exactly-once publish; `expect` rows are the OCC arms                                  |
-|  [03]   | `jsm.streams.add(config)`                                                                                         | ensure         | idempotent stream provisioning per topic row                                                         |
-|  [04]   | `jsm.consumers.add(stream, config)`                                                                               | ensure         | durable consumer declaration — `durable_name`, `ack_policy`, `ack_wait`, `max_deliver`, start anchor |
-|  [05]   | `js.consumers.get(stream, nameOrOptions?)`                                                                        | consumer       | ordered consumer (nameless) with start-anchor options; durable bind by name                          |
-|  [06]   | `consumer.consume(opts?)` (`{ max_messages? }`)                                                                   | delivery       | the long-lived pull loop the engine lifts to a `Stream`                                              |
-|  [07]   | `consumer.fetch(opts)` / `consumer.next(opts?)`                                                                   | delivery       | bounded-batch and single-shot pulls — growth rows                                                    |
-|  [08]   | `msg.ack()` / `msg.ackAck()` / `msg.nak(millis?)` / `msg.working()` / `msg.term(reason?)`                         | ack algebra    | ack-after-success, double-ack, redelivery, ack-wait heartbeat, poison                                |
+| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [CONSUMER]                                                          |
+| :-----: | :---------------------------------------------- | :------------- | :------------------------------------------------------------------ |
+|  [01]   | `jetstream(nc)` / `jetstreamManager(nc)`        | mint           | engine Layer build over the core connection                         |
+|  [02]   | `js.publish(subject, payload?, opts?)`          | publish        | dedup-windowed exactly-once publish; `expect` rows are the OCC arms |
+|  [03]   | `jsm.streams.add(config)`                       | ensure         | idempotent stream provisioning per topic row                        |
+|  [04]   | `jsm.consumers.add(stream, config)`             | ensure         | durable consumer: `durable_name`, `ack_wait`, `max_deliver`, anchor |
+|  [05]   | `js.consumers.get(stream, nameOrOptions?)`      | consumer       | ordered (nameless) start-anchor, or durable bind by name            |
+|  [06]   | `consumer.consume(opts?)` (`{ max_messages? }`) | delivery       | the long-lived pull loop the engine lifts to a `Stream`             |
+|  [07]   | `consumer.fetch(opts)` / `consumer.next(opts?)` | delivery       | bounded-batch and single-shot pulls — growth rows                   |
+|  [08]   | `msg.ack()` / `msg.ackAck()`                    | ack            | ack-after-success; `ackAck` double-ack confirms the ack             |
+|  [09]   | `msg.nak(millis?)` / `msg.working()`            | redelivery     | redelivery request; `working()` heartbeats ack-wait                 |
+|  [10]   | `msg.term(reason?)`                             | poison         | terminal reject for unprocessable poison                            |
+
+- [02]-[PUBLISH_OPTS]: `{ msgID, expect?: { lastMsgID, lastSequence, lastSubjectSequence, streamName } }`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

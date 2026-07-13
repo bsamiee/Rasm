@@ -56,64 +56,80 @@ through one `Npgsql` parameter from the routing consumer, never a runtime-concat
 
 Each path function ships five overloads — `One to One` (`vid`, `vid`), `One to Many` (`vid`, `vids`),
 `Many to One` (`vids`, `vid`), `Many to Many` (`vids`, `vids`), and `Combinations` (a Combinations SQL) —
-all closing on `directed BOOLEAN DEFAULT true`. The `*Cost` sibling returns only the aggregate; the
-`*CostMatrix` sibling takes one vertex set and feeds `pgr_TSP`.
+all closing on `directed BOOLEAN DEFAULT true`. Every base call is
+`f(Edges SQL, start vid(s), end vid(s)[, directed])` or `f(Edges SQL, Combinations SQL[, directed])`;
+the [EXTRA] column carries only per-function arguments beyond that base (`—` = base only), and `+…X`
+names a sibling suffix. The `*Cost` sibling returns only the aggregate; the `*CostMatrix` sibling takes
+one vertex set and feeds `pgr_TSP`.
 
-| [INDEX] | [FUNCTION]                                                  | [SIGNATURE]                                                                                                   | [OUTPUT]                                  |
-| :-----: | :---------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------ | :---------------------------------------- |
-|  [01]   | `pgr_dijkstra`                                              | `pgr_dijkstra(Edges SQL, start vid(s), end vid(s)[, directed])` / `(Edges SQL, Combinations SQL[, directed])` | PATH                                      |
-|  [02]   | `pgr_dijkstraCost`                                          | `pgr_dijkstraCost(Edges SQL, start vid(s), end vid(s)[, directed])`                                           | COST                                      |
-|  [03]   | `pgr_dijkstraCostMatrix`                                    | `pgr_dijkstraCostMatrix(Edges SQL, vids[, directed])`                                                         | COST (symmetric when `directed => false`) |
-|  [04]   | `pgr_dijkstraVia`                                           | `pgr_dijkstraVia(Edges SQL, via vids[, directed, strict, U_turn_on_edge])`                                    | VIA                                       |
-|  [05]   | `pgr_aStar`                                                 | `pgr_aStar(Edges SQL, start vid(s), end vid(s)[, directed, heuristic => 5, factor => 1.0, epsilon => 1.0])`   | PATH (needs xy Edges SQL)                 |
-|  [06]   | `pgr_aStarCost` / `…CostMatrix`                             | same options + xy Edges SQL                                                                                   | COST                                      |
-|  [07]   | `pgr_bdDijkstra` / `…Cost` / `…CostMatrix`                  | `pgr_bdDijkstra(Edges SQL, start vid(s), end vid(s)[, directed])`                                             | PATH / COST                               |
-|  [08]   | `pgr_bdAstar` / `…Cost` / `…CostMatrix`                     | xy Edges SQL + `[directed, heuristic => 5, factor => 1.0, epsilon => 1.0]`                                    | PATH / COST                               |
-|  [09]   | `pgr_KSP`                                                   | `pgr_KSP(Edges SQL, start vid(s), end vid(s), K integer[, directed, heap_paths => false])`                    | MULTI-PATH (`path_id=1` cheapest)         |
-|  [10]   | `pgr_withPoints` / `…Cost` / `…CostMatrix` / `…DD` / `…KSP` | `pgr_withPoints(Edges SQL, Points SQL, start vid(s), end vid(s)[, driving_side, directed, details])`          | PATH (negative node ⇒ a Point)            |
+| [INDEX] | [FUNCTION]                                     | [EXTRA]                                          | [OUTPUT]                          |
+| :-----: | :--------------------------------------------- | :----------------------------------------------- | :-------------------------------- |
+|  [01]   | `pgr_dijkstra`                                 | `—`                                              | PATH                              |
+|  [02]   | `pgr_dijkstraCost`                             | `—`                                              | COST                              |
+|  [03]   | `pgr_dijkstraCostMatrix`                       | `(Edges SQL, vids[, directed])`                  | COST                              |
+|  [04]   | `pgr_dijkstraVia`                              | `via vids[, strict, U_turn_on_edge]`             | VIA                               |
+|  [05]   | `pgr_aStar`                                    | xy Edges SQL `+ [heuristic, factor, epsilon]`    | PATH                              |
+|  [06]   | `pgr_aStarCost` `+…CostMatrix`                 | xy Edges SQL `+ [heuristic, factor, epsilon]`    | COST                              |
+|  [07]   | `pgr_bdDijkstra` `+…Cost/…CostMatrix`          | `—`                                              | PATH / COST                       |
+|  [08]   | `pgr_bdAstar` `+…Cost/…CostMatrix`             | xy Edges SQL `+ [heuristic, factor, epsilon]`    | PATH / COST                       |
+|  [09]   | `pgr_KSP`                                      | `K integer[, heap_paths => false]`               | MULTI-PATH (`path_id=1` cheapest) |
+|  [10]   | `pgr_withPoints` `+…Cost/…CostMatrix/…DD/…KSP` | `Points SQL` 2nd arg `[, driving_side, details]` | PATH (negative node ⇒ a Point)    |
 
 Output-row shapes (inline `OUT` params, no named composite type): PATH =
 `(seq integer, path_seq integer, start_vid bigint, end_vid bigint, node bigint, edge bigint, cost float, agg_cost float)`
 with `edge = -1` on the last node of each path; MULTI-PATH = PATH `+ path_id integer`; VIA = MULTI-PATH
 `+ route_agg_cost float` (`edge = -2` on the last node of the route); COST =
-`(start_vid bigint, end_vid bigint, agg_cost float)`. `pgr_aStar`/`pgr_bdAstar` require the xy Edges SQL
-(`x1`/`y1`/`x2`/`y2`); `heuristic` is `0`..`5` (5 = `abs(dx)+abs(dy)`), `factor > 0`, `epsilon >= 1`.
+`(start_vid bigint, end_vid bigint, agg_cost float)`, symmetric when `directed => false` on a
+`*CostMatrix`. `pgr_aStar`/`pgr_bdAstar` require the xy Edges SQL (`x1`/`y1`/`x2`/`y2`) and take
+`heuristic => 5` (`0`..`5`, 5 = `abs(dx)+abs(dy)`), `factor => 1.0` (`> 0`), `epsilon => 1.0` (`>= 1`).
 
 ## [04]-[DISTANCE_TSP_FLOW]
 
 Driving-distance is a spanning-tree fold; TSP is metric-only and undirected (the signature carries
 only `start_id`/`end_id`, no simulated-annealing knobs); the flow family routes over
-`capacity`/`reverse_capacity` and has no `directed` arg (the graph is directed by construction).
+`capacity`/`reverse_capacity` and has no `directed` arg (the graph is directed by construction). The
+three FLOW algorithms ([05]) share `(Edges SQL, source vid(s), sink vid(s))`.
 
-| [INDEX] | [FUNCTION]                                                     | [SIGNATURE]                                                                                                                               | [OUTPUT]                                                                                                                     |
-| :-----: | :------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `pgr_drivingDistance`                                          | `pgr_drivingDistance(Edges SQL, root vid, distance float[, directed])` / `(Edges SQL, root vids, distance[, directed, equicost => true])` | SPANTREE — `(seq bigint, depth bigint, start_vid bigint, pred bigint, node bigint, edge bigint, cost float, agg_cost float)` |
-|  [02]   | `pgr_TSP`                                                      | `pgr_TSP(Matrix SQL, start_id bigint => 0, end_id bigint => 0)`                                                                           | TOUR — `(seq integer, node bigint, cost float, agg_cost float)`                                                              |
-|  [03]   | `pgr_TSPeuclidean`                                             | `pgr_TSPeuclidean(Coordinates SQL, start_id bigint => 0, end_id bigint => 0)`                                                             | TOUR                                                                                                                         |
-|  [04]   | `pgr_maxFlow`                                                  | `pgr_maxFlow(Edges SQL, source vid(s), sink vid(s))` → `bigint`                                                                           | scalar max-flow value                                                                                                        |
-|  [05]   | `pgr_boykovKolmogorov` / `pgr_pushRelabel` / `pgr_edmondsKarp` | `pgr_boykovKolmogorov(Edges SQL, source vid(s), sink vid(s))`                                                                             | FLOW — `(seq integer, edge bigint, start_vid bigint, end_vid bigint, flow bigint, residual_capacity bigint)`                 |
+| [INDEX] | [FUNCTION]                                                 | [SIGNATURE]                                                   | [OUTPUT] |
+| :-----: | :--------------------------------------------------------- | :------------------------------------------------------------ | :------- |
+|  [01]   | `pgr_drivingDistance`                                      | `(Edges SQL, root vid(s), distance float[, directed])`        | SPANTREE |
+|  [02]   | `pgr_TSP`                                                  | `(Matrix SQL, start_id bigint => 0, end_id bigint => 0)`      | TOUR     |
+|  [03]   | `pgr_TSPeuclidean`                                         | `(Coordinates SQL, start_id bigint => 0, end_id bigint => 0)` | TOUR     |
+|  [04]   | `pgr_maxFlow`                                              | `(Edges SQL, source vid(s), sink vid(s))`                     | `bigint` |
+|  [05]   | `pgr_boykovKolmogorov`/`pgr_pushRelabel`/`pgr_edmondsKarp` | shared (above)                                                | FLOW     |
 
-`equicost` is the array-root default `true`: each node lands in only its closest root's spanning tree
-(arbitrary tie-break); `equicost => false` resembles independent single-root calls, so a node within
-`distance` of several roots appears once per root tree. `pgr_drivingDistance` extracts nodes with
-`agg_cost <= distance`. A TSP Matrix SQL is built by a
-`*CostMatrix` (preferably `directed => false`); negative matrix costs are ignored.
+Output-row shapes: SPANTREE =
+`(seq bigint, depth bigint, start_vid bigint, pred bigint, node bigint, edge bigint, cost float, agg_cost float)`;
+TOUR = `(seq integer, node bigint, cost float, agg_cost float)`; FLOW =
+`(seq integer, edge bigint, start_vid bigint, end_vid bigint, flow bigint, residual_capacity bigint)`;
+`pgr_maxFlow` returns a scalar `bigint` max-flow value. `equicost` (array-root default `true`, valid
+only on the `root vids` overload) lands each node in only its closest root's spanning tree (arbitrary
+tie-break); `equicost => false` resembles independent single-root calls, so a node within `distance`
+of several roots appears once per root tree. `pgr_drivingDistance` extracts nodes with
+`agg_cost <= distance`. A TSP Matrix SQL is built by a `*CostMatrix` (preferably `directed => false`);
+negative matrix costs are ignored.
 
 ## [05]-[COMPONENTS_TOPOLOGY]
 
 Component/connectivity analysis takes a single basic Edges SQL. The graph/topology builder is
 `pgr_extractVertices`. The `pgr_createTopology`/`pgr_createVerticesTable`/`pgr_analyzeGraph`/
 `pgr_analyzeOneWay`/`pgr_nodeNetwork` family is a removed phantom spelling; `pgr_extractVertices` is
-the replacement.
+the replacement. The component functions ([01]-[03]) return
+`(seq bigint, component bigint, node bigint)`, `component` = min node id (`pgr_biconnectedComponents`
+keys `edge` not `node`).
 
-| [INDEX] | [FUNCTION]                  | [SIGNATURE]                                               | [OUTPUT]                                                                                                                                                                 |
-| :-----: | :-------------------------- | :-------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `pgr_connectedComponents`   | `pgr_connectedComponents(Edges SQL)`                      | `(seq bigint, component bigint, node bigint)` — undirected, `component` = min node id                                                                                    |
-|  [02]   | `pgr_strongComponents`      | `pgr_strongComponents(Edges SQL)`                         | `(seq bigint, component bigint, node bigint)` — Tarjan SCC, directed                                                                                                     |
-|  [03]   | `pgr_biconnectedComponents` | `pgr_biconnectedComponents(Edges SQL)`                    | `(seq bigint, component bigint, edge bigint)` — undirected                                                                                                               |
-|  [04]   | `pgr_articulationPoints`    | `pgr_articulationPoints(Edges SQL)` → `SETOF bigint`      | cut vertices (`node`), ascending                                                                                                                                         |
-|  [05]   | `pgr_bridges`               | `pgr_bridges(Edges SQL)` → `SETOF bigint`                 | cut edges (`edge`), ascending                                                                                                                                            |
-|  [06]   | `pgr_extractVertices`       | `pgr_extractVertices(Edges SQL, dryrun boolean => false)` | `(id bigint, in_edges bigint[], out_edges bigint[], x float, y float, geom geometry)` — derives the vertices table from `geom`/`startpoint`+`endpoint`/`source`+`target` |
+| [INDEX] | [FUNCTION]                  | [SIGNATURE]                                               | [OUTPUT]                         |
+| :-----: | :-------------------------- | :-------------------------------------------------------- | :------------------------------- |
+|  [01]   | `pgr_connectedComponents`   | `pgr_connectedComponents(Edges SQL)`                      | undirected                       |
+|  [02]   | `pgr_strongComponents`      | `pgr_strongComponents(Edges SQL)`                         | Tarjan SCC, directed             |
+|  [03]   | `pgr_biconnectedComponents` | `pgr_biconnectedComponents(Edges SQL)`                    | undirected, keys `edge`          |
+|  [04]   | `pgr_articulationPoints`    | `pgr_articulationPoints(Edges SQL)` → `SETOF bigint`      | cut vertices (`node`), ascending |
+|  [05]   | `pgr_bridges`               | `pgr_bridges(Edges SQL)` → `SETOF bigint`                 | cut edges (`edge`), ascending    |
+|  [06]   | `pgr_extractVertices`       | `pgr_extractVertices(Edges SQL, dryrun boolean => false)` | vertices table (shape below)     |
+
+`pgr_extractVertices` returns
+`(id bigint, in_edges bigint[], out_edges bigint[], x float, y float, geom geometry)`, deriving the
+vertices table from `geom` / `startpoint`+`endpoint` / `source`+`target`.
 
 ## [06]-[IMPLEMENTATION_LAW]
 

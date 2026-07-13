@@ -19,31 +19,35 @@
 [PUBLIC_TYPE_SCOPE]: geometry and object family
 - rail: mesh/spatial
 
-`CollisionGeometry` is the shape base; every primitive and the `BVHModel`/`Convex` mesh wrappers derive from it. `CollisionObject` binds a geometry to a `Transform` pose and is the unit every query consumes.
+`CollisionGeometry` is the shape base; every primitive and the `BVHModel`/`Convex` mesh wrappers derive from it. `CollisionObject` binds a geometry to a `Transform` pose and is the unit every query consumes, exposing `get`/`set` for `Transform`/`Translation`/`Rotation`/`QuatRotation` plus `isOccupied`/`isFree`/`isUncertain`, and `Transform` carries `getRotation`/`getTranslation`/`getQuatRotation`. `BVHModel` builds via `beginModel`/`addSubModel`/`addVertex`/`addTriangle`/`endModel`.
 
-| [INDEX] | [SYMBOL]                                                         | [TYPE_FAMILY] | [CAPABILITY]                                                                                                                                            |
-| :-----: | :--------------------------------------------------------------- | :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `CollisionObject`                                                | posed object  | geometry + `Transform`; `get`/`setTransform`, `get`/`setTranslation`, `get`/`setRotation`, `get`/`setQuatRotation`, `isOccupied`/`isFree`/`isUncertain` |
-|  [02]   | `Transform`                                                      | rigid pose    | 3x3-matrix or 4-quaternion rotation plus 3-vector translation; `getRotation`/`getTranslation`/`getQuatRotation`                                         |
-|  [03]   | `Box` / `Sphere` / `Ellipsoid` / `Capsule` / `Cone` / `Cylinder` | primitive     | origin-centered analytic solids sized by side/radius/height                                                                                             |
-|  [04]   | `TriangleP` / `Halfspace` / `Plane`                              | primitive     | point triangle, half-space `<n,x> < d`, and plane `<n,x> = d`                                                                                           |
-|  [05]   | `Convex`                                                         | mesh (convex) | vertex/face polygon hull for GJK-fast narrow phase                                                                                                      |
-|  [06]   | `BVHModel`                                                       | mesh (BVH)    | `beginModel`/`addSubModel`/`addVertex`/`addTriangle`/`endModel` triangle-soup bounding-volume hierarchy                                                 |
-|  [07]   | `OcTree`                                                         | mesh (octree) | octomap binary-stream occupancy geometry                                                                                                                |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [CAPABILITY]                                               |
+| :-----: | :---------------------------------- | :------------ | :--------------------------------------------------------- |
+|  [01]   | `CollisionObject`                   | posed object  | geometry + `Transform` pose (accessors in lead)            |
+|  [02]   | `Transform`                         | rigid pose    | rotation (3x3 or 4-quaternion) + 3-vec translation         |
+|  [03]   | `Box` / `Sphere` / `Ellipsoid`      | primitive     | origin-centered analytic solids (side/radius/height)       |
+|  [04]   | `Capsule` / `Cone` / `Cylinder`     | primitive     | origin-centered analytic solids (side/radius/height)       |
+|  [05]   | `TriangleP` / `Halfspace` / `Plane` | primitive     | point triangle, half-space `<n,x> < d`, plane `<n,x> = d`  |
+|  [06]   | `Convex`                            | mesh (convex) | vertex/face polygon hull for GJK-fast narrow phase         |
+|  [07]   | `BVHModel`                          | mesh (BVH)    | triangle-soup bounding-volume hierarchy (builders in lead) |
+|  [08]   | `OcTree`                            | mesh (octree) | octomap binary-stream occupancy geometry                   |
 
 [PUBLIC_TYPE_SCOPE]: request, result, and broadphase family
 - rail: mesh/spatial
 
 Each query kind is one request-plus-result pair; the manager wraps a request-response pair in a `CollisionData`/`DistanceData` carrier with a `done` flag for the recursive broadphase walk.
 
-| [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY]    | [CAPABILITY]                                                                                                                       |
-| :-----: | :--------------------------------------------------------- | :--------------- | :--------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `CollisionRequest` / `CollisionResult`                     | collision query  | `num_max_contacts`, `enable_contact`, `enable_cost`, `gjk_solver_type`; result `is_collision`, `contacts`, `cost_sources`          |
-|  [02]   | `DistanceRequest` / `DistanceResult`                       | distance query   | `enable_nearest_points`, `enable_signed_distance`, `gjk_solver_type`; result `min_distance`, `nearest_points`, `o1`/`o2`/`b1`/`b2` |
-|  [03]   | `ContinuousCollisionRequest` / `ContinuousCollisionResult` | CCD query        | `num_max_iterations`, `toc_err`, `ccd_motion_type`, `ccd_solver_type`; result `is_collide`, `time_of_contact`                      |
-|  [04]   | `Contact` / `CostSource`                                   | collision detail | `o1`/`o2`/`b1`/`b2`/`normal`/`pos`/`penetration_depth`; AABB cost density                                                          |
-|  [05]   | `DynamicAABBTreeCollisionManager`                          | broadphase       | `registerObjects`/`registerObject`/`unregisterObject`/`setup`/`update`/`collide`/`distance`/`getObjects`/`clear`/`empty`/`size`    |
-|  [06]   | `CollisionData` / `DistanceData`                           | manager carrier  | request-response pair plus `done` flag for the recursive callback                                                                  |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]    | [CAPABILITY]                                                              |
+| :-----: | :-------------------------------- | :--------------- | :------------------------------------------------------------------------ |
+|  [01]   | `CollisionRequest`                | collision query  | `num_max_contacts`, `enable_contact`, `enable_cost`, `gjk_solver_type`    |
+|  [02]   | `CollisionResult`                 | collision query  | `is_collision`, `contacts`, `cost_sources`                                |
+|  [03]   | `DistanceRequest`                 | distance query   | `enable_nearest_points`, `enable_signed_distance`, `gjk_solver_type`      |
+|  [04]   | `DistanceResult`                  | distance query   | `min_distance`, `nearest_points`, `o1`/`o2`/`b1`/`b2`                     |
+|  [05]   | `ContinuousCollisionRequest`      | CCD query        | `num_max_iterations`, `toc_err`, `ccd_motion_type`, `ccd_solver_type`     |
+|  [06]   | `ContinuousCollisionResult`       | CCD query        | `is_collide`, `time_of_contact`                                           |
+|  [07]   | `Contact` / `CostSource`          | collision detail | `o1`/`o2`/`b1`/`b2`/`normal`/`pos`/`penetration_depth`; AABB cost density |
+|  [08]   | `DynamicAABBTreeCollisionManager` | broadphase       | broadphase AABB tree over the managed `CollisionObject` set               |
+|  [09]   | `CollisionData` / `DistanceData`  | manager carrier  | request-response pair plus `done` flag for the recursive callback         |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -52,11 +56,11 @@ Each query kind is one request-plus-result pair; the manager wraps a request-res
 
 Each pairwise query follows one pipeline: populate a request, allocate an empty result, call the free function with the two `CollisionObject` items, read the scalar return and the mutated result. A `None` request or result defaults to the base shape.
 
-| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [CAPABILITY]                                                                         |
-| :-----: | :------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `collide(o1, o2, request=None, result=None)`                   | collision      | returns contact count; result carries `is_collision`/`contacts`                      |
-|  [02]   | `distance(o1, o2, request=None, result=None)`                  | distance       | returns `min_distance` (negative under penetration); result carries `nearest_points` |
-|  [03]   | `continuousCollide(o1, tf1_end, o2, tf2_end, request, result)` | CCD            | returns time-of-contact in `(0, 1)`; result carries `time_of_contact`                |
+| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `collide(o1, o2, request=None, result=None)`                   | collision      | contact count; `is_collision`/`contacts`              |
+|  [02]   | `distance(o1, o2, request=None, result=None)`                  | distance       | `min_distance` (neg on penetration); `nearest_points` |
+|  [03]   | `continuousCollide(o1, tf1_end, o2, tf2_end, request, result)` | CCD            | time-of-contact in `(0, 1)`; `time_of_contact`        |
 
 [ENTRYPOINT_SCOPE]: broadphase group queries
 - rail: mesh/spatial

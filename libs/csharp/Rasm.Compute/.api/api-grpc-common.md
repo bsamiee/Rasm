@@ -73,62 +73,84 @@
 [ENTRYPOINT_SCOPE]: `Grpc.Net.Common` decompile-verified members
 - source: `Grpc.Net.Common` decompile
 - rail: remote-wire
+- owner: `interface` = `ICompressionProvider`, `gzip` = `GzipCompressionProvider`, `deflate` = `DeflateCompressionProvider`
 
-| [INDEX] | [MEMBER]                                            | [SIGNATURE]                                                                                                                          |
-| :-----: | :-------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ICompressionProvider.EncodingName`                 | `string EncodingName { get; }`                                                                                                       |
-|  [02]   | `ICompressionProvider.CreateCompressionStream`      | `Stream CreateCompressionStream(Stream stream, CompressionLevel? compressionLevel)`                                                  |
-|  [03]   | `ICompressionProvider.CreateDecompressionStream`    | `Stream CreateDecompressionStream(Stream stream)`                                                                                    |
-|  [04]   | `GzipCompressionProvider.ctor`                      | `GzipCompressionProvider(CompressionLevel defaultCompressionLevel)`                                                                  |
-|  [05]   | `GzipCompressionProvider.EncodingName`              | `string EncodingName => "gzip"`                                                                                                      |
-|  [06]   | `GzipCompressionProvider.CreateCompressionStream`   | `Stream CreateCompressionStream(Stream stream, CompressionLevel? compressionLevel)`                                                  |
-|  [07]   | `GzipCompressionProvider.CreateDecompressionStream` | `Stream CreateDecompressionStream(Stream stream)`                                                                                    |
-|  [08]   | `DeflateCompressionProvider.ctor`                   | `DeflateCompressionProvider(CompressionLevel defaultCompressionLevel)`                                                               |
-|  [09]   | `DeflateCompressionProvider.EncodingName`           | `string EncodingName => "deflate"`                                                                                                   |
-|  [10]   | `AsyncStreamReaderExtensions.ReadAllAsync`          | `static IAsyncEnumerable<T> ReadAllAsync<T>(this IAsyncStreamReader<T> streamReader, CancellationToken cancellationToken = default)` |
-|  [11]   | `ConnectivityState`                                 | `enum ConnectivityState { Idle, Connecting, Ready, TransientFailure, Shutdown }`                                                     |
+| [INDEX] | [OWNER]     | [MEMBER]                    | [SIGNATURE]                                                                         |
+| :-----: | :---------- | :-------------------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `interface` | `EncodingName`              | `string EncodingName { get; }`                                                      |
+|  [02]   | `interface` | `CreateCompressionStream`   | `Stream CreateCompressionStream(Stream stream, CompressionLevel? compressionLevel)` |
+|  [03]   | `interface` | `CreateDecompressionStream` | `Stream CreateDecompressionStream(Stream stream)`                                   |
+|  [04]   | `gzip`      | `ctor`                      | `GzipCompressionProvider(CompressionLevel defaultCompressionLevel)`                 |
+|  [05]   | `gzip`      | `EncodingName`              | `string EncodingName => "gzip"`                                                     |
+|  [06]   | `gzip`      | `CreateCompressionStream`   | `Stream CreateCompressionStream(Stream stream, CompressionLevel? compressionLevel)` |
+|  [07]   | `gzip`      | `CreateDecompressionStream` | `Stream CreateDecompressionStream(Stream stream)`                                   |
+|  [08]   | `deflate`   | `ctor`                      | `DeflateCompressionProvider(CompressionLevel defaultCompressionLevel)`              |
+|  [09]   | `deflate`   | `EncodingName`              | `string EncodingName => "deflate"`                                                  |
 
-[ENTRYPOINT_SCOPE]: `Grpc.Core.Api` decompile-verified members
+[ENTRYPOINT_SCOPE]: `AsyncStreamReaderExtensions.ReadAllAsync` extension and the `ConnectivityState` enum — signatures self-name
+- source: `Grpc.Net.Common` decompile
+- rail: remote-wire
+
+| [INDEX] | [SIGNATURE]                                                                                                                          |
+| :-----: | :----------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `static IAsyncEnumerable<T> ReadAllAsync<T>(this IAsyncStreamReader<T> streamReader, CancellationToken cancellationToken = default)` |
+|  [02]   | `enum ConnectivityState { Idle, Connecting, Ready, TransientFailure, Shutdown }`                                                     |
+
+[ENTRYPOINT_SCOPE]: `Grpc.Core.Api` decompile-verified `ServerCallContext` members
 - source: `Grpc.Core.Api` decompile
 - rail: remote-server#CONTROL_SERVICE
 
-| [INDEX] | [MEMBER]                                      | [SIGNATURE]                                                                                                                                              |
-| :-----: | :-------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ServerCallContext.Method`                    | `string Method { get; }`                                                                                                                                 |
-|  [02]   | `ServerCallContext.Host`                      | `string Host { get; }`                                                                                                                                   |
-|  [03]   | `ServerCallContext.Peer`                      | `string Peer { get; }`                                                                                                                                   |
-|  [04]   | `ServerCallContext.Deadline`                  | `DateTime Deadline { get; }`                                                                                                                             |
-|  [05]   | `ServerCallContext.RequestHeaders`            | `Metadata RequestHeaders { get; }`                                                                                                                       |
-|  [06]   | `ServerCallContext.CancellationToken`         | `CancellationToken CancellationToken { get; }`                                                                                                           |
-|  [07]   | `ServerCallContext.ResponseTrailers`          | `Metadata ResponseTrailers { get; }`                                                                                                                     |
-|  [08]   | `ServerCallContext.Status`                    | `Status Status { get; set; }`                                                                                                                            |
-|  [09]   | `ServerCallContext.WriteOptions`              | `WriteOptions? WriteOptions { get; set; }`                                                                                                               |
-|  [10]   | `ServerCallContext.AuthContext`               | `AuthContext AuthContext { get; }`                                                                                                                       |
-|  [11]   | `ServerCallContext.UserState`                 | `IDictionary<object, object> UserState { get; }`                                                                                                         |
-|  [12]   | `ServerCallContext.WriteResponseHeadersAsync` | `Task WriteResponseHeadersAsync(Metadata responseHeaders)`                                                                                               |
-|  [13]   | `ServerCallContext.CreatePropagationToken`    | `ContextPropagationToken CreatePropagationToken(ContextPropagationOptions? options = null)`                                                              |
-|  [14]   | `IAsyncStreamWriter<T>.WriteOptions`          | `WriteOptions? WriteOptions { get; set; }`                                                                                                               |
-|  [15]   | `IAsyncStreamWriter<T>.WriteAsync`            | `Task WriteAsync(T message)`                                                                                                                             |
-|  [16]   | `IAsyncStreamWriter<T>.WriteAsync`            | `Task WriteAsync(T message, CancellationToken cancellationToken)`                                                                                        |
-|  [17]   | `IServerStreamWriter<T>`                      | `interface IServerStreamWriter<in T> : IAsyncStreamWriter<T>`                                                                                            |
-|  [18]   | `WriteOptions.ctor`                           | `WriteOptions(WriteFlags flags = 0)`; `static readonly WriteOptions Default`                                                                             |
-|  [19]   | `WriteFlags`                                  | `[Flags] enum WriteFlags { BufferHint = 1, NoCompress = 2 }`                                                                                             |
-|  [20]   | `AsyncStreamReaderExtensions.MoveNext`        | `static Task<bool> MoveNext<T>(this IAsyncStreamReader<T> streamReader) where T : class` — manual-pump alternative to `Grpc.Net.Common`'s `ReadAllAsync` |
-|  [21]   | `Metadata.ctor`                               | `Metadata()`                                                                                                                                             |
-|  [22]   | `Metadata.Add`                                | `void Add(string key, string value)`                                                                                                                     |
-|  [23]   | `Metadata.Add`                                | `void Add(string key, byte[] valueBytes)`                                                                                                                |
-|  [24]   | `Metadata.Add`                                | `void Add(Metadata.Entry item)`                                                                                                                          |
-|  [25]   | `Metadata.Get`                                | `Metadata.Entry? Get(string key)`                                                                                                                        |
-|  [26]   | `Metadata.GetValue`                           | `string? GetValue(string key)`                                                                                                                           |
-|  [27]   | `Metadata.GetValueBytes`                      | `byte[]? GetValueBytes(string key)`                                                                                                                      |
-|  [28]   | `Metadata.GetAll`                             | `IEnumerable<Metadata.Entry> GetAll(string key)`                                                                                                         |
-|  [29]   | `Metadata.BinaryHeaderSuffix`                 | `const string BinaryHeaderSuffix = "-bin"`                                                                                                               |
-|  [30]   | `Metadata.Empty`                              | `static readonly Metadata Empty`                                                                                                                         |
-|  [31]   | `Metadata.Entry.ctor`                         | `Entry(string key, string value)` / `Entry(string key, byte[] valueBytes)`                                                                               |
-|  [32]   | `Metadata.Entry.Key`                          | `string Key { get; }`                                                                                                                                    |
-|  [33]   | `Metadata.Entry.Value`                        | `string Value { get; }`                                                                                                                                  |
-|  [34]   | `Metadata.Entry.ValueBytes`                   | `byte[] ValueBytes { get; }`                                                                                                                             |
-|  [35]   | `Metadata.Entry.IsBinary`                     | `bool IsBinary { get; }`                                                                                                                                 |
+| [INDEX] | [MEMBER]                    | [SIGNATURE]                                                                                 |
+| :-----: | :-------------------------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | `Method`                    | `string Method { get; }`                                                                    |
+|  [02]   | `Host`                      | `string Host { get; }`                                                                      |
+|  [03]   | `Peer`                      | `string Peer { get; }`                                                                      |
+|  [04]   | `Deadline`                  | `DateTime Deadline { get; }`                                                                |
+|  [05]   | `RequestHeaders`            | `Metadata RequestHeaders { get; }`                                                          |
+|  [06]   | `CancellationToken`         | `CancellationToken CancellationToken { get; }`                                              |
+|  [07]   | `ResponseTrailers`          | `Metadata ResponseTrailers { get; }`                                                        |
+|  [08]   | `Status`                    | `Status Status { get; set; }`                                                               |
+|  [09]   | `WriteOptions`              | `WriteOptions? WriteOptions { get; set; }`                                                  |
+|  [10]   | `AuthContext`               | `AuthContext AuthContext { get; }`                                                          |
+|  [11]   | `UserState`                 | `IDictionary<object, object> UserState { get; }`                                            |
+|  [12]   | `WriteResponseHeadersAsync` | `Task WriteResponseHeadersAsync(Metadata responseHeaders)`                                  |
+|  [13]   | `CreatePropagationToken`    | `ContextPropagationToken CreatePropagationToken(ContextPropagationOptions? options = null)` |
+
+[ENTRYPOINT_SCOPE]: stream-writer contracts, the `WriteOptions`/`WriteFlags` value types, and `AsyncStreamReaderExtensions.MoveNext` (the manual-pump alternative to `Grpc.Net.Common`'s `ReadAllAsync`)
+- source: `Grpc.Core.Api` decompile
+- rail: remote-server#CONTROL_SERVICE
+
+| [INDEX] | [MEMBER]                             | [SIGNATURE]                                                                              |
+| :-----: | :----------------------------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `IAsyncStreamWriter<T>.WriteOptions` | `WriteOptions? WriteOptions { get; set; }`                                               |
+|  [02]   | `IAsyncStreamWriter<T>.WriteAsync`   | `Task WriteAsync(T message)`                                                             |
+|  [03]   | `IAsyncStreamWriter<T>.WriteAsync`   | `Task WriteAsync(T message, CancellationToken cancellationToken)`                        |
+|  [04]   | `IServerStreamWriter<T>`             | `interface IServerStreamWriter<in T> : IAsyncStreamWriter<T>`                            |
+|  [05]   | `WriteOptions.ctor`                  | `WriteOptions(WriteFlags flags = 0)`; `static readonly WriteOptions Default`             |
+|  [06]   | `WriteFlags`                         | `[Flags] enum WriteFlags { BufferHint = 1, NoCompress = 2 }`                             |
+|  [07]   | `MoveNext`                           | `static Task<bool> MoveNext<T>(this IAsyncStreamReader<T> streamReader) where T : class` |
+
+[ENTRYPOINT_SCOPE]: `Metadata` members and its nested `Metadata.Entry`
+- source: `Grpc.Core.Api` decompile
+- rail: remote-server#CONTROL_SERVICE
+
+| [INDEX] | [MEMBER]             | [SIGNATURE]                                                                |
+| :-----: | :------------------- | :------------------------------------------------------------------------- |
+|  [01]   | `ctor`               | `Metadata()`                                                               |
+|  [02]   | `Add`                | `void Add(string key, string value)`                                       |
+|  [03]   | `Add`                | `void Add(string key, byte[] valueBytes)`                                  |
+|  [04]   | `Add`                | `void Add(Metadata.Entry item)`                                            |
+|  [05]   | `Get`                | `Metadata.Entry? Get(string key)`                                          |
+|  [06]   | `GetValue`           | `string? GetValue(string key)`                                             |
+|  [07]   | `GetValueBytes`      | `byte[]? GetValueBytes(string key)`                                        |
+|  [08]   | `GetAll`             | `IEnumerable<Metadata.Entry> GetAll(string key)`                           |
+|  [09]   | `BinaryHeaderSuffix` | `const string BinaryHeaderSuffix = "-bin"`                                 |
+|  [10]   | `Empty`              | `static readonly Metadata Empty`                                           |
+|  [11]   | `Entry.ctor`         | `Entry(string key, string value)` / `Entry(string key, byte[] valueBytes)` |
+|  [12]   | `Entry.Key`          | `string Key { get; }`                                                      |
+|  [13]   | `Entry.Value`        | `string Value { get; }`                                                    |
+|  [14]   | `Entry.ValueBytes`   | `byte[] ValueBytes { get; }`                                               |
+|  [15]   | `Entry.IsBinary`     | `bool IsBinary { get; }`                                                   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

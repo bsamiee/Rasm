@@ -32,22 +32,23 @@
 [PUBLIC_TYPE_SCOPE]: provider + engine model
 - rail: deploy
 - `Provider` is the explicit provider the `aws` arm constructs from the `StackSpec` (rather than relying on ambient env/config); passing it as `{ provider }` in `opts` scopes every resource in the arm to that account/region/role. The resource-graph primitives (`Output`/`Input`/`CustomResource`/`ComponentResource`) are re-exported from `@pulumi/pulumi`.
+- `aws.ProviderArgs` carries `{ region?, profile?, assumeRoles?, defaultTags?, accessKey?, secretKey?, token? }`; `pulumi.CustomResourceOptions` carries `{ provider?, dependsOn?, parent?, protect?, ignoreChanges? }`; `pulumi.Input<T>` accepts `T\|Promise<T>\|Output<T>`.
 
-| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]  | [RAIL]                                                                              |
-| :-----: | :--------------------------------------------- | :------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `aws.Provider extends pulumi.ProviderResource` | provider       | explicit AWS provider (account/region/role scope)                                   |
-|  [02]   | `aws.ProviderArgs`                             | input record   | `{ region?, profile?, assumeRoles?, defaultTags?, accessKey?, secretKey?, token? }` |
-|  [03]   | `pulumi.Output<T>` / `pulumi.Input<T>`         | graph value    | async computed value / accepted-value (`T\|Promise<T>\|Output<T>`)                  |
-|  [04]   | `pulumi.CustomResourceOptions`                 | options record | `{ provider?, dependsOn?, parent?, protect?, ignoreChanges? }`                      |
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]  | [RAIL]                                              |
+| :-----: | :--------------------------------------------- | :------------- | :-------------------------------------------------- |
+|  [01]   | `aws.Provider extends pulumi.ProviderResource` | provider       | explicit AWS provider (account/region/role scope)   |
+|  [02]   | `aws.ProviderArgs`                             | input record   | provider config: region, profile, roles, tags, keys |
+|  [03]   | `pulumi.Output<T>` / `pulumi.Input<T>`         | graph value    | async computed value / accepted input value         |
+|  [04]   | `pulumi.CustomResourceOptions`                 | options record | per-resource provider, deps, parent, protect        |
 
 [PUBLIC_TYPE_SCOPE]: data-source invokes (the `getX` pattern)
 - rail: deploy
-- Read-only lookups follow one dual pattern: `getX(args?, opts?): Promise<GetXResult>` for the async form and `getXOutput(args?, opts?): Output<GetXResult>` for the graph form. Use the `Output` form inside a program so the lookup participates in the dependency graph.
+- Read-only lookups follow one dual pattern: `getX(args?, opts?): Promise<GetXResult>` for the async form and `getXOutput(args?, opts?): Output<GetXResult>` for the graph form. Use the `Output` form inside a program so the lookup participates in the dependency graph. Result shapes: `GetRegionResult`/`GetCallerIdentityResult`/`GetAvailabilityZonesResult`.
 
-| [INDEX] | [SYMBOL]                                                                 | [TYPE_FAMILY] | [RAIL]                                                      |
-| :-----: | :----------------------------------------------------------------------- | :------------ | :---------------------------------------------------------- |
-|  [01]   | `GetRegionResult`/`GetCallerIdentityResult`/`GetAvailabilityZonesResult` | result record | data-source return shapes                                   |
-|  [02]   | `GetRegionArgs`/`…OutputArgs`                                            | input record  | invoke args (`Args` = plain, `OutputArgs` = `Input`-lifted) |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                                             |
+| :-----: | :-------------------------------- | :------------ | :------------------------------------------------- |
+|  [01]   | `Get<X>Result`                    | result record | data-source return shapes (e.g. `GetRegionResult`) |
+|  [02]   | `Get<X>Args` / `Get<X>OutputArgs` | input record  | invoke args; `OutputArgs` is `Input`-lifted        |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -55,36 +56,36 @@
 - rail: deploy
 - The `aws` arm constructs one `Provider` from the `StackSpec` value (target arm, capability profile, region/domain, credential path). Every resource in the arm takes `{ provider }` in its options, so the whole arm is scoped to that account/region/role — no ambient/global config.
 
-| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY] | [RAIL]                                                |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
-|  [01]   | `new aws.Provider(name, { region, profile?, assumeRoles?, defaultTags? })` | provider       | the explicit account/region/role provider for the arm |
-|  [02]   | `aws.Provider.isInstance(obj)`                                             | guard          | cross-SDK-copy provider instance check                |
+| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY] | [RAIL]                                 |
+| :-----: | :------------------------------------------------------------------------- | :------------- | :------------------------------------- |
+|  [01]   | `new aws.Provider(name, { region, profile?, assumeRoles?, defaultTags? })` | provider       | explicit account/region/role provider  |
+|  [02]   | `aws.Provider.isInstance(obj)`                                             | guard          | cross-SDK-copy provider instance check |
 
 [ENTRYPOINT_SCOPE]: the resource-construction pattern (uniform)
 - rail: deploy
 - Three entrypoints per resource, identical across all 234 namespaces: the constructor creates and registers, `static get` adopts an existing resource by cloud id, `static isInstance` guards. Wire resources together by passing one resource's `Output<T>` property as another's `Input<T>` arg — that *is* the dependency edge, resolved by the engine.
 
-| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [RAIL]                                               |
-| :-----: | :------------------------------------------------------------------- | :------------- | :--------------------------------------------------- |
-|  [01]   | `new <ns>.<Resource>(name, args, { provider, dependsOn?, parent? })` | create         | register a managed resource under the arm's provider |
-|  [02]   | `<ns>.<Resource>.get(name, id, state?, opts?)`                       | adopt          | bind an existing cloud resource by id into the graph |
-|  [03]   | `<ns>.<Resource>.isInstance(obj)`                                    | guard          | cross-SDK-copy resource instance check               |
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [RAIL]                                       |
+| :-----: | :------------------------------------------------------------------- | :------------- | :------------------------------------------- |
+|  [01]   | `new <ns>.<Resource>(name, args, { provider, dependsOn?, parent? })` | create         | register a resource under the arm's provider |
+|  [02]   | `<ns>.<Resource>.get(name, id, state?, opts?)`                       | adopt          | bind an existing cloud resource by id        |
+|  [03]   | `<ns>.<Resource>.isInstance(obj)`                                    | guard          | cross-SDK-copy resource instance check       |
 
 [ENTRYPOINT_SCOPE]: service-equivalence map (the aws row's mapped subset)
 - rail: deploy
-- The prepared `aws` row maps the first-class `selfhosted-k8s` capability matrix onto AWS managed services. This bounded table — not the 234-namespace roster — is the arm's real surface; each row is a capability the `provider/surface` map resolves to a resource class. Reach past this set only when a new capability enters the matrix.
+- The prepared `aws` row maps the first-class `selfhosted-k8s` capability matrix onto AWS managed services. This bounded table — not the 234-namespace roster — is the arm's real surface; each row is a capability the `provider/surface` map resolves to a resource class. Reach past this set only when a new capability enters the matrix. Classes below are `aws.*` (the prefix elided); `awsx.*` is called out explicitly.
 
-| [INDEX] | [CAPABILITY]                      | [AWS_RESOURCE_CLASS]                                           | [SELFHOSTED_K8S_EQUIVALENT]                 |
-| :-----: | :-------------------------------- | :------------------------------------------------------------- | :------------------------------------------ |
-|  [01]   | managed Postgres (`store` matrix) | `aws.rds.Cluster` / `aws.rds.Instance` (Aurora PG18)           | the CNPG-provisioned PG18.4-extension image |
-|  [02]   | object store                      | `aws.s3.BucketV2`                                              | the conditional-put self-host object row    |
-|  [03]   | container compute                 | `aws.ecs.Cluster` / `aws.eks.Cluster`                          | typed `@pulumi/kubernetes` workloads        |
-|  [04]   | ingress / load balancing          | `aws.lb.LoadBalancer` (+ `Listener`/`TargetGroup`)             | the `kube/traffic` ingress row              |
-|  [05]   | TLS certificate                   | `aws.acm.Certificate`                                          | the `kube/traffic` cert row                 |
-|  [06]   | DNS                               | `aws.route53.Zone` / `aws.route53.Record`                      | the `kube/traffic` dns row                  |
-|  [07]   | network fabric                    | `aws.ec2.Vpc` / `Subnet` / `SecurityGroup` (or `awsx.ec2.Vpc`) | owned metal/VPS cluster network             |
-|  [08]   | identity / access                 | `aws.iam.Role` / `Policy` / `RolePolicyAttachment`             | k8s ServiceAccount + RBAC                   |
-|  [09]   | cache                             | `aws.elasticache.*` / `aws.efs.*`                              | in-cluster cache/volume rows                |
+| [INDEX] | [CAPABILITY]               | [AWS_RESOURCE_CLASS]                                       | [SELFHOSTED_K8S_EQUIVALENT]          |
+| :-----: | :------------------------- | :--------------------------------------------------------- | :----------------------------------- |
+|  [01]   | managed Postgres (`store`) | `rds.Cluster` / `rds.Instance` (Aurora PG18)               | CNPG PG18.4-extension image          |
+|  [02]   | object store               | `s3.BucketV2`                                              | conditional-put self-host object row |
+|  [03]   | container compute          | `ecs.Cluster` / `eks.Cluster`                              | typed `@pulumi/kubernetes` workloads |
+|  [04]   | ingress / load balancing   | `lb.LoadBalancer` (+ `Listener`/`TargetGroup`)             | the `kube/traffic` ingress row       |
+|  [05]   | TLS certificate            | `acm.Certificate`                                          | the `kube/traffic` cert row          |
+|  [06]   | DNS                        | `route53.Zone` / `route53.Record`                          | the `kube/traffic` dns row           |
+|  [07]   | network fabric             | `ec2.Vpc` / `Subnet` / `SecurityGroup` (or `awsx.ec2.Vpc`) | owned metal/VPS cluster network      |
+|  [08]   | identity / access          | `iam.Role` / `Policy` / `RolePolicyAttachment`             | k8s ServiceAccount + RBAC            |
+|  [09]   | cache                      | `elasticache.*` / `efs.*`                                  | in-cluster cache/volume rows         |
 
 [ENTRYPOINT_SCOPE]: data-source invokes
 - rail: deploy

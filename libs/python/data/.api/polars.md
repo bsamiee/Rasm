@@ -18,24 +18,26 @@
 [PUBLIC_TYPE_SCOPE]: frame, series, and expression types
 - rail: columnar dataframe
 
-| [INDEX] | [SYMBOL]                                                                      | [TYPE_FAMILY]   | [ROLE]                                                                          |
-| :-----: | :---------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `DataFrame`                                                                   | eager frame     | in-memory column-major table                                                    |
-|  [02]   | `LazyFrame`                                                                   | lazy frame      | deferred optimized query graph                                                  |
-|  [03]   | `Series`                                                                      | typed column    | named typed 1-D column                                                          |
-|  [04]   | `Expr`                                                                        | expression node | composable column expression                                                    |
-|  [05]   | `Schema`                                                                      | schema value    | ordered `{name: DataType}` mapping                                              |
-|  [06]   | `Field`                                                                       | schema field    | named typed field for `Struct`                                                  |
-|  [07]   | `Config`                                                                      | runtime config  | display, string-cache, and engine settings                                      |
-|  [08]   | `SQLContext`                                                                  | SQL engine      | register frames and run SQL                                                     |
-|  [09]   | `StringCache`                                                                 | context manager | shared categorical string-cache scope                                           |
-|  [10]   | `GPUEngine`                                                                   | engine selector | cuDF/RAPIDS CUDA backend for `collect(engine=GPUEngine(...))`                   |
-|  [11]   | `QueryOptFlags`                                                               | opt toggle      | per-call optimizer flag bundle for `collect`/`sink_*`/`explain`                 |
-|  [12]   | `Catalog`                                                                     | unity catalog   | Unity/Iceberg REST catalog client (`scan`/`write` namespaced tables)            |
-|  [13]   | `CredentialProviderAWS` / `CredentialProviderAzure` / `CredentialProviderGCP` | cloud auth      | object-store credential providers for `scan_*`/`sink_*` `credential_provider=`  |
-|  [14]   | `DataTypeExpr`                                                                | dtype expr      | deferred dtype expression (`dtype_of`, `self_dtype`) for schema-dependent logic |
-|  [15]   | `Categories`                                                                  | category store  | shared category registry for `Categorical` columns                              |
-|  [16]   | `ScanCastOptions` / `CompatLevel`                                             | scan/io policy  | cast-on-scan policy and Arrow compat-level for `to_arrow`/IPC                   |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]   | [ROLE]                                                                          |
+| :-----: | :-------------------------------- | :-------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `DataFrame`                       | eager frame     | in-memory column-major table                                                    |
+|  [02]   | `LazyFrame`                       | lazy frame      | deferred optimized query graph                                                  |
+|  [03]   | `Series`                          | typed column    | named typed 1-D column                                                          |
+|  [04]   | `Expr`                            | expression node | composable column expression                                                    |
+|  [05]   | `Schema`                          | schema value    | ordered `{name: DataType}` mapping                                              |
+|  [06]   | `Field`                           | schema field    | named typed field for `Struct`                                                  |
+|  [07]   | `Config`                          | runtime config  | display, string-cache, and engine settings                                      |
+|  [08]   | `SQLContext`                      | SQL engine      | register frames and run SQL                                                     |
+|  [09]   | `StringCache`                     | context manager | shared categorical string-cache scope                                           |
+|  [10]   | `GPUEngine`                       | engine selector | cuDF/RAPIDS CUDA backend for `collect(engine=GPUEngine(...))`                   |
+|  [11]   | `QueryOptFlags`                   | opt toggle      | per-call optimizer flag bundle for `collect`/`sink_*`/`explain`                 |
+|  [12]   | `Catalog`                         | unity catalog   | Unity/Iceberg REST catalog client (`scan`/`write` namespaced tables)            |
+|  [13]   | `CredentialProviderAWS`           | cloud auth      | AWS object-store credential provider for `scan_*`/`sink_*`                      |
+|  [14]   | `CredentialProviderAzure`         | cloud auth      | Azure object-store credential provider for `scan_*`/`sink_*`                    |
+|  [15]   | `CredentialProviderGCP`           | cloud auth      | GCP object-store credential provider for `scan_*`/`sink_*`                      |
+|  [16]   | `DataTypeExpr`                    | dtype expr      | deferred dtype expression (`dtype_of`, `self_dtype`) for schema-dependent logic |
+|  [17]   | `Categories`                      | category store  | shared category registry for `Categorical` columns                              |
+|  [18]   | `ScanCastOptions` / `CompatLevel` | scan/io policy  | cast-on-scan policy and Arrow compat-level for `to_arrow`/IPC                   |
 
 [PUBLIC_TYPE_SCOPE]: dtype vocabulary
 - rail: columnar dataframe
@@ -62,83 +64,89 @@
 
 [ENTRYPOINT_SCOPE]: construction and IO
 - rail: columnar dataframe
+- note: `scan_*` accept `glob`, `storage_options`, and `credential_provider`; the eager IO readers materialize a `DataFrame`, the lazy scanners a `LazyFrame`
+- call: `scan_iceberg(src, snapshot_id, catalog, reader_override, use_pyiceberg_filter)` accepts a `pyiceberg.table.Table` directly as `src`; `scan_pyarrow_dataset(ds, allow_pyarrow_filter, batch_size)` scans a dataset lazily with predicate pushdown
+- call: `io.plugins.register_io_source(io_source, *, schema, validate_schema=False, is_pure=False) -> LazyFrame` lifts a custom Python source into a `LazyFrame` with projection/predicate/`n_rows`/`batch_size` pushdown; the `io_source` generator `(with_columns, predicate, n_rows, batch_size) -> Iterator[DataFrame]` yields `DataFrame` windows (never `RecordBatch`) and `schema` is the full-source schema
 
-| [INDEX] | [SURFACE]                                                                                                | [ENTRY_FAMILY] | [RAIL]                                                                                                                                                                                                                                                                                            |
-| :-----: | :------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `DataFrame(data, schema, ...)`                                                                           | construct      | build eager frame from dict/rows                                                                                                                                                                                                                                                                  |
-|  [02]   | `from_dict` / `from_dicts` / `from_records`                                                              | construct      | build from dicts or row records                                                                                                                                                                                                                                                                   |
-|  [03]   | `from_arrow` / `from_pandas` / `from_numpy` / `from_torch`                                               | interop        | build from Arrow, pandas, NumPy, torch                                                                                                                                                                                                                                                            |
-|  [04]   | `from_dataframe(df)`                                                                                     | interop        | build from any `__arrow_c_stream__`/interchange-protocol object (zero-copy)                                                                                                                                                                                                                       |
-|  [05]   | `read_csv` / `read_parquet` / `read_ipc`                                                                 | eager IO       | read files into `DataFrame`                                                                                                                                                                                                                                                                       |
-|  [06]   | `read_json` / `read_ndjson` / `read_avro`                                                                | eager IO       | read structured text/binary                                                                                                                                                                                                                                                                       |
-|  [07]   | `read_database` / `read_database_uri`                                                                    | eager IO       | read from a SQL connection                                                                                                                                                                                                                                                                        |
-|  [08]   | `read_delta` / `read_excel` / `read_ods`                                                                 | eager IO       | read table-store and spreadsheet                                                                                                                                                                                                                                                                  |
-|  [09]   | `scan_csv` / `scan_parquet` / `scan_ipc`                                                                 | lazy IO        | scan files into `LazyFrame` (glob/`storage_options`/`credential_provider`)                                                                                                                                                                                                                        |
-|  [10]   | `scan_ndjson` / `scan_delta` / `scan_lines`                                                              | lazy IO        | scan structured / Delta / raw lines                                                                                                                                                                                                                                                               |
-|  [11]   | `scan_iceberg(src, snapshot_id, catalog, reader_override, use_pyiceberg_filter)`                         | lazy IO        | scan an Iceberg table; `src` accepts a `pyiceberg.table.Table` directly                                                                                                                                                                                                                           |
-|  [12]   | `scan_pyarrow_dataset(ds, allow_pyarrow_filter, batch_size)`                                             | lazy IO        | scan a `pyarrow.dataset.Dataset` lazily with predicate pushdown                                                                                                                                                                                                                                   |
-|  [13]   | `read_parquet_metadata` / `read_parquet_schema` / `read_ipc_schema`                                      | metadata       | inspect Parquet/IPC without full read                                                                                                                                                                                                                                                             |
-|  [14]   | `defer(fn, *, schema)` / `explain_all` / `collect_all` / `collect_all_async`                             | lazy plan      | defer a Python-built frame into a lazy plan; batch-explain/collect many `LazyFrame`s                                                                                                                                                                                                              |
-|  [15]   | `io.plugins.register_io_source(io_source, *, schema, validate_schema=False, is_pure=False) -> LazyFrame` | lazy IO plugin | lift a custom Python source into a `LazyFrame` with projection/predicate/`n_rows`/`batch_size` pushdown; the `io_source` generator `(with_columns, predicate, n_rows, batch_size) -> Iterator[DataFrame]` yields `DataFrame` windows (never `RecordBatch`) and `schema` is the full-source schema |
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                                        |
+| :-----: | :------------------------------------------------------------------ | :------------- | :-------------------------------------------- |
+|  [01]   | `DataFrame(data, schema, ...)`                                      | construct      | build eager frame from dict/rows              |
+|  [02]   | `from_dict` / `from_dicts` / `from_records`                         | construct      | build from dicts or row records               |
+|  [03]   | `from_arrow` / `from_pandas` / `from_numpy` / `from_torch`          | interop        | build from Arrow, pandas, NumPy, torch        |
+|  [04]   | `from_dataframe`                                                    | interop        | zero-copy Arrow C-stream / interchange import |
+|  [05]   | `read_csv` / `read_parquet` / `read_ipc`                            | eager IO       | read files into a `DataFrame`                 |
+|  [06]   | `read_json` / `read_ndjson` / `read_avro`                           | eager IO       | read structured text/binary                   |
+|  [07]   | `read_database` / `read_database_uri`                               | eager IO       | read from a SQL connection                    |
+|  [08]   | `read_delta` / `read_excel` / `read_ods`                            | eager IO       | read table-store and spreadsheet              |
+|  [09]   | `scan_csv` / `scan_parquet` / `scan_ipc`                            | lazy IO        | scan files into a `LazyFrame`                 |
+|  [10]   | `scan_ndjson` / `scan_delta` / `scan_lines`                         | lazy IO        | scan structured / Delta / raw lines           |
+|  [11]   | `scan_iceberg`                                                      | lazy IO        | scan an Iceberg table (see `- call:`)         |
+|  [12]   | `scan_pyarrow_dataset`                                              | lazy IO        | scan a `pyarrow` dataset with pushdown        |
+|  [13]   | `read_parquet_metadata` / `read_parquet_schema` / `read_ipc_schema` | metadata       | inspect Parquet/IPC without full read         |
+|  [14]   | `defer` / `explain_all` / `collect_all` / `collect_all_async`       | lazy plan      | defer a Python frame; batch-explain/collect   |
+|  [15]   | `io.plugins.register_io_source`                                     | lazy IO plugin | lift a custom Python source (see `- call:`)   |
 
 [ENTRYPOINT_SCOPE]: DataFrame and LazyFrame operations
 - rail: columnar dataframe
+- call: `collect(engine='auto'|'in-memory'|'streaming'|GPUEngine(...), optimizations=QueryOptFlags(...), background=False)`; the `sink_*` writers add `partition_by`/`storage_options`/`credential_provider`/`mkdir`/`sync_on_close`
 
-| [INDEX] | [SURFACE]                                                                                                                                        | [ENTRY_FAMILY]              | [RAIL]                                                                                                           |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------- | :--------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `select(*exprs)` / `select_seq`                                                                                                                  | projection                  | select and transform columns                                                                                     |
-|  [02]   | `with_columns(*exprs)` / `with_columns_seq`                                                                                                      | mutation                    | add or replace columns                                                                                           |
-|  [03]   | `filter(*predicates)`                                                                                                                            | filter                      | row filter by expression                                                                                         |
-|  [04]   | `group_by(*keys)` / `group_by_dynamic`                                                                                                           | aggregation                 | grouped and time-window aggregation                                                                              |
-|  [05]   | `rolling(index_column, period)`                                                                                                                  | aggregation                 | rolling time-window aggregation                                                                                  |
-|  [06]   | `join(other, on, how)` / `join_asof`                                                                                                             | join                        | hash and as-of joins                                                                                             |
-|  [07]   | `join_where(other, *predicates)`                                                                                                                 | join                        | inequality (non-equi) join                                                                                       |
-|  [08]   | `sort(by, descending)` / `top_k` / `bottom_k`                                                                                                    | sort                        | sort and ranked selection                                                                                        |
-|  [09]   | `unique` / `drop_nulls` / `drop_nans`                                                                                                            | dedup/filter                | deduplicate and drop missing rows                                                                                |
-|  [10]   | `pivot(on, index, values)` / `unpivot`                                                                                                           | reshape                     | wide/long reshape (`DataFrame.pivot`)                                                                            |
-|  [11]   | `explode` / `unnest` / `transpose`                                                                                                               | reshape                     | expand lists, flatten structs, transpose                                                                         |
-|  [12]   | `rename` / `drop` / `cast`                                                                                                                       | schema                      | rename, drop, and cast columns                                                                                   |
-|  [13]   | `with_row_index(name)`                                                                                                                           | mutation                    | add a row-index column                                                                                           |
-|  [14]   | `lazy()` / `collect(engine=, optimizations=, background=)` / `collect_schema`                                                                    | execution                   | switch to lazy, materialize (CPU/`'streaming'`/`GPUEngine`), peek schema                                         |
-|  [15]   | `LazyFrame.sink_parquet/sink_csv/sink_ipc/sink_ndjson`                                                                                           | streaming IO                | streaming write w/o full collect; `partition_by`/`storage_options`/`credential_provider`/`mkdir`/`sync_on_close` |
-|  [16]   | `LazyFrame.sink_iceberg / sink_delta`                                                                                                            | streaming IO                | streaming write into an Iceberg/Delta table                                                                      |
-|  [17]   | `LazyFrame.collect_batches / sink_batches`                                                                                                       | streaming IO                | iterate/emit result as `RecordBatch` stream out-of-core                                                          |
-|  [18]   | `LazyFrame.explain / profile / show_graph`                                                                                                       | introspection               | optimized-plan text, per-node timing, plan DAG render                                                            |
-|  [19]   | `LazyFrame.serialize / deserialize` / `remote()`                                                                                                 | plan IO / cloud             | round-trip a query plan; offload to Polars Cloud                                                                 |
-|  [20]   | `LazyFrame.with_context / match_to_schema / cache / set_sorted`                                                                                  | lazy aux                    | side-frame context, schema coercion, subplan cache, sortedness hint                                              |
-|  [21]   | `write_parquet / write_csv / write_delta / write_iceberg`                                                                                        | eager IO                    | write eager frame to storage                                                                                     |
-|  [22]   | `to_arrow(compat_level=)` / `to_pandas` / `to_numpy` / `__arrow_c_stream__`                                                                      | interop                     | export to Arrow/pandas/NumPy; expose PyCapsule C-stream for zero-copy                                            |
-|  [23]   | `sql(query)` / `SQLContext` / `sql_expr`                                                                                                         | SQL                         | run SQL over registered frames; parse a SQL fragment to `Expr`                                                   |
-|  [24]   | `DataFrame.slice(offset, length)` / `DataFrame.height` / `DataFrame.head(n)` / `LazyFrame.head(n)` / `Series.to_frame()` / `Series.rename(name)` | row window / size / promote | row-offset slice, row count, first-n rows; promote a `Series` to a one-column `DataFrame`, rename a `Series`     |
+| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY]  | [RAIL]                                              |
+| :-----: | :-------------------------------------------------------------- | :-------------- | :-------------------------------------------------- |
+|  [01]   | `select` / `select_seq`                                         | projection      | select and transform columns                        |
+|  [02]   | `with_columns` / `with_columns_seq`                             | mutation        | add or replace columns                              |
+|  [03]   | `filter`                                                        | filter          | row filter by expression                            |
+|  [04]   | `group_by` / `group_by_dynamic`                                 | aggregation     | grouped and time-window aggregation                 |
+|  [05]   | `rolling`                                                       | aggregation     | rolling time-window aggregation                     |
+|  [06]   | `join` / `join_asof`                                            | join            | hash and as-of joins                                |
+|  [07]   | `join_where`                                                    | join            | inequality (non-equi) join                          |
+|  [08]   | `sort` / `top_k` / `bottom_k`                                   | sort            | sort and ranked selection                           |
+|  [09]   | `unique` / `drop_nulls` / `drop_nans`                           | dedup/filter    | deduplicate and drop missing rows                   |
+|  [10]   | `pivot` / `unpivot`                                             | reshape         | wide/long reshape (`DataFrame.pivot`)               |
+|  [11]   | `explode` / `unnest` / `transpose`                              | reshape         | expand lists, flatten structs, transpose            |
+|  [12]   | `rename` / `drop` / `cast`                                      | schema          | rename, drop, and cast columns                      |
+|  [13]   | `with_row_index`                                                | mutation        | add a row-index column                              |
+|  [14]   | `lazy` / `collect` / `collect_schema`                           | execution       | switch to lazy, materialize, peek schema            |
+|  [15]   | `sink_parquet` / `sink_csv` / `sink_ipc` / `sink_ndjson`        | streaming IO    | streaming write without full collect                |
+|  [16]   | `sink_iceberg` / `sink_delta`                                   | streaming IO    | streaming write into an Iceberg/Delta table         |
+|  [17]   | `collect_batches` / `sink_batches`                              | streaming IO    | iterate/emit result as a `RecordBatch` stream       |
+|  [18]   | `explain` / `profile` / `show_graph`                            | introspection   | optimized-plan text, per-node timing, plan DAG      |
+|  [19]   | `serialize` / `deserialize` / `remote`                          | plan IO / cloud | round-trip a query plan; offload to Polars Cloud    |
+|  [20]   | `with_context` / `match_to_schema` / `cache` / `set_sorted`     | lazy aux        | side-frame context, coercion, cache, sortedness     |
+|  [21]   | `write_parquet` / `write_csv` / `write_delta` / `write_iceberg` | eager IO        | write eager frame to storage                        |
+|  [22]   | `to_arrow` / `to_pandas` / `to_numpy` / `__arrow_c_stream__`    | interop         | export to Arrow/pandas/NumPy; PyCapsule C-stream    |
+|  [23]   | `sql` / `SQLContext` / `sql_expr`                               | SQL             | run SQL over frames; parse a SQL fragment to `Expr` |
+|  [24]   | `slice` / `head` / `height`                                     | row window      | row-offset slice, first-n rows, row count           |
+|  [25]   | `Series.to_frame` / `Series.rename`                             | promote         | promote a `Series` to a one-column frame; rename it |
 
 [ENTRYPOINT_SCOPE]: expression functions and namespaces
 - rail: columnar dataframe
+- call: `Expr.over(partition_by, *, order_by=, mapping_strategy=)` is the windowed-expression form; `Expr.rolling(index_column, period=, offset=, closed=)` plus the `rolling_*` reducers give time-anchored windows
 
-| [INDEX] | [SURFACE]                                                                                                   | [ENTRY_FAMILY]  | [RAIL]                                                                                                   |
-| :-----: | :---------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------- |
-|  [01]   | `col(*names)` / `all()` / `exclude` / `nth`                                                                 | selector        | reference columns in expressions                                                                         |
-|  [02]   | `lit(value)` / `first` / `last` / `len` / `count`                                                           | literal/agg     | scalar literals and frame aggregates                                                                     |
-|  [03]   | `when(pred).then(x).otherwise(y)`                                                                           | conditional     | branchwise expression                                                                                    |
-|  [04]   | `sum/min/max/mean/median/std/var/quantile`                                                                  | aggregation     | column-wise aggregate expressions                                                                        |
-|  [05]   | `sum_horizontal/min_horizontal/max_horizontal/...`                                                          | horizontal      | row-wise aggregate across columns                                                                        |
-|  [06]   | `all_horizontal` / `any_horizontal`                                                                         | horizontal      | row-wise logical AND/OR                                                                                  |
-|  [07]   | `concat_str` / `concat_list` / `concat_arr`                                                                 | combine         | row-wise string/list concatenation                                                                       |
-|  [08]   | `coalesce(*exprs)`                                                                                          | null handling   | first non-null per row                                                                                   |
-|  [09]   | `struct(*exprs)` / `field(name)` / `format`                                                                 | struct/string   | build struct, access field, format                                                                       |
-|  [10]   | `corr` / `cov` / `rolling_corr` / `rolling_cov`                                                             | statistics      | correlation and covariance                                                                               |
-|  [11]   | `int_range` / `date_range` / `datetime_range` / `linear_space`                                              | range           | integer/temporal/linear range-generating expressions                                                     |
-|  [12]   | `concat(items, how)` / `align_frames` / `merge_sorted`                                                      | frame combine   | concatenate, align, merge two sorted frames                                                              |
-|  [13]   | `fold` / `reduce` / `cum_fold` / `cum_reduce`                                                               | expr fold       | horizontal accumulate over a column set (typed reduction, no Python loop)                                |
-|  [14]   | `Expr.over(partition_by, *, order_by=, mapping_strategy=)`                                                  | window          | windowed expression; ordered windows + group/explode mapping                                             |
-|  [15]   | `Expr.rolling(index_column, period=, offset=, closed=)` / `Expr.rolling_*`                                  | window          | time-anchored rolling windows + 20 rolling reducers (`rolling_mean`/`_quantile`/`_skew`/`_rank`/`_*_by`) |
-|  [16]   | `Expr.cut` / `qcut` / `rle` / `rle_id` / `value_counts` / `hist`                                            | binning         | discretize, run-length encode, histogram                                                                 |
-|  [17]   | `Expr.ewm_mean` / `ewm_std` / `ewm_var` / `ewm_mean_by`                                                     | smoothing       | exponentially-weighted moving statistics                                                                 |
-|  [18]   | `Expr.replace` / `replace_strict` / `is_in` / `is_close`                                                    | mapping         | value remap (strict = exhaustive), membership, tolerance compare                                         |
-|  [19]   | `Expr.str` (49) / `Expr.dt` (47) / `Expr.list` (43) / `Expr.arr` (31)                                       | namespace       | string/temporal/list/array method families                                                               |
-|  [20]   | `Expr.struct` / `Expr.cat` / `Expr.bin` / `.name` / `.meta`                                                 | namespace       | struct, categorical, binary, naming, plan-metadata                                                       |
-|  [21]   | `selectors` (`cs.numeric`/`by_dtype`/`matches`/`starts_with`/`exclude`/set algebra `&` `\|` `-`)            | column selector | declarative dtype/name column sets composable with `&`/`\|`/`-` inside `select`/`with_columns`           |
-|  [22]   | `plugins.register_plugin_function(plugin_path, function_name, args, is_elementwise=, returns_scalar=, ...)` | native plugin   | register a Rust expression-plugin kernel as a first-class `Expr`                                         |
-|  [23]   | `Expr.map_batches` / `Expr.map_elements` / `Expr.register_plugin`                                           | escape hatch    | Series/element Python UDFs; reserve for logic the expr API + plugins cannot express                      |
+| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY]  | [RAIL]                                             |
+| :-----: | :--------------------------------------------------------------- | :-------------- | :------------------------------------------------- |
+|  [01]   | `col` / `all` / `exclude` / `nth`                                | selector        | reference columns in expressions                   |
+|  [02]   | `lit` / `first` / `last` / `len` / `count`                       | literal/agg     | scalar literals and frame aggregates               |
+|  [03]   | `when().then().otherwise()`                                      | conditional     | branchwise expression                              |
+|  [04]   | `sum/min/max/mean/median/std/var/quantile`                       | aggregation     | column-wise aggregate expressions                  |
+|  [05]   | `sum_horizontal/min_horizontal/max_horizontal/...`               | horizontal      | row-wise aggregate across columns                  |
+|  [06]   | `all_horizontal` / `any_horizontal`                              | horizontal      | row-wise logical AND/OR                            |
+|  [07]   | `concat_str` / `concat_list` / `concat_arr`                      | combine         | row-wise string/list concatenation                 |
+|  [08]   | `coalesce(*exprs)`                                               | null handling   | first non-null per row                             |
+|  [09]   | `struct(*exprs)` / `field(name)` / `format`                      | struct/string   | build struct, access field, format                 |
+|  [10]   | `corr` / `cov` / `rolling_corr` / `rolling_cov`                  | statistics      | correlation and covariance                         |
+|  [11]   | `int_range` / `date_range` / `datetime_range` / `linear_space`   | range           | integer/temporal/linear ranges                     |
+|  [12]   | `concat` / `align_frames` / `merge_sorted`                       | frame combine   | concatenate, align, merge sorted frames            |
+|  [13]   | `fold` / `reduce` / `cum_fold` / `cum_reduce`                    | expr fold       | typed horizontal reduction (no Python loop)        |
+|  [14]   | `Expr.over`                                                      | window          | windowed expression (see `- call:`)                |
+|  [15]   | `Expr.rolling` / `Expr.rolling_*`                                | window          | time-anchored rolling windows + 20 reducers        |
+|  [16]   | `Expr.cut` / `qcut` / `rle` / `rle_id` / `value_counts` / `hist` | binning         | discretize, run-length encode, histogram           |
+|  [17]   | `Expr.ewm_mean` / `ewm_std` / `ewm_var` / `ewm_mean_by`          | smoothing       | exponentially-weighted moving statistics           |
+|  [18]   | `Expr.replace` / `replace_strict` / `is_in` / `is_close`         | mapping         | value remap, membership, tolerance compare         |
+|  [19]   | `Expr.str` / `Expr.dt` / `Expr.list` / `Expr.arr`                | namespace       | string/temporal/list/array method families         |
+|  [20]   | `Expr.struct` / `Expr.cat` / `Expr.bin` / `.name` / `.meta`      | namespace       | struct, categorical, binary, naming, plan-metadata |
+|  [21]   | `selectors` (`cs.numeric` / `by_dtype` / `matches` / ...)        | column selector | declarative dtype/name column sets, `&`/`\|`/`-`   |
+|  [22]   | `plugins.register_plugin_function`                               | native plugin   | register a Rust expression-plugin kernel as `Expr` |
+|  [23]   | `Expr.map_batches` / `map_elements` / `register_plugin`          | escape hatch    | Series/element Python UDFs (last resort)           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

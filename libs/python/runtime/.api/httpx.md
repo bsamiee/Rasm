@@ -54,55 +54,62 @@
 [PUBLIC_TYPE_SCOPE]: fault family (full taxonomy)
 - rail: transport
 
-| [INDEX] | [SYMBOL]                                                                 | [TYPE_FAMILY] | [RAIL]                                             |
-| :-----: | :----------------------------------------------------------------------- | :------------ | :------------------------------------------------- |
-|  [01]   | `HTTPError`                                                              | fault base    | base for `RequestError` + `HTTPStatusError`        |
-|  [02]   | `RequestError`                                                           | fault base    | request-side failure base (carries `.request`)     |
-|  [03]   | `TransportError`                                                         | fault base    | transport-layer failure base                       |
-|  [04]   | `TimeoutException`                                                       | fault base    | base for all phase-timeout faults                  |
-|  [05]   | `ConnectTimeout` / `ReadTimeout` / `WriteTimeout`                        | fault         | per-phase timeout                                  |
-|  [06]   | `PoolTimeout`                                                            | fault         | pool-acquire timeout (pool exhausted)              |
-|  [07]   | `NetworkError`                                                           | fault base    | base for connect/read/write/close network faults   |
-|  [08]   | `ConnectError` / `ReadError` / `WriteError` / `CloseError`               | fault         | concrete network faults                            |
-|  [09]   | `ProtocolError` / `LocalProtocolError` / `RemoteProtocolError`           | fault         | HTTP framing violations                            |
-|  [10]   | `ProxyError`                                                             | fault         | proxy-tunnel failure                               |
-|  [11]   | `UnsupportedProtocol`                                                    | fault         | scheme has no mounted transport                    |
-|  [12]   | `DecodingError`                                                          | fault         | content-decode (gzip/br/zstd) failure              |
-|  [13]   | `TooManyRedirects`                                                       | fault         | redirect-limit exceeded                            |
-|  [14]   | `HTTPStatusError`                                                        | fault         | raised by `raise_for_status` (carries `.response`) |
-|  [15]   | `InvalidURL`                                                             | fault         | malformed URL                                      |
-|  [16]   | `CookieConflict`                                                         | fault         | ambiguous cookie lookup                            |
-|  [17]   | `StreamError`                                                            | fault base    | base for stream-state faults                       |
-|  [18]   | `StreamConsumed` / `StreamClosed` / `ResponseNotRead` / `RequestNotRead` | fault         | stream lifecycle misuse                            |
+| [INDEX] | [SYMBOL]                                                                 | [TYPE_FAMILY] | [RAIL]                                      |
+| :-----: | :----------------------------------------------------------------------- | :------------ | :------------------------------------------ |
+|  [01]   | `HTTPError`                                                              | fault base    | base for `RequestError` + `HTTPStatusError` |
+|  [02]   | `RequestError`                                                           | fault base    | request-side failure base; has `.request`   |
+|  [03]   | `TransportError`                                                         | fault base    | transport-layer failure base                |
+|  [04]   | `TimeoutException`                                                       | fault base    | base for all phase-timeout faults           |
+|  [05]   | `ConnectTimeout` / `ReadTimeout` / `WriteTimeout`                        | fault         | per-phase timeout                           |
+|  [06]   | `PoolTimeout`                                                            | fault         | pool-acquire timeout (pool exhausted)       |
+|  [07]   | `NetworkError`                                                           | fault base    | base for network faults                     |
+|  [08]   | `ConnectError` / `ReadError` / `WriteError` / `CloseError`               | fault         | concrete network faults                     |
+|  [09]   | `ProtocolError` / `LocalProtocolError` / `RemoteProtocolError`           | fault         | HTTP framing violations                     |
+|  [10]   | `ProxyError`                                                             | fault         | proxy-tunnel failure                        |
+|  [11]   | `UnsupportedProtocol`                                                    | fault         | scheme has no mounted transport             |
+|  [12]   | `DecodingError`                                                          | fault         | content-decode (gzip/br/zstd) failure       |
+|  [13]   | `TooManyRedirects`                                                       | fault         | redirect-limit exceeded                     |
+|  [14]   | `HTTPStatusError`                                                        | fault         | from `raise_for_status`; has `.response`    |
+|  [15]   | `InvalidURL`                                                             | fault         | malformed URL                               |
+|  [16]   | `CookieConflict`                                                         | fault         | ambiguous cookie lookup                     |
+|  [17]   | `StreamError`                                                            | fault base    | base for stream-state faults                |
+|  [18]   | `StreamConsumed` / `StreamClosed` / `ResponseNotRead` / `RequestNotRead` | fault         | stream lifecycle misuse                     |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction and dispatch
 - rail: transport
-- defined on `AsyncClient` (PUBLIC_TYPES [01]); `Client` mirrors every method synchronously.
+- defined on `AsyncClient` (PUBLIC_TYPES [01]); `Client` mirrors every method synchronously. The construct and polymorphic-`request` shapes carry the full policy kwargs:
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                   | [ENTRY_FAMILY] | [RAIL]                                           |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------- |
-|  [01]   | `AsyncClient(*, auth, headers, params, cookies, verify, cert, http1=True, http2=False, proxy, mounts, timeout, follow_redirects=False, limits, max_redirects, event_hooks, base_url, transport, trust_env)` | build          | construct a pooled client with full policy       |
-|  [02]   | `AsyncClient.request(method, url, *, content, data, files, json, params, headers, cookies, auth, follow_redirects, timeout, extensions)`                                                                    | send           | issue any-method request (the polymorphic entry) |
-|  [03]   | `AsyncClient.get` / `.options` / `.head` / `.post` / `.put` / `.patch` / `.delete`                                                                                                                          | send           | method-specialized requests (same kwargs)        |
-|  [04]   | `AsyncClient.build_request(method, url, ...)`                                                                                                                                                               | build          | materialize a `Request` without sending          |
-|  [05]   | `AsyncClient.send(request, *, stream=False, auth, follow_redirects)`                                                                                                                                        | send           | send a prebuilt `Request` (auth-flow re-entry)   |
-|  [06]   | `AsyncClient.stream(method, url, ...)`                                                                                                                                                                      | stream         | `async with` streaming request/response context  |
-|  [07]   | `AsyncClient.aclose` / `Client.close`                                                                                                                                                                       | drain          | close the connection pool                        |
+```python signature
+AsyncClient(*, auth, headers, params, cookies, verify, cert, http1=True, http2=False, proxy, mounts,
+            timeout, follow_redirects=False, limits, max_redirects, event_hooks, base_url, transport, trust_env)
+AsyncClient.request(method, url, *, content, data, files, json, params, headers, cookies, auth,
+                    follow_redirects, timeout, extensions)
+```
+
+| [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY] | [RAIL]                                         |
+| :-----: | :--------------------------------------------------------------------- | :------------- | :--------------------------------------------- |
+|  [01]   | `AsyncClient(*, ...)`                                                  | build          | construct a pooled client with full policy     |
+|  [02]   | `AsyncClient.request(method, url, *, ...)`                             | send           | any-method request (polymorphic entry)         |
+|  [03]   | `AsyncClient.get / .options / .head / .post / .put / .patch / .delete` | send           | method-specialized requests (same kwargs)      |
+|  [04]   | `AsyncClient.build_request(method, url, ...)`                          | build          | materialize a `Request` without sending        |
+|  [05]   | `AsyncClient.send(request, *, stream=False, auth, follow_redirects)`   | send           | send a prebuilt `Request` (auth-flow re-entry) |
+|  [06]   | `AsyncClient.stream(method, url, ...)`                                 | stream         | `async with` streaming context                 |
+|  [07]   | `AsyncClient.aclose` / `Client.close`                                  | drain          | close the connection pool                      |
 
 [ENTRYPOINT_SCOPE]: response decode and streaming
 - rail: transport
-- defined on `Response` (PUBLIC_TYPES [04]).
+- defined on `Response` (PUBLIC_TYPES [04]); the `Response.` receiver is elided in the surface column.
 
-| [INDEX] | [SURFACE]                                                                                      | [ENTRY_FAMILY] | [RAIL]                                           |
-| :-----: | :--------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------- |
-|  [01]   | `Response.raise_for_status() -> Response`                                                      | check          | raise `HTTPStatusError` on 4xx/5xx, else self    |
-|  [02]   | `Response.json(**kwargs)`                                                                      | decode         | body to JSON (handoff point to msgspec/pydantic) |
-|  [03]   | `Response.aread` / `.read`                                                                     | decode         | buffer the full body                             |
-|  [04]   | `Response.aiter_bytes` / `.aiter_text` / `.aiter_lines` / `.aiter_raw`                         | stream         | chunked async iteration (raw = undecoded)        |
-|  [05]   | `Response.is_success` / `.is_error` / `.is_redirect` / `.is_client_error` / `.is_server_error` | check          | status-class predicates                          |
-|  [06]   | `Response.elapsed` / `.http_version` / `.num_bytes_downloaded` / `.encoding` / `.links`        | introspect     | timing, negotiated protocol, link header         |
+| [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY] | [RAIL]                               |
+| :-----: | :----------------------------------------------------------------------------- | :------------- | :----------------------------------- |
+|  [01]   | `.raise_for_status() -> Response`                                              | check          | raise `HTTPStatusError` on 4xx/5xx   |
+|  [02]   | `.json(**kwargs)`                                                              | decode         | JSON body; msgspec/pydantic handoff  |
+|  [03]   | `.aread` / `.read`                                                             | decode         | buffer the full body                 |
+|  [04]   | `.aiter_bytes` / `.aiter_text` / `.aiter_lines` / `.aiter_raw`                 | stream         | chunked async iter (raw = undecoded) |
+|  [05]   | `.is_success / .is_error / .is_redirect / .is_client_error / .is_server_error` | check          | status-class predicates              |
+|  [06]   | `.elapsed / .http_version / .num_bytes_downloaded / .encoding / .links`        | introspect     | timing, protocol, link header        |
 
 [ENTRYPOINT_SCOPE]: module-level helpers (boundary/one-shot only)
 - rail: transport

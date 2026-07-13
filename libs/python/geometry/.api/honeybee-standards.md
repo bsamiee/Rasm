@@ -32,14 +32,14 @@
 
 [ENTRYPOINT_SCOPE]: the data contract and the consumer seam
 - rail: energy-modeling
-- The package has no callable entry points; its "entry points" are the JSON data shape `honeybee-energy` reads and the config-layer path it resolves through. The owner accesses everything below via the `honeybee-energy` `lib.*_by_identifier` loaders, never by opening these files.
+- The package has no callable entry points; its "entry points" are the JSON data shape `honeybee-energy` reads and the config-layer path it resolves through. The owner accesses everything below via the `honeybee-energy` `lib.*_by_identifier` loaders, never by opening these files. `energy_default.json` carries the `construction_sets`/`constructions`/`materials`/`program_types`/`schedules`/`schedule_type_limits` keys; the user-library scaffold spans the `constructions/`/`constructionsets/`/`programtypes/`/`schedules/`/`modifiers/`/`modifiersets/` folders.
 
-| [INDEX] | [SURFACE]                                                                                                   | [CALL_SHAPE]                  | [CAPABILITY]                                                                                                                          |
-| :-----: | :---------------------------------------------------------------------------------------------------------- | :---------------------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `energy_default.json` (= `honeybee_energy.config.folders.defaults_file`)                                    | JSON document                 | the abridged default library: keys `construction_sets`/`constructions`/`materials`/`program_types`/`schedules`/`schedule_type_limits` |
-|  [02]   | `radiance_default.json`                                                                                     | JSON document                 | the default radiance library: keys `modifiers`/`modifier_sets`                                                                        |
-|  [03]   | data folders `constructions/` `constructionsets/` `programtypes/` `schedules/` `modifiers/` `modifiersets/` | `user_library.{json,idf,mat}` | empty user-extension templates (the per-domain user-library scaffold honeybee writes user objects into)                               |
-|  [04]   | `honeybee_energy.lib.*_by_identifier(identifier)`                                                           | identifier string             | the ONLY supported read path: resolves a default (or extension/user) object by identifier, seeding from this bundle at import         |
+| [INDEX] | [SURFACE]                                         | [CALL_SHAPE]         | [CAPABILITY]                                                  |
+| :-----: | :------------------------------------------------ | :------------------- | :------------------------------------------------------------ |
+|  [01]   | `energy_default.json` (= `folders.defaults_file`) | JSON document        | the abridged default energy library (keyed by domain)         |
+|  [02]   | `radiance_default.json`                           | JSON document        | the default radiance library (`modifiers`/`modifier_sets`)    |
+|  [03]   | `user_library.{json,idf,mat}`                     | per-domain templates | empty user-extension scaffold for user objects                |
+|  [04]   | `honeybee_energy.lib.*_by_identifier`             | identifier string    | sole read path; resolve a default/extension/user object by id |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

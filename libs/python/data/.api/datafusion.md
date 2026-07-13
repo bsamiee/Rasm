@@ -53,110 +53,138 @@
 [ENTRYPOINT_SCOPE]: `SessionContext` register, read, and execute
 - rail: engine
 
-`SessionContext()` accepts an optional `SessionConfig` and `RuntimeEnvBuilder`; `global_ctx` returns the process-wide context. `sql` plans a query into a lazy `DataFrame`; `register_*` ingests a named source; `read_*` returns a `DataFrame` directly. `from_*` adopts in-memory and foreign-frame data. `execute` runs an `ExecutionPlan` into a `RecordBatchStream`.
+Every surface below is a `SessionContext` method (prefix dropped), and each `[CALL_SHAPE]` omits the leading method name. `SessionContext()` accepts an optional `SessionConfig` and `RuntimeEnvBuilder`; `global_ctx` returns the process-wide context. A provider argument is `Table | TableProviderExportable | DataFrame | pa.dataset.Dataset`; a catalog-provider argument is `CatalogProviderExportable | CatalogProvider | Catalog`; an Arrow-capsule argument is `ArrowStreamExportable | ArrowArrayExportable`. `from_arrow` adopts Arrow capsule data and its peers `from_pylist`/`from_pydict`/`from_pandas`/`from_polars` adopt the matching in-memory/foreign frame.
 
-| [INDEX] | [SURFACE]                                           | [CALL_SHAPE]                                                                                                                                                                                                                           | [CAPABILITY]                                                                              |
-| :-----: | :-------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | `SessionContext`                                    | `SessionContext(config: SessionConfig \| None = None, runtime: RuntimeEnvBuilder \| None = None)`                                                                                                                                      | construct an execution context                                                            |
-|  [02]   | `SessionContext.global_ctx`                         | `global_ctx() -> SessionContext` (classmethod)                                                                                                                                                                                         | process-wide shared context                                                               |
-|  [03]   | `SessionContext.sql`                                | `sql(query: str, options: SQLOptions \| None = None, param_values: dict[str, Any] \| None = None, **named_params: Any) -> DataFrame`                                                                                                   | plan a SQL query to a lazy `DataFrame`                                                    |
-|  [04]   | `SessionContext.sql_with_options`                   | `sql_with_options(query: str, options: SQLOptions, param_values: dict[str, Any] \| None = None, **named_params: Any) -> DataFrame`                                                                                                     | plan SQL under explicit DDL/DML gating                                                    |
-|  [05]   | `SessionContext.read_parquet`                       | `read_parquet(path: str \| pathlib.Path, table_partition_cols=..., parquet_pruning=True, file_extension='.parquet', skip_metadata=True, schema=None, file_sort_order=None) -> DataFrame`                                               | read Parquet into a `DataFrame`                                                           |
-|  [06]   | `SessionContext.read_csv`                           | `read_csv(path: str \| pathlib.Path \| list[...], schema=None, has_header=True, delimiter=',', schema_infer_max_records=..., file_extension='.csv', table_partition_cols=None, file_compression_type=None, options=None) -> DataFrame` | read CSV into a `DataFrame`                                                               |
-|  [07]   | `SessionContext.read_json`                          | `read_json(path: str \| pathlib.Path, schema=None, schema_infer_max_records=1000, file_extension='.json', table_partition_cols=None, file_compression_type=None) -> DataFrame`                                                         | read NDJSON into a `DataFrame`                                                            |
-|  [08]   | `SessionContext.read_avro`                          | `read_avro(path: str \| pathlib.Path, schema=None, file_partition_cols=None, file_extension='.avro') -> DataFrame`                                                                                                                     | read Avro into a `DataFrame`                                                              |
-|  [09]   | `SessionContext.read_table`                         | `read_table(table: Table \| TableProviderExportable \| DataFrame \| pa.dataset.Dataset) -> DataFrame`                                                                                                                                  | adopt a registered provider as a `DataFrame`                                              |
-|  [10]   | `SessionContext.register_listing_table`             | `register_listing_table(name: str, path: str \| pathlib.Path, table_partition_cols=None, file_extension='.parquet', schema=None, file_sort_order=None) -> None`                                                                        | register a partitioned directory listing                                                  |
-|  [11]   | `SessionContext.register_object_store`              | `register_object_store(schema: str, store: Any, host: str \| None = None) -> None`                                                                                                                                                     | federate a remote object store                                                            |
-|  [12]   | `SessionContext.register_table`                     | `register_table(name: str, table: Table \| TableProviderExportable \| DataFrame \| pa.dataset.Dataset) -> None`                                                                                                                        | register a named table/view provider                                                      |
-|  [13]   | `SessionContext.register_catalog_provider`          | `register_catalog_provider(name: str, provider: CatalogProviderExportable \| CatalogProvider \| Catalog) -> None`                                                                                                                      | federate a foreign catalog                                                                |
-|  [14]   | `SessionContext.register_udf`                       | `register_udf(udf: ScalarUDF) -> None` (peers: `register_udaf`, `register_udwf`, `register_udtf`)                                                                                                                                      | register scalar/aggregate/window/table UDFs                                               |
-|  [15]   | `SessionContext.from_arrow`                         | `from_arrow(data: ArrowStreamExportable \| ArrowArrayExportable, name: str \| None = None) -> DataFrame`                                                                                                                               | adopt Arrow capsule data (peers: `from_pylist`/`from_pydict`/`from_pandas`/`from_polars`) |
-|  [16]   | `SessionContext.create_dataframe_from_logical_plan` | `create_dataframe_from_logical_plan(plan: LogicalPlan) -> DataFrame`                                                                                                                                                                   | build a `DataFrame` from a logical plan                                                   |
-|  [17]   | `SessionContext.parse_sql_expr`                     | `parse_sql_expr(sql: str, schema: DFSchema) -> Expr`                                                                                                                                                                                   | parse a SQL fragment into an `Expr`                                                       |
-|  [18]   | `SessionContext.execute`                            | `execute(plan: ExecutionPlan, partitions: int) -> RecordBatchStream`                                                                                                                                                                   | run a physical plan to a stream                                                           |
-|  [19]   | `SessionContext.table`                              | `table(name: str) -> DataFrame`                                                                                                                                                                                                        | resolve a registered name to a `DataFrame`                                                |
-|  [20]   | `SessionContext.catalog`                            | `catalog(name: str = 'datafusion') -> Catalog`                                                                                                                                                                                         | access a named catalog                                                                    |
+| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                        | [CAPABILITY]                           |
+| :-----: | :----------------------------------- | :-------------------------------------------------- | :------------------------------------- |
+|  [01]   | `SessionContext`                     | `(config=None, runtime=None)`                       | construct an execution context         |
+|  [02]   | `global_ctx`                         | `() -> SessionContext` (classmethod)                | process-wide shared context            |
+|  [03]   | `sql`                                | `(query, options=None, param_values=None, **named)` | plan a SQL query to a lazy `DataFrame` |
+|  [04]   | `sql_with_options`                   | `(query, options, param_values=None, **named)`      | lazy `DataFrame` under DDL/DML gating  |
+|  [05]   | `parse_sql_expr`                     | `(sql, schema: DFSchema) -> Expr`                   | parse a SQL fragment into an `Expr`    |
+|  [06]   | `create_dataframe_from_logical_plan` | `(plan) -> DataFrame`                               | build from a logical plan              |
+|  [07]   | `table`                              | `(name) -> DataFrame`                               | resolve a registered name              |
+|  [08]   | `catalog`                            | `(name='datafusion') -> Catalog`                    | access a named catalog                 |
+|  [09]   | `execute`                            | `(plan, partitions) -> RecordBatchStream`           | run a physical plan to a stream        |
+
+Every `read_*` returns a `DataFrame` and shares the source tail `(schema=None, table_partition_cols=None, file_extension, file_compression_type=None, schema_infer_max_records=...)` — also carried by `register_listing_table` — so each row lists only its format-specific keywords.
+
+| [INDEX] | [SURFACE]      | [CALL_SHAPE]                                                                | [CAPABILITY]                    |
+| :-----: | :------------- | :-------------------------------------------------------------------------- | :------------------------------ |
+|  [01]   | `read_parquet` | `(path, parquet_pruning=True, skip_metadata=True, file_sort_order=None)`    | read Parquet into a `DataFrame` |
+|  [02]   | `read_csv`     | `(path: str \| Path \| list, has_header=True, delimiter=',', options=None)` | read CSV into a `DataFrame`     |
+|  [03]   | `read_json`    | `(path)`                                                                    | read NDJSON into a `DataFrame`  |
+|  [04]   | `read_avro`    | `(path, file_partition_cols=None)`                                          | read Avro into a `DataFrame`    |
+|  [05]   | `read_table`   | `(table: <provider>)`                                                       | adopt a registered provider     |
+
+| [INDEX] | [SURFACE]                   | [CALL_SHAPE]                                           | [CAPABILITY]                         |
+| :-----: | :-------------------------- | :----------------------------------------------------- | :----------------------------------- |
+|  [01]   | `register_listing_table`    | `(name, path, ...) -> None`                            | partitioned directory listing        |
+|  [02]   | `register_object_store`     | `(schema, store, host=None) -> None`                   | federate a remote object store       |
+|  [03]   | `register_table`            | `(name, table: <provider>) -> None`                    | register a named table/view provider |
+|  [04]   | `register_catalog_provider` | `(name, provider: <catalog-provider>) -> None`         | federate a foreign catalog           |
+|  [05]   | `register_udf`              | `(udf) -> None` (peers: `register_udaf`/`udwf`/`udtf`) | register the four UDF kinds          |
+|  [06]   | `from_arrow`                | `(data: <arrow-capsule>, name=None) -> DataFrame`      | adopt Arrow capsule data             |
 
 [ENTRYPOINT_SCOPE]: `DataFrame` algebra, materialize, and write
 - rail: engine
 
-`DataFrame` is lazy; transforms return a new `DataFrame` and nothing executes until `collect`, `show`, `execute_stream`, a `to_*` export, or a `write_*` sink. `execute_stream` returns a `RecordBatchStream`; `execute_stream_partitioned` returns one stream per partition.
+`DataFrame` is lazy; every surface below is a `DataFrame` method (prefix dropped), each `[CALL_SHAPE]` omits the leading method name, and a transform returns a new `DataFrame` unless the row states another return. Nothing executes until `collect`, `show`, `execute_stream`, a `to_*` export, or a `write_*` sink. The equijoin surface is `join(right, on=None, how='inner', *, left_on=None, right_on=None, join_keys=None, coalesce_duplicate_keys=True)` overloaded on key shape and `join_on(right, *on_exprs, how='inner')` on arbitrary predicates.
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]                                                                                                                                          | [CAPABILITY]                                                |
-| :-----: | :------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | `DataFrame.select`                     | `select(*exprs: Expr \| str) -> DataFrame`                                                                                                            | project columns/expressions                                 |
-|  [02]   | `DataFrame.filter`                     | `filter(*predicates: Expr \| str) -> DataFrame`                                                                                                       | conjunctive predicate filter                                |
-|  [03]   | `DataFrame.aggregate`                  | `aggregate(group_by: Sequence[Expr \| str] \| Expr \| str, aggs: Sequence[Expr] \| Expr) -> DataFrame`                                                | grouped aggregation                                         |
-|  [04]   | `DataFrame.join`                       | `join(right: DataFrame, on=None, how='inner', *, left_on=None, right_on=None, join_keys=None, coalesce_duplicate_keys=True) -> DataFrame`             | equijoin (overloaded on key shape)                          |
-|  [05]   | `DataFrame.join_on`                    | `join_on(right: DataFrame, *on_exprs: Expr, how='inner') -> DataFrame`                                                                                | join on arbitrary predicates                                |
-|  [06]   | `DataFrame.with_column`                | `with_column(name: str, expr: Expr \| str) -> DataFrame`                                                                                              | append a derived column                                     |
-|  [07]   | `DataFrame.sort`                       | `sort(*exprs: SortKey) -> DataFrame`                                                                                                                  | order rows                                                  |
-|  [08]   | `DataFrame.limit`                      | `limit(count: int, offset: int = 0) -> DataFrame`                                                                                                     | bound and offset rows                                       |
-|  [09]   | `DataFrame.union`                      | `union(other: DataFrame, distinct: bool = False) -> DataFrame` (peers: `intersect`, `except_all`, `union_by_name`)                                    | set algebra over frames                                     |
-|  [10]   | `DataFrame.window`                     | `window(*exprs: Expr) -> DataFrame`                                                                                                                   | apply window expressions                                    |
-|  [11]   | `DataFrame.unnest_columns`             | `unnest_columns(*columns: str, preserve_nulls: bool = True, recursions: list[tuple[str, str, int]] \| None = None) -> DataFrame`                      | explode list/struct columns                                 |
-|  [12]   | `DataFrame.with_columns`               | `with_columns(*exprs: Expr, **named_exprs: Expr) -> DataFrame` (peers: `with_column_renamed`, `drop`, `distinct`)                                     | append/rename/drop a cohort of derived columns in one node  |
-|  [13]   | `DataFrame.repartition`                | `repartition(num: int) -> DataFrame` (peers: `repartition_by_hash(*exprs, num)`)                                                                      | force a partition fan-out for parallel streaming            |
-|  [14]   | `DataFrame.cache`                      | `cache() -> DataFrame`                                                                                                                                | materialize once and reuse across downstream plans          |
-|  [15]   | `DataFrame.fill_null`                  | `fill_null(value: Any, subset: list[str] \| None = None) -> DataFrame`                                                                                | replace nulls before egress, never a manual `coalesce` loop |
-|  [16]   | `DataFrame.collect`                    | `collect() -> list[pa.RecordBatch]` (peers: `head(n)`, `tail(n)`, `count()`)                                                                          | materialize all partitions to Arrow                         |
-|  [17]   | `DataFrame.execute_stream`             | `execute_stream() -> RecordBatchStream`                                                                                                               | stream results lazily                                       |
-|  [18]   | `DataFrame.execute_stream_partitioned` | `execute_stream_partitioned() -> list[RecordBatchStream]`                                                                                             | one stream per output partition                             |
-|  [19]   | `DataFrame.to_arrow_table`             | `to_arrow_table() -> pa.Table`                                                                                                                        | materialize to a pyarrow `Table`                            |
-|  [20]   | `DataFrame.to_polars`                  | `to_polars() -> pl.DataFrame` (peers: `to_pandas`, `to_pylist`, `to_pydict`)                                                                          | export to a foreign frame                                   |
-|  [21]   | `DataFrame.logical_plan`               | `logical_plan() -> LogicalPlan` (peers: `optimized_logical_plan`, `execution_plan`)                                                                   | inspect plan stages                                         |
-|  [22]   | `DataFrame.explain`                    | `explain(verbose: bool = False, analyze: bool = False, format: ExplainFormat \| None = None) -> None`                                                 | print the plan tree                                         |
-|  [23]   | `DataFrame.write_parquet`              | `write_parquet(path, compression: str \| Compression \| ParquetWriterOptions = Compression.ZSTD, compression_level=None, write_options=None) -> None` | sink to Parquet (overloaded on options)                     |
-|  [24]   | `DataFrame.write_csv`                  | `write_csv(path, with_header: bool = False, write_options: DataFrameWriteOptions \| None = None) -> None` (peers: `write_json`, `write_table`)        | sink to CSV/JSON/registered table                           |
-|  [25]   | `DataFrame.into_view`                  | `into_view(temporary: bool = False) -> Table`                                                                                                         | promote a frame to a registrable view                       |
+| [INDEX] | [SURFACE]        | [CALL_SHAPE]                                                                  | [CAPABILITY]                       |
+| :-----: | :--------------- | :---------------------------------------------------------------------------- | :--------------------------------- |
+|  [01]   | `select`         | `(*exprs: Expr \| str)`                                                       | project columns/expressions        |
+|  [02]   | `filter`         | `(*predicates: Expr \| str)`                                                  | conjunctive predicate filter       |
+|  [03]   | `aggregate`      | `(group_by: Sequence[Expr \| str] \| Expr, aggs: Sequence[Expr] \| Expr)`     | grouped aggregation                |
+|  [04]   | `join`           | `(right, on=None, how='inner', ...)`                                          | equijoin (overloaded on key shape) |
+|  [05]   | `join_on`        | `(right, *on_exprs, how='inner')`                                             | join on arbitrary predicates       |
+|  [06]   | `with_column`    | `(name, expr: Expr \| str)`                                                   | append a derived column            |
+|  [07]   | `with_columns`   | `(*exprs, **named_exprs)` (peers: `with_column_renamed`, `drop`, `distinct`)  | append/rename/drop a column cohort |
+|  [08]   | `sort`           | `(*exprs: SortKey)`                                                           | order rows                         |
+|  [09]   | `limit`          | `(count, offset=0)`                                                           | bound and offset rows              |
+|  [10]   | `union`          | `(other, distinct=False)` (peers: `intersect`, `except_all`, `union_by_name`) | set algebra over frames            |
+|  [11]   | `window`         | `(*exprs: Expr)`                                                              | apply window expressions           |
+|  [12]   | `unnest_columns` | `(*columns, preserve_nulls=True, recursions=None)`                            | explode list/struct columns        |
+
+| [INDEX] | [SURFACE]     | [CALL_SHAPE]                                        | [CAPABILITY]                             |
+| :-----: | :------------ | :-------------------------------------------------- | :--------------------------------------- |
+|  [01]   | `repartition` | `(num)` (peers: `repartition_by_hash(*exprs, num)`) | partition fan-out for parallel streaming |
+|  [02]   | `cache`       | `()`                                                | materialize once, reuse downstream       |
+|  [03]   | `fill_null`   | `(value: Any, subset: list[str] \| None = None)`    | replace nulls before egress              |
+
+`collect` peers `head(n)`/`tail(n)`/`count()`; `to_polars` peers `to_pandas`/`to_pylist`/`to_pydict`; `logical_plan` peers `optimized_logical_plan`/`execution_plan`. `write_parquet` also takes `compression_level` and a `ParquetWriterOptions` override; `write_csv` peers `write_json`/`write_table`.
+
+| [INDEX] | [SURFACE]                    | [CALL_SHAPE]                                               | [CAPABILITY]                          |
+| :-----: | :--------------------------- | :--------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `collect`                    | `() -> list[pa.RecordBatch]`                               | materialize all partitions to Arrow   |
+|  [02]   | `execute_stream`             | `() -> RecordBatchStream`                                  | stream results lazily                 |
+|  [03]   | `execute_stream_partitioned` | `() -> list[RecordBatchStream]`                            | one stream per output partition       |
+|  [04]   | `to_arrow_table`             | `() -> pa.Table`                                           | materialize to a pyarrow `Table`      |
+|  [05]   | `to_polars`                  | `() -> pl.DataFrame`                                       | export to a foreign frame             |
+|  [06]   | `logical_plan`               | `() -> LogicalPlan`                                        | inspect plan stages                   |
+|  [07]   | `explain`                    | `(verbose=False, analyze=False, format=None) -> None`      | print the plan tree                   |
+|  [08]   | `write_parquet`              | `(path, compression=Compression.ZSTD, write_options=None)` | sink to Parquet (overloaded)          |
+|  [09]   | `write_csv`                  | `(path, with_header=False, write_options=None)`            | sink to CSV/JSON/registered table     |
+|  [10]   | `into_view`                  | `(temporary=False) -> Table`                               | promote a frame to a registrable view |
 
 [ENTRYPOINT_SCOPE]: streaming, expression, and builder surfaces
 - rail: engine
 
-`RecordBatchStream` is both a synchronous and asynchronous iterator; `next` pulls one `RecordBatch`. `col`/`column` mint a column `Expr`; `lit` and peers mint literal `Expr`. Builders return `self` for fluent chaining.
+`RecordBatchStream` is both a synchronous and asynchronous iterator; `next` pulls one `RecordBatch`. `col`/`column` mint a column `Expr`; `lit`/`literal` mint a literal `Expr` and their peers `string_literal`/`str_lit` and `lit_with_metadata`/`literal_with_metadata` carry the typed/metadata variants.
 
-| [INDEX] | [SURFACE]                                | [CALL_SHAPE]                                                                                                                                                    | [CAPABILITY]                          |
-| :-----: | :--------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------ |
-|  [01]   | `RecordBatchStream.next`                 | `next() -> RecordBatch` (also `iter`/`next` and `aiter`/`anext`)                                                                                                | pull-based sync/async batch iteration |
-|  [02]   | `RecordBatch.to_pyarrow`                 | `to_pyarrow() -> pa.RecordBatch`                                                                                                                                | unwrap to a pyarrow batch             |
-|  [03]   | `col` / `column`                         | `col(value: str) -> Expr` (callable; attribute access `col.name` also yields a column `Expr`)                                                                   | mint a column-reference expression    |
-|  [04]   | `lit` / `literal`                        | `lit(value: Any) -> Expr` (peers: `string_literal`/`str_lit`, `lit_with_metadata`/`literal_with_metadata`)                                                      | mint a literal expression             |
-|  [05]   | `SessionConfig.with_target_partitions`   | `with_target_partitions(target_partitions: int) -> SessionConfig` (fluent peers: `with_batch_size`, `with_information_schema`, `with_repartition_joins`, `set`) | tune session policy fluently          |
-|  [06]   | `RuntimeEnvBuilder.with_fair_spill_pool` | `with_fair_spill_pool(size: int) -> RuntimeEnvBuilder` (fluent peers: `with_greedy_memory_pool`, `with_disk_manager_specified`, `with_temp_file_path`)          | tune runtime memory/disk fluently     |
-|  [07]   | `SQLOptions.with_allow_ddl`              | `with_allow_ddl(allow: bool = True) -> SQLOptions` (fluent peers: `with_allow_dml`, `with_allow_statements`)                                                    | gate SQL DDL/DML/statements           |
+| [INDEX] | [SURFACE]                | [CALL_SHAPE]                                                    | [CAPABILITY]                       |
+| :-----: | :----------------------- | :-------------------------------------------------------------- | :--------------------------------- |
+|  [01]   | `RecordBatchStream.next` | `() -> RecordBatch` (sync `iter`/`next`, async `aiter`/`anext`) | sync/async batch iteration         |
+|  [02]   | `RecordBatch.to_pyarrow` | `() -> pa.RecordBatch`                                          | unwrap to a pyarrow batch          |
+|  [03]   | `col` / `column`         | `col(value: str) -> Expr` (attr `col.name` also mints one)      | mint a column-reference expression |
+|  [04]   | `lit` / `literal`        | `lit(value: Any) -> Expr`                                       | mint a literal expression          |
+
+`SessionConfig`, `RuntimeEnvBuilder`, and `SQLOptions` return `self` for fluent chaining; each tunes its own policy axis.
+
+| [INDEX] | [BUILDER]           | [FLUENT_METHODS]                                                                                              |
+| :-----: | :------------------ | :------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `SessionConfig`     | `with_target_partitions(int)`, `with_batch_size`, `with_information_schema`, `with_repartition_joins`, `set`  |
+|  [02]   | `RuntimeEnvBuilder` | `with_fair_spill_pool(size)`, `with_greedy_memory_pool`, `with_disk_manager_specified`, `with_temp_file_path` |
+|  [03]   | `SQLOptions`        | `with_allow_ddl(allow=True)`, `with_allow_dml`, `with_allow_statements`                                       |
 
 [ENTRYPOINT_SCOPE]: built-in functions and user-defined functions
 - rail: engine
 
 `functions` is the built-in expression namespace (`import datafusion.functions as f`): `f.col`-composing scalar/aggregate/window builders (`f.sum`, `f.avg`, `f.lower`, `f.array_agg`, `f.lead`, `f.row_number`, `f.coalesce`, `f.case`) that return `Expr` and compose with `over(WindowFrame(...))`. UDFs are minted by the module factories `udf`/`udaf`/`udwf` over the `Accumulator`/`WindowEvaluator` base classes and a `Volatility` policy, then handed to `SessionContext.register_udf`/`register_udaf`/`register_udwf`/`register_udtf`; one factory family owns all four UDF modalities, never a builder per UDF kind.
 
-| [INDEX] | [SURFACE]           | [CALL_SHAPE]                                                                                                                            | [CAPABILITY]                                         |
-| :-----: | :------------------ | :-------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------- |
-|  [01]   | `functions` (`f.*`) | `f.sum(expr).over(WindowFrame('rows', start, end))` (scalar/aggregate/window builder namespace returning `Expr`)                        | compose built-in SQL functions as `Expr` trees       |
-|  [02]   | `udf`               | `udf(func: Callable, input_types: list[pa.DataType], return_type: pa.DataType, volatility: str, name: str = ...) -> ScalarUDF`          | mint a scalar UDF (Arrow-vectorized `func`)          |
-|  [03]   | `udaf`              | `udaf(accum: type[Accumulator], input_types, return_type: pa.DataType, state_type: list[pa.DataType], volatility: str) -> AggregateUDF` | mint an aggregate UDF over an `Accumulator` subclass |
-|  [04]   | `udwf`              | `udwf(evaluator: WindowEvaluator, input_types, return_type: pa.DataType, volatility: str) -> WindowUDF`                                 | mint a window UDF over a `WindowEvaluator` subclass  |
-|  [05]   | `Accumulator`       | base class: `update(*arrays)`, `merge(states)`, `state() -> list[pa.Scalar]`, `evaluate() -> pa.Scalar`                                 | aggregate state machine implemented in Python        |
-|  [06]   | `WindowEvaluator`   | base class: `evaluate_all(values, num_rows)`, `evaluate(...)`, `evaluate_all_with_rank(...)`                                            | window evaluation strategy implemented in Python     |
+Each `udf`/`udaf`/`udwf` factory takes `(callable/type, input_types, return_type: pa.DataType, volatility: str, name=...)` and returns the matching UDF; `udaf` adds a `state_type: list[pa.DataType]`.
+
+| [INDEX] | [SURFACE]           | [CALL_SHAPE]                                                  | [CAPABILITY]                                   |
+| :-----: | :------------------ | :------------------------------------------------------------ | :--------------------------------------------- |
+|  [01]   | `functions` (`f.*`) | `f.sum(expr).over(WindowFrame('rows', start, end))`           | compose built-in SQL functions as `Expr` trees |
+|  [02]   | `udf`               | `(func: Callable, ...) -> ScalarUDF`                          | mint a scalar UDF (Arrow-vectorized `func`)    |
+|  [03]   | `udaf`              | `(accum: type[Accumulator], ..., state_type) -> AggregateUDF` | mint an aggregate UDF over an `Accumulator`    |
+|  [04]   | `udwf`              | `(evaluator: WindowEvaluator, ...) -> WindowUDF`              | mint a window UDF over a `WindowEvaluator`     |
+
+The two UDF base classes a `udaf`/`udwf` subclasses and implements:
+
+| [INDEX] | [SURFACE]         | [CALL_SHAPE]                                                                                |
+| :-----: | :---------------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | `Accumulator`     | `update(*arrays)`, `merge(states)`, `state() -> list[pa.Scalar]`, `evaluate() -> pa.Scalar` |
+|  [02]   | `WindowEvaluator` | `evaluate_all(values, num_rows)`, `evaluate(...)`, `evaluate_all_with_rank(...)`            |
 
 [ENTRYPOINT_SCOPE]: `substrait` portability codec
 - rail: interchange
 
-The `substrait` namespace round-trips a SQL string or `LogicalPlan` through a portable `Plan`. `Serde` covers SQL <-> bytes/path; `Producer`/`Consumer` bridge the in-process `LogicalPlan`. `Plan` self-encodes to protobuf bytes or JSON.
+The `substrait` namespace round-trips a SQL string or `LogicalPlan` through a portable `Plan`. Every `Serde`/`Producer`/`Consumer` method is a staticmethod (prefix `substrait.` dropped, method-name repeat omitted); `Serde` covers SQL <-> bytes/path, `Producer`/`Consumer` bridge the in-process `LogicalPlan`, and `Plan` self-encodes to protobuf bytes or JSON.
 
-| [INDEX] | [SURFACE]                                | [CALL_SHAPE]                                                                                 | [CAPABILITY]                     |
-| :-----: | :--------------------------------------- | :------------------------------------------------------------------------------------------- | :------------------------------- |
-|  [01]   | `substrait.Serde.serialize_to_plan`      | `serialize_to_plan(sql: str, ctx: SessionContext) -> Plan` (staticmethod)                    | SQL -> portable `Plan`           |
-|  [02]   | `substrait.Serde.serialize_bytes`        | `serialize_bytes(sql: str, ctx: SessionContext) -> bytes` (staticmethod)                     | SQL -> protobuf bytes            |
-|  [03]   | `substrait.Serde.serialize`              | `serialize(sql: str, ctx: SessionContext, path: str \| pathlib.Path) -> None` (staticmethod) | SQL -> plan written to path      |
-|  [04]   | `substrait.Serde.deserialize`            | `deserialize(path: str \| pathlib.Path) -> Plan` (staticmethod)                              | path -> `Plan`                   |
-|  [05]   | `substrait.Serde.deserialize_bytes`      | `deserialize_bytes(proto_bytes: bytes) -> Plan` (staticmethod)                               | protobuf bytes -> `Plan`         |
-|  [06]   | `substrait.Producer.to_substrait_plan`   | `to_substrait_plan(logical_plan: LogicalPlan, ctx: SessionContext) -> Plan` (staticmethod)   | `LogicalPlan` -> portable `Plan` |
-|  [07]   | `substrait.Consumer.from_substrait_plan` | `from_substrait_plan(ctx: SessionContext, plan: Plan) -> LogicalPlan` (staticmethod)         | portable `Plan` -> `LogicalPlan` |
-|  [08]   | `substrait.Plan.encode`                  | `encode() -> bytes`                                                                          | `Plan` -> protobuf bytes         |
-|  [09]   | `substrait.Plan.to_json`                 | `to_json() -> str`                                                                           | `Plan` -> JSON                   |
-|  [10]   | `substrait.Plan.from_json`               | `from_json(json: str) -> Plan` (staticmethod)                                                | JSON -> `Plan`                   |
+| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                    | [CAPABILITY]                     |
+| :-----: | :----------------------------- | :---------------------------------------------- | :------------------------------- |
+|  [01]   | `Serde.serialize_to_plan`      | `(sql, ctx) -> Plan`                            | SQL -> portable `Plan`           |
+|  [02]   | `Serde.serialize_bytes`        | `(sql, ctx) -> bytes`                           | SQL -> protobuf bytes            |
+|  [03]   | `Serde.serialize`              | `(sql, ctx, path: str \| pathlib.Path) -> None` | SQL -> plan written to path      |
+|  [04]   | `Serde.deserialize`            | `(path: str \| pathlib.Path) -> Plan`           | path -> `Plan`                   |
+|  [05]   | `Serde.deserialize_bytes`      | `(proto_bytes: bytes) -> Plan`                  | protobuf bytes -> `Plan`         |
+|  [06]   | `Producer.to_substrait_plan`   | `(logical_plan: LogicalPlan, ctx) -> Plan`      | `LogicalPlan` -> portable `Plan` |
+|  [07]   | `Consumer.from_substrait_plan` | `(ctx, plan: Plan) -> LogicalPlan`              | portable `Plan` -> `LogicalPlan` |
+|  [08]   | `Plan.encode`                  | `() -> bytes`                                   | `Plan` -> protobuf bytes         |
+|  [09]   | `Plan.to_json`                 | `() -> str`                                     | `Plan` -> JSON                   |
+|  [10]   | `Plan.from_json`               | `(json: str) -> Plan`                           | JSON -> `Plan`                   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

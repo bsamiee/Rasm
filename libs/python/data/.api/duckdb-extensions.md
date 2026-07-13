@@ -18,30 +18,30 @@
 [ENTRYPOINT_SCOPE]: extension install/load
 - rail: query extensions
 
-| [INDEX] | [EXTENSION] | [REPOSITORY] | [LOAD_SHAPE]                                                                            | [CONSUMER]                                 |
-| :-----: | :---------- | :----------- | :-------------------------------------------------------------------------------------- | :----------------------------------------- |
-|  [01]   | `httpfs`    | core         | `INSTALL httpfs; LOAD httpfs;`                                                          | remote `read_parquet` and object URL scans |
-|  [02]   | `spatial`   | core         | `INSTALL spatial; LOAD spatial;`                                                        | `spatial/query` geometry SQL               |
-|  [03]   | `h3`        | community    | `INSTALL h3 FROM community; LOAD h3;`                                                   | H3 SQL bins and neighborhood functions     |
-|  [04]   | `iceberg`   | core         | `INSTALL iceberg; LOAD iceberg;`                                                        | Iceberg metadata and table reads           |
-|  [05]   | `substrait` | community    | `install_extension("substrait", repository="community")`; `load_extension("substrait")` | DuckDB/Substrait plan bridge               |
-|  [06]   | `ducklake`  | core         | `INSTALL ducklake; LOAD ducklake;`                                                      | DuckLake table-format catalog              |
+| [INDEX] | [EXTENSION] | [REPOSITORY] | [LOAD_SHAPE]                                        | [CONSUMER]                                 |
+| :-----: | :---------- | :----------- | :-------------------------------------------------- | :----------------------------------------- |
+|  [01]   | `httpfs`    | core         | `INSTALL httpfs; LOAD httpfs;`                      | remote `read_parquet` and object URL scans |
+|  [02]   | `spatial`   | core         | `INSTALL spatial; LOAD spatial;`                    | `spatial/query` geometry SQL               |
+|  [03]   | `h3`        | community    | `INSTALL h3 FROM community; LOAD h3;`               | H3 SQL bins and neighborhood functions     |
+|  [04]   | `iceberg`   | core         | `INSTALL iceberg; LOAD iceberg;`                    | Iceberg metadata and table reads           |
+|  [05]   | `substrait` | community    | `INSTALL substrait FROM community; LOAD substrait;` | DuckDB/Substrait plan bridge               |
+|  [06]   | `ducklake`  | core         | `INSTALL ducklake; LOAD ducklake;`                  | DuckLake table-format catalog              |
 
 ## [03]-[SUBSTRAIT]
 
 [ENTRYPOINT_SCOPE]: Substrait plan serialization and execution
 - rail: substrait portability
 
-The `substrait` extension attaches methods to the host connection and table functions to the engine. It exposes no extension-owned Python class and no top-level module.
+The `substrait` extension attaches methods to the host connection and table functions to the engine. It exposes no extension-owned Python class and no top-level module. Every `con.*` method returns a `DuckDBPyRelation`; the two serializers gate optimize-before-serialize on `enable_optimizer: bool = True`, the two executors take the foreign plan payload (`proto: bytes` / `json: str`).
 
-| [INDEX] | [SURFACE]                                                    | [CALL_SHAPE]                                                                           | [CAPABILITY]                           |
-| :-----: | :----------------------------------------------------------- | :------------------------------------------------------------------------------------- | :------------------------------------- |
-|  [01]   | `con.get_substrait`                                          | `get_substrait(query: str, *, enable_optimizer: bool = True) -> DuckDBPyRelation`      | serialize SQL to binary Substrait plan |
-|  [02]   | `con.get_substrait_json`                                     | `get_substrait_json(query: str, *, enable_optimizer: bool = True) -> DuckDBPyRelation` | serialize SQL to JSON Substrait plan   |
-|  [03]   | `con.from_substrait`                                         | `from_substrait(proto: bytes) -> DuckDBPyRelation`                                     | execute binary Substrait plan          |
-|  [04]   | `con.from_substrait_json`                                    | `from_substrait_json(json: str) -> DuckDBPyRelation`                                   | execute JSON Substrait plan            |
-|  [05]   | `CALL get_substrait(...)` / `CALL get_substrait_json(...)`   | SQL table functions                                                                    | SQL-side plan serialization            |
-|  [06]   | `CALL from_substrait(...)` / `CALL from_substrait_json(...)` | SQL table functions                                                                    | SQL-side foreign-plan execution        |
+| [INDEX] | [SURFACE]                    | [CALL_SHAPE]                     | [CAPABILITY]                           |
+| :-----: | :--------------------------- | :------------------------------- | :------------------------------------- |
+|  [01]   | `con.get_substrait`          | `get_substrait(query: str)`      | serialize SQL to binary Substrait plan |
+|  [02]   | `con.get_substrait_json`     | `get_substrait_json(query: str)` | serialize SQL to JSON Substrait plan   |
+|  [03]   | `con.from_substrait`         | `from_substrait(proto: bytes)`   | execute binary Substrait plan          |
+|  [04]   | `con.from_substrait_json`    | `from_substrait_json(json: str)` | execute JSON Substrait plan            |
+|  [05]   | `CALL get_substrait[_json]`  | SQL table function               | SQL-side plan serialization            |
+|  [06]   | `CALL from_substrait[_json]` | SQL table function               | SQL-side foreign-plan execution        |
 
 [SUBSTRAIT_PORTABILITY]:
 - load axis: the community extension is installed and loaded once per connection before any Substrait call.
@@ -55,25 +55,29 @@ The `substrait` extension attaches methods to the host connection and table func
 [ENTRYPOINT_SCOPE]: DuckLake attach, snapshots, change feed, and maintenance
 - rail: lakehouse
 
-DuckLake is a DuckDB core extension. It attaches a table-format catalog backed by DuckDB, SQLite, or PostgreSQL metadata plus Parquet data files. Python reaches it only through DuckDB SQL and cursors.
+DuckLake is a DuckDB core extension. It attaches a table-format catalog backed by DuckDB, SQLite, or PostgreSQL metadata plus Parquet data files. Python reaches it only through DuckDB SQL and cursors. Every mount is `ATTACH 'ducklake:<backend>:<dsn>' AS <name> (<clause>...)` where `<backend>` is empty (DuckDB), `sqlite:`, or `postgres:`, and the attach clauses are `DATA_PATH`, `METADATA_SCHEMA`, `ENCRYPTED`, `DATA_INLINING_ROW_LIMIT`, `READ_ONLY`, `AUTOMATIC_MIGRATION`, `CREATE_IF_NOT_EXISTS`, `OVERRIDE_DATA_PATH`.
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                                                                                                                               | [CAPABILITY]                         |
-| :-----: | :------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------- |
-|  [01]   | install/load               | `INSTALL ducklake; LOAD ducklake;`                                                                                                                                                         | deterministic extension load         |
-|  [02]   | attach DuckDB metadata     | `ATTACH 'ducklake:metadata.ducklake' AS <name> (DATA_PATH 'data_files/')`                                                                                                                  | mount DuckLake catalog               |
-|  [03]   | attach SQLite metadata     | `ATTACH 'ducklake:sqlite:metadata.sqlite' AS <name> (DATA_PATH 'data/')`                                                                                                                   | mount SQLite-backed catalog          |
-|  [04]   | attach PostgreSQL metadata | `ATTACH 'ducklake:postgres:dbname=postgres' AS <name> (DATA_PATH 's3://bucket/data/')`                                                                                                     | mount Postgres-backed catalog        |
-|  [05]   | attach options             | `DATA_PATH`, `METADATA_SCHEMA`, `ENCRYPTED`, `DATA_INLINING_ROW_LIMIT`, `READ_ONLY`, `AUTOMATIC_MIGRATION`, `CREATE_IF_NOT_EXISTS`, `OVERRIDE_DATA_PATH`                                   | catalog policy                       |
-|  [06]   | secret attach              | `CREATE SECRET (TYPE ducklake, METADATA_PATH ..., DATA_PATH ...)`; `ATTACH 'ducklake:<secret>' AS <name>`                                                                                  | secret-backed mount                  |
-|  [07]   | snapshots                  | `<catalog>.snapshots()` / `ducklake_snapshots('<catalog>')`                                                                                                                                | list snapshot history                |
-|  [08]   | current and last committed | `<catalog>.current_snapshot()` / `ducklake_last_committed_snapshot('<catalog>')`                                                                                                           | snapshot identity                    |
-|  [09]   | time travel                | `FROM <table> AT (VERSION => n)` / `AT (TIMESTAMP => ts)`                                                                                                                                  | historical table read                |
-|  [10]   | change feed                | `table_changes`, `table_insertions`, `table_deletions`                                                                                                                                     | row-level lineage                    |
-|  [11]   | commit metadata            | `set_commit_message`                                                                                                                                                                       | commit author/message/extra metadata |
-|  [12]   | data-file registration     | `ducklake_add_data_files`                                                                                                                                                                  | register existing Parquet files      |
-|  [13]   | scans and file listing     | `ducklake_scan` / `ducklake_list_files`                                                                                                                                                    | scan or list physical data files     |
-|  [14]   | maintenance                | `ducklake_expire_snapshots`, `ducklake_merge_adjacent_files`, `ducklake_rewrite_data_files`, `ducklake_cleanup_old_files`, `ducklake_delete_orphaned_files`, `ducklake_flush_inlined_data` | storage lifecycle                    |
-|  [15]   | options and settings       | `set_option`, `ducklake_options`, `ducklake_settings`, `ducklake_table_info`                                                                                                               | policy inspection and mutation       |
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                 | [CAPABILITY]                 |
+| :-----: | :------------------------- | :--------------------------------------------------------------------------- | :--------------------------- |
+|  [01]   | install/load               | `INSTALL ducklake; LOAD ducklake;`                                           | deterministic extension load |
+|  [02]   | attach DuckDB metadata     | `ATTACH 'ducklake:<file>.ducklake' AS <n> (DATA_PATH '<dir>/')`              | mount DuckLake catalog       |
+|  [03]   | attach SQLite metadata     | `ATTACH 'ducklake:sqlite:<file>' AS <n> (DATA_PATH '<dir>/')`                | mount SQLite catalog         |
+|  [04]   | attach Postgres metadata   | `ATTACH 'ducklake:postgres:<dsn>' AS <n> (DATA_PATH '<uri>')`                | mount Postgres catalog       |
+|  [05]   | secret attach              | `CREATE SECRET (TYPE ducklake, ...)` + `ATTACH 'ducklake:<secret>'`          | secret-backed mount          |
+|  [06]   | snapshots                  | `<cat>.snapshots()` / `ducklake_snapshots('<cat>')`                          | list snapshot history        |
+|  [07]   | current and last committed | `<cat>.current_snapshot()` / `ducklake_last_committed_snapshot(...)`         | snapshot identity            |
+|  [08]   | time travel                | `FROM <table> AT (VERSION => n)` / `AT (TIMESTAMP => ts)`                    | historical table read        |
+|  [09]   | change feed                | `table_changes`, `table_insertions`, `table_deletions`                       | row-level lineage            |
+|  [10]   | commit metadata            | `set_commit_message`                                                         | commit author/message/extra  |
+|  [11]   | data-file registration     | `ducklake_add_data_files`                                                    | register existing Parquet    |
+|  [12]   | scans and file listing     | `ducklake_scan` / `ducklake_list_files`                                      | scan or list physical files  |
+|  [13]   | expire snapshots           | `ducklake_expire_snapshots`                                                  | drop old snapshot history    |
+|  [14]   | merge adjacent files       | `ducklake_merge_adjacent_files`                                              | compact adjacent data files  |
+|  [15]   | rewrite data files         | `ducklake_rewrite_data_files`                                                | rewrite by delete ratio      |
+|  [16]   | cleanup old files          | `ducklake_cleanup_old_files`                                                 | clean superseded files       |
+|  [17]   | delete orphaned files      | `ducklake_delete_orphaned_files`                                             | delete orphaned Parquet      |
+|  [18]   | flush inlined data         | `ducklake_flush_inlined_data`                                                | flush inlined data rows      |
+|  [19]   | options and settings       | `set_option`, `ducklake_options`, `ducklake_settings`, `ducklake_table_info` | policy inspect and mutate    |
 
 [LAKEHOUSE_DUCKLAKE]:
 - attach axis: one `ATTACH 'ducklake:...'` owns mounting; backend and policy vary by clause rows, never per-backend connector types.

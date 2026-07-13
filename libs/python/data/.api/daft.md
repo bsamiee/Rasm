@@ -48,149 +48,250 @@
 [PUBLIC_TYPE_SCOPE]: exception hierarchy
 - rail: distributed dataframe — `daft.exceptions`; rooted at `DaftCoreException`, the transient branch is the retry discriminant a `stamina` rail targets
 
-| [INDEX] | [SYMBOL]                                                                                                                | [TYPE_FAMILY]   | [ROLE]                                                                                            |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------ |
-|  [01]   | `DaftCoreException`                                                                                                     | base error      | root of every daft exception (subclasses `ValueError`)                                            |
-|  [02]   | `DaftTransientError`                                                                                                    | transient base  | retryable network fault (timeout/throttle); the retry discriminant                                |
-|  [03]   | `ConnectTimeoutError` / `ReadTimeoutError` / `SocketError` / `ThrottleError` / `ByteStreamError` / `MiscTransientError` | transient error | concrete `DaftTransientError` subclasses the Rust IO layer raises on 429/5xx/connect+read timeout |
-|  [04]   | `DaftTypeError`                                                                                                         | type error      | non-transient schema/dtype misuse (subclasses `DaftCoreException`)                                |
+| [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY]   | [ROLE]                                                 |
+| :-----: | :--------------------------------------------------------- | :-------------- | :----------------------------------------------------- |
+|  [01]   | `DaftCoreException`                                        | base error      | root of every daft exception (subclasses `ValueError`) |
+|  [02]   | `DaftTransientError`                                       | transient base  | retryable network fault; the retry discriminant        |
+|  [03]   | `ConnectTimeoutError` / `ReadTimeoutError` / `SocketError` | transient error | concrete transient subclass (429/5xx/timeout)          |
+|  [04]   | `ThrottleError` / `ByteStreamError` / `MiscTransientError` | transient error | concrete transient subclass (429/5xx/timeout)          |
+|  [05]   | `DaftTypeError`                                            | type error      | non-transient schema/dtype misuse                      |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: ingest and source constructors
 - rail: distributed dataframe
 
-`read_*` constructors build a lazy `DataFrame` over a scan source with pushdown; `from_*` constructors ingest in-memory or framework objects. Every reader threads `io_config` for object-store access; schema is inferred unless `schema`/`infer_schema=False` pins it.
+`read_*` constructors build a lazy `DataFrame` over a scan source with pushdown; `from_*` constructors ingest in-memory or framework objects. Every reader threads `io_config` for object-store access; schema is inferred unless `schema`/`infer_schema=False` pins it. The keyed list carries each constructor's full signature.
 
-| [INDEX] | [SURFACE]        | [CALL_SHAPE]                                                                                                                                                                                                                                                 | [CAPABILITY]                               |
-| :-----: | :--------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------- |
-|  [01]   | `read_parquet`   | `read_parquet(path, row_groups=None, infer_schema=True, schema=None, io_config=None, file_path_column=None, hive_partitioning=False, coerce_int96_timestamp_unit=None) -> DataFrame`                                                                         | lazy Parquet scan with row-group pushdown  |
-|  [02]   | `read_csv`       | `read_csv(path, infer_schema=True, schema=None, has_headers=True, delimiter=None, double_quote=True, quote=None, escape_char=None, comment=None, allow_variable_columns=False, io_config=None, file_path_column=None, hive_partitioning=False) -> DataFrame` | lazy CSV scan with dialect control         |
-|  [03]   | `read_json`      | `read_json(path, infer_schema=True, schema=None, io_config=None, file_path_column=None, hive_partitioning=False) -> DataFrame`                                                                                                                               | lazy newline-delimited JSON scan           |
-|  [04]   | `read_deltalake` | `read_deltalake(table, version=None, io_config=None) -> DataFrame`                                                                                                                                                                                           | Delta Lake table read at version/timestamp |
-|  [05]   | `read_iceberg`   | `read_iceberg(table, snapshot_id=None, io_config=None) -> DataFrame`                                                                                                                                                                                         | Iceberg table read at snapshot             |
-|  [06]   | `read_hudi`      | `read_hudi(table_uri, io_config=None) -> DataFrame`                                                                                                                                                                                                          | Hudi table read                            |
-|  [07]   | `read_lance`     | `read_lance(url, io_config=None, version=None, asof=None, block_size=None, index_cache_size=None, default_scan_options=None) -> DataFrame`                                                                                                                   | Lance dataset read                         |
-|  [08]   | `read_sql`       | `read_sql(sql, conn, partition_col=None, num_partitions=None, partition_bound_strategy='min-max', disable_pushdowns_to_sql=False, infer_schema=True, infer_schema_length=10, schema=None) -> DataFrame`                                                      | partitioned SQL read with pushdown         |
-|  [09]   | `read_warc`      | `read_warc(path, io_config=None, file_path_column=None) -> DataFrame`                                                                                                                                                                                        | WARC web-archive scan                      |
-|  [10]   | `read_table`     | `read_table(identifier, **options) -> DataFrame`                                                                                                                                                                                                             | read a catalog-registered table            |
-|  [11]   | `from_glob_path` | `from_glob_path(path, io_config=None) -> DataFrame`                                                                                                                                                                                                          | file-listing frame from a glob             |
-|  [12]   | `from_pydict`    | `from_pydict(data) -> DataFrame`                                                                                                                                                                                                                             | in-memory frame from column dict           |
-|  [13]   | `from_pylist`    | `from_pylist(data) -> DataFrame`                                                                                                                                                                                                                             | in-memory frame from row dicts             |
-|  [14]   | `from_arrow`     | `from_arrow(data) -> DataFrame`                                                                                                                                                                                                                              | zero-copy frame from Arrow table(s)        |
-|  [15]   | `from_pandas`    | `from_pandas(data) -> DataFrame`                                                                                                                                                                                                                             | frame from pandas DataFrame(s)             |
-|  [16]   | `write_table`    | `write_table(identifier, df, mode='append', **options) -> None`                                                                                                                                                                                              | write a frame to a catalog table           |
+| [INDEX] | [SURFACE]        | [CAPABILITY]                               |
+| :-----: | :--------------- | :----------------------------------------- |
+|  [01]   | `read_parquet`   | lazy Parquet scan with row-group pushdown  |
+|  [02]   | `read_csv`       | lazy CSV scan with dialect control         |
+|  [03]   | `read_json`      | lazy newline-delimited JSON scan           |
+|  [04]   | `read_deltalake` | Delta Lake table read at version/timestamp |
+|  [05]   | `read_iceberg`   | Iceberg table read at snapshot             |
+|  [06]   | `read_hudi`      | Hudi table read                            |
+|  [07]   | `read_lance`     | Lance dataset read                         |
+|  [08]   | `read_sql`       | partitioned SQL read with pushdown         |
+|  [09]   | `read_warc`      | WARC web-archive scan                      |
+|  [10]   | `read_table`     | read a catalog-registered table            |
+|  [11]   | `from_glob_path` | file-listing frame from a glob             |
+|  [12]   | `from_pydict`    | in-memory frame from column dict           |
+|  [13]   | `from_pylist`    | in-memory frame from row dicts             |
+|  [14]   | `from_arrow`     | zero-copy frame from Arrow table(s)        |
+|  [15]   | `from_pandas`    | frame from pandas DataFrame(s)             |
+|  [16]   | `write_table`    | write a frame to a catalog table           |
+
+- [01]-[READ_PARQUET]: `read_parquet(path, row_groups=None, infer_schema=True, schema=None, io_config=None, file_path_column=None, hive_partitioning=False, coerce_int96_timestamp_unit=None) -> DataFrame`
+- [02]-[READ_CSV]: `read_csv(path, infer_schema=True, schema=None, has_headers=True, delimiter=None, double_quote=True, quote=None, escape_char=None, comment=None, allow_variable_columns=False, io_config=None, file_path_column=None, hive_partitioning=False) -> DataFrame`
+- [03]-[READ_JSON]: `read_json(path, infer_schema=True, schema=None, io_config=None, file_path_column=None, hive_partitioning=False) -> DataFrame`
+- [04]-[READ_DELTALAKE]: `read_deltalake(table, version=None, io_config=None) -> DataFrame`
+- [05]-[READ_ICEBERG]: `read_iceberg(table, snapshot_id=None, io_config=None) -> DataFrame`
+- [06]-[READ_HUDI]: `read_hudi(table_uri, io_config=None) -> DataFrame`
+- [07]-[READ_LANCE]: `read_lance(url, io_config=None, version=None, asof=None, block_size=None, index_cache_size=None, default_scan_options=None) -> DataFrame`
+- [08]-[READ_SQL]: `read_sql(sql, conn, partition_col=None, num_partitions=None, partition_bound_strategy='min-max', disable_pushdowns_to_sql=False, infer_schema=True, infer_schema_length=10, schema=None) -> DataFrame`
+- [09]-[READ_WARC]: `read_warc(path, io_config=None, file_path_column=None) -> DataFrame`
+- [10]-[READ_TABLE]: `read_table(identifier, **options) -> DataFrame`
+- [11]-[FROM_GLOB_PATH]: `from_glob_path(path, io_config=None) -> DataFrame`
+- [12]-[FROM_PYDICT]: `from_pydict(data) -> DataFrame`
+- [13]-[FROM_PYLIST]: `from_pylist(data) -> DataFrame`
+- [14]-[FROM_ARROW]: `from_arrow(data) -> DataFrame`
+- [15]-[FROM_PANDAS]: `from_pandas(data) -> DataFrame`
+- [16]-[WRITE_TABLE]: `write_table(identifier, df, mode='append', **options) -> None`
 
 [ENTRYPOINT_SCOPE]: expression and SQL factories
 - rail: distributed dataframe
 
-`col`/`lit`/`coalesce`/`interval`/`list_`/`struct`/`element` mint `Expression` nodes; `sql` runs a query over bound frames; `udf` decorates a Python callable into a partition UDF.
+`col`/`lit`/`coalesce`/`interval`/`list_`/`struct`/`element` mint `Expression` nodes; `sql` runs a query over bound frames; `udf` decorates a Python callable into a partition UDF. The keyed list carries each factory's full signature.
 
-| [INDEX] | [SURFACE]  | [CALL_SHAPE]                                                                                                                                          | [CAPABILITY]                             |
-| :-----: | :--------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------- |
-|  [01]   | `col`      | `col(name) -> Expression`                                                                                                                             | reference a column by name               |
-|  [02]   | `lit`      | `lit(value) -> Expression`                                                                                                                            | literal-value expression                 |
-|  [03]   | `element`  | `element() -> Expression`                                                                                                                             | element placeholder for list operations  |
-|  [04]   | `list_`    | `list_(*items) -> Expression`                                                                                                                         | construct a list column from expressions |
-|  [05]   | `struct`   | `struct(*fields) -> Expression`                                                                                                                       | construct a struct column from fields    |
-|  [06]   | `coalesce` | `coalesce(*args) -> Expression`                                                                                                                       | first-non-null across expressions        |
-|  [07]   | `interval` | `interval(years=None, months=None, days=None, hours=None, minutes=None, seconds=None, millis=None, nanos=None) -> Expression`                         | temporal interval literal                |
-|  [08]   | `sql`      | `sql(sql, register_globals=True, **bindings) -> DataFrame`                                                                                            | run SQL over bound/global frames         |
-|  [09]   | `sql_expr` | `sql_expr(sql) -> Expression`                                                                                                                         | parse a SQL fragment into an expression  |
-|  [10]   | `udf`      | `udf(*, return_dtype, num_cpus=None, num_gpus=None, memory_bytes=None, batch_size=None, concurrency=None, use_process=None) -> Callable[[func], UDF]` | decorate a callable into a partition UDF |
+| [INDEX] | [SURFACE]  | [CAPABILITY]                             |
+| :-----: | :--------- | :--------------------------------------- |
+|  [01]   | `col`      | reference a column by name               |
+|  [02]   | `lit`      | literal-value expression                 |
+|  [03]   | `element`  | element placeholder for list operations  |
+|  [04]   | `list_`    | construct a list column from expressions |
+|  [05]   | `struct`   | construct a struct column from fields    |
+|  [06]   | `coalesce` | first-non-null across expressions        |
+|  [07]   | `interval` | temporal interval literal                |
+|  [08]   | `sql`      | run SQL over bound/global frames         |
+|  [09]   | `sql_expr` | parse a SQL fragment into an expression  |
+|  [10]   | `udf`      | decorate a callable into a partition UDF |
+
+- [01]-[COL]: `col(name) -> Expression`
+- [02]-[LIT]: `lit(value) -> Expression`
+- [03]-[ELEMENT]: `element() -> Expression`
+- [04]-[LIST]: `list_(*items) -> Expression`
+- [05]-[STRUCT]: `struct(*fields) -> Expression`
+- [06]-[COALESCE]: `coalesce(*args) -> Expression`
+- [07]-[INTERVAL]: `interval(years=None, months=None, days=None, hours=None, minutes=None, seconds=None, millis=None, nanos=None) -> Expression`
+- [08]-[SQL]: `sql(sql, register_globals=True, **bindings) -> DataFrame`
+- [09]-[SQL_EXPR]: `sql_expr(sql) -> Expression`
+- [10]-[UDF]: `udf(*, return_dtype, num_cpus=None, num_gpus=None, memory_bytes=None, batch_size=None, concurrency=None, use_process=None) -> Callable[[func], UDF]`
 
 [ENTRYPOINT_SCOPE]: `DataFrame` transform and sink
 - rail: distributed dataframe
 
 Transform methods return a new lazy `DataFrame`; `collect`/`show`/`count_rows`/`to_*`/`iter_rows`/`write_*` are sinks that trigger execution. Columns accept an `Expression` or a `str` column name interchangeably.
 
-| [INDEX] | [SURFACE]                   | [CALL_SHAPE]                                                                                                           | [CAPABILITY]                              |
-| :-----: | :-------------------------- | :--------------------------------------------------------------------------------------------------------------------- | :---------------------------------------- |
-|  [01]   | `DataFrame.select`          | `select(*columns, **projections) -> DataFrame`                                                                         | project columns and named expressions     |
-|  [02]   | `DataFrame.where`           | `where(predicate) -> DataFrame`                                                                                        | filter rows by predicate (`filter` alias) |
-|  [03]   | `DataFrame.with_column`     | `with_column(column_name, expr) -> DataFrame`                                                                          | add/replace one computed column           |
-|  [04]   | `DataFrame.with_columns`    | `with_columns(columns) -> DataFrame`                                                                                   | add/replace columns from a dict           |
-|  [05]   | `DataFrame.exclude`         | `exclude(*names) -> DataFrame`                                                                                         | drop named columns                        |
-|  [06]   | `DataFrame.sort`            | `sort(by, desc=False, nulls_first=None) -> DataFrame`                                                                  | order rows by columns/expressions         |
-|  [07]   | `DataFrame.limit`           | `limit(num) -> DataFrame`                                                                                              | cap row count                             |
-|  [08]   | `DataFrame.distinct`        | `distinct(*on) -> DataFrame`                                                                                           | deduplicate rows (optionally on keys)     |
-|  [09]   | `DataFrame.join`            | `join(other, on=None, left_on=None, right_on=None, how='inner', strategy=None, prefix=None, suffix=None) -> DataFrame` | relational join with strategy hint        |
-|  [10]   | `DataFrame.groupby`         | `groupby(*group_by) -> GroupedDataFrame`                                                                               | group rows for aggregation                |
-|  [11]   | `DataFrame.agg`             | `agg(*to_agg) -> DataFrame`                                                                                            | global aggregation over expressions       |
-|  [12]   | `DataFrame.explode`         | `explode(*columns) -> DataFrame`                                                                                       | unnest list columns to rows               |
-|  [13]   | `DataFrame.unpivot`         | `unpivot(ids, values=[], variable_name='variable', value_name='value') -> DataFrame`                                   | wide-to-long reshape                      |
-|  [14]   | `DataFrame.sample`          | `sample(fraction, with_replacement=False, seed=None) -> DataFrame`                                                     | random row sample                         |
-|  [15]   | `DataFrame.repartition`     | `repartition(num, *partition_by) -> DataFrame`                                                                         | hash/round-robin repartition              |
-|  [16]   | `DataFrame.into_partitions` | `into_partitions(num) -> DataFrame`                                                                                    | coalesce/split into N partitions          |
-|  [17]   | `DataFrame.collect`         | `collect(num_preview_rows=8) -> DataFrame`                                                                             | execute and cache the result              |
-|  [18]   | `DataFrame.show`            | `show(n=8, format=None, verbose=False, max_width=30, align='left', columns=None) -> None`                              | execute and render a preview              |
-|  [19]   | `DataFrame.count_rows`      | `count_rows() -> int`                                                                                                  | execute and count rows                    |
-|  [20]   | `DataFrame.iter_rows`       | `iter_rows(results_buffer_size='num_cpus', column_format='python') -> Iterator[dict[str, Any]]`                        | stream rows out-of-core                   |
-|  [21]   | `DataFrame.to_arrow`        | `to_arrow() -> pyarrow.Table`                                                                                          | execute and egress to Arrow               |
-|  [22]   | `DataFrame.to_pydict`       | `to_pydict() -> dict[str, list[Any]]`                                                                                  | execute and egress to column dict         |
-|  [23]   | `DataFrame.to_pandas`       | `to_pandas(coerce_temporal_nanoseconds=False) -> pandas.DataFrame`                                                     | execute and egress to pandas              |
-|  [24]   | `DataFrame.write_parquet`   | `write_parquet(root_dir, compression='snappy', write_mode='append', partition_cols=None, io_config=None) -> DataFrame` | partitioned Parquet sink                  |
-|  [25]   | `DataFrame.write_deltalake` | `write_deltalake(table, partition_cols=None, mode='append', schema_mode=None, ..., io_config=None) -> DataFrame`       | Delta Lake table sink                     |
-|  [26]   | `DataFrame.write_iceberg`   | `write_iceberg(table, mode='append', io_config=None) -> DataFrame`                                                     | Iceberg table sink                        |
-|  [27]   | `DataFrame.write_csv`       | `write_csv(root_dir, write_mode='append', partition_cols=None, io_config=None) -> DataFrame`                           | partitioned CSV sink                      |
-|  [28]   | `DataFrame.write_json`      | `write_json(root_dir, write_mode='append', partition_cols=None, io_config=None) -> DataFrame`                          | partitioned newline-JSON sink             |
-|  [29]   | `DataFrame.write_lance`     | `write_lance(uri, mode='create', io_config=None, **kwargs) -> DataFrame`                                               | Lance dataset sink                        |
-|  [30]   | `DataFrame.pivot`           | `pivot(group_by, pivot_col, value_col, agg_fn, names=None) -> DataFrame`                                               | long-to-wide pivot with aggregation       |
-|  [31]   | `DataFrame.transform`       | `transform(func, *args, **kwargs) -> DataFrame`                                                                        | apply a `DataFrame -> DataFrame` function |
-|  [32]   | `DataFrame.summarize`       | `summarize() -> DataFrame`                                                                                             | per-column statistics frame               |
-|  [33]   | `DataFrame.describe`        | `describe() -> DataFrame`                                                                                              | schema as a frame                         |
-|  [34]   | `DataFrame.agg_list`        | `agg_list(*cols)` / `agg_set(*cols)` / `agg_concat(*cols) -> DataFrame`                                                | global list/set/concat aggregations       |
-|  [35]   | `DataFrame.explain`         | `explain(show_all=False, format='ascii', simple=False, file=None)`                                                     | print the logical/physical plan           |
-|  [36]   | `DataFrame.schema`          | `schema() -> Schema`                                                                                                   | resolved output schema                    |
+| [INDEX] | [SURFACE]                   | [CAPABILITY]                              |
+| :-----: | :-------------------------- | :---------------------------------------- |
+|  [01]   | `DataFrame.select`          | project columns and named expressions     |
+|  [02]   | `DataFrame.where`           | filter rows by predicate (`filter` alias) |
+|  [03]   | `DataFrame.with_column`     | add/replace one computed column           |
+|  [04]   | `DataFrame.with_columns`    | add/replace columns from a dict           |
+|  [05]   | `DataFrame.exclude`         | drop named columns                        |
+|  [06]   | `DataFrame.sort`            | order rows by columns/expressions         |
+|  [07]   | `DataFrame.limit`           | cap row count                             |
+|  [08]   | `DataFrame.distinct`        | deduplicate rows (optionally on keys)     |
+|  [09]   | `DataFrame.join`            | relational join with strategy hint        |
+|  [10]   | `DataFrame.groupby`         | group rows for aggregation                |
+|  [11]   | `DataFrame.agg`             | global aggregation over expressions       |
+|  [12]   | `DataFrame.explode`         | unnest list columns to rows               |
+|  [13]   | `DataFrame.unpivot`         | wide-to-long reshape                      |
+|  [14]   | `DataFrame.sample`          | random row sample                         |
+|  [15]   | `DataFrame.repartition`     | hash/round-robin repartition              |
+|  [16]   | `DataFrame.into_partitions` | coalesce/split into N partitions          |
+|  [17]   | `DataFrame.collect`         | execute and cache the result              |
+|  [18]   | `DataFrame.show`            | execute and render a preview              |
+|  [19]   | `DataFrame.count_rows`      | execute and count rows                    |
+|  [20]   | `DataFrame.iter_rows`       | stream rows out-of-core                   |
+|  [21]   | `DataFrame.to_arrow`        | execute and egress to Arrow               |
+|  [22]   | `DataFrame.to_pydict`       | execute and egress to column dict         |
+|  [23]   | `DataFrame.to_pandas`       | execute and egress to pandas              |
+|  [24]   | `DataFrame.write_parquet`   | partitioned Parquet sink                  |
+|  [25]   | `DataFrame.write_deltalake` | Delta Lake table sink                     |
+|  [26]   | `DataFrame.write_iceberg`   | Iceberg table sink                        |
+|  [27]   | `DataFrame.write_csv`       | partitioned CSV sink                      |
+|  [28]   | `DataFrame.write_json`      | partitioned newline-JSON sink             |
+|  [29]   | `DataFrame.write_lance`     | Lance dataset sink                        |
+|  [30]   | `DataFrame.pivot`           | long-to-wide pivot with aggregation       |
+|  [31]   | `DataFrame.transform`       | apply a `DataFrame -> DataFrame` function |
+|  [32]   | `DataFrame.summarize`       | per-column statistics frame               |
+|  [33]   | `DataFrame.describe`        | schema as a frame                         |
+|  [34]   | `DataFrame.agg_list`        | global list/set/concat aggregations       |
+|  [35]   | `DataFrame.explain`         | print the logical/physical plan           |
+|  [36]   | `DataFrame.schema`          | resolved output schema                    |
+
+- [01]-[SELECT]: `select(*columns, **projections) -> DataFrame`
+- [02]-[WHERE]: `where(predicate) -> DataFrame`
+- [03]-[WITH_COLUMN]: `with_column(column_name, expr) -> DataFrame`
+- [04]-[WITH_COLUMNS]: `with_columns(columns) -> DataFrame`
+- [05]-[EXCLUDE]: `exclude(*names) -> DataFrame`
+- [06]-[SORT]: `sort(by, desc=False, nulls_first=None) -> DataFrame`
+- [07]-[LIMIT]: `limit(num) -> DataFrame`
+- [08]-[DISTINCT]: `distinct(*on) -> DataFrame`
+- [09]-[JOIN]: `join(other, on=None, left_on=None, right_on=None, how='inner', strategy=None, prefix=None, suffix=None) -> DataFrame`
+- [10]-[GROUPBY]: `groupby(*group_by) -> GroupedDataFrame`
+- [11]-[AGG]: `agg(*to_agg) -> DataFrame`
+- [12]-[EXPLODE]: `explode(*columns) -> DataFrame`
+- [13]-[UNPIVOT]: `unpivot(ids, values=[], variable_name='variable', value_name='value') -> DataFrame`
+- [14]-[SAMPLE]: `sample(fraction, with_replacement=False, seed=None) -> DataFrame`
+- [15]-[REPARTITION]: `repartition(num, *partition_by) -> DataFrame`
+- [16]-[INTO_PARTITIONS]: `into_partitions(num) -> DataFrame`
+- [17]-[COLLECT]: `collect(num_preview_rows=8) -> DataFrame`
+- [18]-[SHOW]: `show(n=8, format=None, verbose=False, max_width=30, align='left', columns=None) -> None`
+- [19]-[COUNT_ROWS]: `count_rows() -> int`
+- [20]-[ITER_ROWS]: `iter_rows(results_buffer_size='num_cpus', column_format='python') -> Iterator[dict[str, Any]]`
+- [21]-[TO_ARROW]: `to_arrow() -> pyarrow.Table`
+- [22]-[TO_PYDICT]: `to_pydict() -> dict[str, list[Any]]`
+- [23]-[TO_PANDAS]: `to_pandas(coerce_temporal_nanoseconds=False) -> pandas.DataFrame`
+- [24]-[WRITE_PARQUET]: `write_parquet(root_dir, compression='snappy', write_mode='append', partition_cols=None, io_config=None) -> DataFrame`
+- [25]-[WRITE_DELTALAKE]: `write_deltalake(table, partition_cols=None, mode='append', schema_mode=None, ..., io_config=None) -> DataFrame`
+- [26]-[WRITE_ICEBERG]: `write_iceberg(table, mode='append', io_config=None) -> DataFrame`
+- [27]-[WRITE_CSV]: `write_csv(root_dir, write_mode='append', partition_cols=None, io_config=None) -> DataFrame`
+- [28]-[WRITE_JSON]: `write_json(root_dir, write_mode='append', partition_cols=None, io_config=None) -> DataFrame`
+- [29]-[WRITE_LANCE]: `write_lance(uri, mode='create', io_config=None, **kwargs) -> DataFrame`
+- [30]-[PIVOT]: `pivot(group_by, pivot_col, value_col, agg_fn, names=None) -> DataFrame`
+- [31]-[TRANSFORM]: `transform(func, *args, **kwargs) -> DataFrame`
+- [32]-[SUMMARIZE]: `summarize() -> DataFrame`
+- [33]-[DESCRIBE]: `describe() -> DataFrame`
+- [34]-[AGG_LIST]: `agg_list(*cols)` / `agg_set(*cols)` / `agg_concat(*cols) -> DataFrame`
+- [35]-[EXPLAIN]: `explain(show_all=False, format='ascii', simple=False, file=None)`
+- [36]-[SCHEMA]: `schema() -> Schema`
 
 [ENTRYPOINT_SCOPE]: `DataFrame` streaming and framework egress
 - rail: distributed dataframe
 
 Streaming sinks pull execution incrementally so an out-of-core result never fully materializes in host memory; framework sinks hand the partitioned plan to Ray/Dask/PyTorch without an Arrow roundtrip the consumer must redo. `melt` aliases `unpivot`.
 
-| [INDEX] | [SURFACE]                         | [CALL_SHAPE]                                                                                   | [CAPABILITY]                             |
-| :-----: | :-------------------------------- | :--------------------------------------------------------------------------------------------- | :--------------------------------------- |
-|  [01]   | `DataFrame.iter_partitions`       | `iter_partitions(results_buffer_size='num_cpus') -> Iterator[MicroPartition \| ray.ObjectRef]` | stream executed partitions out-of-core   |
-|  [02]   | `DataFrame.to_arrow_iter`         | `to_arrow_iter(results_buffer_size='num_cpus') -> Iterator[pyarrow.RecordBatch]`               | stream Arrow record batches              |
-|  [03]   | `DataFrame.to_pylist`             | `to_pylist() -> list[dict[str, Any]]`                                                          | execute and egress to row dicts          |
-|  [04]   | `DataFrame.to_ray_dataset`        | `to_ray_dataset() -> ray.data.Dataset`                                                         | hand partitions to a Ray Dataset         |
-|  [05]   | `DataFrame.to_dask_dataframe`     | `to_dask_dataframe(meta=None) -> dask.dataframe.DataFrame`                                     | egress to a Dask dataframe               |
-|  [06]   | `DataFrame.to_torch_iter_dataset` | `to_torch_iter_dataset() -> torch.utils.data.IterableDataset`                                  | stream rows as a PyTorch IterableDataset |
-|  [07]   | `DataFrame.to_torch_map_dataset`  | `to_torch_map_dataset() -> torch.utils.data.Dataset`                                           | map-style PyTorch Dataset                |
+| [INDEX] | [SURFACE]                         | [CAPABILITY]                             |
+| :-----: | :-------------------------------- | :--------------------------------------- |
+|  [01]   | `DataFrame.iter_partitions`       | stream executed partitions out-of-core   |
+|  [02]   | `DataFrame.to_arrow_iter`         | stream Arrow record batches              |
+|  [03]   | `DataFrame.to_pylist`             | execute and egress to row dicts          |
+|  [04]   | `DataFrame.to_ray_dataset`        | hand partitions to a Ray Dataset         |
+|  [05]   | `DataFrame.to_dask_dataframe`     | egress to a Dask dataframe               |
+|  [06]   | `DataFrame.to_torch_iter_dataset` | stream rows as a PyTorch IterableDataset |
+|  [07]   | `DataFrame.to_torch_map_dataset`  | map-style PyTorch Dataset                |
+
+- [01]-[ITER_PARTITIONS]: `iter_partitions(results_buffer_size='num_cpus') -> Iterator[MicroPartition \| ray.ObjectRef]`
+- [02]-[TO_ARROW_ITER]: `to_arrow_iter(results_buffer_size='num_cpus') -> Iterator[pyarrow.RecordBatch]`
+- [03]-[TO_PYLIST]: `to_pylist() -> list[dict[str, Any]]`
+- [04]-[TO_RAY_DATASET]: `to_ray_dataset() -> ray.data.Dataset`
+- [05]-[TO_DASK_DATAFRAME]: `to_dask_dataframe(meta=None) -> dask.dataframe.DataFrame`
+- [06]-[TO_TORCH_ITER_DATASET]: `to_torch_iter_dataset() -> torch.utils.data.IterableDataset`
+- [07]-[TO_TORCH_MAP_DATASET]: `to_torch_map_dataset() -> torch.utils.data.Dataset`
 
 [ENTRYPOINT_SCOPE]: `Expression`, `DataType`, `Window`, and runner control
 - rail: distributed dataframe
 
 `Expression` methods chain typed transforms; `DataType` classmethods mint dtypes; `Window` builds frame specs consumed by `Expression.over`; `set_runner_*`/`session` select the execution backend.
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                                                        | [CAPABILITY]                          |
-| :-----: | :------------------------- | :------------------------------------------------------------------------------------------------------------------ | :------------------------------------ |
-|  [01]   | `Expression.alias`         | `alias(name) -> Expression`                                                                                         | rename the output column              |
-|  [02]   | `Expression.cast`          | `cast(dtype) -> Expression`                                                                                         | cast to a `DataType`                  |
-|  [03]   | `Expression.is_null`       | `is_null() -> Expression`                                                                                           | null-test predicate                   |
-|  [04]   | `Expression.is_in`         | `is_in(other) -> Expression`                                                                                        | membership predicate                  |
-|  [05]   | `Expression.between`       | `between(lower, upper) -> Expression`                                                                               | range predicate                       |
-|  [06]   | `Expression.if_else`       | `if_else(if_true, if_false) -> Expression`                                                                          | conditional select                    |
-|  [07]   | `Expression.apply`         | `apply(func, return_dtype) -> Expression`                                                                           | element-wise Python UDF               |
-|  [08]   | `Expression.over`          | `over(window) -> Expression`                                                                                        | apply window function over a `Window` |
-|  [09]   | `Expression.fill_null`     | `fill_null(fill_value) -> Expression`                                                                               | null-imputation                       |
-|  [10]   | `Expression.not_null`      | `not_null() -> Expression`                                                                                          | non-null predicate                    |
-|  [11]   | `Expression.hash`          | `hash(seed=None) -> Expression`                                                                                     | stable column hash                    |
-|  [12]   | `Expression.json.query`    | `json.query(jq_query) -> Expression`                                                                                | jq query over a JSON-string column    |
-|  [13]   | `DataType.list`            | `list(dtype) -> DataType`                                                                                           | variable-length list dtype            |
-|  [14]   | `DataType.struct`          | `struct(fields) -> DataType`                                                                                        | struct dtype from `{name: DataType}`  |
-|  [15]   | `DataType.tensor`          | `tensor(dtype, shape=None) -> DataType`                                                                             | N-D tensor dtype                      |
-|  [16]   | `DataType.image`           | `image(mode=None, height=None, width=None) -> DataType`                                                             | image dtype                           |
-|  [17]   | `DataType.embedding`       | `embedding(dtype, size) -> DataType`                                                                                | fixed-size embedding-vector dtype     |
-|  [18]   | `DataType.timestamp`       | `timestamp(timeunit, timezone=None) -> DataType`                                                                    | timestamp dtype                       |
-|  [19]   | `DataType.from_arrow_type` | `from_arrow_type(arrow_type, python_fallback=True) -> DataType`                                                     | dtype from a pyarrow type             |
-|  [20]   | `Window.partition_by`      | `partition_by(*cols) -> Window`                                                                                     | window partition keys                 |
-|  [21]   | `Window.order_by`          | `order_by(*cols, desc=False, nulls_first=None) -> Window`                                                           | window ordering                       |
-|  [22]   | `Window.rows_between`      | `rows_between(start, end, min_periods=1) -> Window`                                                                 | row-based window frame                |
-|  [23]   | `set_runner_native`        | `set_runner_native(num_threads=None) -> Runner`                                                                     | select the single-node native runner  |
-|  [24]   | `set_runner_ray`           | `set_runner_ray(address=None, noop_if_initialized=False, max_task_backlog=None, force_client_mode=False) -> Runner` | select the Ray distributed runner     |
-|  [25]   | `session`                  | `session() -> Session`                                                                                              | the active catalog/runner session     |
-|  [26]   | `get_version`              | `get_version() -> str`                                                                                              | installed daft version string         |
+| [INDEX] | [SURFACE]                  | [CAPABILITY]                          |
+| :-----: | :------------------------- | :------------------------------------ |
+|  [01]   | `Expression.alias`         | rename the output column              |
+|  [02]   | `Expression.cast`          | cast to a `DataType`                  |
+|  [03]   | `Expression.is_null`       | null-test predicate                   |
+|  [04]   | `Expression.is_in`         | membership predicate                  |
+|  [05]   | `Expression.between`       | range predicate                       |
+|  [06]   | `Expression.if_else`       | conditional select                    |
+|  [07]   | `Expression.apply`         | element-wise Python UDF               |
+|  [08]   | `Expression.over`          | apply window function over a `Window` |
+|  [09]   | `Expression.fill_null`     | null-imputation                       |
+|  [10]   | `Expression.not_null`      | non-null predicate                    |
+|  [11]   | `Expression.hash`          | stable column hash                    |
+|  [12]   | `Expression.json.query`    | jq query over a JSON-string column    |
+|  [13]   | `DataType.list`            | variable-length list dtype            |
+|  [14]   | `DataType.struct`          | struct dtype from `{name: DataType}`  |
+|  [15]   | `DataType.tensor`          | N-D tensor dtype                      |
+|  [16]   | `DataType.image`           | image dtype                           |
+|  [17]   | `DataType.embedding`       | fixed-size embedding-vector dtype     |
+|  [18]   | `DataType.timestamp`       | timestamp dtype                       |
+|  [19]   | `DataType.from_arrow_type` | dtype from a pyarrow type             |
+|  [20]   | `Window.partition_by`      | window partition keys                 |
+|  [21]   | `Window.order_by`          | window ordering                       |
+|  [22]   | `Window.rows_between`      | row-based window frame                |
+|  [23]   | `set_runner_native`        | select the single-node native runner  |
+|  [24]   | `set_runner_ray`           | select the Ray distributed runner     |
+|  [25]   | `session`                  | the active catalog/runner session     |
+|  [26]   | `get_version`              | installed daft version string         |
+
+- [01]-[ALIAS]: `alias(name) -> Expression`
+- [02]-[CAST]: `cast(dtype) -> Expression`
+- [03]-[IS_NULL]: `is_null() -> Expression`
+- [04]-[IS_IN]: `is_in(other) -> Expression`
+- [05]-[BETWEEN]: `between(lower, upper) -> Expression`
+- [06]-[IF_ELSE]: `if_else(if_true, if_false) -> Expression`
+- [07]-[APPLY]: `apply(func, return_dtype) -> Expression`
+- [08]-[OVER]: `over(window) -> Expression`
+- [09]-[FILL_NULL]: `fill_null(fill_value) -> Expression`
+- [10]-[NOT_NULL]: `not_null() -> Expression`
+- [11]-[HASH]: `hash(seed=None) -> Expression`
+- [12]-[QUERY]: `json.query(jq_query) -> Expression`
+- [13]-[LIST]: `list(dtype) -> DataType`
+- [14]-[STRUCT]: `struct(fields) -> DataType`
+- [15]-[TENSOR]: `tensor(dtype, shape=None) -> DataType`
+- [16]-[IMAGE]: `image(mode=None, height=None, width=None) -> DataType`
+- [17]-[EMBEDDING]: `embedding(dtype, size) -> DataType`
+- [18]-[TIMESTAMP]: `timestamp(timeunit, timezone=None) -> DataType`
+- [19]-[FROM_ARROW_TYPE]: `from_arrow_type(arrow_type, python_fallback=True) -> DataType`
+- [20]-[PARTITION_BY]: `partition_by(*cols) -> Window`
+- [21]-[ORDER_BY]: `order_by(*cols, desc=False, nulls_first=None) -> Window`
+- [22]-[ROWS_BETWEEN]: `rows_between(start, end, min_periods=1) -> Window`
+- [23]-[SET_RUNNER_NATIVE]: `set_runner_native(num_threads=None) -> Runner`
+- [24]-[SET_RUNNER_RAY]: `set_runner_ray(address=None, noop_if_initialized=False, max_task_backlog=None, force_client_mode=False) -> Runner`
+- [25]-[SESSION]: `session() -> Session`
+- [26]-[GET_VERSION]: `get_version() -> str`
 
 ## [04]-[IMPLEMENTATION_LAW]
 

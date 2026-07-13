@@ -30,14 +30,12 @@ codec materializes the planar algebra `NetTopologySuite` owns.
 - namespace: `NetTopologySuite.IO`
 - rail: geospatial
 
-The `GeoPackageBinaryHeader` (the `GP`-magic header struct) and its `GeoPackageBinaryType`
-enum are `internal` — they are NOT a public surface; the header format is described in
-`[04]` as the wire shape the reader/writer own end-to-end.
+The `GeoPackageBinaryHeader` (`GP`-magic header struct) and its `GeoPackageBinaryType` enum are `internal`, not public — `[04]` describes the wire shape the pair owns end-to-end. Each property's behavior (ordinate clamp, XY floor, `srs_id` stamping, ring repair) is `[04]`'s law.
 
-| [INDEX] | [SYMBOL]              | [RAIL]     | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                                           |
-| :-----: | :-------------------- | :--------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `GeoPackageGeoReader` | geospatial | decodes a StandardGeoPackageBinary BLOB to an NTS `Geometry`. `RepairRings` (bool — fix invalid ring order on read), `HandleSRID` (bool — stamp the header `srs_id` onto `Geometry.SRID`), `AllowedOrdinates` (the `Ordinates` the seeded `CoordinateSequenceFactory` can carry), `HandleOrdinates` (the `Ordinates` mask actually materialized; setter clamps to `AllowedOrdinates`, always keeps XY) |
-|  [02]   | `GeoPackageGeoWriter` | geospatial | encodes an NTS `Geometry` to a StandardGeoPackageBinary BLOB. `static readonly AllowedOrdinates` (`(Ordinates)65543` = XYZM), `HandleOrdinates` (the `Ordinates` written; setter clamps to `AllowedOrdinates`, always keeps XY). Emits the `GP` header (little-endian, envelope from `Geometry.EnvelopeInternal`) then the WKB body via the NTS `WKBWriter`                                            |
+| [INDEX] | [SYMBOL]              | [CAPABILITY]                                                                                                    |
+| :-----: | :-------------------- | :-------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `GeoPackageGeoReader` | decodes a BLOB → NTS `Geometry`; `RepairRings`, `HandleSRID`, `AllowedOrdinates`, `HandleOrdinates`             |
+|  [02]   | `GeoPackageGeoWriter` | encodes NTS `Geometry` → BLOB; `AllowedOrdinates` (`(Ordinates)65543`=XYZM, static readonly), `HandleOrdinates` |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -46,27 +44,30 @@ enum are `internal` — they are NOT a public surface; the header format is desc
 - namespace: `NetTopologySuite.IO`
 - rail: geospatial
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                                                             | [CAPABILITY]                                                                                                                                                                |
-| :-----: | :------------------------- | :----------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new GeoPackageGeoReader`  | `()`                                                                                                                     | default reader: seeds `DefaultCoordinateSequenceFactory`/`DefaultPrecisionModel` from `NtsGeometryServices.Instance`, `HandleOrdinates` = XYZM (`(Ordinates)65543`)         |
-|  [02]   | `new GeoPackageGeoReader`  | `(CoordinateSequenceFactory, PrecisionModel)` / `(CoordinateSequenceFactory, PrecisionModel, Ordinates handleOrdinates)` | reader seeded with the canonical `PackedCoordinateSequenceFactory` + precision so decoded geometry composes with the rest of the planar algebra without a precision rebuild |
-|  [03]   | `GeoPackageGeoReader.Read` | `(byte[] blob)` → `Geometry`                                                                                             | decode the geometry-column BLOB read from a SQLite row                                                                                                                      |
-|  [04]   | `GeoPackageGeoReader.Read` | `(Stream)` → `Geometry`                                                                                                  | decode from a stream (the `byte[]` overload wraps a `MemoryStream`)                                                                                                         |
+The reader seeds `DefaultCoordinateSequenceFactory`/`DefaultPrecisionModel` from `NtsGeometryServices.Instance` unless a factory/precision pair is passed; the default `HandleOrdinates` is XYZM (`(Ordinates)65543`). `Read(byte[])` wraps a `MemoryStream` over the stream overload.
+
+| [INDEX] | [ENTRYPOINT]                                                         | [CAPABILITY]                                           |
+| :-----: | :------------------------------------------------------------------- | :----------------------------------------------------- |
+|  [01]   | `new GeoPackageGeoReader()`                                          | the all-default reader                                 |
+|  [02]   | `new GeoPackageGeoReader(CoordinateSequenceFactory, PrecisionModel)` | seed the canonical packed factory + precision          |
+|  [03]   | `new GeoPackageGeoReader(…, Ordinates handleOrdinates)`              | the 3-arg overload adding the materialized `Ordinates` |
+|  [04]   | `GeoPackageGeoReader.Read(byte[] blob)` → `Geometry`                 | decode a geometry-column BLOB from a SQLite row        |
+|  [05]   | `GeoPackageGeoReader.Read(Stream)` → `Geometry`                      | decode from a stream                                   |
 
 [ENTRYPOINT_SCOPE]: encode a GeoPackage geometry BLOB
 - package: `NetTopologySuite.IO.GeoPackage`
 - namespace: `NetTopologySuite.IO`
 - rail: geospatial
 
-| [INDEX] | [SURFACE]                   | [CALL_SHAPE]                              | [CAPABILITY]                                                                     |
-| :-----: | :-------------------------- | :---------------------------------------- | :------------------------------------------------------------------------------- |
-|  [01]   | `GeoPackageGeoWriter.Write` | `(Geometry geom)` → `byte[]`              | encode a geometry to a GeoPackage BLOB ready for a SQLite geometry-column insert |
-|  [02]   | `GeoPackageGeoWriter.Write` | `(Geometry geom, Stream stream)` → `void` | encode directly into a stream (the `byte[]` form wraps a `MemoryStream`)         |
+| [INDEX] | [ENTRYPOINT]                                                       | [CAPABILITY]                                               |
+| :-----: | :----------------------------------------------------------------- | :--------------------------------------------------------- |
+|  [01]   | `GeoPackageGeoWriter.Write(Geometry geom)` → `byte[]`              | encode a geometry to a GeoPackage BLOB for a SQLite insert |
+|  [02]   | `GeoPackageGeoWriter.Write(Geometry geom, Stream stream)` → `void` | encode directly into a stream                              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [BLOB_FORMAT]:
-- the codec owns the OGC GeoPackage *StandardGeoPackageBinary* envelope: a 2-byte `GP` magic, a version byte, a flags byte (envelope-contents bits, byte-order bit, empty bit), the 4-byte `srs_id`, the optional envelope (min/max per ordinate driven by the flags), then the OGC WKB geometry body. `GeoPackageGeoWriter` writes the header little-endian and delegates the body to the NTS `WKBWriter`; `GeoPackageGeoReader` parses the header, honors the empty bit, and reads the WKB body with the seeded factory.
+- the codec owns the OGC GeoPackage *StandardGeoPackageBinary* envelope: a 2-byte `GP` magic, a version byte, a flags byte (envelope-contents bits, byte-order bit, empty bit), the 4-byte `srs_id`, the optional envelope (min/max per ordinate driven by the flags), then the OGC WKB geometry body. `GeoPackageGeoWriter` writes the header little-endian (envelope from `Geometry.EnvelopeInternal`) and delegates the body to the NTS `WKBWriter`; `GeoPackageGeoReader` parses the header, honors the empty bit, and reads the WKB body with the seeded factory.
 - this is the per-feature BLOB ONLY. The `.gpkg` SQLite container — `gpkg_contents`, `gpkg_geometry_columns`, `gpkg_spatial_ref_sys`, the feature/tile tables, the RTree spatial index — is OUT of scope; the container is read through `Microsoft.Data.Sqlite` (the SQLite owner) or the GDAL OGR `GPKG` driver (`MaxRev.Gdal.Core`, `api-maxrev-gdal`). The rejected form is expecting this package to open a `.gpkg` file.
 
 [ORDINATES_AND_SRID]:

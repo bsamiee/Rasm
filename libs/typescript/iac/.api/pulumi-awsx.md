@@ -34,39 +34,45 @@
 [NETWORK_SCOPE]: `awsx.ec2` — VPC topology
 - rail: aws
 - `Vpc` turns an AZ+strategy intent into the full subnet/NAT/IGW/route graph; `DefaultVpc` adopts the account default. The subnet ids feed every compute/LB composition.
+- `Vpc` shape: args `{ cidrBlock, numberOfAvailabilityZones, natGateways, subnetSpecs, subnetStrategy, vpcEndpointSpecs }` → `vpcId`, `publicSubnetIds`/`privateSubnetIds`/`isolatedSubnetIds`, `subnets: aws.ec2.Subnet[]`, `natGateways`, `internetGateway`, `vpc: aws.ec2.Vpc`
 
-| [INDEX] | [SYMBOL]         | [INTENT_ARGS_OUTPUTS]                                                                                                                                                                                                                                         |
-| :-----: | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `ec2.Vpc`        | `{ cidrBlock, numberOfAvailabilityZones, natGateways, subnetSpecs, subnetStrategy, vpcEndpointSpecs }` → `vpcId`, `publicSubnetIds`/`privateSubnetIds`/`isolatedSubnetIds`, `subnets: aws.ec2.Subnet[]`, `natGateways`, `internetGateway`, `vpc: aws.ec2.Vpc` |
-|  [02]   | `ec2.DefaultVpc` | adopt the account default VPC + its subnets                                                                                                                                                                                                                   |
+| [INDEX] | [SYMBOL]         | [ROLE]                                               |
+| :-----: | :--------------- | :--------------------------------------------------- |
+|  [01]   | `ec2.Vpc`        | AZ+strategy intent → full subnet/NAT/IGW/route graph |
+|  [02]   | `ec2.DefaultVpc` | adopt the account default VPC + its subnets          |
 
 [COMPUTE_SCOPE]: `awsx.ecs` — ECS services
 - rail: aws
 - `FargateService`/`EC2Service` compose the service + inline `taskDefinitionArgs` (container/image/logging/role) + log group + IAM in one resource; the TaskDefinition variants are the standalone task-def compositions.
+- `FargateService`/`EC2Service` args `{ cluster, desiredCount, networkConfiguration, loadBalancers, taskDefinitionArgs, deploymentCircuitBreaker, assignPublicIp }`
+- `FargateTaskDefinition`/`EC2TaskDefinition`: `container`/`containers` → `image`, log group, exec role
 
-| [INDEX] | [SYMBOL]                                              | [KEY_ARGS]                                                                                                                     |
-| :-----: | :---------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ecs.FargateService` / `ecs.EC2Service`               | `{ cluster, desiredCount, networkConfiguration, loadBalancers, taskDefinitionArgs, deploymentCircuitBreaker, assignPublicIp }` |
-|  [02]   | `ecs.FargateTaskDefinition` / `ecs.EC2TaskDefinition` | standalone task-def composition (`container`/`containers` → `image`, log group, exec role)                                     |
+| [INDEX] | [SYMBOL]                                              | [ROLE]                                      |
+| :-----: | :---------------------------------------------------- | :------------------------------------------ |
+|  [01]   | `ecs.FargateService` / `ecs.EC2Service`               | service + inline task-def + log group + IAM |
+|  [02]   | `ecs.FargateTaskDefinition` / `ecs.EC2TaskDefinition` | standalone task-def composition             |
 
 [IMAGE_SCOPE]: `awsx.ecr` — repository + build-and-push
 - rail: aws
 - `Repository` composes an ECR repo + lifecycle policy; `Image` builds a Dockerfile (via bundled `@pulumi/docker-build`, `.api/pulumi-docker-build.md`) and pushes to that repo, emitting the pushed image ref for a task definition.
+- `Repository` args `{ imageScanningConfiguration, imageTagMutability, encryptionConfigurations, lifecyclePolicy, forceDelete }` → `repository: aws.ecr.Repository`, `url`, `lifecyclePolicy`
+- `Image` args `{ repositoryUrl, context, dockerfile, cacheFrom, platform, target, builderVersion }` → `imageUri: Output<string>` (the pushed ref a task definition pins)
 
-| [INDEX] | [SYMBOL]            | [INTENT_ARGS_OUTPUTS]                                                                                                                                                     |
-| :-----: | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `ecr.Repository`    | `{ imageScanningConfiguration, imageTagMutability, encryptionConfigurations, lifecyclePolicy, forceDelete }` → `repository: aws.ecr.Repository`, `url`, `lifecyclePolicy` |
-|  [02]   | `ecr.Image`         | `{ repositoryUrl, context, dockerfile, cacheFrom, platform, target, builderVersion }` → `imageUri: Output<string>` (the pushed ref a task definition pins)                |
-|  [03]   | `ecr.RegistryImage` | push an existing local image to a repo                                                                                                                                    |
+| [INDEX] | [SYMBOL]            | [ROLE]                                       |
+| :-----: | :------------------ | :------------------------------------------- |
+|  [01]   | `ecr.Repository`    | ECR repo + lifecycle policy                  |
+|  [02]   | `ecr.Image`         | Dockerfile build+push → the pushed image ref |
+|  [03]   | `ecr.RegistryImage` | push an existing local image to a repo       |
 
 [TRAFFIC_SCOPE]: `awsx.lb` — load balancers
 - rail: aws
 - `ApplicationLoadBalancer`/`NetworkLoadBalancer` compose the LB + default listener + target group + security group; the `defaultTargetGroup` wires into an ECS service's `loadBalancers`.
+- `ApplicationLoadBalancer`/`NetworkLoadBalancer` outputs `loadBalancer: aws.lb.LoadBalancer`, `defaultTargetGroup: aws.lb.TargetGroup`, `listeners`, `defaultSecurityGroup`, `vpcId`
 
-| [INDEX] | [SYMBOL]                                                | [OUTPUTS]                                                                                                                   |
-| :-----: | :------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `lb.ApplicationLoadBalancer` / `lb.NetworkLoadBalancer` | `loadBalancer: aws.lb.LoadBalancer`, `defaultTargetGroup: aws.lb.TargetGroup`, `listeners`, `defaultSecurityGroup`, `vpcId` |
-|  [02]   | `lb.TargetGroupAttachment`                              | attach an instance/IP/Lambda target to a group                                                                              |
+| [INDEX] | [SYMBOL]                                                | [ROLE]                                                |
+| :-----: | :------------------------------------------------------ | :---------------------------------------------------- |
+|  [01]   | `lb.ApplicationLoadBalancer` / `lb.NetworkLoadBalancer` | LB + default listener + target group + security group |
+|  [02]   | `lb.TargetGroupAttachment`                              | attach an instance/IP/Lambda target to a group        |
 
 [AUDIT_SCOPE]: `awsx.cloudtrail`
 - rail: aws

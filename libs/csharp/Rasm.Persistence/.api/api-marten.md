@@ -49,87 +49,132 @@ assembly adds the Postgres binding, document store, and JSON-passthrough extras.
 [PUBLIC_TYPE_SCOPE]: configuration root and document store
 - rail: event-store
 
-| [INDEX] | [SYMBOL]                        | [SHAPE]                    | [CAPABILITY]                                                                                                                                               |
-| :-----: | :------------------------------ | :------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `DocumentStore`                 | sealed class               | the store: `For(...)` factory + session openers; `IDocumentStore` impl                                                                                     |
-|  [02]   | `IDocumentStore`                | interface                  | session factory (`LightweightSession`/`IdentitySession`/`DirtyTrackedSession`/`QuerySession`), `Advanced`, `BulkInsertAsync`, `BuildProjectionDaemonAsync` |
-|  [03]   | `StoreOptions`                  | class                      | the configuration surface: `Connection`, `DatabaseSchemaName`, `Events`, `Projections`, `Schema`, `Policies`, serializer, tenancy                          |
-|  [04]   | `IReadOnlyStoreOptions`         | interface                  | the read-only projection of a configured `StoreOptions`                                                                                                    |
-|  [05]   | `SessionOptions`                | class                      | per-session tenancy/isolation/tracking/connection overrides                                                                                                |
-|  [06]   | `AdvancedOperations`            | class (`store.Advanced`)   | `ResetAllData`, `FetchEventStoreStatistics`, `AllProjectionProgress`, `RebuildSingleStreamAsync`, `Clean`                                                  |
-|  [07]   | `ProjectionOptions`             | class (`opts.Projections`) | projection registry: `Add`, `Snapshot<T>`, `LiveStreamAggregation<T>`, `Subscribe`, `AddGlobalProjection`                                                  |
-|  [08]   | `AsyncOptions`                  | class                      | async-projection tuning: `BatchSize`, `SubscribeFromPresent`/`FromTime`/`FromSequence`, teardown                                                           |
-|  [09]   | `MartenConfigurationExpression` | class (DI)                 | `AddMarten(...)` fluent: `AddAsyncDaemon`, `UseLightweightSessions`, `ApplyAllDatabaseChangesOnStartup`, projection-with-services                          |
+| [INDEX] | [SYMBOL]                        | [SHAPE]                    | [CAPABILITY]                                                |
+| :-----: | :------------------------------ | :------------------------- | :---------------------------------------------------------- |
+|  [01]   | `DocumentStore`                 | sealed class               | the store: `For(...)` factory + session openers             |
+|  [02]   | `IDocumentStore`                | interface                  | the session factory + store operations                      |
+|  [03]   | `StoreOptions`                  | class                      | the full configuration surface                              |
+|  [04]   | `IReadOnlyStoreOptions`         | interface                  | the read-only projection of a configured `StoreOptions`     |
+|  [05]   | `SessionOptions`                | class                      | per-session tenancy/isolation/tracking/connection overrides |
+|  [06]   | `AdvancedOperations`            | class (`store.Advanced`)   | store maintenance + event-store introspection               |
+|  [07]   | `ProjectionOptions`             | class (`opts.Projections`) | the projection registry                                     |
+|  [08]   | `AsyncOptions`                  | class                      | async-projection tuning                                     |
+|  [09]   | `MartenConfigurationExpression` | class (DI)                 | the `AddMarten(...)` fluent DI surface                      |
+
+Member surface per type:
+- [01]-`DocumentStore`: the store: `For(...)` factory + session openers; `IDocumentStore` impl.
+- [02]-`IDocumentStore`: session factory (`LightweightSession`/`IdentitySession`/`DirtyTrackedSession`/`QuerySession`), `Advanced`, `BulkInsertAsync`, `BuildProjectionDaemonAsync`.
+- [03]-`StoreOptions`: the configuration surface: `Connection`, `DatabaseSchemaName`, `Events`, `Projections`, `Schema`, `Policies`, serializer, tenancy.
+- [06]-`AdvancedOperations`: `ResetAllData`, `FetchEventStoreStatistics`, `AllProjectionProgress`, `RebuildSingleStreamAsync`, `Clean`.
+- [07]-`ProjectionOptions`: projection registry: `Add`, `Snapshot<T>`, `LiveStreamAggregation<T>`, `Subscribe`, `AddGlobalProjection`.
+- [08]-`AsyncOptions`: async-projection tuning: `BatchSize`, `SubscribeFromPresent`/`FromTime`/`FromSequence`, teardown.
+- [09]-`MartenConfigurationExpression`: `AddMarten(...)` fluent: `AddAsyncDaemon`, `UseLightweightSessions`, `ApplyAllDatabaseChangesOnStartup`, projection-with-services.
 
 [PUBLIC_TYPE_SCOPE]: sessions and document operations
 - rail: event-store
 
-| [INDEX] | [SYMBOL]              | [SHAPE]   | [CAPABILITY]                                                                                                                        |
-| :-----: | :-------------------- | :-------- | :---------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `IQuerySession`       | interface | read side: `LoadAsync`/`LoadManyAsync`, `Query<T>` (LINQ), raw `QueryAsync<T>(sql)`, `Events` (read), full-text search, `ForTenant` |
-|  [02]   | `IDocumentSession`    | interface | write side: `Store`/`Insert`/`Update`/`Delete`, `Events` (write), `SaveChangesAsync`, `SetHeader`, transaction control              |
-|  [03]   | `IDocumentOperations` | interface | the document mutation contract shared by sessions + projection apply (`Store`/`Insert`/`Delete`/`HardDelete`/`QueueSqlCommand`)     |
-|  [04]   | `IMartenQueryable<T>` | interface | the `IQueryable<T>` Marten LINQ provider (async materializers, `Include`, paging, `QueryForNonStaleData`)                           |
-|  [05]   | `DocumentMetadata`    | class     | per-document metadata (version, last-modified, tenant, deleted)                                                                     |
-|  [06]   | `IUnitOfWork`         | interface | `session.PendingChanges` — the staged inserts/updates/deletes/events                                                                |
-|  [07]   | `ConcurrencyChecks`   | enum      | `Enabled`/`Disabled` optimistic-concurrency mode on a session                                                                       |
+| [INDEX] | [SYMBOL]              | [SHAPE]   | [CAPABILITY]                                                         |
+| :-----: | :-------------------- | :-------- | :------------------------------------------------------------------- |
+|  [01]   | `IQuerySession`       | interface | the read-side session surface                                        |
+|  [02]   | `IDocumentSession`    | interface | the write-side session surface                                       |
+|  [03]   | `IDocumentOperations` | interface | the shared document-mutation contract                                |
+|  [04]   | `IMartenQueryable<T>` | interface | the Marten LINQ `IQueryable<T>` provider                             |
+|  [05]   | `DocumentMetadata`    | class     | per-document metadata (version, last-modified, tenant, deleted)      |
+|  [06]   | `IUnitOfWork`         | interface | `session.PendingChanges` — the staged inserts/updates/deletes/events |
+|  [07]   | `ConcurrencyChecks`   | enum      | `Enabled`/`Disabled` optimistic-concurrency mode on a session        |
+
+Member surface per type:
+- [01]-`IQuerySession`: read side: `LoadAsync`/`LoadManyAsync`, `Query<T>` (LINQ), raw `QueryAsync<T>(sql)`, `Events` (read), full-text search, `ForTenant`.
+- [02]-`IDocumentSession`: write side: `Store`/`Insert`/`Update`/`Delete`, `Events` (write), `SaveChangesAsync`, `SetHeader`, transaction control.
+- [03]-`IDocumentOperations`: the document mutation contract shared by sessions + projection apply (`Store`/`Insert`/`Delete`/`HardDelete`/`QueueSqlCommand`).
+- [04]-`IMartenQueryable<T>`: the `IQueryable<T>` Marten LINQ provider (async materializers, `Include`, paging, `QueryForNonStaleData`).
 
 [PUBLIC_TYPE_SCOPE]: event store — read and write (`JasperFx.Events`)
 - rail: event-store
 
-| [INDEX] | [SYMBOL]                              | [SHAPE]   | [CAPABILITY]                                                                                                                                                                         |
-| :-----: | :------------------------------------ | :-------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `IEventOperations`                    | interface | the write contract: `StartStream`/`Append` overloads (Guid/string key, typed-aggregate, expected-version)                                                                            |
-|  [02]   | `IQueryEventStore`                    | interface | the read contract: `FetchStreamAsync`, `AggregateStreamAsync<T>` (AS-OF), `AggregateStreamToLastKnownAsync`, `FetchStreamStateAsync`, event `LoadAsync`                              |
-|  [03]   | `IEventStoreOperations`               | interface | the full session event store: read + write + `FetchForWriting`/`WriteToAggregate`, `AppendOptimistic`/`AppendExclusive`, `FetchLatest`/`ProjectLatest`, tag queries, `ArchiveStream` |
-|  [04]   | `Marten.Events.IEventStoreOperations` | interface | Marten extension of the above: adds `StreamLatestJson<T>` (raw-JSON passthrough to a `Stream`)                                                                                       |
-|  [05]   | `IEventStream<T>`                     | interface | the optimistic-write handle from `FetchForWriting<T>` (current `Aggregate`, `AppendOne`/`AppendMany`)                                                                                |
-|  [06]   | `StreamAction`                        | class     | the staged stream operation returned by `StartStream`/`Append` (`Id`/`Key`, `Events`, `Version`, `ExpectedVersionOnServer`, `ActionType`)                                            |
-|  [07]   | `StreamActionType`                    | enum      | `Start`/`Append`/`Archive` — the stream-action discriminant                                                                                                                          |
-|  [08]   | `StreamState`                         | class     | `FetchStreamStateAsync` result: `Id`/`Key`, `Version`, `AggregateType`, `LastTimestamp`, `Created`, `IsArchived`                                                                     |
-|  [09]   | `IEvent` / `IEvent<T>`                | interface | the stored-event envelope: `Sequence`/`Version`/`StreamId`/`StreamKey`, `Timestamp`, `Data`, `Headers`, `CausationId`/`CorrelationId`, `Tags`, `IsArchived`                          |
-|  [10]   | `EventTag` / `EventTagQuery`          | class     | event tag value + the tag-query shape for `QueryByTagsAsync`/`AggregateByTagsAsync`/`FetchForWritingByTags`                                                                          |
+| [INDEX] | [SYMBOL]                              | [SHAPE]   | [CAPABILITY]                                                 |
+| :-----: | :------------------------------------ | :-------- | :----------------------------------------------------------- |
+|  [01]   | `IEventOperations`                    | interface | the write contract: `StartStream`/`Append`                   |
+|  [02]   | `IQueryEventStore`                    | interface | the read contract                                            |
+|  [03]   | `IEventStoreOperations`               | interface | the full session event store: read + write                   |
+|  [04]   | `Marten.Events.IEventStoreOperations` | interface | Marten extension: `StreamLatestJson<T>` raw-JSON passthrough |
+|  [05]   | `IEventStream<T>`                     | interface | the optimistic-write handle from `FetchForWriting<T>`        |
+|  [06]   | `StreamAction`                        | class     | the staged stream operation from `StartStream`/`Append`      |
+|  [07]   | `StreamActionType`                    | enum      | `Start`/`Append`/`Archive` — the stream-action discriminant  |
+|  [08]   | `StreamState`                         | class     | the `FetchStreamStateAsync` result                           |
+|  [09]   | `IEvent` / `IEvent<T>`                | interface | the stored-event envelope                                    |
+|  [10]   | `EventTag` / `EventTagQuery`          | class     | event tag value + tag-query shape                            |
+
+Member surface per type:
+- [01]-`IEventOperations`: the write contract: `StartStream`/`Append` overloads (Guid/string key, typed-aggregate, expected-version).
+- [02]-`IQueryEventStore`: the read contract: `FetchStreamAsync`, `AggregateStreamAsync<T>` (AS-OF), `AggregateStreamToLastKnownAsync`, `FetchStreamStateAsync`, event `LoadAsync`.
+- [03]-`IEventStoreOperations`: the full session event store: read + write + `FetchForWriting`/`WriteToAggregate`, `AppendOptimistic`/`AppendExclusive`, `FetchLatest`/`ProjectLatest`, tag queries, `ArchiveStream`.
+- [04]-`Marten.Events.IEventStoreOperations`: Marten extension of the above: adds `StreamLatestJson<T>` (raw-JSON passthrough to a `Stream`).
+- [05]-`IEventStream<T>`: the optimistic-write handle from `FetchForWriting<T>` (current `Aggregate`, `AppendOne`/`AppendMany`).
+- [06]-`StreamAction`: the staged stream operation returned by `StartStream`/`Append` (`Id`/`Key`, `Events`, `Version`, `ExpectedVersionOnServer`, `ActionType`).
+- [08]-`StreamState`: `FetchStreamStateAsync` result: `Id`/`Key`, `Version`, `AggregateType`, `LastTimestamp`, `Created`, `IsArchived`.
+- [09]-`IEvent` / `IEvent<T>`: the stored-event envelope: `Sequence`/`Version`/`StreamId`/`StreamKey`, `Timestamp`, `Data`, `Headers`, `CausationId`/`CorrelationId`, `Tags`, `IsArchived`.
+- [10]-`EventTag` / `EventTagQuery`: event tag value + the tag-query shape for `QueryByTagsAsync`/`AggregateByTagsAsync`/`FetchForWritingByTags`.
 
 [PUBLIC_TYPE_SCOPE]: projections and the async daemon
 - rail: event-store
 
-| [INDEX] | [SYMBOL]                                | [SHAPE]           | [CAPABILITY]                                                                                                                                                                                                                                  |
-| :-----: | :-------------------------------------- | :---------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SingleStreamProjection<TDoc,TId>`      | abstract base     | one-stream aggregate: convention `Create`/`Apply`/`Evolve`/`DeleteEvent`/`ShouldDelete` over one stream → one document                                                                                                                        |
-|  [02]   | `MultiStreamProjection<TDoc,TId>`       | abstract base     | cross-stream aggregate: `Identity`/`Identities`/`CustomGrouping`/`FanOut` slicing → grouped documents                                                                                                                                         |
-|  [03]   | `FlatTableProjection`                   | class             | events → flat relational table (`Project<T>(StatementMap)`/`Delete<T>`) — the co-transactional columnar egress                                                                                                                                |
-|  [04]   | `ProjectionBase`                        | abstract base     | shared projection config (name, version, async options, `AssembleAndAssertValidity`)                                                                                                                                                          |
-|  [05]   | `IProjection`                           | interface         | the raw Marten projection contract (`ApplyAsync(ops, streams, ct)`)                                                                                                                                                                           |
-|  [06]   | `ProjectionLifecycle`                   | enum              | `Inline` (write-txn), `Async` (daemon), `Live` (on-demand fold)                                                                                                                                                                               |
-|  [07]   | `SnapshotLifecycle`                     | enum              | `Inline`/`Async` — the snapshot variant of lifecycle                                                                                                                                                                                          |
-|  [08]   | `IProjectionDaemon`                     | interface         | the async-projection runner: `StartAllAsync`, `RebuildProjectionAsync`, `WaitForNonStaleData`, agent/shard control                                                                                                                            |
-|  [09]   | `DaemonMode`                            | enum (`JasperFx`) | `Disabled`/`Solo`/`HotCold` — daemon hosting topology                                                                                                                                                                                         |
-|  [10]   | `ShardState` / `ShardName`              | class             | per-shard progress: `ShardState.Sequence` (`long` high-water) / `.Timestamp` (`DateTimeOffset` recording stamp) / `.ShardName` (`string`); `ShardName.Identity` the shard identity string (decompile-verified, `JasperFx.Events.Projections`) |
-|  [11]   | `EventStoreStatistics`                  | class             | `FetchEventStoreStatistics` result (event/stream counts, sequence + projection high-water marks)                                                                                                                                              |
-|  [12]   | `IEventUpcaster` / `JsonTransformation` | interface         | schema-evolution upcast of old event JSON to a new event type                                                                                                                                                                                 |
+| [INDEX] | [SYMBOL]                                | [SHAPE]           | [CAPABILITY]                                                        |
+| :-----: | :-------------------------------------- | :---------------- | :------------------------------------------------------------------ |
+|  [01]   | `SingleStreamProjection<TDoc,TId>`      | abstract base     | one-stream aggregate → one document                                 |
+|  [02]   | `MultiStreamProjection<TDoc,TId>`       | abstract base     | cross-stream aggregate → grouped documents                          |
+|  [03]   | `FlatTableProjection`                   | class             | events → flat relational table (columnar egress)                    |
+|  [04]   | `ProjectionBase`                        | abstract base     | shared projection config                                            |
+|  [05]   | `IProjection`                           | interface         | the raw Marten projection contract (`ApplyAsync(ops, streams, ct)`) |
+|  [06]   | `ProjectionLifecycle`                   | enum              | `Inline` (write-txn), `Async` (daemon), `Live` (on-demand fold)     |
+|  [07]   | `SnapshotLifecycle`                     | enum              | `Inline`/`Async` — the snapshot variant of lifecycle                |
+|  [08]   | `IProjectionDaemon`                     | interface         | the async-projection runner                                         |
+|  [09]   | `DaemonMode`                            | enum (`JasperFx`) | `Disabled`/`Solo`/`HotCold` — daemon hosting topology               |
+|  [10]   | `ShardState` / `ShardName`              | class             | per-shard progress + shard identity                                 |
+|  [11]   | `EventStoreStatistics`                  | class             | the `FetchEventStoreStatistics` result                              |
+|  [12]   | `IEventUpcaster` / `JsonTransformation` | interface         | schema-evolution upcast of old event JSON to a new event type       |
+
+Member surface per type:
+- [01]-`SingleStreamProjection<TDoc,TId>`: one-stream aggregate: convention `Create`/`Apply`/`Evolve`/`DeleteEvent`/`ShouldDelete` over one stream → one document.
+- [02]-`MultiStreamProjection<TDoc,TId>`: cross-stream aggregate: `Identity`/`Identities`/`CustomGrouping`/`FanOut` slicing → grouped documents.
+- [03]-`FlatTableProjection`: events → flat relational table (`Project<T>(StatementMap)`/`Delete<T>`) — the co-transactional columnar egress.
+- [04]-`ProjectionBase`: shared projection config (name, version, async options, `AssembleAndAssertValidity`).
+- [08]-`IProjectionDaemon`: the async-projection runner: `StartAllAsync`, `RebuildProjectionAsync`, `WaitForNonStaleData`, agent/shard control.
+- [10]-`ShardState` / `ShardName`: per-shard progress: `ShardState.Sequence` (`long` high-water) / `.Timestamp` (`DateTimeOffset` recording stamp) / `.ShardName` (`string`); `ShardName.Identity` the shard identity string (decompile-verified, `JasperFx.Events.Projections`).
+- [11]-`EventStoreStatistics`: `FetchEventStoreStatistics` result (event/stream counts, sequence + projection high-water marks).
 
 [PUBLIC_TYPE_SCOPE]: event subscriptions (the daemon changefeed lift)
 - rail: event-store
 
-| [INDEX] | [SYMBOL]                                         | [SHAPE]           | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                |
-| :-----: | :----------------------------------------------- | :---------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `Marten.Subscriptions.SubscriptionBase`          | abstract base     | the subscription base (`: JasperFxSubscriptionBase<IDocumentOperations,IQuerySession,ISubscription>, ISubscription`): override `public abstract Task<IChangeListener> ProcessEventsAsync(EventRange page, ISubscriptionController controller, IDocumentOperations operations, CancellationToken)` to lift each daemon-delivered event batch |
-|  [02]   | `JasperFx.Events.Projections.EventRange`         | class             | the delivered batch: `List<IEvent> Events`, `ShardName`, `SequenceFloor`/`SequenceCeiling`, `Size` — iterate `range.Events.OfType<IEvent<T>>()` for the typed bodies                                                                                                                                                                        |
-|  [03]   | `JasperFx.Events.Daemon.ISubscriptionController` | interface         | the shard control handed to the batch: `Mode`, `Name` (`ShardName`), `Options` (`AsyncOptions`), `MarkSuccessAsync(long)`, `ReportCriticalFailureAsync(Exception[, long])`, dead-letter recording                                                                                                                                           |
-|  [04]   | `IChangeListener` / `NullChangeListener`         | interface / class | the post-batch commit hook (`BeforeCommitAsync`/`AfterCommitAsync(IDocumentSession, IChangeSet, CancellationToken)`); a no-side-effect subscription returns the singleton `NullChangeListener.Instance`                                                                                                                                     |
+| [INDEX] | [SYMBOL]                                         | [SHAPE]           | [CAPABILITY]                                         |
+| :-----: | :----------------------------------------------- | :---------------- | :--------------------------------------------------- |
+|  [01]   | `Marten.Subscriptions.SubscriptionBase`          | abstract base     | the subscription base; override `ProcessEventsAsync` |
+|  [02]   | `JasperFx.Events.Projections.EventRange`         | class             | the delivered event batch                            |
+|  [03]   | `JasperFx.Events.Daemon.ISubscriptionController` | interface         | the per-shard batch controller                       |
+|  [04]   | `IChangeListener` / `NullChangeListener`         | interface / class | the post-batch commit hook                           |
+
+Member surface per type:
+- [01]-`Marten.Subscriptions.SubscriptionBase`: the subscription base (`: JasperFxSubscriptionBase<IDocumentOperations,IQuerySession,ISubscription>, ISubscription`): override `public abstract Task<IChangeListener> ProcessEventsAsync(EventRange page, ISubscriptionController controller, IDocumentOperations operations, CancellationToken)` to lift each daemon-delivered event batch.
+- [02]-`JasperFx.Events.Projections.EventRange`: the delivered batch: `List<IEvent> Events`, `ShardName`, `SequenceFloor`/`SequenceCeiling`, `Size` — iterate `range.Events.OfType<IEvent<T>>()` for the typed bodies.
+- [03]-`JasperFx.Events.Daemon.ISubscriptionController`: the shard control handed to the batch: `Mode`, `Name` (`ShardName`), `Options` (`AsyncOptions`), `MarkSuccessAsync(long)`, `ReportCriticalFailureAsync(Exception[, long])`, dead-letter recording.
+- [04]-`IChangeListener` / `NullChangeListener`: the post-batch commit hook (`BeforeCommitAsync`/`AfterCommitAsync(IDocumentSession, IChangeSet, CancellationToken)`); a no-side-effect subscription returns the singleton `NullChangeListener.Instance`.
 
 [PUBLIC_TYPE_SCOPE]: event configuration and tenancy/identity vocabulary
 - rail: event-store
 
-| [INDEX] | [SYMBOL]             | [SHAPE]                   | [CAPABILITY]                                                                                                              |
-| :-----: | :------------------- | :------------------------ | :------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `IEventStoreOptions` | interface (`opts.Events`) | the event config surface: `StreamIdentity`, `AppendMode`, `TenancyStyle`, `MetadataConfig`, event-type mapping, upcasting |
-|  [02]   | `StreamIdentity`     | enum                      | `AsGuid` / `AsString` — stream-key type (per-model GUID vs string partition key)                                          |
-|  [03]   | `EventAppendMode`    | enum                      | `Rich` (full metadata), `Quick`, `QuickWithServerTimestamps` — append-throughput tier                                     |
-|  [04]   | `TenancyStyle`       | enum (`JasperFx`)         | `Single` / `Conjoined` — single-DB column-tenancy vs separate tenant databases                                            |
-|  [05]   | `MetadataConfig`     | class                     | which metadata columns (causation/correlation/headers/user) the event table carries                                       |
-|  [06]   | `AutoCreate`         | enum (`JasperFx`)         | `None`/`CreateOnly`/`CreateOrUpdate`/`All` — schema auto-migration policy                                                 |
-|  [07]   | `MartenRegistry`     | class (`opts.Schema`)     | per-document mapping (`For<T>()`: identity, indexes, multi-tenancy, soft-delete)                                          |
+| [INDEX] | [SYMBOL]             | [SHAPE]                   | [CAPABILITY]                                                                        |
+| :-----: | :------------------- | :------------------------ | :---------------------------------------------------------------------------------- |
+|  [01]   | `IEventStoreOptions` | interface (`opts.Events`) | the event config surface                                                            |
+|  [02]   | `StreamIdentity`     | enum                      | `AsGuid` / `AsString` — stream-key type (per-model GUID vs string partition key)    |
+|  [03]   | `EventAppendMode`    | enum                      | `Rich`/`Quick`/`QuickWithServerTimestamps` — append-throughput tier                 |
+|  [04]   | `TenancyStyle`       | enum (`JasperFx`)         | `Single` / `Conjoined` — single-DB column-tenancy vs separate tenant databases      |
+|  [05]   | `MetadataConfig`     | class                     | which metadata columns (causation/correlation/headers/user) the event table carries |
+|  [06]   | `AutoCreate`         | enum (`JasperFx`)         | `None`/`CreateOnly`/`CreateOrUpdate`/`All` — schema auto-migration policy           |
+|  [07]   | `MartenRegistry`     | class (`opts.Schema`)     | per-document mapping (`For<T>()`: identity, indexes, multi-tenancy, soft-delete)    |
+
+Member surface per type:
+- [01]-`IEventStoreOptions`: the event config surface: `StreamIdentity`, `AppendMode`, `TenancyStyle`, `MetadataConfig`, event-type mapping, upcasting.
+- [03]-`EventAppendMode`: `Rich` (full metadata), `Quick`, `QuickWithServerTimestamps` — append-throughput tier.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -137,86 +182,141 @@ assembly adds the Postgres binding, document store, and JSON-passthrough extras.
 - rail: event-store
 - surface-root: `DocumentStore` / `StoreOptions` / `IDocumentStore`
 
-| [INDEX] | [SURFACE]                                                                                                                                        | [CAPABILITY]                                             |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------- |
-|  [01]   | `DocumentStore.For(Action<StoreOptions> configure)` / `For(string connectionString)` / `For<T>() where T : StoreOptions, new()`                  | build a configured store                                 |
-|  [02]   | `StoreOptions.Connection(string)` / `Connection(NpgsqlDataSource)` / `DataSourceFactory(INpgsqlDataSourceFactory, string?)`                      | bind the Postgres connection / data source               |
-|  [03]   | `StoreOptions.DatabaseSchemaName` / `AutoCreateSchemaObjects (AutoCreate)` / `ConfigureNpgsqlDataSourceBuilder(Action<NpgsqlDataSourceBuilder>)` | schema + migration + Npgsql tuning                       |
-|  [04]   | `StoreOptions.UseSystemTextJsonForSerialization([JsonSerializerOptions?], EnumStorage, Casing, Action<JsonSerializerOptions>?)`                  | STJ serializer (Thinktecture converters apply)           |
-|  [05]   | `StoreOptions.Schema.For<T>()` / `RegisterDocumentType<T>()` / `Policies.*` / `RegisterValueType<T>()`                                           | document mapping, policies, strong-typed-id registration |
-|  [06]   | `IDocumentStore.LightweightSession([SessionOptions]\|[tenantId]\|[IsolationLevel])` / `IdentitySession(...)` / `DirtyTrackedSession(...)`        | open a write session by tracking mode                    |
-|  [07]   | `IDocumentStore.QuerySession([SessionOptions]\|[tenantId])` / `*SerializableSessionAsync(...)`                                                   | open a read session / serializable-isolation session     |
-|  [08]   | `IDocumentStore.Advanced.ResetAllData(ct)` / `FetchEventStoreStatistics([tenantId], ct)` / `AllProjectionProgress([tenantId], ct)`               | teardown + event-store + projection introspection        |
+| [INDEX] | [SURFACE]                                        | [CAPABILITY]                                             |
+| :-----: | :----------------------------------------------- | :------------------------------------------------------- |
+|  [01]   | `DocumentStore.For`                              | build a configured store                                 |
+|  [02]   | `StoreOptions.Connection`                        | bind the Postgres connection / data source               |
+|  [03]   | `StoreOptions.DatabaseSchemaName`                | schema + migration + Npgsql tuning                       |
+|  [04]   | `StoreOptions.UseSystemTextJsonForSerialization` | STJ serializer (Thinktecture converters apply)           |
+|  [05]   | `StoreOptions.Schema.For<T>`                     | document mapping, policies, strong-typed-id registration |
+|  [06]   | `IDocumentStore.LightweightSession`              | open a write session by tracking mode                    |
+|  [07]   | `IDocumentStore.QuerySession`                    | open a read session / serializable-isolation session     |
+|  [08]   | `IDocumentStore.Advanced.ResetAllData`           | teardown + event-store + projection introspection        |
+
+Full signatures:
+- [01]-`DocumentStore.For(Action<StoreOptions> configure)` / `For(string connectionString)` / `For<T>() where T : StoreOptions, new()`
+- [02]-`StoreOptions.Connection(string)` / `Connection(NpgsqlDataSource)` / `DataSourceFactory(INpgsqlDataSourceFactory, string?)`
+- [03]-`StoreOptions.DatabaseSchemaName` / `AutoCreateSchemaObjects (AutoCreate)` / `ConfigureNpgsqlDataSourceBuilder(Action<NpgsqlDataSourceBuilder>)`
+- [04]-`StoreOptions.UseSystemTextJsonForSerialization([JsonSerializerOptions?], EnumStorage, Casing, Action<JsonSerializerOptions>?)`
+- [05]-`StoreOptions.Schema.For<T>()` / `RegisterDocumentType<T>()` / `Policies.*` / `RegisterValueType<T>()`
+- [06]-`IDocumentStore.LightweightSession([SessionOptions] | [tenantId] | [IsolationLevel])` / `IdentitySession(...)` / `DirtyTrackedSession(...)`
+- [07]-`IDocumentStore.QuerySession([SessionOptions] | [tenantId])` / `*SerializableSessionAsync(...)`
+- [08]-`IDocumentStore.Advanced.ResetAllData(ct)` / `FetchEventStoreStatistics([tenantId], ct)` / `AllProjectionProgress([tenantId], ct)`
 
 [ENTRYPOINT_SCOPE]: append and start streams (`session.Events`)
 - rail: event-store
 - surface-root: `IEventStoreOperations` (`session.Events`)
 
-| [INDEX] | [SURFACE]                                                                                                                                                          | [CAPABILITY]                                                 |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | `Events.StartStream<TAggregate>(Guid id, params object[] events)` / `StartStream(Guid id, IEnumerable<object>)` / `StartStream<TAggregate>(string streamKey, ...)` | begin a new stream (GUID per model, or string partition key) |
-|  [02]   | `Events.Append(Guid stream, params object[] events)` / `Append(string stream, IEnumerable<object>)`                                                                | append to an existing stream                                 |
-|  [03]   | `Events.Append(Guid stream, long expectedVersion, params object[] events)`                                                                                         | append with inline optimistic version guard                  |
-|  [04]   | `Events.AppendOptimistic(Guid streamId, [CancellationToken], params object[] events)`                                                                              | append with a read-then-guard optimistic check               |
-|  [05]   | `Events.AppendExclusive(Guid streamId, [CancellationToken], params object[] events)`                                                                               | append under an exclusive stream lock                        |
-|  [06]   | `Events.ArchiveStream(Guid streamId)` / `ArchiveStream(string streamKey)`                                                                                          | soft-archive a whole stream (Retired)                        |
-|  [07]   | `session.SaveChangesAsync([CancellationToken])`                                                                                                                    | commit staged events + documents in one txn                  |
+| [INDEX] | [SURFACE]                        | [CAPABILITY]                                                 |
+| :-----: | :------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `Events.StartStream<TAggregate>` | begin a new stream (GUID per model, or string partition key) |
+|  [02]   | `Events.Append`                  | append to an existing stream                                 |
+|  [03]   | `Events.Append`                  | append with inline optimistic version guard                  |
+|  [04]   | `Events.AppendOptimistic`        | append with a read-then-guard optimistic check               |
+|  [05]   | `Events.AppendExclusive`         | append under an exclusive stream lock                        |
+|  [06]   | `Events.ArchiveStream`           | soft-archive a whole stream (Retired)                        |
+|  [07]   | `session.SaveChangesAsync`       | commit staged events + documents in one txn                  |
+
+Full signatures:
+- [01]-`Events.StartStream<TAggregate>(Guid id, params object[] events)` / `StartStream(Guid id, IEnumerable<object>)` / `StartStream<TAggregate>(string streamKey, ...)`
+- [02]-`Events.Append(Guid stream, params object[] events)` / `Append(string stream, IEnumerable<object>)`
+- [03]-`Events.Append(Guid stream, long expectedVersion, params object[] events)`
+- [04]-`Events.AppendOptimistic(Guid streamId, [CancellationToken], params object[] events)`
+- [05]-`Events.AppendExclusive(Guid streamId, [CancellationToken], params object[] events)`
+- [06]-`Events.ArchiveStream(Guid streamId)` / `ArchiveStream(string streamKey)`
+- [07]-`session.SaveChangesAsync([CancellationToken])`
 
 [ENTRYPOINT_SCOPE]: read and fold streams (AS-OF time-travel)
 - rail: event-store
 - surface-root: `IQueryEventStore` (`session.Events`)
 
-| [INDEX] | [SURFACE]                                                                                                                                                                     | [CAPABILITY]                                                            |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------- |
-|  [01]   | `Events.AggregateStreamAsync<T>(Guid streamId, long version = 0, DateTimeOffset? timestamp = null, T? state = null, long fromVersion = 0, CancellationToken token = default)` | fold a stream into `T`; AS-OF by `version` or `timestamp`               |
-|  [02]   | `Events.AggregateStreamAsync<T>(string streamKey, ...)` / `AggregateStreamToLastKnownAsync<T>(...)`                                                                           | string-key fold / fold ignoring an archive cut                          |
-|  [03]   | `Events.FetchStreamAsync(Guid streamId, long version = 0, DateTimeOffset? timestamp = null, long fromVersion = 0, CancellationToken token = default)`                         | read the raw `IEvent` list (full or windowed)                           |
-|  [04]   | `Events.FetchStreamStateAsync(Guid streamId, [CancellationToken])`                                                                                                            | current `StreamState` (version/timestamps/archive) without folding      |
-|  [05]   | `Events.LoadAsync<T>(Guid id, [CancellationToken])` / `LoadAsync(Guid id, ...)`                                                                                               | load a single typed / untyped stored event by id                        |
-|  [06]   | `Events.StreamLatestJson<T>(Guid id, Stream destination, [CancellationToken])`                                                                                                | stream the projected aggregate's raw JSON (no (de)serialize round-trip) |
+| [INDEX] | [SURFACE]                        | [CAPABILITY]                                                            |
+| :-----: | :------------------------------- | :---------------------------------------------------------------------- |
+|  [01]   | `Events.AggregateStreamAsync<T>` | fold a stream into `T`; AS-OF by `version` or `timestamp`               |
+|  [02]   | `Events.AggregateStreamAsync<T>` | string-key fold / fold ignoring an archive cut                          |
+|  [03]   | `Events.FetchStreamAsync`        | read the raw `IEvent` list (full or windowed)                           |
+|  [04]   | `Events.FetchStreamStateAsync`   | current `StreamState` (version/timestamps/archive) without folding      |
+|  [05]   | `Events.LoadAsync<T>`            | load a single typed / untyped stored event by id                        |
+|  [06]   | `Events.StreamLatestJson<T>`     | stream the projected aggregate's raw JSON (no (de)serialize round-trip) |
+
+Full signatures:
+- [01]-`Events.AggregateStreamAsync<T>(Guid streamId, long version = 0, DateTimeOffset? timestamp = null, T? state = null, long fromVersion = 0, CancellationToken token = default)`
+- [02]-`Events.AggregateStreamAsync<T>(string streamKey, ...)` / `AggregateStreamToLastKnownAsync<T>(...)`
+- [03]-`Events.FetchStreamAsync(Guid streamId, long version = 0, DateTimeOffset? timestamp = null, long fromVersion = 0, CancellationToken token = default)`
+- [04]-`Events.FetchStreamStateAsync(Guid streamId, [CancellationToken])`
+- [05]-`Events.LoadAsync<T>(Guid id, [CancellationToken])` / `LoadAsync(Guid id, ...)`
+- [06]-`Events.StreamLatestJson<T>(Guid id, Stream destination, [CancellationToken])`
 
 [ENTRYPOINT_SCOPE]: fetch-for-writing and aggregate-handler workflow
 - rail: event-store
 - surface-root: `IEventStoreOperations` (`session.Events`)
 
-| [INDEX] | [SURFACE]                                                                                                                                                  | [CAPABILITY]                                          |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `Events.FetchForWriting<T>(Guid id, [long expectedVersion], [CancellationToken])` / `FetchForWriting<T,TId>(TId id, ...)`                                  | load aggregate + version handle for a guarded append  |
-|  [02]   | `Events.FetchForExclusiveWriting<T>(Guid id, [CancellationToken])`                                                                                         | same under an exclusive lock                          |
-|  [03]   | `Events.WriteToAggregate<T>(Guid id, Func<IEventStream<T>, Task> writing, [CancellationToken])` / `WriteToAggregate<T>(id, int expectedVersion, ...)`      | load-decide-append in one closure                     |
-|  [04]   | `Events.WriteExclusivelyToAggregate<T>(Guid id, Action<IEventStream<T>>, [CancellationToken])`                                                             | the exclusive-lock variant                            |
-|  [05]   | `Events.FetchLatest<T>(Guid id, [CancellationToken])` / `FetchLatest<T,TId>(TId id, ...)`                                                                  | the up-to-date aggregate (inline doc or live fold)    |
-|  [06]   | `Events.ProjectLatest<T>(Guid id, [CancellationToken])`                                                                                                    | force a live projection of the latest aggregate state |
-|  [07]   | `Events.QueryByTagsAsync(EventTagQuery, [CancellationToken])` / `AggregateByTagsAsync<T>(...)` / `FetchForWritingByTags<T>(...)` / `EventsExistAsync(...)` | tag-scoped read / fold / write / existence            |
+| [INDEX] | [SURFACE]                               | [CAPABILITY]                                          |
+| :-----: | :-------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `Events.FetchForWriting<T>`             | load aggregate + version handle for a guarded append  |
+|  [02]   | `Events.FetchForExclusiveWriting<T>`    | same under an exclusive lock                          |
+|  [03]   | `Events.WriteToAggregate<T>`            | load-decide-append in one closure                     |
+|  [04]   | `Events.WriteExclusivelyToAggregate<T>` | the exclusive-lock variant                            |
+|  [05]   | `Events.FetchLatest<T>`                 | the up-to-date aggregate (inline doc or live fold)    |
+|  [06]   | `Events.ProjectLatest<T>`               | force a live projection of the latest aggregate state |
+|  [07]   | `Events.QueryByTagsAsync`               | tag-scoped read / fold / write / existence            |
+
+Full signatures:
+- [01]-`Events.FetchForWriting<T>(Guid id, [long expectedVersion], [CancellationToken])` / `FetchForWriting<T,TId>(TId id, ...)`
+- [02]-`Events.FetchForExclusiveWriting<T>(Guid id, [CancellationToken])`
+- [03]-`Events.WriteToAggregate<T>(Guid id, Func<IEventStream<T>, Task> writing, [CancellationToken])` / `WriteToAggregate<T>(id, int expectedVersion, ...)`
+- [04]-`Events.WriteExclusivelyToAggregate<T>(Guid id, Action<IEventStream<T>>, [CancellationToken])`
+- [05]-`Events.FetchLatest<T>(Guid id, [CancellationToken])` / `FetchLatest<T,TId>(TId id, ...)`
+- [06]-`Events.ProjectLatest<T>(Guid id, [CancellationToken])`
+- [07]-`Events.QueryByTagsAsync(EventTagQuery, [CancellationToken])` / `AggregateByTagsAsync<T>(...)` / `FetchForWritingByTags<T>(...)` / `EventsExistAsync(...)`
 
 [ENTRYPOINT_SCOPE]: register projections and run the daemon
 - rail: event-store
 - surface-root: `StoreOptions.Projections` / `IProjectionDaemon`
 
-| [INDEX] | [SURFACE]                                                                                                                                                     | [CAPABILITY]                                                                                         |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------ | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `opts.Projections.Add<TProjection>(ProjectionLifecycle lifecycle, Action<AsyncOptions>? = null)` / `Add(TProjection projection, lifecycle, ...)`              | register a projection by type / instance                                                             |
-|  [02]   | `opts.Projections.Snapshot<T>(SnapshotLifecycle lifecycle, [Action<AsyncOptions>?])` / `LiveStreamAggregation<T>([Action<AsyncOptions>?])`                    | self-aggregate snapshot / live-only aggregation                                                      |
-|  [03]   | `opts.Projections.AddGlobalProjection<TDoc,TId>(SingleStreamProjection<TDoc,TId>, ProjectionLifecycle)` / `Subscribe(ISubscription, [Action<AsyncOptions>?])` | global single-stream registration / register a `SubscriptionBase`-derived subscription on the daemon |
-|  [04]   | `MultiStreamProjection<TDoc,TId>.Identity<TEvent>(Func<TEvent,TId>)` / `Identities<TEvent>(...)` / `CustomGrouping(...)` / `FanOut<TEvent,TChild>(...)`       | configure cross-stream slicing                                                                       |
-|  [05]   | `FlatTableProjection.Project<T>(Action<StatementMap<T>>, [Expression<Func<T,object>>? pk])` / `Delete<T>([pk])`                                               | events → relational table upsert / delete rows                                                       |
-|  [06]   | `await store.BuildProjectionDaemonAsync([tenantIdOrDatabase], [ILogger])`                                                                                     | construct the async-projection daemon                                                                |
-|  [07]   | `daemon.StartAllAsync()` / `RebuildProjectionAsync<TView>([TimeSpan shardTimeout], CancellationToken)` / `WaitForNonStaleData(TimeSpan)` / `StopAllAsync()`   | start / rebuild / await-caught-up / stop shards                                                      |
-|  [08]   | `store.Advanced.RebuildSingleStreamAsync<T>(Guid id, [CancellationToken])`                                                                                    | rebuild a single stream's inline projection                                                          |
+| [INDEX] | [SURFACE]                                          | [CAPABILITY]                                                         |
+| :-----: | :------------------------------------------------- | :------------------------------------------------------------------- |
+|  [01]   | `opts.Projections.Add<TProjection>`                | register a projection by type / instance                             |
+|  [02]   | `opts.Projections.Snapshot<T>`                     | self-aggregate snapshot / live-only aggregation                      |
+|  [03]   | `opts.Projections.AddGlobalProjection<TDoc,TId>`   | global single-stream / `SubscriptionBase` subscription on the daemon |
+|  [04]   | `MultiStreamProjection<TDoc,TId>.Identity<TEvent>` | configure cross-stream slicing                                       |
+|  [05]   | `FlatTableProjection.Project<T>`                   | events → relational table upsert / delete rows                       |
+|  [06]   | `await store.BuildProjectionDaemonAsync`           | construct the async-projection daemon                                |
+|  [07]   | `daemon.StartAllAsync`                             | start / rebuild / await-caught-up / stop shards                      |
+|  [08]   | `store.Advanced.RebuildSingleStreamAsync<T>`       | rebuild a single stream's inline projection                          |
+
+Full signatures:
+- [01]-`opts.Projections.Add<TProjection>(ProjectionLifecycle lifecycle, Action<AsyncOptions>? = null)` / `Add(TProjection projection, lifecycle, ...)`
+- [02]-`opts.Projections.Snapshot<T>(SnapshotLifecycle lifecycle, [Action<AsyncOptions>?])` / `LiveStreamAggregation<T>([Action<AsyncOptions>?])`
+- [03]-`opts.Projections.AddGlobalProjection<TDoc,TId>(SingleStreamProjection<TDoc,TId>, ProjectionLifecycle)` / `Subscribe(ISubscription, [Action<AsyncOptions>?])`
+- [04]-`MultiStreamProjection<TDoc,TId>.Identity<TEvent>(Func<TEvent,TId>)` / `Identities<TEvent>(...)` / `CustomGrouping(...)` / `FanOut<TEvent,TChild>(...)`
+- [05]-`FlatTableProjection.Project<T>(Action<StatementMap<T>>, [Expression<Func<T,object>>? pk])` / `Delete<T>([pk])`
+- [06]-`await store.BuildProjectionDaemonAsync([tenantIdOrDatabase], [ILogger])`
+- [07]-`daemon.StartAllAsync()` / `RebuildProjectionAsync<TView>([TimeSpan shardTimeout], CancellationToken)` / `WaitForNonStaleData(TimeSpan)` / `StopAllAsync()`
+- [08]-`store.Advanced.RebuildSingleStreamAsync<T>(Guid id, [CancellationToken])`
 
 [ENTRYPOINT_SCOPE]: DI registration and host integration
 - rail: event-store
 - surface-root: `MartenServiceCollectionExtensions`
 
-| [INDEX] | [SURFACE]                                                                                                                                              | [CAPABILITY]                                                                                                          |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `services.AddMarten(Action<StoreOptions>)` / `AddMarten(Func<IServiceProvider,StoreOptions>)` / `AddMarten(string connectionString)`                   | register the store + sessions in DI                                                                                   |
-|  [02]   | `.AddAsyncDaemon(DaemonMode mode)` / `.UseLightweightSessions()` / `.UseIdentitySessions()` / `.UseDirtyTrackedSessions()`                             | host the daemon / pick the default session tracking                                                                   |
-|  [03]   | `.ApplyAllDatabaseChangesOnStartup()` / `.AssertDatabaseMatchesConfigurationOnStartup()`                                                               | migrate / assert schema at host startup                                                                               |
-|  [04]   | `IMartenStorage.ApplyAllConfiguredChangesToDatabaseAsync()` (via `store.Storage`)                                                                      | the runtime single-writer schema apply — the `Element/identity#SCHEMA_VERDICT` `AdmitMarten` leg (decompile-verified) |
-|  [05]   | `.AddProjectionWithServices<TProjection>(ProjectionLifecycle, ServiceLifetime, [Action<ProjectionBase>?])`                                             | register a DI-injected projection                                                                                     |
-|  [06]   | `services.AddMartenStore<T>(Action<StoreOptions>) where T : IDocumentStore` / `ConfigureMarten(...)`                                                   | register a separate ancillary store / extend config                                                                   |
-|  [07]   | `host.WaitForNonStaleProjectionDataAsync(TimeSpan)` / `store.WaitForNonStaleProjectionDataAsync([tenantIdOrDatabaseName], TimeSpan)` (`Marten.Events`) | block until async projections are caught up                                                                           |
+| [INDEX] | [SURFACE]                                                 | [CAPABILITY]                                               |
+| :-----: | :-------------------------------------------------------- | :--------------------------------------------------------- |
+|  [01]   | `services.AddMarten`                                      | register the store + sessions in DI                        |
+|  [02]   | `.AddAsyncDaemon`                                         | host the daemon / pick the default session tracking        |
+|  [03]   | `.ApplyAllDatabaseChangesOnStartup`                       | migrate / assert schema at host startup                    |
+|  [04]   | `IMartenStorage.ApplyAllConfiguredChangesToDatabaseAsync` | the runtime single-writer schema apply (`AdmitMarten` leg) |
+|  [05]   | `.AddProjectionWithServices<TProjection>`                 | register a DI-injected projection                          |
+|  [06]   | `services.AddMartenStore<T>`                              | register a separate ancillary store / extend config        |
+|  [07]   | `host.WaitForNonStaleProjectionDataAsync`                 | block until async projections are caught up                |
+
+Full signatures:
+- [01]-`services.AddMarten(Action<StoreOptions>)` / `AddMarten(Func<IServiceProvider,StoreOptions>)` / `AddMarten(string connectionString)`
+- [02]-`.AddAsyncDaemon(DaemonMode mode)` / `.UseLightweightSessions()` / `.UseIdentitySessions()` / `.UseDirtyTrackedSessions()`
+- [03]-`.ApplyAllDatabaseChangesOnStartup()` / `.AssertDatabaseMatchesConfigurationOnStartup()`
+- [04]-`IMartenStorage.ApplyAllConfiguredChangesToDatabaseAsync()` (via `store.Storage`)
+- [05]-`.AddProjectionWithServices<TProjection>(ProjectionLifecycle, ServiceLifetime, [Action<ProjectionBase>?])`
+- [06]-`services.AddMartenStore<T>(Action<StoreOptions>) where T : IDocumentStore` / `ConfigureMarten(...)`
+- [07]-`host.WaitForNonStaleProjectionDataAsync(TimeSpan)` / `store.WaitForNonStaleProjectionDataAsync([tenantIdOrDatabaseName], TimeSpan)` (`Marten.Events`)
 
 ## [04]-[IMPLEMENTATION_LAW]
 

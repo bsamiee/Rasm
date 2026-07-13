@@ -36,32 +36,36 @@
 - rail: catalog-coverage
 
 `load` (re-exported as `stac_load`) is the single coverage surface: it accepts STAC items, resolves the output GeoBox, and returns a lazy or eager `xarray.Dataset`. The geobox is resolved from one of the mutually exclusive extent rows (`geobox`, `like`, `geopolygon`, `bbox`, `lon`/`lat`, `x`/`y`, `intersects`) combined with `crs`/`resolution`/`anchor`. Passing `chunks` produces a Dask-backed lazy cube; omitting it loads eagerly through `pool`.
+- call: `load(items, bands=None, *, groupby="time", resampling=None, dtype=None, chunks=None, pool=None, crs=Unset, resolution=None, anchor=None, geobox=None, bbox=None, lon=None, lat=None, x=None, y=None, like=None, geopolygon=None, intersects=None, progress=None, fail_on_error=True, stac_cfg=None, with_properties=None, patch_url=None, preserve_original_order=False, driver=None, fuse_func=None, **kw) -> xr.Dataset` — `stac_load` is the identical alias
 
-| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                                                                                                                                                                                                                                                                                                                                                                                                | [CAPABILITY]                                   |
-| :-----: | :------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------- |
-|  [01]   | `load` / `stac_load` | `load(items, bands=None, *, groupby='time', resampling=None, dtype=None, chunks=None, pool=None, crs=Unset, resolution=None, anchor=None, geobox=None, bbox=None, lon=None, lat=None, x=None, y=None, like=None, geopolygon=None, intersects=None, progress=None, fail_on_error=True, stac_cfg=None, with_properties=None, patch_url=None, preserve_original_order=False, driver=None, fuse_func=None, **kw) -> xr.Dataset` | STAC items to lazy/eager `xarray.Dataset` cube |
+| [INDEX] | [SURFACE]            | [CAPABILITY]                                   |
+| :-----: | :------------------- | :--------------------------------------------- |
+|  [01]   | `load` / `stac_load` | STAC items to lazy/eager `xarray.Dataset` cube |
 
 [ENTRYPOINT_SCOPE]: metadata parse and geobox
 - rail: catalog-coverage
 
 These surfaces are exposed for debugging the load pipeline: `parse_item`/`parse_items` build the internal `ParsedItem` representation, `extract_collection_metadata` derives collection band structure from a sample item, and `output_geobox` computes the target GeoBox from parsed items and load parameters.
+- call: `parse_item(item, template=None, md_plugin=None, asset_absolute_paths=True) -> ParsedItem`; `parse_items(items, cfg=None, md_plugin=None, asset_absolute_paths=True) -> Iterator[ParsedItem]`; `extract_collection_metadata(item, cfg=None, md_plugin=None) -> RasterCollectionMetadata`
+- call: `output_geobox(items, bands=None, *, crs=Unset, resolution=None, anchor=None, align=None, geobox=None, like=None, geopolygon=None, bbox=None, lon=None, lat=None, x=None, y=None, intersects=None) -> GeoBox`
 
-| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                                                                                                                                                                                  | [CAPABILITY]                                       |
-| :-----: | :---------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------- |
-|  [01]   | `parse_item`                  | `parse_item(item, template=None, md_plugin=None, asset_absolute_paths=True) -> ParsedItem`                                                                                                                    | one STAC item to internal `ParsedItem`             |
-|  [02]   | `parse_items`                 | `parse_items(items, cfg=None, md_plugin=None, asset_absolute_paths=True) -> Iterator[ParsedItem]`                                                                                                             | item sequence to `ParsedItem` iterator             |
-|  [03]   | `extract_collection_metadata` | `extract_collection_metadata(item, cfg=None, md_plugin=None) -> RasterCollectionMetadata`                                                                                                                     | sample item to collection band metadata            |
-|  [04]   | `output_geobox`               | `output_geobox(items, bands=None, *, crs=Unset, resolution=None, anchor=None, align=None, geobox=None, like=None, geopolygon=None, bbox=None, lon=None, lat=None, x=None, y=None, intersects=None) -> GeoBox` | resolve target GeoBox from parsed items and params |
+| [INDEX] | [SURFACE]                     | [CAPABILITY]                                       |
+| :-----: | :---------------------------- | :------------------------------------------------- |
+|  [01]   | `parse_item`                  | one STAC item to internal `ParsedItem`             |
+|  [02]   | `parse_items`                 | item sequence to `ParsedItem` iterator             |
+|  [03]   | `extract_collection_metadata` | sample item to collection band metadata            |
+|  [04]   | `output_geobox`               | resolve target GeoBox from parsed items and params |
 
 [ENTRYPOINT_SCOPE]: GDAL and S3 session
 - rail: catalog-coverage
 
 These configure the rasterio/GDAL environment and S3 credentials, applied locally or propagated to a Dask cluster via the worker-plugin mechanism, before lazy cube materialization triggers cloud reads.
+- call: `configure_rio(*, cloud_defaults=False, verbose=False, aws=None, **params) -> None`; `configure_s3_access(profile=None, region_name="auto", aws_unsigned=None, requester_pays=False, cloud_defaults=True, **gdal_opts)`
 
-| [INDEX] | [SURFACE]             | [CALL_SHAPE]                                                                                                                       | [CAPABILITY]                                     |
-| :-----: | :-------------------- | :--------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `configure_rio`       | `configure_rio(*, cloud_defaults=False, verbose=False, aws=None, **params) -> None`                                                | set GDAL/rasterio config locally or on a cluster |
-|  [02]   | `configure_s3_access` | `configure_s3_access(profile=None, region_name='auto', aws_unsigned=None, requester_pays=False, cloud_defaults=True, **gdal_opts)` | credentialize or set public S3 access for reads  |
+| [INDEX] | [SURFACE]             | [CAPABILITY]                                     |
+| :-----: | :-------------------- | :----------------------------------------------- |
+|  [01]   | `configure_rio`       | set GDAL/rasterio config locally or on a cluster |
+|  [02]   | `configure_s3_access` | credentialize or set public S3 access for reads  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

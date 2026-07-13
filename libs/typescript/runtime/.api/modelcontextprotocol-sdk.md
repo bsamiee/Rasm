@@ -42,7 +42,7 @@ roots). `.experimental.tasks` adds streaming/long-running tool execution.
 |  [09]   | `Client#experimental.tasks`                                         | property | streaming/task tool execution          |
 |  [10]   | `getSupportedElicitationModes`                                      | function | capability-derived elicitation modes   |
 
-```ts contract
+```ts signature
 declare class Client<RequestT extends Request = Request, NotificationT extends Notification = Notification, ResultT extends Result = Result>
   extends Protocol<ClientRequest | RequestT, ClientNotification | NotificationT, ClientResult | ResultT> {
   constructor(clientInfo: Implementation, options?: ClientOptions)
@@ -80,7 +80,7 @@ server locality: `Stdio` spawns a local server process; `StreamableHTTP` (the cu
 SSE-streams with OAuth + reconnection + session resumption; `SSE` is the retired remote transport; `InMemory`
 pairs a client and server in-process for kit-driven specs.
 
-```ts contract
+```ts signature
 interface Transport {
   start(): Promise<void>                        // Client.connect() calls this implicitly
   send(message: JSONRPCMessage, options?: TransportSendOptions): Promise<void>
@@ -110,7 +110,7 @@ Effect boundary maps onto `Effect.timeout`/interruption. `client/auth` is the fu
 remote servers — the `StreamableHTTPClientTransport.authProvider` slot consumes an `OAuthClientProvider`, and on
 401 the transport refreshes or redirects, throwing `UnauthorizedError` when interactive auth is required.
 
-```ts contract
+```ts signature
 const DEFAULT_REQUEST_TIMEOUT_MSEC = 60000
 type RequestOptions = {
   onprogress?: ProgressCallback; signal?: AbortSignal
@@ -136,16 +136,19 @@ declare class UnauthorizedError extends Error {}
 does not adopt Zod internally: it reads the inferred result types and re-parses each payload through `effect/Schema`
 at the boundary. The tool-annotation hints are the seam onto native `Tool` annotations.
 
-| [INDEX] | [SYMBOL]                                                                         | [FAMILY]   | [CAPABILITY]                                                      |
-| :-----: | :------------------------------------------------------------------------------- | :--------- | :---------------------------------------------------------------- |
-|  [01]   | `CallToolResultSchema`                                                           | Zod schema | tool result (content blocks + `structuredContent`/`isError`)      |
-|  [02]   | `ListToolsResultSchema`                                                          | Zod schema | tool roster (inputSchema/outputSchema/annotations)                |
-|  [03]   | `ToolSchema` (annotations)                                                       | Zod schema | `readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint` |
-|  [04]   | `ReadResourceResultSchema`                                                       | Zod schema | resource contents (text/blob)                                     |
-|  [05]   | `GetPromptResultSchema`                                                          | Zod schema | prompt messages                                                   |
-|  [06]   | `JSONRPCMessageSchema`                                                           | Zod schema | transport frame                                                   |
-|  [07]   | `ImplementationSchema` / `ClientCapabilitiesSchema` / `ServerCapabilitiesSchema` | Zod schema | handshake facts                                                   |
-|  [08]   | `AjvJsonSchemaValidator` / `CfWorkerJsonSchemaValidator`                         | class      | tool output-schema validators                                     |
+| [INDEX] | [SYMBOL]                      | [FAMILY]   | [CAPABILITY]                                                      |
+| :-----: | :---------------------------- | :--------- | :---------------------------------------------------------------- |
+|  [01]   | `CallToolResultSchema`        | Zod schema | tool result (content blocks + `structuredContent`/`isError`)      |
+|  [02]   | `ListToolsResultSchema`       | Zod schema | tool roster (inputSchema/outputSchema/annotations)                |
+|  [03]   | `ToolSchema` (annotations)    | Zod schema | `readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint` |
+|  [04]   | `ReadResourceResultSchema`    | Zod schema | resource contents (text/blob)                                     |
+|  [05]   | `GetPromptResultSchema`       | Zod schema | prompt messages                                                   |
+|  [06]   | `JSONRPCMessageSchema`        | Zod schema | transport frame                                                   |
+|  [07]   | `ImplementationSchema`        | Zod schema | `Implementation` handshake fact                                   |
+|  [08]   | `ClientCapabilitiesSchema`    | Zod schema | client capability handshake fact                                  |
+|  [09]   | `ServerCapabilitiesSchema`    | Zod schema | server capability handshake fact                                  |
+|  [10]   | `AjvJsonSchemaValidator`      | class      | default tool output-schema validator                              |
+|  [11]   | `CfWorkerJsonSchemaValidator` | class      | edge/workers tool output-schema validator                         |
 
 ## [06]-[INTEGRATION]
 

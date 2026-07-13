@@ -59,18 +59,19 @@ paths.
 - source: `Grpc.Net.Client.Web` decompile
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
+- members [01]-[04],[07]-[09] hang off `GrpcWebHandler`; [05]-[06] are `GrpcWebMode` enum values; `SendAsync` is the `protected override` `DelegatingHandler` pipeline override
 
-| [INDEX] | [MEMBER]                     | [SIGNATURE]                                                                                                               |
-| :-----: | :--------------------------- | :------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `GrpcWebHandler.ctor`        | `GrpcWebHandler()`                                                                                                        |
-|  [02]   | `GrpcWebHandler.ctor`        | `GrpcWebHandler(HttpMessageHandler innerHandler)`                                                                         |
-|  [03]   | `GrpcWebHandler.ctor`        | `GrpcWebHandler(GrpcWebMode mode)`                                                                                        |
-|  [04]   | `GrpcWebHandler.ctor`        | `GrpcWebHandler(GrpcWebMode mode, HttpMessageHandler innerHandler)`                                                       |
-|  [05]   | `GrpcWebMode.GrpcWeb`        | `GrpcWeb = 0` — `application/grpc-web` binary wire format                                                                 |
-|  [06]   | `GrpcWebMode.GrpcWebText`    | `GrpcWebText = 1` — `application/grpc-web-text` base64 wire format                                                        |
-|  [07]   | `GrpcWebHandler.GrpcWebMode` | `GrpcWebMode GrpcWebMode { get; set; }` — mode property on the handler                                                    |
-|  [08]   | `GrpcWebHandler.HttpVersion` | `[Obsolete] Version? HttpVersion { get; set; }` — use `GrpcChannelOptions.HttpVersion` instead                            |
-|  [09]   | `GrpcWebHandler.SendAsync`   | `protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)` |
+| [INDEX] | [MEMBER]      | [SIGNATURE]                                                                                            |
+| :-----: | :------------ | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | `ctor`        | `GrpcWebHandler()`                                                                                     |
+|  [02]   | `ctor`        | `GrpcWebHandler(HttpMessageHandler innerHandler)`                                                      |
+|  [03]   | `ctor`        | `GrpcWebHandler(GrpcWebMode mode)`                                                                     |
+|  [04]   | `ctor`        | `GrpcWebHandler(GrpcWebMode mode, HttpMessageHandler innerHandler)`                                    |
+|  [05]   | `GrpcWeb`     | `GrpcWeb = 0` — `application/grpc-web` binary wire format                                              |
+|  [06]   | `GrpcWebText` | `GrpcWebText = 1` — `application/grpc-web-text` base64 wire format                                     |
+|  [07]   | `GrpcWebMode` | `GrpcWebMode GrpcWebMode { get; set; }` — mode property on the handler                                 |
+|  [08]   | `HttpVersion` | `[Obsolete] Version? HttpVersion { get; set; }` — use `GrpcChannelOptions.HttpVersion` instead         |
+|  [09]   | `SendAsync`   | `Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

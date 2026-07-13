@@ -20,7 +20,7 @@
 |  [05]   | `CodeRegion`                  | dataclass  | a named code region (function or class) for region-scoped reporting                      |
 |  [06]   | `CoverageException`           | exception  | the base for coverage errors, including `ConfigError` and `NoDataError`                  |
 
-```python contract
+```python signature
 class Coverage:
     def __init__(self, data_file: FilePath | DefaultValue | None = ..., data_suffix: str | bool | None = None,
                  cover_pylib: bool | None = None, auto_data: bool = False, timid: bool | None = None, branch: bool | None = None,
@@ -37,28 +37,29 @@ class CoverageData:
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                    | [KIND]   | [CAPABILITY]                                                                                  |
-| :-----: | :----------------------------------------------------------- | :------- | :-------------------------------------------------------------------------------------------- |
-|  [01]   | `start` / `stop`                                             | method   | begin and end collection on the active core                                                   |
-|  [02]   | `save` / `load` / `erase`                                    | method   | flush data to the store, reload it, or clear it                                               |
-|  [03]   | `combine`                                                    | method   | merge parallel data files into one; `[tool.coverage.paths]` aliases apply only here           |
-|  [04]   | `report`                                                     | method   | write the terminal summary and return the total percentage                                    |
-|  [05]   | `json_report` / `xml_report` / `lcov_report` / `html_report` | method   | emit the machine-readable and browsable report formats                                        |
-|  [06]   | `switch_context`                                             | method   | tag subsequent lines with a dynamic context label                                             |
-|  [07]   | `get_data` / `analysis2` / `get_option` / `set_option`       | method   | reach the live `CoverageData`, per-file analysis, and resolved config                         |
-|  [08]   | `process_startup`                                            | function | the child-process entry the shipped `.pth` invokes when the process env carries the handshake |
+| [INDEX] | [SURFACE]                                                    | [KIND]   | [CAPABILITY]                                                  |
+| :-----: | :----------------------------------------------------------- | :------- | :------------------------------------------------------------ |
+|  [01]   | `start` / `stop`                                             | method   | begin and end collection on the active core                   |
+|  [02]   | `save` / `load` / `erase`                                    | method   | flush data to the store, reload it, or clear it               |
+|  [03]   | `combine`                                                    | method   | merge parallel files; `[tool.coverage.paths]` aliases apply   |
+|  [04]   | `report`                                                     | method   | write the terminal summary and return the total percentage    |
+|  [05]   | `json_report` / `xml_report` / `lcov_report` / `html_report` | method   | emit the machine-readable and browsable report formats        |
+|  [06]   | `switch_context`                                             | method   | tag subsequent lines with a dynamic context label             |
+|  [07]   | `get_data` / `analysis2` / `get_option` / `set_option`       | method   | reach live `CoverageData`, per-file analysis, resolved config |
+|  [08]   | `process_startup`                                            | function | child-process entry the `.pth` invokes on interpreter boot    |
 
-| [INDEX] | [KEY]                             | [SCOPE]                              | [CAPABILITY]                                                                                           |
-| :-----: | :-------------------------------- | :----------------------------------- | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | `core = "sysmon"`                 | `[run]`                              | select the `sys.monitoring` core; the C tracer is absent on CPython 3.15 beta                          |
-|  [02]   | `patch = ["subprocess"]`          | `[run]`                              | children auto-measure via `COVERAGE_PROCESS_CONFIG` and the shipped `.pth`; forces parallel data files |
-|  [03]   | `relative_files`                  | `[run]`                              | key data by repo-relative paths so parallel files combine; the mutmut side-file sets it `false`        |
-|  [04]   | `branch` / `source` / `data_file` | `[run]`                              | branch mode, the measured roots, and the store location                                                |
-|  [05]   | `fail_under`                      | `[report]`                           | the total-percentage floor; `show_missing`/`skip_covered` shape the summary                            |
-|  [06]   | `exclude_also`                    | `[report]`                           | extra exclusion regexes added to the built-in defaults                                                 |
-|  [07]   | `output` · `directory`            | `[json]`/`[xml]`/`[lcov]` · `[html]` | per-format report destination under `.artifacts/python/coverage`; html names its key `directory`       |
+| [INDEX] | [KEY]                             | [SCOPE]                       | [CAPABILITY]                                                      |
+| :-----: | :-------------------------------- | :---------------------------- | :---------------------------------------------------------------- |
+|  [01]   | `core = "sysmon"`                 | `[run]`                       | select the `sys.monitoring` core; C tracer absent on 3.15 beta    |
+|  [02]   | `patch = ["subprocess"]`          | `[run]`                       | children auto-measure; forces parallel data files                 |
+|  [03]   | `relative_files`                  | `[run]`                       | repo-relative keys so parallel files combine; mutmut sets `false` |
+|  [04]   | `branch` / `source` / `data_file` | `[run]`                       | branch mode, the measured roots, and the store location           |
+|  [05]   | `fail_under`                      | `[report]`                    | total-percentage floor; `show_missing`/`skip_covered` shape it    |
+|  [06]   | `exclude_also`                    | `[report]`                    | extra exclusion regexes added to the built-in defaults            |
+|  [07]   | `output`                          | `[json]` / `[xml]` / `[lcov]` | per-format report file under `.artifacts/python/coverage`         |
+|  [08]   | `directory`                       | `[html]`                      | the browsable html report tree root                               |
 
-```python contract
+```python signature
 def process_startup(*, force: bool = False, slug: str = "default") -> Coverage | None: ...  # reads COVERAGE_PROCESS_START / COVERAGE_PROCESS_CONFIG
 # apply_patches dispatches on the [run] patch list: "subprocess" sets COVERAGE_PROCESS_CONFIG; "execv"/"fork" wrap the exec/fork family.
 ```

@@ -26,29 +26,33 @@
 
 [PUBLIC_TYPE_SCOPE]: scipy.interpolate-equivalent spline classes
 - rail: interpolation
-- JAX-differentiable, `jit`/`vmap`/`grad`-compatible drop-in replacements for the `scipy.interpolate` spline classes; same constructor and call signatures, evaluated through the JAX-native kernels instead of SciPy. Each is a pytree module: `__call__(x, nu=0, extrapolate=None)` evaluates (`nu` = derivative order), and the calculus methods (`.derivative(nu)`, `.antiderivative(nu)`, `.integrate(a, b)`, `.roots()`) return new spline/PPoly objects or arrays — all differentiable.
+- JAX-differentiable, `jit`/`vmap`/`grad`-compatible drop-in replacements for the same-named `scipy.interpolate` spline classes; same constructor and call signatures, evaluated through the JAX-native kernels instead of SciPy. Each is a pytree module: `__call__(x, nu=0, extrapolate=None)` evaluates (`nu` = derivative order), and the calculus methods return new spline/PPoly objects or arrays — all differentiable.
+- call: `CubicSpline(x, y, axis=0, bc_type='not-a-knot', extrapolate=None)`, `PchipInterpolator(x, y, axis=0, extrapolate=None)`, `Akima1DInterpolator(x, y, axis=0)`, `CubicHermiteSpline(x, y, dydx, axis=0, extrapolate=None)`, `PPoly(c, x, extrapolate=None, axis=0)`
 
-| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]         | [CAPABILITY]                                                                                |
-| :-----: | :------------------------------------------------------------------ | :--------------------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `CubicSpline(x, y, axis=0, bc_type='not-a-knot', extrapolate=None)` | cubic spline           | C2 cubic spline; drop-in for `scipy.interpolate.CubicSpline`                                |
-|  [02]   | `PchipInterpolator(x, y, axis=0, extrapolate=None)`                 | monotonic cubic spline | shape-preserving PCHIP; drop-in for `scipy.interpolate.PchipInterpolator`                   |
-|  [03]   | `Akima1DInterpolator(x, y, axis=0)`                                 | Akima spline           | Akima piecewise-cubic; drop-in for `scipy.interpolate.Akima1DInterpolator`                  |
-|  [04]   | `CubicHermiteSpline(x, y, dydx, axis=0, extrapolate=None)`          | Hermite cubic spline   | cubic Hermite from values + derivatives; drop-in for `scipy.interpolate.CubicHermiteSpline` |
-|  [05]   | `PPoly(c, x, extrapolate=None, axis=0)`                             | piecewise polynomial   | breakpoint/coefficient piecewise polynomial; drop-in for `scipy.interpolate.PPoly`          |
-|  [06]   | `<spline>.derivative(nu=1)` / `.antiderivative(nu=1)`               | spline calculus        | returns a new spline of the differentiated/integrated polynomial                            |
-|  [07]   | `<spline>.integrate(a, b, extrapolate=None)` / `.roots()`           | spline calculus        | definite integral over `[a,b]` / real roots of the piecewise polynomial                     |
+| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]         | [CAPABILITY]                                |
+| :-----: | :------------------------------ | :--------------------- | :------------------------------------------ |
+|  [01]   | `CubicSpline`                   | cubic spline           | C2 cubic spline                             |
+|  [02]   | `PchipInterpolator`             | monotonic cubic spline | shape-preserving PCHIP                      |
+|  [03]   | `Akima1DInterpolator`           | Akima spline           | Akima piecewise-cubic                       |
+|  [04]   | `CubicHermiteSpline`            | Hermite cubic spline   | cubic Hermite from values + derivatives     |
+|  [05]   | `PPoly`                         | piecewise polynomial   | breakpoint/coefficient piecewise polynomial |
+|  [06]   | `<spline>.derivative(nu=1)`     | spline calculus        | new spline of the differentiated polynomial |
+|  [07]   | `<spline>.antiderivative(nu=1)` | spline calculus        | new spline of the integrated polynomial     |
+|  [08]   | `<spline>.integrate(a, b)`      | spline calculus        | definite integral over `[a, b]`             |
+|  [09]   | `<spline>.roots()`              | spline calculus        | real roots of the piecewise polynomial      |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: one-shot interpolation
 - rail: interpolation
 - `method` selects the kernel: `"nearest"`, `"linear"`, `"cubic"`, `"cubic2"`, `"catmull-rom"`, `"monotonic"` (PCHIP-equivalent), `"monotonic-0"`; `extrap` controls out-of-bound behavior; `period` enables periodic axes.
+- call: `interp1d(xq, x, f, method, derivative, extrap, period)`, `interp2d(xq, yq, x, y, f, method, derivative, extrap, period)`, `interp3d(xq, yq, zq, x, y, z, f, method, derivative, extrap, period)`
 
-| [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY] | [RAIL]                                                |
-| :-----: | :--------------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
-|  [01]   | `interp1d(xq, x, f, method, derivative, extrap, period)`               | 1D evaluate    | interpolate `f(x)` at query points `xq`               |
-|  [02]   | `interp2d(xq, yq, x, y, f, method, derivative, extrap, period)`        | 2D evaluate    | interpolate `f(x, y)` on a regular grid at `(xq, yq)` |
-|  [03]   | `interp3d(xq, yq, zq, x, y, z, f, method, derivative, extrap, period)` | 3D evaluate    | interpolate `f(x, y, z)` on a regular grid            |
+| [INDEX] | [SURFACE]  | [ENTRY_FAMILY] | [RAIL]                                                |
+| :-----: | :--------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `interp1d` | 1D evaluate    | interpolate `f(x)` at query points `xq`               |
+|  [02]   | `interp2d` | 2D evaluate    | interpolate `f(x, y)` on a regular grid at `(xq, yq)` |
+|  [03]   | `interp3d` | 3D evaluate    | interpolate `f(x, y, z)` on a regular grid            |
 
 [ENTRYPOINT_SCOPE]: reusable interpolant construction
 - rail: interpolation

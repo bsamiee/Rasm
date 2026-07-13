@@ -32,35 +32,43 @@ All four share the `parent.Geometry` transform/bounds/identifier contract: `appl
 
 `Trimesh` exposes derived geometry as `caching`-backed lazy properties keyed off a `vertices`/`faces` content hash; any `vertices`/`faces` mutation through `update_vertices`/`update_faces`/`process` invalidates the dependent cache. These are properties, never methods and never parallel subclasses.
 
-| [INDEX] | [PROPERTY]                                                                        | [PROPERTY_FAMILY]  | [CAPABILITY]                                                         |
-| :-----: | :-------------------------------------------------------------------------------- | :----------------- | :------------------------------------------------------------------- |
-|  [01]   | `volume` / `area` / `area_faces` / `center_mass` / `mass` / `density`             | mass property      | enclosed volume, surface/per-face area, centroid, mass at `density`  |
-|  [02]   | `mass_properties` / `moment_inertia` / `moment_inertia_frame`                     | inertia tensor     | `MassProperties` record; inertia tensor at origin or arbitrary frame |
-|  [03]   | `principal_inertia_components` / `principal_inertia_vectors` / `_transform`       | inertia axes       | principal moments, axes, and the diagonalizing transform             |
-|  [04]   | `is_watertight` / `is_winding_consistent` / `euler_number`                        | manifold validity  | manifold closure, consistent orientation, Euler characteristic       |
-|  [05]   | `is_convex` / `is_volume` / `is_empty` / `body_count`                             | solidity validity  | convexity, solid (closed+oriented), emptiness, connected-body count  |
-|  [06]   | `convex_hull` / `bounding_box_oriented` / `bounding_sphere` / `_cylinder`         | derived solid      | convex hull and minimum oriented/sphere/cylinder bounds              |
-|  [07]   | `face_normals` / `vertex_normals` / `face_angles` / `face_angles_sparse`          | normals & angles   | per-face/per-vertex normals; interior face angles                    |
-|  [08]   | `edges` / `edges_unique` / `edges_sorted` / `edges_face` / `faces_unique_edges`   | edge topology      | directed/unique/sorted edges and the face each edge belongs to       |
-|  [09]   | `face_adjacency` / `face_adjacency_angles` / `face_adjacency_edges` / `_convex`   | adjacency          | dihedral face-pair graph with angles, shared edges, convex flags     |
-|  [10]   | `facets` / `facets_boundary` / `facets_area` / `facets_normal` / `facets_on_hull` | coplanar facets    | coplanar face groups, their boundary edges, area, normal, hull flag  |
-|  [11]   | `vertex_adjacency_graph` / `vertex_neighbors` / `vertex_faces` / `vertex_degree`  | vertex graph       | per-vertex `networkx` adjacency, neighbor lists, incident faces      |
-|  [12]   | `vertex_defects` / `integral_mean_curvature` / `symmetry` / `symmetry_axis`       | curvature/symmetry | angle defect (Gaussian), integral mean curvature, symmetry class     |
-|  [13]   | `kdtree` / `triangles_tree` / `edges_sorted_tree` / `face_adjacency_tree`         | spatial index      | `scipy` vertex kdtree and `rtree` R-trees over triangles/edges       |
-|  [14]   | `identifier` / `identifier_hash`                                                  | content identity   | rotation/scale-invariant identifier and its hash for dedup           |
+The [PROPERTY_FAMILY] leads each [CAPABILITY] cell, folding the grouping into the description.
+
+| [INDEX] | [PROPERTY]                                                                        | [CAPABILITY]                                         |
+| :-----: | :-------------------------------------------------------------------------------- | :--------------------------------------------------- |
+|  [01]   | `volume` / `area` / `area_faces` / `center_mass` / `mass` / `density`             | mass: volume, per-face area, centroid, `density`     |
+|  [02]   | `mass_properties` / `moment_inertia` / `moment_inertia_frame`                     | inertia: `MassProperties`, tensor at origin/frame    |
+|  [03]   | `principal_inertia_components` / `principal_inertia_vectors` / `_transform`       | inertia axes: moments, axes, diagonalizing transform |
+|  [04]   | `is_watertight` / `is_winding_consistent` / `euler_number`                        | validity: closure, orientation, Euler number         |
+|  [05]   | `is_convex` / `is_volume` / `is_empty` / `body_count`                             | solidity: convex, solid, empty, body count           |
+|  [06]   | `convex_hull` / `bounding_box_oriented` / `bounding_sphere` / `_cylinder`         | convex hull; oriented/sphere/cylinder min bounds     |
+|  [07]   | `face_normals` / `vertex_normals` / `face_angles` / `face_angles_sparse`          | per-face/per-vertex normals; interior face angles    |
+|  [08]   | `edges` / `edges_unique` / `edges_sorted` / `edges_face` / `faces_unique_edges`   | directed/unique/sorted edges; owning face per edge   |
+|  [09]   | `face_adjacency` / `face_adjacency_angles` / `face_adjacency_edges` / `_convex`   | dihedral face-pair graph: angles, edges, convex      |
+|  [10]   | `facets` / `facets_boundary` / `facets_area` / `facets_normal` / `facets_on_hull` | coplanar facets: boundary, area, normal, hull flag   |
+|  [11]   | `vertex_adjacency_graph` / `vertex_neighbors` / `vertex_faces` / `vertex_degree`  | per-vertex `networkx` adjacency, neighbors, degree   |
+|  [12]   | `vertex_defects` / `integral_mean_curvature` / `symmetry` / `symmetry_axis`       | Gaussian angle defect, mean curvature, symmetry      |
+|  [13]   | `kdtree` / `triangles_tree` / `edges_sorted_tree` / `face_adjacency_tree`         | `scipy` kdtree + `rtree` triangle/edge R-trees       |
+|  [14]   | `identifier` / `identifier_hash`                                                  | rotation/scale-invariant identifier + hash for dedup |
 
 [PUBLIC_TYPE_SCOPE]: spatial-query owners (`ProximityQuery`, `RayMeshIntersector`, `CollisionManager`, `VoxelGrid`)
 - rail: mesh
 
-Persistent query objects amortize index construction across many queries; prefer them over the one-shot module functions when batching against one fixed mesh.
+Persistent query objects amortize index construction across many queries; prefer them over the one-shot module functions when batching against one fixed mesh. Each owner's method roster is the keyed list below.
 
-| [INDEX] | [SYMBOL]                              | [CONSTRUCTOR]                                                 | [METHODS]                                                                                       |
-| :-----: | :------------------------------------ | :------------------------------------------------------------ | :---------------------------------------------------------------------------------------------- |
-|  [01]   | `proximity.ProximityQuery`            | `ProximityQuery(mesh)`                                        | `signed_distance(points)`, `on_surface(points)->(pts,dist,tid)`, `vertex(points)`               |
-|  [02]   | `ray.ray_triangle.RayMeshIntersector` | `RayMeshIntersector(mesh)` (or `mesh.ray`)                    | `intersects_location`, `intersects_id`, `intersects_first`, `intersects_any`, `contains_points` |
-|  [03]   | `ray.ray_pyembree.RayMeshIntersector` | auto-selected when `ray.has_embree`                           | Embree-accelerated mirror of the same intersector contract                                      |
-|  [04]   | `collision.CollisionManager`          | `CollisionManager()` then `add_object(name, mesh, transform)` | `in_collision_internal/single/other`, `min_distance_internal/single/other`, `set_transform`     |
-|  [05]   | `voxel.VoxelGrid`                     | `mesh.voxelized(pitch, method='subdivide')`                   | `matrix`, `points`, `as_boxes()`, `fill`/`hollow`, `marching_cubes`, `revoxelized`              |
+| [INDEX] | [SYMBOL]                              | [CONSTRUCTOR]                                                 |
+| :-----: | :------------------------------------ | :------------------------------------------------------------ |
+|  [01]   | `proximity.ProximityQuery`            | `ProximityQuery(mesh)`                                        |
+|  [02]   | `ray.ray_triangle.RayMeshIntersector` | `RayMeshIntersector(mesh)` (or `mesh.ray`)                    |
+|  [03]   | `ray.ray_pyembree.RayMeshIntersector` | auto-selected when `ray.has_embree`                           |
+|  [04]   | `collision.CollisionManager`          | `CollisionManager()` then `add_object(name, mesh, transform)` |
+|  [05]   | `voxel.VoxelGrid`                     | `mesh.voxelized(pitch, method='subdivide')`                   |
+
+- [01]-[PROXIMITY_QUERY]: `signed_distance(points)`, `on_surface(points)->(pts,dist,tid)`, `vertex(points)`.
+- [02]-[RAY]: `intersects_location`, `intersects_id`, `intersects_first`, `intersects_any`, `contains_points`.
+- [03]-[RAY_EMBREE]: Embree-accelerated mirror of the same intersector contract.
+- [04]-[COLLISION]: `in_collision_internal/single/other`, `min_distance_internal/single/other`, `set_transform`.
+- [05]-[VOXEL]: `matrix`, `points`, `as_boxes()`, `fill`/`hollow`, `marching_cubes`, `revoxelized`.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -69,101 +77,137 @@ Persistent query objects amortize index construction across many queries; prefer
 
 `load` resolves `file_type` from the explicit argument or the path/extension, dispatches across every registered codec, and returns the runtime-appropriate `Geometry` (a `Trimesh`, `Scene`, or `Path`); `force=` collapses ambiguous results to one kind. `export` is the symmetric writer over the same format set, returning `bytes`/`str`/`dict` when `file_obj=None`. The format is always an argument, never a `load_obj`/`load_ply`/`export_stl` function family.
 
-| [INDEX] | [SURFACE]                                                                                                 | [CALL_SHAPE]             | [CAPABILITY]                                            |
-| :-----: | :-------------------------------------------------------------------------------------------------------- | :----------------------- | :------------------------------------------------------ |
-|  [01]   | `trimesh.load(file_obj, file_type=None, resolver=None, force=None, allow_remote=False)`                   | path/bytes/stream + type | polymorphic mesh/scene/path read returning `Geometry`   |
-|  [02]   | `trimesh.load_mesh(*args, **kwargs) -> Trimesh`                                                           | path + type              | force a single `Trimesh` result (concatenates a scene)  |
-|  [03]   | `trimesh.load_scene(file_obj, file_type=None, resolver=None, allow_remote=False, metadata=None) -> Scene` | path + type              | force a `Scene` result preserving the transform graph   |
-|  [04]   | `trimesh.load_path(file_obj, file_type=None)`                                                             | path + type              | force a `Path2D`/`Path3D` (dxf/svg) result              |
-|  [05]   | `trimesh.load_remote(url, **kwargs) -> Scene`                                                             | URL                      | fetch + load a remote asset (requires `allow_remote`)   |
-|  [06]   | `trimesh.available_formats() -> set[str]`                                                                 | none                     | enumerate every registered load/export extension        |
-|  [07]   | `mesh.export(file_obj=None, file_type=None) -> dict\|bytes\|str`                                          | path/stream + type       | write a mesh to any registered format; bytes if no sink |
-|  [08]   | `scene.export(file_obj=None, file_type=None)`                                                             | type (e.g. `'glb'`)      | write a scene with transforms (glb/gltf/3mf/dae)        |
+The `trimesh.` prefix is elided; `load` and `load_scene` share `(file_obj, file_type=None, resolver=None, allow_remote=False)` with `load` adding `force=None` and `load_scene` adding `metadata=None`, and the `-> Type` returns match the CAPABILITY.
+
+| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]             | [CAPABILITY]                                            |
+| :-----: | :-------------------------------------------- | :----------------------- | :------------------------------------------------------ |
+|  [01]   | `load(..., force=None)`                       | path/bytes/stream + type | polymorphic mesh/scene/path read returning `Geometry`   |
+|  [02]   | `load_mesh(*args, **kwargs)`                  | path + type              | force a single `Trimesh` result (concatenates a scene)  |
+|  [03]   | `load_scene(..., metadata=None)`              | path + type              | force a `Scene` result preserving the transform graph   |
+|  [04]   | `load_path(file_obj, file_type=None)`         | path + type              | force a `Path2D`/`Path3D` (dxf/svg) result              |
+|  [05]   | `load_remote(url, **kwargs)`                  | URL                      | fetch + load a remote asset (requires `allow_remote`)   |
+|  [06]   | `available_formats()`                         | none                     | enumerate every registered load/export extension        |
+|  [07]   | `mesh.export(file_obj=None, file_type=None)`  | path/stream + type       | write a mesh to any registered format; bytes if no sink |
+|  [08]   | `scene.export(file_obj=None, file_type=None)` | type (e.g. `'glb'`)      | write a scene with transforms (glb/gltf/3mf/dae)        |
 
 [ENTRYPOINT_SCOPE]: primitive creation (`creation`)
 - rail: mesh
 
 `creation.*` are static constructors returning a `Trimesh`; all accept an optional `transform` 4x4 and forward `**kwargs` to the `Trimesh` constructor. `extrude_polygon`/`revolve`/`sweep_polygon`/`triangulate_polygon` consume a `shapely` `Polygon`/`LineString`, making `creation` the bridge from the planar `shapely` rail into solids.
 
-| [INDEX] | [SURFACE]                                                                                   | [CALL_SHAPE]              | [CAPABILITY]                                  |
-| :-----: | :------------------------------------------------------------------------------------------ | :------------------------ | :-------------------------------------------- |
-|  [01]   | `creation.box(extents=None, transform=None, bounds=None)`                                   | extents or bounds         | axis-aligned box                              |
-|  [02]   | `creation.cylinder(radius, height=None, sections=None, segment=None)`                       | radius + height/segment   | cylinder (or segment-defined)                 |
-|  [03]   | `creation.cone(radius, height, sections=None)` / `creation.capsule(height, radius)`         | radius + height           | cone / capsule                                |
-|  [04]   | `creation.annulus(r_min, r_max, height=None, sections=None, segment=None)`                  | inner/outer radii         | annular tube                                  |
-|  [05]   | `creation.torus(major_radius, minor_radius, major_sections=32, minor_sections=32)`          | radii + sections          | torus                                         |
-|  [06]   | `creation.icosphere(subdivisions=3, radius=1.0)` / `creation.uv_sphere(radius, count=None)` | subdivisions/count        | geodesic / UV sphere                          |
-|  [07]   | `creation.icosahedron()`                                                                    | none                      | unit icosahedron seed for subdivision         |
-|  [08]   | `creation.extrude_polygon(polygon, height, transform=None, mid_plane=False)`                | shapely polygon + height  | extrude a planar `shapely` polygon to a solid |
-|  [09]   | `creation.extrude_triangulation(vertices, faces, height)`                                   | 2D mesh + height          | extrude a precomputed triangulation           |
-|  [10]   | `creation.revolve(linestring, angle=None, cap=False, sections=None)`                        | profile + angle           | revolve a 2D profile (full/partial)           |
-|  [11]   | `creation.sweep_polygon(polygon, path, angles=None, cap=True, connect=True)`                | shapely polygon + 3D path | sweep a profile along a polyline path         |
-|  [12]   | `creation.triangulate_polygon(polygon, triangle_args=None, engine=None) -> (V,F)`           | shapely polygon           | triangulate via `triangle`/`earcut` engine    |
-|  [13]   | `creation.axis(...)` / `creation.camera_marker(camera, ...)`                                | transform / camera        | debug axis tripod / camera frustum marker     |
+The `creation.` prefix is elided and each input shape reads off the signature.
+
+| [INDEX] | [SURFACE]                                                                 | [CAPABILITY]                                  |
+| :-----: | :------------------------------------------------------------------------ | :-------------------------------------------- |
+|  [01]   | `box(extents=None, transform=None, bounds=None)`                          | axis-aligned box                              |
+|  [02]   | `cylinder(radius, height=None, sections=None, segment=None)`              | cylinder (or segment-defined)                 |
+|  [03]   | `cone(radius, height, sections=None)` / `capsule(height, radius)`         | cone / capsule                                |
+|  [04]   | `annulus(r_min, r_max, height=None, sections=None, segment=None)`         | annular tube                                  |
+|  [05]   | `torus(major_radius, minor_radius, major_sections=32, minor_sections=32)` | torus                                         |
+|  [06]   | `icosphere(subdivisions=3, radius=1.0)` / `uv_sphere(radius, count=None)` | geodesic / UV sphere                          |
+|  [07]   | `icosahedron()`                                                           | unit icosahedron seed for subdivision         |
+|  [08]   | `extrude_polygon(polygon, height, transform=None, mid_plane=False)`       | extrude a planar `shapely` polygon to a solid |
+|  [09]   | `extrude_triangulation(vertices, faces, height)`                          | extrude a precomputed triangulation           |
+|  [10]   | `revolve(linestring, angle=None, cap=False, sections=None)`               | revolve a 2D profile (full/partial)           |
+|  [11]   | `sweep_polygon(polygon, path, angles=None, cap=True, connect=True)`       | sweep a profile along a polyline path         |
+|  [12]   | `triangulate_polygon(polygon, triangle_args=None, engine=None) -> (V,F)`  | triangulate via `triangle`/`earcut` engine    |
+|  [13]   | `axis(...)` / `camera_marker(camera, ...)`                                | debug axis tripod / camera frustum marker     |
 
 [ENTRYPOINT_SCOPE]: boolean CSG, decomposition, repair, smoothing, remesh
 - rail: mesh
 
 Boolean rows route to the `manifold3d` engine (`engine='manifold'` default, `'blender'` fallback) and return a new `Trimesh`; `check_volume=True` rejects non-positive-volume operands. `boolean.reduce_cascade` folds an n-ary operation pairwise to balance the manifold tree. Smoothing rows mutate `mesh.vertices` in place and return the same `Trimesh`; `repair.fill_holes`/`fix_*` return `bool` success and mutate in place. `remesh.*` and `subdivide_to_size` return new vertex/face arrays or a new `Trimesh`.
 
-| [INDEX] | [SURFACE]                                                                                                                         | [CALL_SHAPE]           | [CAPABILITY]                                      |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------- | :--------------------- | :------------------------------------------------ |
-|  [01]   | `boolean.union(meshes, engine=None, check_volume=True)`                                                                           | mesh sequence          | n-ary watertight union via manifold               |
-|  [02]   | `boolean.difference(meshes, engine=None, check_volume=True)`                                                                      | mesh sequence          | n-ary difference (first minus rest)               |
-|  [03]   | `boolean.intersection(meshes, engine=None, check_volume=True)`                                                                    | mesh sequence          | n-ary intersection                                |
-|  [04]   | `boolean.boolean_manifold(meshes, operation, check_volume=True)` / `boolean.reduce_cascade(op, items)`                            | sequence + op          | low-level manifold op; pairwise cascade fold      |
-|  [05]   | `mesh.union/difference/intersection(other, engine=None)`                                                                          | other mesh             | method mirror of the module booleans              |
-|  [06]   | `decomposition.convex_decomposition(mesh, **kwargs) -> list[dict]` / `mesh.convex_decomposition()`                                | mesh + VHACD params    | approximate convex decomposition (manifold VHACD) |
-|  [07]   | `repair.fill_holes(mesh, use_fan=False) -> bool`                                                                                  | mesh                   | fill boundary holes in place                      |
-|  [08]   | `repair.fix_normals(mesh, multibody=False)` / `repair.fix_winding(mesh)` / `repair.fix_inversion(mesh)`                           | mesh                   | consistent outward normals / winding / inversion  |
-|  [09]   | `repair.stitch(mesh, faces=None, insert_vertices=False)` / `repair.broken_faces(mesh)`                                            | mesh                   | stitch open boundaries; enumerate broken faces    |
-|  [10]   | `smoothing.filter_taubin(mesh, lamb=0.5, nu=0.5, iterations=10)`                                                                  | mesh + lambda/nu       | Taubin shrink-free smoothing                      |
-|  [11]   | `smoothing.filter_laplacian(mesh, lamb=0.5, iterations=10, implicit_time_integration=False, volume_constraint=True)`              | mesh + iters           | Laplacian smoothing (explicit/implicit)           |
-|  [12]   | `smoothing.filter_humphrey(mesh, alpha=0.1, beta=0.5, iterations=10)` / `filter_mut_dif_laplacian(...)`                           | mesh + alpha/beta      | Humphrey / mutable-diffusion Laplacian            |
-|  [13]   | `smoothing.laplacian_calculation(mesh, equal_weight=True, pinned_vertices=None)`                                                  | mesh                   | reusable `scipy.sparse` Laplacian operator        |
-|  [14]   | `mesh.simplify_quadric_decimation(percent=None, face_count=None, aggression=None)`                                                | target % or face count | quadric decimation (manifold backend)             |
-|  [15]   | `remesh.subdivide_to_size(vertices, faces, max_edge, max_iter=10, return_index=False)` / `mesh.subdivide_to_size(...)`            | V/F + max_edge         | edge-length subdivision                           |
-|  [16]   | `remesh.subdivide(vertices, faces, ...)` / `remesh.subdivide_loop(vertices, faces, iterations=None)` / `mesh.subdivide_loop(...)` | V/F + iters            | midpoint / Loop subdivision                       |
+The `mesh.*` method mirrors are elided; `filter_laplacian` adds `implicit_time_integration=False, volume_constraint=True`, and the input shape reads off each signature.
+
+| [INDEX] | [SURFACE]                                                                          | [CAPABILITY]                                      |
+| :-----: | :--------------------------------------------------------------------------------- | :------------------------------------------------ |
+|  [01]   | `boolean.union(meshes, engine=None, check_volume=True)`                            | n-ary watertight union via manifold               |
+|  [02]   | `boolean.difference(meshes, engine=None, check_volume=True)`                       | n-ary difference (first minus rest)               |
+|  [03]   | `boolean.intersection(meshes, engine=None, check_volume=True)`                     | n-ary intersection                                |
+|  [04]   | `boolean.boolean_manifold(meshes, operation, check_volume=True)`                   | low-level manifold op                             |
+|  [05]   | `boolean.reduce_cascade(op, items)`                                                | pairwise cascade fold for n-ary input             |
+|  [06]   | `mesh.union/difference/intersection(other, engine=None)`                           | method mirror of the module booleans              |
+|  [07]   | `decomposition.convex_decomposition(mesh, **kwargs) -> list[dict]`                 | approximate convex decomposition (manifold VHACD) |
+|  [08]   | `repair.fill_holes(mesh, use_fan=False) -> bool`                                   | fill boundary holes in place                      |
+|  [09]   | `repair.fix_normals(mesh, multibody=False)`                                        | consistent outward normals                        |
+|  [10]   | `repair.fix_winding(mesh)`                                                         | consistent winding                                |
+|  [11]   | `repair.fix_inversion(mesh)`                                                       | fix inverted faces                                |
+|  [12]   | `repair.stitch(mesh, faces=None, insert_vertices=False)`                           | stitch open boundaries                            |
+|  [13]   | `repair.broken_faces(mesh)`                                                        | enumerate broken faces                            |
+|  [14]   | `smoothing.filter_taubin(mesh, lamb=0.5, nu=0.5, iterations=10)`                   | Taubin shrink-free smoothing                      |
+|  [15]   | `smoothing.filter_laplacian(mesh, lamb=0.5, iterations=10, ...)`                   | Laplacian smoothing (explicit/implicit)           |
+|  [16]   | `smoothing.filter_humphrey(mesh, alpha=0.1, beta=0.5, iterations=10)`              | Humphrey Laplacian                                |
+|  [17]   | `smoothing.filter_mut_dif_laplacian(...)`                                          | mutable-diffusion Laplacian                       |
+|  [18]   | `smoothing.laplacian_calculation(mesh, equal_weight=True, pinned_vertices=None)`   | reusable `scipy.sparse` Laplacian operator        |
+|  [19]   | `mesh.simplify_quadric_decimation(percent=None, face_count=None, aggression=None)` | quadric decimation (manifold backend)             |
+|  [20]   | `remesh.subdivide_to_size(vertices, faces, max_edge, max_iter=10, ...)`            | edge-length subdivision                           |
+|  [21]   | `remesh.subdivide(vertices, faces, ...)`                                           | midpoint subdivision                              |
+|  [22]   | `remesh.subdivide_loop(vertices, faces, iterations=None)`                          | Loop subdivision                                  |
 
 [ENTRYPOINT_SCOPE]: registration, proximity, sampling, section, split
 - rail: mesh
 
 Registration rows return a transform plus diagnostics; `mesh_other` returns `(matrix, cost)`, `icp`/`procrustes` return `(matrix, transformed, cost)`. Proximity rows return distances/points; `closest_point` and `ProximityQuery.on_surface` return the `(points, distances, triangle_id)` 3-tuple. `sample_surface`/`_even` return `(points, face_index)`. `section`/`section_multiplane` return a `Path3D`/`Path2D`; `slice_plane` returns a clipped `Trimesh`.
 
-| [INDEX] | [SURFACE]                                                                                                                                                           | [CALL_SHAPE]        | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------ | :------------------------------------------------- |
-|  [01]   | `registration.mesh_other(mesh, other, samples=500, scale=False, icp_first=10, icp_final=50) -> (matrix, cost)`                                                      | mesh + target       | align mesh to mesh by sampled ICP                  |
-|  [02]   | `registration.icp(a, b, initial=None, threshold=1e-5, max_iterations=20) -> (matrix, transformed, cost)`                                                            | point sets + init   | iterative closest point                            |
-|  [03]   | `registration.procrustes(a, b, weights=None, reflection=True, translation=True, scale=True, return_cost=True) -> (matrix, transformed, cost)`                       | correspondence sets | weighted rigid/similarity Procrustes fit           |
-|  [04]   | `registration.nricp_amberg(source_mesh, target_geometry, source_landmarks=None, target_positions=None, steps=None, eps=1e-4, gamma=1, distance_threshold=0.1, ...)` | source + target     | non-rigid Amberg deformation                       |
-|  [05]   | `registration.nricp_sumner(source_mesh, target_geometry, ..., face_pairs_type='vertex')`                                                                            | source + target     | non-rigid Sumner deformation                       |
-|  [06]   | `proximity.closest_point(mesh, points) -> (points, distances, triangle_id)`                                                                                         | mesh + points       | closest surface points, distances, triangle ids    |
-|  [07]   | `proximity.signed_distance(mesh, points)` / `ProximityQuery(mesh).signed_distance(points)`                                                                          | mesh + points       | signed distance (negative outside)                 |
-|  [08]   | `proximity.thickness(mesh, points, exterior=False, method='max_sphere')` / `proximity.max_tangent_sphere(...)`                                                      | mesh + points       | local wall thickness via inscribed sphere          |
-|  [09]   | `sample.sample_surface(mesh, count, face_weight=None, sample_color=False, seed=None) -> (points, face_index)`                                                       | mesh + count        | area-weighted surface samples                      |
-|  [10]   | `sample.sample_surface_even(mesh, count, radius=None, seed=None) -> (points, face_index)`                                                                           | mesh + count        | blue-noise / Poisson-disk even surface samples     |
-|  [11]   | `sample.volume_mesh(mesh, count)` / `mesh.sample(count)` / `mesh.contains(points) -> bool[]`                                                                        | mesh + count/points | interior volume samples; inside/outside test       |
-|  [12]   | `mesh.section(plane_normal, plane_origin) -> Path3D` / `mesh.section_multiplane(plane_origin, plane_normal, heights)`                                               | plane(s)            | planar cross-section path(s)                       |
-|  [13]   | `mesh.slice_plane(plane_origin, plane_normal, cap=False, face_index=None) -> Trimesh` / `intersections.slice_mesh_plane(...)`                                       | plane               | half-space clip (optionally capped)                |
-|  [14]   | `mesh.split(only_watertight=True, ...) -> list[Trimesh]` / `mesh.submesh(faces_sequence)`                                                                           | flags / face groups | disconnected-component split; face-group submeshes |
+Registration signatures are the keyed list below; the `-> Type` returns the lead states are dropped from the section/slice cells.
+
+| [INDEX] | [SURFACE]                                                                  | [CAPABILITY]                                    |
+| :-----: | :------------------------------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | `registration.mesh_other(mesh, other, ...)`                                | align mesh to mesh by sampled ICP; sig in [01]  |
+|  [02]   | `registration.icp(a, b, ...)`                                              | iterative closest point; sig in [02]            |
+|  [03]   | `registration.procrustes(a, b, ...)`                                       | weighted rigid/similarity fit; sig in [03]      |
+|  [04]   | `registration.nricp_amberg(source_mesh, target_geometry, ...)`             | non-rigid Amberg deformation; sig in [04]       |
+|  [05]   | `registration.nricp_sumner(source_mesh, target_geometry, ...)`             | non-rigid Sumner deformation; sig in [05]       |
+|  [06]   | `proximity.closest_point(mesh, points)`                                    | closest surface points, distances, triangle ids |
+|  [07]   | `proximity.signed_distance(mesh, points)`                                  | signed distance (negative outside)              |
+|  [08]   | `proximity.thickness(mesh, points, exterior=False, method='max_sphere')`   | local wall thickness via inscribed sphere       |
+|  [09]   | `proximity.max_tangent_sphere(...)`                                        | max inscribed tangent sphere per point          |
+|  [10]   | `sample.sample_surface(mesh, count, face_weight=None, ...)`                | area-weighted surface samples                   |
+|  [11]   | `sample.sample_surface_even(mesh, count, radius=None, seed=None)`          | blue-noise / Poisson-disk even samples          |
+|  [12]   | `sample.volume_mesh(mesh, count)`                                          | interior volume samples                         |
+|  [13]   | `mesh.sample(count)`                                                       | surface-sample convenience                      |
+|  [14]   | `mesh.contains(points) -> bool[]`                                          | inside/outside test                             |
+|  [15]   | `mesh.section(plane_normal, plane_origin)`                                 | planar cross-section path                       |
+|  [16]   | `mesh.section_multiplane(plane_origin, plane_normal, heights)`             | multi-plane cross-section paths                 |
+|  [17]   | `mesh.slice_plane(plane_origin, plane_normal, cap=False, face_index=None)` | half-space clip (optionally capped)             |
+|  [18]   | `intersections.slice_mesh_plane(...)`                                      | module-form half-space clip                     |
+|  [19]   | `mesh.split(only_watertight=True, ...) -> list[Trimesh]`                   | disconnected-component split                    |
+|  [20]   | `mesh.submesh(faces_sequence)`                                             | face-group submeshes                            |
+
+- [01]-[MESH_OTHER]: `registration.mesh_other(mesh, other, samples=500, scale=False, icp_first=10, icp_final=50) -> (matrix, cost)`.
+- [02]-[ICP]: `registration.icp(a, b, initial=None, threshold=1e-5, max_iterations=20) -> (matrix, transformed, cost)`.
+- [03]-[PROCRUSTES]: `registration.procrustes(a, b, weights=None, reflection=True, translation=True, scale=True, return_cost=True) -> (matrix, transformed, cost)`.
+- [04]-[NRICP_AMBERG]: `registration.nricp_amberg(source_mesh, target_geometry, source_landmarks=None, target_positions=None, steps=None, eps=1e-4, gamma=1, distance_threshold=0.1, ...)`.
+- [05]-[NRICP_SUMNER]: `registration.nricp_sumner(source_mesh, target_geometry, ..., face_pairs_type='vertex')`.
 
 [ENTRYPOINT_SCOPE]: bounds, curvature, collision, ray, voxel, poses
 - rail: mesh
 
-The analysis and spatial surfaces the dense owner composes for measurement, interference, and visibility.
+The analysis and spatial surfaces the dense owner composes for measurement, interference, and visibility; the input shape reads off each signature.
 
-| [INDEX] | [SURFACE]                                                                                                      | [CALL_SHAPE]           | [CAPABILITY]                                           |
-| :-----: | :------------------------------------------------------------------------------------------------------------- | :--------------------- | :----------------------------------------------------- |
-|  [01]   | `bounds.oriented_bounds(obj, ...) -> (transform, extents)` / `bounds.minimum_cylinder(obj)`                    | mesh/points            | minimum-volume OBB and bounding cylinder               |
-|  [02]   | `nsphere.minimum_nsphere(obj) -> (center, radius)` / `nsphere.fit_nsphere(points)`                             | mesh/points            | minimum bounding sphere; least-squares sphere fit      |
-|  [03]   | `curvature.discrete_gaussian_curvature_measure(mesh, points, radius)` / `discrete_mean_curvature_measure(...)` | mesh + points + radius | ball-integrated Gaussian/mean curvature                |
-|  [04]   | `mesh.ray.intersects_location(ray_origins, ray_directions) -> (locations, ray_idx, tri_idx)`                   | rays                   | ray-surface hit points (Embree-accelerated if present) |
-|  [05]   | `mesh.ray.intersects_first(...)` / `intersects_id(...)` / `intersects_any(...)`                                | rays                   | first-hit triangle, all hit ids, any-hit boolean       |
-|  [06]   | `collision.CollisionManager().add_object(name, mesh, transform); .in_collision_internal()`                     | named meshes           | FCL pairwise collision detection                       |
-|  [07]   | `CollisionManager.min_distance_internal()` / `min_distance_single(mesh)` / `min_distance_other(mgr)`           | manager(s)             | FCL minimum separation distance + contact              |
-|  [08]   | `mesh.voxelized(pitch, method='subdivide') -> VoxelGrid` then `.matrix` / `.as_boxes()` / `.fill()`            | pitch + method         | dense/sparse voxelization, fill, box mesh              |
-|  [09]   | `mesh.compute_stable_poses(center_mass=None, sigma=0.0, n_samples=1, threshold=0.0) -> (transforms, probs)`    | mesh                   | resting-pose probabilities for placement               |
-|  [10]   | `mesh.apply_obb()` / `mesh.apply_transform(matrix)` / `mesh.apply_scale(factor)`                               | mesh + transform       | reorient to OBB frame; rigid/affine transform          |
+| [INDEX] | [SURFACE]                                                                            | [CAPABILITY]                                |
+| :-----: | :----------------------------------------------------------------------------------- | :------------------------------------------ |
+|  [01]   | `bounds.oriented_bounds(obj, ...) -> (transform, extents)`                           | minimum-volume OBB                          |
+|  [02]   | `bounds.minimum_cylinder(obj)`                                                       | minimum bounding cylinder                   |
+|  [03]   | `nsphere.minimum_nsphere(obj) -> (center, radius)`                                   | minimum bounding sphere                     |
+|  [04]   | `nsphere.fit_nsphere(points)`                                                        | least-squares sphere fit                    |
+|  [05]   | `curvature.discrete_gaussian_curvature_measure(mesh, points, radius)`                | ball-integrated Gaussian curvature          |
+|  [06]   | `curvature.discrete_mean_curvature_measure(...)`                                     | ball-integrated mean curvature              |
+|  [07]   | `mesh.ray.intersects_location(ray_origins, ray_directions)`                          | ray-surface hit points (Embree-accelerated) |
+|  [08]   | `mesh.ray.intersects_first(...)`                                                     | first-hit triangle per ray                  |
+|  [09]   | `mesh.ray.intersects_id(...)`                                                        | all hit triangle ids                        |
+|  [10]   | `mesh.ray.intersects_any(...)`                                                       | any-hit boolean                             |
+|  [11]   | `collision.CollisionManager().add_object(name, mesh, transform)`                     | register a named mesh for collision         |
+|  [12]   | `collision.CollisionManager().in_collision_internal()`                               | FCL pairwise collision detection            |
+|  [13]   | `CollisionManager.min_distance_internal()`                                           | FCL minimum internal separation             |
+|  [14]   | `CollisionManager.min_distance_single(mesh)`                                         | FCL distance to one mesh                    |
+|  [15]   | `CollisionManager.min_distance_other(mgr)`                                           | FCL distance to another manager             |
+|  [16]   | `mesh.voxelized(pitch, method='subdivide')`                                          | dense/sparse voxelization; fill, boxes      |
+|  [17]   | `mesh.compute_stable_poses(center_mass=None, sigma=0.0, n_samples=1, threshold=0.0)` | resting-pose probabilities for placement    |
+|  [18]   | `mesh.apply_obb()`                                                                   | reorient to OBB frame                       |
+|  [19]   | `mesh.apply_transform(matrix)`                                                       | rigid/affine transform                      |
+|  [20]   | `mesh.apply_scale(factor)`                                                           | scale in place                              |
 
 ## [04]-[INTEGRATION_PATTERNS]
 

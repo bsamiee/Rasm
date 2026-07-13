@@ -44,14 +44,14 @@ tests/
 
 Test lanes are orthogonal to language; every suite declares its lane through the owning route, never through folder improvisation:
 
-| [INDEX] | [LANE]      | [BOUNDARY]                                                            | [ROUTE]                                                                       |
-| :-----: | :---------- | :-------------------------------------------------------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | unit        | in-process, deterministic time, no sockets                            | default test run per language                                                 |
-|  [02]   | property    | generated-input law over a unit subject                               | `Spec.ForAll` (C#), `@spec` + Hypothesis (Python), `it.effect.prop` (TS)      |
-|  [03]   | integration | real process or IO boundary: containers, subprocess, loopback servers | `network`/`subprocess` markers (Python); explicit boundary suites elsewhere   |
-|  [04]   | scenario    | live-host evidence through the rhino bridge                           | `[RhinoScenario]` content + the assay bridge rail                             |
-|  [05]   | benchmark   | measurement in a separate session, never inside unit runs             | `_benchmarks` switcher (C#), `-m benchmark` (Python), bench include glob (TS) |
-|  [06]   | mutation    | assay-gated survivor discovery                                        | assay mutation routes over the root Stryker configs + the staged Python gate  |
+| [INDEX] | [LANE]      | [BOUNDARY]                                                 | [ROUTE]                                                     |
+| :-----: | :---------- | :--------------------------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | unit        | in-process, deterministic time, no sockets                 | default test run per language                               |
+|  [02]   | property    | generated-input law over a unit subject                    | `Spec.ForAll`, `@spec` + Hypothesis, `it.effect.prop`       |
+|  [03]   | integration | real process/IO boundary: containers, subprocess, loopback | `network`/`subprocess` (Py); boundary suites elsewhere      |
+|  [04]   | scenario    | live-host evidence through the rhino bridge                | `[RhinoScenario]` content + the assay bridge rail           |
+|  [05]   | benchmark   | measurement in a separate session, never inside unit runs  | `_benchmarks` switcher, `-m benchmark`, bench include glob  |
+|  [06]   | mutation    | assay-gated survivor discovery                             | assay routes over root Stryker configs + staged Python gate |
 
 The word `integration` is reserved for the real process/IO boundary. A test that runs in-process with doubles is a unit test regardless of how many owners it spans; calling it integration inflates the lane and hides the missing boundary proof.
 
@@ -148,14 +148,14 @@ Heavy-lane invocation law: the bounded lanes — unit, property, and benchmark s
 
 Before touching any testing surface, an agent checks the owners that carry the facts:
 
-| [INDEX] | [SURFACE]                                            | [CARRIES]                                                                                       |
-| :-----: | :--------------------------------------------------- | :---------------------------------------------------------------------------------------------- |
-|  [01]   | `Directory.Packages.props` + `Directory.Build.props` | C# test-stack pins, project classifiers, lane wiring, coverage routing                          |
-|  [02]   | `Directory.Build.targets`                            | classifier vocabulary sealing: a tests/csharp project carries exactly one valid classifier      |
-|  [03]   | `pyproject.toml`                                     | Python test dependencies, pytest/coverage/mutmut/import-linter policy, markers                  |
-|  [04]   | `pnpm-workspace.yaml`                                | TS catalog pins, peer-rule resolutions, workspace package globs                                 |
-|  [05]   | `.config/`                                           | mutmut coverage side-file, dotnet tool manifest                                                 |
-|  [06]   | `vitest.config.ts` + `stryker*.json` + `nx.json`     | TS runner defaults, artifact outputs, both root Stryker mutation configs, project-graph targets |
-|  [07]   | `tools/assay`                                        | the gate authority: `static`/`test`/`bridge`/`docs`/`code`/`package`/`api`/`provision` rails    |
+| [INDEX] | [SURFACE]                                            | [CARRIES]                                                                         |
+| :-----: | :--------------------------------------------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `Directory.Packages.props` + `Directory.Build.props` | C# test-stack pins, project classifiers, lane wiring, coverage routing            |
+|  [02]   | `Directory.Build.targets`                            | classifier vocabulary sealing: each tests/csharp project carries one classifier   |
+|  [03]   | `pyproject.toml`                                     | Python test dependencies, pytest/coverage/mutmut/import-linter policy, markers    |
+|  [04]   | `pnpm-workspace.yaml`                                | TS catalog pins, peer-rule resolutions, workspace package globs                   |
+|  [05]   | `.config/`                                           | mutmut coverage side-file, dotnet tool manifest                                   |
+|  [06]   | `vitest.config.ts` + `stryker*.json` + `nx.json`     | TS runner defaults, artifact outputs, root Stryker configs, project-graph targets |
+|  [07]   | `tools/assay`                                        | gate rails: `static`/`test`/`bridge`/`docs`/`code`/`package`/`api`/`provision`    |
 
 The operator is itself a tested surface: every `tools/` operator owns a suite under `tests/<language>/tools/<tool>`, and operator and suite move in the same change — `tools/assay` with `tests/python/tools/assay`, `tools/cs-analyzer` with `tests/csharp/tools/cs-analyzer`. A rail change without its spec change is an incomplete change.

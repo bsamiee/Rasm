@@ -41,25 +41,25 @@ Persistence rails consume only `KeyManagementServiceClient`. All payload fields 
 |  [03]   | `KeyManagementServiceSettings`      | settings      | per-method retry, timeout, and call settings |
 |  [04]   | `ServiceCollectionExtensions`       | DI extension  | `AddKeyManagementServiceClient` registration |
 
-[PUBLIC_TYPE_SCOPE]: cryptographic message family
+[PUBLIC_TYPE_SCOPE]: cryptographic message family — each is a protobuf `IMessage` request/response, the `Raw*` pair a raw-IV message, `Mac*`/`AsymmetricDecrypt*` their purpose messages, `Digest`/`PublicKey` the sign helpers.
 - rail: encryption
 
-| [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY]      | [RAIL]                                                                                                   |
-| :-----: | :----------------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------------------- |
-|  [01]   | `EncryptRequest`                                 | request message    | `Name`/`ResourceName`, `Plaintext`, AAD, CRC32C                                                          |
-|  [02]   | `EncryptResponse`                                | response message   | `Ciphertext`, `CiphertextCrc32C`, verified-flags, `ProtectionLevel`                                      |
-|  [03]   | `DecryptRequest`                                 | request message    | `Name`/`CryptoKeyName`, `Ciphertext`, AAD, CRC32C                                                        |
-|  [04]   | `DecryptResponse`                                | response message   | `Plaintext`, `PlaintextCrc32C`, `UsedPrimary`, `ProtectionLevel`                                         |
-|  [05]   | `GenerateRandomBytesRequest`                     | request message    | location, length, protection level                                                                       |
-|  [06]   | `GenerateRandomBytesResponse`                    | response message   | random `Data` (+ CRC32C)                                                                                 |
-|  [07]   | `RawEncryptRequest` / `RawEncryptResponse`       | raw message        | bring-your-own-IV symmetric encrypt (+ `InitializationVector`)                                           |
-|  [08]   | `RawDecryptRequest` / `RawDecryptResponse`       | raw message        | bring-your-own-IV symmetric decrypt                                                                      |
-|  [09]   | `MacSignRequest`/`MacVerifyRequest` (+responses) | MAC message        | HMAC sign/verify over a Mac-purpose key                                                                  |
-|  [10]   | `AsymmetricDecryptRequest` (+response)           | asym message       | decrypt under an `AsymmetricDecrypt`-purpose version                                                     |
-|  [11]   | `AsymmetricSignRequest`                          | sign message       | `Name`/`CryptoKeyVersionName`, `Digest`, `DigestCrc32C`, `Data`, `DataCrc32C` (the `SigningKeyring` arm) |
-|  [12]   | `AsymmetricSignResponse`                         | sign message       | `Signature` (`ByteString`), `SignatureCrc32C`, `VerifiedDigestCrc32C`, `ProtectionLevel`, `Name`         |
-|  [13]   | `Digest`                                         | digest message     | the precomputed `OpDigest` wrapper — one of `Sha256`/`Sha384`/`Sha512` `ByteString` fields               |
-|  [14]   | `GetPublicKeyRequest` / `PublicKey`              | key-export message | downloads the asymmetric public key (`Pem`/`Algorithm`) for the CLIENT-side verify                       |
+| [INDEX] | [SYMBOL]                                         | [RAIL]                                                                        |
+| :-----: | :----------------------------------------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `EncryptRequest`                                 | `Name`/`ResourceName`, `Plaintext`, AAD, CRC32C                               |
+|  [02]   | `EncryptResponse`                                | `Ciphertext`, `CiphertextCrc32C`, verified-flags, `ProtectionLevel`           |
+|  [03]   | `DecryptRequest`                                 | `Name`/`CryptoKeyName`, `Ciphertext`, AAD, CRC32C                             |
+|  [04]   | `DecryptResponse`                                | `Plaintext`, `PlaintextCrc32C`, `UsedPrimary`, `ProtectionLevel`              |
+|  [05]   | `GenerateRandomBytesRequest`                     | location, length, protection level                                            |
+|  [06]   | `GenerateRandomBytesResponse`                    | random `Data` (+ CRC32C)                                                      |
+|  [07]   | `RawEncryptRequest` / `RawEncryptResponse`       | bring-your-own-IV symmetric encrypt (+ `InitializationVector`)                |
+|  [08]   | `RawDecryptRequest` / `RawDecryptResponse`       | bring-your-own-IV symmetric decrypt                                           |
+|  [09]   | `MacSignRequest`/`MacVerifyRequest` (+responses) | HMAC sign/verify over a Mac-purpose key                                       |
+|  [10]   | `AsymmetricDecryptRequest` (+response)           | decrypt under an `AsymmetricDecrypt`-purpose version                          |
+|  [11]   | `AsymmetricSignRequest`                          | `Name`/`CryptoKeyVersionName`, `Digest`, `DigestCrc32C`, `Data`, `DataCrc32C` |
+|  [12]   | `AsymmetricSignResponse`                         | `Signature`, `SignatureCrc32C`, `VerifiedDigestCrc32C`, `ProtectionLevel`     |
+|  [13]   | `Digest`                                         | precomputed `OpDigest`; `Sha256`/`Sha384`/`Sha512` `ByteString` field         |
+|  [14]   | `GetPublicKeyRequest` / `PublicKey`              | downloads the public key (`Pem`/`Algorithm`) for client-side verify           |
 
 [PUBLIC_TYPE_SCOPE]: resource-model family
 - rail: encryption
@@ -73,14 +73,14 @@ Persistence rails consume only `KeyManagementServiceClient`. All payload fields 
 |  [05]   | `CryptoKeyVersionName` | resource name    | typed `cryptoKeyVersions/*` path builder        |
 |  [06]   | `KeyRingName`          | resource name    | typed `keyRings/*` path builder                 |
 
-[PUBLIC_TYPE_SCOPE]: bounded vocabulary
+[PUBLIC_TYPE_SCOPE]: bounded vocabulary — protobuf enums; `CryptoKeyPurpose` nests under `CryptoKey.Types`, `CryptoKeyVersionState` under `CryptoKeyVersion.Types`.
 - rail: encryption
 
-| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY] | [RAIL]                                                                                                       |
-| :-----: | :--------------------------------------------- | :------------ | :----------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ProtectionLevel`                              | enum          | `Unspecified`, `Software`, `Hsm`, `External`, `ExternalVpc`, `HsmSingleTenant`                               |
-|  [02]   | `CryptoKey.Types.CryptoKeyPurpose`             | nested enum   | `EncryptDecrypt`, `RawEncryptDecrypt`, `AsymmetricSign`, `AsymmetricDecrypt`, `Mac`, `KeyEncapsulation`      |
-|  [03]   | `CryptoKeyVersion.Types.CryptoKeyVersionState` | nested enum   | `PendingGeneration`, `Enabled`, `Disabled`, `Destroyed`, `DestroyScheduled`, `PendingImport`, `ImportFailed` |
+| [INDEX] | [SYMBOL]                | [VALUES]                                                                                                     |
+| :-----: | :---------------------- | :----------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ProtectionLevel`       | `Unspecified`, `Software`, `Hsm`, `External`, `ExternalVpc`, `HsmSingleTenant`                               |
+|  [02]   | `CryptoKeyPurpose`      | `EncryptDecrypt`, `RawEncryptDecrypt`, `AsymmetricSign`, `AsymmetricDecrypt`, `Mac`, `KeyEncapsulation`      |
+|  [03]   | `CryptoKeyVersionState` | `PendingGeneration`, `Enabled`, `Disabled`, `Destroyed`, `DestroyScheduled`, `PendingImport`, `ImportFailed` |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -117,13 +117,13 @@ Persistence rails consume only `KeyManagementServiceClient`. All payload fields 
 [ENTRYPOINT_SCOPE]: signing operations (the `Element/identity#KMS_CUSTODY` `SigningKeyring` arm)
 - rail: signing
 
-| [INDEX] | [SURFACE]                                                                         | [ENTRY_FAMILY] | [RAIL]                                                                                                                                |
-| :-----: | :-------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `AsymmetricSign(AsymmetricSignRequest, callSettings?)`                            | sign           | signs the `Digest` (the precomputed `OpDigest`) under an `ASYMMETRIC_SIGN`-purpose `CryptoKeyVersion`, returning the `Signature` blob |
-|  [02]   | `AsymmetricSign(CryptoKeyVersionName name, Digest, …)`                            | typed sign     | sign overload taking the typed version name + `Digest`                                                                                |
-|  [03]   | `AsymmetricSignAsync(AsymmetricSignRequest, … \| ct)`                             | async sign     | awaitable asymmetric sign                                                                                                             |
-|  [04]   | `GetPublicKey(CryptoKeyVersionName, callSettings?)` / `GetPublicKeyAsync(…)`      | key export     | downloads the `PublicKey` (`Pem`/`Algorithm`) for the CLIENT-side verify (no server-side asymmetric verify exists)                    |
-|  [05]   | `AsymmetricSignResponse.Signature` / `.SignatureCrc32C` / `.VerifiedDigestCrc32C` | response field | the signature blob + the CRC32C integrity stack the keyring verifies before trusting                                                  |
+| [INDEX] | [SURFACE]                                                                    | [RAIL]                                                |
+| :-----: | :--------------------------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `AsymmetricSign(AsymmetricSignRequest, callSettings?)`                       | signs the `Digest` under an `ASYMMETRIC_SIGN` version |
+|  [02]   | `AsymmetricSign(CryptoKeyVersionName name, Digest, …)`                       | typed-version-name + `Digest` overload                |
+|  [03]   | `AsymmetricSignAsync(AsymmetricSignRequest, … \| ct)`                        | awaitable asymmetric sign                             |
+|  [04]   | `GetPublicKey(CryptoKeyVersionName, callSettings?)` / `GetPublicKeyAsync(…)` | downloads `PublicKey` for the client verify           |
+|  [05]   | `AsymmetricSignResponse.{Signature,SignatureCrc32C,VerifiedDigestCrc32C}`    | signature blob + CRC32C stack the keyring verifies    |
 
 [ENTRYPOINT_SCOPE]: random and key-material operations
 - rail: encryption
@@ -143,13 +143,13 @@ Persistence rails consume only `KeyManagementServiceClient`. All payload fields 
 [ENTRYPOINT_SCOPE]: resource-name builders
 - rail: encryption
 
-| [INDEX] | [SURFACE]                                                                              | [ENTRY_FAMILY] | [RAIL]                                |
-| :-----: | :------------------------------------------------------------------------------------- | :------------- | :------------------------------------ |
-|  [01]   | `CryptoKeyName.FromProjectLocationKeyRingCryptoKey(project, location, keyRing, key)`   | typed builder  | composes a `cryptoKeys/*` path        |
-|  [02]   | `CryptoKeyName.Parse(cryptoKeyName)`                                                   | parse          | parses a full key resource string     |
-|  [03]   | `CryptoKeyVersionName.FromProjectLocationKeyRingCryptoKeyCryptoKeyVersion(…, version)` | typed builder  | composes a `cryptoKeyVersions/*` path |
-|  [04]   | `CryptoKeyVersionName.Parse(cryptoKeyVersionName)`                                     | parse          | parses a full version resource string |
-|  [05]   | `KeyRingName.FromProjectLocationKeyRing(project, location, keyRing)`                   | typed builder  | composes a `keyRings/*` path          |
+| [INDEX] | [SURFACE]                                                                              | [RAIL]                                |
+| :-----: | :------------------------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `CryptoKeyName.FromProjectLocationKeyRingCryptoKey(project, location, keyRing, key)`   | composes a `cryptoKeys/*` path        |
+|  [02]   | `CryptoKeyName.Parse(cryptoKeyName)`                                                   | parses a full key resource string     |
+|  [03]   | `CryptoKeyVersionName.FromProjectLocationKeyRingCryptoKeyCryptoKeyVersion(…, version)` | composes a `cryptoKeyVersions/*` path |
+|  [04]   | `CryptoKeyVersionName.Parse(cryptoKeyVersionName)`                                     | parses a full version resource string |
+|  [05]   | `KeyRingName.FromProjectLocationKeyRing(project, location, keyRing)`                   | composes a `keyRings/*` path          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -66,36 +66,39 @@
 
 [ENTRYPOINT_SCOPE]: settings construction and source order
 - rail: validation
-- `BaseSettings()` runs the full source chain at instantiation; the per-instance override kwargs let a caller redirect a source without subclassing.
+- `BaseSettings()` runs the full source chain at instantiation; the per-instance override kwargs are `_env_file`, `_env_prefix`, `_env_nested_delimiter`, `_secrets_dir`, `_cli_parse_args` (mirroring the config knobs), redirecting a source without subclassing.
+- `settings_customise_sources(cls, settings_cls, init_settings, env_settings, dotenv_settings, file_secret_settings)` returns the reordered `tuple[PydanticBaseSettingsSource, ...]`, earlier element winning.
 
-| [INDEX] | [SURFACE]                                                                                                                                                     | [ENTRY_FAMILY] | [RAIL]                                                   |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :------------------------------------------------------- |
-|  [01]   | `BaseSettings(_env_file=, _env_prefix=, _env_nested_delimiter=, _secrets_dir=, _cli_parse_args=, **values)`                                                   | construct      | instantiate + run the resolved source chain              |
-|  [02]   | `settings_customise_sources(cls, settings_cls, init_settings, env_settings, dotenv_settings, file_secret_settings) -> tuple[PydanticBaseSettingsSource, ...]` | source order   | classmethod returning the highest-to-lowest source tuple |
-|  [03]   | `PydanticBaseSettingsSource.__call__() -> dict[str, Any]` / `get_field_value(field, field_name)`                                                              | source impl    | a custom source returns its field mapping                |
+| [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY] | [RAIL]                          |
+| :-----: | :----------------------------------------------------------------------------- | :------------- | :------------------------------ |
+|  [01]   | `BaseSettings(**values)`                                                       | construct      | runs the resolved source chain  |
+|  [02]   | `settings_customise_sources(...)`                                              | source order   | reorders the built-in sources   |
+|  [03]   | `PydanticBaseSettingsSource.__call__()` / `get_field_value(field, field_name)` | source impl    | a custom source's field mapping |
 
 [ENTRYPOINT_SCOPE]: settings config knobs (`SettingsConfigDict`)
 - rail: validation
 - the `model_config = SettingsConfigDict(...)` that the source chain reads; one config row per behavior, never scattered constructor args.
 
-| [INDEX] | [KNOB]                                                                                                                      | [ENTRY_FAMILY] | [RAIL]                                     |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------- |
-|  [01]   | `env_prefix` / `env_prefix_target` / `case_sensitive`                                                                       | env binding    | environment variable name mapping          |
-|  [02]   | `env_nested_delimiter` / `env_parse_none_str` / `env_parse_enums`                                                           | env nesting    | nested-model env key splitting and parsing |
-|  [03]   | `env_file` / `env_file_encoding`                                                                                            | dotenv         | `.env` file path(s) and encoding           |
-|  [04]   | `secrets_dir`                                                                                                               | secrets        | secrets directory path(s)                  |
-|  [05]   | `toml_file` / `yaml_file` / `json_file` (+ `_encoding`)                                                                     | file source    | declarative file-source paths              |
-|  [06]   | `cli_parse_args` / `cli_prog_name` / `cli_kebab_case` / `cli_implicit_flags` / `cli_enforce_required` / `cli_exit_on_error` | cli            | CLI parsing behavior                       |
-|  [07]   | `extra` / `nested_model_default_partial_update`                                                                             | merge policy   | unknown-key + nested-merge behavior        |
+| [INDEX] | [KNOB]                                                              | [ENTRY_FAMILY] | [RAIL]                                     |
+| :-----: | :------------------------------------------------------------------ | :------------- | :----------------------------------------- |
+|  [01]   | `env_prefix` / `env_prefix_target` / `case_sensitive`               | env binding    | environment variable name mapping          |
+|  [02]   | `env_nested_delimiter` / `env_parse_none_str` / `env_parse_enums`   | env nesting    | nested-model env key splitting and parsing |
+|  [03]   | `env_file` / `env_file_encoding`                                    | dotenv         | `.env` file path(s) and encoding           |
+|  [04]   | `secrets_dir`                                                       | secrets        | secrets directory path(s)                  |
+|  [05]   | `toml_file` / `yaml_file` / `json_file` (+ `_encoding`)             | file source    | declarative file-source paths              |
+|  [06]   | `cli_parse_args` / `cli_prog_name` / `cli_kebab_case`               | cli            | CLI program name and case                  |
+|  [07]   | `cli_implicit_flags` / `cli_enforce_required` / `cli_exit_on_error` | cli            | CLI flag, required, and error behavior     |
+|  [08]   | `extra` / `nested_model_default_partial_update`                     | merge policy   | unknown-key + nested-merge behavior        |
 
 [ENTRYPOINT_SCOPE]: CLI runner
 - rail: validation
+- `CliApp.run(model_cls, cli_args=None, cli_settings_source=None, cli_exit_on_error=None, cli_cmd_method_name='cli_cmd', **model_init_data) -> T` builds the model from CLI args and invokes its `cli_cmd`, awaiting async commands on a thread isolated under a running loop; `run_subcommand` and `get_subcommand` share `cli_exit_on_error` and `cli_cmd_method_name`.
 
-| [INDEX] | [SURFACE]                                                                                                                                       | [ENTRY_FAMILY] | [RAIL]                                                                                                         |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `CliApp.run(model_cls, cli_args=None, cli_settings_source=None, cli_exit_on_error=None, cli_cmd_method_name='cli_cmd', **model_init_data) -> T` | CLI run        | build the model from CLI args and invoke its `cli_cmd` (awaits if async, thread-isolated under a running loop) |
-|  [02]   | `CliApp.run_subcommand(model, cli_exit_on_error=None, cli_cmd_method_name='cli_cmd') -> PydanticModel`                                          | CLI dispatch   | run the selected subcommand on an already-built model                                                          |
-|  [03]   | `get_subcommand(model, is_required=True, cli_exit_on_error=True)`                                                                               | CLI            | extract the selected `CliSubCommand` instance                                                                  |
+| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [RAIL]                                     |
+| :-----: | :---------------------------------------------------------------- | :------------- | :----------------------------------------- |
+|  [01]   | `CliApp.run(model_cls, ...) -> T`                                 | CLI run        | build the model, invoke its `cli_cmd`      |
+|  [02]   | `CliApp.run_subcommand(model) -> PydanticModel`                   | CLI dispatch   | run a subcommand on an already-built model |
+|  [03]   | `get_subcommand(model, is_required=True, cli_exit_on_error=True)` | CLI            | extract the selected `CliSubCommand`       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

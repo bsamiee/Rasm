@@ -176,12 +176,14 @@ flowchart LR
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]         | [OWNER]                         | [KIND]                                             | [RAIL]                             | [CASES] |
-| :-----: | :---------------- | :------------------------------ | :------------------------------------------------- | :--------------------------------- | :-----: |
-|  [01]   | pane slots        | `ShellSlot`                     | `[SmartEnum<int>]` rows, one resolve column        | `Resolve → Fin<object>` (internal) |    7    |
-|  [02]   | shell toggles     | `ShellToggle`                   | `[SmartEnum<int>]` rows, one dual-direction column | `Swing → Fin<bool>` (internal)     |    3    |
-|  [03]   | shell commands    | `ShellOp` + `ShellReceipt`      | `[GenerateUnionOps]` `[Union]` + evidence receipt  | `Apply → Fin<ShellReceipt>`        |    2    |
-|  [04]   | shell evidence    | `ShellState`                    | evidence receipt over verified scalars             | `Snapshot → Fin<ShellState>`       |    1    |
-|  [05]   | typed pane egress | `EditorShell.Grab<TPane, TOut>` | one generic gate, one marshal window               | `Grab → Fin<TOut>`                 |    1    |
+`Resolve` and `Swing` are internal columns behind the three public gates `Apply`, `Snapshot`, and `Grab`.
+
+| [INDEX] | [CONCERN]         | [OWNER]                         | [KIND]                                    | [RAIL]                       | [CASES] |
+| :-----: | :---------------- | :------------------------------ | :---------------------------------------- | :--------------------------- | :-----: |
+|  [01]   | pane slots        | `ShellSlot`                     | `[SmartEnum<int>]`, resolve column        | `Resolve → Fin<object>`      |    7    |
+|  [02]   | shell toggles     | `ShellToggle`                   | `[SmartEnum<int>]`, dual-direction column | `Swing → Fin<bool>`          |    3    |
+|  [03]   | shell commands    | `ShellOp` + `ShellReceipt`      | `[Union]` `[GenerateUnionOps]` + receipt  | `Apply → Fin<ShellReceipt>`  |    2    |
+|  [04]   | shell evidence    | `ShellState`                    | evidence receipt over verified scalars    | `Snapshot → Fin<ShellState>` |    1    |
+|  [05]   | typed pane egress | `EditorShell.Grab<TPane, TOut>` | generic gate, one marshal window          | `Grab → Fin<TOut>`           |    1    |
 
 `ScopeTarget`, `GhScope`, `EtoDispatch`, `Op`, `Fault`, and `ValidityClaim` are composed upstream owners. The census `EditorOp` four-case roster has no successor shape — its capabilities land as the rows, cases, and gates above. Every composed host member on this page is decompile-verified: the seven pane types, the recency members, both toggles, `DocumentBag.Current`, and the static `BeginRhinoGetter`; `Editor.BreadCrumbs` (private) is the deleted phantom row, and the host ships no file-comparison member.

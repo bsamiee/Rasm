@@ -34,89 +34,109 @@ distinct from the NTS `Geometry` algebra; the seam is a projection bridge, not a
 - namespace: `SharpKml.Dom`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]    | [RAIL]   | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                        |
-| :-----: | :---------- | :------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Kml`       | geometry | the document root element; `Feature Feature` (the single root feature), `NetworkLinkControl NetworkLinkControl`, `void AddNamespacePrefix(prefix, ns)`. The `Element` a `KmlFile` wraps                                                                                                                                                                                             |
-|  [02]   | `Feature`   | geometry | abstract base of every placemark/container/overlay; `string Name`/`Address`/`PhoneNumber`, `bool? Visibility`/`Open`, `Description Description`, `ExtendedData ExtendedData`, `Region Region`, `TimePrimitive Time`, `AbstractView Viewpoint` (the `Camera`/`LookAt`), `Uri StyleUrl`, `void AddStyle(StyleSelector)`/`ClearStyles()`. The shared metadata every KML object carries |
-|  [03]   | `Container` | geometry | abstract feature-with-children (`Document`/`Folder`); `void AddFeature(Feature)`, `Feature FindFeature(string id)`, `bool RemoveFeature(...)` — the tree node                                                                                                                                                                                                                       |
-|  [04]   | `Document`  | geometry | the top container that can own shared `Style`/`Schema`; `void AddSchema(Schema)` (+ the inherited `AddFeature`/`AddStyle`) — the standard root of an authored KML                                                                                                                                                                                                                   |
-|  [05]   | `Folder`    | geometry | a nested grouping `Container` — the sub-tree a layer/discipline groups under                                                                                                                                                                                                                                                                                                        |
-|  [06]   | `Placemark` | geometry | a feature with geometry; `Geometry Geometry`. The styled point/line/polygon a `GeoFeature` projects onto                                                                                                                                                                                                                                                                            |
+| [INDEX] | [SYMBOL]    | [CAPABILITY]                                                                                                       |
+| :-----: | :---------- | :----------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Kml`       | document root element; members in `[01]-[KML]`                                                                     |
+|  [02]   | `Feature`   | abstract base of every placemark/container/overlay; members in `[02]-[FEATURE]`                                    |
+|  [03]   | `Container` | feature-with-children (`Document`/`Folder`); `AddFeature(Feature)`, `FindFeature(string id)`, `RemoveFeature(...)` |
+|  [04]   | `Document`  | top container owning shared `Style`/`Schema`; `AddSchema(Schema)` + inherited `AddFeature`/`AddStyle`              |
+|  [05]   | `Folder`    | a nested grouping `Container`; the sub-tree a layer/discipline groups under                                        |
+|  [06]   | `Placemark` | a feature with geometry; `Geometry Geometry`; the styled point/line/polygon a `GeoFeature` projects onto           |
+
+- [01]-[KML]: `Kml` — `Feature Feature` (the single root feature), `NetworkLinkControl NetworkLinkControl`, `void AddNamespacePrefix(prefix, ns)`; the `Element` a `KmlFile` wraps.
+- [02]-[FEATURE]: `Feature` — `string Name`/`Address`/`PhoneNumber`, `bool? Visibility`/`Open`, `Description Description`, `ExtendedData ExtendedData`, `Region Region`, `TimePrimitive Time`, `AbstractView Viewpoint` (the `Camera`/`LookAt`), `Uri StyleUrl`, `void AddStyle(StyleSelector)`/`ClearStyles()`; the shared metadata every KML object carries.
 
 [PUBLIC_TYPE_SCOPE]: the KML geometry hierarchy
 - package: `SharpKml.Core`
 - namespace: `SharpKml.Dom`, `SharpKml.Base`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]               | [RAIL]   | [CAPABILITY]                                                                                                                                                                                                                                                                    |
-| :-----: | :--------------------- | :------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `Geometry`             | geometry | abstract base of the KML geometry leaves (distinct from NTS `Geometry` — this is the KML DOM type)                                                                                                                                                                              |
-|  [02]   | `Point`                | geometry | `Vector Coordinate`, `AltitudeMode? AltitudeMode`, `bool? Extrude` — a single placemark location                                                                                                                                                                                |
-|  [03]   | `LineString`           | geometry | `CoordinateCollection Coordinates`, `AltitudeMode?`, `bool? Tessellate`/`Extrude`, `int? GXDrawOrder` — a path                                                                                                                                                                  |
-|  [04]   | `LinearRing`           | geometry | `CoordinateCollection Coordinates` — the closed ring used as a polygon boundary                                                                                                                                                                                                 |
-|  [05]   | `Polygon`              | geometry | `OuterBoundary OuterBoundary`, `IReadOnlyCollection<InnerBoundary> InnerBoundary`, `void AddInnerBoundary(InnerBoundary)`, `bool? Tessellate`/`Extrude` — a filled area with holes (each boundary wraps a `LinearRing`)                                                         |
-|  [06]   | `MultipleGeometry`     | geometry | `IReadOnlyCollection<Geometry> Geometry`, `void AddGeometry(Geometry)` — the heterogeneous geometry collection (the KML `MultiGeometry`)                                                                                                                                        |
-|  [07]   | `CoordinateCollection` | geometry | `ICollection<Vector>`; ctors `()`/`(IEnumerable<Vector>)`, `Add`/`Remove`/`Contains`, `static string Delimiter` — the `<coordinates>` list a `LineString`/`LinearRing` carries                                                                                                  |
-|  [08]   | `Vector`               | geometry | the KML coordinate value (`SharpKml.Base`); `double Latitude`/`Longitude`, `double? Altitude`, value equality + `+`/`-`/`*` operators. The bridge target an NTS `Coordinate` maps onto — NOTE: KML order is (lat, lon[, alt]), the inverse of an NTS `Coordinate(X=lon, Y=lat)` |
+| [INDEX] | [SYMBOL]               | [CAPABILITY]                                                                                                  |
+| :-----: | :--------------------- | :------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `Geometry`             | abstract base of the KML geometry leaves (distinct from NTS `Geometry` — this is the KML DOM type)            |
+|  [02]   | `Point`                | `Vector Coordinate`, `AltitudeMode? AltitudeMode`, `bool? Extrude`; a single placemark location               |
+|  [03]   | `LineString`           | `CoordinateCollection Coordinates`, `AltitudeMode?`, `bool? Tessellate`/`Extrude`, `int? GXDrawOrder`; a path |
+|  [04]   | `LinearRing`           | `CoordinateCollection Coordinates`; the closed ring used as a polygon boundary                                |
+|  [05]   | `Polygon`              | filled area with holes (each boundary wraps a `LinearRing`); members in `[05]-[POLYGON]`                      |
+|  [06]   | `MultipleGeometry`     | `IReadOnlyCollection<Geometry> Geometry`, `void AddGeometry(Geometry)`; the KML `MultiGeometry`               |
+|  [07]   | `CoordinateCollection` | `ICollection<Vector>` `<coordinates>` list; members in `[07]-[COORDS]`                                        |
+|  [08]   | `Vector`               | the KML coordinate value (`SharpKml.Base`); members and coordinate-order law in `[08]-[VECTOR]`               |
+
+- [05]-[POLYGON]: `Polygon` — `OuterBoundary OuterBoundary`, `IReadOnlyCollection<InnerBoundary> InnerBoundary`, `void AddInnerBoundary(InnerBoundary)`, `bool? Tessellate`/`Extrude`; each boundary wraps a `LinearRing`.
+- [07]-[COORDS]: `CoordinateCollection` — `ICollection<Vector>`; ctors `()`/`(IEnumerable<Vector>)`, `Add`/`Remove`/`Contains`, `static string Delimiter`; the `<coordinates>` list a `LineString`/`LinearRing` carries.
+- [08]-[VECTOR]: `Vector` — `double Latitude`/`Longitude`, `double? Altitude`, value equality + `+`/`-`/`*` operators; the bridge target an NTS `Coordinate` maps onto — KML order is (lat, lon[, alt]), the inverse of an NTS `Coordinate(X=lon, Y=lat)`.
 
 [PUBLIC_TYPE_SCOPE]: style, overlay, extended-data, schema
 - package: `SharpKml.Core`
 - namespace: `SharpKml.Dom`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]                                | [RAIL]   | [CAPABILITY]                                                                                                                                                                                                                                                                      |
-| :-----: | :-------------------------------------- | :------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Style`                                 | geometry | a shared style (`StyleSelector`); `IconStyle Icon`, `LabelStyle Label`, `LineStyle Line`, `PolygonStyle Polygon`, `BalloonStyle Balloon`, `ListStyle List` — the per-geometry-kind symbology                                                                                      |
-|  [02]   | `StyleMapCollection`                    | geometry | a `normal`↔`highlight` style-state map (`StyleSelector`, `ICollection<Pair>`); `void Add(Pair)` — the rollover style map                                                                                                                                                          |
-|  [03]   | `ExtendedData`                          | geometry | typed attributes on a feature; `IReadOnlyCollection<Data> Data`, `IReadOnlyCollection<SchemaData> SchemaData`, `void AddData(Data)`/`AddSchemaData(SchemaData)` — the carrier a `BimElement` `PropertySet` projects onto                                                          |
-|  [04]   | `Data` / `SimpleData`                   | geometry | one untyped (`Data`: `Name`/`DisplayName`/`Value`) / schema-typed (`SimpleData`: `Name`/`Value`) attribute                                                                                                                                                                        |
-|  [05]   | `Schema` / `SchemaData` / `SimpleField` | geometry | the typed-attribute schema (`Schema.AddField(SimpleField)` with `Name`/`FieldType`/`DisplayName`) and its per-feature `SchemaData` instance — the strongly-typed `ExtendedData` form                                                                                              |
-|  [06]   | `GroundOverlay`                         | geometry | a georeferenced image draped on terrain (`Overlay`); `Icon Icon` (the image link), `LatLonBox Bounds` (N/S/E/W + `Rotation`), `LatLonQuad GXLatLonQuad` (the rotated-quad placement), `double? Altitude`, `Color32? Color`, `int? DrawOrder` — the ortho/site-plan raster overlay |
-|  [07]   | `NetworkLink`                           | geometry | a lazily-fetched remote KML (`Feature`); `Link Link`, `bool? FlyToView`/`RefreshVisibility` — the super-overlay tile/region streaming root                                                                                                                                        |
+| [INDEX] | [SYMBOL]             | [CAPABILITY]                                                                                    |
+| :-----: | :------------------- | :---------------------------------------------------------------------------------------------- |
+|  [01]   | `Style`              | a shared style (`StyleSelector`); per-geometry-kind symbology, members in `[01]-[STYLE]`        |
+|  [02]   | `StyleMapCollection` | a `normal`↔`highlight` style-state map (`StyleSelector`, `ICollection<Pair>`); `void Add(Pair)` |
+|  [03]   | `ExtendedData`       | typed attributes on a feature; members in `[03]-[EXTDATA]`                                      |
+|  [04]   | `Data`               | one untyped attribute: `Name`/`DisplayName`/`Value`                                             |
+|  [05]   | `SimpleData`         | one schema-typed attribute: `Name`/`Value`                                                      |
+|  [06]   | `Schema`             | the typed-attribute schema; `AddField(SimpleField)` with `Name`/`FieldType`/`DisplayName`       |
+|  [07]   | `SchemaData`         | per-feature instance of a `Schema` — the strongly-typed `ExtendedData` form                     |
+|  [08]   | `SimpleField`        | one `Schema` field declaration (`Name`/`FieldType`/`DisplayName`)                               |
+|  [09]   | `GroundOverlay`      | georeferenced image draped on terrain (`Overlay`); members in `[09]-[GROVERLAY]`                |
+|  [10]   | `NetworkLink`        | lazily-fetched remote KML (`Feature`); `Link Link`, `bool? FlyToView`/`RefreshVisibility`       |
+
+- [01]-[STYLE]: `Style` — `IconStyle Icon`, `LabelStyle Label`, `LineStyle Line`, `PolygonStyle Polygon`, `BalloonStyle Balloon`, `ListStyle List`; the per-geometry-kind symbology.
+- [03]-[EXTDATA]: `ExtendedData` — `IReadOnlyCollection<Data> Data`, `IReadOnlyCollection<SchemaData> SchemaData`, `void AddData(Data)`/`AddSchemaData(SchemaData)`; the carrier a `BimElement` `PropertySet` projects onto.
+- [09]-[GROVERLAY]: `GroundOverlay` — `Icon Icon` (the image link), `LatLonBox Bounds` (N/S/E/W + `Rotation`), `LatLonQuad GXLatLonQuad` (the rotated-quad placement), `double? Altitude`, `Color32? Color`, `int? DrawOrder`; the ortho/site-plan raster overlay.
 
 [PUBLIC_TYPE_SCOPE]: the `gx:` tour and track extension
 - package: `SharpKml.Core`
 - namespace: `SharpKml.Dom.GX`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]     | [RAIL]   | [CAPABILITY]                                                                                                                                         |
-| :-----: | :----------- | :------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Tour`       | geometry | a camera-animation feature; `Playlist Playlist` (the ordered `FlyTo`/`Wait`/`AnimatedUpdate`/`SoundCue` primitives) — the guided 4D fly-through      |
-|  [02]   | `Track`      | geometry | a time-stamped moving geometry (`when`+`coord`+`angles` series) — the construction-equipment / survey path with time; `MultipleTrack` groups several |
-|  [03]   | `LatLonQuad` | geometry | the four-corner ground-overlay placement (a rotated/sheared image footprint)                                                                         |
+| [INDEX] | [SYMBOL]     | [CAPABILITY]                                                                                                     |
+| :-----: | :----------- | :--------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Tour`       | camera-animation feature; `Playlist Playlist` of ordered `FlyTo`/`Wait`/`AnimatedUpdate`/`SoundCue` primitives   |
+|  [02]   | `Track`      | time-stamped moving geometry (`when`+`coord`+`angles`); construction/survey path; `MultipleTrack` groups several |
+|  [03]   | `LatLonQuad` | the four-corner ground-overlay placement (a rotated/sheared image footprint)                                     |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the file and archive engine (`SharpKml.Engine`)
 - package: `SharpKml.Core`
 - namespace: `SharpKml.Engine`
+- owners: `[01]`-`[04]` on `KmlFile`; `[05]`-`[11]` on `KmzFile`
 - rail: geometry
 
-| [INDEX] | [SURFACE]                                            | [CALL_SHAPE]                                                       | [CAPABILITY]                                                                                                                            |
-| :-----: | :--------------------------------------------------- | :----------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `KmlFile.Create`                                     | `(Element root, bool duplicates)` → `KmlFile`                      | wraps an authored `Kml`/`Element` tree (the `duplicates` flag controls id-duplication tolerance) — the in-memory KML ready to serialize |
-|  [02]   | `KmlFile.Load`                                       | `(Stream input)` / `(TextReader reader)` → `KmlFile`               | parses a `.kml` document into the typed `Dom` tree                                                                                      |
-|  [03]   | `KmlFile.Save`                                       | `(Stream stream)`                                                  | serializes the tree to `.kml` XML                                                                                                       |
-|  [04]   | `KmlFile.FindObject` / `FindStyle`                   | `(string id)` → `KmlObject` / `StyleSelector`                      | resolves a `#id`-referenced object / shared style                                                                                       |
-|  [05]   | `KmzFile.Create`                                     | `(KmlFile kml)` / `(KmlFile kml, Stream targetStream)` → `KmzFile` | builds a `.kmz` archive around the doc (the `doc.kml` entry)                                                                            |
-|  [06]   | `KmzFile.Open`                                       | `(Stream stream[, Stream targetStream])` → `KmzFile`               | opens an existing `.kmz` (`IDisposable`)                                                                                                |
-|  [07]   | `KmzFile.AddFile`                                    | `(string path, byte[] data)` / `(string path, Stream stream)`      | adds a referenced resource (an icon PNG, a `GroundOverlay` image) into the archive                                                      |
-|  [08]   | `KmzFile.ReadFile` / `ReadKml` / `GetDefaultKmlFile` | `(string path)` → `byte[]` / `()` → `string` / `()` → `KmlFile`    | reads an archived resource / the `doc.kml` text / the parsed default KML                                                                |
-|  [09]   | `KmzFile.Save`                                       | `(Stream stream)` (+ `UpdateFile`/`RemoveFile`/`Flush`)            | writes the `.kmz` archive                                                                                                               |
+| [INDEX] | [SURFACE]                  | [CAPABILITY]                                                                                             |
+| :-----: | :------------------------- | :------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Create`                   | `(Element root, bool duplicates)` → `KmlFile`; wraps an authored tree, `duplicates` = id-dup tolerance   |
+|  [02]   | `Load`                     | `(Stream)` / `(TextReader)` → `KmlFile`; parses a `.kml` document into the typed `Dom` tree              |
+|  [03]   | `Save`                     | `(Stream stream)`; serializes the tree to `.kml` XML                                                     |
+|  [04]   | `FindObject` / `FindStyle` | `(string id)` → `KmlObject` / `StyleSelector`; resolves a `#id`-referenced object / shared style         |
+|  [05]   | `Create`                   | `(KmlFile)` / `(KmlFile, Stream targetStream)` → `KmzFile`; builds a `.kmz` archive around `doc.kml`     |
+|  [06]   | `Open`                     | `(Stream[, Stream targetStream])` → `KmzFile`; opens an existing `.kmz` (`IDisposable`)                  |
+|  [07]   | `AddFile`                  | `(string path, byte[] data)` / `(string path, Stream)`; adds a referenced resource (icon, overlay image) |
+|  [08]   | `ReadFile`                 | `(string path)` → `byte[]`; reads an archived resource                                                   |
+|  [09]   | `ReadKml`                  | `()` → `string`; reads the `doc.kml` text                                                                |
+|  [10]   | `GetDefaultKmlFile`        | `()` → `KmlFile`; the parsed default KML                                                                 |
+|  [11]   | `Save`                     | `(Stream stream)` + `UpdateFile`/`RemoveFile`/`Flush`; writes the `.kmz` archive                         |
 
 [ENTRYPOINT_SCOPE]: bounds, look-at, low-level XML round-trip
 - package: `SharpKml.Core`
 - namespace: `SharpKml.Engine`, `SharpKml.Base`
 - rail: geometry
 
-| [INDEX] | [SURFACE]                                                            | [CALL_SHAPE]                                                                                | [CAPABILITY]                                                                                                                                  |
-| :-----: | :------------------------------------------------------------------- | :------------------------------------------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `FeatureExtensions.CalculateBounds`                                  | `(this Feature feature)` → `BoundingBox`                                                    | the geographic envelope of a feature subtree — the N/S/E/W the document `Region`/`LookAt` derives from                                        |
-|  [02]   | `FeatureExtensions.CalculateLookAt`                                  | `(this Feature feature)` → `LookAt`                                                         | the camera that frames the feature — the default viewpoint authored onto the document                                                         |
-|  [03]   | `GeometryExtensions.CalculateBounds`                                 | `(this Geometry geometry)` → `BoundingBox`                                                  | the envelope of one geometry                                                                                                                  |
-|  [04]   | `Serializer.Serialize`                                               | `(Element root)` then `string Xml` (or `Serialize(root, Stream)`)                           | the raw element→XML emit (the engine under `KmlFile.Save`) — the form when a sub-tree is serialized standalone                                |
-|  [05]   | `Parser.Parse` / `ParseString`                                       | `(Stream input, bool namespaces = true)` / `(string xml, bool namespaces)` + `Element Root` | the raw XML→element parse (the engine under `KmlFile.Load`), with the `ElementAdded` event for streaming inspection                           |
-|  [06]   | `KmlFactory.Register<T>` / `RegisterExtension<TElement, TExtension>` | `(XmlComponent xml)`                                                                        | registers a custom element type / extension so the parser/serializer round-trips a bespoke KML extension (the GeometryGym-style schema graft) |
+| [INDEX] | [SURFACE]                            | [CAPABILITY]                                                                                     |
+| :-----: | :----------------------------------- | :----------------------------------------------------------------------------------------------- |
+|  [01]   | `FeatureExtensions.CalculateBounds`  | `(this Feature)` → `BoundingBox`; feature-subtree envelope (`Region`/`LookAt` source)            |
+|  [02]   | `FeatureExtensions.CalculateLookAt`  | `(this Feature)` → `LookAt`; camera framing the feature (default document viewpoint)             |
+|  [03]   | `GeometryExtensions.CalculateBounds` | `(this Geometry)` → `BoundingBox`; the envelope of one geometry                                  |
+|  [04]   | `Serializer.Serialize`               | `(Element root)` → `string Xml`, or `Serialize(root, Stream)`; raw XML emit under `KmlFile.Save` |
+|  [05]   | `Parser.Parse` / `ParseString`       | raw XML→element parse under `KmlFile.Load`; details in `[05]-[PARSER]`                           |
+|  [06]   | `KmlFactory.Register`                | `<T>(XmlComponent xml)`; registers a custom element type                                         |
+|  [07]   | `KmlFactory.RegisterExtension`       | `<TElement, TExtension>(XmlComponent xml)`; registers a bespoke extension the round-trip handles |
+
+- [05]-[PARSER]: `Parser.Parse` / `ParseString` — `(Stream input, bool namespaces = true)` / `(string xml, bool namespaces)` + `Element Root`; the raw XML→element parse (the engine under `KmlFile.Load`), with the `ElementAdded` event for streaming inspection.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

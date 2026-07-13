@@ -1,95 +1,173 @@
 # [PY_COMPUTE_ARCHITECTURE]
 
-The domain map of `compute` — the host-free offline scientific-evidence package that graduates through one rail. Independent numeric-science sub-domains (`solvers`, `optimization`, `experiments`, `numerics`, `analysis`, `graduation`) meeting only through the one solve receipt, the one study spine, and the one graduation rail.
-
-Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
+`compute` maps host-free offline scientific evidence outward through one rail: independent numeric-science sub-domains meet only through the one solve receipt, the one study spine, and the one graduation rail, and the numeric substrate every sub-domain admits through carries any backend array while the package imports no host runtime. Geometry, columnar data, and tensor sessions cross the `HandoffAxis` as receipt data, decoded and never re-owned.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
-compute/
-├── solvers/                   # Unified solve (4 routes + receipt) plus autodiff sensitivity, weak-form mesh assembly, and DiscreteField/grid readout
-│   ├── receipt.py             # SolverReceipt — method-discriminated solve receipt over every route
-│   ├── linear.py              # LinearIntent — dense/sparse/eigen over scipy + Lineax autodiff operator tier
-│   ├── nonlinear.py           # NonlinearIntent — root/minimise/fixed-point/least-squares over Optimistix + numba row
-│   ├── quadrature.py          # QuadratureIntent — 1-D quadrature, spline interpolation, weak-form FEM fold
-│   ├── differential.py        # DifferentialIntent — ODE/SDE/CDE integration over Diffrax with adjoint-differentiable solves
-│   ├── sensitivity.py         # Differentiation — reverse-mode adjoint + implicit-adjoint solver loop + finite-difference floor
-│   ├── mesh.py                # MeshField — mesh topology, per-node/per-cell fields, skfem assemble fold, meshio interchange
-│   └── field.py               # FieldQuery — interpolate/project/resample readout over skfem DiscreteField + interpax grid folding FieldReceipt
-├── optimization/              # By problem structure — differentiable design, constrained/discrete programs, certified convex programs
-│   ├── design.py              # DesignProblem — Optimistix minimise/least-squares over an Equinox objective, implicit-adjoint gradient
-│   ├── program.py             # ProgramIntent — linear/integer/global/constrained/assignment programs over scipy.optimize, one receipt
-│   └── convex.py              # ConvexProgram — cvxpy disciplined-convex programs over a conic backend folding dual-certificate proof of optimality
-├── experiments/               # Design-of-experiments study, content-keyed run history, Bayesian inference, classical ML model assets
-│   ├── study.py               # Study — DOE sampling, SALib sensitivity, surrogate fitting, benchmark discriminant
-│   ├── history.py             # RunHistory — content-key-keyed run persistence, partial-cell resume, run comparison
-│   ├── inference.py           # Inference — sampler-backend axis (pymc/numpyro/nutpie), arviz rhat-and-ess diagnostics
-│   └── model.py               # ModelAsset — ONNX graph validation, io-binding, smoke inference, sklearn-to-ONNX export
-├── numerics/                  # Numeric substrate: Array-API admission, JIT, certified intervals, quantities, in-memory statistics
-│   ├── array.py               # ArrayPayload — namespace-dispatched dtype/shape/named-axes/finite/identity admission
-│   ├── jit.py                 # JitBackend — numba LLVM / jax XLA compile routes over one _JIT_ROUTES capture table folding JitEvidence lowered-IR
-│   ├── interval.py            # IntervalNumerics — Arb ball / mpmath interval / numpy outward-rounding floor ladder
-│   ├── quantity.py            # UncertainQuantity — correlated first-order uncertainty through pint unit algebra
-│   └── statistics.py          # Statistics — in-memory scipy.stats hypothesis tests + MLE distribution fit folding one StatReport
-├── analysis/                  # Classical-math producers: digital signal processing, computer-algebra derivation, computational geometry
-│   ├── signal.py              # IIR/FIR filters, Welch spectral estimation, polyphase resample, pywt multiresolution fold
-│   ├── transform.py           # scipy.fft DFT/real-DFT/cosine-sine transforms + hilbert analytic-signal envelope, one owner
-│   ├── symbolic.py            # SymbolicDerivation — sympy lambdify/codegen producing numpy/C handoff artifact
-│   └── spatial.py             # SpatialQuery — KD-tree neighbour/radius, hull, Delaunay, Voronoi, alpha-shape boundary fold
-└── graduation/                # The multi-domain graduation HUB (tier-0) and C# stub codegen
-    ├── handoff.py             # GraduationReceipt/HandoffAxis — outward egress + geometry decode, evidence_run weave, scope table
-    └── codegen.py             # StubCodegen — ast-builder stub emitter decoding the C# EvidenceBundle under the drift gate
+compute/                    # Offline scientific evidence, graduating outward through one rail
+├── solvers/                # Unified solve routes plus sensitivity, weak-form assembly, and field readout
+│   ├── receipt.py          # SolverReceipt — the method-discriminated receipt every route folds
+│   ├── linear.py           # LinearIntent — dense, sparse, and eigen solves
+│   ├── nonlinear.py        # NonlinearIntent — root, minimise, fixed-point, and least-squares solves
+│   ├── quadrature.py       # QuadratureIntent — quadrature, interpolation, and the weak-form FEM fold
+│   ├── differential.py     # DifferentialIntent — adjoint-differentiable ODE, SDE, and CDE integration
+│   ├── sensitivity.py      # Differentiation — reverse-mode and implicit-adjoint sensitivity over the solvers
+│   ├── mesh.py             # MeshField — mesh topology, per-node and per-cell fields, weak-form assembly
+│   └── field.py            # FieldQuery — interpolate, project, and resample readout over a discrete field
+├── optimization/           # Offline optimization discriminated by problem structure
+│   ├── design.py           # DesignProblem — differentiable design over the implicit-adjoint gradient
+│   ├── program.py          # ProgramIntent — constrained, integer, global, and assignment programs
+│   └── convex.py           # ConvexProgram — disciplined-convex programs with a dual-certificate proof
+├── experiments/            # Study spine, run history, inference, and model assets
+│   ├── study.py            # Study — DOE sampling, sensitivity, surrogate fitting, benchmark discriminant
+│   ├── history.py          # RunHistory — content-keyed run persistence, partial resume, comparison
+│   ├── inference.py        # Inference — gradient-MCMC posteriors with convergence diagnostics
+│   └── model.py            # ModelAsset — classical-estimator validation, smoke inference, ONNX export
+├── numerics/               # Numeric substrate every sub-domain admits through
+│   ├── array.py            # ArrayPayload — namespace-dispatched array admission
+│   ├── jit.py              # JitBackend — the LLVM and XLA compile routes over one capture table
+│   ├── interval.py         # IntervalNumerics — the certified-interval floor ladder
+│   ├── quantity.py         # UncertainQuantity — correlated uncertainty through unit algebra
+│   └── statistics.py       # Statistics — in-memory hypothesis tests and MLE distribution fit
+├── analysis/               # Classical-math evidence producers
+│   ├── signal.py           # SignalOp — IIR/FIR filtering, spectral estimation, resample, wavelet fold
+│   ├── transform.py        # SpectralReadout — in-memory DFT, trigonometric, and analytic-signal transforms
+│   ├── symbolic.py         # SymbolicDerivation — symbolic lowering to a numpy or C handoff artifact
+│   └── spatial.py          # SpatialQuery — neighbour, hull, Delaunay, Voronoi, and alpha-shape folds
+└── graduation/             # Multi-domain graduation hub and C# stub codegen
+    ├── handoff.py          # GraduationReceipt/HandoffAxis — outward egress, geometry decode, evidence weave
+    └── codegen.py          # StubCodegen — the C# EvidenceBundle stub emitter under the drift gate
 ```
 
 ## [02]-[SEAMS]
 
-```text seams
-graduation            →  csharp:Rasm.Compute            # [GRADUATION]: HandoffAxis graduation evidence crosses OUTWARD only; C# never imports back
-graduation/codegen    ←  csharp:Rasm.Compute            # [WIRE]: EvidenceBundle offline evidence wire — msgspec bytes at rest, no shapes row until
-solvers/receipt       →  csharp:Rasm.Compute            # [PROJECTION]: SolverReceipt convergence verdict
-graduation            ←  python:geometry/graduation     # [GRADUATION]: GeometryHandoff receipts decoded through the one carrier fence; geometry owns
-graduation            ←  python:artifacts/core/receipt  # [GRADUATION]: graduates projects ArtifactReceipt into HandoffAxis(artifact=) —
-numerics/array        ←  python:runtime/evidence        # [CONTENT_KEY]: ContentIdentity under CANONICAL_POLICY + ParityReceipt layout proof; never
-experiments/model     →  python:runtime/transport/roots # [BOUNDARY]: ResourceRef/UPath model-asset path resolution
-numerics/quantity     ⇄  csharp:Rasm.Compute            # [WIRE]: QuantityFamily SI canonicalization over the wire to host-free peers
-experiments/study     ←  python:data/tabular            # [SHAPE]: FrameAdmission/FrameInterop DOE-frame arm; columnar.arrow_bytes the render-seam
-analysis              ←  python:artifacts/media         # [SHAPE]: SignalOp spectral/filter/resample + analytic-signal centroid/envelope substitutes
-*                     →  graduation/handoff             # [RECEIPT]: EvidenceScope/evidence_run weave + REDACTION on every page; producers add
-analysis/signal       →  analysis/transform             # [SHAPE]: SpectralReadout carrier
-analysis/signal       →  numerics/array                 # [SHAPE]: ArrayPayload admission
-analysis/spatial      →  numerics/array                 # [SHAPE]: ArrayPayload admission
-analysis/symbolic     →  numerics/jit                   # [SHAPE]: LoweredSpec — the jit-minted lowering-bridge emission typing
-analysis/transform    →  numerics/array                 # [SHAPE]: ArrayPayload/ArraySource/FiniteGate admission
-experiments/history   →  experiments/study              # [SHAPE]: Study/StudyReceipt/Measured/Objective resume cohort
-experiments/study     →  numerics/jit                   # [SHAPE]: JitBackend.compile batch lane + LoweredSpec value
-numerics/interval     →  solvers/receipt                # [PROJECTION]: graduate — the solver-axis projection feed
-optimization/convex   →  solvers/receipt                # [SHAPE]: SolveStatus termination vocabulary
-optimization/design   →  solvers/receipt                # [PROJECTION]: SolveStatus + status_of + verdict shared folds
-optimization/program  →  optimization/design            # [RECEIPT]: OutcomeReceipt shared optimization receipt
-optimization/program  →  solvers/receipt                # [SHAPE]: SolveStatus termination vocabulary
-solvers/receipt       →  graduation/handoff             # [GRADUATION]: GraduationReceipt/HandoffAxis — the solver-axis graduation projection
-solvers/differential  →  solvers/receipt                # [RECEIPT]: SolverReceipt + verdict fold
-solvers/field         →  solvers/mesh                   # [SHAPE]: CTOR/ElementKind/MeshField — the mesh-owned element axis
-solvers/field         →  solvers/receipt                # [PROJECTION]: SolveStatus/status_of floor
-solvers/linear        →  solvers/receipt                # [RECEIPT]: SolverReceipt + verdict fold
-solvers/mesh          →  solvers/receipt                # [PROJECTION]: SolveStatus/status_of floor
-solvers/nonlinear     →  solvers/receipt                # [RECEIPT]: SolverReceipt + verdict fold
-solvers/quadrature    →  numerics/jit                   # [SHAPE]: LoweredSpec integrand compile — the symbolic->jit->quadrature value crossing
-solvers/quadrature    →  solvers/linear                 # [PORT]: sparse_receipt — the public FEM condense-solve kernel
-solvers/quadrature    →  solvers/mesh                   # [SHAPE]: AssembledSystem/ElementKind/FemForm — the mesh-owned element axis
-solvers/quadrature    →  solvers/receipt                # [RECEIPT]: SolverReceipt
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: Compute package seam registry
+    accDescr: Compute sub-domain owners exchanging graduation evidence, quantities, content keys, and frame shapes with Rasm.Compute and the Python geometry, artifacts, runtime, and data peers, edge rails colored by kind and nodes classed by seam direction.
+    subgraph compute[COMPUTE]
+        Graduation[Graduation rail]
+        Solvers[Solve receipt]
+        Numerics[Numeric substrate]
+        Experiments[Study spine]
+        Analysis[Analysis producers]
+    end
+    Compute{{Rasm.Compute}}
+    Runtime{{python:runtime}}
+    Geometry([python:geometry])
+    Artifacts([python:artifacts])
+    Data([python:data])
+    Graduation e1@-->|"[GRADUATION]: HandoffAxis"| Compute
+    Compute e2@-->|"[WIRE]: EvidenceBundle"| Graduation
+    Solvers e3@-->|"[PROJECTION]: SolverReceipt"| Compute
+    Numerics e4@<-->|"[WIRE]: QuantityFamily"| Compute
+    Geometry e5@-->|"[GRADUATION]: GeometryHandoff"| Graduation
+    Artifacts e6@-->|"[GRADUATION]: ArtifactReceipt"| Graduation
+    Artifacts e7@-->|"[SHAPE]: SignalOp"| Analysis
+    Runtime e8@-->|"[CONTENT_KEY]: ContentIdentity"| Numerics
+    Experiments e9@-->|"[BOUNDARY]: ResourceRef"| Runtime
+    Data e10@-->|"[SHAPE]: FrameAdmission"| Experiments
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    class Graduation,Solvers,Numerics,Experiments,Analysis primary
+    class Compute,Runtime external
+    class Geometry,Artifacts,Data annotation
+    class e1,e2,e4,e5,e6,e8 edgeData
+    class e3 edgeExternal
+    class e7,e9,e10 edgeControl
 ```
 
-## [03]-[ORGANIZATION]
+## [03]-[INTERNAL]
 
-The sub-domains are independent numeric-science concerns that meet only through the one solve receipt, the one study spine, and the one graduation rail. `numerics/array` admits any backend array; `solvers` discriminates every numeric route and folds one `SolverReceipt`; `solvers/sensitivity` reads the implicit-function-theorem adjoint through the autodifferentiable solvers; `optimization` is the offline-optimization sub-domain spanning three sibling owners discriminated by problem structure — `design` drives an Equinox-parameterized objective to a stationary point through Optimistix over the autodifferentiable solves and the implicit-adjoint gradient, `program` solves the constrained, global, and discrete math programs the gradient loop cannot reach over `scipy.optimize`, and `convex` returns a dual-certificate proof of global optimality for disciplined-convex programs over a conic backend, each composing the solver/sensitivity/assembly owners rather than re-owning them; `numerics/interval`, `analysis/signal`, `analysis/transform`, and `analysis/symbolic` are independent evidence producers, `analysis/signal` carrying both stationary-spectrum and multiresolution-wavelet cases on one owner beside `analysis/transform` owning the in-memory frequency-domain DFT/trigonometric/analytic-signal transforms; `numerics/quantity` threads uncertainty through the unit algebra; `numerics/statistics` folds the `scipy.stats` hypothesis tests and the maximum-likelihood distribution fit into one in-memory `StatReport`, deferring all columnar and gridded statistical aggregation to the `data` branch gridded/field owner; `experiments` orchestrates the study spine with SALib-owned sensitivity; `experiments/model` validates and exports classical estimators; `experiments/inference` owns gradient-MCMC posteriors; and `graduation` is the single rail every useful result crosses outward.
+Independent sub-domains produce nothing outward on their own: every solve route folds into the one solve receipt, every experiment into the one study spine, and those two rails plus the direct analysis and numeric producers converge on the single graduation rail that crosses outward.
 
-The `analysis/spatial` and `solvers/mesh` owners close the former gaps: `analysis/spatial` houses array-native computational geometry over `scipy.spatial` — `SpatialQuery` discriminates KD-tree neighbour and radius search, convex hull, Delaunay, Voronoi, and the alpha-shape boundary fold, each query keyed by content identity. `solvers/mesh` houses simulation mesh-and-field interchange and weak-form assembly beside the FEM solver route — `MeshField` carries the mesh topology and per-node/per-cell field arrays, lowers a weak form to the sparse stiffness/load pair the quadrature FEM route and a Diffrax field problem consume, and `MeshExchange` rounds the mesh-and-field through the meshio format registry. Each is named by its domain concept, never a rail or axis file-naming scheme.
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: Compute internal convergence
+    accDescr: The independent numeric-science sub-domains converging through the one solve receipt and the one study spine onto the single graduation rail that crosses outward, edge rails colored by the shape each stage folds.
+    SolveRoutes[[Solve routes]] e1@-->|"SolverReceipt"| Receipt[Solve receipt]
+    Optimization[[Optimization programs]] e2@-->|"SolveStatus"| Receipt
+    History[[Run history]] e3@-->|"StudyReceipt"| Study[Study spine]
+    Inference[[Inference and models]] e4@-->|"Measured"| Study
+    Receipt e5@-->|"GraduationReceipt"| Handoff[Graduation rail]
+    Study e6@-->|"EvidenceScope"| Handoff
+    Analysis[[Analysis producers]] e7@-->|"EvidenceScope"| Handoff
+    Numerics[[Numeric substrate]] e8@-->|"EvidenceScope"| Handoff
+    Handoff e9@-->|"HandoffAxis"| Out([Outward egress])
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    class Out boundary
+    class SolveRoutes,Optimization,History,Inference,Receipt,Study,Analysis,Numerics,Handoff primary
+    class e1,e6,e7,e8 edgeSuccess
+    class e2,e3,e4 edgeControl
+    class e5,e9 edgeData
+```
 
-## [04]-[BOUNDARIES]
+## [04]-[ORGANIZATION]
+
+Sub-domains are independent numeric-science concerns meeting only through the one solve receipt, the one study spine, and the one graduation rail. Each discriminates its variation by problem structure — solve route, program class, experiment stage — and composes the numeric substrate and solver owners rather than re-owning them, so a new numeric route or program class lands as a case on the owning discriminant, never a parallel owner. The per-owner wiring — which substrate each route folds, which adjoint the sensitivity owner reads, how the study spine stages its sampling — lives on the owning implementation pages.
+
+## [05]-[BOUNDARIES]
 
 - `compute` is not a production compute runtime, benchmark authority, substrate selector, tensor-session owner, or product-receipt owner; it owns offline evidence that graduates through the one rail.
-- Columnar and labelled-array interchange ownership stays in the `data` branch; `compute` composes the `xarray`/`dask` shapes — the `numerics/array` `Labelled` arm extracts `.data` plus coords structurally and the `experiments/study` DOE-frame arm admits through the published data contract surfaces — and never re-catalogues or re-owns the data interior. Columnar and gridded statistical aggregation — grouped reductions, rolling windows, per-cell/per-band summaries over a labelled or gridded array — is the `data` branch gridded/field owner; `numerics/statistics` operates on an in-memory sample array only and never re-owns a grouped-reduction or labelled-array aggregation.
+- Columnar and labelled-array interchange stays in the `data` branch; `compute` composes the `xarray`/`dask` shapes — `numerics/array`'s `Labelled` arm extracts `.data` and coords, `experiments/study`'s DOE-frame arm admits through the published data contract — and never re-owns the data interior.
+- Columnar and gridded statistical aggregation — grouped reductions, rolling windows, per-cell and per-band summaries — is the `data` branch gridded/field owner; `numerics/statistics` operates on an in-memory sample array only.
 - Geometry tessellation, registration, and topology stay in the `geometry` branch and graduate as `GeometryHandoff` receipt data under the geometry-minted `GeometrySubject` union; `compute` decodes the crossing at its `HandoffAxis` geometry case, never re-implements it and never imports geometry.
 - Classical statistics, validated numerics, surrogate and classification model assets, and gradient-MCMC inference are in-scope; generative and deep-learning model authoring is out of scope across every sub-domain.

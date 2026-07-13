@@ -14,29 +14,29 @@
 
 ## [02]-[RESOURCE_SURFACE]
 
-Every resource extends `pulumi.CustomResource` with `static get`/`isInstance` + `constructor(name, args, opts?)`. `Secret.value` is state-encrypted sensitive; `ServiceToken.key` is the sensitive token.
+Every resource extends `pulumi.CustomResource` with `static get`/`isInstance` + `constructor(name, args, opts?)` and surfaces its `id`. `Secret.value` is state-encrypted sensitive; `ServiceToken.key` is the sensitive token.
 
 [PUBLIC_TYPE_SCOPE]: store hierarchy
-- rail: secret
 
-| [INDEX] | [SYMBOL]       | [REQUIRED_ARGS]                      | [KEY_OUTPUTS]                | [NOTE]                                                   |
-| :-----: | :------------- | :----------------------------------- | :--------------------------- | :------------------------------------------------------- |
-|  [01]   | `Project`      | `name`                               | id                           | top of the hierarchy; `description`                      |
-|  [02]   | `Environment`  | `name`, `project`, `slug`            | id                           | dev/stg/prd stage; `personalConfigs`                     |
-|  [03]   | `BranchConfig` | `project`, `environment`             | id                           | the "config" — a branch of an environment                |
-|  [04]   | `Secret`       | `project`, `config`, `name`, `value` | `value` (secret), `computed` | `computed` resolves `${ref}` interpolation; `visibility` |
+| [INDEX] | [SYMBOL]       | [REQUIRED_ARGS]                      | [NOTE]                                                        |
+| :-----: | :------------- | :----------------------------------- | :------------------------------------------------------------ |
+|  [01]   | `Project`      | `name`                               | top of the hierarchy; `description`                           |
+|  [02]   | `Environment`  | `name`, `project`, `slug`            | dev/stg/prd stage; `personalConfigs`                          |
+|  [03]   | `BranchConfig` | `project`, `environment`             | the "config" — a branch of an environment                     |
+|  [04]   | `Secret`       | `project`, `config`, `name`, `value` | `value` (secret) + `computed` resolves `${ref}`; `visibility` |
 
 [PUBLIC_TYPE_SCOPE]: access, identity, RBAC, delivery
 - rail: secret
 
-| [INDEX] | [SYMBOL]                                               | [REQUIRED_ARGS]             | [NOTE]                                                                 |
-| :-----: | :----------------------------------------------------- | :-------------------------- | :--------------------------------------------------------------------- |
-|  [01]   | `ServiceToken`                                         | `project`, `config`, `name` | `key` = the `DOPPLER_TOKEN`; `access` = `read`\|`read/write`           |
-|  [02]   | `ServiceAccount` / `ServiceAccountToken`               | `name` / (account + token)  | machine identity; `workplaceRole`/`workplacePermissions`               |
-|  [03]   | `Group` / `GroupMember` / `GroupMembers`               | membership args             | workplace group + membership rows                                      |
-|  [04]   | `ProjectRole` / `projectmember.{Group,ServiceAccount}` | role/member args            | project-scoped RBAC binding                                            |
-|  [05]   | `Webhook`                                              | `url`, `project`            | delivery on secret change; `authentication`/`enabledConfigs`/`payload` |
-|  [06]   | `Provider`                                             | —                           | explicit provider; bootstrap token                                     |
+| [INDEX] | [SYMBOL]                                 | [REQUIRED_ARGS]             | [NOTE]                                                       |
+| :-----: | :--------------------------------------- | :-------------------------- | :----------------------------------------------------------- |
+|  [01]   | `ServiceToken`                           | `project`, `config`, `name` | `key` = the `DOPPLER_TOKEN`; `access` = `read`\|`read/write` |
+|  [02]   | `ServiceAccount` / `ServiceAccountToken` | `name` / (account + token)  | machine identity; `workplaceRole`/`workplacePermissions`     |
+|  [03]   | `Group` / `GroupMember` / `GroupMembers` | membership args             | workplace group + membership rows                            |
+|  [04]   | `ProjectRole`                            | role args                   | project-scoped RBAC binding                                  |
+|  [05]   | `projectmember.{Group,ServiceAccount}`   | member args                 | project-member RBAC binding                                  |
+|  [06]   | `Webhook`                                | `url`, `project`            | on change; `authentication`/`enabledConfigs`/`payload`       |
+|  [07]   | `Provider`                               | —                           | explicit provider; bootstrap token                           |
 
 [PUBLIC_TYPE_SCOPE]: reads (data sources)
 - rail: secret
@@ -60,16 +60,18 @@ Three parameterized patterns own the surface; the namespace rosters are seed dat
 [PATTERN]: destination fan-out — ONE integration + sync pair per target
 - Mirroring a config outward is a pair: `integration.<Target>` creates the credential link (returns an integration id), `secretssync.<Target>` syncs a `config` to the destination referencing that `integration`. The targets are rows, not recipes:
 
-| [INDEX] | [TARGET]            | [INTEGRATION_T]                         | [SECRETSSYNC_T] | [SYNC_ARG_SHAPE]                                                                                                             |
-| :-----: | :------------------ | :-------------------------------------- | :-------------- | :--------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `AwsSecretsManager` | ✓ (`assumeRoleArn`)                     | ✓               | `region`, `path`, `kmsKeyId`, `deleteBehavior`, `tags`                                                                       |
-|  [02]   | `AwsParameterStore` | ✓                                       | ✓               | `region`, `path`, tags                                                                                                       |
-|  [03]   | `TerraformCloud`    | ✓                                       | ✓               | workspace/variable-set target                                                                                                |
-|  [04]   | `Circleci`          | ✓                                       | ✓               | project/context target                                                                                                       |
-|  [05]   | `Flyio`             | ✓                                       | ✓               | app target                                                                                                                   |
-|  [06]   | `GithubActions`     | — (GitHub-App install; slug pre-exists) | ✓               | `integration` slug REQUIRED + `syncTarget` (`"repo"`\|`"org"`); `repoName`/`environmentName` or `orgScope`, `deleteBehavior` |
+Every target carries both `integration.<Target>` and `secretssync.<Target>`, except `GithubActions` whose integration is a pre-existing GitHub-App slug.
 
-Every sync arg carries `config` + `integration` + `project`; document/drive the pair once parameterized by `<Target>`, not six times.
+| [INDEX] | [TARGET]            | [INTEGRATION_T]     | [SYNC_ARG_SHAPE]                                           |
+| :-----: | :------------------ | :------------------ | :--------------------------------------------------------- |
+|  [01]   | `AwsSecretsManager` | ✓ (`assumeRoleArn`) | `region`, `path`, `kmsKeyId`, `deleteBehavior`, `tags`     |
+|  [02]   | `AwsParameterStore` | ✓                   | `region`, `path`, `tags`                                   |
+|  [03]   | `TerraformCloud`    | ✓                   | workspace/variable-set target                              |
+|  [04]   | `Circleci`          | ✓                   | project/context target                                     |
+|  [05]   | `Flyio`             | ✓                   | app target                                                 |
+|  [06]   | `GithubActions`     | — (GitHub-App slug) | `syncTarget` (`"repo"`\|`"org"`); repo/org scope, see note |
+
+Every sync arg carries `config` + `integration` + `project`; document/drive the pair once parameterized by `<Target>`, not six times. `GithubActions` [06] additionally requires the pre-existing `integration` slug, then `syncTarget` = `"repo"`\|`"org"` with `repoName`/`environmentName` or `orgScope`, plus `deleteBehavior`.
 
 ## [04]-[INTEGRATION]
 
@@ -77,14 +79,14 @@ Doppler is the canonical store in the generate → store → inject rail; `effec
 
 [RAIL]: `doppler → effect + sibling providers`
 
-| [INDEX] | [DOPPLER_SEAM]               | [STACKS_WITH]                                               | [COMPOSED_RAIL]                                                      |
-| :-----: | :--------------------------- | :---------------------------------------------------------- | :------------------------------------------------------------------- |
-|  [01]   | `Secret.value` (secret)      | `@pulumi/random` `.result` / `@pulumi/tls` `.privateKeyPem` | `pulumi.secret(generated)` → canonical store — one source of truth   |
-|  [02]   | bootstrap + `Provider`       | `Config.redacted` + `Layer.effect`                          | `DOPPLER_TOKEN` from an Effect `Config`, provider wired as a `Layer` |
-|  [03]   | `ServiceToken.key`           | `security/secret` read path (`doppler run`)                 | env injection at the process boundary; never imported                |
-|  [04]   | `getSecrets(config).map`     | `Schema.decodeUnknown(AppSecrets)`                          | whole-config read → typed app config                                 |
-|  [05]   | `secretssync.<Target>`       | external stores (AWS/CI/Fly)                                | mirror the canonical config outward; one pair per target             |
-|  [06]   | `Secret.computed` (`${ref}`) | `interpolate` / `Output` graph                              | referenced/composed secrets resolve server-side                      |
+| [INDEX] | [DOPPLER_SEAM]               | [STACKS_WITH]                      | [COMPOSED_RAIL]                                               |
+| :-----: | :--------------------------- | :--------------------------------- | :------------------------------------------------------------ |
+|  [01]   | `Secret.value` (secret)      | `@pulumi/random` / `@pulumi/tls`   | `pulumi.secret(`.result`/`.privateKeyPem`)` → canonical store |
+|  [02]   | bootstrap + `Provider`       | `Config.redacted` + `Layer.effect` | `DOPPLER_TOKEN` via `Config`; provider as a `Layer`           |
+|  [03]   | `ServiceToken.key`           | `security/secret` (`doppler run`)  | env injection at the process boundary; never imported         |
+|  [04]   | `getSecrets(config).map`     | `Schema.decodeUnknown(AppSecrets)` | whole-config read → typed app config                          |
+|  [05]   | `secretssync.<Target>`       | external stores (AWS/CI/Fly)       | mirror the canonical config outward; one pair per target      |
+|  [06]   | `Secret.computed` (`${ref}`) | `interpolate` / `Output` graph     | referenced/composed secrets resolve server-side               |
 
 [SEAM]: provider-credential fan-in — ONE Doppler read → every sibling `Provider` `Input<string>`
 
@@ -101,7 +103,7 @@ Doppler is the SOURCE each sibling provider catalog binds its auth field to; ONE
 
 The `KEY` is a row on the config the store already owns; a new consuming provider is a row here, never a new read path. `getSecretsOutput` returns `Output<GetSecretsResult>` whose `.map` is `{[k]: string}` — the single-key pluck is the sole difference from the row [04] whole-config `Schema` decode.
 
-```ts contract
+```ts signature
 // iac/secret/doppler.ts — generate → store canonically → scope a token → hand ONE key to a sibling Provider
 const cfg = new doppler.BranchConfig("prd", { project: proj.name, environment: env.slug }, { parent })
 new doppler.Secret("db-password", {

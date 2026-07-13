@@ -679,8 +679,8 @@ const LANG = {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-// Agent-level slot scheduler: CAP agents in flight across ALL batch chains, staggered launch,
-// work-conserving backfill the moment a slot frees. The single governor for every agent call.
+// Agent-level slot scheduler: CAP agents in flight across ALL batch chains, staggered launch, work-conserving backfill the moment a
+// slot frees. The single governor for every agent call.
 const makeSlots = (cap) => {
     let active = 0;
     let gate = Promise.resolve();
@@ -781,14 +781,13 @@ const codexPrompt = (label, task, schema, o) => {
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every codex-dispatched lane routes here: terra by default, sol where o.model says so; CODEX=false restores
-// a fully native run. The task arrives as a REGISTER-KEYED BUILDER: the codex branch takes REG.codex (neutral,
-// de-conflicted), every native execution — o.native, CODEX=false, the quota fallback — takes REG.claude (the
-// full estate register), so the register follows the EXECUTING model, never the lane name. QUOTA FALLBACK: a
-// codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's
-// Claude twin (terra->opus, sol->fable, luna->sonnet) — the caller owns the re-dispatch; the sonnet wrapper
-// never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the lane's
-// self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
+// Every codex-dispatched lane routes here: terra by default, sol where o.model says so; CODEX=false restores a fully native run. The task arrives as
+// a REGISTER-KEYED BUILDER: the codex branch takes REG.codex (neutral, de-conflicted), every native execution — o.native, CODEX=false, the quota
+// fallback — takes REG.claude (the full estate register), so the register follows the EXECUTING model, never the lane name.
+
+// QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus,
+// sol->fable, luna->sonnet) — the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the
+// ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
     agent(
@@ -877,11 +876,10 @@ const navOf = (logs) => {
 
 // --- [SHARED_BLOCKS]
 
-// Every rigor law appears exactly once, here; stages compose subsets. Block order in prompts:
-// stable per-language law first (byte-identical across a batch's stages), batch-variable material
-// second, the stage task + output contract LAST — nothing load-bearing mid-prompt.
-// Subagents keep the launching session's ORIGINAL project cwd even when the run targets a worktree; only
-// explicit path authority moves a lane, so every prompt states the root and natives get exact absolute paths.
+// Every rigor law appears exactly once, here; stages compose subsets. Block order in prompts: stable per-language law first (byte-identical across a
+// batch's stages), batch-variable material second, the stage task + output contract LAST — nothing load-bearing mid-prompt.
+// Subagents keep the launching session's ORIGINAL project cwd even when the run targets a worktree; only explicit path authority moves a lane, so
+// every prompt states the root and natives get exact absolute paths.
 const ROOT_LAW =
     'WORKING ROOT: ' +
     ROOT_DIR +
@@ -889,11 +887,10 @@ const ROOT_LAW =
     'another checkout of the repository.';
 const CONTEXT = (L) => ROOT_LAW + '\n\nRasm monorepo — ' + L.corpus + '. ' + L.strata + ' ' + L.stackFloor;
 
-// Register table — one row set per EXECUTING model, keyed by recon()'s dispatch branch. Substance is identical
-// across rows (burden of proof on the work, both naivety axes, illusion hunting, no-churn, second-pass self-verify,
-// findings-never-designs); only phrasing forks: claude carries the estate hostile register, codex the same demands
-// de-conflicted and neutral — probe-measured: the hostile register makes a codex lane over-read, probe out of
-// territory, and spend more input tokens for equal output (the codex skill's prompt-contract law).
+// Register table — one row set per EXECUTING model, keyed by recon()'s dispatch branch. Substance is identical across rows (burden of proof on the
+// work, both naivety axes, illusion hunting, no-churn, second-pass self-verify, findings-never-designs); only phrasing forks: claude carries the
+// estate hostile register, codex the same demands de-conflicted and neutral — probe-measured: the hostile register makes a codex lane over-read,
+// probe out of territory, and spend more input tokens for equal output (the codex skill's prompt-contract law).
 const REG = {
     claude: {
         stance: (L) =>
@@ -1736,8 +1733,8 @@ const WORKLIST_PATH = ideate && ideate.ok ? worklistDossier : '';
 log('Ideate: ' + (WORKLIST_PATH ? (ideate.entries || 0) + ' bigger-idea(s) -> ' + WORKLIST_PATH : 'no worklist (map unavailable or ideate failed)'));
 
 phase('Build');
-// Lanes keep sub-folder grouping + plan dependency/cohesion order for batch composition; nothing
-// serializes on them — the agent-level slot scheduler is the only governor.
+// Lanes keep sub-folder grouping + plan dependency/cohesion order for batch composition; nothing serializes on them —
+// the agent-level slot scheduler is the only governor.
 const lanes = [...new Set(PAGES.map((p) => pkgOf(p.page)))].map((pkg) => ({ pkg, pages: PAGES.filter((p) => pkgOf(p.page) === pkg) }));
 const BATCHES = lanes.flatMap((lane) => evenChunk(lane.pages, BATCH_MAX).map((pages, i) => ({ pkg: lane.pkg, i, pages })));
 const SCOPES = JSON.stringify(BATCHES.map((b) => ({ batch: b.pkg.split('/').pop() + ':b' + b.i, pages: b.pages.map((p) => p.page) })));

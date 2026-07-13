@@ -19,14 +19,14 @@
 
 [DIALECT_SCOPE]: one component pattern, three coordinate sets
 - rail: static-distribution
-- Every dialect is `new <Dialect>Folder(name, args, opts?: pulumi.ComponentResourceOptions)` over the same policy axis; only the bucket coordinates differ. `acl` exists on the S3 dialect alone (a canned-ACL string the bucket's ownership posture must admit); GCS and Azure inherit access from the bucket/container policy.
+- Every dialect is `new <Dialect>Folder(name, args, opts?: pulumi.ComponentResourceOptions)` carrying the shared sync-policy triple `managedObjects?`/`includeHiddenFiles?`/`disableManagedObjectAliases?` (each `Input<boolean>`); only the bucket coordinates differ. `acl` exists on the S3 dialect alone (a canned-ACL string the bucket's ownership posture must admit); GCS and Azure inherit access from the bucket/container policy.
 
-| [INDEX] | [SYMBOL]            | [REQUIRED_COORDINATES]                                             | [SHARED_POLICY_FIELDS]                                                                           |
-| :-----: | :------------------ | :----------------------------------------------------------------- | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `S3BucketFolder`    | `path`, `bucketName`, `acl` (all `Input<string>`)                  | `managedObjects?`, `includeHiddenFiles?`, `disableManagedObjectAliases?` — each `Input<boolean>` |
-|  [02]   | `GoogleCloudFolder` | `path`, `bucketName`                                               | same triple                                                                                      |
-|  [03]   | `AzureBlobFolder`   | `path`, `containerName`, `storageAccountName`, `resourceGroupName` | same triple                                                                                      |
-|  [04]   | `Provider`          | empty-args `ProviderResource` marker                               | cloud credentials ride the threaded aws/gcp/azure provider, never here                           |
+| [INDEX] | [SYMBOL]            | [REQUIRED_COORDINATES]                                                       |
+| :-----: | :------------------ | :--------------------------------------------------------------------------- |
+|  [01]   | `S3BucketFolder`    | `path`, `bucketName`, `acl` (all `Input<string>`)                            |
+|  [02]   | `GoogleCloudFolder` | `path`, `bucketName`                                                         |
+|  [03]   | `AzureBlobFolder`   | `path`, `containerName`, `storageAccountName`, `resourceGroupName`           |
+|  [04]   | `Provider`          | empty-args `ProviderResource` marker; credentials ride the threaded provider |
 
 [POLICY_SCOPE]: the sync-policy axis
 - `managedObjects` (default true) tracks every file as an individual state-managed object — per-file diffs, per-file deletes, policy visibility; `false` switches to one-shot out-of-state bulk sync through the matching cloud CLI on the deploy host — the large-site row where per-file state is cost, not evidence. Changing the mode replaces the folder's object management wholesale; `disableManagedObjectAliases` opts out of the aliasing that otherwise smooths that transition. `includeHiddenFiles` admits dotfiles the sync skips by default.

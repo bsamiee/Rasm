@@ -25,62 +25,65 @@
 
 `CalamineWorkbook` is the single read root; the source kind (`path`, `os.PathLike`, or file-like buffer) is a classmethod choice on one type, never a parallel workbook class — `from_path` takes a path, `from_filelike` takes a seek+read buffer, and `from_object` discriminates on the argument shape and dispatches to the right reader. `CalamineSheet` is the one grid value `get_sheet_by_name`/`get_sheet_by_index` yield; `to_python` (eager list-of-lists) and `iter_rows` (lazy iterator) are two projections of the same grid, never separate sheet types. There is no `Cell` object — the cell is the native scalar in the row list, so there is no per-cell wrapper to allocate.
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]    | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                |
-| :-----: | :----------------- | :--------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `CalamineWorkbook` | workbook root    | read root; props `path` (`str \| None`, `None` when loaded from bytes), `sheet_names` (`list[str]`, workbook order), `sheets_metadata` (`list[SheetMetadata]`), `table_names` (`list[str] \| None`); classmethods `from_object`/`from_path`/`from_filelike`; `get_sheet_by_name`/`get_sheet_by_index`/`get_table_by_name`; `close` + `__enter__`/`__exit__` |
-|  [02]   | `CalamineSheet`    | sheet grid       | one sheet's cell matrix; `name`, geometry props `height`/`width`/`total_height`/`total_width`/`start`/`end` (`tuple[int, int] \| None`), `merged_cell_ranges` (`list[tuple[tuple[int,int], tuple[int,int]]] \| None`, xlsx/xls only); projections `to_python(skip_empty_area=, nrows=)` and `iter_rows()`                                                   |
-|  [03]   | `CalamineTable`    | Excel table      | a structured Excel `Table` object recovered under `load_tables=True`; `name`, parent `sheet`, header `columns` (`list[str]`), geometry `height`/`width`/`start`/`end`, and `to_python()` row matrix                                                                                                                                                         |
-|  [04]   | `SheetMetadata`    | sheet descriptor | one `sheets_metadata` row; `name`, `typ` (`SheetTypeEnum`), `visible` (`SheetVisibleEnum`) — the metadata table read without materializing the sheet grid                                                                                                                                                                                                   |
-|  [05]   | `SheetTypeEnum`    | sheet-kind enum  | `WorkSheet`/`DialogSheet`/`MacroSheet`/`ChartSheet`/`Vba` (Excel formats only; ODS defaults to `WorkSheet`) — drop a non-`WorkSheet` sheet at the ingest boundary rather than reading it as a data grid                                                                                                                                                     |
-|  [06]   | `SheetVisibleEnum` | visibility enum  | `Visible`/`Hidden`/`VeryHidden` — the sheet visibility state for an introspection-driven sheet filter                                                                                                                                                                                                                                                       |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]    | [CAPABILITY]                                                                               |
+| :-----: | :----------------- | :--------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | `CalamineWorkbook` | workbook root    | read root; props `path`/`sheet_names`/`sheets_metadata`/`table_names`; `close` ctx         |
+|  [02]   | `CalamineSheet`    | sheet grid       | cell matrix; `name`, geometry, `merged_cell_ranges`; `to_python`/`iter_rows`               |
+|  [03]   | `CalamineTable`    | Excel table      | Excel `Table` under `load_tables=True`; `name`/`sheet`/`columns`/geometry, `to_python()`   |
+|  [04]   | `SheetMetadata`    | sheet descriptor | `sheets_metadata` row; `name`/`typ`(`SheetTypeEnum`)/`visible`(`SheetVisibleEnum`)         |
+|  [05]   | `SheetTypeEnum`    | sheet-kind enum  | `WorkSheet`/`DialogSheet`/`MacroSheet`/`ChartSheet`/`Vba` (Excel only; ODS -> `WorkSheet`) |
+|  [06]   | `SheetVisibleEnum` | visibility enum  | `Visible`/`Hidden`/`VeryHidden` — sheet visibility for an introspection filter             |
 
 [PUBLIC_TYPE_SCOPE]: ingest fault family
 - rail: office-ingest
 
 `CalamineError` is the one base the binding raises; map it (and its subclasses) at the `to_process.run_sync` worker boundary into the `runtime` `RuntimeRail` fault, never let a Rust panic surface as a bare exception across the interpreter seam.
 
-| [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY]   | [CAPABILITY]                                                                                               |
-| :-----: | :--------------------------------------------------------- | :-------------- | :--------------------------------------------------------------------------------------------------------- |
-|  [01]   | `CalamineError`                                            | base fault      | the `Exception` base every binding error derives from; the one boundary-map root                           |
-|  [02]   | `PasswordError`                                            | decrypt fault   | the workbook is password-protected (calamine does not decrypt — route through `msoffcrypto-tool` upstream) |
-|  [03]   | `WorksheetNotFound`                                        | lookup fault    | `get_sheet_by_name`/`get_sheet_by_index` named a sheet absent from the workbook                            |
-|  [04]   | `XmlError` / `ZipError`                                    | container fault | corrupt SpreadsheetML XML or a malformed OOXML/ODS zip container                                           |
-|  [05]   | `WorkbookClosed`                                           | lifecycle fault | a `get_sheet_*`/`get_table_*` call after `close()` dropped the Rust handle                                 |
-|  [06]   | `TablesNotLoaded` / `TablesNotSupported` / `TableNotFound` | table fault     | `get_table_by_name` without `load_tables=True`, on a non-xlsx format, or for a missing table name          |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [CAPABILITY]                                                                     |
+| :-----: | :------------------- | :-------------- | :------------------------------------------------------------------------------- |
+|  [01]   | `CalamineError`      | base fault      | the `Exception` base every binding error derives from; the one boundary-map root |
+|  [02]   | `PasswordError`      | decrypt fault   | password-protected workbook; no decrypt, route `msoffcrypto-tool` upstream       |
+|  [03]   | `WorksheetNotFound`  | lookup fault    | `get_sheet_by_name`/`get_sheet_by_index` named a sheet absent from the workbook  |
+|  [04]   | `XmlError`           | container fault | corrupt SpreadsheetML XML                                                        |
+|  [05]   | `ZipError`           | container fault | malformed OOXML/ODS zip container                                                |
+|  [06]   | `WorkbookClosed`     | lifecycle fault | a `get_sheet_*`/`get_table_*` call after `close()` dropped the Rust handle       |
+|  [07]   | `TablesNotLoaded`    | table fault     | `get_table_by_name` without `load_tables=True`                                   |
+|  [08]   | `TablesNotSupported` | table fault     | `get_table_by_name` on a non-xlsx format                                         |
+|  [09]   | `TableNotFound`      | table fault     | `get_table_by_name` for a missing table name                                     |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: workbook open and introspect
 - rail: office-ingest
 
-`from_object` is the polymorphic ingress: it determines the type of the argument (a `str`/`os.PathLike` path or a `ReadBuffer` file-like with `read`/`seek`) and reads from it, so the gated arm passes a `BytesIO(payload)` directly without first choosing a reader. `from_path` and `from_filelike` are the explicit-source forms for a known path or buffer; `load_workbook` is the module-level free-function mirror of `from_object`. `load_tables=True` (xlsx only) additionally parses Excel `Table` objects so `table_names`/`get_table_by_name` resolve. The workbook reads lazily — sheets are decoded on `get_sheet_*`, so `sheet_names`/`sheets_metadata` introspect without materializing any grid.
+`from_object` is the polymorphic ingress: it determines the type of the argument (a `str`/`os.PathLike` path or a `ReadBuffer` file-like with `read`/`seek`) and reads from it, so the gated arm passes a `BytesIO(payload)` directly without first choosing a reader. `from_path` and `from_filelike` are the explicit-source forms for a known path or buffer; `load_workbook` is the module-level free-function mirror of `from_object`. `load_tables=True` (xlsx only) additionally parses Excel `Table` objects so `table_names`/`get_table_by_name` resolve. The workbook reads lazily — sheets are decoded on `get_sheet_*`, so `sheet_names`/`sheets_metadata` introspect without materializing any grid. The `SURFACE` names drop the `CalamineWorkbook.` prefix (`from_*` are classmethods; `load_workbook` is the module-level mirror of `from_object`); every open returns `CalamineWorkbook`.
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                                                                                                   | [CAPABILITY]                                                              |
-| :-----: | :--------------------------------- | :----------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------ |
-|  [01]   | `CalamineWorkbook.from_object`     | `from_object(path_or_filelike: str \| os.PathLike \| ReadBuffer, load_tables: bool = False) -> CalamineWorkbook` (classmethod) | open from a path OR a seek+read buffer (the shape-discriminating ingress) |
-|  [02]   | `CalamineWorkbook.from_path`       | `from_path(path: str \| os.PathLike, load_tables: bool = False) -> CalamineWorkbook` (classmethod)                             | open from a filesystem path                                               |
-|  [03]   | `CalamineWorkbook.from_filelike`   | `from_filelike(filelike: ReadBuffer, load_tables: bool = False) -> CalamineWorkbook` (classmethod)                             | open from an IO buffer (must implement `read`/`seek`)                     |
-|  [04]   | `load_workbook`                    | `load_workbook(path_or_filelike, load_tables: bool = False) -> CalamineWorkbook`                                               | module-level free-function mirror of `from_object`                        |
-|  [05]   | `CalamineWorkbook.sheet_names`     | property -> `list[str]`                                                                                                        | all sheet names in workbook order                                         |
-|  [06]   | `CalamineWorkbook.sheets_metadata` | property -> `list[SheetMetadata]`                                                                                              | per-sheet `name`/`typ`/`visible` without reading any grid                 |
-|  [07]   | `CalamineWorkbook.table_names`     | property -> `list[str] \| None`                                                                                                | Excel table names (`None` when `load_tables=False` / unsupported)         |
-|  [08]   | `CalamineWorkbook.path`            | property -> `str \| None`                                                                                                      | the source path, or `None` when opened from bytes                         |
-|  [09]   | `CalamineWorkbook.close`           | `close() -> None` (+ `__enter__`/`__exit__`)                                                                                   | drop the Rust workbook handle; `get_sheet_*` then raises `WorkbookClosed` |
+| [INDEX] | [SURFACE]         | [CALL_SHAPE]                                                                                 |
+| :-----: | :---------------- | :------------------------------------------------------------------------------------------- |
+|  [01]   | `from_object`     | `from_object(path_or_filelike: str \| os.PathLike \| ReadBuffer, load_tables: bool = False)` |
+|  [02]   | `from_path`       | `from_path(path: str \| os.PathLike, load_tables: bool = False)`                             |
+|  [03]   | `from_filelike`   | `from_filelike(filelike: ReadBuffer, load_tables: bool = False)`                             |
+|  [04]   | `load_workbook`   | `load_workbook(path_or_filelike, load_tables: bool = False)`                                 |
+|  [05]   | `sheet_names`     | property -> `list[str]` (workbook order)                                                     |
+|  [06]   | `sheets_metadata` | property -> `list[SheetMetadata]` (per-sheet `name`/`typ`/`visible`, no grid read)           |
+|  [07]   | `table_names`     | property -> `list[str] \| None` (`None` when `load_tables=False` / unsupported)              |
+|  [08]   | `path`            | property -> `str \| None` (`None` when opened from bytes)                                    |
+|  [09]   | `close`           | `close() -> None` + `__enter__`/`__exit__`; `get_sheet_*` then raises `WorkbookClosed`       |
 
 [ENTRYPOINT_SCOPE]: sheet resolve and row-matrix projection
 - rail: office-ingest
 
-`get_sheet_by_name`/`get_sheet_by_index` resolve one `CalamineSheet`; `to_python` is the eager row matrix and `iter_rows` the lazy iterator over the same grid (`skip_empty_area=True` trims the leading empty rows/cols by default, `nrows` caps the read). Each row is a `list` of native scalars (`int`/`float`/`str`/`bool`/`datetime.time`/`datetime.date`/`datetime.datetime`/`datetime.timedelta`) — calamine decodes Excel date serials and durations to the `datetime` types directly, so the arm never re-derives a date from a float serial. `get_table_by_name` (under `load_tables=True`) is the same projection scoped to one Excel `Table`'s header + body.
+`get_sheet_by_name`/`get_sheet_by_index` resolve one `CalamineSheet`; `to_python` is the eager row matrix and `iter_rows` the lazy iterator over the same grid (`skip_empty_area=True` trims the leading empty rows/cols by default, `nrows` caps the read). Each row is a `list` of `CellValue = int \| float \| str \| bool \| datetime.time \| datetime.date \| datetime.datetime \| datetime.timedelta` native scalars — calamine decodes Excel date serials and durations to the `datetime` types directly, so the arm never re-derives a date from a float serial. `get_table_by_name` (under `load_tables=True`) is the same projection scoped to one Excel `Table`'s header + body. The `SURFACE` names drop their type prefix — `get_sheet_*`/`get_table_by_name` on `CalamineWorkbook`, the rest on `CalamineSheet`.
 
-| [INDEX] | [SURFACE]                             | [CALL_SHAPE]                                                                                           | [CAPABILITY]                                                                                                                                  |
-| :-----: | :------------------------------------ | :----------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `CalamineWorkbook.get_sheet_by_name`  | `get_sheet_by_name(name: str) -> CalamineSheet`                                                        | resolve one sheet by name (raises `WorksheetNotFound`)                                                                                        |
-|  [02]   | `CalamineWorkbook.get_sheet_by_index` | `get_sheet_by_index(index: int) -> CalamineSheet`                                                      | resolve one sheet by workbook-order index                                                                                                     |
-|  [03]   | `CalamineSheet.to_python`             | `to_python(skip_empty_area: bool = True, nrows: int \| None = None) -> list[list[CellValue]]`          | the eager row matrix (`CellValue = int \| float \| str \| bool \| datetime.time \| datetime.date \| datetime.datetime \| datetime.timedelta`) |
-|  [04]   | `CalamineSheet.iter_rows`             | `iter_rows() -> Iterator[list[CellValue]]`                                                             | the lazy row iterator over the same grid (constant-memory streaming)                                                                          |
-|  [05]   | `CalamineSheet.merged_cell_ranges`    | property -> `list[tuple[tuple[int,int], tuple[int,int]]] \| None`                                      | merged-region `(start_rc, end_rc)` quads (xlsx/xls; `None` for ods) — folds into `TableNode.spans`                                            |
-|  [06]   | `CalamineSheet` geometry              | `name`, `height`/`width`/`total_height`/`total_width` props, `start`/`end` -> `tuple[int,int] \| None` | the used-range row/col extent and corner positions                                                                                            |
-|  [07]   | `CalamineWorkbook.get_table_by_name`  | `get_table_by_name(name: str) -> CalamineTable`                                                        | resolve one Excel `Table` (needs `load_tables=True`; raises `TablesNotLoaded`/`TableNotFound`)                                                |
+| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                                                                           |
+| :-----: | :------------------- | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | `get_sheet_by_name`  | `get_sheet_by_name(name: str) -> CalamineSheet` (raises `WorksheetNotFound`)                           |
+|  [02]   | `get_sheet_by_index` | `get_sheet_by_index(index: int) -> CalamineSheet`                                                      |
+|  [03]   | `to_python`          | `to_python(skip_empty_area: bool = True, nrows: int \| None = None) -> list[list[CellValue]]`          |
+|  [04]   | `iter_rows`          | `iter_rows() -> Iterator[list[CellValue]]` (constant-memory streaming over the same grid)              |
+|  [05]   | `merged_cell_ranges` | property -> `list[tuple[tuple[int,int], tuple[int,int]]] \| None` (xlsx/xls; `None` ods)               |
+|  [06]   | geometry             | `name`, `height`/`width`/`total_height`/`total_width` props, `start`/`end` -> `tuple[int,int] \| None` |
+|  [07]   | `get_table_by_name`  | `get_table_by_name(name: str) -> CalamineTable` (needs `load_tables=True`)                             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

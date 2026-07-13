@@ -15,54 +15,57 @@
 
 [PUBLIC_TYPE_SCOPE]: client, events, and connection config
 - rail: boundaries
+- `Client` carries `connect`/`exec`/`shell`/`sftp`/`subsys`/`rekey`/`setNoDelay`/`end`; connect auth is `host`/`port`/`username`/`password`/`privateKey`+`passphrase`/`agent`+`agentForward`/`tryKeyboard`/`authHandler`. The discrete events `banner`/`handshake`/`hostkeys`/`keyboard-interactive`/`change password`/`rekey`/`tcp connection`/`unix connection`/`x11` lift through `Effect.async`/`Stream.asyncPush`.
 
-| [INDEX] | [SYMBOL]                                                                                                                                         | [TYPE_FAMILY]   | [CONSUMER]                                                                             |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------- |
-|  [01]   | `Client` (`connect`, `exec`, `shell`, `sftp`, `subsys`, `rekey`, `setNoDelay`, `end`)                                                            | client          | the scoped connection the boundary adapter brackets                                    |
-|  [02]   | `Client` forwarding family                                                                                                                       | forwarding      | TCP/unix tunnels; `forwardOut` mints the jump-host duplex                              |
-|  [03]   | events `ready` / `error` / `end` / `close`                                                                                                       | lifecycle       | the acquireRelease bracket arms                                                        |
-|  [04]   | events `banner` / `handshake` / `hostkeys` / `keyboard-interactive` / `change password` / `rekey` / `tcp connection` / `unix connection` / `x11` | discrete events | lifted via `Effect.async` / `Stream.asyncPush`                                         |
-|  [05]   | config auth (`host`, `port`, `username`, `password`, `privateKey` + `passphrase`, `agent` + `agentForward`, `tryKeyboard`, `authHandler`)        | connect config  | the full auth surface — key, agent, keyboard-interactive, custom handler               |
-|  [06]   | config trust + tuning                                                                                                                            | connect config  | known-hosts verification, cipher policy, liveness budget                               |
-|  [07]   | config `sock`                                                                                                                                    | duplex inject   | jump-host chaining — a prior connection's `forwardOut` duplex feeds the next `connect` |
-|  [08]   | exec/shell channel (Node `Duplex`; `exit` event)                                                                                                 | channel         | stdout/stderr/stdin streams; exit code resolves into the result rail                   |
+| [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY]   | [CONSUMER]                                                        |
+| :-----: | :----------------------------------------------- | :-------------- | :---------------------------------------------------------------- |
+|  [01]   | `Client`                                         | client          | the scoped connection the boundary adapter brackets               |
+|  [02]   | `Client` forwarding family                       | forwarding      | TCP/unix tunnels; `forwardOut` mints the jump-host duplex         |
+|  [03]   | events `ready` / `error` / `end` / `close`       | lifecycle       | the acquireRelease bracket arms                                   |
+|  [04]   | the discrete events (roster in lead)             | discrete events | lifted via `Effect.async` / `Stream.asyncPush`                    |
+|  [05]   | connect auth config (fields in lead)             | connect config  | key, agent, keyboard-interactive, custom handler                  |
+|  [06]   | config trust + tuning                            | connect config  | known-hosts verification, cipher policy, liveness budget          |
+|  [07]   | config `sock`                                    | duplex inject   | bastion chaining — a `forwardOut` duplex feeds the next `connect` |
+|  [08]   | exec/shell channel (Node `Duplex`; `exit` event) | channel         | stdout/stderr/stdin streams; exit code → the result rail          |
 
 [PUBLIC_TYPE_SCOPE]: the SFTP subsystem (`SFTPWrapper`)
 - rail: boundaries
+- `fastGet`/`fastPut` take opts `concurrency`/`chunkSize`/`step`/`mode`/`fileSize`, with `step(total, nb, fsize)` the progress hook.
 
-| [INDEX] | [SYMBOL]                                                                            | [TYPE_FAMILY]     | [CONSUMER]                                                                                                        |
-| :-----: | :---------------------------------------------------------------------------------- | :---------------- | :---------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `fastGet` / `fastPut` (opts `concurrency`, `chunkSize`, `step`, `mode`, `fileSize`) | parallel transfer | chunked-parallel single-file throughput; `step(total, nb, fsize)` is the progress hook                            |
-|  [02]   | `createReadStream` / `createWriteStream`                                            | streams           | backpressured Node streams lifted through the platform bridges                                                    |
-|  [03]   | `open` / `read` / `write` / `close` / `fstat`                                       | byte primitives   | offset-addressed I/O — the resume primitive (`stat` size → `open(path, 'a' \| 'r+')` → positioned `read`/`write`) |
-|  [04]   | `readFile` / `writeFile`                                                            | whole-file        | small bounded payloads only                                                                                       |
-|  [05]   | `readdir` / `opendir` / `stat` / `lstat` / `setstat` / `realpath`                   | census + attrs    | directory walk, attribute reads, the poll-watch diff source                                                       |
-|  [06]   | `rename` + `ext_openssh_*` posix-rename / `mkdir` / `rmdir` / `unlink`              | namespace         | atomic-rename staging, tree maintenance                                                                           |
+| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]     | [CONSUMER]                                              |
+| :-----: | :------------------------------------------------------ | :---------------- | :------------------------------------------------------ |
+|  [01]   | `fastGet` / `fastPut`                                   | parallel transfer | chunked-parallel throughput; `step` progress hook       |
+|  [02]   | `createReadStream` / `createWriteStream`                | streams           | backpressured Node streams via the platform bridges     |
+|  [03]   | `open`/`read`/`write`/`close`/`fstat`                   | byte primitives   | offset-addressed I/O — the resume primitive             |
+|  [04]   | `readFile` / `writeFile`                                | whole-file        | small bounded payloads only                             |
+|  [05]   | `readdir`/`opendir`/`stat`/`lstat`/`setstat`/`realpath` | census + attrs    | directory walk, attribute reads, poll-watch diff source |
+|  [06]   | `rename`/`ext_openssh_*`/`mkdir`/`rmdir`/`unlink`       | namespace         | atomic-rename staging (posix-rename), tree maintenance  |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection, channels, and the jump-host chain
 - rail: boundaries
+- `connect` resolves on `ready`, fails on `error`, releases via `end()`, and pools keyed `{host,port,username}`; the channel lifts are stdout → `NodeStream.fromReadable`, stdin → `NodeSink.fromWritable`, whole channel → `NodeStream.fromDuplex`.
 
-| [INDEX] | [SURFACE]                                                                           | [ENTRY_FAMILY] | [CONSUMER]                                                                                                                          |
-| :-----: | :---------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `client.connect(config)` — resolve on `ready`, fail on `error`, release via `end()` | acquire        | `Effect.acquireRelease` in a `Scope`; bounded reuse via a pool keyed `{host, port, username}`                                       |
-|  [02]   | `client.exec(command, opts?, cb)` → channel `Duplex`                                | remote exec    | stdout → `NodeStream.fromReadable`, stdin → `NodeSink.fromWritable`, whole channel → `NodeStream.fromDuplex`; `exit` → typed result |
-|  [03]   | `client.shell(opts?, cb)` → channel `Duplex`                                        | interactive    | PTY session as one duplex `Channel`                                                                                                 |
-|  [04]   | `client.sftp(cb)` → `SFTPWrapper`                                                   | subsystem      | the SFTP surface of [02]; one wrapper per connection                                                                                |
-|  [05]   | `first.forwardOut(...)` → duplex → `second.connect({ sock: duplex, ... })`          | jump host      | bastion chaining with no external proxy — `sock` is the injection point                                                             |
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [CONSUMER]                                                    |
+| :-----: | :--------------------------------------------------- | :------------- | :------------------------------------------------------------ |
+|  [01]   | `client.connect(config)`                             | acquire        | `Effect.acquireRelease` in a `Scope`; pooled reuse            |
+|  [02]   | `client.exec(command, opts?, cb)` → channel `Duplex` | remote exec    | stdout/stdin/channel lifted (see lead); `exit` → typed result |
+|  [03]   | `client.shell(opts?, cb)` → channel `Duplex`         | interactive    | PTY session as one duplex `Channel`                           |
+|  [04]   | `client.sftp(cb)` → `SFTPWrapper`                    | subsystem      | the SFTP surface of [02]; one wrapper per connection          |
+|  [05]   | `forwardOut(...)` → `connect({ sock })`              | jump host      | bastion chaining — `sock` is the injection point              |
 
 [ENTRYPOINT_SCOPE]: transfer-resume and remote-watch policy rows
 - rail: boundaries
-- No native SFTP resume or watch exists; both are policy rows the origin surface dispatches on capability.
+- No native SFTP resume or watch exists; both are policy rows the origin surface dispatches on capability. The delta row is `Command.make("rsync", "-e", "ssh", "--partial", "--append-verify", "--inplace", "--checksum", …)`.
 
-| [INDEX] | [SURFACE]                                                                                            | [ENTRY_FAMILY]  | [CONSUMER]                                                                  |
-| :-----: | :--------------------------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `Command.make("rsync", "-e", "ssh", "--partial", "--append-verify", "--inplace", "--checksum", ...)` | resume: delta   | the preferred resumable/delta row — external binary, `Command`-native       |
-|  [02]   | `stat` remote size → `open(path, 'a' \| 'r+')` → positioned `read`/`write`                           | resume: offset  | the no-rsync recovery row — byte-offset arithmetic, a resume-capable `Sink` |
-|  [03]   | `fastGet`/`fastPut` with `concurrency` + `chunkSize` + `step`                                        | resume: chunked | parallel throughput on single large files where the server permits          |
-|  [04]   | `exec("inotifywait -m -r ..." \| "fswatch ...")` → `NodeStream.fromDuplex` → change `Stream`         | watch: push     | lowest latency; requires the tool on the host                               |
-|  [05]   | `Schedule`-driven `readdir` + `stat` mtime/size diff                                                 | watch: poll     | universal safe default; latency = poll cadence                              |
+| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY]  | [CONSUMER]                                       |
+| :-----: | :--------------------------------------------------------------- | :-------------- | :----------------------------------------------- |
+|  [01]   | `Command.make("rsync", …)`                                       | resume: delta   | preferred delta row — external, `Command`-native |
+|  [02]   | remote `stat` → `open('a'\|'r+')` → positioned `read`/`write`    | resume: offset  | no-rsync recovery — byte-offset resume `Sink`    |
+|  [03]   | `fastGet`/`fastPut` with `concurrency`+`chunkSize`+`step`        | resume: chunked | parallel throughput on single large files        |
+|  [04]   | `exec("inotifywait …" \| "fswatch …")` → `NodeStream.fromDuplex` | watch: push     | lowest latency; needs the tool on the host       |
+|  [05]   | `Schedule`-driven `readdir` + `stat` mtime/size diff             | watch: poll     | universal safe default; latency = poll cadence   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

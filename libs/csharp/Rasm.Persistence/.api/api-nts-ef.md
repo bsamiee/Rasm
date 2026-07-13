@@ -48,34 +48,34 @@ services. Wire admission and the EF plugin pair — neither stands alone.
 [PLUGIN_TYPES]: EF plugin admission and translation services
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                                                    | [PACKAGE_ROLE]       | [CAPABILITY]                                                        |
-| :-----: | :---------------------------------------------------------- | :------------------- | :------------------------------------------------------------------ |
-|  [01]   | `NpgsqlNetTopologySuiteDbContextOptionsBuilderExtensions`   | builder extension    | admits plugin (provider-options seam)                               |
-|  [02]   | `NpgsqlNetTopologySuiteServiceCollectionExtensions`         | service extension    | admits plugin services                                              |
-|  [03]   | `NpgsqlNetTopologySuiteDbFunctionsExtensions`               | function surface     | projects PostGIS functions on `EF.Functions`                        |
-|  [04]   | `NpgsqlNetTopologySuiteOptionsExtension`                    | options extension    | `IDbContextOptionsExtension`; carries plugin policy                 |
-|  [05]   | `NetTopologySuiteDataSourceConfigurationPlugin`             | data source plugin   | `INpgsqlDataSourceConfigurationPlugin`; enables geometry wire       |
-|  [06]   | `NpgsqlNetTopologySuiteTypeMappingSourcePlugin`             | mapping plugin       | `IRelationalTypeMappingSourcePlugin`; resolves column mappings      |
-|  [07]   | `NpgsqlGeometryTypeMapping<TGeometry>`                      | geometry mapping     | `RelationalGeometryTypeMapping`; geometry + geography columns       |
-|  [08]   | `NpgsqlJsonGeometryWktReaderWriter`                         | JSON value writer    | `JsonValueReaderWriter<Geometry>`; geometry in a JSON column as WKT |
-|  [09]   | `NpgsqlNetTopologySuiteMethodCallTranslatorPlugin`          | method plugin        | `IMethodCallTranslatorPlugin`                                       |
-|  [10]   | `NpgsqlNetTopologySuiteMemberTranslatorPlugin`              | member plugin        | `IMemberTranslatorPlugin`                                           |
-|  [11]   | `NpgsqlNetTopologySuiteAggregateMethodCallTranslatorPlugin` | aggregate plugin     | `IAggregateMethodCallTranslatorPlugin`                              |
-|  [12]   | `NpgsqlNetTopologySuiteAggregateMethodTranslator`           | aggregate translator | spatial aggregate SQL (`ST_Union`, `ST_Extent`, …)                  |
-|  [13]   | `NpgsqlGeometryMemberTranslator`                            | member translator    | geometry member SQL (`.Area`, `.Length`, `.Centroid`, …)            |
-|  [14]   | `NpgsqlGeometryMethodTranslator`                            | method translator    | geometry method SQL (`.Distance`, `.Intersects`, `.Buffer`, …)      |
+| [INDEX] | [SYMBOL]                                                    | [PACKAGE_ROLE]       | [CAPABILITY]                                        |
+| :-----: | :---------------------------------------------------------- | :------------------- | :-------------------------------------------------- |
+|  [01]   | `NpgsqlNetTopologySuiteDbContextOptionsBuilderExtensions`   | builder extension    | admits plugin (provider-options seam)               |
+|  [02]   | `NpgsqlNetTopologySuiteServiceCollectionExtensions`         | service extension    | admits plugin services                              |
+|  [03]   | `NpgsqlNetTopologySuiteDbFunctionsExtensions`               | function surface     | projects PostGIS functions on `EF.Functions`        |
+|  [04]   | `NpgsqlNetTopologySuiteOptionsExtension`                    | options extension    | `IDbContextOptionsExtension`; carries plugin policy |
+|  [05]   | `NetTopologySuiteDataSourceConfigurationPlugin`             | data source plugin   | `INpgsqlDataSourceConfigurationPlugin`              |
+|  [06]   | `NpgsqlNetTopologySuiteTypeMappingSourcePlugin`             | mapping plugin       | `IRelationalTypeMappingSourcePlugin`                |
+|  [07]   | `NpgsqlGeometryTypeMapping<TGeometry>`                      | geometry mapping     | `RelationalGeometryTypeMapping`; geometry+geography |
+|  [08]   | `NpgsqlJsonGeometryWktReaderWriter`                         | JSON value writer    | `JsonValueReaderWriter<Geometry>`; WKT              |
+|  [09]   | `NpgsqlNetTopologySuiteMethodCallTranslatorPlugin`          | method plugin        | `IMethodCallTranslatorPlugin`                       |
+|  [10]   | `NpgsqlNetTopologySuiteMemberTranslatorPlugin`              | member plugin        | `IMemberTranslatorPlugin`                           |
+|  [11]   | `NpgsqlNetTopologySuiteAggregateMethodCallTranslatorPlugin` | aggregate plugin     | `IAggregateMethodCallTranslatorPlugin`              |
+|  [12]   | `NpgsqlNetTopologySuiteAggregateMethodTranslator`           | aggregate translator | emits `ST_Union`/`ST_Extent`/… SQL                  |
+|  [13]   | `NpgsqlGeometryMemberTranslator`                            | member translator    | emits `.Area`/`.Length`/`.Centroid`/… SQL           |
+|  [14]   | `NpgsqlGeometryMethodTranslator`                            | method translator    | emits `.Distance`/`.Intersects`/`.Buffer`/… SQL     |
 
 [PLUGIN_TYPES]: EF plugin conventions and scaffolding
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                                          | [PACKAGE_ROLE]     | [CAPABILITY]                                                       |
-| :-----: | :------------------------------------------------ | :----------------- | :----------------------------------------------------------------- |
-|  [01]   | `NpgsqlNetTopologySuiteConventionSetPlugin`       | convention plugin  | `IConventionSetPlugin`; adds PostGIS convention                    |
-|  [02]   | `NpgsqlNetTopologySuiteExtensionAddingConvention` | convention         | `IModelFinalizingConvention`; finalizes `CREATE EXTENSION postgis` |
-|  [03]   | `NpgsqlNetTopologySuiteSingletonOptions`          | singleton options  | carries resolved geometry options                                  |
-|  [04]   | `INpgsqlNetTopologySuiteSingletonOptions`         | singleton contract | `ISingletonOptions` contract                                       |
-|  [05]   | `NpgsqlNetTopologySuiteCodeGeneratorPlugin`       | scaffolding plugin | `ProviderCodeGeneratorPlugin`; emits admission in scaffolding      |
-|  [06]   | `NpgsqlNetTopologySuiteDesignTimeServices`        | design services    | `IDesignTimeServices`; admits design tooling                       |
+| [INDEX] | [SYMBOL]                                          | [PACKAGE_ROLE]     | [CAPABILITY]                                                  |
+| :-----: | :------------------------------------------------ | :----------------- | :------------------------------------------------------------ |
+|  [01]   | `NpgsqlNetTopologySuiteConventionSetPlugin`       | convention plugin  | `IConventionSetPlugin`; adds PostGIS convention               |
+|  [02]   | `NpgsqlNetTopologySuiteExtensionAddingConvention` | convention         | `IModelFinalizingConvention`; adds `CREATE EXTENSION postgis` |
+|  [03]   | `NpgsqlNetTopologySuiteSingletonOptions`          | singleton options  | carries resolved geometry options                             |
+|  [04]   | `INpgsqlNetTopologySuiteSingletonOptions`         | singleton contract | `ISingletonOptions` contract                                  |
+|  [05]   | `NpgsqlNetTopologySuiteCodeGeneratorPlugin`       | scaffolding plugin | `ProviderCodeGeneratorPlugin`; emits admission                |
+|  [06]   | `NpgsqlNetTopologySuiteDesignTimeServices`        | design services    | `IDesignTimeServices`; admits design tooling                  |
 
 [WIRE_TYPES]: ADO wire admission (`Npgsql.NetTopologySuite` — single public type)
 - rail: store-provider
@@ -120,12 +120,12 @@ never `new`. `Coordinate` carries `X`/`Y` plus optional `Z`/`M`; `Ordinates`
 seam. The EF builder and the ADO mapper admission pair — the EF plugin maps columns, the ADO
 wire codec moves the bytes.
 
-| [INDEX] | [SURFACE]                                                                                                                                   | [CALL_SHAPE]          | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------ | :-------------------- | :------------------------------------------------- |
-|  [01]   | `UseNetTopologySuite(coordSeqFactory?, precisionModel?, handleOrdinates=None, geographyAsDefault=false)` on `NpgsqlDbContextOptionsBuilder` | provider option       | EF geometry mapping with precision/ordinate policy |
-|  [02]   | `AddEntityFrameworkNpgsqlNetTopologySuite(this IServiceCollection)`                                                                         | service extension     | registers plugin services                          |
-|  [03]   | `UseNetTopologySuite(this INpgsqlTypeMapper, …same 4 params…)`                                                                              | type-mapper extension | admits wire codecs on `INpgsqlTypeMapper`          |
-|  [04]   | `UseNetTopologySuite<TMapper>(this TMapper, …same 4 params…) where TMapper : INpgsqlTypeMapper`                                             | data-source seam      | admits wire codecs on the data-source mapper       |
+| [INDEX] | [SURFACE]                                                           | [CAPABILITY]                                       |
+| :-----: | :------------------------------------------------------------------ | :------------------------------------------------- |
+|  [01]   | `UseNetTopologySuite(…)` on `NpgsqlDbContextOptionsBuilder`         | EF provider-option seam; precision/ordinate policy |
+|  [02]   | `AddEntityFrameworkNpgsqlNetTopologySuite(this IServiceCollection)` | service-extension seam; registers plugin services  |
+|  [03]   | `UseNetTopologySuite(this INpgsqlTypeMapper, …)`                    | type-mapper seam; admits wire codecs               |
+|  [04]   | `UseNetTopologySuite<TMapper>(this TMapper, …)`                     | data-source seam; admits wire codecs               |
 
 [ENTRYPOINT_SCOPE]: PostGIS SQL function projections (`EF.Functions` extensions)
 - rail: store-provider
@@ -166,18 +166,18 @@ The model-side algebra (DE-9IM topology engine); the EF translators map a subset
 to PostGIS SQL, the rest run client-side on a materialized geometry. The catalog documents
 the load-bearing surface, not a 3-method sketch.
 
-| [INDEX] | [SURFACE]                                                               | [RETURNS]                   | [CAPABILITY]                      |
-| :-----: | :---------------------------------------------------------------------- | :-------------------------- | :-------------------------------- |
-|  [01]   | `Intersects` / `Contains` / `Within` / `Covers` / `CoveredBy`           | `bool`                      | DE-9IM topological predicates     |
-|  [02]   | `Overlaps` / `Touches` / `Crosses` / `Disjoint` / `EqualsTopologically` | `bool`                      | DE-9IM topological predicates     |
-|  [03]   | `Relate(Geometry)` / `Relate(Geometry, string pattern)`                 | `IntersectionMatrix`/`bool` | full DE-9IM matrix / pattern test |
-|  [04]   | `Distance(Geometry)` / `IsWithinDistance(Geometry, double)`             | `double`/`bool`             | cartesian distance / proximity    |
-|  [05]   | `Buffer(double[, quadrantSegments / EndCapStyle / BufferParameters])`   | `Geometry`                  | dilation with cap/segment policy  |
-|  [06]   | `ConvexHull()` / `Centroid` / `InteriorPoint` / `PointOnSurface`        | `Geometry`/`Point`          | derived geometries                |
-|  [07]   | `Area` / `Length` / `IsValid` / `IsSimple` / `IsRectangle` / `IsEmpty`  | `double`/`bool`             | metrics + validity                |
-|  [08]   | `Envelope` / `EnvelopeInternal`                                         | `Geometry`/`Envelope`       | bounding geometry / box value     |
-|  [09]   | `SRID` (get/set) / `NumGeometries` / `GetGeometryN(int)` / `Factory`    | `int`/`Geometry`            | identity + collection access      |
-|  [10]   | `AsText()` / `ToText()` / `AsBinary()` / `ToBinary()`                   | `string`/`byte[]`           | WKT / WKB projection              |
+| [INDEX] | [SURFACE]                                                               | [RETURNS]                   | [CAPABILITY]                  |
+| :-----: | :---------------------------------------------------------------------- | :-------------------------- | :---------------------------- |
+|  [01]   | `Intersects` / `Contains` / `Within` / `Covers` / `CoveredBy`           | `bool`                      | DE-9IM topological predicates |
+|  [02]   | `Overlaps` / `Touches` / `Crosses` / `Disjoint` / `EqualsTopologically` | `bool`                      | DE-9IM topological predicates |
+|  [03]   | `Relate(Geometry)` / `Relate(Geometry, string pattern)`                 | `IntersectionMatrix`/`bool` | DE-9IM matrix / pattern test  |
+|  [04]   | `Distance(Geometry)` / `IsWithinDistance(Geometry, double)`             | `double`/`bool`             | cartesian distance/proximity  |
+|  [05]   | `Buffer(double[, quadrantSegments / EndCapStyle / BufferParameters])`   | `Geometry`                  | dilation; cap/segment policy  |
+|  [06]   | `ConvexHull()` / `Centroid` / `InteriorPoint` / `PointOnSurface`        | `Geometry`/`Point`          | derived geometries            |
+|  [07]   | `Area` / `Length` / `IsValid` / `IsSimple` / `IsRectangle` / `IsEmpty`  | `double`/`bool`             | metrics + validity            |
+|  [08]   | `Envelope` / `EnvelopeInternal`                                         | `Geometry`/`Envelope`       | bounding geometry / box value |
+|  [09]   | `SRID` (get/set) / `NumGeometries` / `GetGeometryN(int)` / `Factory`    | `int`/`Geometry`            | identity + collection access  |
+|  [10]   | `AsText()` / `ToText()` / `AsBinary()` / `ToBinary()`                   | `string`/`byte[]`           | WKT / WKB projection          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

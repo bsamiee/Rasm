@@ -1,108 +1,170 @@
 # [PY_GEOMETRY_ARCHITECTURE]
 
-The domain map of `geometry` — the host-free geometry and IFC/BIM companion and load-bearing cross-boundary owner. The `graduation` evidence spine, the `mesh` IfcOpenShell GLB tessellation daemon and its `serve` wire owner, plus the `scan`, `ifc`, `graph`, and `energy` domains.
-
-Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
+`geometry` maps the host-free geometry and IFC/BIM band of the Python branch as the load-bearing cross-boundary owner: each sub-domain folder maps to one namespace, and the `graduation` spine mints the content-keyed evidence receipt every producer graduates through. It is a peer producer, never a Rasm consumer — alignment travels through the `ComputeService`/`ArtifactSync` contract and the content-keyed GLB tessellation rail, never a shared reference.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
 geometry/
-├── graduation.py             # GeometrySubject union + GeometryHandoff carrier + evidence_run weave: the tier-0 spine every producer composes
-├── scan/                     # Point-cloud and 3D-scan ingestion, registration, deviation, and reconstruction
-│   ├── ingestion.py          # ScanIngestion: pdal filter-graph (ground/outlier/decimate, streaming iterator) + pye57 E57 station provenance
-│   ├── registration.py       # ScanRegistration: kiss_matcher global (open3d FGR fallback), tensor multi_scale_icp, colored, VGICP, multiway
-│   ├── deviation.py          # ScanDeviation: RANSAC plane/primitive segmentation + signed nearest-surface deviation against the content-keyed IFC
-│   └── reconstruction.py     # ScanReconstruction: open3d Poisson/ball-pivoting/alpha-shape registered-cloud-to-watertight-mesh, closure-graded
-├── ifc/                      # IFC property/quantity/relationship analysis + buildingSMART validation + 5D/4D lifecycle
-│   ├── analysis.py           # IfcAnalysis: Pset, IDS (entity + Json-report roll-up), clash, space-program, BCF with OCC snapshots; bim-compliance
-│   ├── costing.py            # IfcLifecycle: ifc5d 5D quantity take-off + cost rollup, ifc4d scheduling, ifcpatch recipes, ifcdiff revision diff
-│   ├── selector.py           # IfcSelector: lark-validated selector/filter-query grammar admitting a structured query before filter_elements
-│   ├── authoring.py          # IfcAuthoring: ifcopenshell spatial/element/geometry transactions, GUID rail, ownership history
-│   └── structural.py         # IfcStructural: Section integrals (A/I/centroid/torsion) over IfcProfileDef + the realized warping/plastic/shear FE
-├── mesh/                     # IfcOpenShell GLB tessellation daemon, serve wire, CAD-STEP hop, mesh algebra, B-rep
-│   ├── daemon.py             # TessellationDaemon: source bytes + TessellationPolicy → RETURNED RuntimeRail[Block[TessellationResult]] per-element
-│   ├── serve.py              # GeometryServe: the servicer registered in the runtime ServerHost — TessellationRequest decode, receipt field floor
-│   ├── cad.py                # StepBridge: STEP/IGES B-rep bytes → GLB over OCCT XCAF; TessellationPolicy mints mesher knobs
-│   ├── repair.py             # MeshRepairOp: watertight repair, winding/normal fix, manifold3d boolean; the PUBLIC to_manifold uint32-ceiling
-│   ├── brep.py               # BrepOp: cadquery-ocp B-rep evaluation — BOPAlgo booleans (fuzzy/history), sew/NURBS conditioning, CrossSection offset
-│   ├── spatial.py            # MeshSpatial: proximity/ray/contains, rtree bounds/nearest, and fcl signed-clearance queries
-│   └── quality.py            # MeshQuality: aspect-ratio/skewness/manifold-edge/genus receipts + the PUBLIC closure_fold
-├── graph/                    # Non-manifold topology over topologicpy, AEC computational geometry over compas, network analytics over networkx
-│   ├── analytic.py           # AnalyticValue reducer-return union, ranked board fold, and census projections
-│   ├── nonmanifold.py        # run/TopologyOp: CellComplex/Cell/Aperture construction, decomposition, adjacency, cached dual graph
-│   ├── algebra.py            # ComputationalGeometry: network adjacency, form-finding, numerical primitives, mesh algebra; four graduation subjects
-│   └── features.py           # Features: networkx centrality/community/cycle/connectivity analytics over the network-graph projection
-└── energy/                   # Out-of-process AGPL Ladybug Tools building-physics band: climate, HBJSON model, urban district, simulation egress
-    ├── climate.py            # Climate: polymorphic EPW admission, DataCollection series algebra, Sunpath solar, PMV/UTCI/PET comfort + map rows
-    ├── model.py              # BuildingModel: HBJSON/BIM-to-BEM admission under one check_all gate, standards-resolved energy assignment
-    ├── district.py           # District: dragonfly dfjson/GeoJSON/massing admission, auto-zoning, to_honeybee explosion, URBANopt/DES/OpenDSS/REopt
-    └── simulate.py           # Simulation: offloaded OSM/IDF/epJSON/gbXML translation, runtime recipe binding, SQLiteResult/EUI decode into result
+├── graduation.py         # Tier-0 evidence spine: the subject union and handoff carrier every producer composes
+├── scan/                 # Point-cloud and 3D-scan ingestion, registration, deviation, and reconstruction
+│   ├── ingestion.py      # Point-cloud ingestion and E57 station-provenance decode over the filter graph
+│   ├── registration.py   # Global then multi-scale point-cloud registration
+│   ├── deviation.py      # Signed nearest-surface deviation against the content-keyed reference
+│   └── reconstruction.py # Registered-cloud-to-watertight-mesh reconstruction, closure-graded
+├── ifc/                  # IFC property, quantity, and relationship analysis, validation, and 5D/4D lifecycle
+│   ├── analysis.py       # Pset, IDS, clash, space-program, and BCF analysis and BIM-compliance evidence
+│   ├── costing.py        # 5D quantity take-off, cost rollup, 4D scheduling, and revision diff
+│   ├── selector.py       # Validated selector grammar gating element selection
+│   ├── authoring.py      # IFC spatial, element, and geometry authoring transactions over the GUID rail
+│   └── structural.py     # Section-integral properties over IfcProfileDef and the warping/plastic/shear FE
+├── mesh/                 # GLB tessellation daemon, serve wire, CAD-STEP hop, mesh algebra, and B-rep
+│   ├── daemon.py         # Tessellation daemon: source bytes and policy to per-element mesh rails
+│   ├── serve.py          # Tessellation servicer registered in the runtime ServerHost
+│   ├── cad.py            # STEP and IGES B-rep to GLB over the OCCT XCAF bridge
+│   ├── repair.py         # Watertight repair, winding and normal fix, and the public manifold boolean
+│   ├── brep.py           # B-rep evaluation: booleans, sew and NURBS conditioning, cross-section offset
+│   ├── spatial.py        # Proximity, ray, contains, bounds/nearest, and signed-clearance queries
+│   └── quality.py        # Aspect, skewness, manifold, and genus receipts and the public closure fold
+├── graph/                # Non-manifold topology, AEC computational geometry, and network analytics
+│   ├── analytic.py       # Analytic-value reducer union, ranked board fold, and census projections
+│   ├── nonmanifold.py    # CellComplex construction, decomposition, adjacency, and the cached dual graph
+│   ├── algebra.py        # Network adjacency, form-finding, numerical primitives, and mesh algebra
+│   └── features.py       # Centrality, community, cycle, and connectivity analytics over the network graph
+└── energy/               # Out-of-process building-physics band: climate, model, district, and simulation
+    ├── climate.py        # EPW admission, series algebra, solar sunpath, and thermal-comfort maps
+    ├── model.py          # HBJSON and BIM-to-BEM admission under one gate with standards-resolved assignment
+    ├── district.py       # District admission, auto-zoning, and the to-honeybee model explosion
+    └── simulate.py       # Offloaded energy translation, recipe binding, and result decode
 ```
 
 ## [02]-[SEAMS]
 
-```text seams
-graduation          →  python:compute/graduation    # [GRADUATION]: GeometryHandoff.wire() content-keyed receipt data — the ONE compute crossing
-scan/registration   →  graduation                   # [GRADUATION]: registration-transform GeometryHandoff
-scan/deviation      →  graduation                   # [GRADUATION]: scan-deviation GeometryHandoff keyed to the IFC GlobalId
-scan/reconstruction →  graduation                   # [GRADUATION]: reconstructed-mesh GeometryHandoff
-graph/algebra       →  graduation                   # [GRADUATION]: network-graph / form-finding / numerical-primitive / mesh-algebra GeometryHandoff
-graph/features      →  graduation                   # [GRADUATION]: network-graph GeometryHandoff
-graph/nonmanifold   →  graduation                   # [GRADUATION]: topology-graph GeometryHandoff
-ifc/analysis        →  graduation                   # [GRADUATION]: bim-compliance GeometryHandoff (IDS/clash/BCF evidence)
-ifc/costing         →  graduation                   # [GRADUATION]: bim-lifecycle GeometryHandoff (5D/4D evidence)
-ifc/structural      →  graduation                   # [GRADUATION]: section-property GeometryHandoff (ring-closure + fe-area residuals)
-mesh/repair         →  graduation                   # [GRADUATION]: reconstructed-mesh / mesh-algebra subjects on the repair receipts
-mesh/brep           →  graduation                   # [GRADUATION]: mesh-algebra subject on the brep receipts
-energy/climate      →  graduation                   # [GRADUATION]: thermal-comfort GeometryHandoff
-energy/model        →  graduation                   # [GRADUATION]: building-energy GeometryHandoff
-energy/district     →  graduation                   # [GRADUATION]: building-energy GeometryHandoff
-energy/simulate     →  graduation                   # [GRADUATION]: building-energy GeometryHandoff (EUI vs caller ceiling)
-mesh/serve          →  mesh/daemon                  # [PORT]: the servicer drives the daemon's returned RuntimeRail[Block[TessellationResult]]
-mesh/daemon         →  mesh/cad                     # [PORT]: cad case delegates to StepBridge.tessellate
-mesh/brep           →  mesh/cad                     # [PORT]: TessellationPolicy mesher knobs imported downward
-mesh/serve          →  mesh/cad                     # [PORT]: BridgeFormat/TessellationPolicy/CANONICAL_TESSELLATION the request-echo decode composes
-mesh/quality        →  mesh/repair                  # [PORT]: the public to_manifold uint32-ceiling kernel composed by the exact-topology tier
-mesh/spatial        →  mesh/repair                  # [PORT]: the public to_manifold kernel composed by the exact-clearance arm
-scan/deviation      →  mesh/quality                 # [PORT]: closure_fold the watertight gate composes
-scan/reconstruction →  mesh/quality                 # [PORT]: closure_fold feeds receipt/graduation ledger
-graph/features      →  graph/analytic               # [PORT]: AnalyticValue/ranked/census projections
-graph/nonmanifold   →  graph/analytic               # [PORT]: AnalyticValue/ranked/peak_of projections
-ifc/analysis        →  ifc/selector                 # [PORT]: IfcSelector.filter/parse the validated selection gate
-ifc/costing         →  ifc/selector                 # [PORT]: IfcSelector.filter the QUANTITY selector gate
-ifc/structural      →  ifc/selector                 # [PORT]: IfcSelector.filter/parse the profile selector gate
-energy/district     →  energy/model                 # [PORT]: to_honeybee explosion crossing every emitted model through BuildingModel.of
-energy/simulate     →  energy/model                 # [PORT]: BuildingModel/hbjson the translation and recipe folds consume
-mesh                ⇄  csharp:Rasm.Bim/Exchange     # [TESSELLATION]: GLB tessellation rail / TessellationRequest
-mesh/serve          ⇄  csharp:Rasm.Compute/Runtime  # [WIRE]: ComputeService/ArtifactSync gRPC GLB tessellation
-mesh/serve          →  csharp:Rasm.Compute/Runtime  # [TRANSPORT]: ServerHost-registered servicer streaming GLB + semantic header, 64 KiB Crc32 frames
-mesh/serve          →  csharp:Rasm.Compute/Runtime  # [PROJECTION]: IFC tessellation bridge via IfcOpenShell decoded by Codecs
-mesh/serve          →  csharp:Rasm.Compute/Runtime/codecs # [SHAPE]: SharpGLTF GLB import per-element tessellation staged into ResidencyPayload rows
-mesh/daemon         ⇄  csharp:Rasm.Compute/Runtime  # [CONTENT_KEY]: ContentIdentity XxHash128 source bytes + TessellationPolicy.spec seed
-mesh/daemon         ⇄  csharp:Rasm.Element/Graph    # [WIRE]: imported-IFC GLB seed-zero hash equals RepresentationContentHash
-mesh/serve          ⇄  python:runtime/transport     # [WIRE]: TessellationRequest/TessellationReceipt/ArtifactFrame registry rows bound by symbol
-mesh/daemon         →  python:runtime/identity      # [CONTENT_KEY]: ContentIdentity.of source+TessellationPolicy.spec cache key; seed-zero (Some(0))
-ifc                 ←  csharp:Rasm.Bim/Exchange     # [PROJECTION]: BimWire model vocabulary IFC ingest
-ifc                 ←  csharp:Rasm.Bim/Exchange     # [WIRE]: IfcWire bytes; ifcopenshell parity via ContentAddress.OfGraph, never byte-equality
-ifc                 ⇄  csharp:Rasm.Element/Graph    # [WIRE]: the SAME rasm.element.v1 contract the codec decodes via grpcio-tools; keys verbatim
-ifc                 →  csharp:Rasm.Bim/Review       # [BOUNDARY]: IDS validation evidence via ifctester
-scan/deviation      ←  csharp:Rasm.Bim/Model        # [SHAPE]: reference GLB + element identity fetched BY CONTENT KEY; scan never re-tessellates
-scan                →  python:data/spatial          # [SHAPE]: Arrow point-record columnar bridge x/y/z
-mesh                ←  python:data/spatial          # [SHAPE]: MeshPayload cell-block topology
-mesh/repair         →  python:data/spatial          # [BOUNDARY]: repair/brep/spatial/quality return in-memory Trimesh; mesh-file decode/encode + GLB
-mesh                ⇄  python:artifacts/scene/export # [BOUNDARY]: visualization-scene/USD/GLTF/OBJ export is artifacts scene, mesh-file codec is data
-scan/ingestion      ←  python:data/spatial          # [SHAPE]: COPC arm decode leaves the pdal filter-graph owner unchanged
-energy/model        ⇄  csharp:Rasm.Bim/Exchange     # [WIRE]: content-keyed canonical HBJSON document bytes
-energy/model        ←  csharp:Rasm.Bim/Exchange     # [SHAPE]: IFC SPF source bytes for the BIM-to-BEM derivation modality
-energy/simulate     →  python:runtime/execution     # [PORT]: geometry binds Job/RecipeInterface; runtime owns execution
-energy/simulate     →  python:data/tabular          # [SHAPE]: result frames carry output/unit/period/zone/step/value/content_key
+Seam map splits by counterpart role — the C# cross-runtime peers on one fence, the Python siblings on the other. An in-package relation between two geometry sub-domains is never a seam; it lives in the codemap, and the `graph` sub-domain projects only onto the home `graduation` spine, so it carries no cross-boundary edge.
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: Geometry cross-runtime C# peer seams
+    accDescr: Geometry sub-domain owners exchanging tessellation wires, content keys, IFC crossings, and validation evidence with the C# runtimes Rasm.Compute, Rasm.Element, and Rasm.Bim, edge rails colored by kind and nodes classed by seam direction.
+    subgraph geometry[GEOMETRY]
+        Mesh[Mesh tessellation]
+        Ifc[IFC analysis]
+        Scan[Scan ingest]
+        Energy[Energy band]
+    end
+    Bim{{Rasm.Bim}}
+    Compute{{Rasm.Compute}}
+    Element{{Rasm.Element}}
+    Mesh e1@<-->|"[WIRE]: ComputeService"| Compute
+    Mesh e2@<-->|"[CONTENT_KEY]: ContentIdentity"| Compute
+    Mesh e3@<-->|"[WIRE]: GlbContentHash"| Element
+    Ifc e4@<-->|"[WIRE]: IfcWire"| Bim
+    Ifc e5@-->|"[BOUNDARY]: IdsVerdict"| Bim
+    Bim e6@-->|"[SHAPE]: GlbReference"| Scan
+    Energy e7@<-->|"[WIRE]: Hbjson"| Bim
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    class Mesh,Ifc,Scan,Energy primary
+    class Bim,Compute,Element external
+    class e1,e2,e3,e4,e7 edgeData
+    class e5,e6 edgeControl
 ```
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: Geometry Python sibling seams
+    accDescr: Geometry sub-domain owners exchanging graduation receipts, tessellation registry rows, mesh payloads, point records, a recipe port, and result frames with the Python compute, runtime, data, and artifacts siblings, edge rails colored by kind and nodes classed by seam direction.
+    subgraph geometry[GEOMETRY]
+        Graduation[Graduation spine]
+        Mesh[Mesh tessellation]
+        Scan[Scan ingest]
+        Energy[Energy band]
+    end
+    Compute([python:compute])
+    Runtime{{python:runtime}}
+    Data{{python:data}}
+    Artifacts{{python:artifacts}}
+    Graduation e1@-->|"[GRADUATION]: GeometryHandoff"| Compute
+    Mesh e2@<-->|"[WIRE]: TessellationRequest"| Runtime
+    Mesh e3@-->|"[CONTENT_KEY]: ContentIdentity"| Runtime
+    Data e4@-->|"[SHAPE]: MeshPayload"| Mesh
+    Mesh e5@-->|"[BOUNDARY]: Trimesh"| Data
+    Mesh e6@<-->|"[BOUNDARY]: SceneExport"| Artifacts
+    Scan e7@<-->|"[SHAPE]: PointRecord"| Data
+    Energy e8@-->|"[PORT]: RecipeInterface"| Runtime
+    Energy e9@-->|"[SHAPE]: ResultFrame"| Data
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    class Graduation,Mesh,Scan,Energy primary
+    class Runtime,Data,Artifacts external
+    class Compute annotation
+    class e1,e2,e3 edgeData
+    class e4,e5,e6,e7,e8,e9 edgeControl
+```
+
+Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind: the streaming GLB transport, the IFC projection, and the payload shapes fold into the one labeled rail, and the per-contract wiring lives on the owning implementation pages.
 
 ## [03]-[COMPANION_LANES]
 
-Every sub-domain rides the companion engine selection the branch manifest owns, with compiled geometry/IFC cores and copyleft packages isolated at the process boundary.
+Every sub-domain rides the companion engine the branch manifest selects, with the compiled geometry and IFC cores and the copyleft packages isolated at the process boundary.
 
-The runtime lane carries `numpy`, `trimesh`, and `networkx` for the `mesh/spatial`, `mesh/quality`, and `graph/features` spine owners. Worker lanes carry compiled enrichment rows: `manifold3d`, `cadquery-ocp`, `compas`, `compas_dr`, `compas_tna`, `open3d`, `small-gicp`, `kiss-matcher`, `pye57`, `sectionproperties`, `rtree`, and `python-fcl`; `ifcopenshell` remains the worker IFC package behind `ifc/authoring`, `ifc/structural`, and the `energy/model` BIM-to-BEM derivation arm. The `find_spec` probe band is governed, never implicit: `rtree` (the `mesh/spatial` Bounds/Nearest offload probe), `fcl` (the CORE-clearance probe), `manifold3d` (the exact-gap and exact-topology tier probe), `embreex` (a probe-only transparent trimesh ray accel, unadmitted, no catalog), and `openstudio` (the `energy/simulate` in-process translator probe) — each probe selects an offload or tier row, never a silent import failure. The AGPL companion band (`ifcopenshell`, the `ifctester`/`ifcclash`/`ifc5d`/`ifc4d`/`ifcpatch`/`ifcdiff` utility ring, `open3d`, `small-gicp`, `topologicpy`) carries no root-manifest row and provisions through the companion-lane owner — `uv run python -m tools.assay provision` over the Forge cp312 scientific environment.
+Runtime lane carries the pure-Python spine owners; the worker lanes carry the compiled enrichment rows and the IFC core behind function-local gates. Probe selection over `find_spec` is governed, never implicit — each probe selects an offload or capability tier rather than failing an import. AGPL companion band carries no root-manifest row and provisions through the companion-lane owner; the exact lane assignments live on the owning implementation pages.
 
-The AGPL Ladybug Tools band (`ladybug-core`/`ladybug-geometry`/`ladybug-comfort`, `honeybee-core`/`honeybee-energy`/`honeybee-openstudio` + the two standards data backends, `dragonfly-core`/`dragonfly-energy`) rides the `energy/` owners with strictly function-local boundary imports and process-boundary evidence exchange — HBJSON/dfjson/EPW document bytes and result frames across the wire, never a distributed link. The simulation engines (Radiance/OpenStudio/EnergyPlus behind the runtime recipe rail; URBANopt/Modelica/RNM/REopt behind the district translation rows) are external process-boundary services.
+AGPL Ladybug Tools band — `ladybug-*`, `honeybee-*` with its standards backends, and `dragonfly-*` — rides the `energy/` owners with function-local boundary imports and process-boundary evidence exchange: HBJSON, dfjson, EPW document bytes, and result frames cross the wire, never a distributed link. Simulation engines — Radiance, OpenStudio, and EnergyPlus behind the runtime recipe rail; URBANopt, Modelica, RNM, and REopt behind the district translation rows — are external process-boundary services.

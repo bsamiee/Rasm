@@ -196,17 +196,17 @@ public abstract partial record GraphDdl {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                       | [BINDING]                                                                                               |
-| :-----: | :------------------ | :-------------------------------------------- | :------------------------------------------------------------------------------------------------------ |
-|  [01]   | enablement          | `Disabled` default, `SelfHosted` opt          | QuikGraph is authoritative; extensions optional (`H5`)                                                  |
-|  [02]   | driver              | raw `Npgsql` over `agtype`/`SETOF record`     | no managed AGE/`pgrouting` driver; never EF                                                             |
-|  [03]   | session-load        | `UsePhysicalConnectionInitializer`            | `LOAD 'age'`+`search_path` once per connection, never per query                                         |
-|  [04]   | AGE node id         | `properties.id` → seam `NodeId`               | the real seam id; never the `graphid` integer or comma-split                                            |
-|  [05]   | `pgrouting` node id | the `h3-pg` `H3Cell` `long`                   | shared with the in-process `pocketken.H3` cell; never `GetHashCode`                                     |
-|  [06]   | consistency stance  | async, `StalenessWatermark`                   | interactive correctness binds the synchronous topology                                                  |
-|  [07]   | graph source        | async daemon projection off Marten            | rebuildable, never a second event store                                                                 |
-|  [08]   | fault rail          | `CypherFault` deriving `FaultBand.Cypher + n` | renamed off the graph collision; never `Error.New`, never a literal decade                              |
-|  [09]   | graph lifecycle     | `GraphDdl` → `ag_catalog` `SELECT` functions  | parameter-bound DDL + bulk loaders; extension install stays the frozen `ServerExtension.CreateSql` rail |
+| [INDEX] | [POLICY]            | [VALUE]                                   | [BINDING]                                                           |
+| :-----: | :------------------ | :---------------------------------------- | :------------------------------------------------------------------ |
+|  [01]   | enablement          | `Disabled` default, `SelfHosted` opt      | QuikGraph is authoritative; extensions optional (`H5`)              |
+|  [02]   | driver              | raw `Npgsql` over `agtype`/`SETOF record` | no managed AGE/`pgrouting` driver; never EF                         |
+|  [03]   | session-load        | `UsePhysicalConnectionInitializer`        | `LOAD 'age'`+`search_path` once per connection, never per query     |
+|  [04]   | AGE node id         | `properties.id` → seam `NodeId`           | the real seam id; never the `graphid` integer or comma-split        |
+|  [05]   | `pgrouting` node id | the `h3-pg` `H3Cell` `long`               | shared with the in-process `pocketken.H3` cell; never `GetHashCode` |
+|  [06]   | consistency stance  | async, `StalenessWatermark`               | interactive correctness binds the synchronous topology              |
+|  [07]   | graph source        | async daemon projection off Marten        | rebuildable, never a second event store                             |
+|  [08]   | fault rail          | `CypherFault` off `FaultBand.Cypher + n`  | renamed off the graph collision; never `Error.New` or a decade      |
+|  [09]   | graph lifecycle     | `GraphDdl` → `ag_catalog` DDL             | parameter-bound DDL + loaders; `ServerExtension.CreateSql` seam     |
 
 ## [03]-[GRAPH_QUERY]
 
@@ -609,15 +609,17 @@ public static class GraphLane {
 }
 ```
 
-| [INDEX] | [POLICY]             | [VALUE]                                                                                                                      | [BINDING]                                                                             |
-| :-----: | :------------------- | :--------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | one verb surface     | `GraphQuery` `[Union]` + total `Switch`                                                                                      | every AGE + `pgrouting` verb; no sibling method family                                |
-|  [02]   | parameterization     | `params agtype` + Edges/Points/Coordinates-SQL `Npgsql` args                                                                 | never a concatenated body; `Parameters` are live                                      |
-|  [03]   | `pgrouting` roster   | Dijkstra/A*/bidi/VIA/withPoints/KSP/DD/TSP/TSPeuclidean/flow-family/components+biconnected                                   | the FULL roster; `RouteMode`/`FlowKind`/`CleaveKind` rows carry the function variance |
-|  [04]   | AGE read/write       | `Match` decode vs `Mutate` no-return                                                                                         | a mutate-and-return statement is the rejected AGE form                                |
-|  [05]   | path decode          | `Reach` → `(p)::jsonb` registered cast → `DecodePath`                                                                        | populated multi-vertex `Vertices` + summed `Weight`; never a one-vertex stub          |
-|  [06]   | node-space agreement | `H3Cell` `long` ↔ in-process `pocketken.H3`                                                                                  | in-database route and in-process path share node identity                             |
-|  [07]   | result spaces        | AGE → `ElementSet`; `pgrouting` NODE → `H3Cell`; EDGE → `Severed`/`Sundered`/`Flowed`; a `Traced` negative vid stays a Point | spaces never conflate; an edge or Point id is never `CellOf`'d                        |
-|  [08]   | cell→element resolve | `Element/identity#ELEMENT_IDENTITY` `NodeAt`                                                                                 | the caller's one-hop; a cell is the per-model envelope locator                        |
-|  [09]   | flow honesty         | `FlowKind` per-edge labeling; scalar derived                                                                                 | a scalar-only `pgr_maxFlow` that discards the labeling is the deleted hollow form     |
-|  [10]   | algorithm dedup      | server-side `pgr_*`/`age` vs in-process                                                                                      | the two meet at the shared node space, never re-implemented                           |
+| [INDEX] | [POLICY]             | [VALUE]                                                 | [BINDING]                                             |
+| :-----: | :------------------- | :------------------------------------------------------ | :---------------------------------------------------- |
+|  [01]   | one verb surface     | `GraphQuery` `[Union]` + total `Switch`                 | every AGE + `pgrouting` verb; no sibling family       |
+|  [02]   | parameterization     | `params agtype` + `Npgsql`-bound edge/point/coord SQL   | never a concatenated body; `Parameters` live          |
+|  [03]   | `pgrouting` roster   | Path/Via/Located/Kth/Spread/Tour/TourPlanar/Flow/Cleave | variance in `RouteMode`/`FlowKind`/`CleaveKind` rows  |
+|  [04]   | AGE read/write       | `Match` decode vs `Mutate` no-return                    | a mutate-and-return statement is rejected             |
+|  [05]   | path decode          | `Reach` → `(p)::jsonb` cast → `DecodePath`              | `Vertices` walk + summed `Weight`; never a stub       |
+|  [06]   | node-space agreement | `H3Cell` `long` ↔ in-process `pocketken.H3`             | in-db route + in-process path share node identity     |
+|  [07]   | result spaces        | four typed `GraphResult` spaces (below)                 | spaces never conflate; an edge/Point never `CellOf`'d |
+|  [08]   | cell→element resolve | `Element/identity#ELEMENT_IDENTITY` `NodeAt`            | the caller's one-hop cell→element locator             |
+|  [09]   | flow honesty         | `FlowKind` per-edge labeling; scalar derived            | a scalar-only `pgr_maxFlow` discards the labeling     |
+|  [10]   | algorithm dedup      | server-side `pgr_*`/`age` vs in-process                 | meet at the shared node space, never re-implemented   |
+
+- [07]-[RESULT_SPACES]: AGE → `ElementSet` (node); `pgrouting` NODE → `H3Cell` (cell); EDGE → `Severed`/`Sundered`/`Flowed`; a `Traced` negative vid stays a Point.

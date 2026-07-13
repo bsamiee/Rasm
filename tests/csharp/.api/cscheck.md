@@ -12,31 +12,38 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                          | [KIND]          | [CAPABILITY]                                                                          |
-| :-----: | :------------------------------------------------ | :-------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `Gen` / `Gen<T> : IGen<T>`                        | factory + owner | typed generator algebra; every primitive, collection, and combinator                  |
-|  [02]   | `Check`                                           | static          | the sample surface: property, model-based, metamorphic, parallel, chi-squared, Faster |
-|  [03]   | `GenOperation<T>` / `GenOperation<Actual, Model>` | op carrier      | named state operations for model-based and parallel sampling                          |
-|  [04]   | `GenMetamorphic<T>`                               | op carrier      | paired-path operations for metamorphic sampling                                       |
-|  [05]   | `Size` / `PCG`                                    | engine          | size-ordered shrink metric and the seeded RNG                                         |
-|  [06]   | `Classifier` / `MedianEstimator`                  | statistics      | sample classification buckets and streaming median estimates                          |
-|  [07]   | `Dbg` / `Causal` / `Hash : IRegression`           | diagnostics     | debug regions, causal profiling, regression hashing                                   |
-|  [08]   | `CsCheckException`                                | exception       | the property-failure carrier xunit surfaces                                           |
+| [INDEX] | [SYMBOL]                                | [KIND]          | [CAPABILITY]                                                               |
+| :-----: | :-------------------------------------- | :-------------- | :------------------------------------------------------------------------- |
+|  [01]   | `Gen` / `Gen<T> : IGen<T>`              | factory + owner | typed generator algebra: primitives, collections, combinators              |
+|  [02]   | `Check`                                 | static          | samples: property, model-based, metamorphic, parallel, chi-squared, Faster |
+|  [03]   | `GenOperation<T>`                       | op carrier      | named single-type state ops for parallel sampling                          |
+|  [04]   | `GenOperation<Actual, Model>`           | op carrier      | named actual-vs-model ops for model-based sampling                         |
+|  [05]   | `GenMetamorphic<T>`                     | op carrier      | paired-path operations for metamorphic sampling                            |
+|  [06]   | `Size` / `PCG`                          | engine          | size-ordered shrink metric and the seeded RNG                              |
+|  [07]   | `Classifier` / `MedianEstimator`        | statistics      | sample classification buckets and streaming median estimates               |
+|  [08]   | `Dbg` / `Causal` / `Hash : IRegression` | diagnostics     | debug regions, causal profiling, regression hashing                        |
+|  [09]   | `CsCheckException`                      | exception       | the property-failure carrier xunit surfaces                                |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                                                     | [KIND]          | [CAPABILITY]                                                          |
-| :-----: | :-------------------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------------------- |
-|  [01]   | `gen.Sample(Action<T> assert, ..., string? seed, long iter, int time, int threads)`           | property        | sample with shrink; predicate, classify, and 2-8 tuple forms mirror   |
-|  [02]   | `gen.SampleModelBased(operations, equal, ...)`                                                | stateful        | actual-vs-model equivalence under generated operation sequences       |
-|  [03]   | `gen.SampleMetamorphic(operations, equal, ...)`                                               | metamorphic     | two paths through one system converge                                 |
-|  [04]   | `gen.SampleParallel(operations, ..., maxSequentialOperations, maxParallelOperations, replay)` | linearizability | concurrent op interleavings check against sequential orders           |
-|  [05]   | `Check.ChiSquared(int[] expected, int[] actual, double sigma)`                                | distribution    | frequency-bucket conformance gate                                     |
-|  [06]   | `Gen.Frequency` / `OneOf` / `OneOfConst` / `Const` / `Shuffle` / `Select` / `SelectMany`      | combinator      | weighted, alternative, constant, permutation, and monadic composition |
-|  [07]   | `Gen.Double[start, finish]` / `Gen.Int[...]` / `Gen.Char[...]` / `.Array[...]` / `.List[...]` | indexer         | ranged scalar and sized collection generation                         |
-|  [08]   | `GenOperation.Create` / `GenOperationAsync.Create` / `GenMetamorphic.Create`                  | builder         | named operation construction for the stateful families                |
+Every `Sample*` method takes the shared run tail `string? seed = null, long iter = -1, int time = -1, int threads = -1`; rows carry only the distinguishing arguments, and the fence gives the full `Sample`/`SampleParallel`/`ChiSquared` signatures.
 
-```csharp contract
+| [INDEX] | [SURFACE]                                          | [KIND]          | [CAPABILITY]                                                 |
+| :-----: | :------------------------------------------------- | :-------------- | :----------------------------------------------------------- |
+|  [01]   | `gen.Sample(Action<T> assert, ...)`                | property        | sample with shrink; predicate, classify, tuple forms mirror  |
+|  [02]   | `gen.SampleModelBased(operations, equal, ...)`     | stateful        | actual-vs-model equivalence over generated op sequences      |
+|  [03]   | `gen.SampleMetamorphic(operations, equal, ...)`    | metamorphic     | two paths through one system converge                        |
+|  [04]   | `gen.SampleParallel(operations, ...)`              | linearizability | concurrent op interleavings vs sequential orders             |
+|  [05]   | `Check.ChiSquared(...)`                            | distribution    | frequency-bucket conformance gate                            |
+|  [06]   | `Gen.Frequency` / `Gen.OneOf` / `Gen.OneOfConst`   | combinator      | weighted and alternative selection over generators/constants |
+|  [07]   | `Gen.Const` / `Gen.Shuffle`                        | combinator      | constant generator and permutation                           |
+|  [08]   | `Gen.Select` / `Gen.SelectMany`                    | combinator      | map and monadic bind                                         |
+|  [09]   | `Gen.Double[start, finish]` / `Gen.Int[...]`       | indexer         | ranged double and int generation                             |
+|  [10]   | `Gen.Char[...]` / `.Array[...]` / `.List[...]`     | indexer         | ranged char and sized collection generation                  |
+|  [11]   | `GenOperation.Create` / `GenOperationAsync.Create` | builder         | named sync/async operation construction                      |
+|  [12]   | `GenMetamorphic.Create`                            | builder         | named metamorphic operation construction                     |
+
+```csharp signature
 public static void Sample<T>(this Gen<T> gen, Action<T> assert, Action<string>? writeLine = null,
     string? seed = null, long iter = -1, int time = -1, int threads = -1,
     Func<T, string>? print = null, ILogger? logger = null);

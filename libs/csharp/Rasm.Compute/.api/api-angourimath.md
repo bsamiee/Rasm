@@ -19,15 +19,23 @@
 - namespace: `AngouriMath`
 - rail: symbolic
 
-| [INDEX] | [SYMBOL]                              | [RAIL]   | [CAPABILITY]                                                                                                                                                                                                                                                                                                     |
-| :-----: | :------------------------------------ | :------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Entity`                              | symbolic | the immutable expression-tree root; implicit `string`→`Entity` conversion (`Entity e = "x + 2"`, caching), `Vars` (`IEnumerable<Entity.Variable>` free variables), `Nodes`/`DirectChildren` traversal, `Simplified`/`InnerSimplified`, `Stringize()`/`ToString()`. Owns the operation methods enumerated in [03] |
-|  [02]   | `Entity.Variable`                     | symbolic | a free symbol; `MathS.Var("x")` mints it (`MathS.Variable` does NOT exist — the decompile-verified member is `Var`), and it is the argument every solve/differentiate/integrate/limit/compile call binds on                                                                                                      |
-|  [03]   | `Entity.Number`                       | symbolic | the numeric-tower leaf: `Entity.Number.Integer`/`.Rational`/`.Real`/`.Complex` (exact via `PeterO.Numbers` — `ERational` compares with `.Equals`, NEVER `==` (no operator overload); the exactness the content key depends on)                                                                                   |
-|  [04]   | `Entity.Set`                          | symbolic | the solve-result carrier — `FiniteSet`/`Interval`/`ConditionalSet`; a `Solve` returns the solution `Set`, never a bare array, so an empty/parametric/conditional solution is a typed value                                                                                                                       |
-|  [05]   | `Entity.Boolean` / `Entity.Statement` | symbolic | boolean-sorted terms and (in)equality statements (`x2 = 16`, `a > b`) — the constraint form a rule lowers from and `SolveBooleanSystem` consumes                                                                                                                                                                 |
-|  [06]   | `FastExpression`                      | symbolic | the interpreter result of the non-generic `Entity.Compile(vars…)`; `Call(Complex[] args)` evaluates variadically — the `Symbolic/lowering` `CompileArity.Variadic` fall behind the typed `Compile<…>` IL rows                                                                                                    |
-|  [07]   | node records                          | symbolic | the positional-pattern surface the Q⁷ dimensional fold descends: `Sumf(Augend, Addend)` / `Minusf` / `Mulf` / `Divf` / `Powf(Base, Exponent)` / `Absf` / `Signumf` / `Logf`, plus the `Derivativef`/`Integralf`/`Limitf` calculus operators carrying dimensional residue laws                                    |
+| [INDEX] | [SYMBOL]                              | [ROLE]                              |
+| :-----: | :------------------------------------ | :---------------------------------- |
+|  [01]   | `Entity`                              | immutable expression-tree root      |
+|  [02]   | `Entity.Variable`                     | free symbol                         |
+|  [03]   | `Entity.Number`                       | numeric-tower leaf                  |
+|  [04]   | `Entity.Set`                          | solve-result carrier                |
+|  [05]   | `Entity.Boolean` / `Entity.Statement` | boolean + (in)equality statements   |
+|  [06]   | `FastExpression`                      | variadic interpreter result         |
+|  [07]   | node records                          | positional-pattern operator surface |
+
+- [01]-[ENTITY]: implicit `string`→`Entity` (`Entity e = "x + 2"`, caching), `Vars` (`IEnumerable<Entity.Variable>`), `Nodes`/`DirectChildren` traversal, `Simplified`/`InnerSimplified`, `Stringize()`/`ToString()`; owns the [03] operation methods.
+- [02]-[Entity.Variable]: `MathS.Var("x")` mints it (`MathS.Variable` does NOT exist — the member is `Var`), the argument every solve/differentiate/integrate/limit/compile binds on.
+- [03]-[Entity.Number]: `.Integer`/`.Rational`/`.Real`/`.Complex`, exact via `PeterO.Numbers`; `ERational` compares with `.Equals`, never `==` (no operator overload) — the exactness the content key depends on.
+- [04]-[Entity.Set]: `FiniteSet`/`Interval`/`ConditionalSet`; `Solve` returns a `Set`, never a bare array, so an empty/parametric/conditional solution is a typed value.
+- [05]-[Entity.Boolean]: boolean-sorted terms + (in)equality statements (`x2 = 16`, `a > b`) — the constraint form a rule lowers from and `SolveBooleanSystem` consumes.
+- [06]-[FASTEXPRESSION]: the non-generic `Entity.Compile(vars…)` result; `Call(Complex[] args)` evaluates variadically — the `CompileArity.Variadic` fall behind the typed `Compile<…>` IL rows.
+- [07]-[NODE_RECORDS]: the Q⁷ dimensional fold descends `Sumf(Augend, Addend)`/`Minusf`/`Mulf`/`Divf`/`Powf(Base, Exponent)`/`Absf`/`Signumf`/`Logf`, plus `Derivativef`/`Integralf`/`Limitf` carrying dimensional residue laws.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -35,31 +43,42 @@
 - namespace: `AngouriMath`
 - rail: symbolic
 
-| [INDEX] | [SURFACE]                                       | [CALL_SHAPE]                                                                                                                                                                                                | [CAPABILITY]                                                                                       |
-| :-----: | :---------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | `MathS.FromString`                              | `(string)` → `Entity` (cached) / implicit `Entity e = "..."`                                                                                                                                                | parse an expression — the ANTLR front-end replacing the `FParsec` parser                           |
-|  [02]   | `MathS.Var`                                     | `(string name)` → `Entity.Variable`                                                                                                                                                                         | mint a free symbol (`MathS.Variable` is a phantom — `Var` is the real member)                      |
-|  [03]   | `Entity.TryParse`                               | `(string?, IFormatProvider?, out Entity)` → `bool` (decompile-verified — the `IFormatProvider` slot takes `CultureInfo.InvariantCulture`)                                                                   | NON-THROWING parse — the `BuildSpec` admission gate binds here, never on catch-around-`FromString` |
-|  [04]   | `MathS.Taylor`                                  | `(Entity expr, int degree, params (Entity.Variable exprVariable, Entity point)[])` → `Entity` (decompile-verified; a `(exprVariable, polyVariable, point)` triple overload and `TaylorTerms` sit beside it) | Taylor/tangent expansion — the series row on the `SymbolicOp` axis                                 |
-|  [05]   | `MathS.Utils.TryGetPolynomial`                  | `(Entity expr, Entity.Variable var, out Dictionary<EInteger, Entity> monomials)` → `bool`                                                                                                                   | polynomial-coefficient extraction — the `Coefficients` projection binds here                       |
-|  [06]   | `MathS.Sin` / `Cos` / `Sqrt` / `Pow` / `Ln` / … | `(Entity …)` → `Entity`                                                                                                                                                                                     | typed builders composing an `Entity` without string parsing                                        |
-|  [07]   | `MathS.Equations`                               | `(params Entity[])` → an equation system                                                                                                                                                                    | the multi-equation solve input                                                                     |
+- call: `MathS` is the parse/solve/build facade; string parse is cached and also rides implicit `Entity e = "..."`.
+
+| [INDEX] | [SURFACE]                                                                                         | [CAPABILITY]                        |
+| :-----: | :------------------------------------------------------------------------------------------------ | :---------------------------------- |
+|  [01]   | `MathS.FromString(string)` → `Entity`                                                             | parse (ANTLR, replaces `FParsec`)   |
+|  [02]   | `MathS.Var(string name)` → `Entity.Variable`                                                      | mint a free symbol                  |
+|  [03]   | `Entity.TryParse(string?, IFormatProvider?, out Entity)` → `bool`                                 | non-throwing parse — admission gate |
+|  [04]   | `MathS.Taylor(Entity expr, int degree, params (Entity.Variable, Entity)[])` → `Entity`            | Taylor/tangent expansion            |
+|  [05]   | `MathS.Utils.TryGetPolynomial(Entity, Entity.Variable, out Dictionary<EInteger,Entity>)` → `bool` | polynomial-coefficient extraction   |
+|  [06]   | `MathS.Sin` / `Cos` / `Sqrt` / `Pow` / `Ln` / … `(Entity …)` → `Entity`                           | typed `Entity` builders             |
+|  [07]   | `MathS.Equations(params Entity[])` → equation system                                              | the multi-equation solve input      |
+
+- [03]-[Entity.TryParse]: the `BuildSpec` admission gate binds here, never catch-around-`FromString`; the `IFormatProvider` slot takes `CultureInfo.InvariantCulture`.
+- [04]-[MathS.Taylor]: a `(exprVariable, polyVariable, point)` triple overload and `TaylorTerms` sit beside the `params` form.
+- [05]-[TRYGETPOLYNOMIAL]: the `Coefficients` projection binds here.
 
 [ENTRYPOINT_SCOPE]: symbolic operations — `Entity`
 - namespace: `AngouriMath`
 - rail: symbolic
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]                                                                                                                                                                      | [CAPABILITY]                                                                                                                                                                                                                |
-| :-----: | :------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `entity.Simplify`                      | `([int level])` → `Entity`                                                                                                                                                        | canonical-form reduction — the normal form `SymbolicExpr`'s content key hashes                                                                                                                                              |
-|  [02]   | `entity.Differentiate`                 | `(Entity.Variable)` → `Entity` / `(Entity.Variable x, int power)` → `Entity` (decompile-verified order overload; the `derivative(f, x, order)` node is the deferred-residue form) | symbolic derivative — the exact-gradient source for the cost/QTO formula lane                                                                                                                                               |
-|  [03]   | `entity.Integrate`                     | `(Entity.Variable)` → `Entity` / `(Entity.Variable x, Entity from, Entity to)` → `Entity` (definite overload, decompile-verified; also the `integral(f, x)` node)                 | symbolic antiderivative — the quantity-integral AEC formula row                                                                                                                                                             |
-|  [04]   | `entity.Limit`                         | `(Entity.Variable, Entity dest[, ApproachFrom])` → `Entity`                                                                                                                       | the limit `MathNet.Symbolics` cannot compute                                                                                                                                                                                |
-|  [05]   | `entity.Solve`                         | `(Entity.Variable)` → `Entity.Set` / `SolveEquation(var)`                                                                                                                         | equation solving — the cut-parameter inversion the AEC formula consumers reach                                                                                                                                              |
-|  [06]   | `entity.Substitute`                    | `(Entity from, Entity to)` → `Entity`                                                                                                                                             | symbolic substitution (a variable or a sub-tree)                                                                                                                                                                            |
-|  [07]   | `entity.EvalNumerical` / `EvalBoolean` | `()` → `Entity.Number.Complex` / `Entity.Boolean`                                                                                                                                 | force numeric/boolean evaluation of a closed expression                                                                                                                                                                     |
-|  [08]   | `entity.Compile<TIn1..TIn8,TOut>`      | `(Entity.Variable …)` → `Func<TIn1…,TOut>` typed IL; `Compile(params Entity.Variable[])` → `FastExpression`                                                                       | the TYPED generic overloads (arity 1..8, `Linq.Expressions` IL) are the fast lane; the non-generic `FastExpression` interpreter (`Call(complexArgs)`) is the variadic fall — both rows on `Symbolic/lowering#COMPILE_ARITY` |
-|  [09]   | `entity.Latexise`                      | `()` → `string`                                                                                                                                                                   | LaTeX rendering for the receipt/report projection                                                                                                                                                                           |
+| [INDEX] | [SURFACE]                                                                  | [CAPABILITY]                                            |
+| :-----: | :------------------------------------------------------------------------- | :------------------------------------------------------ |
+|  [01]   | `entity.Simplify([int level])` → `Entity`                                  | canonical-form reduction — the content-key NF           |
+|  [02]   | `entity.Differentiate(Entity.Variable[, int power])` → `Entity`            | symbolic derivative — exact gradient for cost/QTO       |
+|  [03]   | `entity.Integrate(Entity.Variable[, Entity from, Entity to])` → `Entity`   | symbolic antiderivative — quantity-integral row         |
+|  [04]   | `entity.Limit(Entity.Variable, Entity dest[, ApproachFrom])` → `Entity`    | the limit `MathNet.Symbolics` cannot compute            |
+|  [05]   | `entity.Solve(Entity.Variable)` → `Entity.Set`                             | equation solving — cut-parameter inversion              |
+|  [06]   | `entity.Substitute(Entity from, Entity to)` → `Entity`                     | symbolic substitution (variable or sub-tree)            |
+|  [07]   | `entity.EvalNumerical()` / `EvalBoolean()`                                 | force eval → `Entity.Number.Complex` / `Entity.Boolean` |
+|  [08]   | `entity.Compile<TIn1..TIn8,TOut>(…)` / `Compile(params Entity.Variable[])` | typed IL fast lane + variadic `FastExpression` fall     |
+|  [09]   | `entity.Latexise()` → `string`                                             | LaTeX rendering for the receipt/report projection       |
+
+- [02]-[DIFFERENTIATE]: `(Entity.Variable x, int power)` order overload; the `derivative(f, x, order)` node is the deferred-residue form.
+- [03]-[INTEGRATE]: `(Entity.Variable x, Entity from, Entity to)` definite overload; also the `integral(f, x)` node.
+- [05]-[SOLVE]: the `SolveEquation(var)` alias; the cut-parameter inversion the AEC formula consumers reach.
+- [08]-[COMPILE]: the typed generic overloads (arity 1..8, `Linq.Expressions` IL) are the fast lane; the non-generic `FastExpression` interpreter (`Call(complexArgs)`) is the variadic fall — both on `Symbolic/lowering#COMPILE_ARITY`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -85,20 +85,20 @@ The pipeline decomposes into a `match` keypoint stage and a `prune_and_solve` or
 [ENTRYPOINT_SCOPE]: stage keypoints, correspondences, and receipts
 - rail: global-registration
 
-These accessors expose the intermediate keypoint clouds, the correspondence index pairs, the inlier counts, and the per-stage timings that form the registration receipt.
+These accessors expose the intermediate keypoint clouds, the correspondence index pairs, the inlier counts, and the per-stage timings that form the registration receipt. The keypoint/cloud accessors ([01]-[03]) return `tuple[list[NDArray], list[NDArray]]` (source, target).
 
-| [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY] | [CAPABILITY]                              |
-| :-----: | :----------------------------------------------------------------------------- | :------------- | :---------------------------------------- |
-|  [01]   | `get_keypoints_from_faster_pfh() -> tuple[list[NDArray], list[NDArray]]`       | keypoints      | Faster-PFH source/target keypoints        |
-|  [02]   | `get_keypoints_from_initial_matching() -> tuple[list[NDArray], list[NDArray]]` | keypoints      | initially matched source/target keypoints |
-|  [03]   | `get_processed_input_clouds() -> tuple[list[NDArray], list[NDArray]]`          | clouds         | downsampled source/target clouds          |
-|  [04]   | `get_initial_correspondences() -> list[tuple[int, int]]`                       | correspondence | source/target index pairs before pruning  |
-|  [05]   | `get_final_correspondences() -> list[tuple[int, int]]`                         | correspondence | inlier index pairs after pruning          |
-|  [06]   | `get_num_final_inliers() -> int`                                               | receipt        | retained inlier count                     |
-|  [07]   | `get_num_rotation_inliers() -> int`                                            | receipt        | rotation-consistent inlier count          |
-|  [08]   | `get_extraction_time()` / `get_matching_time()`                                | receipt        | keypoint and matching stage timings       |
-|  [09]   | `get_rejection_time()` / `get_solver_time()`                                   | receipt        | pruning and solver stage timings          |
-|  [10]   | `get_processing_time()`                                                        | receipt        | total registration wall time              |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CAPABILITY]                              |
+| :-----: | :------------------------------------------------------- | :------------- | :---------------------------------------- |
+|  [01]   | `get_keypoints_from_faster_pfh()`                        | keypoints      | Faster-PFH source/target keypoints        |
+|  [02]   | `get_keypoints_from_initial_matching()`                  | keypoints      | initially matched source/target keypoints |
+|  [03]   | `get_processed_input_clouds()`                           | clouds         | downsampled source/target clouds          |
+|  [04]   | `get_initial_correspondences() -> list[tuple[int, int]]` | correspondence | source/target index pairs before pruning  |
+|  [05]   | `get_final_correspondences() -> list[tuple[int, int]]`   | correspondence | inlier index pairs after pruning          |
+|  [06]   | `get_num_final_inliers() -> int`                         | receipt        | retained inlier count                     |
+|  [07]   | `get_num_rotation_inliers() -> int`                      | receipt        | rotation-consistent inlier count          |
+|  [08]   | `get_extraction_time()` / `get_matching_time()`          | receipt        | keypoint and matching stage timings       |
+|  [09]   | `get_rejection_time()` / `get_solver_time()`             | receipt        | pruning and solver stage timings          |
+|  [10]   | `get_processing_time()`                                  | receipt        | total registration wall time              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -171,33 +171,32 @@ The `SceneTemplate`/`SceneInstance`/`RuntimeOptions` runtime-decode-plus-instanc
 
 The KHR material extension classes (`MaterialClearCoat`, `MaterialSheen`, `MaterialVolume`, etc.) are `internal` in SharpGLTF.Core; the public Core surface for every PBR extension is the STRING-keyed channel API on the `MaterialChannel` value struct — there is NO `KnownChannel` enum in Core (that enum is Toolkit-side, below). `Material.FindChannel(string)` and `Material.Channels` project `MaterialChannel` rows, each carrying a string `Key`, a `Texture`, `GetFactor`/`SetFactor`, and the `SetTransform` (`KHR_texture_transform`) leg.
 
-| [INDEX] | [SYMBOL]                       | [CAPABILITY]                                                                                                                |
-| :-----: | :----------------------------- | :-------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Material.Channels`            | `IEnumerable<MaterialChannel>` of all active channels on the material                                                       |
-|  [02]   | `Material.FindChannel`         | resolves one `MaterialChannel?` by channel key string                                                                       |
-|  [03]   | `MaterialChannel`              | `readonly struct`; `Key`, `Texture`, `GetFactor(string)`/`SetFactor(string, float)`                                         |
-|  [04]   | `MaterialChannel.SetTexture`   | `(int texCoord, Image primary, Image? fallback, wrap/filter…)` channel texture set                                          |
-|  [05]   | `MaterialChannel.SetTransform` | `(Vector2 offset, Vector2 scale, float rotation, int? texCoordOverride)` — `KHR_texture_transform` per-channel UV transform |
+| [INDEX] | [SYMBOL]                       | [CAPABILITY]                                                                                      |
+| :-----: | :----------------------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `Material.Channels`            | `IEnumerable<MaterialChannel>` of all active channels on the material                             |
+|  [02]   | `Material.FindChannel`         | resolves one `MaterialChannel?` by channel key string                                             |
+|  [03]   | `MaterialChannel`              | `readonly struct`; `Key`, `Texture`, `GetFactor(string)`/`SetFactor(string, float)`               |
+|  [04]   | `MaterialChannel.SetTexture`   | `(int texCoord, Image primary, Image? fallback, wrap/filter…)` channel texture set                |
+|  [05]   | `MaterialChannel.SetTransform` | `(Vector2 offset, Vector2 scale, float rotation, int? texCoordOverride)` per-channel UV transform |
 
 [PUBLIC_TYPE_SCOPE]: Materials — `KnownChannel` enum and PBR extension capability (Toolkit)
 - package: `SharpGLTF.Toolkit`
 - namespace: `SharpGLTF.Materials`
 - rail: geometry
 
-`KnownChannel` is a Toolkit enum (NOT Core/Schema2); `MaterialBuilder.UseChannel(KnownChannel)` keys the builder channel by it. Each value selects an in-box KHR PBR-extension capability.
+`KnownChannel` is a Toolkit enum (NOT Core/Schema2); `MaterialBuilder.UseChannel(KnownChannel)` keys the builder channel by it. The seven core values are `BaseColor`, `MetallicRoughness`, `Normal`, `Occlusion`, `Emissive`, `Diffuse`, `SpecularGlossiness`; every extension value below maps to a `KHR_materials_<name>` in-box PBR extension.
 
-| [INDEX] | [SYMBOL]                                | [CAPABILITY]                                                                                                        |
-| :-----: | :-------------------------------------- | :------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `KnownChannel`                          | core channels: `BaseColor`, `MetallicRoughness`, `Normal`, `Occlusion`, `Emissive`, `Diffuse`, `SpecularGlossiness` |
-|  [02]   | `KnownChannel.ClearCoat`                | KHR_materials_clearcoat (`ClearCoat`, `ClearCoatNormal`, `ClearCoatRoughness`)                                      |
-|  [03]   | `KnownChannel.Transmission`             | KHR_materials_transmission; optical transmission                                                                    |
-|  [04]   | `KnownChannel.SheenColor`               | KHR_materials_sheen (`SheenColor`, `SheenRoughness`)                                                                |
-|  [05]   | `KnownChannel.SpecularColor`            | KHR_materials_specular (`SpecularColor`, `SpecularFactor`)                                                          |
-|  [06]   | `KnownChannel.VolumeThickness`          | KHR_materials_volume (`VolumeThickness`, `VolumeAttenuation`)                                                       |
-|  [07]   | `KnownChannel.Iridescence`              | KHR_materials_iridescence (`Iridescence`, `IridescenceThickness`)                                                   |
-|  [08]   | `KnownChannel.Anisotropy`               | KHR_materials_anisotropy; anisotropic reflections                                                                   |
-|  [09]   | `KnownChannel.DiffuseTransmissionColor` | KHR_materials_diffuse_transmission (`DiffuseTransmissionColor`, `DiffuseTransmissionFactor`)                        |
-|  [10]   | `TextureTransform`                      | `SharpGLTF.Schema2` KHR_texture_transform extension type (Core); UV shift/scale per texture                         |
+| [INDEX] | [SYMBOL]                                | [CAPABILITY]                                                                                |
+| :-----: | :-------------------------------------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | `KnownChannel.ClearCoat`                | clearcoat (`ClearCoat`, `ClearCoatNormal`, `ClearCoatRoughness`)                            |
+|  [02]   | `KnownChannel.Transmission`             | transmission; optical transmission                                                          |
+|  [03]   | `KnownChannel.SheenColor`               | sheen (`SheenColor`, `SheenRoughness`)                                                      |
+|  [04]   | `KnownChannel.SpecularColor`            | specular (`SpecularColor`, `SpecularFactor`)                                                |
+|  [05]   | `KnownChannel.VolumeThickness`          | volume (`VolumeThickness`, `VolumeAttenuation`)                                             |
+|  [06]   | `KnownChannel.Iridescence`              | iridescence (`Iridescence`, `IridescenceThickness`)                                         |
+|  [07]   | `KnownChannel.Anisotropy`               | anisotropy; anisotropic reflections                                                         |
+|  [08]   | `KnownChannel.DiffuseTransmissionColor` | diffuse_transmission (`DiffuseTransmissionColor`, `DiffuseTransmissionFactor`)              |
+|  [09]   | `TextureTransform`                      | `SharpGLTF.Schema2` KHR_texture_transform extension type (Core); UV shift/scale per texture |
 
 [PUBLIC_TYPE_SCOPE]: Schema2 — XMP metadata extensions
 - package: `SharpGLTF.Core`
@@ -291,22 +290,30 @@ The runtime scene-decode-plus-instancing surface (`SceneTemplate`/`CreateInstanc
 - namespace: `SharpGLTF.Schema2.Tiles3D`
 - rail: geometry
 
-The `EXT_structural_metadata` + `EXT_mesh_features` glTF extension schema the `Runtime/codecs#TILE_PARTITION` leaf bodies carry — the tileset.json manifest itself is that page's BCL `Utf8JsonWriter` fold; all `assay api`-verified against the restored `SharpGLTF.Ext.3DTiles` assembly.
+The `EXT_structural_metadata` + `EXT_mesh_features` glTF extension schema the `Runtime/codecs#TILE_PARTITION` leaf bodies carry — the tileset.json manifest itself is that page's BCL `Utf8JsonWriter` fold; all `assay api`-verified against the restored `SharpGLTF.Ext.3DTiles` assembly. Each `*Property` type (`StructuralMetadataClassProperty`, `PropertyTableProperty`, `PropertyTextureProperty`, `PropertyAttributeProperty`) is the per-property companion of its owning class/table/texture/attribute; `MeshExtMeshFeatures` carries `MeshExtMeshFeatureID` + `MeshExtMeshFeatureIDTexture` per-primitive and `MeshExtInstanceFeatures` carries `MeshExtInstanceFeatureID` per-instance.
 
-| [INDEX] | [SYMBOL]                                                                       | [CAPABILITY]                                                                                                            |
-| :-----: | :----------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `EXTStructuralMetadataRoot`                                                    | the model-level `EXT_structural_metadata` root; owns the schema + property tables (`modelRoot.UseStructuralMetadata()`) |
-|  [02]   | `StructuralMetadataSchema`                                                     | the metadata schema; holds `StructuralMetadataClass` + `StructuralMetadataEnum` definitions                             |
-|  [03]   | `StructuralMetadataClass` / `StructuralMetadataClassProperty`                  | a metadata class and its typed properties (the semantic schema of a tile)                                               |
-|  [04]   | `StructuralMetadataEnum` / `StructuralMetadataEnumValue`                       | enumerated metadata value domains                                                                                       |
-|  [05]   | `PropertyTable` / `PropertyTableProperty`                                      | per-feature columnar metadata store (feature-id-indexed rows)                                                           |
-|  [06]   | `PropertyTexture` / `PropertyTextureProperty`                                  | per-texel metadata encoded in a texture channel                                                                         |
-|  [07]   | `PropertyAttribute` / `PropertyAttributeProperty`                              | per-vertex metadata encoded in a vertex attribute                                                                       |
-|  [08]   | `MeshExtMeshFeatures` / `MeshExtMeshFeatureID` / `MeshExtMeshFeatureIDTexture` | `EXT_mesh_features` per-primitive feature-id sets (from a vertex attribute or a texture)                                |
-|  [09]   | `MeshExtInstanceFeatures` / `MeshExtInstanceFeatureID`                         | per-instance (GPU-instancing) feature ids                                                                               |
-|  [10]   | `IMeshFeatureIDInfo` / `FeatureIDBuilder`                                      | the feature-id descriptor contract + builder the `Add*FeatureIds` entrypoints take                                      |
-|  [11]   | `CesiumPrimitiveOutline` / `ExtStructuralMetadataMeshPrimitive`                | the Cesium outline extension + the per-primitive metadata binding                                                       |
-|  [12]   | `DataType` / `ElementType` / `IntegerType` / `ArrayOffsetType`                 | the property-component-type enums a `StructuralMetadataClassProperty` declares                                          |
+| [INDEX] | [SYMBOL]                                  | [CAPABILITY]                                                                    |
+| :-----: | :---------------------------------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `EXTStructuralMetadataRoot`               | model-level `EXT_structural_metadata` root; owns the schema + property tables   |
+|  [02]   | `StructuralMetadataSchema`                | holds `StructuralMetadataClass` + `StructuralMetadataEnum` definitions          |
+|  [03]   | `StructuralMetadataClass`                 | a metadata class + its typed `*Property` set (the tile semantic schema)         |
+|  [04]   | `StructuralMetadataEnum`                  | enumerated metadata value domains (`StructuralMetadataEnumValue` entries)       |
+|  [05]   | `PropertyTable`                           | per-feature columnar metadata store, feature-id-indexed rows                    |
+|  [06]   | `PropertyTexture`                         | per-texel metadata encoded in a texture channel                                 |
+|  [07]   | `PropertyAttribute`                       | per-vertex metadata encoded in a vertex attribute                               |
+|  [08]   | `MeshExtMeshFeatures`                     | `EXT_mesh_features` per-primitive feature-id sets (vertex attribute or texture) |
+|  [09]   | `MeshExtInstanceFeatures`                 | per-instance (GPU-instancing) feature ids                                       |
+|  [10]   | `IMeshFeatureIDInfo` / `FeatureIDBuilder` | feature-id descriptor contract + builder the `Add*FeatureIds` take              |
+|  [11]   | `CesiumPrimitiveOutline`                  | Cesium outline extension + the `ExtStructuralMetadataMeshPrimitive` binding     |
+
+The property-component-type enums a `StructuralMetadataClassProperty` declares:
+
+| [INDEX] | [SYMBOL]          |
+| :-----: | :---------------- |
+|  [01]   | `DataType`        |
+|  [02]   | `ElementType`     |
+|  [03]   | `IntegerType`     |
+|  [04]   | `ArrayOffsetType` |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -373,22 +380,23 @@ The `EXT_structural_metadata` + `EXT_mesh_features` glTF extension schema the `R
 - package: `SharpGLTF.Toolkit`
 - namespace: `SharpGLTF.Scenes`
 - rail: geometry
+- receiver: every `[SURFACE]` below is a `SceneBuilder` member.
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                                   | [CAPABILITY]                                 |
-| :-----: | :--------------------------------- | :------------------------------------------------------------- | :------------------------------------------- |
-|  [01]   | `SceneBuilder.AddRigidMesh`        | `(IMeshBuilder<M>, NodeBuilder)`                               | adds mesh attached to animatable node        |
-|  [02]   | `SceneBuilder.AddRigidMesh`        | `(IMeshBuilder<M>, AffineTransform)`                           | adds mesh at fixed world transform           |
-|  [03]   | `SceneBuilder.AddRigidMesh`        | `(IMeshBuilder<M>, NodeBuilder, AffineTransform)`              | adds mesh relative to node                   |
-|  [04]   | `SceneBuilder.AddSkinnedMesh`      | `(IMeshBuilder<M>, Matrix4x4, params NodeBuilder[] joints)`    | adds skinned mesh with joint armature        |
-|  [05]   | `SceneBuilder.AddSkinnedMesh`      | `(IMeshBuilder<M>, params (NodeBuilder, Matrix4x4)[])`         | adds skinned mesh with per-joint bind matrix |
-|  [06]   | `SceneBuilder.AddCamera`           | `(CameraBuilder, NodeBuilder)` / `(…, Vector3, Vector3)`       | adds camera at node or look-at framing       |
-|  [07]   | `SceneBuilder.AddLight`            | `(LightBuilder, NodeBuilder)` / `(…, AffineTransform)`         | adds punctual light at node or transform     |
-|  [08]   | `SceneBuilder.AddNode`             | `(NodeBuilder)`                                                | adds a bare armature node (no content)       |
-|  [09]   | `SceneBuilder.ToGltf2`             | `()` or `(SceneBuilderSchema2Settings)`                        | converts builder to `ModelRoot`              |
-|  [10]   | `SceneBuilder.ToGltf2`             | `(IEnumerable<SceneBuilder>, settings)` (static)               | converts multiple scenes to one `ModelRoot`  |
-|  [11]   | `SceneBuilder.AddScene`            | `(SceneBuilder, Matrix4x4)` → `IReadOnlyList<InstanceBuilder>` | merges another scene with offset transform   |
-|  [12]   | `SceneBuilder.ApplyBasisTransform` | `(Matrix4x4, string)`                                          | transforms all instances in this scene       |
-|  [13]   | `SceneBuilder.FindArmatures`       | `()` → `IReadOnlyList<NodeBuilder>`                            | returns unique armature roots                |
+| [INDEX] | [SURFACE]             | [CALL_SHAPE]                                                   | [CAPABILITY]                                 |
+| :-----: | :-------------------- | :------------------------------------------------------------- | :------------------------------------------- |
+|  [01]   | `AddRigidMesh`        | `(IMeshBuilder<M>, NodeBuilder)`                               | adds mesh attached to animatable node        |
+|  [02]   | `AddRigidMesh`        | `(IMeshBuilder<M>, AffineTransform)`                           | adds mesh at fixed world transform           |
+|  [03]   | `AddRigidMesh`        | `(IMeshBuilder<M>, NodeBuilder, AffineTransform)`              | adds mesh relative to node                   |
+|  [04]   | `AddSkinnedMesh`      | `(IMeshBuilder<M>, Matrix4x4, params NodeBuilder[] joints)`    | adds skinned mesh with joint armature        |
+|  [05]   | `AddSkinnedMesh`      | `(IMeshBuilder<M>, params (NodeBuilder, Matrix4x4)[])`         | adds skinned mesh with per-joint bind matrix |
+|  [06]   | `AddCamera`           | `(CameraBuilder, NodeBuilder)` / `(…, Vector3, Vector3)`       | adds camera at node or look-at framing       |
+|  [07]   | `AddLight`            | `(LightBuilder, NodeBuilder)` / `(…, AffineTransform)`         | adds punctual light at node or transform     |
+|  [08]   | `AddNode`             | `(NodeBuilder)`                                                | adds a bare armature node (no content)       |
+|  [09]   | `ToGltf2`             | `()` or `(SceneBuilderSchema2Settings)`                        | converts builder to `ModelRoot`              |
+|  [10]   | `ToGltf2`             | `(IEnumerable<SceneBuilder>, settings)` (static)               | converts multiple scenes to one `ModelRoot`  |
+|  [11]   | `AddScene`            | `(SceneBuilder, Matrix4x4)` → `IReadOnlyList<InstanceBuilder>` | merges another scene with offset transform   |
+|  [12]   | `ApplyBasisTransform` | `(Matrix4x4, string)`                                          | transforms all instances in this scene       |
+|  [13]   | `FindArmatures`       | `()` → `IReadOnlyList<NodeBuilder>`                            | returns unique armature roots                |
 
 [ENTRYPOINT_SCOPE]: MeshBuilder — primitive assembly
 - package: `SharpGLTF.Toolkit`
@@ -409,64 +417,72 @@ The `EXT_structural_metadata` + `EXT_mesh_features` glTF extension schema the `R
 - package: `SharpGLTF.Toolkit`
 - namespace: `SharpGLTF.Materials`
 - rail: geometry
+- receiver: every `[SURFACE]` below is a `MaterialBuilder` member.
 
-| [INDEX] | [SURFACE]                                      | [CALL_SHAPE]                                                | [CAPABILITY]                                           |
-| :-----: | :--------------------------------------------- | :---------------------------------------------------------- | :----------------------------------------------------- |
-|  [01]   | `MaterialBuilder.WithMetallicRoughnessShader`  | `()`                                                        | selects PBR metallic-roughness shader                  |
-|  [02]   | `MaterialBuilder.WithSpecularGlossinessShader` | `()`                                                        | selects KHR specular-glossiness shader                 |
-|  [03]   | `MaterialBuilder.WithUnlitShader`              | `()`                                                        | selects KHR_materials_unlit shader                     |
-|  [04]   | `MaterialBuilder.WithShader`                   | `(string)`                                                  | selects shader by name string                          |
-|  [05]   | `MaterialBuilder.WithFallback`                 | `(MaterialBuilder)`                                         | chains a fallback material                             |
-|  [06]   | `MaterialBuilder.WithDoubleSide`               | `(bool enabled)`                                            | fluent back-face toggle (NOT a `DoubleSided` property) |
-|  [07]   | `MaterialBuilder.WithAlpha`                    | `(AlphaMode = OPAQUE, float alphaCutoff)`                   | sets alpha mode and mask cutoff                        |
-|  [08]   | `MaterialBuilder.UseChannel`                   | `(KnownChannel)` / `(string)`                               | gets/creates a `ChannelBuilder` by channel key         |
-|  [09]   | `MaterialBuilder.WithBaseColor`                | `(Vector4 rgba)` / `(ImageBuilder, Vector4?)`               | sets base-color factor and/or texture                  |
-|  [10]   | `MaterialBuilder.WithMetallicRoughness`        | `(float? metallic, float? roughness)` / `(ImageBuilder, …)` | sets metallic-roughness factors/texture                |
-|  [11]   | `MaterialBuilder.WithNormal`                   | `(ImageBuilder, float scale)`                               | sets normal-map texture and scale                      |
-|  [12]   | `MaterialBuilder.WithEmissive`                 | `(Vector3 rgb, float strength)` / `(ImageBuilder, …)`       | sets emissive factor (KHR emissive_strength)           |
-|  [13]   | `MaterialBuilder.WithChannelParam`             | `(KnownChannel, KnownProperty, object)`                     | sets one channel scalar/vector parameter               |
-|  [14]   | `MaterialBuilder.WithChannelImage`             | `(KnownChannel, ImageBuilder)`                              | sets one channel's primary image                       |
+| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                                | [CAPABILITY]                             |
+| :-----: | :----------------------------- | :---------------------------------------------------------- | :--------------------------------------- |
+|  [01]   | `WithMetallicRoughnessShader`  | `()`                                                        | selects PBR metallic-roughness shader    |
+|  [02]   | `WithSpecularGlossinessShader` | `()`                                                        | selects KHR specular-glossiness shader   |
+|  [03]   | `WithUnlitShader`              | `()`                                                        | selects KHR_materials_unlit shader       |
+|  [04]   | `WithShader`                   | `(string)`                                                  | selects shader by name string            |
+|  [05]   | `WithFallback`                 | `(MaterialBuilder)`                                         | chains a fallback material               |
+|  [06]   | `WithDoubleSide`               | `(bool enabled)`                                            | fluent back-face toggle                  |
+|  [07]   | `WithAlpha`                    | `(AlphaMode = OPAQUE, float alphaCutoff)`                   | sets alpha mode and mask cutoff          |
+|  [08]   | `UseChannel`                   | `(KnownChannel)` / `(string)`                               | gets/creates a `ChannelBuilder` by key   |
+|  [09]   | `WithBaseColor`                | `(Vector4 rgba)` / `(ImageBuilder, Vector4?)`               | sets base-color factor and/or texture    |
+|  [10]   | `WithMetallicRoughness`        | `(float? metallic, float? roughness)` / `(ImageBuilder, …)` | sets metallic-roughness factors/texture  |
+|  [11]   | `WithNormal`                   | `(ImageBuilder, float scale)`                               | sets normal-map texture and scale        |
+|  [12]   | `WithEmissive`                 | `(Vector3 rgb, float strength)` / `(ImageBuilder, …)`       | sets emissive factor + KHR strength      |
+|  [13]   | `WithChannelParam`             | `(KnownChannel, KnownProperty, object)`                     | sets one channel scalar/vector parameter |
+|  [14]   | `WithChannelImage`             | `(KnownChannel, ImageBuilder)`                              | sets one channel's primary image         |
 
 [ENTRYPOINT_SCOPE]: SceneTemplate — runtime decode
 - package: `SharpGLTF.Runtime`
 - namespace: `SharpGLTF.Runtime`
 - rail: geometry
 
-| [INDEX] | [SURFACE]                               | [CALL_SHAPE]                                | [CAPABILITY]                                                    |
-| :-----: | :-------------------------------------- | :------------------------------------------ | :-------------------------------------------------------------- |
-|  [01]   | `SceneTemplate.Create`                  | `(Scene, RuntimeOptions?)` (static)         | creates template from a `Schema2.Scene`                         |
-|  [02]   | `SceneTemplate.CreateInstance`          | `()`                                        | creates an independent `SceneInstance`                          |
-|  [03]   | `ArmatureInstance.SetAnimationFrame`    | `(int trackIndex, float time, bool loop)`   | advances bone transforms to animation time                      |
-|  [04]   | `ArmatureInstance.SetPoseTransforms`    | `()`                                        | resets all bones to rest pose                                   |
-|  [05]   | `ArmatureInstance.SetLocalMatrix`       | `(string nodeName, Matrix4x4)`              | overrides a bone's local-space matrix                           |
-|  [06]   | `ArmatureInstance.SetModelMatrix`       | `(string nodeName, Matrix4x4)`              | overrides a bone's model-space matrix                           |
-|  [07]   | `MeshDecoder.Decode`                    | extension on `IEnumerable<Mesh>`            | returns `IReadOnlyList<IMeshDecoder<Material>>`                 |
-|  [08]   | `IMeshPrimitiveDecoder.GetPosition`     | `(int vertexIndex)`                         | returns `Vector3` position for vertex                           |
-|  [09]   | `IMeshPrimitiveDecoder.GetNormal`       | `(int vertexIndex)`                         | returns `Vector3` normal for vertex                             |
-|  [10]   | `IMeshPrimitiveDecoder.GetTangent`      | `(int vertexIndex)`                         | returns `Vector4` tangent for vertex                            |
-|  [11]   | `IMeshPrimitiveDecoder.GetTextureCoord` | `(int vertexIndex, int textureSetIndex)`    | returns `Vector2` UV for vertex                                 |
-|  [12]   | `IMeshPrimitiveDecoder.GetColor`        | `(int vertexIndex, int colorSetIndex)`      | returns `Vector4` vertex color                                  |
-|  [13]   | `IMeshPrimitiveDecoder.GetSkinWeights`  | `(int vertexIndex)`                         | returns `SparseWeight8` skin weights                            |
-|  [14]   | `IMeshPrimitiveDecoder.TriangleIndices` | property → `IEnumerable<(int,int,int)>`     | triangle index tuples (`LineIndices` mirrors)                   |
-|  [15]   | `IMeshPrimitiveDecoder.Get*Deltas`      | `(int vertexIndex[, int set])`              | per-vertex morph-target position/normal/tangent/UV/color deltas |
-|  [16]   | `MeshDecoder.EvaluateBoundingSphere`    | ext on `Scene`/`SceneInstance`              | `(Vector3 Center, float Radius)` bounding sphere                |
-|  [17]   | `MeshDecoder.EvaluateBoundingBox`       | ext on `Scene`/`SceneInstance`              | `(Vector3 Min, Vector3 Max)` AABB                               |
-|  [18]   | `MeshDecoder.GetWorldVertices`          | ext `(IMeshDecoder<T>, IGeometryTransform)` | world-space vertex stream for a decoded mesh                    |
+| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                              | [CAPABILITY]                               |
+| :-----: | :----------------------------------- | :---------------------------------------- | :----------------------------------------- |
+|  [01]   | `SceneTemplate.Create`               | `(Scene, RuntimeOptions?)` (static)       | creates template from a `Schema2.Scene`    |
+|  [02]   | `SceneTemplate.CreateInstance`       | `()`                                      | creates an independent `SceneInstance`     |
+|  [03]   | `ArmatureInstance.SetAnimationFrame` | `(int trackIndex, float time, bool loop)` | advances bone transforms to animation time |
+|  [04]   | `ArmatureInstance.SetPoseTransforms` | `()`                                      | resets all bones to rest pose              |
+|  [05]   | `ArmatureInstance.SetLocalMatrix`    | `(string nodeName, Matrix4x4)`            | overrides a bone's local-space matrix      |
+|  [06]   | `ArmatureInstance.SetModelMatrix`    | `(string nodeName, Matrix4x4)`            | overrides a bone's model-space matrix      |
+
+Mesh decode contracts — the `Get*`/`TriangleIndices` rows are `IMeshPrimitiveDecoder` members; `Decode`/`EvaluateBounding*`/`GetWorldVertices` are `MeshDecoder` extensions.
+
+| [INDEX] | [SURFACE]                | [CALL_SHAPE]                                | [CAPABILITY]                                          |
+| :-----: | :----------------------- | :------------------------------------------ | :---------------------------------------------------- |
+|  [01]   | `MeshDecoder.Decode`     | extension on `IEnumerable<Mesh>`            | returns `IReadOnlyList<IMeshDecoder<Material>>`       |
+|  [02]   | `GetPosition`            | `(int vertexIndex)`                         | returns `Vector3` position for vertex                 |
+|  [03]   | `GetNormal`              | `(int vertexIndex)`                         | returns `Vector3` normal for vertex                   |
+|  [04]   | `GetTangent`             | `(int vertexIndex)`                         | returns `Vector4` tangent for vertex                  |
+|  [05]   | `GetTextureCoord`        | `(int vertexIndex, int textureSetIndex)`    | returns `Vector2` UV for vertex                       |
+|  [06]   | `GetColor`               | `(int vertexIndex, int colorSetIndex)`      | returns `Vector4` vertex color                        |
+|  [07]   | `GetSkinWeights`         | `(int vertexIndex)`                         | returns `SparseWeight8` skin weights                  |
+|  [08]   | `TriangleIndices`        | property → `IEnumerable<(int,int,int)>`     | triangle index tuples (`LineIndices` mirrors)         |
+|  [09]   | `Get*Deltas`             | `(int vertexIndex[, int set])`              | per-vertex morph deltas (pos/normal/tangent/UV/color) |
+|  [10]   | `EvaluateBoundingSphere` | ext on `Scene`/`SceneInstance`              | `(Vector3 Center, float Radius)` bounding sphere      |
+|  [11]   | `EvaluateBoundingBox`    | ext on `Scene`/`SceneInstance`              | `(Vector3 Min, Vector3 Max)` AABB                     |
+|  [12]   | `GetWorldVertices`       | ext `(IMeshDecoder<T>, IGeometryTransform)` | world-space vertex stream for a decoded mesh          |
 
 [ENTRYPOINT_SCOPE]: Ext.3DTiles — leaf-body metadata/feature emit
 - package: `SharpGLTF.Ext.3DTiles`
 - namespace: `SharpGLTF.Schema2.Tiles3D`
 - rail: geometry
-- composition law: `Tiles3DExtensions.RegisterExtensions()` admits the extension types at the `ExtensionsFactory` before any `ModelRoot` write; the leaf-body emit then builds the schema on the model root and binds feature ids per primitive.
+- composition law: the static `Tiles3DExtensions.RegisterExtensions()` admits the extension types at the `ExtensionsFactory` before any `ModelRoot` write; the leaf-body emit then builds the schema on the model root and binds feature ids per primitive.
+- receiver: every `[SURFACE]` below is an extension method whose `this` receiver is the `[SURFACE]` receiver (`modelRoot`/`primitive`/`node`). `UseStructuralMetadata` returns `EXTStructuralMetadataRoot`; `AddMeshFeatureIds`/`AddInstanceFeatureIds` return the bound `MeshExtMeshFeatureID[]`/`MeshExtInstanceFeatureID[]`.
 
-| [INDEX] | [SURFACE]                                               | [CALL_SHAPE]                                                                                 | [CAPABILITY]                                                                                |
-| :-----: | :------------------------------------------------------ | :------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `Tiles3DExtensions.RegisterExtensions`                  | `()` (static)                                                                                | registers the `EXT_structural_metadata`/`EXT_mesh_features`/Cesium extension types globally |
-|  [02]   | `modelRoot.UseStructuralMetadata`                       | `(this ModelRoot)` → `EXTStructuralMetadataRoot`                                             | creates/returns the model-level metadata root to attach the schema + property tables        |
-|  [03]   | `primitive.AddMeshFeatureIds`                           | `(this MeshPrimitive, params IMeshFeatureIDInfo[])` → `MeshExtMeshFeatureID[]`               | binds per-primitive feature-id sets                                                         |
-|  [04]   | `node.AddInstanceFeatureIds`                            | `(this Node, params IMeshFeatureIDInfo[])` → `MeshExtInstanceFeatureID[]`                    | binds per-instance (GPU-instancing) feature ids                                             |
-|  [05]   | `primitive.AddPropertyTexture` / `AddPropertyAttribute` | `(this MeshPrimitive, PropertyTexture / PropertyAttribute)`                                  | attaches per-texel / per-vertex metadata                                                    |
-|  [06]   | `primitive.SetCesiumOutline`                            | `(this MeshPrimitive, IReadOnlyList<uint> outlines, string accessorName = …)` / `(Accessor)` | writes the Cesium primitive outline extension                                               |
+| [INDEX] | [SURFACE]                         | [CALL_SHAPE]                                              | [CAPABILITY]                            |
+| :-----: | :-------------------------------- | :-------------------------------------------------------- | :-------------------------------------- |
+|  [01]   | `modelRoot.UseStructuralMetadata` | `()`                                                      | model-level metadata root               |
+|  [02]   | `primitive.AddMeshFeatureIds`     | `(params IMeshFeatureIDInfo[])`                           | binds per-primitive feature-id sets     |
+|  [03]   | `node.AddInstanceFeatureIds`      | `(params IMeshFeatureIDInfo[])`                           | binds per-instance (GPU-instancing) ids |
+|  [04]   | `primitive.AddPropertyTexture`    | `(PropertyTexture)`                                       | attaches per-texel metadata             |
+|  [05]   | `primitive.AddPropertyAttribute`  | `(PropertyAttribute)`                                     | attaches per-vertex metadata            |
+|  [06]   | `primitive.SetCesiumOutline`      | `(IReadOnlyList<uint> outlines, string accessorName = …)` | writes the Cesium outline extension     |
+|  [07]   | `primitive.SetCesiumOutline`      | `(Accessor)`                                              | Cesium outline from an accessor         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

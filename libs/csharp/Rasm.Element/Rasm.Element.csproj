@@ -8,32 +8,23 @@
         <ProjectReference Include="../Rasm/Rasm.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Quantities">
+    <ItemGroup Label="Quantity Graph">
         <PackageReference Include="UnitsNet" />
+        <PackageReference Include="QuikGraph" />
     </ItemGroup>
 
-    <ItemGroup Label="Time Identity">
+    <ItemGroup Label="Identity Time">
+        <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="NodaTime" />
         <PackageReference Include="NodaTime.Serialization.Protobuf" />
     </ItemGroup>
 
-    <ItemGroup Label="Graph Algorithm">
-        <PackageReference Include="QuikGraph" />
-    </ItemGroup>
-
-    <ItemGroup Label="Content Hash">
-        <PackageReference Include="System.IO.Hashing" />
-    </ItemGroup>
-
-    <ItemGroup Label="Boundary Transcription">
-        <PackageReference Include="Generator.Equals" />
+    <ItemGroup Label="Wire Transcription">
         <PackageReference Include="Google.Protobuf" />
-        <PackageReference Include="Riok.Mapperly" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
-    </ItemGroup>
-
-    <ItemGroup Label="Wire Codegen">
         <PackageReference Include="Grpc.Tools" PrivateAssets="all" />
+        <PackageReference Include="Riok.Mapperly" />
+        <PackageReference Include="Generator.Equals" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
     <ItemGroup Label="System Usings">

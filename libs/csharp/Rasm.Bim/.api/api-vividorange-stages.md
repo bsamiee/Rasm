@@ -58,15 +58,23 @@ national-context sibling under the same publisher and license.
 - note: every concrete stage implements `IStage` (the four-member project-phase contract) AND one or
  more category interfaces; the category interface IS the international normalization axis a national
  phase maps onto, so dispatch is `stage is IConstruction`, never a string compare on `Name`/`Id`.
+- note: `IStage`/`IGovernance` are `: ITaxonomySerializable`; each category interface is `: IStage`, and `IIdea`/`IBrief`/`ICompetition` are additionally `: IPredesign`.
 
-| [INDEX] | [SYMBOL]                                                     | [TYPE_FAMILY]               | [RAIL]                                                                                                    |
-| :-----: | :----------------------------------------------------------- | :-------------------------- | :-------------------------------------------------------------------------------------------------------- |
-|  [01]   | `IStage: ITaxonomySerializable`                              | stage contract              | `Name`/`Description`/`Id`/`Governance` — the project-phase head every concrete stage carries              |
-|  [02]   | `IGovernance`                                                | governing-body contract     | `Name`/`FullBodyName`/`Country` (`ICountry`) — the national/international body that defines a stage scale |
-|  [03]   | `IPredesign: IStage`                                         | category (pre-design)       | the pre-design super-category `IIdea`/`IBrief`/`ICompetition` refine                                      |
-|  [04]   | `IIdea` / `IBrief` / `ICompetition`                          | category (pre-design)       | `: IPredesign, IStage` — the strategic-definition / brief / competition phases                            |
-|  [05]   | `IConceptualDesign` / `ISchematicDesign` / `IDetailedDesign` | category (design)           | `: IStage` — the concept / developed-spatial / technical design phases                                    |
-|  [06]   | `IConstruction` / `IHandover` / `IInUse` / `IEndOfLife`      | category (delivery/operate) | `: IStage` — the construction / handover / in-use / end-of-life phases                                    |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]           | [RAIL]                                                          |
+| :-----: | :------------------ | :---------------------- | :-------------------------------------------------------------- |
+|  [01]   | `IStage`            | stage contract          | `Name`/`Description`/`Id`/`Governance` — the project-phase head |
+|  [02]   | `IGovernance`       | governing-body contract | `Name`/`FullBodyName`/`Country` (`ICountry`); defines a scale   |
+|  [03]   | `IPredesign`        | pre-design super-cat    | `IIdea`/`IBrief`/`ICompetition` refine it                       |
+|  [04]   | `IIdea`             | pre-design category     | strategic-definition phase                                      |
+|  [05]   | `IBrief`            | pre-design category     | brief phase                                                     |
+|  [06]   | `ICompetition`      | pre-design category     | competition phase                                               |
+|  [07]   | `IConceptualDesign` | design category         | concept design phase                                            |
+|  [08]   | `ISchematicDesign`  | design category         | developed-spatial design phase                                  |
+|  [09]   | `IDetailedDesign`   | design category         | technical design phase                                          |
+|  [10]   | `IConstruction`     | delivery category       | construction phase                                              |
+|  [11]   | `IHandover`         | delivery category       | handover phase                                                  |
+|  [12]   | `IInUse`            | operate category        | in-use phase                                                    |
+|  [13]   | `IEndOfLife`        | operate category        | end-of-life phase                                               |
 
 [PUBLIC_TYPE_SCOPE]: governing bodies (`VividOrange.Stages` + national namespaces)
 - rail: schedule
@@ -83,17 +91,23 @@ national-context sibling under the same publisher and license.
 
 [PUBLIC_TYPE_SCOPE]: concrete national stage rosters
 - rail: schedule
-- note: each row is a set of `IStage` classes; the category interface column is the international
- axis the national scale maps onto (the normalization the consumer dispatches by).
+- note: each scale is a set of `IStage` classes; the keyed list carries the full class roster and its category-interface mapping (the normalization the consumer dispatches by).
 
-| [INDEX] | [SYMBOL]                                                                                                                                                    | [TYPE_FAMILY]                  | [RAIL]                                                                                                                                                                                         |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Idea`/`Brief`/`Competition`/`ConceptDesign`/`SchematicDesign`/`DetailedDesign`/`Construction`/`Handover`/`InUse`/`EndOfLife` (`Stages`)                    | International stages (Id 1-10) | the Whitby-Wood baseline, each `IStage` + its category interface                                                                                                                               |
-|  [02]   | `UK.RIBAStage0`…`RIBAStage7` (+ `RIBAStageF`)                                                                                                               | RIBA 2020 stages (+ RIBA F)    | Strategic-Definition(0) … In-Use(7) Plan of Work; `RIBAStageF` is the retained RIBA-2007 Stage F (`Id "F"`, "Product Information") the package keeps in the `UK` namespace beside the 2020 set |
-|  [03]   | `UK.RIBA2007.RIBAStageA`/`B`/`C`/`D`/`E`/`G`/`H`/`J`/`K`/`L`                                                                                                | RIBA 2007 stages               | Appraisal(A) … Post-Practical-Completion(L) lettered scale — Stage F lives in the `UK` namespace (row [02]) and I is skipped per RIBA lettering, so this roster is the ten classes A–E/G–H/J–L |
-|  [04]   | `Germany.LP1`…`LP9`                                                                                                                                         | HOAI phases                    | Grundlagenermittlung(1) … Objektbetreuung(9) Leistungsphasen                                                                                                                                   |
-|  [05]   | `Italy.PFTE`/`DD`/`EXE`/`DL`/`Collaudo`                                                                                                                     | CSLP stages (1-5)              | feasibility / definitive / executive / works-direction / testing                                                                                                                               |
-|  [06]   | `Denmark.Ideoplaeg`/`Byggeprogram`/`Dispositionsforslag`/`Projektforslag`/`Myndighedsprojekt`/`Hovedprojekt`/`Projektopfoelgning`/`Udfoerelse`/`Aflevering` | AB89 stages (0-8)              | idea / program / outline / proposal / permission / main-project / supervision / construction / handover                                                                                        |
+| [INDEX] | [SCALE]                     | [GOVERNANCE]  | [ID_RANGE]   |
+| :-----: | :-------------------------- | :------------ | :----------- |
+|  [01]   | International (Whitby-Wood) | `Stages`      | Id 1-10      |
+|  [02]   | UK RIBA 2020 (+ RIBA F)     | `UK`          | 0-7, F       |
+|  [03]   | UK RIBA 2007                | `UK.RIBA2007` | A-L (no F/I) |
+|  [04]   | Germany HOAI                | `Germany`     | LP1-LP9      |
+|  [05]   | Italy CSLP                  | `Italy`       | 1-5          |
+|  [06]   | Denmark AB89                | `Denmark`     | 0-8          |
+
+- [01]-[INTERNATIONAL]: `Idea`/`Brief`/`Competition`/`ConceptDesign`/`SchematicDesign`/`DetailedDesign`/`Construction`/`Handover`/`InUse`/`EndOfLife` — the Whitby-Wood baseline, each `IStage` + its category interface.
+- [02]-[RIBA2020]: `RIBAStage0`…`RIBAStage7` (+ `RIBAStageF`) — Strategic-Definition(0)…In-Use(7); `RIBAStageF` is the retained RIBA-2007 Stage F (`Id "F"`, "Product Information") kept in the `UK` namespace beside the 2020 set.
+- [03]-[RIBA2007]: `RIBAStageA`/`B`/`C`/`D`/`E`/`G`/`H`/`J`/`K`/`L` — Appraisal(A)…Post-Practical-Completion(L); Stage F lives in `UK` ([02]) and I is skipped, so ten classes A-E/G-H/J-L.
+- [04]-[HOAI]: `LP1`…`LP9` — Grundlagenermittlung(1)…Objektbetreuung(9) Leistungsphasen.
+- [05]-[CSLP]: `PFTE`/`DD`/`EXE`/`DL`/`Collaudo` — feasibility/definitive/executive/works-direction/testing.
+- [06]-[AB89]: `Ideoplaeg`/`Byggeprogram`/`Dispositionsforslag`/`Projektforslag`/`Myndighedsprojekt`/`Hovedprojekt`/`Projektopfoelgning`/`Udfoerelse`/`Aflevering` — idea/program/outline/proposal/permission/main-project/supervision/construction/handover.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -103,24 +117,26 @@ national-context sibling under the same publisher and license.
  `Governance` are constant per class); the consumer instantiates the roster once and folds it into a
  lookup keyed by `(Governance.Name, Id)` or by category interface.
 
-| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [RAIL]                                                                                                                                                                        |
-| :-----: | :---------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new VividOrange.Stages.UK.RIBAStage4()` (and every roster class) | construct      | the concrete national stage (constant members)                                                                                                                                |
-|  [02]   | `stage.Name` / `stage.Description` / `stage.Id`                   | read           | the display name, human description, and scale-local id — a bare per-scale token, NOT prefixed (RIBA `"4"`/`"F"`, German HOAI `"5"` not `"LP5"`, Danish `"7"`, Italian `"1"`) |
-|  [03]   | `stage.Governance` → `IGovernance`                                | read           | the governing body (`Name`/`FullBodyName`/`Country`)                                                                                                                          |
-|  [04]   | `stage.Governance.Country` → `ICountry`                           | read           | the `VividOrange.Countries` national context the body belongs to                                                                                                              |
+| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                                         |
+| :-----: | :---------------------------------------------- | :------------- | :------------------------------------------------------------- |
+|  [01]   | `new UK.RIBAStage4()` (and every roster class)  | construct      | the concrete national stage (constant members)                 |
+|  [02]   | `stage.Name` / `stage.Description` / `stage.Id` | read           | display name, human description, scale-local `Id` (unprefixed) |
+|  [03]   | `stage.Governance` → `IGovernance`              | read           | the governing body (`Name`/`FullBodyName`/`Country`)           |
+|  [04]   | `stage.Governance.Country` → `ICountry`         | read           | the `VividOrange.Countries` context the body belongs to        |
+
+- [02]-[ID]: `Id` is a bare per-scale token, unprefixed — RIBA `"4"`/`"F"`, German HOAI `"5"` (not `"LP5"`), Danish `"7"`, Italian `"1"`.
 
 [ENTRYPOINT_SCOPE]: cross-national category normalization (the integration entry)
 - rail: schedule
 - note: the category interfaces ARE the normalization API — pattern-match a heterogeneous stage onto
  its international category, the canonical operation a multi-standard project performs.
 
-| [INDEX] | [SURFACE]                                                                    | [ENTRY_FAMILY]      | [RAIL]                                                            |
-| :-----: | :--------------------------------------------------------------------------- | :------------------ | :---------------------------------------------------------------- |
-|  [01]   | `stage is IConstruction` / `is IDetailedDesign` / `is IConceptualDesign` / … | category test       | normalize any national stage onto the international category axis |
-|  [02]   | `stage is IPredesign`                                                        | super-category test | the pre-design grouping (`IIdea`/`IBrief`/`ICompetition`)         |
-|  [03]   | `roster.OfType<IConstruction>()`                                             | category select     | every construction-phase stage across all national scales         |
-|  [04]   | `roster.Where(s => s.Governance is UK.RIBA)`                                 | body select         | the stage scale of one governing body                             |
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]      | [RAIL]                                                    |
+| :-----: | :-------------------------------------------------- | :------------------ | :-------------------------------------------------------- |
+|  [01]   | `stage is IConstruction` / `is IDetailedDesign` / … | category test       | normalize a national stage onto the international axis    |
+|  [02]   | `stage is IPredesign`                               | super-category test | the pre-design grouping (`IIdea`/`IBrief`/`ICompetition`) |
+|  [03]   | `roster.OfType<IConstruction>()`                    | category select     | every construction-phase stage across all national scales |
+|  [04]   | `roster.Where(s => s.Governance is UK.RIBA)`        | body select         | the stage scale of one governing body                     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

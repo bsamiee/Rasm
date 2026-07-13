@@ -32,77 +32,83 @@ energy model.
 - namespace: `OpenStudio`
 - rail: energy
 
-Every wrapper holds a native `HandleRef` (`swigCPtr`) with a `cMemoryOwn` flag and implements
-`IDisposable`; the C++ STL/Boost shapes surface as the families below, not as BCL collections.
+Every wrapper holds a native `HandleRef` (`swigCPtr`) with a `cMemoryOwn` flag and implements `IDisposable`; the C++ STL/Boost shapes surface as the families below, not as BCL collections.
 
-| [INDEX] | [SYMBOL]                      | [RAIL] | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                 |
-| :-----: | :---------------------------- | :----- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Optional<T>` family          | energy | the `boost::optional` marshaling — `OptionalModel`/`OptionalWorkspace`/`OptionalIdfFile`/`OptionalDouble`/`OptionalPath`/`OptionalComponent`/`OptionalWorkspaceObject`/…; `is_initialized()`/`isNull()`, `get()`, `value_or(T)`, `set(T)`, `reset()`. Every "load"/"get" that can miss returns one — check `is_initialized()` before `get()` |
-|  [02]   | `*Vector` family              | energy | the `std::vector` marshaling — `ModelObjectVector`/`WorkspaceObjectVector`/`SurfaceVector`/`SpaceVector`/`StringVector`/`DoubleVector`/`LogMessageVector`/`UUIDVector`/…; `IList`-shaped (indexer, `Count`, `Add`), the carrier for every plural query result                                                                                |
-|  [03]   | `Path` / `OptionalPath`       | energy | the `boost::filesystem::path` wrapper; there is NO `Path(string)` ctor (only `Path()`/`Path(Path)`) — build from a string with the static `OpenStudioUtilitiesCore.toPath(string)` and read back via `OpenStudioUtilitiesCore.toString(path)`. The REQUIRED carrier at every file API (a raw `string` is not accepted)                       |
-|  [04]   | `UUID`                        | energy | the model-object handle (`OpenStudioUtilitiesCore.createUUID()` / `toUUID(string)`); `WorkspaceObject` identity and the `getObject(UUID)` key                                                                                                                                                                                                |
-|  [05]   | `OpenStudioUtilitiesCore`     | energy | the SWIG global-function host for the cross-cutting free functions (`toPath`/`toString`/`createUUID`/`toUUID`) — the static utility class the file/identity boundaries route through, distinct from the per-module `*PINVOKE` shims                                                                                                          |
-|  [06]   | `Logger` / `LogMessageVector` | energy | the native log sink; `LogLevel` (enum) sets verbosity, translator `warnings()`/`errors()` return `LogMessageVector` — route these into the Rasm telemetry rail rather than the console                                                                                                                                                       |
+| [INDEX] | [SYMBOL]                      | [CAPABILITY]                                                                                             |
+| :-----: | :---------------------------- | :------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Optional<T>` family          | `boost::optional` marshaling; `is_initialized()`/`isNull()`, `get()`, `value_or(T)`, `set(T)`, `reset()` |
+|  [02]   | `*Vector` family              | `std::vector` marshaling; `IList`-shaped (indexer, `Count`, `Add`), the plural-result carrier            |
+|  [03]   | `Path` / `OptionalPath`       | `boost::filesystem::path`; NO `Path(string)` ctor — use `OpenStudioUtilitiesCore.toPath`/`toString`      |
+|  [04]   | `UUID`                        | handle (`createUUID()`/`toUUID(string)`); `WorkspaceObject` identity, `getObject(UUID)` key              |
+|  [05]   | `OpenStudioUtilitiesCore`     | SWIG global-function host (`toPath`/`toString`/`createUUID`/`toUUID`); not the `*PINVOKE` shims          |
+|  [06]   | `Logger` / `LogMessageVector` | native log sink; `LogLevel` verbosity, translator `warnings()`/`errors()` → `LogMessageVector`           |
 
 [PUBLIC_TYPE_SCOPE]: model + IDF/IDD object store
 - package: `NREL.OpenStudio.macOS-arm64`
 - namespace: `OpenStudio`
 - rail: energy
 
-| [INDEX] | [SYMBOL]                                                                       | [RAIL] | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                      |
-| :-----: | :----------------------------------------------------------------------------- | :----- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `Model`                                                                        | energy | the OSM model (`: Workspace`); ctors `Model()` / `Model(IdfFile)` / `Model(Workspace)` / `Model(Model)`, static `load(Path osmPath, Path workflowJSONPath)` -> `OptionalModel`, `modelObjects(bool sorted = …)` -> `ModelObjectVector`, `getModelObjectLists*`, `save` (inherited from `Workspace`). The root every model-object getter hangs off |
-|  [02]   | `Workspace`                                                                    | energy | the generic IDD-object store backing both `Model` and an IDF; `getObjectsByType(IddObjectType)` -> `WorkspaceObjectVector`, `getObjectByTypeAndName(IddObjectType, name)` -> `OptionalWorkspaceObject`, `getObject(UUID)`, `objects(bool sorted)`, `versionObject`, `save(Path, bool overwrite)`                                                  |
-|  [03]   | `IdfFile` / `OptionalIdfFile`                                                  | energy | the EnergyPlus IDF text model (`IdfFile.load(Path, IddFileType)` -> `OptionalIdfFile`); the input EnergyPlus consumes and `EnergyPlusForwardTranslator` produces                                                                                                                                                                                  |
-|  [04]   | `IddFile` / `Idd` / `IddObjectType`                                            | energy | the EnergyPlus Input Data Dictionary (the object schema); `IddObjectType` is the typed key `Workspace.getObjectsByType` filters on                                                                                                                                                                                                                |
-|  [05]   | `ModelObject`                                                                  | energy | the base of every model object (surfaces, spaces, zones, constructions, schedules, HVAC); the `ModelObjectVector` element and the `translateModelObject` input                                                                                                                                                                                    |
-|  [06]   | `Building` / `Space` / `Surface` / `ThermalZone` / `Construction` / `Schedule` | energy | representative `ModelObject` leaves — the geometry/thermal/constructive objects a model carries (the full set is the several-thousand generated `OpenStudio.*` model types, the bulk of the 5390-type surface)                                                                                                                                    |
+| [INDEX] | [SYMBOL]                            | [CAPABILITY]                                                                               |
+| :-----: | :---------------------------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | `Model`                             | the OSM model (`: Workspace`); the model-object getter root — roster in `[01]-[MODEL]`     |
+|  [02]   | `Workspace`                         | the generic IDD-object store backing `Model` and an IDF — roster in `[02]-[WORKSPACE]`     |
+|  [03]   | `IdfFile` / `OptionalIdfFile`       | the EnergyPlus IDF text model (`IdfFile.load(Path, IddFileType)` → `OptionalIdfFile`)      |
+|  [04]   | `IddFile` / `Idd` / `IddObjectType` | the EnergyPlus Input Data Dictionary; `IddObjectType` is the typed `getObjectsByType` key  |
+|  [05]   | `ModelObject`                       | base of every model object; the `ModelObjectVector` element + `translateModelObject` input |
+|  [06]   | leaf `ModelObject`s                 | `Building`, `Space`, `Surface`, `ThermalZone`, `Construction`, `Schedule`                  |
+
+- [01]-[MODEL]: ctors `Model()`/`Model(IdfFile)`/`Model(Workspace)`/`Model(Model)`; `modelObjects(bool sorted)` → `ModelObjectVector`; `getModelObjectLists*`. Load/save are `[03]`'s.
+- [02]-[WORKSPACE]: `getObjectsByType(IddObjectType)` → `WorkspaceObjectVector`; `getObjectByTypeAndName(IddObjectType, name)` → `OptionalWorkspaceObject`; `getObject(UUID)`; `objects(bool sorted)`; `versionObject`; `save(Path, bool overwrite)`.
 
 [PUBLIC_TYPE_SCOPE]: translators (the exchange matrix)
 - package: `NREL.OpenStudio.macOS-arm64`
 - namespace: `OpenStudio`
 - rail: energy
 
-Each translator is `IDisposable`, exposes `warnings()`/`errors()` -> `LogMessageVector`, and
-takes an optional `ProgressBar`. "Forward" = `Model` -> external format; "Reverse" = external
-format -> `Model`/`OptionalModel`.
+Each translator is `IDisposable`, exposes `warnings()`/`errors()` → `LogMessageVector`, and takes an optional `ProgressBar`. "Forward" = `Model` → external format; "Reverse" = external → `Model`/`OptionalModel`.
 
-| [INDEX] | [SYMBOL]                                                                                                                                           | [RAIL] | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                         |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------- | :----- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `EnergyPlusForwardTranslator`                                                                                                                      | energy | `translateModel(Model[, ProgressBar])` -> `Workspace` (the IDF for EnergyPlus); `translateModelObject(ModelObject)` -> `Workspace`; `forwardTranslatorOptions()`/`setForwardTranslatorOptions(ForwardTranslatorOptions)`, `setKeepRunControlSpecialDays`, `setIPTabularOutput`                                                                       |
-|  [02]   | `EnergyPlusReverseTranslator`                                                                                                                      | energy | `translateWorkspace(Workspace, ProgressBar, bool clearLogSink)` -> `Model` — bring an existing IDF back into the OSM model                                                                                                                                                                                                                           |
-|  [03]   | `GbXMLForwardTranslator` / `GbXMLReverseTranslator`                                                                                                | energy | gbXML <-> `Model`; `GbXMLReverseTranslator.loadModel(Path[, ProgressBar])` -> `OptionalModel` — the language-neutral bridge to the BIM/IFC side and to other energy tools                                                                                                                                                                            |
-|  [04]   | `SddForwardTranslator` / `SddReverseTranslator`                                                                                                    | energy | CBECC SDD (California compliance) <-> `Model`                                                                                                                                                                                                                                                                                                        |
-|  [05]   | `ThreeJSForwardTranslator` / `ThreeJSReverseTranslator` / `GltfForwardTranslator` / `FloorplanJSForwardTranslator` / `FloorspaceReverseTranslator` | energy | geometry exchange — three.js/glTF for web preview, FloorspaceJS for the 2D floor editor                                                                                                                                                                                                                                                              |
-|  [06]   | `ISOModelForwardTranslator` / `RadianceForwardTranslator` / `ContamForwardTranslator`                                                              | energy | the ISO 13790 monthly model, the Radiance daylight export, and the CONTAM airflow export                                                                                                                                                                                                                                                             |
-|  [07]   | `VersionTranslator`                                                                                                                                | energy | the robust OSM reader: `loadModel(Path[, ProgressBar])` -> `OptionalModel`, `loadModelFromString(string)` -> `OptionalModel`, `loadComponent(Path)` -> `OptionalComponent`, `originalVersion` -> `VersionString`. Upgrades an older `.osm` to the SDK version on load — use it over `Model.load` whenever the file version is not guaranteed current |
+| [INDEX] | [SYMBOL]                                                       | [CAPABILITY]                                                          |
+| :-----: | :------------------------------------------------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `EnergyPlusForwardTranslator`                                  | `translateModel(Model)` → `Workspace`; options `[01]-[E+FWD]`         |
+|  [02]   | `EnergyPlusReverseTranslator`                                  | `translateWorkspace(Workspace, ProgressBar, bool clearLogSink)`       |
+|  [03]   | `GbXMLForwardTranslator` / `GbXMLReverseTranslator`            | gbXML ↔ `Model` — the BIM/IFC bridge to other energy tools            |
+|  [04]   | `SddForwardTranslator` / `SddReverseTranslator`                | CBECC SDD (California compliance) ↔ `Model`                           |
+|  [05]   | `ThreeJSForwardTranslator` / `ThreeJSReverseTranslator`        | three.js geometry for web preview                                     |
+|  [06]   | `GltfForwardTranslator`                                        | glTF geometry export for web preview                                  |
+|  [07]   | `FloorplanJSForwardTranslator` / `FloorspaceReverseTranslator` | FloorspaceJS 2D floor-editor exchange                                 |
+|  [08]   | `ISOModelForwardTranslator`                                    | the ISO 13790 monthly-model export                                    |
+|  [09]   | `RadianceForwardTranslator`                                    | the Radiance daylight export                                          |
+|  [10]   | `ContamForwardTranslator`                                      | the CONTAM airflow export                                             |
+|  [11]   | `VersionTranslator`                                            | robust OSM loader — upgrades an older `.osm`; roster `[11]-[VERSION]` |
+
+- [01]-[E+FWD]: `translateModelObject(ModelObject)` → `Workspace`; `forwardTranslatorOptions()`/`setForwardTranslatorOptions(ForwardTranslatorOptions)`; `setKeepRunControlSpecialDays`; `setIPTabularOutput`.
+- [11]-[VERSION]: `loadModel(Path[, ProgressBar])` → `OptionalModel`; `loadModelFromString(string)` → `OptionalModel`; `loadComponent(Path)` → `OptionalComponent`; `originalVersion` → `VersionString`. It supersedes `Model.load` whenever the file version is not guaranteed current.
 
 [PUBLIC_TYPE_SCOPE]: files, results, workflow
 - package: `NREL.OpenStudio.macOS-arm64`
 - namespace: `OpenStudio`
 - rail: energy
 
-| [INDEX] | [SYMBOL]                    | [RAIL] | [CAPABILITY]                                                                                                             |
-| :-----: | :-------------------------- | :----- | :----------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `EpwFile`                   | energy | the EnergyPlus weather file (`EpwFile(Path)`); the site/design-day context attached to `WeatherFile`/`SimulationControl` |
-|  [02]   | `SqlFile`                   | energy | the EnergyPlus results SQLite (`SqlFile(Path)`); typed accessors for hourly/annual outputs — the post-run results reader |
-|  [03]   | `WorkflowJSON` / `OSRunner` | energy | the OpenStudio Workflow (OSW) + measure runner — drive parametric measure chains over a model                            |
-|  [04]   | `VersionString`             | energy | a parsed semantic OpenStudio version (`VersionTranslator.originalVersion` output)                                        |
+| [INDEX] | [SYMBOL]                    | [CAPABILITY]                                                                                     |
+| :-----: | :-------------------------- | :----------------------------------------------------------------------------------------------- |
+|  [01]   | `EpwFile`                   | the EnergyPlus weather file (`EpwFile(Path)`); `WeatherFile`/`SimulationControl` context         |
+|  [02]   | `SqlFile`                   | the EnergyPlus results SQLite (`SqlFile(Path)`); typed hourly/annual accessors — post-run reader |
+|  [03]   | `WorkflowJSON` / `OSRunner` | the OpenStudio Workflow (OSW) + measure runner over a model                                      |
+|  [04]   | `VersionString`             | a parsed OpenStudio version (`VersionTranslator.originalVersion` output)                         |
 
 [PUBLIC_TYPE_SCOPE]: CLR enums
 - package: `NREL.OpenStudio.macOS-arm64`
 - namespace: `OpenStudio`
 - rail: energy
 
-Only nine true CLR enums exist; most OpenStudio "enumerations" are SWIG `*Enum`/`EnumBase`
-string-classes (e.g. `IddObjectType`), not CLR enums — match on their string value.
+Only nine true CLR enums exist; most OpenStudio "enumerations" are SWIG `*Enum`/`EnumBase` string-classes (e.g. `IddObjectType`), not CLR enums — match on their string value.
 
-| [INDEX] | [SYMBOL]                                                  | [RAIL] | [CAPABILITY]                                                                     |
-| :-----: | :-------------------------------------------------------- | :----- | :------------------------------------------------------------------------------- |
-|  [01]   | `LogLevel`                                                | energy | the `Logger` verbosity band (`Trace`…`Fatal`)                                    |
-|  [02]   | `FloatFormat`                                             | energy | numeric formatting for IDF/text emit                                             |
-|  [03]   | `InterpMethod` / `ExtrapMethod`                           | energy | the interpolation/extrapolation policy for time-series/curve lookups             |
-|  [04]   | `ThreeSide` / `XMLValidatorType` / `ModelicaCompilerType` | energy | three.js side culling, XML validator selection, and the Modelica compiler target |
+| [INDEX] | [SYMBOL]                                                  | [CAPABILITY]                                                     |
+| :-----: | :-------------------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | `LogLevel`                                                | the `Logger` verbosity band (`Trace`…`Fatal`)                    |
+|  [02]   | `FloatFormat`                                             | numeric formatting for IDF/text emit                             |
+|  [03]   | `InterpMethod` / `ExtrapMethod`                           | interpolation/extrapolation policy for time-series/curve lookups |
+|  [04]   | `ThreeSide` / `XMLValidatorType` / `ModelicaCompilerType` | three.js side culling, XML validator selection, Modelica target  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -111,24 +117,28 @@ string-classes (e.g. `IddObjectType`), not CLR enums — match on their string v
 - namespace: `OpenStudio`
 - rail: energy
 
-| [INDEX] | [SURFACE]                         | [CALL_SHAPE]                                                        | [CAPABILITY]                                                                            |
-| :-----: | :-------------------------------- | :------------------------------------------------------------------ | :-------------------------------------------------------------------------------------- |
-|  [01]   | `new VersionTranslator.loadModel` | `(Path pathToOldOsm)` -> `OptionalModel`                            | the robust `.osm` read — upgrades to the SDK version; check `is_initialized` then `get` |
-|  [02]   | `Model.load`                      | `(Path osmPath, Path workflowJSONPath)` (static) -> `OptionalModel` | direct load when the file is known to be the current version                            |
-|  [03]   | `model.save`                      | `(Path, bool overwrite)` -> `bool` (inherited from `Workspace`)     | persist the model to `.osm`                                                             |
-|  [04]   | `IdfFile.load`                    | `(Path, IddFileType)` (static) -> `OptionalIdfFile`                 | read an EnergyPlus IDF into the workspace layer                                         |
+Every load/get returning an `Optional<T>` gates on `is_initialized()` before `get()` (`[04]`).
+
+| [INDEX] | [ENTRYPOINT]                                                                 | [CAPABILITY]                                    |
+| :-----: | :--------------------------------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | `VersionTranslator.loadModel(Path pathToOldOsm)` → `OptionalModel`           | robust `.osm` read; upgrades to the SDK version |
+|  [02]   | `Model.load(Path osmPath, Path workflowJSONPath)` (static) → `OptionalModel` | direct load when the file is current            |
+|  [03]   | `model.save(Path, bool overwrite)` → `bool`                                  | persist to `.osm` (inherited from `Workspace`)  |
+|  [04]   | `IdfFile.load(Path, IddFileType)` (static) → `OptionalIdfFile`               | read an EnergyPlus IDF into the workspace       |
 
 [ENTRYPOINT_SCOPE]: translate
 - package: `NREL.OpenStudio.macOS-arm64`
 - namespace: `OpenStudio`
 - rail: energy
 
-| [INDEX] | [SURFACE]                                              | [CALL_SHAPE]                                             | [CAPABILITY]                                                        |
-| :-----: | :----------------------------------------------------- | :------------------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | `new EnergyPlusForwardTranslator().translateModel`     | `(Model model)` -> `Workspace`                           | OSM -> EnergyPlus IDF; then `errors()`/`warnings()` for the receipt |
-|  [02]   | `new EnergyPlusReverseTranslator().translateWorkspace` | `(Workspace, ProgressBar, bool clearLogSink)` -> `Model` | EnergyPlus IDF -> OSM                                               |
-|  [03]   | `new GbXMLReverseTranslator().loadModel`               | `(Path gbXmlPath)` -> `OptionalModel`                    | gbXML -> OSM (the BIM/IFC bridge)                                   |
-|  [04]   | `new SqlFile(path)` accessors                          | `(Path)` then typed result getters                       | read the EnergyPlus results SQLite after a run                      |
+`EnergyPlusReverseTranslator.translateWorkspace` takes `(Workspace, ProgressBar, bool clearLogSink)` and returns a `Model`.
+
+| [INDEX] | [ENTRYPOINT]                                                               | [CAPABILITY]                                       |
+| :-----: | :------------------------------------------------------------------------- | :------------------------------------------------- |
+|  [01]   | `new EnergyPlusForwardTranslator().translateModel(Model)` → `Workspace`    | OSM → EnergyPlus IDF; then `errors()`/`warnings()` |
+|  [02]   | `new EnergyPlusReverseTranslator().translateWorkspace(…)`                  | EnergyPlus IDF → OSM                               |
+|  [03]   | `new GbXMLReverseTranslator().loadModel(Path gbXmlPath)` → `OptionalModel` | gbXML → OSM (the BIM/IFC bridge)                   |
+|  [04]   | `new SqlFile(Path)` + typed getters                                        | read the EnergyPlus results SQLite after a run     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

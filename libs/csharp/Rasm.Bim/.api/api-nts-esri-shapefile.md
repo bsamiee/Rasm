@@ -32,51 +32,90 @@ shape `NetTopologySuite` defines and `MaxRev.Gdal.Core` OGR also produces.
 - namespace: `NetTopologySuite.IO.Esri`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]             | [RAIL]   | [CAPABILITY]                                                                                                                                                                                                                                                                                                      |
-| :-----: | :------------------- | :------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Shapefile`          | geometry | abstract static facade; the one-call `OpenRead`/`OpenWrite`/`ReadAllFeatures`/`WriteAllFeatures`/`GetShapeType` entry. `ShapeType` instance property names the homogeneous geometry kind                                                                                                                          |
-|  [02]   | `ShapeType`          | geometry | enum: `NullShape`(0)/`Point`(1)/`PolyLine`(3)/`Polygon`(5)/`MultiPoint`(8) and the measured 3D variants `PointZM`(11)/`PolyLineZM`(13)/`PolygonZM`(15)/`MultiPointZM` plus `MultiPatch` (the ESRI "Z" forms are named `*ZM` here). A shapefile holds ONE shape type — heterogeneous geometry is rejected at write |
-|  [03]   | `ShapefileException` | geometry | the typed codec failure (corrupt header, shape/dbf record-count mismatch, unsupported shape type) — lowered onto the `BimFault.CodecReject` arm                                                                                                                                                                   |
+| [INDEX] | [SYMBOL]             | [CAPABILITY]                                                                                                |
+| :-----: | :------------------- | :---------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Shapefile`          | abstract static facade; one-call `OpenRead`/`OpenWrite`/`ReadAllFeatures`/`WriteAllFeatures`/`GetShapeType` |
+|  [02]   | `ShapeType`          | enum (values in the fence below); one shape type per file, heterogeneous rejected at write                  |
+|  [03]   | `ShapefileException` | typed codec failure (corrupt header, shape/dbf count mismatch, unsupported type) → `BimFault.CodecReject`   |
+
+```csharp signature
+enum ShapeType =                               // one shape type per file; heterogeneous geometry rejected at write
+    NullShape=0 | Point=1 | PolyLine=3 | Polygon=5 | MultiPoint=8
+    | PointZM=11 | PolyLineZM=13 | PolygonZM=15 | MultiPointZM | MultiPatch;   // ESRI "Z" forms named *ZM here
+```
 
 [PUBLIC_TYPE_SCOPE]: readers
 - package: `NetTopologySuite.IO.Esri.Shapefile`
 - namespace: `NetTopologySuite.IO.Esri.Shapefiles.Readers`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]                                                                                                    | [RAIL]   | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                               |
-| :-----: | :---------------------------------------------------------------------------------------------------------- | :------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ShapefileReader`                                                                                           | geometry | abstract forward-only reader; `IEnumerable<Feature>` (foreach yields `Feature`), `Read(out bool deleted, out Feature)` / `Read()` cursor, `Geometry`/`Attributes` current-record accessors, `Projection` (the `.prj` WKT), `BoundingBox` (the `.shp` header MBR), `Fields` (`DbfFieldCollection`), `Restart()`                                                                             |
-|  [02]   | `ShapefilePointReader` / `ShapefilePolyLineReader` / `ShapefilePolygonReader` / `ShapefileMultiPointReader` | geometry | the per-shape-type concrete readers `Shapefile.OpenRead` dispatches to from the header shape type                                                                                                                                                                                                                                                                                          |
-|  [03]   | `ShapefileReaderOptions`                                                                                    | geometry | `Factory` (the `GeometryFactory` parsed geometry is built with — seed it from `NtsGeometryServices.Instance`), `Encoding` (dBASE codepage override), `GeometryBuilderMode` (enum `Strict`/`IgnoreInvalidShapes`/`FixInvalidShapes`/`QuickFixInvalidShapes` — the per-record ring-repair policy), `MbrFilter` (an `Envelope` spatial pre-filter), `MbrFilterOption` (filter inclusion mode) |
+| [INDEX] | [SYMBOL]                                             | [CAPABILITY]                                                     |
+| :-----: | :--------------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | `ShapefileReader`                                    | abstract forward-only reader (members in the fence below)        |
+|  [02]   | `Shapefile{Point,PolyLine,Polygon,MultiPoint}Reader` | the per-type concrete readers `Shapefile.OpenRead` dispatches to |
+|  [03]   | `ShapefileReaderOptions`                             | reader options (fields in the fence below)                       |
+
+```csharp signature
+abstract class ShapefileReader : IEnumerable<Feature> {   // forward-only; foreach yields Feature
+    bool Read(out bool deleted, out Feature); bool Read();  // cursor
+    Geometry; Attributes;                                  // current record
+    string Projection;                                     // .prj WKT
+    Envelope BoundingBox;                                  // .shp header MBR
+    DbfFieldCollection Fields; void Restart();
+}
+class ShapefileReaderOptions {
+    GeometryFactory Factory;                               // seed from NtsGeometryServices.Instance
+    Encoding;                                              // dBASE codepage override
+    GeometryBuilderMode;                                   // Strict | IgnoreInvalidShapes | FixInvalidShapes | QuickFixInvalidShapes
+    Envelope MbrFilter; MbrFilterOption;                   // spatial pre-filter + inclusion mode
+}
+```
 
 [PUBLIC_TYPE_SCOPE]: writers
 - package: `NetTopologySuite.IO.Esri.Shapefile`
 - namespace: `NetTopologySuite.IO.Esri.Shapefiles.Writers`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]                                                                                                    | [RAIL]   | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| :-----: | :---------------------------------------------------------------------------------------------------------- | :------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ShapefileWriter`                                                                                           | geometry | abstract forward-only writer; `Write(IFeature)` per record, `Write(IEnumerable<IFeature>)` for a batch, or set the `Geometry` property + populate `Fields` then call parameterless `Write()`. Flush-on-dispose; writes the `.shp`/`.shx`/`.dbf`/`.prj` quartet in lockstep                                                                                                                                                              |
-|  [02]   | `ShapefilePointWriter` / `ShapefilePolyLineWriter` / `ShapefilePolygonWriter` / `ShapefileMultiPointWriter` | geometry | the per-shape-type concrete writers `Shapefile.OpenWrite` dispatches to from the `ShapeType`                                                                                                                                                                                                                                                                                                                                            |
-|  [03]   | `ShapefileWriterOptions`                                                                                    | geometry | `ShapeType` (the fixed output kind), `Fields` (`List<DbfField>` — the dBASE schema), `Encoding`, `Projection` (the `.prj` WKT string). Ctors: `(ShapeType, params DbfField[])` or `(ShapefileReader reader)` (copy the source schema). `AddField(name, Type)` / `AddField<T>(name)` / `AddCharacterField`/`AddDateField`/`AddFloatField`/`AddLogicalField`/`AddNumericInt32Field`/`AddNumericInt64Field` are the fluent schema builders |
+| [INDEX] | [SYMBOL]                                             | [CAPABILITY]                                                      |
+| :-----: | :--------------------------------------------------- | :---------------------------------------------------------------- |
+|  [01]   | `ShapefileWriter`                                    | abstract forward-only writer (members in the fence below)         |
+|  [02]   | `Shapefile{Point,PolyLine,Polygon,MultiPoint}Writer` | the per-type concrete writers `Shapefile.OpenWrite` dispatches to |
+|  [03]   | `ShapefileWriterOptions`                             | writer options + fluent schema builders (in the fence below)      |
+
+```csharp signature
+abstract class ShapefileWriter : IDisposable {             // forward-only; flush-on-dispose; writes .shp/.shx/.dbf/.prj in lockstep
+    void Write(IFeature); void Write(IEnumerable<IFeature>);
+    Geometry; Fields; void Write();                        // or set Geometry + Fields, then parameterless Write()
+}
+class ShapefileWriterOptions {
+    ShapeType;                                             // fixed output kind
+    List<DbfField> Fields; Encoding; string Projection;    // .prj WKT
+    ShapefileWriterOptions(ShapeType, params DbfField[]);
+    ShapefileWriterOptions(ShapefileReader reader);        // copy source schema
+    AddField(name, Type); AddField<T>(name);
+    AddCharacterField; AddDateField; AddFloatField; AddLogicalField; AddNumericInt32Field; AddNumericInt64Field;
+}
+```
 
 [PUBLIC_TYPE_SCOPE]: dBASE attribute table and field family
 - package: `NetTopologySuite.IO.Esri.Shapefile`
 - namespace: `NetTopologySuite.IO.Esri.Dbf`, `NetTopologySuite.IO.Esri.Dbf.Fields`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]                                        | [RAIL]   | [CAPABILITY]                                                                                                                            |
-| :-----: | :---------------------------------------------- | :------- | :-------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `DbfReader` / `DbfWriter`                       | geometry | the standalone dBASE table codec when only the `.dbf` is needed (attribute table without geometry); `Dbf` is the static facade          |
-|  [02]   | `DbfEncoding`                                   | geometry | the dBASE codepage <-> `Encoding` resolution backing the `Encoding` option (the language-driver byte in the `.dbf` header)              |
-|  [03]   | `DbfField`                                      | geometry | abstract column; `Name`, `FieldType` (`DbfType`), `Length`, `NumericScale`, `Value` (boxed), `StringValue` — the polymorphic field base |
-|  [04]   | `DbfFieldCollection`                            | geometry | the ordered field schema of a record; indexable by name/ordinal, the `Fields` carrier on reader and writer                              |
-|  [05]   | `DbfCharacterField`                             | geometry | text column; `DbfCharacterField(name, length = 254)` — the `length` cap is the dBASE 254-char limit                                     |
-|  [06]   | `DbfNumericInt32Field` / `DbfNumericInt64Field` | geometry | integer columns; map a `BimElement` integer property to a fixed-width numeric field                                                     |
-|  [07]   | `DbfNumericDoubleField` / `DbfFloatField`       | geometry | floating columns; `DbfNumericDoubleField(name, length, precision)` sets total width + decimal scale                                     |
-|  [08]   | `DbfNumericDecimalField`                        | geometry | fixed-scale decimal column (quantity/cost values where binary float rounding is unacceptable)                                           |
-|  [09]   | `DbfDateField`                                  | geometry | dBASE date column (8-char `YYYYMMDD`); the carrier a NodaTime `LocalDate` maps onto                                                     |
-|  [10]   | `DbfLogicalField`                               | geometry | boolean column (`T`/`F`)                                                                                                                |
+| [INDEX] | [SYMBOL]                  | [CAPABILITY]                                                                                 |
+| :-----: | :------------------------ | :------------------------------------------------------------------------------------------- |
+|  [01]   | `DbfReader` / `DbfWriter` | standalone dBASE table codec (`.dbf` without geometry); `Dbf` is the static facade           |
+|  [02]   | `DbfEncoding`             | dBASE codepage ↔ `Encoding` resolution (the `.dbf` language-driver byte)                     |
+|  [03]   | `DbfField`                | abstract column: `Name`/`FieldType`(`DbfType`)/`Length`/`NumericScale`/`Value`/`StringValue` |
+|  [04]   | `DbfFieldCollection`      | ordered field schema; indexable by name/ordinal; the `Fields` carrier                        |
+|  [05]   | `DbfCharacterField`       | text column; `DbfCharacterField(name, length = 254)` — dBASE 254-char cap                    |
+|  [06]   | `DbfNumericInt32Field`    | 32-bit integer column                                                                        |
+|  [07]   | `DbfNumericInt64Field`    | 64-bit integer column (fixed-width numeric)                                                  |
+|  [08]   | `DbfNumericDoubleField`   | floating column; `DbfNumericDoubleField(name, length, precision)` = width + scale            |
+|  [09]   | `DbfFloatField`           | single-precision float column                                                                |
+|  [10]   | `DbfNumericDecimalField`  | fixed-scale decimal (quantity/cost; no binary-float rounding)                                |
+|  [11]   | `DbfDateField`            | dBASE date column (8-char `YYYYMMDD`); the carrier a NodaTime `LocalDate` maps onto          |
+|  [12]   | `DbfLogicalField`         | boolean column (`T`/`F`)                                                                     |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -85,26 +124,27 @@ shape `NetTopologySuite` defines and `MaxRev.Gdal.Core` OGR also produces.
 - namespace: `NetTopologySuite.IO.Esri`
 - rail: geometry
 
-| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                                                   | [CAPABILITY]                                                                                                            |
-| :-----: | :---------------------------- | :----------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Shapefile.OpenRead`          | `(string shpPath, ShapefileReaderOptions? = null)` → `ShapefileReader`         | the streaming forward-only reader (foreach over `Feature`); the form for large files — never materializes the whole set |
-|  [02]   | `Shapefile.OpenRead`          | `(Stream shp, Stream dbf, ShapefileReaderOptions? = null)` → `ShapefileReader` | the stream overload (no filesystem path); the in-memory/fsspec ingest                                                   |
-|  [03]   | `Shapefile.ReadAllFeatures`   | `(string shpPath, ShapefileReaderOptions? = null)` → `Feature[]`               | eager materialization (small files); also `(Stream shp, Stream dbf, …)`                                                 |
-|  [04]   | `Shapefile.ReadAllGeometries` | `(string shpPath, ShapefileReaderOptions? = null)` → `Geometry[]`              | geometry-only read (skips the `.dbf` attribute decode)                                                                  |
-|  [05]   | `Shapefile.GetShapeType`      | `(string shpPath)` / `(Geometry)` → `ShapeType`                                | sniff the header shape type, or map an NTS geometry to its `ShapeType`                                                  |
+| [INDEX] | [SURFACE]                                                                                        | [CAPABILITY]                         |
+| :-----: | :----------------------------------------------------------------------------------------------- | :----------------------------------- |
+|  [01]   | `Shapefile.OpenRead(string shpPath, ShapefileReaderOptions? = null)` → `ShapefileReader`         | streaming reader (large files)       |
+|  [02]   | `Shapefile.OpenRead(Stream shp, Stream dbf, ShapefileReaderOptions? = null)` → `ShapefileReader` | stream overload (in-memory ingest)   |
+|  [03]   | `Shapefile.ReadAllFeatures(string shpPath, ShapefileReaderOptions? = null)` → `Feature[]`        | eager materialization (small files)  |
+|  [04]   | `Shapefile.ReadAllGeometries(string shpPath, ShapefileReaderOptions? = null)` → `Geometry[]`     | geometry-only (skips `.dbf`)         |
+|  [05]   | `Shapefile.GetShapeType(string shpPath)` / `(Geometry)` → `ShapeType`                            | sniff header type / map NTS geometry |
 
 [ENTRYPOINT_SCOPE]: write shapefiles
 - package: `NetTopologySuite.IO.Esri.Shapefile`
 - namespace: `NetTopologySuite.IO.Esri`
 - rail: geometry
+- note: `AddField<T>` constrains `T: struct, IComparable, IConvertible, IFormattable`.
 
-| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                                                                              | [CAPABILITY]                                                                                                  |
-| :-----: | :----------------------------------- | :-------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `Shapefile.OpenWrite`                | `(string shpPath, ShapefileWriterOptions options)` → `ShapefileWriter`                                    | the streaming writer; `options` fixes `ShapeType` + the `DbfField` schema + `.prj` projection                 |
-|  [02]   | `Shapefile.OpenWrite`                | `(Stream shp, Stream shx, Stream dbf, Stream prj, ShapefileWriterOptions)` → `ShapefileWriter`            | the four-stream overload (no filesystem) — each component written to its own stream                           |
-|  [03]   | `Shapefile.WriteAllFeatures`         | `(IEnumerable<IFeature> features, string shpPath, string? projection = null, Encoding? = null)`           | one-call eager write; schema inferred from the first feature's attributes                                     |
-|  [04]   | `Shapefile.WriteAllFeatures`         | `(IEnumerable<IFeature>, Stream shp, Stream shx, Stream dbf, Stream? prj, string? projection, Encoding?)` | the all-streams eager write                                                                                   |
-|  [05]   | `ShapefileWriterOptions.AddField<T>` | `(string name) where T: struct, IComparable, IConvertible, IFormattable` → `DbfField`                     | typed schema builder; or `AddCharacterField`/`AddNumericInt32Field`/`AddDateField`/… for explicit width/scale |
+| [INDEX] | [SURFACE]                                                                                           | [CAPABILITY]                 |
+| :-----: | :-------------------------------------------------------------------------------------------------- | :--------------------------- |
+|  [01]   | `Shapefile.OpenWrite(string shpPath, ShapefileWriterOptions)` → `ShapefileWriter`                   | streaming writer             |
+|  [02]   | `Shapefile.OpenWrite(Stream shp, shx, dbf, prj, ShapefileWriterOptions)` → `ShapefileWriter`        | four-stream overload         |
+|  [03]   | `Shapefile.WriteAllFeatures(IEnumerable<IFeature>, string shpPath, string? projection, Encoding?)`  | eager write; schema inferred |
+|  [04]   | `Shapefile.WriteAllFeatures(IEnumerable<IFeature>, Stream shp, shx, dbf, prj?, string?, Encoding?)` | all-streams eager write      |
+|  [05]   | `ShapefileWriterOptions.AddField<T>(string name)` → `DbfField`                                      | typed schema builder         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

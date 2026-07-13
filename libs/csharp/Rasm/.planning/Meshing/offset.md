@@ -730,17 +730,25 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes; the per-axis kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]   | [OWNER]          | [KIND]                                                                                            | [RAIL]                                 | [CASES] |
-| :-----: | :--------------- | :--------------- | :------------------------------------------------------------------------------------------------ | :------------------------------------- | :-----: |
-|  [01]   | Offsetting       | `OffsetOp`       | `[Union]` (`Skeleton`/`Weighted`/`Offset`/`Medial`/`Minkowski`/`Clearance`) folded by ONE `Apply` | `Offsetting.Apply → Fin<OffsetResult>` |    6    |
-|  [1a]   | Corner generator | `JoinType`       | `[SmartEnum<string>]` — each row carries its `Corner` emission delegate                           | policy rows (the next join is a row)   |    4    |
-|  [1b]   | Cap generator    | `EndType`        | `[SmartEnum<string>]` — each row carries its `Cap` emission delegate                              | policy rows                            |    4    |
-|  [1c]   | Clearance family | `ClearanceNode`  | THE minted 2D/3D clearance carrier — position · radius · nearest-feature witness                  | result rows (skeleton.md composes, W4) |    —    |
-|  [1d]   | Skeleton graph   | `SkeletonGraph`  | ONE graph shape, skeleton AND medial — ring seeds are radius-zero nodes, arcs node-uniform        | result carrier (`Graph`/`Axis` cases)  |    —    |
-|  [1e]   | Wavefront arena  | `WavefrontStore` | single-writer SoA arena, amortized-doubling `Spawn`, ring links, node/edge provenance, elevation  | arena (trace projections)              |    —    |
-|  [1f]   | Event algebra    | `OffsetEvent`    | `[Union]` (`Edge`/`Split`) drained time-ordered                                                   | carrier (drained in `Propagate`)       |    2    |
+| [INDEX] | [AXIS_CONCERN]   | [OWNER]          | [RAIL]                                 | [CASES] |
+| :-----: | :--------------- | :--------------- | :------------------------------------- | :-----: |
+|  [01]   | Offsetting       | `OffsetOp`       | `Offsetting.Apply → Fin<OffsetResult>` |    6    |
+|  [02]   | Corner generator | `JoinType`       | policy rows (the next join is a row)   |    4    |
+|  [03]   | Cap generator    | `EndType`        | policy rows                            |    4    |
+|  [04]   | Clearance family | `ClearanceNode`  | result rows (skeleton.md composes, W4) |    —    |
+|  [05]   | Skeleton graph   | `SkeletonGraph`  | result carrier (`Graph`/`Axis` cases)  |    —    |
+|  [06]   | Wavefront arena  | `WavefrontStore` | arena (trace projections)              |    —    |
+|  [07]   | Event algebra    | `OffsetEvent`    | carrier (drained in `Propagate`)       |    2    |
+
+- [01]-[OFFSETTING]: `[Union]` (`Skeleton`/`Weighted`/`Offset`/`Medial`/`Minkowski`/`Clearance`) folded by ONE `Apply`.
+- [02]-[CORNER_GENERATOR]: `[SmartEnum<string>]` — each row carries its `Corner` emission delegate.
+- [03]-[CAP_GENERATOR]: `[SmartEnum<string>]` — each row carries its `Cap` emission delegate.
+- [04]-[CLEARANCE_FAMILY]: THE minted 2D/3D clearance carrier — position, radius, nearest-feature witness.
+- [05]-[SKELETON_GRAPH]: ONE graph shape, skeleton AND medial — ring seeds are radius-zero nodes, arcs node-uniform.
+- [06]-[WAVEFRONT_ARENA]: single-writer SoA arena, amortized-doubling `Spawn`, ring links, node/edge provenance, elevation.
+- [07]-[EVENT_ALGEBRA]: `[Union]` (`Edge`/`Split`) drained time-ordered.
 
 The prior fence's `SegmentsCross` copy, `Mesh.CreateFromClosedPolyline` loop path, discarded medial tessellation, single-direction fan-less Minkowski, first-ring-only snapshot, `2n` store sizing, decorative exact-zero event guard, outward-normal "inward" bisectors, unit-speed respawns under the weighted lane, ring-index/node-index pun, unconsulted `OffsetKind` vocabulary, and field-identical `MedialAxis` sibling record are all deleted; every deletion lands as a composition of the sibling owner that already carries the concern or a correction inside this one.
 

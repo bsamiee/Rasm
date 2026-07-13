@@ -20,7 +20,7 @@ Every projection that duplicates host geometry travels as a `TopologyProjection`
 - Growth: a new edge feature is one `CurveFeature` row plus one `Features` derivation arm — selection, projection, and disposal are untouched; a new extraction source is one lattice arm emitting `TopologyProjection`s; a new typed output is one projection row on the `Operation` fan; a new silhouette flavor is a `SilhouetteType` flag or policy value on the existing case, never a sibling case.
 - Boundary: the edge taxonomy is DATA — `EdgeDescriptor.Features` is the one place adjacency becomes provenance, and a per-source feature `if` ladder beside it is the deleted form; fourteen spellings are six cases (the eight edge spellings differ only by feature row — a `BoundaryCurves`/`NakedCurves`/`InteriorCurves` operation family is the named proliferation this design kills); every duplicate rides `TopologyProjection` with its true `ComponentIndex` (`BrepEdge`/`BrepLoop`/`MeshTopologyEdge`/`BrepFace`/`PolycurveSegment`/`SubdEdge`) so the host drain and the repair pages address the same component space; the silhouette arm is host capture BESIDE the settled `Drawing/view` robust owner — a local hidden-line kernel here is the altitude violation; owned lowering (`Surface`/`SubD` → brep) disposes through the `Lease` window on every branch; `Select` rejects an out-of-range index onto the rail — a clamp-on-one-family/reject-on-the-other asymmetry is the collapsed dead form; ONE reject law serves the curve and face families alike.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -287,7 +287,7 @@ public static partial class Analyze {
 - Growth: a new face projection (an area row, a perimeter row) is one output arm on the fan calling the owning family's fold — zero new operations; a new selection strategy (largest-area face, most-vertical face) is one case whose score projection feeds the SAME `Stat.Extrema` fold.
 - Boundary: eight outputs on ONE builder — a `FacePlanes`/`FaceCentroids`/`FaceNormals` operation family is the named proliferation this fan deletes; the borrowed/owned decomposition asymmetry is the load-bearing resource law (borrowed carriers transfer live faces to the host drain; owned decompositions detach so no emitted face dangles after the coerced brep disposes) — a decomposition that hands out faces of a disposed brep is the named use-after-free defect this protocol kills; ranking and selection reject an out-of-range index onto the rail under the one selection law shared with `Curves.Select`; the centroid frame row composes `Analysis/measure` + `Domain/evaluation` law — a local mass or frame computation here is the deleted re-derivation.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Linq;
@@ -396,7 +396,7 @@ public static partial class Analyze {
 - Growth: a new spread aspect (anisotropy ratio, spread eigenvalue gap) is one `SpreadAspect` row plus one `SpreadProject` arm over the SAME moment fold; a new extraction source is one lattice arm; a new extremum policy is a parameter on the existing fold, never a sibling case.
 - Boundary: spread mathematics is COMPOSED — `SampleMoment` owns the covariance, `SymmetricMatrix.DecomposeEigen` owns the spectrum, `Stat.Extrema` owns the dominant-pair selection — and a local covariance accumulation or eigen ordering assumption here is the named double-owner defect (a first-returned-pair principal convention couples correctness to an upstream sort and is the dead form; the dominant-eigenvalue selection is order-independent by construction); planar-coordinate projection failures ABORT the fold — a zero-row substitution silently biases the covariance toward the origin and is the deleted form; `EdgeMidpoints` composing the `Curves` rail is the one-edge-walker law — a topology-edge loop here is the killed parallel walker; control-point extraction leases every minted NURBS form (`Owned`) so conversion never leaks.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Linq;
@@ -577,14 +577,14 @@ flowchart LR
 
 One owner per axis; a new feature, projection, or aspect is a row, a case, or a fan arm — never a sibling surface.
 
-| [INDEX] | [CONCERN]         | [OWNER]          | [KIND]                                                 | [RAIL]                            | [CASES] |
-| :-----: | :---------------- | :--------------- | :----------------------------------------------------- | :-------------------------------- | :-----: |
-|  [01]   | Curve provenance  | `CurveFeature`   | `[SmartEnum<int>]` closed feature vocabulary           | row (pure)                        |   14    |
-|  [02]   | Edge taxonomy     | `EdgeDescriptor` | internal `[Union]` + the `Features` derivation         | `Matches → bool` (data-driven)    |    3    |
-|  [03]   | Curve selection   | `Curves`         | `[Union]` — 6 cases, 14 factories, 5 typed projections | `Operation → Eff<Env, Seq<TOut>>` |    6    |
-|  [04]   | Face selection    | `Faces`          | `[Union]` — 3 cases fanned across 8 typed projections  | `Operation → Eff<Env, Seq<TOut>>` |    3    |
-|  [05]   | Point extraction  | `Points`         | `[Union]` — 5 cases, 6 factories                       | `Operation → Eff<Env, Seq<TOut>>` |    5    |
-|  [06]   | Spread vocabulary | `SpreadAspect`   | `[SmartEnum<int>]` + typed `Output` column             | `SpreadProject → Fin<Seq<TOut>>`  |    5    |
+| [INDEX] | [CONCERN]         | [OWNER]          | [KIND]                                           | [RAIL]                            | [CASES] |
+| :-----: | :---------------- | :--------------- | :----------------------------------------------- | :-------------------------------- | :-----: |
+|  [01]   | Curve provenance  | `CurveFeature`   | `[SmartEnum<int>]` closed feature vocabulary     | row (pure)                        |   14    |
+|  [02]   | Edge taxonomy     | `EdgeDescriptor` | internal `[Union]` + the `Features` derivation   | `Matches → bool` (data-driven)    |    3    |
+|  [03]   | Curve selection   | `Curves`         | `[Union]` — 6 cases, 14 factories, 5 projections | `Operation → Eff<Env, Seq<TOut>>` |    6    |
+|  [04]   | Face selection    | `Faces`          | `[Union]` — 3 cases fanned across 8 projections  | `Operation → Eff<Env, Seq<TOut>>` |    3    |
+|  [05]   | Point extraction  | `Points`         | `[Union]` — 5 cases, 6 factories                 | `Operation → Eff<Env, Seq<TOut>>` |    5    |
+|  [06]   | Spread vocabulary | `SpreadAspect`   | `[SmartEnum<int>]` + typed `Output` column       | `SpreadProject → Fin<Seq<TOut>>`  |    5    |
 
 All three fences are transcription-complete host captures: the full edge/loop/segment/iso/silhouette extraction lattice over the carrier disposal fold, the lease-aware face decomposition with the `DetachFrom` ownership protocol, and the extrema/midpoint/vertex/control-point/spread extraction family. The carrier and its transfer protocol are `Domain/normalization` law; the evaluation and vertex lattices are `Domain/evaluation` law; the statistics are `Domain/stats` law; the eigendecomposition is `Numerics/matrix` law — composed here, legislated there.
 

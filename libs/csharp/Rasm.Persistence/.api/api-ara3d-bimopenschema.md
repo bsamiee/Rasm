@@ -31,86 +31,110 @@
 [PUBLIC_TYPE_SCOPE]: `Ara3D.BimOpenSchema` columnar model
 - rail: analytics-exchange
 
-| [INDEX] | [SYMBOL]                                                                                             | [TYPE_FAMILY]     | [CAPABILITY]                                                                                                                                                                                                                                                                                       |
-| :-----: | :--------------------------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `BimData`                                                                                            | columnar root     | the SoA container — eleven `List<T>` columns: `Entities`, `Documents`, `Strings`, `Points`, `Descriptors`, `Relations`, `IntegerParameters`, `DoubleParameters`, `StringParameters`, `EntityParameters`, `PointParameters`                                                                         |
-|  [02]   | `BimDataBuilder`                                                                                     | interning builder | the authoring side — interns entities/documents/points/descriptors/strings into the `BimData` columns and returns typed indices                                                                                                                                                                    |
-|  [03]   | `BIMDataExtension`                                                                                   | static accessors  | the read side — polymorphic `Get`, index enumerators, `ToInt`, and the `ToDataSet`/`ToBimData` `IDataSet` bridge                                                                                                                                                                                   |
-|  [04]   | `ExpandedBIMData`                                                                                    | join view         | the denormalized graph — resolves string indices and builds `RelationsFrom`/`RelationsTo`/`ParametersByEntity`/`ParametersByName` lookups                                                                                                                                                          |
-|  [05]   | `Entity` / `Document` / `Point` / `ParameterDescriptor`                                              | record            | `Entity(long LocalId, string GlobalId, DocumentIndex Document, StringIndex Name, StringIndex Category)`; `Document(StringIndex Title, StringIndex Path)`; `Point(double X, double Y, double Z)`; `ParameterDescriptor(StringIndex Name, StringIndex Units, StringIndex Group, ParameterType Type)` |
-|  [06]   | `ParameterInt` / `ParameterDouble` / `ParameterString` / `ParameterEntity` / `ParameterPoint`        | record            | the typed EAV value rows — each `(EntityIndex Entity, DescriptorIndex Descriptor, <T> Value)` where `<T>` is `int`/`double`/`StringIndex`/`EntityIndex`/`PointIndex`                                                                                                                               |
-|  [07]   | `EntityRelation`                                                                                     | record            | `(EntityIndex EntityA, EntityIndex EntityB, RelationType RelationType)` — the typed graph edge                                                                                                                                                                                                     |
-|  [08]   | `ParameterType`                                                                                      | enum              | `Int`/`Double`/`Entity`/`String`/`Point` — the descriptor's value-column discriminant                                                                                                                                                                                                              |
-|  [09]   | `RelationType`                                                                                       | enum              | `PartOf`/`ElementOf`/`ContainedIn`/`InstanceOf`/`HostedBy`/`ChildOf`/`HasLayer`/`HasMaterial`/`ConnectsTo` (`HasConnector` aliases `ConnectsTo` = `8`)                                                                                                                                             |
-|  [10]   | `EntityIndex` / `DocumentIndex` / `DescriptorIndex` / `StringIndex` / `PointIndex` / `RelationIndex` | enum (`: long`)   | strongly-typed row indices (foreign keys into the columns) — a `long`-backed index that cannot be confused across columns                                                                                                                                                                          |
-|  [11]   | `ExpandedEntity` / `ExpandedParameter` / `ExpandedEntityRelation`                                    | class             | flat string-valued denormalized rows ready for tabular export (`ExpandedEntity` carries derived `Level`/`Type`/`Material`/`Room`)                                                                                                                                                                  |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]     | [CAPABILITY]                                                                          |
+| :-----: | :----------------- | :---------------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `BimData`          | columnar root     | SoA container of eleven parallel `List<T>` columns ([COLUMNS] below)                  |
+|  [02]   | `BimDataBuilder`   | interning builder | interns entities/documents/points/descriptors/strings → typed indices                 |
+|  [03]   | `BIMDataExtension` | static accessors  | polymorphic `Get`, index enumerators, `ToInt`, `ToDataSet`/`ToBimData` bridge         |
+|  [04]   | `ExpandedBIMData`  | join view         | resolves strings; builds `RelationsFrom`/`RelationsTo`/`ParametersByEntity`/`…ByName` |
+
+[COLUMNS]: the eleven `BimData` `List<T>` columns — `Entities`, `Documents`, `Strings`, `Points`, `Descriptors`, `Relations`, `IntegerParameters`, `DoubleParameters`, `StringParameters`, `EntityParameters`, `PointParameters`.
+
+[RECORDS]: dimension + fact records; every `Parameter*` value row is `(EntityIndex Entity, DescriptorIndex Descriptor, <T> Value)`.
+
+| [INDEX] | [SYMBOL]              | [SHAPE]                                                                                           |
+| :-----: | :-------------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `Entity`              | `(long LocalId, string GlobalId, DocumentIndex Document, StringIndex Name, StringIndex Category)` |
+|  [02]   | `Document`            | `(StringIndex Title, StringIndex Path)`                                                           |
+|  [03]   | `Point`               | `(double X, double Y, double Z)`                                                                  |
+|  [04]   | `ParameterDescriptor` | `(StringIndex Name, StringIndex Units, StringIndex Group, ParameterType Type)`                    |
+|  [05]   | `ParameterInt`        | `<T>` = `int`                                                                                     |
+|  [06]   | `ParameterDouble`     | `<T>` = `double`                                                                                  |
+|  [07]   | `ParameterString`     | `<T>` = `StringIndex`                                                                             |
+|  [08]   | `ParameterEntity`     | `<T>` = `EntityIndex`                                                                             |
+|  [09]   | `ParameterPoint`      | `<T>` = `PointIndex`                                                                              |
+|  [10]   | `EntityRelation`      | `(EntityIndex EntityA, EntityIndex EntityB, RelationType RelationType)` — the typed graph edge    |
+
+[ENUMS_AND_INDICES]:
+- `ParameterType`: `Int`/`Double`/`Entity`/`String`/`Point` — the descriptor's value-column discriminant.
+- `RelationType`: `PartOf`/`ElementOf`/`ContainedIn`/`InstanceOf`/`HostedBy`/`ChildOf`/`HasLayer`/`HasMaterial`/`ConnectsTo` (`HasConnector` aliases `ConnectsTo`=`8`).
+- row-index enums (`: long` FKs, uncomparable across columns): `EntityIndex`/`DocumentIndex`/`DescriptorIndex`/`StringIndex`/`PointIndex`/`RelationIndex`.
+- `ExpandedEntity`/`ExpandedParameter`/`ExpandedEntityRelation`: flat string-valued export classes; `ExpandedEntity` adds derived `Level`/`Type`/`Material`/`Room`.
 
 [PUBLIC_TYPE_SCOPE]: `Ara3D.BimOpenSchema.IO` codecs
 - rail: analytics-exchange
 
-| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [CAPABILITY]                                                                                                                                     |
-| :-----: | :---------------------------------- | :------------ | :----------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `BimDataSerializer`                 | static (top)  | the `BimData`-facing read/write surface over JSON / Parquet-zip / DuckDB / Excel                                                                 |
-|  [02]   | `DuckDbUtils`                       | static        | `IDataSet`<->DuckDB — `WriteToDuckDB`, `WriteTable`, `ReadTable`, `ReadColumnValues<T>`, `GetTableNames`, `ToDataSet<T>`                         |
-|  [03]   | `ParquetUtils`                      | static        | `IDataTable`/`IDataSet`<->Parquet (`Parquet.Net`) — `WriteParquetAsync`, `WriteParquetToZipAsync`, `ReadParquetAsync`, `ReadParquetFromZipAsync` |
-|  [04]   | `ParquetUtils.ParquetColumnAdpater` | adapter       | `: IDataColumn` — wraps a Parquet `DataColumn` as an `Ara3D.DataTable` column on read [sic spelling]                                             |
-|  [05]   | `ExcelUtils`                        | static        | `IDataSet`/`IDataTable`/ADO.NET `DataSet`->Excel (`ClosedXML`) — `WriteToExcel` (one worksheet per table)                                        |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [ROLE]                                                                 |
+| :-----: | :---------------------------------- | :------------ | :--------------------------------------------------------------------- |
+|  [01]   | `BimDataSerializer`                 | static (top)  | `BimData` read/write over JSON / Parquet-zip / DuckDB / Excel          |
+|  [02]   | `DuckDbUtils`                       | static        | `IDataSet`↔DuckDB codec ([01] members)                                 |
+|  [03]   | `ParquetUtils`                      | static        | `IDataTable`/`IDataSet`↔Parquet, `Parquet.Net` ([02])                  |
+|  [04]   | `ParquetUtils.ParquetColumnAdpater` | adapter       | `: IDataColumn` wrapping a Parquet `DataColumn` on read [sic spelling] |
+|  [05]   | `ExcelUtils`                        | static        | `IDataSet`/`IDataTable`/ADO.NET `DataSet`→Excel, `ClosedXML` ([03])    |
+
+- [01]-[DUCKDB]: `WriteToDuckDB`/`WriteTable`/`ReadTable`/`ReadColumnValues<T>`/`GetTableNames`/`ToDataSet<T>`.
+- [02]-[PARQUET]: `WriteParquetAsync`/`WriteParquetToZipAsync`/`ReadParquetAsync`/`ReadParquetFromZipAsync`.
+- [03]-[EXCEL]: `WriteToExcel` (one worksheet per table).
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: author a `BimData` — `BimDataBuilder` (string interning, typed-index return)
 - rail: analytics-exchange
-- composition law: every `Add*` interns its value into the matching column via a backing `Dictionary` (de-dup) and returns the typed index; a parameter is added by typed value, either against a pre-interned `DescriptorIndex` or by `(name, units, group)` which interns the descriptor inline.
+- composition law: every member is on `BimDataBuilder`; every `Add*` interns its value into the matching column via a backing `Dictionary` (de-dup) and returns the typed index. `AddParameter` has 6 value overloads (`double`/`int`/`string`/`EntityIndex`/`PointIndex`/`Point`) — `PointIndex` binds a pre-interned point, `Point` interns inline; the descriptor is either a pre-interned `DescriptorIndex` or a `(name, units, group)` triple that interns inline.
 
-| [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                                                                                   | [CAPABILITY]                                                                                                                    |
-| :-----: | :------------------------------- | :------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `builder.AddEntity`              | `EntityIndex AddEntity(long localId, string globalId, DocumentIndex d, string name, string category)`          | intern an element row (name/category interned)                                                                                  |
-|  [02]   | `builder.AddDocument`            | `DocumentIndex AddDocument(string title, string pathName)`                                                     | intern a source document                                                                                                        |
-|  [03]   | `builder.AddDescriptor`          | `DescriptorIndex AddDescriptor(string name, string units, string group, ParameterType pt)`                     | intern a parameter descriptor (name/units/group)                                                                                |
-|  [04]   | `builder.AddString` / `AddPoint` | `StringIndex AddString(string)` / `PointIndex AddPoint(Point)`                                                 | intern a string / a 3D point                                                                                                    |
-|  [05]   | `builder.AddParameter`           | `void AddParameter(EntityIndex e, double\|int\|string\|EntityIndex\|PointIndex\|Point val, DescriptorIndex d)` | bind a typed parameter value to an entity (6 value overloads — `PointIndex` binds a pre-interned point, `Point` interns inline) |
-|  [06]   | `builder.AddParameter`           | `void AddParameter(EntityIndex e, <T> val, string name, string units, string group)`                           | bind + intern descriptor inline (6 value overloads: `double`/`int`/`string`/`EntityIndex`/`PointIndex`/`Point`)                 |
-|  [07]   | `builder.AddRelation`            | `void AddRelation(EntityIndex a, EntityIndex b, RelationType rt)`                                              | add a typed graph edge                                                                                                          |
-|  [08]   | `builder.Data`                   | field `BimData`                                                                                                | the accumulated columnar model                                                                                                  |
+| [INDEX] | [MEMBER]                 | [SIGNATURE]                                                                                           |
+| :-----: | :----------------------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | `AddEntity`              | `EntityIndex AddEntity(long localId, string globalId, DocumentIndex d, string name, string category)` |
+|  [02]   | `AddDocument`            | `DocumentIndex AddDocument(string title, string pathName)`                                            |
+|  [03]   | `AddDescriptor`          | `DescriptorIndex AddDescriptor(string name, string units, string group, ParameterType pt)`            |
+|  [04]   | `AddString`/`AddPoint`   | `StringIndex AddString(string)` / `PointIndex AddPoint(Point)`                                        |
+|  [05]   | `AddParameter` (value)   | `void AddParameter(EntityIndex e, <T> val, DescriptorIndex d)` — `<T>` per the lead's 6-overload set  |
+|  [06]   | `AddParameter` (+intern) | `void AddParameter(EntityIndex e, <T> val, string name, string units, string group)`                  |
+|  [07]   | `AddRelation`            | `void AddRelation(EntityIndex a, EntityIndex b, RelationType rt)`                                     |
+|  [08]   | `Data`                   | field `BimData` — the accumulated columnar model                                                      |
 
 [ENTRYPOINT_SCOPE]: read + project a `BimData` — `BIMDataExtension`
 - rail: analytics-exchange
+- `Get` is polymorphic — one overload per row-index enum (`StringIndex`/`EntityIndex`/`DocumentIndex`/`PointIndex`/`RelationIndex`/`DescriptorIndex`), each returning that column's row; the `…Indices` enumerators cover the `Entity`/`Document`/`Descriptor`/`String`/`Point` columns.
 
-| [INDEX] | [SURFACE]                         | [CALL_SHAPE]                                                                                             | [CAPABILITY]                                                                              |
-| :-----: | :-------------------------------- | :------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | `data.Get`                        | `Get(this BimData, StringIndex\|EntityIndex\|DocumentIndex\|PointIndex\|RelationIndex\|DescriptorIndex)` | polymorphic index resolve — one `Get` per index type returns its row                      |
-|  [02]   | `data.EntityIndices` / `…Indices` | `IEnumerable<EntityIndex> EntityIndices(this BimData)`                                                   | per-column index enumerators (`Document`/`Descriptor`/`String`/`Point`)                   |
-|  [03]   | `data.ToDataSet`                  | `IDataSet ToDataSet(this BimData)`                                                                       | project the eleven columns to a named `Ara3D.DataTable` `IDataSet` — the analytics bridge |
-|  [04]   | `set.ToBimData`                   | `BimData ToBimData(this IDataSet)`                                                                       | round-trip an `IDataSet` back to a `BimData`                                              |
-|  [05]   | `new ExpandedBIMData(data)`       | constructor                                                                                              | build the denormalized join view (resolves strings, builds relation/parameter lookups)    |
-|  [06]   | `index.ToInt`                     | `int ToInt(this <Index>)`                                                                                | unwrap a typed index to its `int` ordinal                                                 |
+| [INDEX] | [SURFACE]                       | [SIGNATURE]                                                                                  |
+| :-----: | :------------------------------ | :------------------------------------------------------------------------------------------- |
+|  [01]   | `data.Get`                      | `Get(this BimData, <Index>)` — resolves any typed row index to its row                       |
+|  [02]   | `data.EntityIndices`/`…Indices` | `IEnumerable<EntityIndex> EntityIndices(this BimData)` — per-column index enumerators        |
+|  [03]   | `data.ToDataSet`                | `IDataSet ToDataSet(this BimData)` — the eleven columns → `Ara3D.DataTable` analytics bridge |
+|  [04]   | `set.ToBimData`                 | `BimData ToBimData(this IDataSet)` — round-trip back                                         |
+|  [05]   | `new ExpandedBIMData(data)`     | constructor — denormalized join view (resolves strings, builds relation/parameter lookups)   |
+|  [06]   | `index.ToInt`                   | `int ToInt(this <Index>)` — unwrap a typed index to its `int` ordinal                        |
 
 [ENTRYPOINT_SCOPE]: serialize a `BimData` — `BimDataSerializer`
 - rail: analytics-exchange
-- composition law: `FilePath` is `Ara3D.Utils.FilePath` (implicit `string` conversion). The Parquet/DuckDB/Excel paths route through `BimData.ToDataSet()`; the default Parquet compression is `(CompressionMethod)4` = Brotli.
+- composition law: `FilePath` is `Ara3D.Utils.FilePath` (implicit `string` conversion). The Parquet/DuckDB/Excel paths route through `BimData.ToDataSet()`; default Parquet compression is `(CompressionMethod)4` = Brotli. `WriteToParquetZip` emits one `.parquet` per table in a Brotli zip; `WriteDuckDB` a `.duckdb` with the eleven appended tables; `WriteToExcel` an `.xlsx`, one worksheet per table; `WriteToJson` System.Text.Json, optionally gzipped.
 
-| [INDEX] | [SURFACE]                                 | [CALL_SHAPE]                                                                        | [CAPABILITY]                                       |
-| :-----: | :---------------------------------------- | :---------------------------------------------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `data.WriteToParquetZip` / `…Async`       | `void WriteToParquetZip(this BimData, FilePath)` / `Task WriteToParquetZipAsync(…)` | one `.parquet` per table inside a zip (Brotli)     |
-|  [02]   | `data.WriteDuckDB`                        | `void WriteDuckDB(this BimData, FilePath)`                                          | a `.duckdb` file with the eleven tables (appended) |
-|  [03]   | `data.WriteToExcel`                       | `void WriteToExcel(this BimData, FilePath)`                                         | an `.xlsx` workbook, one worksheet per table       |
-|  [04]   | `data.WriteToJson`                        | `void WriteToJson(this BimData, FilePath, bool withIndenting, bool withZip)`        | System.Text.Json (optionally gzipped)              |
-|  [05]   | `fp.ReadBimDataFromParquetZip` / `…Async` | `BimData ReadBimDataFromParquetZip(this FilePath)` / `Task<BimData> …Async`         | read a Parquet-zip back to a `BimData`             |
-|  [06]   | `fp.ReadBimDataFromJson[Zip]` / `…Async`  | `BimData ReadBimDataFromJson(this FilePath\|Stream)` / `…Zip` / `…Async`            | read JSON (optionally gzipped) back to a `BimData` |
+| [INDEX] | [SURFACE]                                 | [SIGNATURE]                                                                         |
+| :-----: | :---------------------------------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `data.WriteToParquetZip` / `…Async`       | `void WriteToParquetZip(this BimData, FilePath)` / `Task WriteToParquetZipAsync(…)` |
+|  [02]   | `data.WriteDuckDB`                        | `void WriteDuckDB(this BimData, FilePath)`                                          |
+|  [03]   | `data.WriteToExcel`                       | `void WriteToExcel(this BimData, FilePath)`                                         |
+|  [04]   | `data.WriteToJson`                        | `void WriteToJson(this BimData, FilePath, bool withIndenting, bool withZip)`        |
+|  [05]   | `fp.ReadBimDataFromParquetZip` / `…Async` | `BimData ReadBimDataFromParquetZip(this FilePath)` / `Task<BimData> …Async`         |
+|  [06]   | `fp.ReadBimDataFromJson[Zip]` / `…Async`  | `BimData ReadBimDataFromJson(this FilePath\|Stream)` / `…Zip` / `…Async`            |
 
 [ENTRYPOINT_SCOPE]: columnar IO over `Ara3D.DataTable` — `DuckDbUtils` / `ParquetUtils` / `ExcelUtils`
 - rail: analytics-exchange
+- `WriteToDuckDB` writes each `IDataTable` to a DuckDB table named `<Name>_<n>` via `DuckDBAppender` bulk append; `WriteToExcel` sanitizes + de-dups sheet names. The Parquet writers default `CompressionLevel = Optimal`, `CompressionMethod = Brotli`.
 
-| [INDEX] | [SURFACE]                               | [CALL_SHAPE]                                                                                                                       | [CAPABILITY]                                                                            |
-| :-----: | :-------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | `set.WriteToDuckDB`                     | `void WriteToDuckDB(this IDataSet, FilePath)`                                                                                      | each `IDataTable` -> a DuckDB table named `<Name>_<n>` via `DuckDBAppender` bulk append |
-|  [02]   | `conn.ReadTable` / `ToDataSet<T>`       | `IDataTable ReadTable(this DuckDBConnection, string)` / `IDataSet ToDataSet<T>(this DuckDBConnection)`                             | read DuckDB tables back into `Ara3D.DataTable`                                          |
-|  [03]   | `conn.ReadColumnValues<T>`              | `T[] ReadColumnValues<T>(this DuckDBConnection, string table, string column)`                                                      | typed single-column read                                                                |
-|  [04]   | `conn.GetTableNames`                    | `IReadOnlyList<string> GetTableNames(this DuckDBConnection, bool includeViews = false)`                                            | enumerate base tables                                                                   |
-|  [05]   | `table.WriteParquetAsync`               | `Task WriteParquetAsync(this IDataTable, FilePath\|Stream, CompressionLevel = Optimal, CompressionMethod = Brotli)`                | one table -> a `.parquet` stream                                                        |
-|  [06]   | `set.WriteParquetToZipAsync`            | `Task WriteParquetToZipAsync(this IDataSet, string zipPath, CompressionMethod = Brotli, CompressionLevel = Optimal)`               | all tables -> a zip of `.parquet`                                                       |
-|  [07]   | `fp.ReadParquetAsync` / `…FromZipAsync` | `Task<IDataTable> ReadParquetAsync(this FilePath\|Stream, string? name)` / `Task<IDataSet> ReadParquetFromZipAsync(this FilePath)` | read Parquet back                                                                       |
-|  [08]   | `set.WriteToExcel`                      | `void WriteToExcel(this IDataSet\|IDataTable, FilePath)`                                                                           | ClosedXML workbook (sheet names sanitized + de-duped)                                   |
+| [INDEX] | [SURFACE]                    | [SIGNATURE]                                                                                       |
+| :-----: | :--------------------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `set.WriteToDuckDB`          | `void WriteToDuckDB(this IDataSet, FilePath)`                                                     |
+|  [02]   | `conn.ReadTable`             | `IDataTable ReadTable(this DuckDBConnection, string)`                                             |
+|  [03]   | `conn.ToDataSet<T>`          | `IDataSet ToDataSet<T>(this DuckDBConnection)`                                                    |
+|  [04]   | `conn.ReadColumnValues<T>`   | `T[] ReadColumnValues<T>(this DuckDBConnection, string table, string column)`                     |
+|  [05]   | `conn.GetTableNames`         | `IReadOnlyList<string> GetTableNames(this DuckDBConnection, bool includeViews = false)`           |
+|  [06]   | `table.WriteParquetAsync`    | `Task WriteParquetAsync(this IDataTable, FilePath\|Stream, CompressionLevel, CompressionMethod)`  |
+|  [07]   | `set.WriteParquetToZipAsync` | `Task WriteParquetToZipAsync(this IDataSet, string zipPath, CompressionMethod, CompressionLevel)` |
+|  [08]   | `fp.ReadParquetAsync`        | `Task<IDataTable> ReadParquetAsync(this FilePath\|Stream, string? name)`                          |
+|  [09]   | `fp.ReadParquetFromZipAsync` | `Task<IDataSet> ReadParquetFromZipAsync(this FilePath)`                                           |
+|  [10]   | `set.WriteToExcel`           | `void WriteToExcel(this IDataSet\|IDataTable, FilePath)`                                          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

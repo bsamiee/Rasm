@@ -8,7 +8,7 @@ The repository is one tri-language AEC platform organized into strict strata. Ea
 
 [KERNEL]:
 - Folder(s): `Rasm`
-- The RhinoCommon-aware geometry/numeric kernel — planning-scoped, one `.planning/` root spanning the Domain, Numerics, Spatial, Parametric, Meshing, Processing, Solving, Drawing, and Analysis sub-domains, each a folder-true namespace. The branch base: referenced by every higher stratum, references none.
+- The RhinoCommon-aware geometry/numeric kernel — planning-scoped, one `.planning/` root whose sub-domains are folder-true namespaces. The branch base: referenced by every higher stratum, references none.
 
 [AEC-DOMAIN]:
 - Folder(s): the lowest-AEC element seam `Rasm.Element`, then the AEC peers `Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`.

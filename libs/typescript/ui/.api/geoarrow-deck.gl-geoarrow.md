@@ -18,51 +18,63 @@
 [PUBLIC_TYPE_SCOPE]: the shared accessor + picking type family (bound once, read by every layer)
 - rail: viewer/geo
 - Each accessor is a discriminated union: an Arrow column (`arrow.Data<…>`, GPU-bound directly, zero JS) OR a per-feature `AccessorFunction` over the `RecordBatch`. This union is the collapse point — the 14 layers differ only in which columns they bind, never in accessor mechanism.
+- `GeoArrowLayerData<T>` is the internal carrier `{ data: T; length: number; attributes?: Record<string, TypedArray | BinaryAttribute> }`.
 
-| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                                                                                                                     |
-| :-----: | :------------------------------------------------ | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `Accessor<In, Out>` / `AccessorFunction<In, Out>` | accessor union  | `Out` value OR `(ctx: AccessorContext<In>) => Out`; `ctx` carries `index`/`data`/reusable `target` buffer for GC-free fills                             |
-|  [02]   | `FloatAccessor`                                   | scalar column   | `arrow.Data<arrow.Float>` OR `Accessor<RecordBatch, number>` — radius/width/elevation/weight                                                            |
-|  [03]   | `ColorAccessor`                                   | color column    | `arrow.Data<FixedSizeList<Uint8>>` (RGBA) OR `Accessor<RecordBatch, Color \| Color[]>`                                                                  |
-|  [04]   | `NormalAccessor`                                  | normal column   | `arrow.Data<FixedSizeList<Float32>>` — `GeoArrowPointCloudLayer.getNormal`                                                                              |
-|  [05]   | `TimestampAccessor`                               | temporal column | `arrow.Data<List<Float>>` — `GeoArrowTripsLayer.getTimestamps` animated paths                                                                           |
-|  [06]   | `GeoArrowPickingInfo`                             | pick receipt    | deck `PickingInfo & { object?: arrow.StructRowProxy }` — picked feature as a zero-copy Arrow row proxy, fed to `viewer/mark/selection.md` GlobalId sets |
-|  [07]   | `GeoArrowLayerData<T>` / `TypedArray`             | data envelope   | `{ data: T; length: number; attributes?: Record<string, TypedArray \| BinaryAttribute> }` — the internal binary-attribute carrier                       |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                                            |
+| :-----: | :-------------------------- | :-------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `Accessor<In, Out>`         | accessor union  | `Out` value OR the per-feature `AccessorFunction`                              |
+|  [02]   | `AccessorFunction<In, Out>` | accessor fn     | `(ctx: AccessorContext<In>) => Out`; `ctx` carries `index`/`data`/`target`     |
+|  [03]   | `FloatAccessor`             | scalar column   | `arrow.Data<arrow.Float>` OR fn — radius/width/elevation/weight                |
+|  [04]   | `ColorAccessor`             | color column    | `arrow.Data<FixedSizeList<Uint8>>` (RGBA) OR a `Color \| Color[]` fn           |
+|  [05]   | `NormalAccessor`            | normal column   | `arrow.Data<FixedSizeList<Float32>>` — `GeoArrowPointCloudLayer.getNormal`     |
+|  [06]   | `TimestampAccessor`         | temporal column | `arrow.Data<List<Float>>` — `GeoArrowTripsLayer.getTimestamps` animated paths  |
+|  [07]   | `GeoArrowPickingInfo`       | pick receipt    | `PickingInfo & { object?: arrow.StructRowProxy }` — zero-copy picked Arrow row |
+|  [08]   | `GeoArrowLayerData<T>`      | data envelope   | `{ data, length, attributes? }` — the binary-attribute carrier                 |
+|  [09]   | `TypedArray`                | binary buffer   | the GPU attribute buffer element type                                          |
 
 [PUBLIC_TYPE_SCOPE]: the layer-props family — the ONE pattern, 14 instances
 - rail: viewer/geo
 - Every `GeoArrow<Name>LayerProps` is `Omit<Deck<Name>LayerProps<RecordBatch>, "data" | geometry-accessors> & { data: arrow.RecordBatch; get…?: ga.data.<Geom>Data \| <Accessor>; _validate?: boolean } & CompositeLayerProps`. The layer subclasses the deck base layer and re-binds its accessors to columns; `_validate` (default `true`) gates chunk-length agreement.
+- Base layer is `@deck.gl/layers` unless the `[WRAPS]` cell marks `geo-layers`/`aggregation-layers`; `_GeoArrowTextLayer` is the `_`-prefixed overlay class.
 
-| [INDEX] | [LAYER_PROPS_GEOARROW_LAYER_LAYERPROPS] | [GEOMETRY_KEY_COLUMN]                                              | [WRAPS]                                                               |
-| :-----: | :-------------------------------------- | :----------------------------------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `Scatterplot`                           | `getPosition` — `geoarrow.point`/`multipoint` (inferred)           | `ScatterplotLayer` (`@deck.gl/layers`)                                |
-|  [02]   | `PointCloud`                            | `getPosition` + `getNormal` — point                                | `PointCloudLayer` (`layers`)                                          |
-|  [03]   | `Column`                                | `getPosition` — point, extruded                                    | `ColumnLayer` (`layers`)                                              |
-|  [04]   | `Arc`                                   | `getSourcePosition` + `getTargetPosition` (+`getTilt`/`getHeight`) | `ArcLayer` (`layers`)                                                 |
-|  [05]   | `Path`                                  | `getPath` — `geoarrow.linestring`                                  | `PathLayer` (`layers`)                                                |
-|  [06]   | `Polygon`                               | `getPolygon` — `geoarrow.polygon` (composite fill+stroke)          | `PolygonLayer` (`layers`)                                             |
-|  [07]   | `SolidPolygon`                          | `getPolygon` — polygon, earcut-triangulated                        | `SolidPolygonLayer` (`layers`)                                        |
-|  [08]   | `_Text` (`_GeoArrowTextLayer`, overlay) | `getPosition` + `getText`/`getPixelOffset`                         | `TextLayer` (`layers`)                                                |
-|  [09]   | `Heatmap` ⚠ unresolved peer             | `getPosition` + `getWeight` — density aggregation                  | `HeatmapLayer` (`@deck.gl/aggregation-layers`, NOT in `[VIEWER_GEO]`) |
-|  [10]   | `H3Hexagon`                             | `getHexagon` — H3 cell-id column                                   | `H3HexagonLayer` (`@deck.gl/geo-layers`)                              |
-|  [11]   | `Geohash`                               | `getGeohash` — geohash cell-id column                              | `GeohashLayer` (`geo-layers`)                                         |
-|  [12]   | `A5`                                    | `getPentagon` — A5 pentagon cell-id column                         | `A5Layer` (`geo-layers`)                                              |
-|  [13]   | `S2`                                    | S2 token cell-id column (`getFillColor`/`getElevation`)            | `S2Layer` (`geo-layers`)                                              |
-|  [14]   | `Trips`                                 | `getPath` + `getTimestamps` — animated trajectories                | `TripsLayer` (`geo-layers`)                                           |
+| [INDEX] | [LAYER]           | [GEOMETRY_KEY_COLUMN]                                         | [WRAPS]                                           |
+| :-----: | :---------------- | :------------------------------------------------------------ | :------------------------------------------------ |
+|  [01]   | `Scatterplot`     | `getPosition` — `geoarrow.point`/`multipoint` (inferred)      | `ScatterplotLayer`                                |
+|  [02]   | `PointCloud`      | `getPosition` + `getNormal` — point                           | `PointCloudLayer`                                 |
+|  [03]   | `Column`          | `getPosition` — point, extruded                               | `ColumnLayer`                                     |
+|  [04]   | `Arc`             | `getSourcePosition`/`getTargetPosition`/`getTilt`/`getHeight` | `ArcLayer`                                        |
+|  [05]   | `Path`            | `getPath` — `geoarrow.linestring`                             | `PathLayer`                                       |
+|  [06]   | `Polygon`         | `getPolygon` — `geoarrow.polygon` (composite fill+stroke)     | `PolygonLayer`                                    |
+|  [07]   | `SolidPolygon`    | `getPolygon` — polygon, earcut-triangulated                   | `SolidPolygonLayer`                               |
+|  [08]   | `_Text` (overlay) | `getPosition` + `getText`/`getPixelOffset`                    | `TextLayer`                                       |
+|  [09]   | `Heatmap` ⚠       | `getPosition` + `getWeight` — density aggregation             | `HeatmapLayer` (`aggregation-layers`, unadmitted) |
+|  [10]   | `H3Hexagon`       | `getHexagon` — H3 cell-id column                              | `H3HexagonLayer` (`geo-layers`)                   |
+|  [11]   | `Geohash`         | `getGeohash` — geohash cell-id column                         | `GeohashLayer` (`geo-layers`)                     |
+|  [12]   | `A5`              | `getPentagon` — A5 pentagon cell-id column                    | `A5Layer` (`geo-layers`)                          |
+|  [13]   | `S2`              | S2 token cell-id column (`getFillColor`/`getElevation`)       | `S2Layer` (`geo-layers`)                          |
+|  [14]   | `Trips`           | `getPath` + `getTimestamps` — animated trajectories           | `TripsLayer` (`geo-layers`)                       |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: layer construction + the shared earcut pool
+[ENTRYPOINT_SCOPE]: layer construction
 - rail: viewer/geo
 - Construction is uniform: `new GeoArrow<Name>Layer({ id, data: recordBatch, get…: column | fn })`. The geometry column is inferred from the GeoArrow extension metadata when the accessor is omitted; a picked feature returns as a `GeoArrowPickingInfo` with an `arrow.StructRowProxy`.
 
-| [INDEX] | [SURFACE]                                                                                                                               | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                                                                                                                            |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new GeoArrow<Name>Layer<ExtraProps>(props: GeoArrow<Name>LayerProps & ExtraProps)`                                                     | construct      | `viewer/geo/layers.md` GeoLayers — one array of layers over the decoded `RecordBatch` stream                                                                                                                   |
-|  [02]   | `Layer.renderLayers(): Layer \| LayersList \| null`                                                                                     | composite      | expands to per-geometry sublayers (`_renderPointLayer`/`_renderMultiPointLayer` split multi-geometry)                                                                                                          |
-|  [03]   | `static defaultProps: DefaultProps<…Props>` / `static layerName: string`                                                                | layer identity | deck update-diff + prop merge; overridable per instance                                                                                                                                                        |
-|  [04]   | `Layer.getPickingInfo(params): GeoArrowPickingInfo`                                                                                     | pick           | screen pixel → `arrow.StructRowProxy` feature; `viewer/mark/selection.md` GlobalId resolution                                                                                                                  |
-|  [05]   | `initEarcutPool(earcutWorkerUrl?: string \| URL \| null, optionsOrSize?: number \| PoolOptions): Promise<Pool<FunctionThread> \| null>` | worker pool    | share ONE `threads` earcut pool across every `SolidPolygon`/`Polygon` layer via `earcutWorkerPool` prop — a per-layer auto-pool triangulates once and is wasted under the catalog-bound `RecordBatch` refactor |
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                        |
+| :-----: | :-------------------------------------------------- | :------------- | :--------------------------------------------------------- |
+|  [01]   | `new GeoArrow<Name>Layer<ExtraProps>(props)`        | construct      | `viewer/geo/layers.md` — one layer array per `RecordBatch` |
+|  [02]   | `Layer.renderLayers(): Layer \| LayersList \| null` | composite      | expands to per-geometry sublayers; multi-geometry splits   |
+|  [03]   | `static defaultProps: DefaultProps<…Props>`         | layer identity | deck update-diff + prop merge                              |
+|  [04]   | `static layerName: string`                          | layer identity | the class name; overridable per instance                   |
+|  [05]   | `Layer.getPickingInfo(params): GeoArrowPickingInfo` | pick           | screen pixel → `arrow.StructRowProxy` feature              |
+
+[ENTRYPOINT_SCOPE]: the shared earcut worker pool
+- rail: viewer/geo
+- `initEarcutPool(earcutWorkerUrl?: string | URL | null, optionsOrSize?: number | PoolOptions): Promise<Pool<FunctionThread> | null>`
+
+| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                   |
+| :-----: | :------------------------------------------- | :------------- | :-------------------------------------------------------------------- |
+|  [01]   | `initEarcutPool(workerUrl?, optionsOrSize?)` | worker pool    | share ONE `threads` pool across polygon layers via `earcutWorkerPool` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

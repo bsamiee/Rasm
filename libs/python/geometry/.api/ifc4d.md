@@ -46,12 +46,12 @@ The `<Format>2Ifc` parser is configured by assigning instance slots before `exec
 
 Parser rows construct the class, set the `.file`/`.xml`/`.work_plan` slots, then call `execute()` to populate the task tree; writer rows consume an `ifcopenshell.file` plus a schedule entity.
 
-| [INDEX] | [SURFACE]                                                         | [CALL_SHAPE]                  | [CAPABILITY]                                    |
-| :-----: | :---------------------------------------------------------------- | :---------------------------- | :---------------------------------------------- |
-|  [01]   | `MSProject2Ifc()` then `.file`/`.xml`/`.work_plan` + `.execute()` | slot assignment plus run      | parse MS Project XML, populate the IFC schedule |
-|  [02]   | `P62Ifc()` then slots + `.execute()`                              | slot assignment plus run      | parse P6 XML/XER, populate the IFC schedule     |
-|  [03]   | `Asta2Ifc()` then slots + `.execute()`                            | slot assignment plus run      | parse Asta Powerproject, populate the schedule  |
-|  [04]   | `Ifc2P6().execute()` / `Ifc2MSP().execute()`                      | model plus schedule plus path | export the IFC schedule to P6 XML / MS Project  |
+| [INDEX] | [SURFACE]                                    | [CALL_SHAPE]            | [CAPABILITY]                                    |
+| :-----: | :------------------------------------------- | :---------------------- | :---------------------------------------------- |
+|  [01]   | `MSProject2Ifc`                              | slots + execute         | parse MS Project XML, populate the IFC schedule |
+|  [02]   | `P62Ifc`                                     | slots + execute         | parse P6 XML/XER, populate the IFC schedule     |
+|  [03]   | `Asta2Ifc`                                   | slots + execute         | parse Asta Powerproject, populate the schedule  |
+|  [04]   | `Ifc2P6().execute()` / `Ifc2MSP().execute()` | model + schedule + path | export the IFC schedule to P6 XML / MS Project  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

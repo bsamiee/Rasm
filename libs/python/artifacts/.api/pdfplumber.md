@@ -22,21 +22,21 @@
 
 `open` returns a `PDF` whose `pages` property yields `Page` containers; `Page.find_tables` returns `Table` instances built by `TableFinder` from snapped/joined edges, and `TableSettings` carries the strategy and tolerance policy resolved from a settings dict. `PdfminerException` wraps a failed pdfminer.six parse.
 
-| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]        | [RAIL]                                                                                                                                                                                                                                 |
-| :-----: | :--------------------------------------- | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `PDF`                                    | container root       | parsed document owning `pages`, `metadata`, `objects`, `structure_tree`, and `to_csv`/`to_json` export                                                                                                                                 |
-|  [02]   | `Page`                                   | container            | one page owning chars/lines/rects/curves/images/edges/annots and extraction ops                                                                                                                                                        |
-|  [03]   | `Table`                                  | cell grid            | one detected table exposing `rows`/`columns`/`cells`/`bbox`                                                                                                                                                                            |
-|  [04]   | `TableFinder`                            | detection engine     | edge -> intersection -> cell -> `Table` resolver (`.edges`/`.intersections`/`.cells`/`.tables`)                                                                                                                                        |
-|  [05]   | `TableSettings`                          | settings dataclass   | frozen strategy + snap/join/intersection tolerance policy; `TableSettings.resolve(dict)`                                                                                                                                               |
-|  [06]   | `CroppedPage`                            | container view       | bbox-restricted `Page` from `crop`/`within_bbox`/`outside_bbox`                                                                                                                                                                        |
-|  [07]   | `FilteredPage`                           | container view       | predicate-filtered `Page` from `filter`/`dedupe_chars`                                                                                                                                                                                 |
-|  [08]   | `display.PageImage`                      | raster view          | PDFium-rendered raster with the `draw_*`/`outline_*` debug overlay surface                                                                                                                                                             |
-|  [09]   | `utils.text.WordExtractor`               | clustering engine    | the single char-to-word clusterer behind `extract_words`/`extract_text` (all word-tolerance/direction kwargs land here)                                                                                                                |
-|  [10]   | `utils.text.TextMap` / `WordMap`         | layout textmap       | the positional char->layout map backing `extract_text(layout=True)`/`extract_text_lines`/`search`; `WordMap.to_textmap` projects words into the spaced layout grid                                                                     |
-|  [11]   | `utils.clustering.cluster_objects`       | clustering primitive | the reusable `cluster_objects(xs, key_fn, tolerance, preserve_order=False)`/`cluster_list(xs, tolerance=0)`/`make_cluster_dict` primitives the `"text"` strategy and word/line grouping fold over — never re-implement bbox clustering |
-|  [12]   | `utils.exceptions.PdfminerException`     | error                | wrapped pdfminer.six parse failure (`Exception` subclass); the boundary catches it and lifts onto `LensFault`/`Result.Error`                                                                                                           |
-|  [13]   | `utils.exceptions.MalformedPDFException` | error                | structurally-malformed-PDF fault (`Exception` subclass, sibling not parent of `PdfminerException`); the repair-eligible signal routing to `open(repair=True)`                                                                          |
+| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]        | [CAPABILITY]                                                        |
+| :-----: | :--------------------------------------- | :------------------- | :------------------------------------------------------------------ |
+|  [01]   | `PDF`                                    | container root       | owns `pages`/`metadata`/`objects`/`structure_tree` + export         |
+|  [02]   | `Page`                                   | container            | owns chars/lines/rects/curves/images/edges/annots + extraction ops  |
+|  [03]   | `Table`                                  | cell grid            | one detected table exposing `rows`/`columns`/`cells`/`bbox`         |
+|  [04]   | `TableFinder`                            | detection engine     | edge->cell->`Table` resolver; `.edges`/`.cells`/`.tables`           |
+|  [05]   | `TableSettings`                          | settings dataclass   | frozen strategy + tolerance policy; `TableSettings.resolve(dict)`   |
+|  [06]   | `CroppedPage`                            | container view       | bbox-restricted `Page` from `crop`/`within_bbox`/`outside_bbox`     |
+|  [07]   | `FilteredPage`                           | container view       | predicate-filtered `Page` from `filter`/`dedupe_chars`              |
+|  [08]   | `display.PageImage`                      | raster view          | PDFium raster with `draw_*`/`outline_*` debug overlay               |
+|  [09]   | `utils.text.WordExtractor`               | clustering engine    | the char-to-word clusterer behind `extract_words`/`extract_text`    |
+|  [10]   | `utils.text.TextMap` / `WordMap`         | layout textmap       | char->layout map behind `extract_text(layout=True)`/`search`        |
+|  [11]   | `utils.clustering.cluster_objects`       | clustering primitive | the `cluster_objects`/`cluster_list`/`make_cluster_dict` primitives |
+|  [12]   | `utils.exceptions.PdfminerException`     | error                | pdfminer.six parse fault -> `LensFault`/`Result.Error`              |
+|  [13]   | `utils.exceptions.MalformedPDFException` | error                | malformed-PDF fault; routes to `open(repair=True)`                  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -45,110 +45,175 @@
 
 `open` accepts a path, `pathlib.Path`, or binary stream and returns a `PDF`; `pages` restricts to the 1-indexed `pages` argument when supplied. `repair` runs Ghostscript over a malformed file before parsing.
 
-| [INDEX] | [SURFACE]           | [CALL_SHAPE]                                                                                                                                                                                     | [CAPABILITY]                                |
-| :-----: | :------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------ |
-|  [01]   | `pdfplumber.open`   | `open(path_or_fp, pages=None, laparams=None, password=None, strict_metadata=False, unicode_norm=None, repair=False, gs_path=None, repair_setting="default", raise_unicode_errors=True)` -> `PDF` | parse a PDF into a `PDF` container          |
-|  [02]   | `pdfplumber.repair` | `repair(path_or_fp, outfile=None, password=None, gs_path=None, setting="default")` -> `Optional[BytesIO]`                                                                                        | Ghostscript-rewrite a malformed PDF         |
-|  [03]   | `PDF.pages`         | property -> `List[Page]`                                                                                                                                                                         | 1-indexed page list (restricted by `pages`) |
-|  [04]   | `PDF.metadata`      | attribute -> `Dict[str, Any]`                                                                                                                                                                    | resolved document info dictionary           |
-|  [05]   | `PDF.objects`       | property -> `Dict[str, T_obj_list]`                                                                                                                                                              | all parsed objects keyed by kind            |
+Call shapes by index:
+- [01]: `pdfplumber.open` — `open(path_or_fp, pages=None, laparams=None, password=None, strict_metadata=False, unicode_norm=None, repair=False, gs_path=None, repair_setting="default", raise_unicode_errors=True)` -> `PDF`
+- [02]: `pdfplumber.repair` — `repair(path_or_fp, outfile=None, password=None, gs_path=None, setting="default")` -> `Optional[BytesIO]`
+- [03]: `PDF.pages` — property -> `List[Page]`
+- [04]: `PDF.metadata` — attribute -> `Dict[str, Any]`
+- [05]: `PDF.objects` — property -> `Dict[str, T_obj_list]`
+
+| [INDEX] | [SURFACE]           | [CAPABILITY]                                |
+| :-----: | :------------------ | :------------------------------------------ |
+|  [01]   | `pdfplumber.open`   | parse a PDF into a `PDF` container          |
+|  [02]   | `pdfplumber.repair` | Ghostscript-rewrite a malformed PDF         |
+|  [03]   | `PDF.pages`         | 1-indexed page list (restricted by `pages`) |
+|  [04]   | `PDF.metadata`      | resolved document info dictionary           |
+|  [05]   | `PDF.objects`       | all parsed objects keyed by kind            |
 
 [ENTRYPOINT_SCOPE]: table detection and extraction
 - rail: table
 
 `find_tables`/`extract_tables` resolve every plausible table; `find_table`/`extract_table` return the largest by cell count. `table_settings` is a dict resolved into `TableSettings`; `vertical_strategy`/`horizontal_strategy` select `"lines"`, `"lines_strict"`, `"text"`, or `"explicit"`. `Table.extract` clusters chars within each cell bbox into row-major text.
 
-| [INDEX] | [SURFACE]                | [CALL_SHAPE]                                                                  | [CAPABILITY]                                              |
-| :-----: | :----------------------- | :---------------------------------------------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | `Page.find_tables`       | `find_tables(table_settings=None)` -> `List[Table]`                           | every plausible table on the page                         |
-|  [02]   | `Page.find_table`        | `find_table(table_settings=None)` -> `Optional[Table]`                        | the largest table by cell count                           |
-|  [03]   | `Page.extract_tables`    | `extract_tables(table_settings=None)` -> `List[List[List[Optional[str]]]]`    | row-major text for every table                            |
-|  [04]   | `Page.extract_table`     | `extract_table(table_settings=None)` -> `Optional[List[List[Optional[str]]]]` | row-major text for the largest table                      |
-|  [05]   | `Page.debug_tablefinder` | `debug_tablefinder(table_settings=None)` -> `TableFinder`                     | the `TableFinder` with edges/intersections/cells          |
-|  [06]   | `Table.extract`          | `extract(**kwargs)` -> `List[List[Optional[str]]]`                            | per-cell clustered text grid                              |
-|  [07]   | `Table.rows`             | property -> `List[CellGroup]`                                                 | row-grouped cells                                         |
-|  [08]   | `Table.columns`          | property -> `List[CellGroup]`                                                 | column-grouped cells                                      |
-|  [09]   | `Table.cells`            | attribute -> `List[T_bbox]`                                                   | detected cell bboxes                                      |
-|  [10]   | `Table.bbox`             | property -> `T_bbox`                                                          | bounding box of the table                                 |
-|  [11]   | `TableFinder.tables`     | attribute -> `List[Table]`                                                    | resolved tables (also `.edges`/`.intersections`/`.cells`) |
+Call shapes by index:
+- [01]: `Page.find_tables` — `find_tables(table_settings=None)` -> `List[Table]`
+- [02]: `Page.find_table` — `find_table(table_settings=None)` -> `Optional[Table]`
+- [03]: `Page.extract_tables` — `extract_tables(table_settings=None)` -> `List[List[List[Optional[str]]]]`
+- [04]: `Page.extract_table` — `extract_table(table_settings=None)` -> `Optional[List[List[Optional[str]]]]`
+- [05]: `Page.debug_tablefinder` — `debug_tablefinder(table_settings=None)` -> `TableFinder`
+- [06]: `Table.extract` — `extract(**kwargs)` -> `List[List[Optional[str]]]`
+- [07]: `Table.rows` — property -> `List[CellGroup]`
+- [08]: `Table.columns` — property -> `List[CellGroup]`
+- [09]: `Table.cells` — attribute -> `List[T_bbox]`
+- [10]: `Table.bbox` — property -> `T_bbox`
+- [11]: `TableFinder.tables` — attribute -> `List[Table]`
+
+| [INDEX] | [SURFACE]                | [CAPABILITY]                                              |
+| :-----: | :----------------------- | :-------------------------------------------------------- |
+|  [01]   | `Page.find_tables`       | every plausible table on the page                         |
+|  [02]   | `Page.find_table`        | the largest table by cell count                           |
+|  [03]   | `Page.extract_tables`    | row-major text for every table                            |
+|  [04]   | `Page.extract_table`     | row-major text for the largest table                      |
+|  [05]   | `Page.debug_tablefinder` | the `TableFinder` with edges/intersections/cells          |
+|  [06]   | `Table.extract`          | per-cell clustered text grid                              |
+|  [07]   | `Table.rows`             | row-grouped cells                                         |
+|  [08]   | `Table.columns`          | column-grouped cells                                      |
+|  [09]   | `Table.cells`            | detected cell bboxes                                      |
+|  [10]   | `Table.bbox`             | bounding box of the table                                 |
+|  [11]   | `TableFinder.tables`     | resolved tables (also `.edges`/`.intersections`/`.cells`) |
 
 [ENTRYPOINT_SCOPE]: table-settings tolerance fields
 - rail: table
 
-`TableSettings` is a frozen dataclass resolved from the `table_settings` dict by `TableSettings.resolve`; the strategy and tolerance fields are the single tuning surface feeding one `TableFinder` pipeline (edges -> intersections -> cells -> tables). `text_settings` nests the `WordExtractor` kwargs used when a `"text"` strategy infers lines from word positions.
+`TableSettings` is a frozen dataclass resolved from the `table_settings` dict by `TableSettings.resolve`; the strategy and tolerance fields are the single tuning surface feeding one `TableFinder` pipeline (edges -> intersections -> cells -> tables). `text_settings` nests the `WordExtractor` kwargs used when a `"text"` strategy infers lines from word positions. Each snap/join/intersection tolerance carries `_x_tolerance`/`_y_tolerance` axis overrides that fall back to the base in `__post_init__`; a `3`/`UNSET`/`UNSET` default means those axes inherit the base (`UNSET` is the sentinel, not literal `0`).
 
-| [INDEX] | [FIELD]                                                                            | [DEFAULT]           | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| :-----: | :--------------------------------------------------------------------------------- | :------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `vertical_strategy` / `horizontal_strategy`                                        | `"lines"`           | `"lines"`/`"lines_strict"`/`"text"`/`"explicit"` edge source                                                                                                                                                                                                                                                                                                                                                                                                                   |
-|  [02]   | `explicit_vertical_lines` / `explicit_horizontal_lines`                            | `None`              | caller-supplied line coordinates for `"explicit"`                                                                                                                                                                                                                                                                                                                                                                                                                              |
-|  [03]   | `snap_tolerance` / `snap_x_tolerance` / `snap_y_tolerance`                         | `3`/`UNSET`/`UNSET` | collapse near-collinear edges before joining; an `UNSET` axis tolerance falls back to `snap_tolerance` in `__post_init__` (the displayed default is the sentinel, not literal `0`)                                                                                                                                                                                                                                                                                             |
-|  [04]   | `join_tolerance` / `join_x_tolerance` / `join_y_tolerance`                         | `3`/`UNSET`/`UNSET` | merge co-linear segments into one edge; `UNSET` axis falls back to `join_tolerance`                                                                                                                                                                                                                                                                                                                                                                                            |
-|  [05]   | `edge_min_length` / `edge_min_length_prefilter`                                    | `3`/`1`             | drop short edges (prefilter is the cheap pre-pass)                                                                                                                                                                                                                                                                                                                                                                                                                             |
-|  [06]   | `min_words_vertical` / `min_words_horizontal`                                      | `3`/`1`             | word count needed to infer a line under `"text"`                                                                                                                                                                                                                                                                                                                                                                                                                               |
-|  [07]   | `intersection_tolerance` / `intersection_x_tolerance` / `intersection_y_tolerance` | `3`/`UNSET`/`UNSET` | edge-crossing tolerance forming cell corners; `UNSET` axis falls back to `intersection_tolerance`                                                                                                                                                                                                                                                                                                                                                                              |
-|  [08]   | `text_settings`                                                                    | `None`              | nested `WordExtractor` kwargs for the `"text"` strategy; `TableSettings.resolve` strips the `text_` prefix off any settings-dict key (`text_x_tolerance` -> `text_settings["x_tolerance"]`), so an unknown `text_*` key is silently rebucketed here and only consumed when a `"text"` strategy runs — a non-`WordExtractor` key (e.g. `text_tolerance` -> `tolerance`) then raises `TypeError` at `WordExtractor(**text_settings)`, never under the default `"lines"` strategy |
+| [INDEX] | [FIELD]                                                 | [DEFAULT] | [CAPABILITY]                                                 |
+| :-----: | :------------------------------------------------------ | :-------- | :----------------------------------------------------------- |
+|  [01]   | `vertical_strategy` / `horizontal_strategy`             | `"lines"` | `"lines"`/`"lines_strict"`/`"text"`/`"explicit"` edge source |
+|  [02]   | `explicit_vertical_lines` / `explicit_horizontal_lines` | `None`    | caller-supplied line coordinates for `"explicit"`            |
+|  [03]   | `snap_tolerance`                                        | `3`       | collapse near-collinear edges before joining                 |
+|  [04]   | `join_tolerance`                                        | `3`       | merge co-linear segments into one edge                       |
+|  [05]   | `edge_min_length` / `edge_min_length_prefilter`         | `3`/`1`   | drop short edges (prefilter is the cheap pre-pass)           |
+|  [06]   | `min_words_vertical` / `min_words_horizontal`           | `3`/`1`   | word count needed to infer a line under `"text"`             |
+|  [07]   | `intersection_tolerance`                                | `3`       | edge-crossing tolerance forming cell corners                 |
+|  [08]   | `text_settings`                                         | `None`    | nested `WordExtractor` kwargs for `"text"` (see note)        |
+
+- [08]-[TEXT_SETTINGS]: `TableSettings.resolve` strips the `text_` prefix off any settings-dict key (`text_x_tolerance` -> `text_settings["x_tolerance"]`), so an unknown `text_*` key is rebucketed here and consumed only under a `"text"` strategy — a non-`WordExtractor` key (e.g. `text_tolerance` -> `tolerance`) then raises `TypeError` at `WordExtractor(**text_settings)`, never under the default `"lines"` strategy.
 
 [ENTRYPOINT_SCOPE]: word, char, and line geometry
 - rail: table
 
 `extract_words` clusters `chars` by `x_tolerance`/`y_tolerance` into positioned word dicts; `extract_text` renders running text and `layout=True` preserves positional spacing. Container geometry properties feed `vertical_strategy="text"` and explicit-line detection.
 
-| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]                                                                                                                                                                                                                                                                                                                                                          | [CAPABILITY]                                                                                          |
-| :-----: | :----------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
-|  [01]   | `Page.extract_words`                       | `extract_words(**kwargs)` -> `List[Dict]` — kwargs pass to `utils.text.WordExtractor`: `x_tolerance=3, y_tolerance=3, x_tolerance_ratio=None, y_tolerance_ratio=None, keep_blank_chars=False, use_text_flow=False, line_dir="ttb", char_dir="ltr", line_dir_rotated=None, char_dir_rotated=None, extra_attrs=None, split_at_punctuation=False, expand_ligatures=True` | positioned word dicts from clustered chars                                                            |
-|  [02]   | `Page.extract_text`                        | `extract_text(**kwargs)` -> `str` — kwargs forward `layout`, `x_tolerance`/`y_tolerance`, `line_dir_render`/`char_dir_render`, and the `WordExtractor` clustering fields to `utils.text.extract_text`                                                                                                                                                                 | running or layout-preserving page text                                                                |
-|  [03]   | `Page.extract_text_lines`                  | `extract_text_lines(strip=True, return_chars=True, **kwargs)` -> `T_obj_list`                                                                                                                                                                                                                                                                                         | per-line text dicts with bbox/chars                                                                   |
-|  [04]   | `Page.extract_text_simple`                 | `extract_text_simple(**kwargs)` -> `str` (forwards `x_tolerance=3, y_tolerance=3` to `utils.text.extract_text_simple`)                                                                                                                                                                                                                                                | fast collated text without the layout textmap                                                         |
-|  [05]   | `Page.search`                              | `search(pattern, regex=True, case=True, main_group=0, return_chars=True, return_groups=True, **kwargs)` -> `List[Dict[str, Any]]`                                                                                                                                                                                                                                     | regex match over the layout textmap                                                                   |
-|  [06]   | `Page.crop`                                | `crop(bbox, relative=False, strict=True)` -> `CroppedPage`                                                                                                                                                                                                                                                                                                            | bbox-restricted page view (objects overlap)                                                           |
-|  [07]   | `Page.within_bbox`                         | `within_bbox(bbox, relative=False, strict=True)` -> `CroppedPage`                                                                                                                                                                                                                                                                                                     | bbox view of objects fully inside                                                                     |
-|  [08]   | `Page.outside_bbox`                        | `outside_bbox(bbox, relative=False, strict=True)` -> `CroppedPage`                                                                                                                                                                                                                                                                                                    | bbox view of objects fully outside (inverse)                                                          |
-|  [09]   | `Page.filter`                              | `filter(test_function)` -> `FilteredPage`                                                                                                                                                                                                                                                                                                                             | predicate-filtered page view                                                                          |
-|  [10]   | `Page.dedupe_chars`                        | `dedupe_chars(**kwargs)` -> `FilteredPage`                                                                                                                                                                                                                                                                                                                            | drop duplicate overlapping chars                                                                      |
-|  [11]   | `Page.chars`                               | property -> `T_obj_list`                                                                                                                                                                                                                                                                                                                                              | per-char dicts with text and geometry                                                                 |
-|  [12]   | `Page.lines`                               | property -> `T_obj_list`                                                                                                                                                                                                                                                                                                                                              | vector line objects                                                                                   |
-|  [13]   | `Page.rects`                               | property -> `T_obj_list`                                                                                                                                                                                                                                                                                                                                              | rectangle objects                                                                                     |
-|  [14]   | `Page.curves`                              | property -> `T_obj_list`                                                                                                                                                                                                                                                                                                                                              | bezier/curve path objects                                                                             |
-|  [15]   | `Page.images`                              | property -> `T_obj_list`                                                                                                                                                                                                                                                                                                                                              | raster image XObjects with bbox + stream                                                              |
-|  [16]   | `Page.edges`                               | property -> `T_obj_list`                                                                                                                                                                                                                                                                                                                                              | derived ruled edges (line + rect + curve), each carrying `orientation`                                |
-|  [17]   | `Page.horizontal_edges` / `vertical_edges` | property -> `T_obj_list`                                                                                                                                                                                                                                                                                                                                              | edges pre-partitioned by `orientation` (`"h"`/`"v"`); the explicit-line strategy reads these directly |
-|  [18]   | `Page.rect_edges` / `curve_edges`          | property -> `T_obj_list`                                                                                                                                                                                                                                                                                                                                              | edges derived only from rects / only from curves (the `edges` view minus line objects)                |
-|  [19]   | `Page.annots`                              | property -> `T_obj_list`                                                                                                                                                                                                                                                                                                                                              | PDF annotations (notes/widgets)                                                                       |
-|  [20]   | `Page.hyperlinks`                          | property -> `T_obj_list`                                                                                                                                                                                                                                                                                                                                              | URI-link annotations with target + bbox                                                               |
-|  [21]   | `Page.structure_tree`                      | property -> `List[Dict]`                                                                                                                                                                                                                                                                                                                                              | tagged-PDF logical structure subtree                                                                  |
-|  [22]   | `Page.to_image`                            | `to_image(resolution=None, width=None, height=None, antialias=False, force_mediabox=False)` -> `PageImage`                                                                                                                                                                                                                                                            | raster render (PDFium via pypdfium2) for debug                                                        |
-|  [23]   | `Page.to_dict` / `to_csv` / `to_json`      | `to_csv(stream=None, object_types=None, precision=None, include_attrs=None, exclude_attrs=None)` -> `str` / `to_json(stream=None, object_types=None, include_attrs=None, exclude_attrs=None, precision=None, indent=None)` -> `str` / `to_dict(object_types=None)` -> `Dict`                                                                                          | flatten parsed objects to tabular/JSON/dict export                                                    |
+Call shapes by index:
+- [01]: `Page.extract_words` — `extract_words(**kwargs)` -> `List[Dict]` — kwargs pass to `utils.text.WordExtractor`: `x_tolerance=3, y_tolerance=3, x_tolerance_ratio=None, y_tolerance_ratio=None, keep_blank_chars=False, use_text_flow=False, line_dir="ttb", char_dir="ltr", line_dir_rotated=None, char_dir_rotated=None, extra_attrs=None, split_at_punctuation=False, expand_ligatures=True`
+- [02]: `Page.extract_text` — `extract_text(**kwargs)` -> `str` — kwargs forward `layout`, `x_tolerance`/`y_tolerance`, `line_dir_render`/`char_dir_render`, and the `WordExtractor` clustering fields to `utils.text.extract_text`
+- [03]: `Page.extract_text_lines` — `extract_text_lines(strip=True, return_chars=True, **kwargs)` -> `T_obj_list`
+- [04]: `Page.extract_text_simple` — `extract_text_simple(**kwargs)` -> `str` (forwards `x_tolerance=3, y_tolerance=3` to `utils.text.extract_text_simple`)
+- [05]: `Page.search` — `search(pattern, regex=True, case=True, main_group=0, return_chars=True, return_groups=True, **kwargs)` -> `List[Dict[str, Any]]`
+- [06]: `Page.crop` — `crop(bbox, relative=False, strict=True)` -> `CroppedPage`
+- [07]: `Page.within_bbox` — `within_bbox(bbox, relative=False, strict=True)` -> `CroppedPage`
+- [08]: `Page.outside_bbox` — `outside_bbox(bbox, relative=False, strict=True)` -> `CroppedPage`
+- [09]: `Page.filter` — `filter(test_function)` -> `FilteredPage`
+- [10]: `Page.dedupe_chars` — `dedupe_chars(**kwargs)` -> `FilteredPage`
+- [11]: `Page.chars` — property -> `T_obj_list`
+- [12]: `Page.lines` — property -> `T_obj_list`
+- [13]: `Page.rects` — property -> `T_obj_list`
+- [14]: `Page.curves` — property -> `T_obj_list`
+- [15]: `Page.images` — property -> `T_obj_list`
+- [16]: `Page.edges` — property -> `T_obj_list`
+- [17]: `Page.horizontal_edges` / `vertical_edges` — property -> `T_obj_list`
+- [18]: `Page.rect_edges` / `curve_edges` — property -> `T_obj_list`
+- [19]: `Page.annots` — property -> `T_obj_list`
+- [20]: `Page.hyperlinks` — property -> `T_obj_list`
+- [21]: `Page.structure_tree` — property -> `List[Dict]`
+- [22]: `Page.to_image` — `to_image(resolution=None, width=None, height=None, antialias=False, force_mediabox=False)` -> `PageImage`
+- [23]: `Page.to_dict` / `to_csv` / `to_json` — `to_csv(stream=None, object_types=None, precision=None, include_attrs=None, exclude_attrs=None)` -> `str` / `to_json(stream=None, object_types=None, include_attrs=None, exclude_attrs=None, precision=None, indent=None)` -> `str` / `to_dict(object_types=None)` -> `Dict`
+
+| [INDEX] | [SURFACE]                                  | [CAPABILITY]                                                                           |
+| :-----: | :----------------------------------------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `Page.extract_words`                       | positioned word dicts from clustered chars                                             |
+|  [02]   | `Page.extract_text`                        | running or layout-preserving page text                                                 |
+|  [03]   | `Page.extract_text_lines`                  | per-line text dicts with bbox/chars                                                    |
+|  [04]   | `Page.extract_text_simple`                 | fast collated text without the layout textmap                                          |
+|  [05]   | `Page.search`                              | regex match over the layout textmap                                                    |
+|  [06]   | `Page.crop`                                | bbox-restricted page view (objects overlap)                                            |
+|  [07]   | `Page.within_bbox`                         | bbox view of objects fully inside                                                      |
+|  [08]   | `Page.outside_bbox`                        | bbox view of objects fully outside (inverse)                                           |
+|  [09]   | `Page.filter`                              | predicate-filtered page view                                                           |
+|  [10]   | `Page.dedupe_chars`                        | drop duplicate overlapping chars                                                       |
+|  [11]   | `Page.chars`                               | per-char dicts with text and geometry                                                  |
+|  [12]   | `Page.lines`                               | vector line objects                                                                    |
+|  [13]   | `Page.rects`                               | rectangle objects                                                                      |
+|  [14]   | `Page.curves`                              | bezier/curve path objects                                                              |
+|  [15]   | `Page.images`                              | raster image XObjects with bbox + stream                                               |
+|  [16]   | `Page.edges`                               | derived ruled edges (line + rect + curve), each carrying `orientation`                 |
+|  [17]   | `Page.horizontal_edges` / `vertical_edges` | edges by `orientation` (`"h"`/`"v"`); the explicit-line strategy reads these           |
+|  [18]   | `Page.rect_edges` / `curve_edges`          | edges derived only from rects / only from curves (the `edges` view minus line objects) |
+|  [19]   | `Page.annots`                              | PDF annotations (notes/widgets)                                                        |
+|  [20]   | `Page.hyperlinks`                          | URI-link annotations with target + bbox                                                |
+|  [21]   | `Page.structure_tree`                      | tagged-PDF logical structure subtree                                                   |
+|  [22]   | `Page.to_image`                            | raster render (PDFium via pypdfium2) for debug                                         |
+|  [23]   | `Page.to_dict` / `to_csv` / `to_json`      | flatten parsed objects to tabular/JSON/dict export                                     |
 
 [ENTRYPOINT_SCOPE]: object-dict key schema (the recovery contract)
 - rail: table
 
-Every `T_obj` is a plain `dict[str, Any]` keyed by a fixed object-kind schema, NOT a typed class — the `LensProvider.PLUMBER` arms index these keys directly (`word["x0"]`, `word["top"]`, `word.get("fontname")`, `line["text"]`, `cell[0]`), so the key contract is the load-bearing boundary, not a member call. Coordinates are top-left origin (`top`/`bottom` grow downward); `doctop` is the document-cumulative top across pages.
+Every `T_obj` is a plain `dict[str, Any]` keyed by a fixed object-kind schema, NOT a typed class — the `LensProvider.PLUMBER` arms index these keys directly (`word["x0"]`, `word["top"]`, `word.get("fontname")`, `line["text"]`, `cell[0]`), so the key contract is the load-bearing boundary, not a member call. Coordinates are top-left origin (`top`/`bottom` grow downward); `doctop` is the document-cumulative top across pages. The base geometry keys `text`/`x0`/`x1`/`top`/`bottom`/`doctop`/`upright`/`height`/`width` ride the word and char dicts; each row below lists only its additions.
 
-| [INDEX] | [SHAPE]                          | [KEYS]                                                                                                                                                                    | [CAPABILITY]                                                                                                                   |
-| :-----: | :------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | word dict (`extract_words`)      | `text`, `x0`, `x1`, `top`, `bottom`, `doctop`, `upright`, `height`, `width`, `direction`, plus each `extra_attrs` key copied off the first char (e.g. `fontname`, `size`) | positioned word; `font_key`/`size` lift requires `extra_attrs=("fontname","size")` since they are NOT default keys             |
-|  [02]   | line dict (`extract_text_lines`) | `text`, `x0`, `x1`, `top`, `bottom`, `x0`/`x1`/`top`/`bottom` bbox + `chars` (only when `return_chars=True`)                                                              | per-line text + bbox; `return_chars=False` drops the char list for a lean recovery                                             |
-|  [03]   | char dict (`Page.chars`)         | `text`, `x0`, `x1`, `top`, `bottom`, `doctop`, `upright`, `height`, `width`, `size`, `fontname`, `adv`, `matrix`, `stroking_color`, `non_stroking_color`, `object_type`   | per-char geometry + style the word clusterer folds; `fontname`/`size` live here natively                                       |
-|  [04]   | line/rect/curve dict             | `x0`, `x1`, `top`, `bottom`, `width`, `height`, `linewidth`, `stroke`, `fill`, `pts`, `object_type`                                                                       | vector geometry the `"lines"`/`"explicit"` strategies consume as edges                                                         |
-|  [05]   | edge dict (`Page.edges`)         | line/rect/curve keys + `orientation` (`"v"`/`"h"`)                                                                                                                        | derived ruled edge; `orientation` is the axis discriminant the `TableFinder` partitions on                                     |
-|  [06]   | `Table.cells` element            | `(x0, top, x1, bottom)` 4-tuple (or `None` for an absent cell in a `CellGroup`)                                                                                           | one cell bbox; the cell-corner set folds into merged-cell `(row, col, col_span, row_span)` spans by deduping rounded x/y edges |
-|  [07]   | search hit (`Page.search`)       | `text`, `x0`, `x1`, `top`, `bottom`, `groups` (when `return_groups=True`), `chars` (when `return_chars=True`)                                                             | one regex match region over the layout textmap                                                                                 |
+| [INDEX] | [SHAPE]                          | [KEYS]                                                                                      |
+| :-----: | :------------------------------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | word dict (`extract_words`)      | base + `direction`, + each `extra_attrs` key off the first char (e.g. `fontname`/`size`)    |
+|  [02]   | line dict (`extract_text_lines`) | `text`, `x0`/`x1`/`top`/`bottom` bbox, `chars` (when `return_chars=True`)                   |
+|  [03]   | char dict (`Page.chars`)         | base + `size`/`fontname`/`adv`/`matrix`/`stroking_color`/`non_stroking_color`/`object_type` |
+|  [04]   | line/rect/curve dict             | `x0`/`x1`/`top`/`bottom`/`width`/`height`/`linewidth`/`stroke`/`fill`/`pts`/`object_type`   |
+|  [05]   | edge dict (`Page.edges`)         | line/rect/curve keys + `orientation` (`"v"`/`"h"`)                                          |
+|  [06]   | `Table.cells` element            | `(x0, top, x1, bottom)` 4-tuple (or `None` for an absent cell in a `CellGroup`)             |
+|  [07]   | search hit (`Page.search`)       | `text`/`x0`/`x1`/`top`/`bottom` + `groups`/`chars` (each conditional)                       |
+
+- [01]-[WORD]: positioned word; `fontname`/`size` need `extra_attrs=("fontname","size")` since they are not default keys.
+- [02]-[LINE]: per-line text + bbox; `return_chars=False` drops the char list for a lean recovery.
+- [03]-[CHAR]: per-char geometry + style the word clusterer folds; `fontname`/`size` live here natively.
+- [04]-[VECTOR]: vector geometry the `"lines"`/`"explicit"` strategies consume as edges.
+- [05]-[EDGE]: derived ruled edge; `orientation` is the axis discriminant the `TableFinder` partitions on.
+- [06]-[CELL]: one cell bbox; the cell-corner set folds into merged-cell `(row, col, col_span, row_span)` spans by deduping rounded x/y edges.
+- [07]-[SEARCH]: one regex match region over the layout textmap.
 
 [ENTRYPOINT_SCOPE]: raster render and visual debug
 - rail: table
 
 `to_image` renders the page through PDFium (`pypdfium2`) into a `PageImage` whose `draw_*`/`outline_*` methods overlay geometry for chained, fluent debugging (each returns `self`); `debug_tablefinder` overlays the detected edges/intersections/cells. The image backs onto `pillow`; `save` writes PNG (or any Pillow format).
 
-| [INDEX] | [SURFACE]                                   | [CALL_SHAPE]                                                                                       | [CAPABILITY]                          |
-| :-----: | :------------------------------------------ | :------------------------------------------------------------------------------------------------- | :------------------------------------ |
-|  [01]   | `PageImage.draw_rect(s)`                    | `draw_rect(bbox_or_obj, fill=..., stroke=..., stroke_width=1)` / `draw_rects(list)` -> `PageImage` | overlay bbox/object rectangles        |
-|  [02]   | `PageImage.draw_line(s)`                    | `draw_line(points_or_obj, stroke=..., stroke_width=1)` / `draw_lines(list)` -> `PageImage`         | overlay line segments                 |
-|  [03]   | `PageImage.draw_circle(s)`                  | `draw_circle(center_or_obj, radius=5, fill=..., stroke=...)` / `draw_circles(list)` -> `PageImage` | overlay point markers                 |
-|  [04]   | `PageImage.draw_vline(s)` / `draw_hline(s)` | `draw_vline(location, stroke=..., stroke_width=1)` / `draw_hline(...)` -> `PageImage`              | overlay full-height/width guide lines |
-|  [05]   | `PageImage.outline_words` / `outline_chars` | `outline_words(stroke=..., fill=..., stroke_width=1, x_tolerance=3, y_tolerance=3)` -> `PageImage` | overlay clustered word/char boxes     |
-|  [06]   | `PageImage.debug_tablefinder`               | `debug_tablefinder(table_settings=None)` -> `PageImage`                                            | overlay the `TableFinder` edges/cells |
-|  [07]   | `PageImage.reset` / `copy`                  | `reset()` -> `PageImage` / `copy()` -> `PageImage`                                                 | clear overlays / fork the image       |
-|  [08]   | `PageImage.save`                            | `save(dest, format="PNG", quantize=True, colors=256, bits=8, **kwargs)` -> `None`                  | write the rendered/annotated raster   |
+Call shapes by index:
+- [01]: `PageImage.draw_rect(s)` — `draw_rect(bbox_or_obj, fill=..., stroke=..., stroke_width=1)` / `draw_rects(list)` -> `PageImage`
+- [02]: `PageImage.draw_line(s)` — `draw_line(points_or_obj, stroke=..., stroke_width=1)` / `draw_lines(list)` -> `PageImage`
+- [03]: `PageImage.draw_circle(s)` — `draw_circle(center_or_obj, radius=5, fill=..., stroke=...)` / `draw_circles(list)` -> `PageImage`
+- [04]: `PageImage.draw_vline(s)` / `draw_hline(s)` — `draw_vline(location, stroke=..., stroke_width=1)` / `draw_hline(...)` -> `PageImage`
+- [05]: `PageImage.outline_words` / `outline_chars` — `outline_words(stroke=..., fill=..., stroke_width=1, x_tolerance=3, y_tolerance=3)` -> `PageImage`
+- [06]: `PageImage.debug_tablefinder` — `debug_tablefinder(table_settings=None)` -> `PageImage`
+- [07]: `PageImage.reset` / `copy` — `reset()` -> `PageImage` / `copy()` -> `PageImage`
+- [08]: `PageImage.save` — `save(dest, format="PNG", quantize=True, colors=256, bits=8, **kwargs)` -> `None`
+
+| [INDEX] | [SURFACE]                                   | [CAPABILITY]                          |
+| :-----: | :------------------------------------------ | :------------------------------------ |
+|  [01]   | `PageImage.draw_rect(s)`                    | overlay bbox/object rectangles        |
+|  [02]   | `PageImage.draw_line(s)`                    | overlay line segments                 |
+|  [03]   | `PageImage.draw_circle(s)`                  | overlay point markers                 |
+|  [04]   | `PageImage.draw_vline(s)` / `draw_hline(s)` | overlay full-height/width guide lines |
+|  [05]   | `PageImage.outline_words` / `outline_chars` | overlay clustered word/char boxes     |
+|  [06]   | `PageImage.debug_tablefinder`               | overlay the `TableFinder` edges/cells |
+|  [07]   | `PageImage.reset` / `copy`                  | clear overlays / fork the image       |
+|  [08]   | `PageImage.save`                            | write the rendered/annotated raster   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

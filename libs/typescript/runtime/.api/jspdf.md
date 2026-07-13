@@ -15,57 +15,80 @@
 
 [PUBLIC_TYPE_SCOPE]: the document, its construction policy, and egress evidence
 - rail: boundaries
+- The document root plus its construction, security, metadata, text, image, and receipt policy records; each option struct's field roster rides the keyed list below the grid.
 
-| [INDEX] | [SYMBOL]                                                                | [TYPE_FAMILY]    | [CONSUMER]                                                                                                                                                                  |
-| :-----: | :---------------------------------------------------------------------- | :--------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `jsPDF`                                                                 | document         | the mutable builder — the chainable drawing/pagination/graphics API and the `output` egress; one instance per durable report job                                            |
-|  [02]   | `jsPDFOptions`                                                          | construct policy | `orientation`, `unit` (`pt`/`mm`/`in`/…), `format` (named or `number[]`), `compress`, `precision`/`floatPrecision`, `filters`, `encryption`, `putOnlyUsedFonts`, `userUnit` |
-|  [03]   | `EncryptionOptions`                                                     | security policy  | `userPassword`, `ownerPassword`, `userPermissions` (`print`/`modify`/`copy`/`annot-forms`) — at-rest document protection; passwords held as `Redacted`                      |
-|  [04]   | `DocumentProperties`                                                    | metadata         | `title`/`subject`/`author`/`keywords`/`creator` — the report's catalog metadata set once via `setDocumentProperties`                                                        |
-|  [05]   | `TextOptionsLight` / `TextOptions`                                      | text policy      | `align`, `angle`, `baseline`, `charSpace`, `lineHeightFactor`, `maxWidth`, `renderingMode`, RTL flags — the per-`text` layout options                                       |
-|  [06]   | `ImageOptions` / `ImageProperties` / `ImageCompression` / `ImageFormat` | image            | the `addImage` object form and its `PNG`/`JPEG`/`WEBP` format + `NONE`/`FAST`/`MEDIUM`/`SLOW` compression policy; `getImageProperties` reads dimensions/colorspace          |
-|  [07]   | `Font` / `PageInfo`                                                     | receipt          | `getFont`/`getFontList` font evidence; `getCurrentPageInfo`/`getPageInfo` page-object references for cross-page links                                                       |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
+| :-----: | :------- | :------------ | :--------- |
+| [01] | `jsPDF` | document | mutable builder; `output` egress |
+| [02] | `jsPDFOptions` | construct policy | constructor policy values |
+| [03] | `EncryptionOptions` | security policy | at-rest protection; passwords `Redacted` |
+| [04] | `DocumentProperties` | metadata | metadata via `setDocumentProperties` |
+| [05] | `TextOptionsLight` / `TextOptions` | text policy | per-`text` layout options |
+| [06] | `ImageOptions` / `ImageProperties` / `ImageCompression` / `ImageFormat` | image | `addImage` form; format/compression policy |
+| [07] | `Font` / `PageInfo` | receipt | font + page-object evidence |
+
+- `jsPDFOptions` fields: `orientation`, `unit` (`pt`/`mm`/`in`/…), `format` (named or `number[]`), `compress`, `precision`/`floatPrecision`, `filters`, `encryption`, `putOnlyUsedFonts`, `userUnit`.
+- `EncryptionOptions` fields: `userPassword`, `ownerPassword`, `userPermissions` (`print`/`modify`/`copy`/`annot-forms`).
+- `DocumentProperties` fields: `title`/`subject`/`author`/`keywords`/`creator`.
+- `TextOptions` fields: `align`, `angle`, `baseline`, `charSpace`, `lineHeightFactor`, `maxWidth`, `renderingMode`, RTL flags.
+- `ImageOptions`: `PNG`/`JPEG`/`WEBP` format + `NONE`/`FAST`/`MEDIUM`/`SLOW` compression; `getImageProperties` reads dimensions/colorspace.
+- `Font` / `PageInfo`: `getFont`/`getFontList` evidence; `getCurrentPageInfo`/`getPageInfo` page-object refs for cross-page links.
 
 [PUBLIC_TYPE_SCOPE]: interactive structure and vector graphics
 - rail: system-apis
+- The table, form-field, annotation, bookmark, viewer, vector, and canvas-emulation records; each type's field/subtype/op roster rides the keyed list below the grid.
 
 | [INDEX] | [SYMBOL]                                                                                                 | [TYPE_FAMILY]    | [CONSUMER]                                                                                                                                                        |
 | :-----: | :------------------------------------------------------------------------------------------------------- | :--------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `TableConfig` / `CellConfig` / `TableRowData`                                                            | table policy     | the `table`/`cell` structured-data layout — `printHeaders`, `margins`, `headerBackgroundColor`, `rowStart`/`cellStart` hooks; the tabular-report primitive        |
-|  [02]   | `AcroFormField` (`TextField`/`CheckBox`/`ComboBox`/`RadioButton`/`ListBox`/`PushButton`/`PasswordField`) | form field       | interactive PDF-form fields added via `addField`; `x`/`y`/`width`/`height`, `fieldName`, `value`, `readOnly`/`required`                                           |
-|  [03]   | `Annotation` / `TextWithLinkOptions`                                                                     | annotation       | `createAnnotation` (`text`/`freetext`/`link` with `bounds`/`contents`) and `textWithLink` navigation targets                                                      |
-|  [04]   | `Outline` / `OutlineItem` / `OutlineOptions`                                                             | bookmark         | `outline.add(parent, title, { pageNumber })` — the document navigation tree for a multi-section report                                                            |
-|  [05]   | `ViewerPreferencesInput`                                                                                 | viewer policy    | `HideToolbar`/`FitWindow`/`DisplayDocTitle`/`Duplex`/`PrintScaling`/`NumCopies` — reader-behavior hints                                                           |
-|  [06]   | `ShadingPattern` / `TilingPattern` / `GState` / `Matrix`                                                 | vector           | axial/radial gradients, tiling fills, opacity `GState`, and affine `Matrix` transforms (`multiply`/`inversed`/`decompose`/`applyToPoint`) for rich vector content |
-|  [07]   | `Context2d` / `Gradient` / `RGBAData`                                                                    | canvas emulation | the HTML-canvas-compatible drawing context (`fillRect`/`arc`/`bezierCurveTo`/`drawImage`) for porting canvas rendering code                                       |
+|  [01]   | `TableConfig` / `CellConfig` / `TableRowData`                                                            | table policy     | `table`/`cell` structured-data layout |
+|  [02]   | `AcroFormField` | form field       | interactive PDF-form fields via `addField` |
+|  [03]   | `Annotation` / `TextWithLinkOptions`                                                                     | annotation       | `createAnnotation` + `textWithLink` navigation targets |
+|  [04]   | `Outline` / `OutlineItem` / `OutlineOptions`                                                             | bookmark         | `outline.add(parent, title, { pageNumber })` |
+|  [05]   | `ViewerPreferencesInput`                                                                                 | viewer policy    | reader-behavior hints |
+|  [06]   | `ShadingPattern` / `TilingPattern` / `GState` / `Matrix`                                                 | vector           | gradients, tiling fills, opacity, affine transforms |
+|  [07]   | `Context2d` / `Gradient` / `RGBAData`                                                                    | canvas emulation | HTML-canvas drawing context for porting canvas code |
+
+- `AcroFormField` types: `TextField`/`CheckBox`/`ComboBox`/`RadioButton`/`ListBox`/`PushButton`/`PasswordField`; each carries `x`/`y`/`width`/`height`, `fieldName`, `value`, `readOnly`/`required`.
+- `TableConfig` fields: `printHeaders`, `margins`, `headerBackgroundColor`, `rowStart`/`cellStart` hooks.
+- `Annotation` kinds: `text`/`freetext`/`link` with `bounds`/`contents`.
+- `ViewerPreferencesInput` fields: `HideToolbar`/`FitWindow`/`DisplayDocTitle`/`Duplex`/`PrintScaling`/`NumCopies`.
+- `Matrix` ops: `multiply`/`inversed`/`decompose`/`applyToPoint`; `Context2d` ops: `fillRect`/`arc`/`bezierCurveTo`/`drawImage`.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construct, draw, paginate, and emit
 - rail: boundaries
+- Every surface is a `doc.*` method on the built document; the browser tokens and the drawing, pagination, and graphics-state families carry their full member rosters in the keyed list below the grid.
 
 | [INDEX] | [SURFACE]                                                                                                                                                                                                | [ENTRY_FAMILY] | [CONSUMER]                                                                                                                                           |
 | :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new jsPDF(options?)`                                                                                                                                                                                    | construct      | the report document; built inside one `Effect.sync` fold with `unit`/`format`/`encryption` as policy values                                          |
-|  [02]   | `doc.output("arraybuffer")` → `ArrayBuffer`                                                                                                                                                              | node egress    | the durable-job byte path — `Effect.sync` → `new Uint8Array(ab)` → `FileSystem`/attachment/jszip entry                                               |
-|  [03]   | `doc.output(t, opts?)` — `t`: `"blob"`/`"bloburi"`/`"datauristring"`/`"pdfobjectnewwindow"`                                                                                                              | browser egress | DOM-only variants (`Blob`/`URL`/data-URI/`Window`); flagged non-Node — `browser/transport` only                                                      |
-|  [04]   | `doc.text(text, x, y, options?)` / `getTextWidth` / `getTextDimensions` / `splitTextToSize`                                                                                                              | text + measure | content placement with layout measurement; `splitTextToSize` wraps to `maxWidth`, the paging loop's width oracle                                     |
-|  [05]   | `doc.rect`/`roundedRect`/`circle`/`ellipse`/`line`/`lines`/`triangle`/`path` + `moveTo`/`lineTo`/`curveTo`/`fill`/`stroke`                                                                               | vector draw    | the primitive + path drawing surface; chainable, folded over the layout model                                                                        |
-|  [06]   | `doc.addPage(format?, orientation?)` / `setPage` / `insertPage` / `deletePage` / `movePage` / `getNumberOfPages`                                                                                         | paginate       | multi-page management; the report loop appends pages and stamps headers/footers per page                                                             |
-|  [07]   | `doc.setFont`/`setFontSize`/`addFont`/`setTextColor`/`setDrawColor`/`setFillColor`/`setLineWidth`/`setLineDashPattern`/`setLineCap`/`setLineJoin`/`setGState`/`saveGraphicsState`/`restoreGraphicsState` | graphics state | fluent state setters; `addFont` embeds a custom TTF, `setLineDashPattern` rules dashed separators, `save`/`restoreGraphicsState` scope a style block |
-|  [08]   | `doc.table(x, y, data, headers, config)` / `doc.cell(...)` / `setTableHeaderRow`                                                                                                                         | tabular        | the structured-table primitive for a data report — headers, cell hooks, auto-sizing over decoded rows                                                |
+|  [01]   | `new jsPDF(options?)`                                                                                                                                                                                    | construct      | built in one `Effect.sync`; `unit`/`format`/`encryption` policy values |
+|  [02]   | `doc.output("arraybuffer")` → `ArrayBuffer`                                                                                                                                                              | node egress    | durable-job byte path → `new Uint8Array(ab)` → `FileSystem`/jszip |
+|  [03]   | `doc.output(t, opts?)`                                                                                                              | browser egress | DOM-only `Blob`/`URL`/data-URI/`Window`; `browser/transport` only |
+|  [04]   | `doc.text(text, x, y, options?)`                                                                                                              | text + measure | placement + measurement; `splitTextToSize` wraps to `maxWidth` |
+|  [05]   | `doc.rect` / `circle` / `line` / `path`                                                                               | vector draw    | primitive + path drawing surface, chainable |
+|  [06]   | `doc.addPage(format?, orientation?)`                                                                                         | paginate       | report loop appends pages, stamps headers/footers per page |
+|  [07]   | `doc.setFont` / `setFontSize` / `addFont` | graphics state | fluent state setters; `addFont` embeds a custom TTF |
+|  [08]   | `doc.table(x, y, data, headers, config)` / `cell(...)`                                                                                                                         | tabular        | structured-table primitive; cell hooks, auto-sizing over rows |
+
+- `output(t)` browser tokens: `"blob"`/`"bloburi"`/`"datauristring"`/`"pdfobjectnewwindow"`.
+- Text measure: `getTextWidth`/`getTextDimensions`/`splitTextToSize`.
+- Vector primitives: `rect`/`roundedRect`/`circle`/`ellipse`/`line`/`lines`/`triangle`/`path`; path ops `moveTo`/`lineTo`/`curveTo`/`fill`/`stroke`.
+- Pagination: `setPage`/`insertPage`/`deletePage`/`movePage`/`getNumberOfPages`.
+- Graphics setters: `setTextColor`/`setDrawColor`/`setFillColor`/`setLineWidth`/`setLineDashPattern`/`setLineCap`/`setLineJoin`/`setGState`/`saveGraphicsState`/`restoreGraphicsState`; `setLineDashPattern` rules dashed separators, `save`/`restoreGraphicsState` scope a style block.
+- Tabular: `setTableHeaderRow` pins the header row.
 
 [ENTRYPOINT_SCOPE]: images, metadata, interactivity, and plugin registration
 - rail: system-apis
 
 | [INDEX] | [SURFACE]                                                                                                                   | [ENTRY_FAMILY]  | [CONSUMER]                                                                                                                              |
 | :-----: | :-------------------------------------------------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `doc.addImage(data, format, x, y, w, h, alias?, compression?, rotation?)` / `getImageProperties`                            | image           | `data` accepts a `Uint8Array`/`RGBAData`/data-URI — the Node-safe image path (bytes, not a DOM `<img>`); `alias` dedups a repeated logo |
+|  [01]   | `doc.addImage(data, format, x, y, w, h, alias?, compression?, rotation?)`                            | image           | Node-safe bytes; `alias` dedups a logo |
 |  [02]   | `doc.addSvgAsImage(svg, x, y, w, h, …)`                                                                                     | svg             | rasterize an SVG string into the document without the `html()` DOM worker                                                               |
-|  [03]   | `doc.setDocumentProperties(props)` / `setCreationDate` / `setLanguage(code)` / `setDisplayMode` / `setR2L`                  | metadata        | catalog metadata, deterministic creation date (reproducible bytes), language + reading direction                                        |
-|  [04]   | `doc.addField(field)` / `doc.AcroForm.TextField()` … / `createAnnotation` / `link` / `textWithLink` / `autoPrint` / `addJS` | interactive     | form fields, annotations, hyperlinks, print-on-open, embedded JS — the interactive-report surface                                       |
+|  [03]   | `doc.setDocumentProperties(props)` / `setCreationDate` / `setLanguage(code)`                  | metadata        | catalog metadata, deterministic creation date (reproducible bytes), language + reading direction                                        |
+|  [04]   | `doc.addField(field)` / `doc.AcroForm.TextField()` | interactive     | form fields, annotations, hyperlinks, print-on-open, embedded JS — the interactive-report surface                                       |
 |  [05]   | `doc.outline.add(parent, title, { pageNumber })`                                                                            | bookmark        | build the navigation tree for a sectioned report                                                                                        |
-|  [06]   | `jsPDF.API` (`static`) / `jsPDF.version` / `doc.internal.events` (`PubSub`)                                                 | plugin registry | register a reusable rendering plugin once on the prototype; the `PubSub` event bus for cross-cut hooks                                  |
+|  [06]   | `jsPDF.API` / `jsPDF.version` / `doc.internal.events`                                                 | plugin registry | register a reusable rendering plugin once on the prototype; the `PubSub` event bus for cross-cut hooks                                  |
 |  [07]   | `doc.setCreationDate(fixedDate)` + `jsPDFOptions.compress`                                                                  | reproducibility | pin the creation date and compression so the same rows produce byte-identical output for a content-key cache                            |
 
 ## [04]-[IMPLEMENTATION_LAW]

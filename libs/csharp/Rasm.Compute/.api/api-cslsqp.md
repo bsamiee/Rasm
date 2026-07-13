@@ -14,9 +14,12 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]      | [RAIL]    | [CAPABILITY]                                                                                                                                                              |
-| :-----: | :------------ | :-------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `SlsqpSolver` | optimizer | the span-based SQP driver: bound + inequality-constrained smooth NLP minimization over caller-supplied objective and gradient delegates; iteration cap and accuracy knobs |
+[PUBLIC_TYPE_SCOPE]: the one SQP driver — one row on the `OptimizerKind` axis
+- rail: optimizer
+
+| [INDEX] | [SYMBOL]      | [CAPABILITY]                                                                                                        |
+| :-----: | :------------ | :------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `SlsqpSolver` | span-based SQP over caller `objective`/`gradient` delegates; bound + inequality NLP, iteration-cap + accuracy knobs |
 
 ## [03]-[IMPLEMENTATION_LAW]
 

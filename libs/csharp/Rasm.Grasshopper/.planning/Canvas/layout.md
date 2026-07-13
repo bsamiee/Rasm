@@ -380,12 +380,14 @@ flowchart LR
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]            | [OWNER]                        | [KIND]                                               | [RAIL]                          | [CASES] |
-| :-----: | :------------------- | :----------------------------- | :--------------------------------------------------- | :------------------------------ | :-----: |
-|  [01]   | snap candidates      | `CandidateRow` + `NudgeVector` | `[SmartEnum<int>]` factory rows, three payload folds | `Mint → Fin<SnappingAction>`    |   12    |
-|  [02]   | document snapping    | `SnapField` + `SnapScope`      | capsule over `SnappingConstraints`, one `Of`         | `Solve → Fin<SnapPair>`         |    3    |
-|  [03]   | numeric lattice      | `Lattice` + `SnapVerdict`      | capsule over `SnapSpace`, out-params lifted          | `Fix → Fin<SnapVerdict>`        |    2    |
-|  [04]   | stretch distribution | `StretchPlan` + `StretchRow`   | claim-gated fold over `StretchLayoutSolver`          | `Solve → Fin<StretchVerdict>`   |    1    |
-|  [05]   | sealed arrangement   | `Arrangement` + `CanvasLayout` | `[GenerateUnionOps]` `[Union]` + one mutation gate   | `Arrange → Fin<ArrangeReceipt>` |    5    |
+Each concern folds one owner pair through one collapse kind onto a `Fin<T>` rail:
+
+| [INDEX] | [CONCERN]            | [OWNER]                        | [KIND]                                   | [RAIL]                     | [CASES] |
+| :-----: | :------------------- | :----------------------------- | :--------------------------------------- | :------------------------- | :-----: |
+|  [01]   | snap candidates      | `CandidateRow` + `NudgeVector` | `[SmartEnum<int>]` rows, 3 payload folds | `Mint → SnappingAction`    |   12    |
+|  [02]   | document snapping    | `SnapField` + `SnapScope`      | `SnappingConstraints` capsule, one `Of`  | `Solve → SnapPair`         |    3    |
+|  [03]   | numeric lattice      | `Lattice` + `SnapVerdict`      | `SnapSpace` capsule, out-params lifted   | `Fix → SnapVerdict`        |    2    |
+|  [04]   | stretch distribution | `StretchPlan` + `StretchRow`   | claim-gated `StretchLayoutSolver` fold   | `Solve → StretchVerdict`   |    1    |
+|  [05]   | sealed arrangement   | `Arrangement` + `CanvasLayout` | `[GenerateUnionOps]` `[Union]`, one gate | `Arrange → ArrangeReceipt` |    5    |
 
 `GhSession`, `HistoryLedger`, `Lattice`-composed kernel numerics, `Op`, `ValidityClaim`, and the host solver surfaces are composed upstream owners. The census `LayoutArrangement` mechanism roster, `SnapSetting`, `SnapAngle`, `ArcLines`, `RepelPair`, `EquidistanceGuides`, and `GeometryActions` have no successor shape — their solving lands on the host rows above, their arithmetic on the delta folds, and their mutations on the one sealed gate.

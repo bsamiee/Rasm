@@ -25,51 +25,62 @@ integration seams live here; `api-arrow.md` owns the base query/metadata/result-
 [PUBLIC_TYPE_SCOPE]: driver entrypoints (concrete `Apache.Arrow.Adbc`)
 - rail: query egress
 
-| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]   | [CAPABILITY]                                                                                        |
-| :-----: | :------------------- | :--------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `BigQueryDriver`     | `AdbcDriver`     | `.Open(parameters)` -> BigQuery `AdbcDatabase`                                                      |
-|  [02]   | `BigQueryDatabase`   | `AdbcDatabase`   | `.Connect(options)` -> `BigQueryConnection`                                                         |
-|  [03]   | `BigQueryConnection` | `AdbcConnection` | `TracingConnection` + `ITokenProtectedResource`; owns metadata + statement creation + token refresh |
+| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]   | [CAPABILITY]                                                                        |
+| :-----: | :------------------- | :--------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `BigQueryDriver`     | `AdbcDriver`     | `.Open(parameters)` -> BigQuery `AdbcDatabase`                                      |
+|  [02]   | `BigQueryDatabase`   | `AdbcDatabase`   | `.Connect(options)` -> `BigQueryConnection`                                         |
+|  [03]   | `BigQueryConnection` | `AdbcConnection` | `TracingConnection`+`ITokenProtectedResource`; metadata + statement + token refresh |
 
 [PUBLIC_TYPE_SCOPE]: connection-string parameter vocabulary (`internal` key holders, public contract)
 - rail: query egress
 
-| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE] | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                                               |
-| :-----: | :------------------- | :------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `BigQueryParameters` | key holder     | the `adbc.bigquery.*` `const string` keys that populate the `Open` parameter map                                                                                                                                                                                                                                                                                                                           |
-|  [02]   | `BigQueryConstants`  | value holder   | the auth-type discriminants (`user`/`aad`/`service`), Entra/STS token-exchange endpoints (`EntraStsTokenEndpoint`, `EntraGrantType`, `EntraSubjectTokenType`, `EntraRequestedTokenType`, `EntraIdScope`), default-location (`US`) / temp-dataset (`_bqadbc_temp_tables`) / public-project (`bigquery-public-data`) literals, and the `DetectProjectId` (`*detect-project-id*`) project-autodetect sentinel |
+| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE] | [CAPABILITY]                                                                        |
+| :-----: | :------------------- | :------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `BigQueryParameters` | key holder     | the `adbc.bigquery.*` `const string` keys populating the `Open` map                 |
+|  [02]   | `BigQueryConstants`  | value holder   | the value vocabulary — auth / Entra-STS / default literals / autodetect ([01]-[04]) |
+
+- [01]-[AUTH]: `user`/`aad`/`service` auth-type discriminants.
+- [02]-[ENTRA_STS]: `EntraStsTokenEndpoint`/`EntraGrantType`/`EntraSubjectTokenType`/`EntraRequestedTokenType`/`EntraIdScope` token-exchange endpoints.
+- [03]-[LITERALS]: default-location `US`, temp-dataset `_bqadbc_temp_tables`, public-project `bigquery-public-data`.
+- [04]-[AUTODETECT]: `DetectProjectId` (`*detect-project-id*`) project-autodetect sentinel.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: driver open + connection surface
 - rail: query egress
 
-| [INDEX] | [SURFACE]                                                                                                   | [CALL_SHAPE]      | [CAPABILITY]                                                                       |
-| :-----: | :---------------------------------------------------------------------------------------------------------- | :---------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `BigQueryDriver.Open(IReadOnlyDictionary<string,string>)`                                                   | factory call      | constructs the BigQuery `AdbcDatabase` from the parameter map                      |
-|  [02]   | `BigQueryConnection(IReadOnlyDictionary<string,string>)`                                                    | constructor       | the configured connection (auth, project, billing, location resolved here)         |
-|  [03]   | `BigQueryConnection.SetOption(string key, string value)`                                                    | mutator           | post-open option override keyed by a `BigQueryParameters` constant                 |
-|  [04]   | `BigQueryConnection.UpdateToken { get; set; }` (`Func<Task>?`)                                              | callback property | the token-refresh hook the driver invokes when an access token expires             |
-|  [05]   | `BigQueryConnection.TokenRequiresUpdate(Exception ex)`                                                      | predicate         | tests whether a faulted call is an auth-expiry that `UpdateToken` should heal      |
-|  [06]   | `BigQueryConnection.CreateStatement()`                                                                      | factory call      | the `AdbcStatement` for SQL execution (base-contract result stream)                |
-|  [07]   | `BigQueryConnection.GetObjects(GetObjectsDepth, catalog?, dbSchema?, tableName?, tableTypes?, columnName?)` | metadata call     | the hierarchical catalog/schema/table/column metadata stream (`IArrowArrayStream`) |
-|  [08]   | `BigQueryConnection.GetTableSchema(catalog?, dbSchema?, tableName)`                                         | metadata call     | the Arrow `Schema` of a single table                                               |
-|  [09]   | `BigQueryConnection.GetInfo(IReadOnlyList<AdbcInfoCode>)` / `GetTableTypes()`                               | metadata call     | driver-info + table-type-roster Arrow streams                                      |
+`BigQueryDriver.Open` mints the `AdbcDatabase`; every other surface below is a `BigQueryConnection` member (the
+constructor, then instance members).
+
+| [INDEX] | [SURFACE]                                                                                | [CAPABILITY]                                |
+| :-----: | :--------------------------------------------------------------------------------------- | :------------------------------------------ |
+|  [01]   | `BigQueryDriver.Open(IReadOnlyDictionary<string,string>)`                                | builds the BigQuery `AdbcDatabase`          |
+|  [02]   | `new BigQueryConnection(IReadOnlyDictionary<string,string>)`                             | auth/project/billing/location resolved      |
+|  [03]   | `SetOption(string key, string value)`                                                    | post-open `BigQueryParameters` override     |
+|  [04]   | `UpdateToken { get; set; }` (`Func<Task>?`)                                              | token-refresh hook invoked on token expiry  |
+|  [05]   | `TokenRequiresUpdate(Exception ex)`                                                      | tests whether a fault is an auth-expiry     |
+|  [06]   | `CreateStatement()`                                                                      | the `AdbcStatement` for SQL execution       |
+|  [07]   | `GetObjects(GetObjectsDepth, catalog?, dbSchema?, tableName?, tableTypes?, columnName?)` | hierarchical metadata (`IArrowArrayStream`) |
+|  [08]   | `GetTableSchema(catalog?, dbSchema?, tableName)`                                         | the Arrow `Schema` of one table             |
+|  [09]   | `GetInfo(IReadOnlyList<AdbcInfoCode>)` / `GetTableTypes()`                               | driver-info + table-type Arrow streams      |
 
 [ENTRYPOINT_SCOPE]: connection-string parameter keys (`BigQueryParameters`)
 - rail: query egress
 
-| [INDEX] | [SURFACE]                                                                                                                        | [CALL_SHAPE]  | [CAPABILITY]                                                                                                                                          |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------- | :------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ProjectId` / `BillingProjectId` / `DefaultClientLocation`                                                                       | parameter key | the query project (set `BigQueryConstants.DetectProjectId` to auto-detect from credentials), the billing project, and the job location (`US` default) |
-|  [02]   | `AuthenticationType` (`BigQueryConstants.UserAuthenticationType`/`EntraIdAuthenticationType`/`ServiceAccountAuthenticationType`) | parameter key | the `user` / `aad` / `service` auth-flow discriminant                                                                                                 |
-|  [03]   | `JsonCredential` / `ClientId` / `ClientSecret` / `RefreshToken` / `AccessToken`                                                  | parameter key | service-account JSON, OAuth client app, refresh + bearer tokens                                                                                       |
-|  [04]   | `Scopes` / `AudienceUri`                                                                                                         | parameter key | OAuth scope list + the Entra-ID workload-identity-federation audience                                                                                 |
-|  [05]   | `EvaluationKind` / `StatementType` / `StatementIndex`                                                                            | parameter key | the multi-statement script evaluation policy + per-statement selector                                                                                 |
-|  [06]   | `UseLegacySQL` / `AllowLargeResults` / `LargeResultsDataset` / `LargeResultsDestinationTable`                                    | parameter key | SQL dialect + large-result spill destination                                                                                                          |
-|  [07]   | `LargeDecimalsAsString` / `MaxFetchConcurrency` / `ClientTimeout` / `GetQueryResultsOptionsTimeout`                              | parameter key | BIGNUMERIC-as-string policy, Storage-Read parallelism, request timeouts                                                                               |
-|  [08]   | `MaximumRetryAttempts` / `RetryDelayMs`                                                                                          | parameter key | the driver-internal retry budget over transient BigQuery faults                                                                                       |
-|  [09]   | `IncludeConstraintsWithGetObjects` / `IncludePublicProjectId`                                                                    | parameter key | metadata-pull policy (FK constraints, `bigquery-public-data` visibility)                                                                              |
+`AuthenticationType` takes a `BigQueryConstants` discriminant ([DRIVER_ALGEBRA]); set
+`BigQueryConstants.DetectProjectId` on `ProjectId` to auto-detect the project from credentials.
+
+| [INDEX] | [SURFACE]                                                                                     | [CAPABILITY]                             |
+| :-----: | :-------------------------------------------------------------------------------------------- | :--------------------------------------- |
+|  [01]   | `ProjectId`/`BillingProjectId`/`DefaultClientLocation`                                        | query/billing project + `US` location    |
+|  [02]   | `AuthenticationType`                                                                          | `user`/`aad`/`service` auth discriminant |
+|  [03]   | `JsonCredential`/`ClientId`/`ClientSecret`/`RefreshToken`/`AccessToken`                       | service-account JSON, OAuth, tokens      |
+|  [04]   | `Scopes`/`AudienceUri`                                                                        | OAuth scopes + Entra-ID WIF audience     |
+|  [05]   | `EvaluationKind`/`StatementType`/`StatementIndex`                                             | multi-statement eval + selector          |
+|  [06]   | `UseLegacySQL`/`AllowLargeResults`/`LargeResultsDataset`/`LargeResultsDestinationTable`       | SQL dialect + large-result spill         |
+|  [07]   | `LargeDecimalsAsString`/`MaxFetchConcurrency`/`ClientTimeout`/`GetQueryResultsOptionsTimeout` | BIGNUMERIC-as-string, parallelism        |
+|  [08]   | `MaximumRetryAttempts`/`RetryDelayMs`                                                         | retry budget over transient faults       |
+|  [09]   | `IncludeConstraintsWithGetObjects`/`IncludePublicProjectId`                                   | metadata policy (FK, public-data)        |
 
 [ENTRYPOINT_SCOPE]: inherited base surface (`api-arrow.md`)
 - rail: query egress

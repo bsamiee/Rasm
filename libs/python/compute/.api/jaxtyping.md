@@ -18,16 +18,17 @@
 [ENTRYPOINT_SCOPE]: annotations and the checking weave
 - rail: array shape/dtype contracts
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                                                                                               |
-| :-----: | :--------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `Float[Array, "..."]` / `Float[Array, "n m"]`              | dtype class    | floating-point array of the declared shape grammar; the workhorse operand annotation                 |
-|  [02]   | `Int[...]` / `Bool[...]` / `Shaped[...]`                   | dtype class    | integer, boolean, and any-dtype shape-checked arrays                                                 |
-|  [03]   | `Complex[...]` / `Num[...]` / `Real[...]` / `Inexact[...]` | dtype class    | the wider dtype ladder for spectral/mixed operands                                                   |
-|  [04]   | `Array`                                                    | array type     | the JAX array type the dtype classes subscript; `np.ndarray` subscripts identically for host floors  |
-|  [05]   | `ArrayLike` / `Scalar` / `PRNGKeyArray`                    | array type     | coercible operands, 0-d scalars, and the typed JAX PRNG key                                          |
-|  [06]   | `PyTree[T]` / `PyTree[Float[Array, "..."]]`                | structure type | pytree-of-leaves structure contracts on the process-lane spec payloads                               |
-|  [07]   | `jaxtyped(typechecker=beartype(conf=FAULT_CONF))`          | decorator      | the runtime weave: shape grammar consistency (shared axis names bind across arguments) + dtype check |
-|  [08]   | `TypeCheckError`                                           | failure        | the annotation-breach raise the runtime `boundary` fence converts through the `CLASSIFY` `api` row   |
+| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY] | [CAPABILITY]                                                   |
+| :-----: | :------------------------------------------------ | :------------- | :------------------------------------------------------------- |
+|  [01]   | `Float[Array, "..."]` / `Float[Array, "n m"]`     | dtype class    | floating-point array of the declared shape grammar (workhorse) |
+|  [02]   | `Int[...]` / `Bool[...]` / `Shaped[...]`          | dtype class    | integer, boolean, and any-dtype shape-checked arrays           |
+|  [03]   | `Complex[...]` / `Num[...]`                       | dtype class    | complex and any-number dtype-classed arrays                    |
+|  [04]   | `Real[...]` / `Inexact[...]`                      | dtype class    | real and floating/complex dtype-classed arrays                 |
+|  [05]   | `Array`                                           | array type     | array type the dtype classes subscript (`np.ndarray` too)      |
+|  [06]   | `ArrayLike` / `Scalar` / `PRNGKeyArray`           | array type     | coercible operands, 0-d scalars, typed JAX PRNG key            |
+|  [07]   | `PyTree[T]` / `PyTree[Float[Array, "..."]]`       | structure type | pytree-of-leaves structure contract on spec payloads           |
+|  [08]   | `jaxtyped(typechecker=beartype(conf=FAULT_CONF))` | decorator      | the runtime weave; shared axis names bind across arguments     |
+|  [09]   | `TypeCheckError`                                  | failure        | annotation-breach raise the `boundary` fence converts          |
 
 ## [03]-[IMPLEMENTATION_LAW]
 

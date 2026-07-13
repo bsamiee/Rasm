@@ -336,17 +336,19 @@ public static class CausalDag {
 }
 ```
 
-| [INDEX] | [POLICY]          | [VALUE]                                                  | [BINDING]                                                                                                          |
-| :-----: | :---------------- | :------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- |
-|  [01]   | lineage source    | derived from the changefeed + commit DAG                 | never a parallel provenance write; never the geometry `Closure`                                                    |
-|  [02]   | activity↔agent    | `WasAssociatedWith` (never `WasAttributedTo`)            | entity→agent is attribution, activity→agent is association                                                         |
-|  [03]   | revision source   | each parent commit's `OpKeys` entities (one hop)         | `WasRevisionOf` (EntityEntity); never `Closure.Head` (a blob set)                                                  |
-|  [04]   | agent typing      | `Person`/`SoftwareAgent`/`Organization`                  | a solver `ActedOnBehalfOf` its human principal                                                                     |
-|  [05]   | walk node typing  | `ProvNode.Of` discriminates on `kind.IsActivity`         | a reached commit is an Activity, never an activity-kinded Entity                                                   |
-|  [06]   | egress            | W3C-PROV-JSON bundle (`entity`/`activity`/`agent`)       | a standards CDE artifact, never a flat edge dictionary                                                             |
-|  [07]   | walk cost         | one bounded breadth-first frontier fold                  | linear in reachable edges within the depth bound                                                                   |
-|  [08]   | cloud-run lineage | `Derive(CloudRunFact)` — the one entry's second modality | `ProvKind.CloudRun` reuses `ProvRole.Solver`; Used/Generated = asset content keys; `hadPlan` = recipe ref + digest |
-|  [09]   | bundle asserter   | `AgentClass.Of(StoreActor)` + attestation presence       | class/signed DERIVED; a hardcoded `Person`/`signed=false` pair is deleted                                          |
+| [INDEX] | [POLICY]          | [VALUE]                                            | [BINDING]                                                     |
+| :-----: | :---------------- | :------------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | lineage source    | derived from the changefeed + commit DAG           | never a parallel provenance write; never geometry `Closure`   |
+|  [02]   | activity↔agent    | `WasAssociatedWith` (never `WasAttributedTo`)      | entity→agent is attribution, activity→agent is association    |
+|  [03]   | revision source   | each parent commit's `OpKeys` entities (one hop)   | `WasRevisionOf` (EntityEntity); never `Closure.Head`          |
+|  [04]   | agent typing      | `Person`/`SoftwareAgent`/`Organization`            | a solver `ActedOnBehalfOf` its human principal                |
+|  [05]   | walk node typing  | `ProvNode.Of` on `kind.IsActivity`                 | a reached commit is an Activity, never an Entity              |
+|  [06]   | egress            | W3C-PROV-JSON bundle (`entity`/`activity`/`agent`) | a standards CDE artifact, never a flat edge dictionary        |
+|  [07]   | walk cost         | one bounded breadth-first frontier fold            | linear in reachable edges within the depth bound              |
+|  [08]   | cloud-run lineage | `Derive(CloudRunFact)` second modality             | `ProvKind.CloudRun` reuses `ProvRole.Solver`                  |
+|  [09]   | bundle asserter   | `AgentClass.Of(StoreActor)` + attestation presence | class/signed DERIVED, never hardcoded `Person`/`signed=false` |
+
+- [08]-[cloud-run lineage]: `Used`/`Generated` = asset content keys; `hadPlan` = recipe ref + digest.
 
 ## [03]-[ATTESTED_LEDGER]
 
@@ -472,10 +474,10 @@ public static class AttestedLedger {
 }
 ```
 
-| [INDEX] | [POLICY]          | [VALUE]                                                    | [BINDING]                                                                                       |
-| :-----: | :---------------- | :--------------------------------------------------------- | :---------------------------------------------------------------------------------------------- |
-|  [01]   | tamper-evidence   | hash-chained + KMS-signed                                  | the one authenticity authority; checkpoint chain defers                                         |
-|  [02]   | chain break       | rolling-address/back-link discontinuity                    | any insert/delete/reorder breaks every downstream address                                       |
-|  [03]   | signature verdict | `Custody.Verify` over `digestOf(entry)` → `CustodyVerdict` | the one KMS dispatch; `Unauthored` reachable (recomputed vs signed digest), never self-compared |
-|  [04]   | audit proof       | Merkle `InclusionProof`/`ConsistencyProof`                 | a third party audits one entry without the whole chain                                          |
-|  [05]   | Merkle hasher     | the one `XxHash128`                                        | the `MerkleRange` peer digest is the other altitude                                             |
+| [INDEX] | [POLICY]          | [VALUE]                                              | [BINDING]                                                 |
+| :-----: | :---------------- | :--------------------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | tamper-evidence   | hash-chained + KMS-signed                            | the one authenticity authority; checkpoint chain defers   |
+|  [02]   | chain break       | rolling-address/back-link discontinuity              | any insert/delete/reorder breaks every downstream address |
+|  [03]   | signature verdict | `Custody.Verify(digestOf(entry))` → `CustodyVerdict` | one KMS dispatch; `Unauthored` (recompute vs signed)      |
+|  [04]   | audit proof       | Merkle `InclusionProof`/`ConsistencyProof`           | a third party audits one entry without the whole chain    |
+|  [05]   | Merkle hasher     | the one `XxHash128`                                  | the `MerkleRange` peer digest is the other altitude       |

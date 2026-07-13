@@ -39,20 +39,22 @@
 [ENTRYPOINT_SCOPE]: Clasher lifecycle
 - rail: clash-detection
 
-| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY] | [RAIL]                                                                                                            |
-| :-----: | :------------------------------------------------------------------------ | :------------- | :---------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Clasher(settings: ClashSettings)`                                        | constructor    | bind engine to settings                                                                                           |
-|  [02]   | `Clasher.clash_sets: list[ClashSet]`                                      | input slot     | the configured `ClashSet` list `clash()` iterates; results accumulate back into each set's `clashes` map in place |
-|  [03]   | `Clasher.load_ifc(path: str) -> ifcopenshell.file`                        | loader         | open and cache IFC file (skipped when `ClashSource.ifc` carries a pre-loaded model)                               |
-|  [04]   | `Clasher.add_collision_objects(...)`                                      | setup          | register OpenCASCADE collision objects via `ifcopenshell.geom.tree`                                               |
-|  [05]   | `Clasher.clash() -> None`                                                 | runner         | execute all `clash_sets`, populating each `ClashSet['clashes']`                                                   |
-|  [06]   | `Clasher.process_clash_set(clash_set: ClashSet) -> None`                  | runner         | execute one clash set                                                                                             |
-|  [07]   | `Clasher.smart_group_clashes(clash_sets, max_clustering_distance: float)` | grouper        | spatially cluster clashes; writes the per-clash cluster handle into the clash-set internal state                  |
-|  [08]   | `Clasher.create_group(...)`                                               | grouper        | create a `ClashGroup`                                                                                             |
-|  [09]   | `Clasher.export() -> None`                                                | exporter       | write results to `ClashSettings.output`                                                                           |
-|  [10]   | `Clasher.export_json() -> None`                                           | exporter       | write JSON clash report                                                                                           |
-|  [11]   | `Clasher.export_bcfxml() -> None`                                         | exporter       | write BCF issue archive (requires `bcf` + `ifcopenshell`)                                                         |
-|  [12]   | `Clasher.get_viewpoint_snapshot(...)`                                     | exporter       | capture viewpoint image for BCF issue                                                                             |
+`clash()` iterates `clash_sets` and accumulates each overlap into that set's `clashes` map in place; the engine is one pipeline, never a per-mode runner family.
+
+| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY] | [RAIL]                                   |
+| :-----: | :------------------------------------------------------------------------ | :------------- | :--------------------------------------- |
+|  [01]   | `Clasher(settings: ClashSettings)`                                        | constructor    | bind engine to settings                  |
+|  [02]   | `Clasher.clash_sets: list[ClashSet]`                                      | input slot     | the `ClashSet` list `clash()` iterates   |
+|  [03]   | `Clasher.load_ifc(path: str) -> ifcopenshell.file`                        | loader         | open/cache IFC file (skip if preset)     |
+|  [04]   | `Clasher.add_collision_objects(...)`                                      | setup          | register OCC collision objects           |
+|  [05]   | `Clasher.clash() -> None`                                                 | runner         | execute all `clash_sets` into `clashes`  |
+|  [06]   | `Clasher.process_clash_set(clash_set: ClashSet) -> None`                  | runner         | execute one clash set                    |
+|  [07]   | `Clasher.smart_group_clashes(clash_sets, max_clustering_distance: float)` | grouper        | cluster clashes; write per-clash handles |
+|  [08]   | `Clasher.create_group(...)`                                               | grouper        | create a `ClashGroup`                    |
+|  [09]   | `Clasher.export() -> None`                                                | exporter       | write results to `ClashSettings.output`  |
+|  [10]   | `Clasher.export_json() -> None`                                           | exporter       | write JSON clash report                  |
+|  [11]   | `Clasher.export_bcfxml() -> None`                                         | exporter       | write BCF archive (needs `bcf`)          |
+|  [12]   | `Clasher.get_viewpoint_snapshot(...)`                                     | exporter       | capture viewpoint image for BCF issue    |
 
 [ENTRYPOINT_SCOPE]: ClashSet schema
 - rail: clash-detection configuration

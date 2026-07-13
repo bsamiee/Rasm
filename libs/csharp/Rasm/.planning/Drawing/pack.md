@@ -513,16 +513,23 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — `Fin`/`GeometryFault` where the channel read, the digest, or the round-trip witness can fail its post-condition, pure carriers and accessors for the projection.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — `Fin`/`GeometryFault` where the channel read, the digest, or the round-trip witness can fail its post-condition, pure carriers and accessors for the projection; the per-axis collapse kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]      | [OWNER]            | [KIND]                                                                                                     | [RAIL]                                  | [CASES] |
-| :-----: | :------------------ | :----------------- | :--------------------------------------------------------------------------------------------------------- | :-------------------------------------- | :-----: |
-|  [01]   | Geometry encoding   | `PackOp`           | `[Union]` six source cases over one dtype-strided `EncodedStore` + `Apply`                                 | `Encode.Apply → Fin<EncodedGeometry>`   |    6    |
-|  [1a]   | Pack modality       | `PackKind`         | `[SmartEnum<string>]` six rows + per-kind active-channel column (AppHost `EncodingKind` locked one-to-one) | discriminant (pure)                     |    6    |
-|  [1b]   | Feature lattice     | `EncodingChannel`  | `[SmartEnum<string>]` 8 rows + per-channel arity/dtype columns                                             | `EncodingChannel.Arity`/`.Dtype` (pure) |    8    |
-|  [1c]   | Quantization        | `ChannelDtype`     | `[SmartEnum<int>]` width/tolerance rows + bulk span `Pack`/`Unpack` arms over `TensorPrimitives`           | span arms (total)                       |    3    |
-|  [1d]   | Round-trip evidence | `RoundTripWitness` | `GeometryHash`-keyed witness + per-channel error map + `Lossless` verdict                                  | `RoundTripWitness.Of` (pure)            |    —    |
-|  [1e]   | Result carrier      | `EncodedGeometry`  | `IValidityEvidence` descriptor-tiled byte payload + `Channel` slice + `View<T>` typed tensor view          | carrier (gated at `key.AcceptValue`)    |    —    |
+| [INDEX] | [AXIS_CONCERN]      | [OWNER]            | [RAIL]                                  | [CASES] |
+| :-----: | :------------------ | :----------------- | :-------------------------------------- | :-----: |
+|  [01]   | Geometry encoding   | `PackOp`           | `Encode.Apply → Fin<EncodedGeometry>`   |    6    |
+|  [02]   | Pack modality       | `PackKind`         | discriminant (pure)                     |    6    |
+|  [03]   | Feature lattice     | `EncodingChannel`  | `EncodingChannel.Arity`/`.Dtype` (pure) |    8    |
+|  [04]   | Quantization        | `ChannelDtype`     | span arms (total)                       |    3    |
+|  [05]   | Round-trip evidence | `RoundTripWitness` | `RoundTripWitness.Of` (pure)            |    —    |
+|  [06]   | Result carrier      | `EncodedGeometry`  | carrier (gated at `key.AcceptValue`)    |    —    |
+
+- [01]-[GEOMETRY_ENCODING]: `[Union]` six source cases over one dtype-strided `EncodedStore` + `Apply`.
+- [02]-[PACK_MODALITY]: `[SmartEnum<string>]` six rows + per-kind active-channel column, AppHost `EncodingKind` locked one-to-one.
+- [03]-[FEATURE_LATTICE]: `[SmartEnum<string>]` 8 rows + per-channel arity/dtype columns.
+- [04]-[QUANTIZATION]: `[SmartEnum<int>]` width/tolerance rows + bulk span `Pack`/`Unpack` arms over `TensorPrimitives`.
+- [05]-[ROUND_TRIP_EVIDENCE]: `GeometryHash`-keyed witness + per-channel error map + `Lossless` verdict.
+- [06]-[RESULT_CARRIER]: `IValidityEvidence` descriptor-tiled byte payload + `Channel` slice + `View<T>` typed tensor view.
 
 The `Apply` fold, the `[PACK]` cluster (`PackChannels` the per-channel byte fold, `WriteChannel` the descriptor-and-payload write through the dtype span arm), the `[WITNESS]` cluster (`Witness` the round-trip proof, `ChannelError` the pooled `Subtract`/`Abs`/`MaxMagnitude` reduce, `SourceDigest` the ONE reconciliation digest chain), the `[READERS]` cluster (the eight rows binding the live kernel channel surface across six kinds), and the `[PROJECTIONS]` cluster (`OrientedNormals` the `VectorIntent.Cloud` public rail, `MeshScalarField`/`GridOccupancy` the tagged `SampleDetailed`/`SampleSdfDetailed` rails, the weight derivations, the SoA interleave writers) are transcription-complete pure-managed fences over the shared byte arena. The `Mesh.Vertices`/`Mesh.Normals`/`Mesh.Faces` access is the stable native surface `MeshSpace.DuplicateNative` pins; every composed member — the reconciliation entry, the cloud-metric rail, the field rails, the tensor conversion and reduction operators — is a landed public seam.
 

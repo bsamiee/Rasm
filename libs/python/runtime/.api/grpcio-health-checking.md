@@ -53,14 +53,14 @@
 [ENTRYPOINT_SCOPE]: async servicer lifecycle
 - rail: serve
 
-| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [RAIL]                                                                                     |
-| :-----: | :--------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------- |
-|  [01]   | `health.aio.HealthServicer()`                                    | construct      | one servicer instance; no args                                                             |
-|  [02]   | `await servicer.set(service: str, status)`                       | mutate         | set one service's serving status; ignored after graceful shutdown                          |
-|  [03]   | `await servicer.enter_graceful_shutdown()`                       | drain          | permanently flip every registered service to `NOT_SERVING`; idempotent, later `set` no-ops |
-|  [04]   | `servicer.Check(request, context)`                               | rpc handler    | unary serving-status reply the client polls                                                |
-|  [05]   | `servicer.Watch(request, context)`                               | rpc handler    | streaming status observation yielding on each change                                       |
-|  [06]   | `health_pb2_grpc.add_HealthServicer_to_server(servicer, server)` | register       | attach the servicer to the `grpc.aio.Server` at construction                               |
+| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [ROLE]                                        |
+| :-----: | :--------------------------------------------------------------- | :------------- | :-------------------------------------------- |
+|  [01]   | `health.aio.HealthServicer()`                                    | construct      | one servicer instance; no args                |
+|  [02]   | `await servicer.set(service: str, status)`                       | mutate         | set one service's serving status              |
+|  [03]   | `await servicer.enter_graceful_shutdown()`                       | drain          | flip all registered services to `NOT_SERVING` |
+|  [04]   | `servicer.Check(request, context)`                               | rpc handler    | unary serving-status reply the client polls   |
+|  [05]   | `servicer.Watch(request, context)`                               | rpc handler    | streaming status, yields on each change       |
+|  [06]   | `health_pb2_grpc.add_HealthServicer_to_server(servicer, server)` | register       | attach to the `grpc.aio.Server`               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

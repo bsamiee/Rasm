@@ -16,26 +16,31 @@
 
 [PUBLIC_TYPE_SCOPE]: the `LibsqlClient` service and its config
 - rail: data/lane
-- `LibsqlClient extends SqlClient` — providing the layer yields both Tags; lane rows compose the neutral `SqlClient` and only construction reaches the concrete Tag. Config splits `Full` (driver-owned connection) from `Live` (adopt an app-owned `Libsql.Client`).
+- `LibsqlClient extends SqlClient` — providing the layer yields both Tags; lane rows compose the neutral `SqlClient` and only construction reaches the concrete Tag. Config splits `Full` (driver-owned connection) from `Live` (adopt an app-owned `Libsql.Client`); `LibsqlClientConfig.Base` carries the shared `spanAttributes`/`transformResultNames`/`transformQueryNames` transforms.
 
-| [INDEX] | [SYMBOL]                                                                                         | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                                             |
-| :-----: | :----------------------------------------------------------------------------------------------- | :------------------ | :-------------------------------------------------------------- |
-|  [01]   | `LibsqlClient` (Tag) / `interface LibsqlClient`                                                  | service Tag         | `lane/sqlite` libsql profile row; `LibsqlClient \| SqlClient`   |
-|  [02]   | `LibsqlClientConfig.Full.url` (`string \| URL`)                                                  | connection          | `file:` local replica or `libsql:` remote; `Config`-sourced     |
-|  [03]   | `LibsqlClientConfig.Full.authToken` (`Redacted.Redacted`)                                        | credential          | remote-primary auth; never a literal                            |
-|  [04]   | `LibsqlClientConfig.Full.syncUrl` / `.syncInterval`                                              | replica sync        | embedded-replica pull cadence — the wake-degradation coordinate |
-|  [05]   | `LibsqlClientConfig.Full.encryptionKey` (`Redacted.Redacted`)                                    | at-rest crypt       | replica-file encryption                                         |
-|  [06]   | `LibsqlClientConfig.Full.intMode` (`"number" \| "bigint" \| "string"`) / `.tls` / `.concurrency` | codec/transport     | large-integer posture for journal sequence columns              |
-|  [07]   | `LibsqlClientConfig.Live.liveClient` (`Libsql.Client`)                                           | client adopt        | app-owned client shared across Layers                           |
-|  [08]   | `LibsqlClientConfig.Base` (`spanAttributes`/`transformResultNames`/`transformQueryNames`)        | telemetry/transform | shared with every dialect driver                                |
+| [INDEX] | [SYMBOL]                                                               | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                     |
+| :-----: | :--------------------------------------------------------------------- | :------------------ | :-------------------------------------- |
+|  [01]   | `LibsqlClient` (Tag) / `interface LibsqlClient`                        | service Tag         | `lane/sqlite` libsql profile row        |
+|  [02]   | `LibsqlClientConfig.Full.url` (`string \| URL`)                        | connection          | `file:`/`libsql:` url; `Config`-sourced |
+|  [03]   | `LibsqlClientConfig.Full.authToken` (`Redacted.Redacted`)              | credential          | remote-primary auth; never a literal    |
+|  [04]   | `LibsqlClientConfig.Full.syncUrl` / `.syncInterval`                    | replica sync        | replica pull cadence; wake coordinate   |
+|  [05]   | `LibsqlClientConfig.Full.encryptionKey` (`Redacted.Redacted`)          | at-rest crypt       | replica-file encryption                 |
+|  [06]   | `LibsqlClientConfig.Full.intMode` (`"number" \| "bigint" \| "string"`) | codec               | large-int posture, journal seq columns  |
+|  [07]   | `LibsqlClientConfig.Full.tls` / `.concurrency`                         | transport           | TLS mode; driver concurrency cap        |
+|  [08]   | `LibsqlClientConfig.Live.liveClient` (`Libsql.Client`)                 | client adopt        | app-owned client shared across Layers   |
+|  [09]   | `LibsqlClientConfig.Base`                                              | telemetry/transform | shared with every dialect driver        |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                                               | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                            |
-| :-----: | :-------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------- |
-|  [01]   | `LibsqlClient.layer(config): Layer<LibsqlClient \| SqlClient, ConfigError \| SqlError>` | driver layer   | fixed-config profile row                       |
-|  [02]   | `LibsqlClient.layerConfig(Config.Wrap<LibsqlClientConfig>)`                             | driver layer   | env/secret-mount resolution — the standing row |
-|  [03]   | `LibsqlClient.make(config): Effect<LibsqlClient, SqlError, Scope>`                      | scoped make    | construction inside a larger acquire graph     |
+[ENTRYPOINT_SCOPE]: constructing the driver Layer on the `./server` subpath
+- rail: data/lane
+- `layer`/`layerConfig` provide `LibsqlClient \| SqlClient` in one Layer, error `ConfigError \| SqlError`; `make` returns `Effect<LibsqlClient, SqlError, Scope>`.
+
+| [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                            |
+| :-----: | :---------------------------------------------------------- | :------------- | :--------------------------------------------- |
+|  [01]   | `LibsqlClient.layer(config)`                                | driver layer   | fixed-config profile row                       |
+|  [02]   | `LibsqlClient.layerConfig(Config.Wrap<LibsqlClientConfig>)` | driver layer   | env/secret-mount resolution — the standing row |
+|  [03]   | `LibsqlClient.make(config)`                                 | scoped make    | construction inside a larger acquire graph     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

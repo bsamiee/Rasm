@@ -18,22 +18,34 @@
 
 [PUBLIC_TYPE_SCOPE]: the color value algebra
 - rail: token/color
-- `ColorTypes` is the one input union every operation accepts — a string, a plain object, or a `Color`; `PlainColorObject` is the decoded interior a token brand carries; `Coords`/`Ref` address channels. These are the shapes a `Schema` boundary and a design page type against.
+- `ColorTypes` is the one input union every operation accepts — a string, a plain object, or a `Color`; `PlainColorObject` is the decoded interior a token brand carries; `Coords`/`Ref` address channels. These are the shapes a `Schema` boundary and a design page type against; the union/tuple definitions are the signature below, the table the consumer boundary per type.
 
-| [INDEX] | [SYMBOL]                                                                               | [TYPE_FAMILY]      | [CONSUMER_BOUNDARY]                                                                                                     |
-| :-----: | :------------------------------------------------------------------------------------- | :----------------- | :---------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ColorTypes = ColorObject \| ColorConstructor \| string \| PlainColorObject`           | input union        | the one accepted color input across every function + constructor                                                        |
-|  [02]   | `PlainColorObject = { space: ColorSpace; coords: Coords; alpha: number \| null }`      | decoded interior   | the `Schema` decoded type a `ColorToken` brand wraps; `./fn` return                                                     |
-|  [03]   | `Coords = [number \| null, number \| null, number \| null]`                            | channel triple     | the three-channel coordinate vector (`null` = missing/none)                                                             |
-|  [04]   | `Ref = string \| [string \| ColorSpace, string] \| { space; coordId }`                 | channel address    | `"oklch.l"`, `["oklch","c"]`, or object form for `get`/`set`                                                            |
-|  [05]   | `Range = ((p: number) => Color) & { rangeArgs }`                                       | interpolation fn   | the reusable ramp function `range` returns; `steps` consumes it                                                         |
-|  [06]   | `RangeOptions` / `MixOptions` (= `RangeOptions`) / `StepsOptions`                      | interpolation opts | `space`, `outputSpace`, `hue`, `progression`, `premultiplied`; steps adds `maxDeltaE`/`deltaEMethod`/`steps`/`maxSteps` |
-|  [07]   | `SerializeOptions`                                                                     | emit opts          | `precision`, `format`, `inGamut`, `alpha`, `commas` — CSS string control                                                |
-|  [08]   | `ToGamutOptions`                                                                       | gamut opts         | `method` (`"css"`/`"clip"`), `space`, `deltaEMethod`, `jnd`, `blackWhiteClamp`                                          |
-|  [09]   | `Algorithms` (`"WCAG21" \| "APCA" \| "Michelson" \| "Weber" \| "Lstar" \| "deltaPhi"`) | contrast vocab     | the `algorithm` argument to `contrast`                                                                                  |
-|  [10]   | `Methods` (`"76" \| "CMC" \| "2000" \| "Jz" \| "ITP" \| "OK" \| "OK2" \| "HCT"`)       | ΔE vocab           | the `method` argument to `deltaE` + `deltaEMethod` in steps/gamut                                                       |
-|  [11]   | `SpaceOptions` / `Format` / `CoordMeta` / `White` / `CAT`                              | space definition   | `ColorSpace` construction + custom-format/chromatic-adaptation registration                                             |
-|  [12]   | `Cam16Input` / `Cam16Object` / `Cam16Environment`                                      | appearance model   | CAM16/HCT viewing-condition inputs (Material color)                                                                     |
+```ts signature
+type ColorTypes = ColorObject | ColorConstructor | string | PlainColorObject
+type PlainColorObject = { space: ColorSpace; coords: Coords; alpha: number | null }
+type Coords = [number | null, number | null, number | null]
+type Ref = string | [string | ColorSpace, string] | { space; coordId }
+type Range = ((p: number) => Color) & { rangeArgs }
+type Algorithms = "WCAG21" | "APCA" | "Michelson" | "Weber" | "Lstar" | "deltaPhi"
+type Methods = "76" | "CMC" | "2000" | "Jz" | "ITP" | "OK" | "OK2" | "HCT"
+```
+
+| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]      | [CONSUMER_BOUNDARY]                                           |
+| :-----: | :------------------------------------------------ | :----------------- | :------------------------------------------------------------ |
+|  [01]   | `ColorTypes`                                      | input union        | every color input — a string, plain object, or `Color`        |
+|  [02]   | `PlainColorObject`                                | decoded interior   | the `Schema` decoded interior a `ColorToken` wraps            |
+|  [03]   | `Coords`                                          | channel triple     | the three-channel coordinate vector (`null` = missing)        |
+|  [04]   | `Ref`                                             | channel address    | `"oklch.l"`, `["oklch","c"]`, or object form for `get`/`set`  |
+|  [05]   | `Range`                                           | interpolation fn   | the reusable ramp `range` returns; `steps` consumes it        |
+|  [06]   | `RangeOptions` / `MixOptions` (= `RangeOptions`)  | interpolation opts | `space`, `outputSpace`, `hue`, `progression`, `premultiplied` |
+|  [07]   | `StepsOptions`                                    | steps opts         | adds `maxDeltaE`, `deltaEMethod`, `steps`, `maxSteps`         |
+|  [08]   | `SerializeOptions`                                | emit opts          | `precision`, `format`, `inGamut`, `alpha`, `commas`           |
+|  [09]   | `ToGamutOptions`                                  | gamut opts         | `method`, `space`, `deltaEMethod`, `jnd`, `blackWhiteClamp`   |
+|  [10]   | `Algorithms`                                      | contrast vocab     | the `algorithm` argument to `contrast`                        |
+|  [11]   | `Methods`                                         | ΔE vocab           | the `method` argument to `deltaE` + `deltaEMethod`            |
+|  [12]   | `SpaceOptions` / `Format` / `CoordMeta`           | space definition   | `ColorSpace` construction + custom-format registration        |
+|  [13]   | `White` / `CAT`                                   | adaptation         | white-point + chromatic-adaptation-transform registration     |
+|  [14]   | `Cam16Input` / `Cam16Object` / `Cam16Environment` | appearance model   | CAM16/HCT viewing-condition inputs (Material color)           |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -41,33 +53,45 @@
 - rail: token/color
 - every concern is one polymorphic call discriminating on argument value, not a per-space/per-method family: `to(space)` converts to any registered space, `contrast(bg, fg, algorithm)` selects any algorithm, `deltaE(color, method)` selects any ΔE method, `serialize(color, options)` emits any format. The per-method functions (`deltaE2000`, `contrastAPCA`, `to`-space accessors) are the value vocabulary behind these entries, not parallel APIs. Instance methods (`Color`), static methods (`Color.*`), and free functions (`./fn`) are three surfaces over the same operations.
 
-| [INDEX] | [SURFACE]                                                                                                                                               | [ENTRY_FAMILY]      | [CONSUMER_BOUNDARY]                                                                          |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------ | :------------------------------------------------------------------------------------------- |
-|  [01]   | `new Color(input)` / `new Color(space, coords, alpha?)` · `Color.get` · `parse(str)` · `getColor`                                                       | construct/parse     | ingress from CSS string / object; `parse` → `ColorConstructor`                               |
-|  [02]   | `Color.try(input, opts?)` / `tryColor(input, opts?)` → `Color \| null` / `PlainColorObject \| null`                                                     | safe parse          | non-throwing ingress; feeds `Schema.transformOrFail`                                         |
-|  [03]   | `to(color, space, opts?)` (instance `.to` / static / `./fn`)                                                                                            | convert             | one call to any registered space by id; the conversion rail                                  |
-|  [04]   | `serialize(color, opts?)` (`.toString`) · `display(color, opts?)`                                                                                       | emit                | CSS string; `display` adds a `@media (color-gamut)` recovery carrying `.color`               |
-|  [05]   | `get(color, ref)` · `set(color, ref, value \| fn)` · `getAll` · `setAll`                                                                                | channel access      | read/write a channel by `Ref`; `set` accepts a coord updater fn                              |
-|  [06]   | `inGamut(color, space?, { epsilon }?)` · `toGamut(color, opts \| space)` · `toGamutCSS(origin, { space }?)`                                             | gamut               | P3/sRGB fit test + map; `toGamutCSS` = CSS Color 4 OKLCH chroma reduction                    |
-|  [07]   | `contrast(bg, fg, algorithm \| { algorithm })` + `contrastAPCA`/`contrastWCAG21`/`contrastMichelson`/`contrastWeber`/`contrastLstar`/`contrastDeltaPhi` | a11y gate           | one parameterized contrast; six algorithms as the vocabulary                                 |
-|  [08]   | `deltaE(color1, color2, method?)` + `deltaE76/CMC/2000/Jz/ITP/OK/OK2/HCT` · `deltaEMethods` · `deltas` · `distance`                                     | perceptual distance | one parameterized ΔE; eight methods as the vocabulary; `deltas` = per-coord signed diffs     |
-|  [09]   | `range(c1, c2, opts?)` → `Range` · `mix(c1, c2, p?, opts?)` · `steps(c1, c2, opts?)` / `steps(range, opts?)` · `isRange`                                | interpolation       | palette ramps; `hue`/`progression`/`premultiplied`; `steps` bounds by `maxDeltaE`/`maxSteps` |
-|  [10]   | `getLuminance`/`setLuminance` · `.luminance` · `lighten`/`darken` · `uv`/`xy`                                                                           | derived metrics     | relative luminance, tonal variation, CIE chromaticity                                        |
-|  [11]   | `equals(c1, c2)` · `clone(color)` · `.toJSON()`                                                                                                         | value ops           | structural equality, copy, serialization of the plain object                                 |
-|  [12]   | `ColorSpace.register(space)` / `.get(id)` / `.resolveCoord(ref)` / `.all` / `.registry` · `spaces`                                                      | space registry      | register/resolve spaces; the `./spaces` roster is the seed data                              |
-|  [13]   | `Color.defineFunction`/`defineFunctions`/`extend` · `hooks.add(name, cb, first?)`/`hooks.run` · `Hooks` · `defaults`                                    | extension           | plugin surface: new methods, coord accessors, and internal hooks                             |
+| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY]      | [CONSUMER_BOUNDARY]                                              |
+| :-----: | :----------------------------------- | :------------------ | :--------------------------------------------------------------- |
+|  [01]   | `new Color(...)` · `parse`           | construct/parse     | ingress from CSS string/object; `parse` → `ColorConstructor`     |
+|  [02]   | `Color.try` / `tryColor`             | safe parse          | non-throwing ingress → `\| null`; feeds `Schema.transformOrFail` |
+|  [03]   | `to(color, space, opts?)`            | convert             | one call to any registered space by id — the conversion rail     |
+|  [04]   | `serialize` · `display`              | emit                | CSS string; `display` adds a `@media (color-gamut)` recovery     |
+|  [05]   | `get` · `set` · `getAll` · `setAll`  | channel access      | read/write a channel by `Ref`; `set` takes a coord updater fn    |
+|  [06]   | `inGamut` · `toGamut` · `toGamutCSS` | gamut               | P3/sRGB fit test + map; `toGamutCSS` per CSS Color 4             |
+|  [07]   | `contrast(bg, fg, algorithm)`        | a11y gate           | one parameterized contrast; six algorithms                       |
+|  [08]   | `deltaE(c1, c2, method?)`            | perceptual distance | one parameterized ΔE; eight methods; `deltas`/`distance`         |
+|  [09]   | `range` · `mix` · `steps`            | interpolation       | palette ramps; `steps` bounds by `maxDeltaE`/`maxSteps`          |
+|  [10]   | `getLuminance` / `setLuminance`      | derived metrics     | relative luminance, tonal variation, CIE chromaticity            |
+|  [11]   | `equals` · `clone` · `.toJSON()`     | value ops           | structural equality, copy, plain-object serialization            |
+|  [12]   | `ColorSpace.register` / `.get`       | space registry      | register/resolve spaces; `./spaces` is the seed data             |
+|  [13]   | `Color.defineFunction` / `extend`    | extension           | new methods, coord accessors, internal hooks                     |
+
+- [01]-[CONSTRUCT]: `new Color(input)` / `new Color(space, coords, alpha?)` · `Color.get` · `parse(str)` · `getColor`.
+- [02]-[SAFE_PARSE]: `Color.try(input, opts?)` / `tryColor(input, opts?)` → `Color | null` / `PlainColorObject | null`.
+- [04]-[EMIT]: `serialize(color, opts?)` (`.toString`) · `display(color, opts?)` — `display` carries `.color`.
+- [05]-[CHANNEL]: `get(color, ref)` · `set(color, ref, value | fn)` · `getAll` · `setAll`.
+- [06]-[GAMUT]: `inGamut(color, space?, { epsilon }?)` · `toGamut(color, opts | space)` · `toGamutCSS(origin, { space }?)`.
+- [07]-[CONTRAST]: `contrast(bg, fg, algorithm | { algorithm })` + `contrastAPCA`/`contrastWCAG21`/`contrastMichelson`/`contrastWeber`/`contrastLstar`/`contrastDeltaPhi`.
+- [08]-[DELTA_E]: `deltaE(color1, color2, method?)` + `deltaE76/CMC/2000/Jz/ITP/OK/OK2/HCT` · `deltaEMethods` · `deltas` · `distance`.
+- [09]-[INTERPOLATE]: `range(c1, c2, opts?)` → `Range` · `mix(c1, c2, p?, opts?)` · `steps(c1, c2, opts?)` / `steps(range, opts?)` · `isRange` — `hue`/`progression`/`premultiplied`.
+- [10]-[METRICS]: `getLuminance`/`setLuminance` · `.luminance` · `lighten`/`darken` · `uv`/`xy`.
+- [12]-[REGISTRY]: `ColorSpace.register(space)` / `.get(id)` / `.resolveCoord(ref)` / `.all` / `.registry` · `spaces`.
+- [13]-[EXTENSION]: `Color.defineFunction`/`defineFunctions`/`extend` · `hooks.add(name, cb, first?)`/`hooks.run` · `Hooks` · `defaults`.
 
 [ENTRYPOINT_SCOPE]: the space roster (seed data for the conversion rail)
 - rail: token/color
-- `./spaces` registers these named spaces into `ColorSpace.registry`; `to`/`serialize`/`range` reference them by id. Register the subset a bundle needs (`sRGB`, `P3`, `OKLCH`, `OKLab`) rather than the whole registry — the parameterized `to(space)` call is the mechanism, this list is its vocabulary.
+- `./spaces` registers these named spaces into `ColorSpace.registry`; `to`/`serialize`/`range` reference them by id. Register the subset a bundle needs (`sRGB`, `P3`, `OKLCH`, `OKLab`) rather than the whole registry — the parameterized `to(space)` call is the mechanism, this list is its vocabulary. Each RGB working space carries a `_Linear` companion, and `REC_2020` also a `_Scene_Referred` variant.
 
-| [INDEX] | [GROUP]     | [SPACES]                                                                                                                                     |
-| :-----: | :---------- | :------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | tristimulus | `XYZ_D65`, `XYZ_D50`, `XYZ_ABS_D65`                                                                                                          |
-|  [02]   | CIE         | `Lab`, `Lab_D65`, `LCH`, `Luv`, `LCHuv`, `HSLuv`, `HPLuv`                                                                                    |
-|  [03]   | RGB + polar | `sRGB`(`_Linear`), `HSL`, `HWB`, `HSV`, `P3`(`_Linear`), `A98RGB`(`_Linear`), `ProPhoto`(`_Linear`), `REC_2020`(`_Linear`/`_Scene_Referred`) |
-|  [04]   | OK family   | `OKLab`, `OKLCH`, `OKLrab`, `OKLrCH`, `Okhsl`, `Okhsv`                                                                                       |
-|  [05]   | appearance  | `CAM16_JMh`, `HCT` (Material color)                                                                                                          |
+| [INDEX] | [GROUP]     | [SPACES]                                                            |
+| :-----: | :---------- | :------------------------------------------------------------------ |
+|  [01]   | tristimulus | `XYZ_D65`, `XYZ_D50`, `XYZ_ABS_D65`                                 |
+|  [02]   | CIE         | `Lab`, `Lab_D65`, `LCH`, `Luv`, `LCHuv`, `HSLuv`, `HPLuv`           |
+|  [03]   | RGB + polar | `sRGB`, `HSL`, `HWB`, `HSV`, `P3`, `A98RGB`, `ProPhoto`, `REC_2020` |
+|  [04]   | OK family   | `OKLab`, `OKLCH`, `OKLrab`, `OKLrCH`, `Okhsl`, `Okhsv`              |
+|  [05]   | appearance  | `CAM16_JMh`, `HCT` (Material color)                                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

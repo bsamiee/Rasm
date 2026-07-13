@@ -61,47 +61,46 @@
 [ENTRYPOINT_SCOPE]: `LasZipDll` per-point IO
 - rail: point-cloud
 
-`LasZipDll()` constructs the per-point engine. `open_reader` is polymorphic over a filesystem path or a Python file object; `header`/`point` return the live `LasZipHeader`/`LasZipPoint` by reference for in-place field reads and writes across the `read_point`/`write_point` loop.
+`LasZipDll()` constructs the per-point engine; every surface below is a `LasZipDll` method. `open_reader` is polymorphic over a filesystem path or a Python file object; `header`/`point` return the live `LasZipHeader`/`LasZipPoint` by reference for in-place field reads and writes across the `read_point`/`write_point` loop.
 
-| [INDEX] | [SURFACE]                           | [CALL_SHAPE]                                                | [CAPABILITY]                                        |
-| :-----: | :---------------------------------- | :---------------------------------------------------------- | :-------------------------------------------------- |
-|  [01]   | `LasZipDll.__init__`                | `LasZipDll()`                                               | construct the per-point engine                      |
-|  [02]   | `LasZipDll.open_reader`             | `open_reader(path)` \| `open_reader(file_object)` -> `bool` | open a reader over a path or file object            |
-|  [03]   | `LasZipDll.header`                  | `header()` -> `LasZipHeader` (by reference)                 | live header for in-place field access               |
-|  [04]   | `LasZipDll.point`                   | `point()` -> `LasZipPoint` (by reference)                   | live point record for in-place field access         |
-|  [05]   | `LasZipDll.read_point`              | `read_point()`                                              | advance the reader by one point                     |
-|  [06]   | `LasZipDll.close_reader`            | `close_reader()`                                            | close the reader                                    |
-|  [07]   | `LasZipDll.set_header`              | `set_header(header)`                                        | bind a `LasZipHeader` for writing                   |
-|  [08]   | `LasZipDll.set_point_type_and_size` | `set_point_type_and_size(point_type, point_size)`           | set the writer point format and record length       |
-|  [09]   | `LasZipDll.set_point`               | `set_point(point)`                                          | bind the current `LasZipPoint` for writing          |
-|  [10]   | `LasZipDll.write_point`             | `write_point()`                                             | write the current point                             |
-|  [11]   | `LasZipDll.update_inventory`        | `update_inventory()`                                        | recompute header counts/extents from written points |
-|  [12]   | `LasZipDll.close_writer`            | `close_writer()`                                            | close the writer                                    |
-|  [13]   | `LasZipDll.get_warning`             | `get_warning()`                                             | return the last LASzip warning string               |
+| [INDEX] | [SURFACE]                 | [CALL_SHAPE]                                      | [CAPABILITY]                                        |
+| :-----: | :------------------------ | :------------------------------------------------ | :-------------------------------------------------- |
+|  [01]   | `__init__`                | `LasZipDll()`                                     | construct the per-point engine                      |
+|  [02]   | `open_reader`             | `open_reader(path \| file_object) -> bool`        | open a reader over a path or file object            |
+|  [03]   | `header`                  | `header() -> LasZipHeader` (by reference)         | live header for in-place field access               |
+|  [04]   | `point`                   | `point() -> LasZipPoint` (by reference)           | live point record for in-place field access         |
+|  [05]   | `read_point`              | `read_point()`                                    | advance the reader by one point                     |
+|  [06]   | `close_reader`            | `close_reader()`                                  | close the reader                                    |
+|  [07]   | `set_header`              | `set_header(header)`                              | bind a `LasZipHeader` for writing                   |
+|  [08]   | `set_point_type_and_size` | `set_point_type_and_size(point_type, point_size)` | set the writer point format and record length       |
+|  [09]   | `set_point`               | `set_point(point)`                                | bind the current `LasZipPoint` for writing          |
+|  [10]   | `write_point`             | `write_point()`                                   | write the current point                             |
+|  [11]   | `update_inventory`        | `update_inventory()`                              | recompute header counts/extents from written points |
+|  [12]   | `close_writer`            | `close_writer()`                                  | close the writer                                    |
+|  [13]   | `get_warning`             | `get_warning()`                                   | return the last LASzip warning string               |
 
 [ENTRYPOINT_SCOPE]: module-level function and constants
 - rail: point-cloud
 
-`get_version` returns the bound LASzip version tuple. The `DECOMPRESS_SELECTIVE_*` constants are `int` masks combined bitwise to build the `decompression_selection` argument; `laspy.DecompressionSelection.to_laszip()` produces this same `int`.
+`get_version() -> tuple[int, int, int, int]` returns the bound LASzip `(major, minor, revision, build)`. The `DECOMPRESS_SELECTIVE_*` constants below are `int` masks combined bitwise to build the `decompression_selection` argument; `laspy.DecompressionSelection.to_laszip()` produces this same `int`.
 
-| [INDEX] | [SURFACE]                                 | [CALL_SHAPE]                                   | [CAPABILITY]                                   |
-| :-----: | :---------------------------------------- | :--------------------------------------------- | :--------------------------------------------- |
-|  [01]   | `get_version`                             | `get_version()` -> `tuple[int, int, int, int]` | bound LASzip `(major, minor, revision, build)` |
-|  [02]   | `DECOMPRESS_SELECTIVE_ALL`                | `int` mask                                     | decompress every field (default)               |
-|  [03]   | `DECOMPRESS_SELECTIVE_CHANNEL_RETURNS_XY` | `int` mask                                     | base x/y, return counts, scanner channel only  |
-|  [04]   | `DECOMPRESS_SELECTIVE_Z`                  | `int` mask                                     | z field                                        |
-|  [05]   | `DECOMPRESS_SELECTIVE_CLASSIFICATION`     | `int` mask                                     | classification field                           |
-|  [06]   | `DECOMPRESS_SELECTIVE_FLAGS`              | `int` mask                                     | classification flags                           |
-|  [07]   | `DECOMPRESS_SELECTIVE_INTENSITY`          | `int` mask                                     | intensity field                                |
-|  [08]   | `DECOMPRESS_SELECTIVE_SCAN_ANGLE`         | `int` mask                                     | scan angle field                               |
-|  [09]   | `DECOMPRESS_SELECTIVE_USER_DATA`          | `int` mask                                     | user data field                                |
-|  [10]   | `DECOMPRESS_SELECTIVE_POINT_SOURCE`       | `int` mask                                     | point source ID field                          |
-|  [11]   | `DECOMPRESS_SELECTIVE_GPS_TIME`           | `int` mask                                     | GPS time field                                 |
-|  [12]   | `DECOMPRESS_SELECTIVE_RGB`                | `int` mask                                     | RGB field                                      |
-|  [13]   | `DECOMPRESS_SELECTIVE_NIR`                | `int` mask                                     | NIR field                                      |
-|  [14]   | `DECOMPRESS_SELECTIVE_WAVEPACKET`         | `int` mask                                     | wave packet field                              |
-|  [15]   | `DECOMPRESS_SELECTIVE_BYTE0`..`BYTE7`     | `int` mask                                     | individual extra-byte slots 0..7               |
-|  [16]   | `DECOMPRESS_SELECTIVE_EXTRA_BYTES`        | `int` mask                                     | all extra-byte fields                          |
+| [INDEX] | [CONSTANT]                                | [SELECTS]                           |
+| :-----: | :---------------------------------------- | :---------------------------------- |
+|  [01]   | `DECOMPRESS_SELECTIVE_ALL`                | every field (default)               |
+|  [02]   | `DECOMPRESS_SELECTIVE_CHANNEL_RETURNS_XY` | x/y, return counts, scanner channel |
+|  [03]   | `DECOMPRESS_SELECTIVE_Z`                  | z field                             |
+|  [04]   | `DECOMPRESS_SELECTIVE_CLASSIFICATION`     | classification field                |
+|  [05]   | `DECOMPRESS_SELECTIVE_FLAGS`              | classification flags                |
+|  [06]   | `DECOMPRESS_SELECTIVE_INTENSITY`          | intensity field                     |
+|  [07]   | `DECOMPRESS_SELECTIVE_SCAN_ANGLE`         | scan angle field                    |
+|  [08]   | `DECOMPRESS_SELECTIVE_USER_DATA`          | user data field                     |
+|  [09]   | `DECOMPRESS_SELECTIVE_POINT_SOURCE`       | point source ID field               |
+|  [10]   | `DECOMPRESS_SELECTIVE_GPS_TIME`           | GPS time field                      |
+|  [11]   | `DECOMPRESS_SELECTIVE_RGB`                | RGB field                           |
+|  [12]   | `DECOMPRESS_SELECTIVE_NIR`                | NIR field                           |
+|  [13]   | `DECOMPRESS_SELECTIVE_WAVEPACKET`         | wave packet field                   |
+|  [14]   | `DECOMPRESS_SELECTIVE_BYTE0`..`BYTE7`     | individual extra-byte slots 0..7    |
+|  [15]   | `DECOMPRESS_SELECTIVE_EXTRA_BYTES`        | all extra-byte fields               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

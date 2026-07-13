@@ -19,7 +19,7 @@ The page owns `ChartId` (the `[ValueObject<int>]` the `GeometryFault.Parameteriz
 - Growth: a new flattening modality (spectral conformal with cone singularities, a Yamabe flow, a seamless global parameterization) is one `ParamKind` row + one `ParamOp` case + one generated-`Switch` arm lowering the SAME `DiscreteCalculus` substrate and reduced machinery (the new case breaks `Apply` at compile time until its arm lands); a new distortion measure is one pooled plane + one `DistortionReceipt` field folded by the same `TensorPrimitives` pass; a new constraint mode (a hard cone vertex, a packing target) is one `ParamPolicy` column or one op-case payload; a new seam source is one `MeshFeatureKind` row the cut reads; zero new surface.
 - Boundary: the parameterization is the ONE polymorphic `ParamOp` `[Union]` and a sibling flattener-class family is the named density defect; every solve COMPOSES the `matrix.md` owners (`CholeskySparse`, `SparseMatrix`, the LOBPCG lane) and a raw `CSparse.Double.Factorization.SparseCholesky.Create` or MathNet `Matrix<double>.Svd()` call is the named lower-level-reinvention defect — the DENSE `(2n)²` conformal operator + `DecomposeSvd` this rebuild killed was exactly that class (non-scalable memory and flops beside a sparse eigensolver the substrate already owns); pinned constraints ELIMINATE — the penalty/shift formulation is the rejected conditioning-failure class (κ scales with the penalty; the reduced interior operator is SPD by construction); the DEC substrate is reached ONLY through the public `MeshAdjointSnapshot.Of` handle and a Geometry-side cotangent re-assembly or a reach into the internal `LaplacianCache` is the named boundary violation; the UV-flip verdict is the exact `Predicate.Orient2D` sign and a float signed-area band is the named precision-loss defect; the seam cut composes the `segment.md` `FeatureEdge` classification and a domain-local dihedral detector is the deleted double-owner form; island labeling rides QuikGraph `WeaklyConnectedComponents` over the face-dual and BOTH a hand-rolled queue-BFS over an ad-hoc adjacency dictionary AND a vertex-labeled cut that drops seam-straddling faces are deleted forms (the QuikGraph `[LOCAL_ADMISSION]` names the first, the region-preservation law the second); the published `ChartAtlas` carries ONLY structurally-equal members (`Seq`/`Arr`) and a raw-array record member comparing by reference is the deleted illusory-equality form; the `ChartStore` planes are fold-internal single-writer scratch under the corpus arena law (pooled, disposed, never hashed, never published); `Apply` is total over the `Fin` rail and a thrown exception on a non-disk chart or a diverged solve is forbidden — parameterization defects route the typed `ParameterizationFault(ChartId, double)` 2432 payload; the result is the hash-friendly carrier the reconciliation `Encode` content-addresses and this owner mints NO second hash; the flattening preserves capability — a seam cut splits a chart into islands rather than discarding a region.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -718,18 +718,27 @@ Four seams reach owners this page composes or feeds but does not write — noted
 
 ## [04]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes, and the per-axis kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]        | [OWNER]             | [KIND]                                                                                                                                     | [RAIL]                                          | [CASES] |
-| :-----: | :-------------------- | :------------------ | :----------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------- | :-----: |
-|  [01]   | Parameterization rail | `ParamOp`           | `[Union]` (`Harmonic`/`Lscm`/`Arap`/`Bff`, each carrying chart + payload + policy) + four total-`Switch` arms over one substrate + `Apply` | `Flatten.Apply(ParamOp, Op?) → Fin<ChartAtlas>` |    4    |
-|  [1a]   | Flattening modality   | `ParamKind`         | `[SmartEnum<string>]` + `Conformal`/`AreaPreserving`/`FreeBoundary`/`Iterative` columns                                                    | discriminant (pure)                             |    4    |
-|  [1b]   | Fault identity        | `ChartId`           | `[ValueObject<int>]` — the 2432 payload; `Whole` the pre-island canonical                                                                  | value                                           |    —    |
-|  [1c]   | Policy row            | `ParamPolicy`       | `record` + `IValidityEvidence` — residual/iteration/eigen/seam/parallel columns (`MassShift` and `FlipTolerance` dead)                     | value (composed by the op cases)                |    —    |
-|  [1d]   | Reduced solve         | `ReducedSystem`     | eliminated pinned system — SPD interior factor + coupling rhs + scatter; pin-set-keyed memo on `MeshDec`                                   | `Solve/SolveWith → Fin<Arr<double>>`            |    —    |
-|  [1e]   | Working planes        | `ChartStore`        | pooled fold-internal SoA (U/V/chart/distortion/flip planes) — single-writer, disposed, never published                                     | interior (arena-tier scratch)                   |    —    |
-|  [1f]   | Atlas result          | `ChartAtlas`        | structural record (`Seq<UvIsland>` `Arr`-typed islands + seams + receipt) + `ToMesh`/`ToTextureMesh`                                       | pure carrier + `Fin<MeshSpace>` projections     |    —    |
-|  [1g]   | Distortion evidence   | `DistortionReceipt` | typed record (max/mean conformal·area·quasi, iterations, residual, REAL factor fill, flip verdict)                                         | pure carrier                                    |    —    |
+| [INDEX] | [AXIS_CONCERN]        | [OWNER]             | [RAIL]                                          | [CASES] |
+| :-----: | :-------------------- | :------------------ | :---------------------------------------------- | :-----: |
+|  [01]   | Parameterization rail | `ParamOp`           | `Flatten.Apply(ParamOp, Op?) → Fin<ChartAtlas>` |    4    |
+|  [02]   | Flattening modality   | `ParamKind`         | discriminant (pure)                             |    4    |
+|  [03]   | Fault identity        | `ChartId`           | value                                           |    —    |
+|  [04]   | Policy row            | `ParamPolicy`       | value (composed by the op cases)                |    —    |
+|  [05]   | Reduced solve         | `ReducedSystem`     | `Solve/SolveWith → Fin<Arr<double>>`            |    —    |
+|  [06]   | Working planes        | `ChartStore`        | interior (arena-tier scratch)                   |    —    |
+|  [07]   | Atlas result          | `ChartAtlas`        | pure carrier + `Fin<MeshSpace>` projections     |    —    |
+|  [08]   | Distortion evidence   | `DistortionReceipt` | pure carrier                                    |    —    |
+
+- [01]-[PARAMETERIZATION_RAIL]: `[Union]` (`Harmonic`/`Lscm`/`Arap`/`Bff`, each carrying chart + payload + policy) + four total-`Switch` arms over one substrate + `Apply`.
+- [02]-[FLATTENING_MODALITY]: `[SmartEnum<string>]` + `Conformal`/`AreaPreserving`/`FreeBoundary`/`Iterative` columns.
+- [03]-[FAULT_IDENTITY]: `[ValueObject<int>]` — the 2432 payload; `Whole` the pre-island canonical.
+- [04]-[POLICY_ROW]: `record` + `IValidityEvidence` — residual/iteration/eigen/seam/parallel columns (`MassShift` and `FlipTolerance` dead).
+- [05]-[REDUCED_SOLVE]: eliminated pinned system — SPD interior factor + coupling rhs + scatter; pin-set-keyed memo on `MeshDec`.
+- [06]-[WORKING_PLANES]: pooled fold-internal SoA (U/V/chart/distortion/flip planes) — single-writer, disposed, never published.
+- [07]-[ATLAS_RESULT]: structural record (`Seq<UvIsland>` `Arr`-typed islands + seams + receipt) + `ToMesh`/`ToTextureMesh`.
+- [08]-[DISTORTION_EVIDENCE]: typed record (max/mean conformal·area·quasi, iterations, residual, REAL factor fill, flip verdict).
 
 The four flattening kinds are transcription-complete managed fences over one `ParamOp` `[Union]`, one reduced-solve machinery, and one scoring/labeling pipeline — they differ only in the energy each lowers. Every floor is COMPOSED from a single owner: the `Rasm.Numerics` `DiscreteCalculus` operators through the public snapshot handle, the `matrix.md` `CholeskySparse`/`SparseMatrix`/LOBPCG owners (the ONE solve law — never a raw provider call), the `Numerics/predicates` exact `Orient2D` flip floor, the `segment.md` `FeatureEdge` seam classification, QuikGraph component labeling, and the `TensorPrimitives` reduction lane over raw-`double` planes.
 

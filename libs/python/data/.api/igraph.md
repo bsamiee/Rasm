@@ -46,71 +46,83 @@
 - rail: graph
 - methods are bound on `Graph` (the leading `graph` parameter is `self`); `weights` accepts an edge-attribute name or a per-edge sequence
 
-`community_multilevel` is the Louvain implementation; `community_leiden` is the refined Leiden algorithm with `objective_function` selecting `CPM` or `modularity`. Modularity-flat algorithms return a `VertexClustering`; `community_fastgreedy`, `community_walktrap`, and `community_edge_betweenness` return a `VertexDendrogram` cut via `as_clustering`.
+`community_multilevel` is the Louvain implementation; `community_leiden` is the refined Leiden algorithm with `objective_function` selecting `CPM` or `modularity`. Modularity-flat algorithms return a `VertexClustering`; `community_fastgreedy`, `community_walktrap`, and `community_edge_betweenness` return a `VertexDendrogram` cut via `as_clustering`. Each surface is a `Graph` method (the `Graph.` prefix elided); optional keyword args show their defaults.
 
-| [INDEX] | [SURFACE]                                        | [CALL_SHAPE]                                                                                                                                                                    | [RESULT]                                                                                                                                                                                                             |
-| :-----: | :----------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Graph.community_leiden`                         | `community_leiden(objective_function='CPM', weights=None, resolution=1.0, beta=0.01, initial_membership=None, n_iterations=2, node_weights=None, node_in_weights=None, **kwds)` | `VertexClustering`                                                                                                                                                                                                   |
-|  [02]   | `Graph.community_multilevel`                     | `community_multilevel(weights=None, return_levels=False, resolution=1)`                                                                                                         | `VertexClustering`                                                                                                                                                                                                   |
-|  [03]   | `Graph.community_infomap`                        | `community_infomap(edge_weights=None, vertex_weights=None, trials=10)`                                                                                                          | `VertexClustering`                                                                                                                                                                                                   |
-|  [04]   | `Graph.community_fastgreedy`                     | `community_fastgreedy(weights=None)`                                                                                                                                            | `VertexDendrogram`                                                                                                                                                                                                   |
-|  [05]   | `Graph.community_walktrap`                       | `community_walktrap(weights=None, steps=4)`                                                                                                                                     | `VertexDendrogram`                                                                                                                                                                                                   |
-|  [06]   | `Graph.community_edge_betweenness`               | `community_edge_betweenness(clusters=None, directed=True, weights=None)`                                                                                                        | `VertexDendrogram`                                                                                                                                                                                                   |
-|  [07]   | `Graph.community_label_propagation`              | `community_label_propagation(weights=None, initial=None, fixed=None)`                                                                                                           | `VertexClustering`                                                                                                                                                                                                   |
-|  [08]   | `Graph.community_leading_eigenvector`            | `community_leading_eigenvector(clusters=None, weights=None, arpack_options=None)`                                                                                               | `VertexClustering`                                                                                                                                                                                                   |
-|  [09]   | `Graph.community_optimal_modularity`             | `community_optimal_modularity(*args, **kwds)`                                                                                                                                   | `VertexClustering`                                                                                                                                                                                                   |
-|  [10]   | `Graph.community_spinglass`                      | `community_spinglass(*args, **kwds)`                                                                                                                                            | `VertexClustering`                                                                                                                                                                                                   |
-|  [11]   | `Graph.community_voronoi`                        | `community_voronoi(lengths=None, weights=None, mode='out', radius=None)`                                                                                                        | `VertexClustering`                                                                                                                                                                                                   |
-|  [12]   | `Graph.community_fluid_communities`              | `community_fluid_communities(no_of_communities)`                                                                                                                                | `VertexClustering`                                                                                                                                                                                                   |
-|  [13]   | `Graph.modularity`                               | `modularity(membership, weights=None, resolution=1, directed=True)`                                                                                                             | `float`                                                                                                                                                                                                              |
-|  [14]   | `Graph.k_core`                                   | `k_core(*args)`                                                                                                                                                                 | `Graph` or list                                                                                                                                                                                                      |
-|  [15]   | `Graph.vcount` / `Graph.ecount`                  | `vcount() -> int`; `ecount() -> int`                                                                                                                                            | vertex / edge count                                                                                                                                                                                                  |
-|  [16]   | `Graph.is_directed` / `Graph.has_multiple`       | `is_directed() -> bool`; `has_multiple() -> bool`                                                                                                                               | directedness / parallel-edge predicates                                                                                                                                                                              |
-|  [17]   | `Graph.TupleList`                                | `TupleList(edges, directed=False, vertex_name_attr='name', edge_attrs=None, weights=False) -> Graph` (classmethod)                                                              | build a `Graph` from an `(u, v)` edge-tuple iterable                                                                                                                                                                 |
-|  [18]   | `Graph.to_networkx` / `Graph.get_edge_dataframe` | `to_networkx(create_using=None) -> networkx.Graph`; `get_edge_dataframe() -> pandas.DataFrame`                                                                                  | round-trip to the networkx / pandas siblings                                                                                                                                                                         |
-|  [19]   | `Graph.write_graphml`                            | `write_graphml(f) -> None`                                                                                                                                                      | write the graph as GraphML to a path/file                                                                                                                                                                            |
-|  [20]   | `Graph.add_vertices` / `Graph.add_edges`         | `add_vertices(n, attributes=None) -> None`; `add_edges(es, attributes=None) -> None`                                                                                            | append `n` vertices (per-key `attributes` columns, e.g. `attributes={'name': [...]}`) / append edges to the live graph in place — re-admits edgeless indices as `name`-carrying singletons after a `TupleList` build |
-|  [21]   | `Graph.vs` / `Graph.es`                          | `vs -> VertexSeq`; `es -> EdgeSeq` (property)                                                                                                                                   | vertex / edge sequence; attribute access reads one column (`g.vs['name']` recovers the `vertex_name_attr` names a `TupleList` stored, the cross-index seam back to the source vertex id)                             |
+| [INDEX] | [SURFACE]                                                                                             | [RESULT]           |
+| :-----: | :---------------------------------------------------------------------------------------------------- | :----------------- |
+|  [01]   | `community_leiden(objective_function='CPM', weights, resolution=1.0, beta=0.01, n_iterations=2, ...)` | `VertexClustering` |
+|  [02]   | `community_multilevel(weights=None, return_levels=False, resolution=1)`                               | `VertexClustering` |
+|  [03]   | `community_infomap(edge_weights=None, vertex_weights=None, trials=10)`                                | `VertexClustering` |
+|  [04]   | `community_fastgreedy(weights=None)`                                                                  | `VertexDendrogram` |
+|  [05]   | `community_walktrap(weights=None, steps=4)`                                                           | `VertexDendrogram` |
+|  [06]   | `community_edge_betweenness(clusters=None, directed=True, weights=None)`                              | `VertexDendrogram` |
+|  [07]   | `community_label_propagation(weights=None, initial=None, fixed=None)`                                 | `VertexClustering` |
+|  [08]   | `community_leading_eigenvector(clusters=None, weights=None, arpack_options=None)`                     | `VertexClustering` |
+|  [09]   | `community_optimal_modularity(*args, **kwds)`                                                         | `VertexClustering` |
+|  [10]   | `community_spinglass(*args, **kwds)`                                                                  | `VertexClustering` |
+|  [11]   | `community_voronoi(lengths=None, weights=None, mode='out', radius=None)`                              | `VertexClustering` |
+|  [12]   | `community_fluid_communities(no_of_communities)`                                                      | `VertexClustering` |
+
+General `Graph` methods and accessors (the `Graph.` prefix elided); a `property` row takes no arguments.
+
+| [INDEX] | [SURFACE]                                                                                   | [CAPABILITY]                               |
+| :-----: | :------------------------------------------------------------------------------------------ | :----------------------------------------- |
+|  [01]   | `modularity(membership, weights=None, resolution=1, directed=True)`                         | modularity score (`float`) of a membership |
+|  [02]   | `k_core(*args)`                                                                             | k-core subgraph(s) (`Graph` or list)       |
+|  [03]   | `vcount() -> int` / `ecount() -> int`                                                       | vertex / edge count                        |
+|  [04]   | `is_directed() -> bool` / `has_multiple() -> bool`                                          | directedness / parallel-edge predicates    |
+|  [05]   | `TupleList(edges, directed=False, vertex_name_attr='name', edge_attrs=None, weights=False)` | classmethod: `Graph` from `(u, v)` tuples  |
+|  [06]   | `to_networkx(create_using=None)` / `get_edge_dataframe()`                                   | round-trip to networkx / pandas siblings   |
+|  [07]   | `write_graphml(f) -> None`                                                                  | write the graph as GraphML to a path/file  |
+|  [08]   | `add_vertices(n, attributes=None)` / `add_edges(es, attributes=None)`                       | append vertices/edges in place             |
+|  [09]   | `vs -> VertexSeq` / `es -> EdgeSeq` (property)                                              | vertex / edge sequence accessors           |
+
+- [08]-[VERTEX_ADMISSION]: `attributes` adds a per-key column (e.g. `{'name': [...]}`); `add_edges` re-admits edgeless indices as `name`-carrying singletons after a `TupleList` build.
+- [09]-[NAME_SEAM]: `g.vs['name']` recovers the `vertex_name_attr` names a `TupleList` stored — the cross-index seam back to the source vertex id.
 
 [ENTRYPOINT_SCOPE]: clustering result inspection
 - rail: graph
 
 `VertexClustering` carries the flat partition receipt (`membership`, `modularity`, sizes, induced subgraphs); `VertexDendrogram` carries the hierarchical merges and cuts to a `VertexClustering` at `as_clustering`. `compare_communities`/`split_join_distance` compute partition distance over membership lists or `VertexClustering` objects.
 
-| [INDEX] | [SURFACE]                                 | [CALL_SHAPE]                                                        | [CAPABILITY]                                            |
-| :-----: | :---------------------------------------- | :------------------------------------------------------------------ | :------------------------------------------------------ |
-|  [01]   | `VertexClustering.membership`             | property                                                            | per-vertex cluster-id list                              |
-|  [02]   | `VertexClustering.modularity`             | property                                                            | partition modularity score                              |
-|  [03]   | `VertexClustering.sizes`                  | `sizes(*args)`                                                      | cluster size list                                       |
-|  [04]   | `VertexClustering.subgraph`               | `subgraph(idx)`                                                     | induced subgraph for one cluster                        |
-|  [05]   | `VertexClustering.subgraphs`              | `subgraphs()`                                                       | induced subgraph per cluster                            |
-|  [06]   | `VertexClustering.giant`                  | `giant()`                                                           | largest-cluster induced subgraph                        |
-|  [07]   | `VertexClustering.crossing`               | `crossing()`                                                        | per-edge cross-cluster boolean                          |
-|  [08]   | `VertexClustering.cluster_graph`          | `cluster_graph(combine_vertices=None, combine_edges=None)`          | contracted cluster-level graph                          |
-|  [09]   | `VertexClustering.compare_to`             | `compare_to(other, *args, **kwds)`                                  | partition distance against another clustering           |
-|  [10]   | `VertexClustering.recalculate_modularity` | `recalculate_modularity()`                                          | recompute modularity after membership edit              |
-|  [11]   | `VertexClustering.as_cover`               | `as_cover()`                                                        | view flat partition as a `VertexCover`                  |
-|  [12]   | `VertexDendrogram.as_clustering`          | `as_clustering(n=None)`                                             | cut merges to a flat `VertexClustering`                 |
-|  [13]   | `VertexDendrogram.optimal_count`          | property                                                            | modularity-optimal cluster count                        |
-|  [14]   | `compare_communities`                     | `compare_communities(comm1, comm2, method='vi', remove_none=False)` | VI/NMI/split-join/RI/ARI/Danon/meila partition distance |
-|  [15]   | `split_join_distance`                     | `split_join_distance(comm1, comm2, remove_none=False)`              | directed split-join distance pair                       |
+A `property` row takes no arguments; `VertexClustering`/`VertexDendrogram` accessors bind their graph, while `compare_communities`/`split_join_distance` are top-level functions.
+
+| [INDEX] | [SURFACE]                                                                   | [CAPABILITY]                                            |
+| :-----: | :-------------------------------------------------------------------------- | :------------------------------------------------------ |
+|  [01]   | `VertexClustering.membership`                                               | per-vertex cluster-id list (property)                   |
+|  [02]   | `VertexClustering.modularity`                                               | partition modularity score (property)                   |
+|  [03]   | `VertexClustering.sizes(*args)`                                             | cluster size list                                       |
+|  [04]   | `VertexClustering.subgraph(idx)`                                            | induced subgraph for one cluster                        |
+|  [05]   | `VertexClustering.subgraphs()`                                              | induced subgraph per cluster                            |
+|  [06]   | `VertexClustering.giant()`                                                  | largest-cluster induced subgraph                        |
+|  [07]   | `VertexClustering.crossing()`                                               | per-edge cross-cluster boolean                          |
+|  [08]   | `VertexClustering.cluster_graph(combine_vertices=None, combine_edges=None)` | contracted cluster-level graph                          |
+|  [09]   | `VertexClustering.compare_to(other, *args, **kwds)`                         | partition distance against another clustering           |
+|  [10]   | `VertexClustering.recalculate_modularity()`                                 | recompute modularity after membership edit              |
+|  [11]   | `VertexClustering.as_cover()`                                               | view flat partition as a `VertexCover`                  |
+|  [12]   | `VertexDendrogram.as_clustering(n=None)`                                    | cut merges to a flat `VertexClustering`                 |
+|  [13]   | `VertexDendrogram.optimal_count`                                            | modularity-optimal cluster count (property)             |
+|  [14]   | `compare_communities(comm1, comm2, method='vi', remove_none=False)`         | VI/NMI/split-join/RI/ARI/Danon/meila partition distance |
+|  [15]   | `split_join_distance(comm1, comm2, remove_none=False)`                      | directed split-join distance pair                       |
 
 [ENTRYPOINT_SCOPE]: `Graph` construction
 - rail: graph
 - construction classmethods build a `Graph` from edge data, frames, adjacency, or named generators
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                                                        | [CAPABILITY]                              |
-| :-----: | :------------------------- | :------------------------------------------------------------------------------------------------------------------ | :---------------------------------------- |
-|  [01]   | `Graph.TupleList`          | `TupleList(edges, directed=False, vertex_name_attr='name', edge_attrs=None, weights=False)`                         | build from `(source, target, ...)` tuples |
-|  [02]   | `Graph.DataFrame`          | `DataFrame(edges, directed=True, vertices=None, use_vids=True)`                                                     | build from a pandas edge frame            |
-|  [03]   | `Graph.Adjacency`          | `Adjacency(matrix, mode='directed', loops='once')`                                                                  | build from an adjacency matrix            |
-|  [04]   | `Graph.Weighted_Adjacency` | `Weighted_Adjacency(matrix, mode='directed', attr='weight', loops='once')`                                          | build from a weighted adjacency matrix    |
-|  [05]   | `Graph.Read`               | `Read(f, format=None, *args, **kwds)`                                                                               | read GraphML/GML/edgelist/Pajek/NCOL/LGL  |
-|  [06]   | `Graph.Famous`             | `Famous(name)`                                                                                                      | load a named reference graph              |
-|  [07]   | `Graph.Erdos_Renyi`        | `Erdos_Renyi(n, p, m, directed=False, loops=False, edge_labeled=False)`                                             | G(n,p)/G(n,m) random graph                |
-|  [08]   | `Graph.Barabasi`           | `Barabasi(n, m, outpref=False, directed=False, power=1, zero_appeal=1, implementation='psumtree', start_from=None)` | scale-free preferential-attachment graph  |
-|  [09]   | `Graph.Biadjacency`        | `Biadjacency(matrix, ...)` / `Graph.Realize_Degree_Sequence(out, in_=None, ...)`                                    | bipartite / degree-sequence construction  |
-|  [10]   | `Graph.Read_GraphML`       | `Read_GraphML(f, index=0)` / `Read_Pickle(fname)` / `Read_Edgelist` / `Read_Ncol` / `Read_Pajek`                    | format-keyed readers `Read` dispatches    |
+Construction classmethods build a `Graph` (the `Graph.` prefix elided); optional keyword args show their defaults.
+
+| [INDEX] | [SURFACE]                                                                                   | [CAPABILITY]                              |
+| :-----: | :------------------------------------------------------------------------------------------ | :---------------------------------------- |
+|  [01]   | `TupleList(edges, directed=False, vertex_name_attr='name', edge_attrs=None, weights=False)` | build from `(source, target, ...)` tuples |
+|  [02]   | `DataFrame(edges, directed=True, vertices=None, use_vids=True)`                             | build from a pandas edge frame            |
+|  [03]   | `Adjacency(matrix, mode='directed', loops='once')`                                          | build from an adjacency matrix            |
+|  [04]   | `Weighted_Adjacency(matrix, mode='directed', attr='weight', loops='once')`                  | build from a weighted adjacency matrix    |
+|  [05]   | `Read(f, format=None, *args, **kwds)`                                                       | read GraphML/GML/edgelist/Pajek/NCOL/LGL  |
+|  [06]   | `Famous(name)`                                                                              | load a named reference graph              |
+|  [07]   | `Erdos_Renyi(n, p, m, directed=False, loops=False, edge_labeled=False)`                     | G(n,p)/G(n,m) random graph                |
+|  [08]   | `Barabasi(n, m, power=1, zero_appeal=1, implementation='psumtree', ...)`                    | scale-free preferential-attachment graph  |
+|  [09]   | `Biadjacency(matrix, ...)` / `Realize_Degree_Sequence(out, in_=None, ...)`                  | bipartite / degree-sequence construction  |
+|  [10]   | `Read_GraphML` / `Read_Pickle` / `Read_Edgelist` / `Read_Ncol` / `Read_Pajek`               | format-keyed readers `Read` dispatches    |
 
 [ENTRYPOINT_SCOPE]: component decomposition, centrality, and pandas/networkx seam
 - rail: graph
@@ -118,17 +130,20 @@
 
 `connected_components`/`decompose` partition by reachability (no modularity), returning a `VertexClustering`/list of `Graph`; `k_core`/`coreness` give the core decomposition. `pagerank`/`betweenness`/`closeness` and the `distances` matrix are the C-core centrality surface — never re-walked in Python. `DataFrame`/`get_edge_dataframe`/`get_vertex_dataframe` bridge the pandas sibling, `to_networkx` the networkx sibling.
 
-| [INDEX] | [SURFACE]                    | [CALL_SHAPE]                                                                                                       | [RESULT_CAPABILITY]                             |
-| :-----: | :--------------------------- | :----------------------------------------------------------------------------------------------------------------- | :---------------------------------------------- |
-|  [01]   | `Graph.connected_components` | `connected_components(mode='strong')`                                                                              | `VertexClustering` by reachability              |
-|  [02]   | `Graph.decompose`            | `decompose(mode='strong', maxcompno=None, minelements=1)`                                                          | list of induced component `Graph`s              |
-|  [03]   | `Graph.k_core` / `coreness`  | `k_core(*args)` / `coreness(mode='all')`                                                                           | k-core subgraph(s) / per-vertex coreness vector |
-|  [04]   | `Graph.pagerank`             | `pagerank(vertices=None, directed=True, damping=0.85, weights=None, arpack_options=None, implementation='prpack')` | per-vertex PageRank vector                      |
-|  [05]   | `Graph.betweenness`          | `betweenness(vertices=None, directed=True, cutoff=None, weights=None, sources=None, targets=None)`                 | per-vertex betweenness vector                   |
-|  [06]   | `Graph.closeness`            | `closeness(vertices=None, mode='all', cutoff=None, weights=None, normalized=True)`                                 | per-vertex closeness vector                     |
-|  [07]   | `Graph.distances`            | `distances(source=None, target=None, weights=None, mode='out', algorithm='auto')`                                  | shortest-path distance matrix                   |
-|  [08]   | `Graph.get_edge_dataframe`   | `get_edge_dataframe()` / `get_vertex_dataframe()`                                                                  | pandas edge/vertex frames (egress seam)         |
-|  [09]   | `Graph.induced_subgraph`     | `induced_subgraph(vertices, implementation='auto')` / `simplify(multiple=True, loops=True, combine_edges=None)`    | community-subset subgraph / dedup               |
+Every surface is a `Graph` method (the `Graph.` prefix elided); optional keyword args show their defaults.
+
+| [INDEX] | [SURFACE]                                                                            | [RESULT_CAPABILITY]                             |
+| :-----: | :----------------------------------------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | `connected_components(mode='strong')`                                                | `VertexClustering` by reachability              |
+|  [02]   | `decompose(mode='strong', maxcompno=None, minelements=1)`                            | list of induced component `Graph`s              |
+|  [03]   | `k_core(*args)` / `coreness(mode='all')`                                             | k-core subgraph(s) / per-vertex coreness vector |
+|  [04]   | `pagerank(vertices=None, directed=True, damping=0.85, implementation='prpack', ...)` | per-vertex PageRank vector                      |
+|  [05]   | `betweenness(vertices=None, directed=True, cutoff=None, weights=None, ...)`          | per-vertex betweenness vector                   |
+|  [06]   | `closeness(vertices=None, mode='all', cutoff=None, weights=None, normalized=True)`   | per-vertex closeness vector                     |
+|  [07]   | `distances(source=None, target=None, weights=None, mode='out', algorithm='auto')`    | shortest-path distance matrix                   |
+|  [08]   | `get_edge_dataframe()` / `get_vertex_dataframe()`                                    | pandas edge/vertex frames (egress seam)         |
+|  [09]   | `induced_subgraph(vertices, implementation='auto')`                                  | community-subset induced subgraph               |
+|  [10]   | `simplify(multiple=True, loops=True, combine_edges=None)`                            | drop parallel edges / self-loops                |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

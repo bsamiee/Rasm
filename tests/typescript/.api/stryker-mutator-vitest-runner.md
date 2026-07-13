@@ -14,14 +14,14 @@
 
 [PUBLIC_TYPE_SCOPE]: the two public exports (`strykerPlugins`, `strykerValidationSchema`) typed against the `@stryker-mutator/api/plugin` loading ABI that `stryker-mutator-core.md` [04] owns. `strykerPlugins` is the value `@stryker-mutator/core` discovers; a `FactoryPlugin` is a DI factory tagged by `PluginKind` and injected with `["$injector"]` (`commonTokens.injector`).
 
-| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]              | [CAPABILITY]                                                                                     |
-| :-----: | :---------------------------------------- | :------------------------- | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `strykerPlugins`                          | `FactoryPlugin[]`          | the only value export the host reads — `FactoryPlugin<PluginKind.TestRunner, ["$injector"]>[]`   |
-|  [02]   | `strykerValidationSchema`                 | JSON schema                | `typeof vitest-runner-options.json` — validates the `vitest` option bag                          |
-|  [03]   | `PluginKind` / `FactoryPlugin<K, Tokens>` | shared ABI                 | the plugin-loading types this row is typed with — owned by `stryker-mutator-core.md` [04]        |
-|  [04]   | `VitestTestRunner`                        | internal `TestRunner` impl | the class the `FactoryPlugin` factory yields (not a public export); implements the [02] contract |
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]              | [CAPABILITY]                                               |
+| :-----: | :---------------------------------------- | :------------------------- | :--------------------------------------------------------- |
+|  [01]   | `strykerPlugins`                          | `FactoryPlugin[]`          | the only value export the host reads                       |
+|  [02]   | `strykerValidationSchema`                 | JSON schema                | validates the `vitest` option bag                          |
+|  [03]   | `PluginKind` / `FactoryPlugin<K, Tokens>` | shared ABI                 | plugin-loading types; owner `stryker-mutator-core.md` [04] |
+|  [04]   | `VitestTestRunner`                        | internal `TestRunner` impl | the `FactoryPlugin` factory yield; implements [02]         |
 
-```ts contract
+```ts signature
 // index.d.ts @9.6.1 — the ENTIRE public barrel is two exports; PluginKind/FactoryPlugin import from @stryker-mutator/api/plugin (core [04]).
 import { PluginKind, FactoryPlugin } from '@stryker-mutator/api/plugin'
 export declare const strykerPlugins: FactoryPlugin<PluginKind.TestRunner, ["$injector"]>[]
@@ -42,7 +42,7 @@ export declare const strykerValidationSchema: typeof import('../schema/vitest-ru
 |  [06]   | `MutantActivation`       | union               | `'runtime' \| 'static'` — when the mutant switch flips                      |
 |  [07]   | `TestResult`             | discriminated union | `Success \| Failed \| Skipped` on `TestStatus` — dry-run per-test rows      |
 
-```ts contract
+```ts signature
 // test-runner.d.ts / mutant-run-result.d.ts — the kill verdict is a tagged union; `Killed` names the killing tests.
 interface TestRunner {
   capabilities(): Promise<TestRunnerCapabilities> | TestRunnerCapabilities
@@ -67,7 +67,7 @@ interface MutantRunOptions {
 
 [INSTRUMENTATION_CHANNEL] — the runner augments `vitest`'s own context to pass mutant state INTO the worker and coverage back OUT, without a side channel. `ProvidedContext` carries the active mutant and hit budget to each test; `TaskMeta` carries the per-test hit count and `MutantCoverage` back — composing onto the host's canonical instrument channel (`INSTRUMENTER_CONSTANTS` / `MutantCoverage`, `stryker-mutator-core.md` [05]).
 
-```ts contract
+```ts signature
 // stryker-setup.d.ts — `declare module 'vitest'` augmentation; the bridge between Stryker and the vitest worker.
 declare module 'vitest' {
   interface ProvidedContext {
@@ -94,7 +94,7 @@ The runner and the whole mutation gauge are ONE declarative options object `stry
 |  [07]   | `incremental` / `ignoreStatic` / `timeoutMS`    | core    | incremental cache, static-mutant policy, runaway-mutant timeout       |
 |  [08]   | `vitest: { configFile?; dir?; related }`        | plugin  | reuse the folder vitest config; `related` narrows to changed-related  |
 
-```ts contract
+```ts signature
 import type { PartialStrykerOptions } from "@stryker-mutator/api/core"   // the canonical schema — stryker-mutator-core.md [02]
 // StrykerVitestRunnerOptions is the plugin-owned bag; MutationScoreThresholds/CoverageAnalysis are core ([02]).
 interface StrykerVitestRunnerOptions { vitest: { dir?: string; related: boolean; configFile?: string } }

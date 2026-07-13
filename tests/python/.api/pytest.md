@@ -11,27 +11,27 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-The config, item, and hook objects the `_testkit` plugins and per-suite conftests implement against.
+The config, item, and hook objects the `_testkit` plugins and conftests implement against; every symbol re-exports on the `pytest` barrel.
 
-| [INDEX] | [SYMBOL]                                                | [KIND]                  | [CAPABILITY]                                                                                                |
-| :-----: | :------------------------------------------------------ | :---------------------- | :---------------------------------------------------------------------------------------------------------- |
-|  [01]   | `pytest.Config`                                         | config object           | resolved session config; `getoption`/`getini`/`pluginmanager`/`stash` read the run policy                   |
-|  [02]   | `pytest.Parser`                                         | option parser           | `pytest_addoption` binds CLI options and `addini` config keys through it                                    |
-|  [03]   | `pytest.Item` · `pytest.Function`                       | collected test          | one runnable node; `add_marker`/`get_closest_marker`/`fixturenames`/`nodeid` drive marker and fixture logic |
-|  [04]   | `pytest.Session` · `pytest.Collector` · `pytest.Module` | collection tree         | the session root and its module/collector nodes walked at collection                                        |
-|  [05]   | `pytest.Metafunc`                                       | parametrizer            | `pytest_generate_tests` calls `metafunc.parametrize` to expand a test                                       |
-|  [06]   | `pytest.Stash` · `pytest.StashKey`                      | typed side-channel      | plugin-owned per-config/item state keyed without collision                                                  |
-|  [07]   | `pytest.MonkeyPatch`                                    | patch context           | `setattr`/`setenv`/`setitem`/`delenv`/`chdir`/`context`/`undo` — auto-reverted seam owner                   |
-|  [08]   | `pytest.CaptureFixture[AnyStr]`                         | capture handle          | `readouterr()` returns the captured `out`/`err` pair; `capsysbinary` yields the `bytes` variant             |
-|  [09]   | `pytest.FixtureRequest` · `pytest.TempPathFactory`      | fixture context         | `request.node`/`getfixturevalue`; the factory backs `tmp_path`                                              |
-|  [10]   | `pytest.Subtests`                                       | subtest scope           | the core `subtests` fixture type — `RowCarrier` satisfier for the matrix folds                              |
-|  [11]   | `pytest.Mark` · `pytest.MarkDecorator`                  | marker value            | the applied-marker object and its decorator; `get_closest_marker` returns a `Mark`                          |
-|  [12]   | `pytest.ExceptionInfo[E]` · `pytest.RaisesExc`          | raised-exception handle | `pytest.raises` yields it; `.value`/`.type`/`.match` interrogate the caught error                           |
-|  [13]   | `pytest.PytestPluginManager` · `pytest.hookimpl`        | plugin protocol         | `config.pluginmanager` registers hooks; `hookimpl` marks a hook's ordering                                  |
-|  [14]   | `pytest.LogCaptureFixture`                              | log capture             | the `caplog` handle over the stdlib logging channel                                                         |
-|  [15]   | `pytest.ExitCode`                                       | session verdict         | the run's terminal status enum                                                                              |
+| [INDEX] | [SYMBOL]                             | [KIND]             | [CAPABILITY]                                                               |
+| :-----: | :----------------------------------- | :----------------- | :------------------------------------------------------------------------- |
+|  [01]   | `Config`                             | config object      | resolved session config; `getoption`/`getini`/`pluginmanager`/`stash`      |
+|  [02]   | `Parser`                             | option parser      | `pytest_addoption` binds CLI options and `addini` config keys through it   |
+|  [03]   | `Item` · `Function`                  | collected test     | runnable node; `add_marker`/`get_closest_marker`/`fixturenames`/`nodeid`   |
+|  [04]   | `Session` · `Collector` · `Module`   | collection tree    | the session root and its module/collector nodes walked at collection       |
+|  [05]   | `Metafunc`                           | parametrizer       | `pytest_generate_tests` calls `metafunc.parametrize` to expand a test      |
+|  [06]   | `Stash` · `StashKey`                 | typed side-channel | plugin-owned per-config/item state keyed without collision                 |
+|  [07]   | `MonkeyPatch`                        | auto-revert patch  | `setattr`/`setenv`/`setitem`/`delenv`/`chdir`/`context`/`undo`             |
+|  [08]   | `CaptureFixture[AnyStr]`             | capture handle     | `readouterr()` → `out`/`err` pair; `capsysbinary` the `bytes` variant      |
+|  [09]   | `FixtureRequest` · `TempPathFactory` | fixture context    | `request.node`/`getfixturevalue`; the factory backs `tmp_path`             |
+|  [10]   | `Subtests`                           | subtest scope      | the core `subtests` fixture type; `RowCarrier` for the matrix folds        |
+|  [11]   | `Mark` · `MarkDecorator`             | marker value       | applied-marker object + decorator; `get_closest_marker` returns a `Mark`   |
+|  [12]   | `ExceptionInfo[E]` · `RaisesExc`     | exception handle   | `pytest.raises` yields it; `.value`/`.type`/`.match` read the caught error |
+|  [13]   | `PytestPluginManager` · `hookimpl`   | plugin protocol    | `config.pluginmanager` registers hooks; `hookimpl` marks a hook's ordering |
+|  [14]   | `LogCaptureFixture`                  | log capture        | the `caplog` handle over the stdlib logging channel                        |
+|  [15]   | `ExitCode`                           | session verdict    | the run's terminal status enum                                             |
 
-```python contract
+```python signature
 class Config:
     def getoption(self, name: str, default: object = ..., skip: bool = False) -> object: ...
     def getini(self, name: str) -> object: ...
@@ -50,20 +50,24 @@ class Subtests:
 
 ## [03]-[ENTRYPOINTS]
 
-Collection, assertion, and parametrization surface — the API specs and folds call directly.
+Collection, assertion, and parametrization surface the specs and folds call directly; every symbol re-exports on the `pytest` barrel, and the fence carries the full signatures.
 
-| [INDEX] | [SURFACE]                                                              | [KIND]              | [CAPABILITY]                                                                                                                                                 |
-| :-----: | :--------------------------------------------------------------------- | :------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `pytest.fixture(*, scope, params, autouse, ids, name)`                 | fixture decorator   | declares a fixture; `scope` spans `function`..`session`                                                                                                      |
-|  [02]   | `pytest.mark.<name>`                                                   | marker factory      | attaches a closed marker (`benchmark`/`mutation`/`network`/`property`/`subprocess`) or builtin `skipif`/`xfail`/`parametrize`/`usefixtures`/`filterwarnings` |
-|  [03]   | `pytest.param(*values, marks, id)`                                     | parametrization row | one case in a `parametrize` set carrying per-row marks and id                                                                                                |
-|  [04]   | `pytest.raises(expected, *, match)`                                    | exception assertion | context manager yielding `ExceptionInfo`; `match` regex-checks the message                                                                                   |
-|  [05]   | `pytest.warns` · `pytest.deprecated_call`                              | warning assertion   | assert a warning under `filterwarnings = ["error"]`                                                                                                          |
-|  [06]   | `pytest.approx(expected, rel, abs)`                                    | tolerance compare   | numeric proximity assertion                                                                                                                                  |
-|  [07]   | `pytest.skip` · `pytest.fail` · `pytest.xfail` · `pytest.importorskip` | flow verdict        | terminate a test/collection with a typed outcome                                                                                                             |
-|  [08]   | `subtests.test(msg=None, **kwargs)`                                    | row scope           | core fixture; a failing row reports independently instead of stopping the fold                                                                               |
+| [INDEX] | [SURFACE]                   | [KIND]              | [CAPABILITY]                                                               |
+| :-----: | :-------------------------- | :------------------ | :------------------------------------------------------------------------- |
+|  [01]   | `fixture`                   | fixture decorator   | declares a fixture; `scope` spans `function`..`session`                    |
+|  [02]   | `mark.<name>`               | closed marker       | `benchmark`/`mutation`/`network`/`property`/`subprocess`                   |
+|  [03]   | `mark.<name>`               | builtin marker      | `skipif`/`xfail`/`parametrize`/`usefixtures`/`filterwarnings`              |
+|  [04]   | `param`                     | parametrization row | one `parametrize` case carrying per-row marks and id                       |
+|  [05]   | `raises`                    | exception assertion | context manager yielding `ExceptionInfo`; `match` regex-checks the message |
+|  [06]   | `warns` · `deprecated_call` | warning assertion   | assert a warning under `filterwarnings = ["error"]`                        |
+|  [07]   | `approx(rel, abs)`          | tolerance compare   | numeric proximity assertion within the `rel`/`abs` tolerance               |
+|  [08]   | `skip`                      | flow verdict        | skip the test at runtime                                                   |
+|  [09]   | `fail`                      | flow verdict        | fail the test immediately                                                  |
+|  [10]   | `xfail`                     | flow verdict        | mark an expected failure at runtime                                        |
+|  [11]   | `importorskip`              | flow verdict        | import a module, or skip when it is absent                                 |
+|  [12]   | `subtests.test`             | row scope           | core fixture; a failing row reports independently, not stopping the fold   |
 
-```python contract
+```python signature
 def fixture(fixture_function=None, *, scope="function", params=None, autouse=False,
             ids=None, name=None): ...
 def param(*values: object, marks: MarkDecorator | Collection[MarkDecorator | Mark] = (),
@@ -75,7 +79,7 @@ def importorskip(modname: str, minversion: str | None = None, reason: str | None
 
 The `_testkit` plugins implement this hook surface; each signature is the kit's declared subset of the full hookspec — pluggy passes a hook argument only when the implementation names it.
 
-```python contract
+```python signature
 def pytest_addoption(parser: Parser) -> None: ...                        # bind CLI options + addini config keys
 def pytest_configure(config: Config) -> None: ...                        # register plugins once config resolves
 def pytest_collection_modifyitems(items: list[Item]) -> None: ...        # auto-apply markers, consume COVERS

@@ -416,23 +416,23 @@ public static class ClusterProvision {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                           | [BINDING]                                                              |
-| :-----: | :------------------ | :------------------------------------------------ | :--------------------------------------------------------------------- |
-|  [01]   | provisioning stance | verification-first                                | never `ALTER SYSTEM`; never spawns PostgreSQL                          |
-|  [02]   | verification cost   | one six-command `CreateBatch` round trip          | data-volume-independent; no per-extension probe                        |
-|  [03]   | absence policy      | `FailureRank.Absorb` delegate                     | required refuses; degradable folds out; observational logs             |
-|  [04]   | install gate        | `ExtensionAdmission` (preload/type/AM/standalone) | `.api`-verified gate per row; CASCADE pulls the dependency             |
-|  [05]   | preload gap         | `MissingPreload` + emitted diff                   | operator resolves at the cluster config; named restart class           |
-|  [06]   | setting drift       | `pg_settings` vs `ClusterSetting`                 | mismatch folds `SettingDrift` carrying its `RestartClass`              |
-|  [07]   | repair posture      | EMIT artifacts, never execute                     | reconciliation grants + settings diffs are typed outputs               |
-|  [08]   | drift visibility    | stamped `VerificationEpoch`                       | a re-verify advance is an observable health-probe event                |
-|  [09]   | deploy completion   | `ReloadTypesAsync`                                | types re-resolve before the deploy is done                             |
-|  [10]   | h3 parity           | `h3-pg`/`h3_postgis` match `pocketken.H3`         | one cell id at ingest and in SQL                                       |
-|  [11]   | spatial wire        | `SpatialWire` policy row on `Source`              | ADO codec composed once; call-site literals deleted                    |
-|  [12]   | EF provider bind    | `StoreProfile.Ef` row data                        | one identity DbContext, two providers; hand ADO mapping deleted        |
-|  [13]   | observability       | `AddNpgsql`/`AddNpgsqlInstrumentation`            | subscribed at the AppHost composition root, never in-fence             |
-|  [14]   | schema validation   | `SchemaCheck` dual residence                      | server `json_matches_schema` when held; in-process `Evaluate` fallback |
-|  [15]   | fault typing        | 838x `ServerFault` whole decade                   | absence/readiness/admission receipts are registry-derived cases        |
+| [INDEX] | [POLICY]            | [VALUE]                                           | [BINDING]                                    |
+| :-----: | :------------------ | :------------------------------------------------ | :------------------------------------------- |
+|  [01]   | provisioning stance | verification-first                                | never `ALTER SYSTEM`; never spawns PG        |
+|  [02]   | verification cost   | one six-command `CreateBatch` round trip          | data-volume-independent; no per-ext probe    |
+|  [03]   | absence policy      | `FailureRank.Absorb` delegate                     | required/degradable/observational tiers      |
+|  [04]   | install gate        | `ExtensionAdmission` (preload/type/AM/standalone) | `.api`-verified; CASCADE pulls dependency    |
+|  [05]   | preload gap         | `MissingPreload` + emitted diff                   | resolves at cluster config; restart class    |
+|  [06]   | setting drift       | `pg_settings` vs `ClusterSetting`                 | folds `SettingDrift` + `RestartClass`        |
+|  [07]   | repair posture      | EMIT artifacts, never execute                     | grants + settings diffs are typed outputs    |
+|  [08]   | drift visibility    | stamped `VerificationEpoch`                       | re-verify advance = health-probe event       |
+|  [09]   | deploy completion   | `ReloadTypesAsync`                                | types re-resolve before deploy is done       |
+|  [10]   | h3 parity           | `h3-pg`/`h3_postgis` match `pocketken.H3`         | one cell id at ingest and in SQL             |
+|  [11]   | spatial wire        | `SpatialWire` policy row on `Source`              | ADO codec composed once; literals deleted    |
+|  [12]   | EF provider bind    | `StoreProfile.Ef` row data                        | one identity DbContext, two providers        |
+|  [13]   | observability       | `AddNpgsql`/`AddNpgsqlInstrumentation`            | AppHost composition root, not in-fence       |
+|  [14]   | schema validation   | `SchemaCheck` dual residence                      | `json_matches_schema` or `Evaluate` fallback |
+|  [15]   | fault typing        | 838x `ServerFault` whole decade                   | registry-derived absence/readiness/admission |
 
 ## [03]-[EMBEDDED_FLOOR]
 
@@ -731,16 +731,30 @@ public static class EngineOps {
 
 The store perimeter is PARAMETERIZED — eleven axes, every provider row deployment/policy DATA on one axis surface. A future app selects providers by POLICY VALUES (profile rows, grant minters, sink rows, index-residency rows) — never a central-manifest edit, never a new entry point, never a parallel rail. Each kept scale-out row carries the PROVEN ceiling the in-PG/in-process owner cannot reach; every provider row carries its provisioning/health/recovery posture through the `#SERVER_EXTENSIONS` verification-first fold, and the scylla/redis rows gain DEPLOYMENT-CONDITIONAL AppHost probe rows only where the axis row is composed (the Npgsql-only probe stays the default). The relational SoR spine is SINGULAR and sealed — ONE event store, ONE materializer, ONE identity, ONE changefeed — so a perimeter-axis engine row carrying unreachable capability is a legal axis admission, never a second SoR.
 
-| [INDEX] | [AXIS]                    | [OWNING_PAGE]                                                                     | [PROVIDER_ROWS_SEED_DATA]                                                                                      | [SELECTION]                                                 | [CEILING_CHARTER_PROOF]                                                                                                       |
-| :-----: | :------------------------ | :-------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | relational SoR spine      | `Store/provisioning` + `Element/graph`                                            | postgres-18 (SINGULAR)                                                                                         | SEALED                                                      | the one event store · materializer · identity · changefeed — unchallengeable                                                  |
-|  [02]   | object store              | `Store/blobstore`                                                                 | s3 · azure-blob · gcs · minio · presigned-grant (`GrantMinter`)                                                | `ObjectStore` `[SmartEnum]`                                 | the presigned row reaches domain-cloud planes no credentialed row can                                                         |
-|  [03]   | egress sink               | `Version/egress`                                                                  | webhook · nats · kafka · rabbitmq · pulsar · wire-native · redis-stream                                        | `EgressSink` `[Union]`                                      | consumer-group ack + `Acknowledged` trim — the zero-broker-install stream row                                                 |
-|  [04]   | read-lane/analytic engine | `Query/columnar`                                                                  | duckdb-in-process · pg_duckdb-in-PG · clickhouse-scaleout                                                      | `ColumnarEngine` axis                                       | distributed merge-tree MPP at cluster scale; never a second SoR                                                               |
-|  [05]   | lakehouse interchange     | `Query/columnar`                                                                  | ducklake (extension, forward) · delta                                                                          | format row                                                  | the Delta transaction-log wire for external-warehouse interop; a format, not an engine                                        |
-|  [06]   | vector search             | `Query/retrieval`                                                                 | pgvector-in-PG · pgvectorscale-diskann · pq-adc-in-process · qdrant-scaleout                                   | `VectorBackend` axis                                        | billion-scale sharded ANN over the in-PG ceiling; `CqlVector` embedding-next-to-row only                                      |
-|  [07]   | embedded/KV floor         | `Store/provisioning`                                                              | sqlite (raw-ADO `EngineOps`) · rocksdb-lsm · lmdb                                                              | `EngineOps`-tier row                                        | write-optimized LSM + read-optimized memory-mapped MVCC over the single-writer WAL floor                                      |
-|  [08]   | embedded relational       | `Element/identity` + `Store/provisioning`                                         | npgsql-ef · sqlite-ef                                                                                          | `StoreProfile.Ef` on ONE DbContext                          | one generated mapping, two providers; a hand ADO mapping beside the rail is deleted (ARCH)                                    |
-|  [09]   | wide-column content-index | `Query/cache`                                                                     | marten-pg (default) · scylla-widecolumn                                                                        | index-residency row                                         | LWT `AppliedInfo` claim-gate + shard-routed point reads at federation scale                                                   |
-|  [10]   | cache backplane           | `Query/cache`                                                                     | none (single-node default) · redis-pubsub                                                                      | `CacheLane.Store`-gated row                                 | cross-process L1 invalidation the `IDistributedCache` contract cannot express                                                 |
-|  [11]   | spatial store plane       | `Element/identity` · `Store/provisioning` · `Element/codec` · `Ingest/geospatial` | postgis-column (EF-NTS) · ado-codec (`SpatialWire`) · geojson-stj · geopackage · wkb/wkt · h3-cell (pocketken) | profile policy rows (`geographyAsDefault`, SRID, precision) | the provisioned postgis/pgrouting/h3-pg tier gains its wire, column, codec, and file-ingress counterparts — closed end-to-end |
+| [INDEX] | [AXIS]                    | [SELECTION]                                                 |
+| :-----: | :------------------------ | :---------------------------------------------------------- |
+|  [01]   | relational SoR spine      | SEALED                                                      |
+|  [02]   | object store              | `ObjectStore` `[SmartEnum]`                                 |
+|  [03]   | egress sink               | `EgressSink` `[Union]`                                      |
+|  [04]   | read-lane/analytic engine | `ColumnarEngine` axis                                       |
+|  [05]   | lakehouse interchange     | format row                                                  |
+|  [06]   | vector search             | `VectorBackend` axis                                        |
+|  [07]   | embedded/KV floor         | `EngineOps`-tier row                                        |
+|  [08]   | embedded relational       | `StoreProfile.Ef` on ONE DbContext                          |
+|  [09]   | wide-column content-index | index-residency row                                         |
+|  [10]   | cache backplane           | `CacheLane.Store`-gated row                                 |
+|  [11]   | spatial store plane       | profile policy rows (`geographyAsDefault`, SRID, precision) |
+
+Per axis, the owning page(s), the provider seed rows (deployment/policy DATA), and the ceiling/charter proof each kept row proves:
+
+- [01]-[RELATIONAL_SOR_SPINE]: `Store/provisioning` + `Element/graph`; postgres-18 (SINGULAR); the one event store · materializer · identity · changefeed, unchallengeable.
+- [02]-[OBJECT_STORE]: `Store/blobstore`; s3 · azure-blob · gcs · minio · presigned-grant (`GrantMinter`); the presigned row reaches domain-cloud planes no credentialed row can.
+- [03]-[EGRESS_SINK]: `Version/egress`; webhook · nats · kafka · rabbitmq · pulsar · wire-native · redis-stream; consumer-group ack + `Acknowledged` trim, the zero-broker-install stream row.
+- [04]-[read-lane/analytic engine]: `Query/columnar`; duckdb-in-process · pg_duckdb-in-PG · clickhouse-scaleout; distributed merge-tree MPP at cluster scale, never a second SoR.
+- [05]-[LAKEHOUSE_INTERCHANGE]: `Query/columnar`; ducklake (extension, forward) · delta; the Delta transaction-log wire for external-warehouse interop, a format not an engine.
+- [06]-[VECTOR_SEARCH]: `Query/retrieval`; pgvector-in-PG · pgvectorscale-diskann · pq-adc-in-process · qdrant-scaleout; billion-scale sharded ANN over the in-PG ceiling, `CqlVector` embedding-next-to-row only.
+- [07]-[embedded/KV floor]: `Store/provisioning`; sqlite (raw-ADO `EngineOps`) · rocksdb-lsm · lmdb; write-optimized LSM + read-optimized memory-mapped MVCC over the single-writer WAL floor.
+- [08]-[EMBEDDED_RELATIONAL]: `Element/identity` + `Store/provisioning`; npgsql-ef · sqlite-ef; one generated mapping, two providers; a hand ADO mapping beside the rail is deleted (ARCH).
+- [09]-[wide-column content-index]: `Query/cache`; marten-pg (default) · scylla-widecolumn; LWT `AppliedInfo` claim-gate + shard-routed point reads at federation scale.
+- [10]-[CACHE_BACKPLANE]: `Query/cache`; none (single-node default) · redis-pubsub; cross-process L1 invalidation the `IDistributedCache` contract cannot express.
+- [11]-[SPATIAL_STORE_PLANE]: `Element/identity` · `Store/provisioning` · `Element/codec` · `Ingest/geospatial`; postgis-column (EF-NTS) · ado-codec (`SpatialWire`) · geojson-stj · geopackage · wkb/wkt · h3-cell (pocketken); the provisioned postgis/pgrouting/h3-pg tier gains its wire, column, codec, and file-ingress counterparts, closed end-to-end.

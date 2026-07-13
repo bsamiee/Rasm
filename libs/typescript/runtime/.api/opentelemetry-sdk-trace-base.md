@@ -27,7 +27,7 @@
 |  [05]   | `ReadableSpan` / `Span`        | type          | the recorded-span read shape; `Span = APISpan & ReadableSpan`               |
 |  [06]   | `TimedEvent`                   | type          | a span event with `HrTime` — the `events[]` element                         |
 
-```ts contract
+```ts signature
 // The construction bag. Under @effect/opentelemetry tracerConfig omits `resource` — the facade's own resource slot owns identity.
 interface TracerConfig {
   sampler?: Sampler                         // default AlwaysOnSampler; wrap in ParentBasedSampler for parent respect
@@ -59,18 +59,19 @@ interface ReadableSpan {
 
 The pipeline is TWO parameterized interfaces, not a fixed set of pairs. `SpanProcessor` owns the start/end/flush lifecycle; `SpanExporter` owns the format/transport. The built-in classes are ROWS on those interfaces — `Simple` (per-span, synchronous, diagnostics-only), `Batch` (queued, the production row, parameterized on `BufferConfig`), `Noop` (drop) — and a custom transport is a new `SpanExporter`, a custom lifecycle a new `SpanProcessor`, never a fork. `BatchSpanProcessor` is the `./platform` specialization of the internal `BatchSpanProcessorBase<T extends BufferConfig>` — node binds `T = BufferConfig`, browser `T = BatchSpanProcessorBrowserConfig`.
 
-| [INDEX] | [SYMBOL]                                           | [KIND]               | [CAPABILITY_BOUNDARY]                                             |
-| :-----: | :------------------------------------------------- | :------------------- | :---------------------------------------------------------------- |
-|  [01]   | `SpanProcessor`                                    | interface            | `onStart`/`onEnding?`/`onEnd`/`forceFlush`/`shutdown` lifecycle   |
-|  [02]   | `SimpleSpanProcessor`                              | class                | one export per ended span; sync; diagnostics/test only            |
-|  [03]   | `BatchSpanProcessor`                               | class (`./platform`) | queued batch export; the production row; `BufferConfig`-tuned     |
-|  [04]   | `NoopSpanProcessor`                                | class                | drop-all — the disabled-signal row                                |
-|  [05]   | `BufferConfig` / `BatchSpanProcessorBrowserConfig` | interface            | batch tuning; browser adds `disableAutoFlushOnDocumentHide`       |
-|  [06]   | `SpanExporter`                                     | interface            | `export(spans, cb)`/`shutdown`/`forceFlush?` — format + transport |
-|  [07]   | `ConsoleSpanExporter`                              | class                | stdout diagnostics                                                |
-|  [08]   | `InMemorySpanExporter`                             | class                | `getFinishedSpans()`/`reset()` — the kit-driven spec-assert lane  |
+| [INDEX] | [SYMBOL]                          | [KIND]               | [CAPABILITY_BOUNDARY]                                             |
+| :-----: | :-------------------------------- | :------------------- | :---------------------------------------------------------------- |
+|  [01]   | `SpanProcessor`                   | interface            | `onStart`/`onEnding?`/`onEnd`/`forceFlush`/`shutdown` lifecycle   |
+|  [02]   | `SimpleSpanProcessor`             | class                | one export per ended span; sync; diagnostics/test only            |
+|  [03]   | `BatchSpanProcessor`              | class (`./platform`) | queued batch export; the production row; `BufferConfig`-tuned     |
+|  [04]   | `NoopSpanProcessor`               | class                | drop-all — the disabled-signal row                                |
+|  [05]   | `BufferConfig`                    | interface            | node batch tuning: queue/batch size, delay                        |
+|  [06]   | `BatchSpanProcessorBrowserConfig` | interface            | browser batch tuning; adds `disableAutoFlushOnDocumentHide`       |
+|  [07]   | `SpanExporter`                    | interface            | `export(spans, cb)`/`shutdown`/`forceFlush?` — format + transport |
+|  [08]   | `ConsoleSpanExporter`             | class                | stdout diagnostics                                                |
+|  [09]   | `InMemorySpanExporter`            | class                | `getFinishedSpans()`/`reset()` — the kit-driven spec-assert lane  |
 
-```ts contract
+```ts signature
 interface SpanProcessor {
   onStart(span: Span, parentContext: Context): void
   onEnding?(span: Span): void                                    // @experimental — mutate before read-only freeze
@@ -106,7 +107,7 @@ Sampling is ONE interface (`Sampler.shouldSample` → `SamplingResult`) with fou
 |  [05]   | `ParentBasedSampler`                   | class (combinator) | delegates to `{ root, remote/localParent{Sampled,NotSampled} }` |
 |  [06]   | `IdGenerator` / `RandomIdGenerator`    | interface/class    | 32-hex trace id + 16-hex span id; platform-random               |
 
-```ts contract
+```ts signature
 interface Sampler {
   shouldSample(context: Context, traceId: string, spanName: string, spanKind: SpanKind, attributes: Attributes, links: Link[]): SamplingResult
   toString(): string

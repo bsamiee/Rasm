@@ -842,22 +842,35 @@ public sealed record ErrorBound(double Coefficient, double RefineCoefficient) {
 
 ## [04]-[DENSITY_BAR]
 
-One owner per axis; capability is a member, case, or row, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — pure verdicts because every predicate result is total and exact; no `GeometryFault` routes here (a sign is always defined, even for coincident or degenerate-construction input where the verdict is `Zero`).
+One owner per axis; capability is a member, case, or row, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — pure verdicts because every predicate result is total and exact; no `GeometryFault` routes here (a sign is always defined, even for coincident or degenerate-construction input where the verdict is `Zero`). Rows [06]-[12] expand the constructed-point carriers and precision-ladder internals that rows [03]-[05] name; the per-axis kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]            | [OWNER]           | [KIND]                                                                                                                                                                                              | [RAIL]                                             | [CASES] |
-| :-----: | :------------------------ | :---------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------- | :-----: |
-|  [01]   | Sign verdict              | `Sign`            | `[SmartEnum<int>]` ternary + `Of`/`Flip`/`Times` verdict algebra                                                                                                                                    | `Sign.Of → Sign` (pure, total)                     |    3    |
-|  [02]   | Coordinate vocabulary     | `Axis`            | `[SmartEnum<int>]` — Key = coordinate ordinal, `U`/`V` = projected-plane ordinals (the one generator over the plane family)                                                                         | data columns read by every axis-projected member   |    3    |
-|  [03]   | Constructed-point carrier | `Implicit`        | `[Union<Point3d,Ssi,Lpi,Tpi>]` ad-hoc — defining points only + `Homogeneous<T>` derivation + the ONE `Round()` emission projection                                                                  | `Homogeneous<T>` (pure, exact); `Round` (emission) |    4    |
-|  [04]   | Exact predicates          | `Predicate`       | ONE static family — 4 direct ladders (Interval-skipping) + axis-projected implicit `Orient2D` + `Compare` order key + implicit in-circum pair (spanning the whole explicit/implicit × axis lattice) | `Predicate.<member> → Sign` (pure, total, exact)   |    8    |
-|  [05]   | Precision ladder          | `PrecisionTier`   | `[SmartEnum<int>]` ordered tiers (`Double`/`DoubleDouble`/`Interval`/`Expansion`/`Rational`)                                                                                                        | escalation order (pure)                            |    5    |
-|  [3a]   | Implicit constructions    | `Ssi`/`Lpi`/`Tpi` | `readonly record struct` defining-point carriers (4/5/9 points) with one generic `Homogeneous<T>` polynomial each                                                                                   | `Homogeneous<T>` (pure, exact, no rounding)        |    3    |
-|  [3b]   | Exact-carrier algebra     | `IExact<TSelf>`   | static-abstract interface — one polynomial serves both carriers                                                                                                                                     | constraint (compile-time)                          |    8    |
-|  [3c]   | Expansion arithmetic      | `Expansion`       | `readonly struct` + `TwoSum`/`TwoProduct`(2 rows)/`Sum`/`Difference`/`Scale`/`Multiply`/`SignOf`/`ToFraction` fold                                                                                  | `Expansion.SignOf → Sign` (pure, exact)            |    7    |
-|  [3d]   | Interval bracket          | `Interval`        | `readonly struct` — directed-rounding 53-bit `EFloat` endpoints, sound `Verdict`                                                                                                                    | `Interval.Verdict → Sign?` (pure, sound)           |    4    |
-|  [3e]   | Tier filter/refine        | `ErrorBound`      | static-permanence `record` rows + `Of`/`Refine → Sign?` filter and 106-bit verdicts (one protocol)                                                                                                  | `ErrorBound.Of`/`Refine` (pure)                    |    4    |
-|  [3f]   | Rational oracle           | `RationalOracle`  | static exact adjudicators — `Fraction` primary (`Orient2D`/`Orient3D`/`InCircle`/`InSphere`/`InCircum`) + `EFloat` independent (`BinaryOf → Sign?`, self-certifying)                                | `RationalOracle.InCircum → Sign` (pure, exact)     |    6    |
-|  [3g]   | Interior-double policy    | `NumericsPolicy`  | static owner — strict-IEEE/RID invariant, interior-double scope, error-bound coefficients, `HardwareFma` gate + `Splitter`                                                                          | constants + one capability static                  |    —    |
+| [INDEX] | [AXIS_CONCERN]            | [OWNER]           | [RAIL]                                             | [CASES] |
+| :-----: | :------------------------ | :---------------- | :------------------------------------------------- | :-----: |
+|  [01]   | Sign verdict              | `Sign`            | `Sign.Of → Sign` (pure, total)                     |    3    |
+|  [02]   | Coordinate vocabulary     | `Axis`            | data columns read by every axis-projected member   |    3    |
+|  [03]   | Constructed-point carrier | `Implicit`        | `Homogeneous<T>` (pure, exact); `Round` (emission) |    4    |
+|  [04]   | Exact predicates          | `Predicate`       | `Predicate.<member> → Sign` (pure, total, exact)   |    8    |
+|  [05]   | Precision ladder          | `PrecisionTier`   | escalation order (pure)                            |    5    |
+|  [06]   | Implicit constructions    | `Ssi`/`Lpi`/`Tpi` | `Homogeneous<T>` (pure, exact, no rounding)        |    3    |
+|  [07]   | Exact-carrier algebra     | `IExact<TSelf>`   | constraint (compile-time)                          |    8    |
+|  [08]   | Expansion arithmetic      | `Expansion`       | `Expansion.SignOf → Sign` (pure, exact)            |    7    |
+|  [09]   | Interval bracket          | `Interval`        | `Interval.Verdict → Sign?` (pure, sound)           |    4    |
+|  [10]   | Tier filter/refine        | `ErrorBound`      | `ErrorBound.Of`/`Refine` (pure)                    |    4    |
+|  [11]   | Rational oracle           | `RationalOracle`  | `RationalOracle.InCircum → Sign` (pure, exact)     |    6    |
+|  [12]   | Interior-double policy    | `NumericsPolicy`  | constants + one capability static                  |    —    |
+
+- [01]-[SIGN_VERDICT]: `[SmartEnum<int>]` ternary + `Of`/`Flip`/`Times` verdict algebra.
+- [02]-[COORDINATE_VOCABULARY]: `[SmartEnum<int>]` — Key = coordinate ordinal, `U`/`V` = projected-plane ordinals (the one generator over the plane family).
+- [03]-[CONSTRUCTED_POINT_CARRIER]: `[Union<Point3d,Ssi,Lpi,Tpi>]` ad-hoc — defining points only + `Homogeneous<T>` derivation + the ONE `Round()` emission projection.
+- [04]-[EXACT_PREDICATES]: ONE static family — 4 direct ladders (Interval-skipping) + axis-projected implicit `Orient2D` + `Compare` order key + implicit in-circum pair (spanning the whole explicit/implicit × axis lattice).
+- [05]-[PRECISION_LADDER]: `[SmartEnum<int>]` ordered tiers (`Double`/`DoubleDouble`/`Interval`/`Expansion`/`Rational`).
+- [06]-[IMPLICIT_CONSTRUCTIONS]: `readonly record struct` defining-point carriers (4/5/9 points) with one generic `Homogeneous<T>` polynomial each.
+- [07]-[EXACT_CARRIER_ALGEBRA]: static-abstract interface — one polynomial serves both carriers.
+- [08]-[EXPANSION_ARITHMETIC]: `readonly struct` + `TwoSum`/`TwoProduct`(2 rows)/`Sum`/`Difference`/`Scale`/`Multiply`/`SignOf`/`ToFraction` fold.
+- [09]-[INTERVAL_BRACKET]: `readonly struct` — directed-rounding 53-bit `EFloat` endpoints, sound `Verdict`.
+- [10]-[TIER_FILTER_REFINE]: static-permanence `record` rows + `Of`/`Refine → Sign?` filter and 106-bit verdicts (one protocol).
+- [11]-[RATIONAL_ORACLE]: static exact adjudicators — `Fraction` primary (`Orient2D`/`Orient3D`/`InCircle`/`InSphere`/`InCircum`) + `EFloat` independent (`BinaryOf → Sign?`, self-certifying).
+- [12]-[INTERIOR_DOUBLE_POLICY]: static owner — strict-IEEE/RID invariant, interior-double scope, error-bound coefficients, `HardwareFma` gate + `Splitter`.
 
 ## [05]-[RESEARCH]
 

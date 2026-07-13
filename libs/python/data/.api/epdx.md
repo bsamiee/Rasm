@@ -22,21 +22,41 @@
 [PUBLIC_TYPE_SCOPE]: EPD model (Pydantic v2, `epdx.pydantic` only — NOT re-exported on top-level `epdx`)
 - rail: epd-lca
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]        | [ROLE]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| :-----: | :--------------- | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `EPD`            | `pydantic.BaseModel` | the common EPD record — required identity (`id`, `name`, `location`, `version`, `format_version`), classification (`standard: Standard`, `subtype: SubType`, `declared_unit: Unit`), validity (`published_date`, `valid_until` as `datetime`); optional `reference_service_life: Optional[conint(ge=0)]`, `conversions: Optional[List[Conversion]]`, `source: Optional[Source]`, `comment: Optional[str]`, `meta_data: Optional[Dict[str, Any]]`, plus every EN 15804 indicator as `Optional[ImpactCategory]` |
-|  [02]   | `ImpactCategory` | `pydantic.BaseModel` | one indicator broken out by life-cycle-stage module: `a1a3`, `a4`, `a5`, `b1`–`b7`, `c1`–`c4`, `d` (all `Optional[float]`) — the per-stage value matrix the material-impact owner sums                                                                                                                                                                                                                                                                                                                        |
-|  [03]   | `Conversion`     | `pydantic.BaseModel` | a declared-unit conversion: `to: Unit`, `value: float`                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-|  [04]   | `Source`         | `pydantic.BaseModel` | the declaration source: `name: str`, `url: Optional[str]`                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]        | [ROLE]                                                                      |
+| :-----: | :--------------- | :------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `EPD`            | `pydantic.BaseModel` | identity, classification, validity, optionals, and every EN 15804 indicator |
+|  [02]   | `ImpactCategory` | `pydantic.BaseModel` | one indicator's per-stage value matrix the material-impact owner sums       |
+|  [03]   | `Conversion`     | `pydantic.BaseModel` | a declared-unit conversion                                                  |
+|  [04]   | `Source`         | `pydantic.BaseModel` | the declaration source                                                      |
+
+```python signature
+class EPD(BaseModel):
+    id: str; name: str; location: str; version: str; format_version: str    # required identity
+    standard: Standard; subtype: SubType; declared_unit: Unit               # classification
+    published_date: datetime; valid_until: datetime                          # validity window
+    reference_service_life: Optional[conint(ge=0)]
+    conversions: Optional[List[Conversion]]; source: Optional[Source]
+    comment: Optional[str]; meta_data: Optional[Dict[str, Any]]
+    gwp: Optional[ImpactCategory]; odp: ...; ...                             # EN 15804 indicators, full roster below
+
+class ImpactCategory(BaseModel):                               # per life-cycle-stage module, all Optional[float]
+    a1a3; a4; a5; b1; b2; b3; b4; b5; b6; b7; c1; c2; c3; c4; d
+
+class Conversion(BaseModel):
+    to: Unit; value: float
+
+class Source(BaseModel):
+    name: str; url: Optional[str]
+```
 
 [PUBLIC_TYPE_SCOPE]: EPD enums
 - rail: epd-lca
 
-| [INDEX] | [SYMBOL]   | [TYPE_FAMILY] | [MEMBERS]                                                                                                        |
-| :-----: | :--------- | :------------ | :--------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Standard` | `Enum`        | `EN15804A1`, `EN15804A2`, `UNKNOWN` — the EN 15804 standard generation (drives which indicator set is populated) |
-|  [02]   | `SubType`  | `Enum`        | `Generic`, `Specific`, `Industry`, `Representative` — declaration representativeness                             |
-|  [03]   | `Unit`     | `Enum`        | `M`, `M2`, `M3`, `KG`, `TONES`, `PCS`, `L`, `M2R1`, `UNKNOWN` — declared/conversion functional unit              |
+| [INDEX] | [SYMBOL]   | [TYPE_FAMILY] | [MEMBERS]                                                                       |
+| :-----: | :--------- | :------------ | :------------------------------------------------------------------------------ |
+|  [01]   | `Standard` | `Enum`        | `EN15804A1`, `EN15804A2`, `UNKNOWN` — standard generation                       |
+|  [02]   | `SubType`  | `Enum`        | `Generic`, `Specific`, `Industry`, `Representative` — representativeness        |
+|  [03]   | `Unit`     | `Enum`        | `M`, `M2`, `M3`, `KG`, `TONES`, `PCS`, `L`, `M2R1`, `UNKNOWN` — functional unit |
 
 EN 15804 indicator fields on `EPD` (each `Optional[ImpactCategory]`): `gwp`, `odp`, `ap`, `ep`, `pocp`, `adpe`, `adpf` (impact); `penre`, `penrm`, `penrt`, `pere`, `perm`, `pert` (primary energy); `sm`, `rsf`, `nrsf`, `fw` (resource); `hwd`, `nhwd`, `rwd`, `cru`, `mrf`, `mer`, `eee`, `eet` (waste/output flows).
 
@@ -45,18 +65,20 @@ EN 15804 indicator fields on `EPD` (each `Optional[ImpactCategory]`): `gwp`, `od
 [ENTRYPOINT_SCOPE]: conversion
 - rail: epd-lca
 
-| [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY] | [RAIL]                                                                                                                                                                                   |
-| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `epdx.convert_ilcd(json: str) -> str`                                                      | Rust core      | the single PyO3 entry (text-signature `(json)`); ILCD+EPD JSON string in, EPDx JSON string out — no `as_type`/`dict`/`EPD` selection in this line, the consumer parses the returned JSON |
-|  [02]   | `json.loads(epdx.convert_ilcd(doc))`                                                       | decode         | the converted EPDx JSON decoded to a `dict` for `msgspec`/wire handoff or model construction                                                                                             |
-|  [03]   | `epdx.pydantic.EPD(**json.loads(...))` / `EPD.model_validate(...)` / `EPD.model_dump(...)` | Pydantic       | construct/validate/serialize the typed model from the converted JSON (standard Pydantic v2 surface)                                                                                      |
+Row [03] is the standard Pydantic v2 surface: `EPD(**json.loads(...))`, `EPD.model_validate(...)`, `EPD.model_dump(...)`.
+
+| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [RAIL]                                                                         |
+| :-----: | :------------------------------------- | :------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `epdx.convert_ilcd(json: str) -> str`  | Rust core      | single PyO3 entry: ILCD+EPD JSON in, EPDx JSON out; consumer parses the result |
+|  [02]   | `json.loads(epdx.convert_ilcd(doc))`   | decode         | converted EPDx JSON to a `dict` for `msgspec`/wire handoff                     |
+|  [03]   | `epdx.pydantic.EPD(**json.loads(...))` | Pydantic       | construct/validate/serialize the typed model from the converted JSON           |
 
 [ENTRYPOINT_SCOPE]: errors
 - rail: epd-lca
 
-| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [ROLE]                                                                                                                                                                                                                                                 |
-| :-----: | :---------------------------- | :------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `pyo3_runtime.PanicException` | Rust panic    | `convert_ilcd` propagates a PyO3 panic (the Rust core `unwrap`s its parse `Result`) on malformed/unsupported ILCD+EPD input — there is no typed `epdx.ParsingException` in this line; guard the call and treat the panic as the parse-failure boundary |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [ROLE]                                                                             |
+| :-----: | :---------------------------- | :------------ | :--------------------------------------------------------------------------------- |
+|  [01]   | `pyo3_runtime.PanicException` | Rust panic    | PyO3 panic on bad input; no typed `epdx.ParsingException` — parse-failure boundary |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

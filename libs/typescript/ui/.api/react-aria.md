@@ -16,28 +16,37 @@
 
 [PUBLIC_TYPE_SCOPE]: the per-widget aria contract — the barrel's bulk type surface
 - rail: view/primitive
-- The barrel's real type surface is the per-widget contract, one set per widget across every family: `Aria<Widget>Props`/`Aria<Widget>Options` is the input, `<Widget>Aria` is the record of spreadable DOM-prop bundles the hook returns. These paired contracts are what a `view` row types against.
+- The barrel's real type surface is the per-widget contract, one set per widget across every family: `Aria<Widget>Props`/`Aria<Widget>Options` is the input, `<Widget>Aria` is the record of spreadable DOM-prop bundles the hook returns (`AriaButtonProps`→`ButtonAria`, `AriaTextFieldProps`→`TextFieldAria`, `AriaSelectOptions`→`SelectAria`, `AriaComboBoxOptions`→`ComboBoxAria`). These paired contracts are what a `view` row types against.
 
-| [INDEX] | [SYMBOL]                                                                                                                                                                                                    | [TYPE_FAMILY]      | [CONSUMER_BOUNDARY]                                                                                             |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------- | :-------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Aria<Widget>Props` / `Aria<Widget>Options` / `<Widget>Aria` (`AriaButtonProps`→`ButtonAria`, `AriaTextFieldProps`→`TextFieldAria`, `AriaSelectOptions`→`SelectAria`, `AriaComboBoxOptions`→`ComboBoxAria`) | widget contract    | `view` rows — one input→output pair per widget; `<Widget>Aria` fields spread onto DOM                           |
-|  [02]   | `FocusManager` / `FocusManagerOptions` / `FocusScopeProps` / `FocusRingAria`                                                                                                                                | focus control      | `FocusScope` imperative traversal; `useFocusRing`'s `isFocusVisible` result                                     |
-|  [03]   | `PositionAria` / `Placement` / `PlacementAxis` / `Axis` / `SizeAxis`                                                                                                                                        | overlay geometry   | `useOverlayPosition` result — resolved side/alignment/max-size; the seam `@floating-ui` middleware can supplant |
-|  [04]   | `PressEvent`/`PressResult` / `HoverEvent`/`HoverResult` / `MoveEvent`/`MoveResult` / `LongPressEvent` / `KeyboardResult`                                                                                    | interaction result | `act/gesture` — the `usePress`/`useHover`/`useMove`/`useKeyboard` return contracts, cross-input-normalized      |
-|  [05]   | `DragItem` / `DropTarget` / `DropOperation` / `DragTypes` / `DragResult` / `DropResult`                                                                                                                     | dnd value          | `view/compose` drag-drop rows; `DropOperation` is the `move`/`copy`/`link` discriminant                         |
+| [INDEX] | [SYMBOL]                                                             | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                       |
+| :-----: | :------------------------------------------------------------------- | :--------------- | :---------------------------------------- |
+|  [01]   | `Aria<Widget>Props` / `Aria<Widget>Options` / `<Widget>Aria`         | widget contract  | one input→output pair per widget          |
+|  [02]   | `FocusManager` / `FocusManagerOptions`                               | focus control    | `FocusScope` imperative traversal         |
+|  [03]   | `FocusScopeProps` / `FocusRingAria`                                  | focus control    | `useFocusRing` `isFocusVisible`           |
+|  [04]   | `PositionAria` / `Placement` / `PlacementAxis` / `Axis` / `SizeAxis` | overlay geometry | `useOverlayPosition` resolved geometry    |
+|  [05]   | `PressEvent` / `PressResult`                                         | interaction      | `usePress` return, cross-input-normalized |
+|  [06]   | `HoverEvent` / `HoverResult`                                         | interaction      | `useHover` return                         |
+|  [07]   | `MoveEvent` / `MoveResult`                                           | interaction      | `useMove` return                          |
+|  [08]   | `LongPressEvent` / `KeyboardResult`                                  | interaction      | `useLongPress`/`useKeyboard` return       |
+|  [09]   | `DragItem` / `DropTarget` / `DropOperation`                          | dnd value        | `DropOperation` = `move`/`copy`/`link`    |
+|  [10]   | `DragTypes` / `DragResult` / `DropResult`                            | dnd value        | drag/drop payload + result                |
 
 [PUBLIC_TYPE_SCOPE]: the re-exported shared + i18n vocabulary the hook signatures reference
 - rail: act/gesture + intl/format
-- react-aria surfaces a curated slice directly (`Key`, `RangeValue`, `FocusableProps`, `Locale`, `DateFormatter`, `DateValue`, `Filter`, `LocalizedStringFormatter`); the deeper vocabulary the hook signatures reference is imported from the re-exported type packages `@react-types/shared` and `@internationalized/date`, not the `react-aria` barrel.
+- react-aria surfaces a curated slice directly (`Key`, `RangeValue`, `FocusableProps`, `Locale`, `DateFormatter`, `DateValue`, `Filter`, `LocalizedStringFormatter`); the deeper vocabulary the hook signatures reference is imported from the re-exported type packages `@react-types/shared` and `@internationalized/date`, not the `react-aria` barrel. Rows 02-06 resolve from `@react-types/shared`; row 01 and the i18n values (07-09) are barrel-surfaced; the date values (10) are `@internationalized/date`.
 
-| [INDEX] | [SYMBOL]                                                                                                              | [TYPE_FAMILY]         | [CONSUMER_BOUNDARY]                                                                                                                                                           |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------- | :-------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Key` / `Orientation` / `RangeValue<T>` / `FocusableProps` (barrel)                                                   | shared primitive      | collection key identity, axis, `{start,end}` range, focusable mixin — the barrel-surfaced `@react-types/shared` core                                                          |
-|  [02]   | `DOMAttributes` / `DOMProps` / `AriaLabelingProps` / `FocusableElement` (`@react-types/shared`)                       | prop / element base   | the spread-bundle and labeling shapes every `<Widget>Aria` is built from; imported from `@react-types/shared`                                                                 |
-|  [03]   | `Selection` / `Node<T>` / `Collection<T>` / `LayoutDelegate` (`@react-types/shared`)                                  | collection vocabulary | `view/compose` — `Set`-of-`Key` selection, collection node/tree, virtualized layout geometry                                                                                  |
-|  [04]   | `ValidationResult` / `ValidationState` / `LabelableProps` / `HelpTextProps` / `InputBase` (`@react-types/shared`)     | field vocabulary      | `view/compose` `FormBinding` — the validity + field-shape mixins a `Schema` decode result feeds                                                                               |
-|  [05]   | `Locale` / `DateFormatter` / `DateValue` / `DateRange` / `TimeValue` / `Filter` / `LocalizedStringFormatter` (barrel) | i18n value            | `intl/format` — `useDateFormatter`→`DateFormatter`; `useNumberFormatter`/`useCollator`/`useListFormatter` return native `Intl.NumberFormat`/`Intl.Collator`/`Intl.ListFormat` |
-|  [06]   | `CalendarDate` / `CalendarDateTime` / `ZonedDateTime` / `Time` (`@internationalized/date`)                            | date value            | `view/compose` date widgets — immutable, calendar-system-aware values the `DateValue` contracts resolve to                                                                    |
+| [INDEX] | [SYMBOL]                                                             | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                           |
+| :-----: | :------------------------------------------------------------------- | :---------------- | :-------------------------------------------- |
+|  [01]   | `Key` / `Orientation` / `RangeValue<T>` / `FocusableProps`           | shared primitive  | key/axis/`{start,end}`-range/focusable mixins |
+|  [02]   | `DOMAttributes` / `DOMProps`                                         | prop/element base | the spread-bundle shapes                      |
+|  [03]   | `AriaLabelingProps` / `FocusableElement`                             | prop/element base | labeling + focusable-element base             |
+|  [04]   | `Selection` / `Node<T>` / `Collection<T>` / `LayoutDelegate`         | collection vocab  | `Set`-of-`Key` selection, node/tree, layout   |
+|  [05]   | `ValidationResult` / `ValidationState` / `InputBase`                 | field vocab       | validity state + input base                   |
+|  [06]   | `LabelableProps` / `HelpTextProps`                                   | field vocab       | label + help-text field mixins                |
+|  [07]   | `Locale` / `DateFormatter` / `DateValue` / `DateRange` / `TimeValue` | i18n value        | date/time formatter values                    |
+|  [08]   | `Filter` / `LocalizedStringFormatter`                                | i18n value        | `useFilter`/`useCollator` string helpers      |
+|  [09]   | `Intl.NumberFormat` / `Intl.Collator` / `Intl.ListFormat`            | i18n value        | native returns of the formatter hooks         |
+|  [10]   | `CalendarDate` / `CalendarDateTime` / `ZonedDateTime` / `Time`       | date value        | immutable calendar-aware `DateValue` targets  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -45,24 +54,43 @@
 - rail: view/primitive
 - The single mechanism: pass the widget props and the `react-stately` state, receive DOM-prop bundles. Widget growth is a new `use<Widget>` row over its `use<Widget>State`, never a new abstraction. The families below are the same call shape grouped by concern; each maps to a `ui` plane row.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                       | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                                                                           |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `use<Widget>(props, state, ref?) → { <slot>Props }`                                                                                                                             | the pattern    | `view` — collection/field/overlay hooks all take `(props, react-stately state, ref)` and emit spread bundles                                                  |
-|  [02]   | `useButton` / `useToggleButton` / `useLink` / `useTextField` / `useSearchField` / `useNumberField`                                                                              | field / action | `view/compose` form rows; `useTextField` returns `labelProps`/`inputProps`/`descriptionProps`/`errorMessageProps`                                             |
-|  [03]   | `useCheckbox` / `useCheckboxGroup` / `useRadioGroup` / `useSwitch` / `useSlider` / `useSliderThumb`                                                                             | choice / range | `view/compose` selection + range rows over `useToggleState`/`useRadioGroupState`/`useSliderState`                                                             |
-|  [04]   | `useSelect` / `useComboBox` / `useListBox` / `useOption` / `HiddenSelect`                                                                                                       | picker         | `view/compose` picker rows; `HiddenSelect` is the native-form-participation shadow input                                                                      |
-|  [05]   | `useMenu` / `useMenuTrigger` / `useMenuItem` / `useSubmenuTrigger` / `useToolbar` / `useTabList` / `useTab`                                                                     | nav / command  | `view/compose` menu, toolbar, and tab rows over `useMenuTriggerState`/`useTabListState`                                                                       |
-|  [06]   | `useTable` / `useGridList` / `useTree` / `useListBox` / `useTagGroup` + `use*SelectionCheckbox`                                                                                 | collection     | `view/compose` collection rows over `useTableState`/`useTreeState`/`useListState`; pairs `@tanstack/react-virtual`                                            |
-|  [07]   | `useCalendar` / `useRangeCalendar` / `useDateField` / `useDatePicker` / `useDateRangePicker` / `useTimeField` / `useDateSegment`                                                | date/time      | `view/compose` date rows over `@internationalized/date` state; segment-level editing + range selection                                                        |
-|  [08]   | `useColorArea` / `useColorField` / `useColorSlider` / `useColorWheel` / `useColorSwatch` / `useColorChannelField`                                                               | color          | `view/compose` color-picker rows; composes `colorjs.io` for gamut/space conversion at the boundary                                                            |
-|  [09]   | `useOverlay` / `useOverlayTrigger` / `useOverlayPosition` / `usePopover` / `useModalOverlay` / `useModal` / `usePreventScroll` / `DismissButton` / `Overlay` / `PortalProvider` | overlay        | `view/primitive` overlay rows; `Overlay`/`PortalProvider` root through `react-dom` `createPortal`; positioning defers to `@floating-ui/react`                 |
-|  [10]   | `useTooltip` / `useTooltipTrigger` / `useToast` / `useToastRegion` / `useDialog` / `useDisclosure`                                                                              | disclosure     | `view/primitive` tooltip/toast/dialog rows; `useToast` announcements route through `@react-aria/live-announcer`                                               |
-|  [11]   | `usePress` / `useHover` / `useMove` / `useLongPress` / `useKeyboard` / `useInteractOutside` / `useScrollWheel`                                                                  | interaction    | `act/gesture` — the normalized event primitives; `@use-gesture/react` sits alongside for inertial multi-pointer                                               |
-|  [12]   | `useFocus` / `useFocusVisible` / `useFocusWithin` / `useFocusRing` / `useFocusManager` / `FocusScope` / `FocusRing` / `Focusable` / `Pressable`                                 | focus          | `act/gesture` + `view/primitive` — `FocusScope` traps/restores focus for overlays; `useFocusRing` is keyboard-only focus styling                              |
-|  [13]   | `useDrag` / `useDrop` / `useDraggableCollection` / `useDroppableCollection` / `useClipboard` / `ListDropTargetDelegate` / `DragPreview`                                         | dnd            | `view/compose` drag-drop rows; `useClipboard` bridges copy/paste; `DragPreview` renders the drag image                                                        |
-|  [14]   | `I18nProvider` / `useLocale` / `useDateFormatter` / `useNumberFormatter` / `useListFormatter` / `useCollator` / `useFilter` / `useLocalizedStringFormatter`                     | i18n           | `intl/format` — `I18nProvider` sets locale context; formatter hooks return cached `Intl.*` over `useLocale`                                                   |
-|  [15]   | `mergeProps` / `chain` / `useObjectRef` / `mergeRefs` / `useId` / `VisuallyHidden` / `useVisuallyHidden`                                                                        | composition    | the merge mechanism — `mergeProps` folds N hook bundles (handlers chained, classes/ids merged) onto one element; `VisuallyHidden` is a1 catalogy-only content |
-|  [16]   | `RouterProvider` / `SSRProvider` / `useIsSSR`                                                                                                                                   | context        | `RouterProvider` routes `useLink`/`href` through the app router; `useIsSSR` gates hydration-unsafe reads                                                      |
+| [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                          |
+| :-----: | :--------------------------------------------------------------------- | :------------- | :------------------------------------------- |
+|  [01]   | `use<Widget>(props, state, ref?) → { <slot>Props }`                    | the pattern    | every hook `(props, state, ref)` → bundles   |
+|  [02]   | `useButton` / `useToggleButton` / `useLink`                            | field/action   | button/link action rows                      |
+|  [03]   | `useTextField` / `useSearchField` / `useNumberField`                   | field/action   | text/search/number field rows                |
+|  [04]   | `useCheckbox` / `useCheckboxGroup` / `useRadioGroup`                   | choice         | checkbox/radio over toggle/radio-group state |
+|  [05]   | `useSwitch` / `useSlider` / `useSliderThumb`                           | range          | switch + slider thumb over slider state      |
+|  [06]   | `useSelect` / `useComboBox` / `useListBox` / `useOption`               | picker         | select/combobox/listbox rows                 |
+|  [07]   | `HiddenSelect`                                                         | picker         | native-form-participation shadow input       |
+|  [08]   | `useMenu` / `useMenuTrigger` / `useMenuItem` / `useSubmenuTrigger`     | menu           | menu + submenu over menu-trigger state       |
+|  [09]   | `useToolbar` / `useTabList` / `useTab`                                 | command        | toolbar + tabs over tab-list state           |
+|  [10]   | `useTable` / `useGridList` / `useTree`                                 | collection     | table/grid/tree over collection state        |
+|  [11]   | `useListBox` / `useTagGroup` / `use*SelectionCheckbox`                 | collection     | listbox/tag-group + selection checkbox       |
+|  [12]   | `useCalendar` / `useRangeCalendar` / `useDateField` / `useDateSegment` | date/time      | calendar + date-field + segment editing      |
+|  [13]   | `useDatePicker` / `useDateRangePicker` / `useTimeField`                | date/time      | picker/range over `@internationalized/date`  |
+|  [14]   | `useColorArea` / `useColorField` / `useColorSlider`                    | color          | color area/field/slider rows                 |
+|  [15]   | `useColorWheel` / `useColorSwatch` / `useColorChannelField`            | color          | wheel/swatch/channel; composes `colorjs.io`  |
+|  [16]   | `useOverlay` / `useOverlayTrigger` / `useOverlayPosition`              | overlay        | overlay trigger + positioning                |
+|  [17]   | `usePopover` / `useModalOverlay` / `useModal` / `usePreventScroll`     | overlay        | popover/modal + scroll lock                  |
+|  [18]   | `DismissButton` / `Overlay` / `PortalProvider`                         | overlay        | root through `react-dom` `createPortal`      |
+|  [19]   | `useTooltip` / `useTooltipTrigger` / `useDialog` / `useDisclosure`     | disclosure     | tooltip/dialog/disclosure rows               |
+|  [20]   | `useToast` / `useToastRegion`                                          | disclosure     | toast; via `@react-aria/live-announcer`      |
+|  [21]   | `usePress` / `useHover` / `useMove` / `useLongPress`                   | interaction    | normalized pointer/press events              |
+|  [22]   | `useKeyboard` / `useInteractOutside` / `useScrollWheel`                | interaction    | keyboard + outside/scroll events             |
+|  [23]   | `useFocus` / `useFocusVisible` / `useFocusWithin`                      | focus          | focus event hooks                            |
+|  [24]   | `useFocusRing` / `useFocusManager` / `FocusScope`                      | focus          | `FocusScope` traps/restores focus            |
+|  [25]   | `FocusRing` / `Focusable` / `Pressable`                                | focus          | focus-styling + focusable/pressable wrappers |
+|  [26]   | `useDrag` / `useDrop` / `useClipboard`                                 | dnd            | drag/drop + clipboard copy/paste             |
+|  [27]   | `useDraggableCollection` / `useDroppableCollection`                    | dnd            | collection drag-drop reorder                 |
+|  [28]   | `ListDropTargetDelegate` / `DragPreview`                               | dnd            | drop-target delegate + drag image            |
+|  [29]   | `I18nProvider` / `useLocale`                                           | i18n           | sets + reads locale context                  |
+|  [30]   | `useDateFormatter` / `useNumberFormatter` / `useListFormatter`         | i18n           | cached `Intl.*` formatters over `useLocale`  |
+|  [31]   | `useCollator` / `useFilter` / `useLocalizedStringFormatter`            | i18n           | locale-aware collate/filter + string format  |
+|  [32]   | `mergeProps` / `chain` / `useId`                                       | composition    | `mergeProps` folds N bundles per element     |
+|  [33]   | `useObjectRef` / `mergeRefs`                                           | composition    | ref reconciliation                           |
+|  [34]   | `VisuallyHidden` / `useVisuallyHidden`                                 | composition    | visually-hidden content                      |
+|  [35]   | `RouterProvider` / `SSRProvider` / `useIsSSR`                          | context        | router `href` + SSR hydration gates          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

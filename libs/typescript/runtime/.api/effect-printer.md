@@ -21,17 +21,23 @@
 - rail: render
 - `Doc<A>` is a closed union of thirteen node interfaces; `A` is phantom until a renderer resolves it. Every combinator preserves `A`, so annotation is a distinct concern from layout. Refine a node with the `isX` guards or `Doc.match` rather than inspecting `_tag`.
 
-| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]      | [RAIL]                                                                                                |
-| :-----: | :---------------------------------------- | :----------------- | :---------------------------------------------------------------------------------------------------- |
-|  [01]   | `Doc.Doc<A>`                              | tagged union       | `Fail\|Empty\|Char\|Text\|Line\|FlatAlt\|Cat\|Nest\|Union\|Column\|WithPageWidth\|Nesting\|Annotated` |
-|  [02]   | `Doc.DocTypeId`                           | unique symbol type | nominal brand carried by every node                                                                   |
-|  [03]   | `Doc.DocTypeLambda`                       | `TypeLambda`       | HKT witness for the `Covariant`/`Invariant` instances                                                 |
-|  [04]   | `Doc.FlatAlt` / `Doc.Union`               | node interface     | layout-alternative nodes the algorithms select between                                                |
-|  [05]   | `Doc.Column` / `Doc.Nesting`              | node interface     | position-reactive nodes (`f: (int) => Doc<A>`)                                                        |
-|  [06]   | `Doc.WithPageWidth`                       | node interface     | width-reactive node (`f: (PageWidth) => Doc<A>`)                                                      |
-|  [07]   | `Doc.Annotated`                           | node interface     | `{ annotation: A; doc: Doc<A> }` markup carrier                                                       |
-|  [08]   | `Doc.RenderConfig`                        | config union       | `render` discriminant: `{ style: "compact" }` \| `{ style: "pretty"\|"smart", options? }`             |
-|  [09]   | `isDoc`/`isCat`/`isUnion`/`isAnnotated`/… | refinement         | fourteen `(u) => u is <Node>` guards over the union                                                   |
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]      | [RAIL]                                                         |
+| :-----: | :---------------------------------------- | :----------------- | :------------------------------------------------------------- |
+|  [01]   | `Doc.Doc<A>`                              | tagged union       | the closed node union (13 variants fenced below)               |
+|  [02]   | `Doc.DocTypeId`                           | unique symbol type | nominal brand carried by every node                            |
+|  [03]   | `Doc.DocTypeLambda`                       | `TypeLambda`       | HKT witness for the `Covariant`/`Invariant` instances          |
+|  [04]   | `Doc.FlatAlt` / `Doc.Union`               | node interface     | layout-alternative nodes the algorithms select between         |
+|  [05]   | `Doc.Column` / `Doc.Nesting`              | node interface     | position-reactive nodes (`f: (int) => Doc<A>`)                 |
+|  [06]   | `Doc.WithPageWidth`                       | node interface     | width-reactive node (`f: (PageWidth) => Doc<A>`)               |
+|  [07]   | `Doc.Annotated`                           | node interface     | `{ annotation: A; doc: Doc<A> }` markup carrier                |
+|  [08]   | `Doc.RenderConfig`                        | config union       | `render` discriminant: `compact` \| `pretty`/`smart` + options |
+|  [09]   | `isDoc`/`isCat`/`isUnion`/`isAnnotated`/… | refinement         | fourteen `(u) => u is <Node>` guards over the union            |
+
+```ts signature
+type Doc<A> =
+  | Fail | Empty | Char | Text | Line | FlatAlt | Cat | Nest
+  | Union | Column | WithPageWidth | Nesting | Annotated
+```
 
 [PUBLIC_TYPE_SCOPE]: intermediate + analysis forms
 - rail: render
@@ -71,13 +77,13 @@
 - rail: render
 - Leaf constructors and the punctuation vocabulary; `string` splits embedded newlines to `hardLine`, `char`/`text` assume none. `softLine` renders a space when the group fits and a line break otherwise; `line` renders a space when flattened, `lineBreak` renders nothing when flattened.
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [RAIL]                                                    |
-| :-----: | :-------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
-|  [01]   | `Doc.char(c)` / `Doc.text(s)` / `Doc.string(s)`                 | primitive      | single char / newline-free text / newline-splitting text  |
-|  [02]   | `Doc.empty` / `Doc.fail`                                        | primitive      | identity element / layout-abort sentinel                  |
-|  [03]   | `Doc.line` / `Doc.lineBreak` / `Doc.hardLine`                   | primitive      | flatten-to-space / flatten-to-empty / unconditional break |
-|  [04]   | `Doc.softLine` / `Doc.softLineBreak`                            | primitive      | fit-aware break (space / nothing when it fits)            |
-|  [05]   | `Doc.lparen`/`rparen`/`comma`/`colon`/`space`/`vbar`/`dquote`/… | vocabulary     | 19 single-char document constants                         |
+| [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [RAIL]                                                   |
+| :-----: | :---------------------------------------------------------- | :------------- | :------------------------------------------------------- |
+|  [01]   | `Doc.char(c)` / `Doc.text(s)` / `Doc.string(s)`             | primitive      | single char / newline-free text / newline-splitting text |
+|  [02]   | `Doc.empty` / `Doc.fail`                                    | primitive      | identity element / layout-abort sentinel                 |
+|  [03]   | `Doc.line` / `Doc.lineBreak` / `Doc.hardLine`               | primitive      | flatten→space / flatten→empty / unconditional break      |
+|  [04]   | `Doc.softLine` / `Doc.softLineBreak`                        | primitive      | fit-aware break (space / nothing when it fits)           |
+|  [05]   | `lparen`/`rparen`/`comma`/`colon`/`space`/`vbar`/`dquote`/… | vocabulary     | the 19 single-char `Doc` constants                       |
 
 [ENTRYPOINT_SCOPE]: concatenation family (`Doc`)
 - rail: render
@@ -109,14 +115,15 @@
 - rail: render
 - Delimited-collection and padding combinators; `encloseSep(docs, left, right, sep)` is the parameterized owner (`list` = brackets+comma, `tupled` = parens+comma are its fixed rows). `fill`/`fillBreak` pad to a target width; `punctuate` interleaves a trailing separator; `reflow`/`words` wrap prose to the page width.
 
-| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [RAIL]                                                        |
-| :-----: | :----------------------------------------------------------------------- | :------------- | :------------------------------------------------------------ |
-|  [01]   | `Doc.encloseSep(docs, left, right, sep)`                                 | enclosure      | delimited collection (the parameterized owner)                |
-|  [02]   | `Doc.list(docs)` / `Doc.tupled(docs)`                                    | enclosure      | `[a, b, c]` / `(a, b, c)` fixed-delimiter rows                |
-|  [03]   | `Doc.surround(self, left, right)` / `Doc.parenthesized`/`doubleQuoted`/… | enclosure      | wrap between two docs / fixed-delimiter wrappers              |
-|  [04]   | `Doc.fill(self, w)` / `Doc.fillBreak(self, w)`                           | padding        | pad with spaces to width `w` (break past `w` for `fillBreak`) |
-|  [05]   | `Doc.punctuate(docs, punctuator)`                                        | separator      | append `punctuator` after all but the last doc                |
-|  [06]   | `Doc.reflow(s, char?)` / `Doc.words(s, char?)`                           | prose          | split on `char` and lay out with `fillSep` / to doc list      |
+| [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY] | [RAIL]                                           |
+| :-----: | :--------------------------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `Doc.encloseSep(docs, left, right, sep)`       | enclosure      | delimited collection (the parameterized owner)   |
+|  [02]   | `Doc.list(docs)` / `Doc.tupled(docs)`          | enclosure      | `[a, b, c]` / `(a, b, c)` fixed-delimiter rows   |
+|  [03]   | `Doc.surround(self, left, right)`              | enclosure      | wrap a doc between two delimiter docs            |
+|  [04]   | `Doc.parenthesized`/`doubleQuoted`/…           | enclosure      | fixed-delimiter wrappers                         |
+|  [05]   | `Doc.fill(self, w)` / `Doc.fillBreak(self, w)` | padding        | pad to width `w`; `fillBreak` breaks past `w`    |
+|  [06]   | `Doc.punctuate(docs, punctuator)`              | separator      | append `punctuator` after all but the last doc   |
+|  [07]   | `Doc.reflow(s, char?)` / `Doc.words(s, char?)` | prose          | split on `char` → `fillSep` layout / to doc list |
 
 [ENTRYPOINT_SCOPE]: annotation transforms (`Doc`)
 - rail: render
@@ -133,16 +140,19 @@
 - rail: render
 - `Layout.pretty`/`smart`/`compact` are the three lowering algorithms; `smart` looks further ahead than `pretty` before committing a break. `Doc.render` is the one-call façade discriminating on `Doc.RenderConfig` (`compact` | `pretty` | `smart` + options); `renderStream` folds an already-lowered `DocStream` to text. `Optimize.optimize` fuses associative `Cat`/`Text` nodes before layout.
 
-| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [RAIL]                                                    |
-| :-----: | :----------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
-|  [01]   | `Doc.render(self, config)` / `Doc.render(config)`                  | render façade  | dual: lower + fold to `string` by `RenderConfig` style    |
-|  [02]   | `Layout.pretty(self, options)` / `Layout.smart(self, options)`     | layout         | lower `Doc<A>` to `DocStream<A>` with look-ahead          |
-|  [03]   | `Layout.compact(self)` / `Layout.unbounded(self)`                  | layout         | ignore width (compact single-column / never break)        |
-|  [04]   | `Layout.options(pageWidth)` / `Layout.defaultOptions`              | config         | build `Layout.Options` / 80-col 1.0-ribbon default        |
-|  [05]   | `PageWidth.availablePerLine(w, ribbon)` / `PageWidth.unbounded`    | width          | bounded ribbon / unbounded width policy                   |
-|  [06]   | `DocStream.renderStream(self)` / `Doc.renderStream(self)`          | render         | fold a `DocStream<A>` to `string` (annotations dropped)   |
-|  [07]   | `Optimize.optimize(self, depth)`                                   | fusion         | associativity-fuse (`FusionDepth.Shallow`\|`Deep`)        |
-|  [08]   | `DocTree.treeForm(stream)` / `DocTree.renderSimplyDecorated(t, …)` | backend        | reparse a stream to `DocTree` / fold with scope callbacks |
+| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [RAIL]                                                  |
+| :-----: | :-------------------------------------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `Doc.render(self, config)` / `Doc.render(config)`         | render façade  | dual: lower + fold to `string` by `RenderConfig` style  |
+|  [02]   | `Layout.pretty(self, options)`                            | layout         | lower `Doc<A>` to `DocStream<A>` (standard)             |
+|  [03]   | `Layout.smart(self, options)`                             | layout         | lower with deeper break look-ahead                      |
+|  [04]   | `Layout.compact(self)` / `Layout.unbounded(self)`         | layout         | ignore width (compact single-column / never break)      |
+|  [05]   | `Layout.options(pageWidth)` / `Layout.defaultOptions`     | config         | build `Layout.Options` / 80-col 1.0-ribbon default      |
+|  [06]   | `PageWidth.availablePerLine(w, ribbon)`                   | width          | bounded ribbon width policy                             |
+|  [07]   | `PageWidth.unbounded`                                     | width          | unbounded width policy (never break)                    |
+|  [08]   | `DocStream.renderStream(self)` / `Doc.renderStream(self)` | render         | fold a `DocStream<A>` to `string` (annotations dropped) |
+|  [09]   | `Optimize.optimize(self, depth)`                          | fusion         | associativity-fuse (`FusionDepth.Shallow`\|`Deep`)      |
+|  [10]   | `DocTree.treeForm(stream)`                                | backend        | reparse a `DocStream` to `DocTree`                      |
+|  [11]   | `DocTree.renderSimplyDecorated(t, …)`                     | backend        | fold a `DocTree` with scope callbacks                   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

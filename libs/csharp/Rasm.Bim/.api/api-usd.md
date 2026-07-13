@@ -18,23 +18,23 @@
 [PUBLIC_TYPE_SCOPE]: stage and layer composition roots
 - rail: format#USD_STAGE
 
-| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]    | [RAIL]                                                                    |
-| :-----: | :--------------------------------------------- | :--------------- | :------------------------------------------------------------------------ |
-|  [01]   | `UsdStage`                                     | stage root       | the composed scene — open/create/save/export over a layer stack           |
-|  [02]   | `SdfLayer` / `SdfLayerHandle`                  | layer            | one `.usd*` layer of opinions (the root/session/sublayers)                |
-|  [03]   | `SdfPath`                                      | scene-graph path | the prim/property address (`/World/Mesh.points`)                          |
-|  [04]   | `UsdEditTarget`                                | edit target      | which layer authored opinions land in                                     |
-|  [05]   | `UsdTimeCode`                                  | time code        | a time-sampled value coordinate (`Default()`/`EarliestTime()`/`(double)`) |
-|  [06]   | `UsdStagePopulationMask` / `UsdStageLoadRules` | load policy      | masked/partial stage population and payload load rules                    |
-|  [07]   | `UsdPrimRange`                                 | traversal range  | the prim iteration a stage `Traverse` yields                              |
-|  [08]   | `Usd_PrimFlagsPredicate`                       | traversal filter | the active/defined/loaded predicate a filtered traversal takes            |
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]    | [CAPABILITY]                                                     |
+| :-----: | :--------------------------------------------- | :--------------- | :--------------------------------------------------------------- |
+|  [01]   | `UsdStage`                                     | stage root       | the composed scene — open/create/save/export over a layer stack  |
+|  [02]   | `SdfLayer` / `SdfLayerHandle`                  | layer            | one `.usd*` layer of opinions (root/session/sublayers)           |
+|  [03]   | `SdfPath`                                      | scene-graph path | the prim/property address (`/World/Mesh.points`)                 |
+|  [04]   | `UsdEditTarget`                                | edit target      | which layer authored opinions land in                            |
+|  [05]   | `UsdTimeCode`                                  | time code        | time-sample coordinate (`Default()`/`EarliestTime()`/`(double)`) |
+|  [06]   | `UsdStagePopulationMask` / `UsdStageLoadRules` | load policy      | masked/partial stage population and payload load rules           |
+|  [07]   | `UsdPrimRange`                                 | traversal range  | the prim iteration a stage `Traverse` yields                     |
+|  [08]   | `Usd_PrimFlagsPredicate`                       | traversal filter | the active/defined/loaded predicate a filtered traversal takes   |
 
 [PUBLIC_TYPE_SCOPE]: prim, property, and composition arcs
 - rail: format#USD_PRIM
 
-| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY]   | [RAIL]                                                      |
+| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY]   | [CAPABILITY]                                                |
 | :-----: | :------------------------------------------------- | :-------------- | :---------------------------------------------------------- |
-|  [01]   | `UsdPrim`                                          | prim            | a scene-graph node (typed schema + children + properties)   |
+|  [01]   | `UsdPrim`                                          | prim            | a scene-graph node (typed schema + children/properties)     |
 |  [02]   | `UsdObject`                                        | object base     | `GetStage`/`GetPath`/`GetPrim`/`GetName` over prim+property |
 |  [03]   | `UsdProperty` / `UsdAttribute` / `UsdRelationship` | property        | a prim's typed attribute or relationship                    |
 |  [04]   | `UsdReferences` / `UsdPayloads`                    | composition arc | external/internal reference and deferred payload arcs       |
@@ -43,108 +43,135 @@
 |  [07]   | `SdfReference` / `SdfPayload` / `UsdListPosition`  | arc value       | the reference/payload value and list-edit position          |
 |  [08]   | `UsdModelAPI` / `UsdCollectionAPI`                 | applied API     | model-kind metadata and membership collections              |
 
-[PUBLIC_TYPE_SCOPE]: typed geometry and shading schemas
+[PUBLIC_TYPE_SCOPE]: typed geometry schemas
 - rail: format#USD_SCHEMA
-- note: the `UsdGeom*` schemas are typed views over a `UsdPrim` (each `Define(stage, path)`s the prim and exposes `Get*Attr`/`Create*Attr`); the schema hierarchy is `UsdGeomImageable → Xformable → Boundable → Gprim → PointBased → {Mesh, Points, Curves, NurbsPatch}`.
+- note: the `UsdGeom*` schemas are typed views over a `UsdPrim` (each `Define(stage, path)`s the prim and exposes `Get*Attr`/`Create*Attr`); the hierarchy is `UsdGeomImageable → Xformable → Boundable → Gprim → PointBased → {Mesh, Points, Curves, NurbsPatch}`
 
-| [INDEX] | [SYMBOL]                                                                                        | [TYPE_FAMILY]      | [RAIL]                                                  |
-| :-----: | :---------------------------------------------------------------------------------------------- | :----------------- | :------------------------------------------------------ |
-|  [01]   | `UsdGeomMesh`                                                                                   | mesh schema        | points + faceVertexCounts/Indices + subdivision scheme  |
-|  [02]   | `UsdGeomPointBased`                                                                             | point-based base   | `GetPointsAttr`/`CreatePointsAttr` + normals/velocities |
-|  [03]   | `UsdGeomXformable` / `UsdGeomXformOp`                                                           | transformable      | the ordered xform-op stack on a prim                    |
-|  [04]   | `UsdGeomXform` / `UsdGeomScope`                                                                 | grouping schema    | transform group / pure namespace group                  |
-|  [05]   | `UsdGeomPoints` / `UsdGeomBasisCurves` / `UsdGeomNurbsCurves` / `UsdGeomNurbsPatch`             | point/curve schema | point cloud, basis/NURBS curves, NURBS patch            |
-|  [06]   | `UsdGeomCube` / `Sphere` / `Cylinder` / `Cone` / `Capsule` / `Plane`                            | gprim              | the analytic primitive schemas                          |
-|  [07]   | `UsdGeomPrimvar` / `UsdGeomPrimvarsAPI`                                                         | primvar            | interpolated per-vertex/face/uniform attribute data     |
-|  [08]   | `UsdGeomPointInstancer`                                                                         | instancer          | point-instanced prototype scattering                    |
-|  [09]   | `UsdGeomSubset`                                                                                 | face subset        | a named face-index subset (per-material binding)        |
-|  [10]   | `UsdShadeMaterial` / `UsdShadeShader` / `UsdShadeNodeGraph`                                     | shade network      | the material/shader/node-graph shading prims            |
-|  [11]   | `UsdShadeMaterialBindingAPI` / `UsdShadeInput` / `UsdShadeOutput` / `UsdShadeConnectableAPI`    | shade binding      | material binding and connectable I/O                    |
-|  [12]   | `UsdGeomBBoxCache` / `UsdGeomXformCache`                                                        | compute cache      | cached world-bound and world-transform computation      |
-|  [13]   | `UsdSkelRoot` / `UsdSkelSkeleton` / `UsdSkelBindingAPI` / `UsdLuxRectLight` / `UsdLuxDomeLight` | skel/light schema  | skeletal animation and lighting schemas                 |
+| [INDEX] | [SYMBOL]                                                             | [TYPE_FAMILY]    | [CAPABILITY]                                 |
+| :-----: | :------------------------------------------------------------------- | :--------------- | :------------------------------------------- |
+|  [01]   | `UsdGeomMesh`                                                        | mesh schema      | points + faceVertexCounts/Indices            |
+|  [02]   | `UsdGeomPointBased`                                                  | point-based base | `GetPointsAttr`/`CreatePointsAttr` + normals |
+|  [03]   | `UsdGeomXformable` / `UsdGeomXformOp`                                | transformable    | the ordered xform-op stack on a prim         |
+|  [04]   | `UsdGeomXform` / `UsdGeomScope`                                      | grouping schema  | transform group / pure namespace group       |
+|  [05]   | `UsdGeomPoints`                                                      | point schema     | the point-cloud schema                       |
+|  [06]   | `UsdGeomBasisCurves` / `UsdGeomNurbsCurves` / `UsdGeomNurbsPatch`    | curve/patch      | basis/NURBS curves and NURBS patch           |
+|  [07]   | `UsdGeomCube` / `Sphere` / `Cylinder` / `Cone` / `Capsule` / `Plane` | gprim            | the analytic primitive schemas               |
+|  [08]   | `UsdGeomPrimvar` / `UsdGeomPrimvarsAPI`                              | primvar          | per-vertex/face/uniform interpolation        |
+|  [09]   | `UsdGeomPointInstancer`                                              | instancer        | point-instanced prototype scattering         |
+|  [10]   | `UsdGeomSubset`                                                      | face subset      | named face-index subset (per-material)       |
+
+[PUBLIC_TYPE_SCOPE]: shading, skeletal, light, and compute-cache schemas
+- rail: format#USD_SCHEMA
+- note: each is a typed view over a `UsdPrim`; material binding rides `UsdShadeMaterialBindingAPI`, and world-space caches ride `UsdGeomBBoxCache`/`UsdGeomXformCache`
+
+| [INDEX] | [SYMBOL]                                                      | [TYPE_FAMILY] | [CAPABILITY]                                       |
+| :-----: | :------------------------------------------------------------ | :------------ | :------------------------------------------------- |
+|  [01]   | `UsdShadeMaterial` / `UsdShadeShader` / `UsdShadeNodeGraph`   | shade network | the material/shader/node-graph shading prims       |
+|  [02]   | `UsdShadeMaterialBindingAPI`                                  | shade binding | material binding (`Bind`)                          |
+|  [03]   | `UsdShadeInput` / `UsdShadeOutput` / `UsdShadeConnectableAPI` | shade I/O     | connectable input/output I/O                       |
+|  [04]   | `UsdGeomBBoxCache` / `UsdGeomXformCache`                      | compute cache | cached world-bound and world-transform computation |
+|  [05]   | `UsdSkelRoot` / `UsdSkelSkeleton` / `UsdSkelBindingAPI`       | skel schema   | skeletal animation schemas                         |
+|  [06]   | `UsdLuxRectLight` / `UsdLuxDomeLight`                         | light schema  | rect/dome lighting schemas                         |
 
 [PUBLIC_TYPE_SCOPE]: math and typed-array value types
 - rail: format#USD_VALUE
-- note: `Gf*` are the value math types; `Vt*Array` are the typed arrays USD attributes hold; `VtValue` is the type-erased value box `UsdAttribute.Get`/`Set` exchange; `TfToken` is the interned-string key for names/tokens.
+- note: `Gf*` are value math types; the typed arrays are `VtVec3fArray`/`VtVec3dArray`/`VtIntArray`/`VtFloatArray`/`VtTokenArray`, each declaring the explicit `(VtVec3fArray)value` unbox from `VtValue`; `VtValue` is the type-erased box `UsdAttribute.Get`/`Set` exchanges; `TfToken` is the interned-string key
 
-| [INDEX] | [SYMBOL]                                                                         | [TYPE_FAMILY]     | [RAIL]                                                                                                                                                                                                                         |
-| :-----: | :------------------------------------------------------------------------------- | :---------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `VtValue`                                                                        | type-erased value | the value box every `UsdAttribute.Get`/`Set` exchanges                                                                                                                                                                         |
-|  [02]   | `VtVec3fArray` / `VtVec3dArray` / `VtIntArray` / `VtFloatArray` / `VtTokenArray` | typed array       | the point/index/scalar/token attribute arrays; each declares the explicit conversion FROM `VtValue` (`(VtVec3fArray)value` / `(VtIntArray)value`) — the typed unbox the mesh-bridge reads after `UsdAttribute.Get(VtValue, …)` |
-|  [03]   | `Vt_ArrayBase`                                                                   | array base        | the base every `Vt*Array` derives (`size`/`resize`/indexer)                                                                                                                                                                    |
-|  [04]   | `GfVec3f` / `GfVec3d` / `GfVec2f`                                                | vector value      | the point/normal/uv component value types                                                                                                                                                                                      |
-|  [05]   | `GfMatrix4d` / `GfMatrix3d`                                                      | matrix value      | the transform value types (`UsdGeomXformCache` output); `GfMatrix4d.GetRow(int)` → `GfVec4d` (indexer-addressable `this[int]` components) — the row-major double read the numerics narrow folds                                |
-|  [06]   | `GfQuatf` / `GfRotation` / `GfBBox3d` / `GfRange3d`                              | math value        | quaternion, rotation, bound, and range value types                                                                                                                                                                             |
-|  [07]   | `TfToken` / `TfTokenVector`                                                      | interned token    | the name/key type for prim names, attribute names, schema ids                                                                                                                                                                  |
-|  [08]   | `SdfValueTypeName` / `SdfValueTypeNames`                                         | value-type name   | the attribute type-name (`Point3fArray`/`Normal3fArray`/`TexCoord2fArray`/`Token`/…) `CreateAttribute` takes                                                                                                                   |
-|  [09]   | `SdfVariability` / `SdfSpecifier`                                                | attribute kind    | varying-vs-uniform and def/over/class specifier                                                                                                                                                                                |
-|  [10]   | `ArResolverContext`                                                              | asset resolver    | the asset-resolution context a stage open binds                                                                                                                                                                                |
+| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]     | [CAPABILITY]                                                 |
+| :-----: | :-------------------------------------------------- | :---------------- | :----------------------------------------------------------- |
+|  [01]   | `VtValue`                                           | type-erased value | the value box every `UsdAttribute.Get`/`Set` exchanges       |
+|  [02]   | `Vt*Array`                                          | typed array       | point/index/scalar/token arrays; mesh-bridge unbox           |
+|  [03]   | `Vt_ArrayBase`                                      | array base        | the `Vt*Array` base (`size`/`resize`/indexer)                |
+|  [04]   | `GfVec3f` / `GfVec3d` / `GfVec2f`                   | vector value      | the point/normal/uv component value types                    |
+|  [05]   | `GfMatrix4d` / `GfMatrix3d`                         | matrix value      | transform values; `GfMatrix4d.GetRow(int)` → `GfVec4d`       |
+|  [06]   | `GfQuatf` / `GfRotation` / `GfBBox3d` / `GfRange3d` | math value        | quaternion, rotation, bound, range value types               |
+|  [07]   | `TfToken` / `TfTokenVector`                         | interned token    | name/key type for prim/attribute names, schema ids           |
+|  [08]   | `SdfValueTypeName` / `SdfValueTypeNames`            | value-type name   | type-name `CreateAttribute` takes (`Point3fArray`/`Token`/…) |
+|  [09]   | `SdfVariability` / `SdfSpecifier`                   | attribute kind    | varying-vs-uniform and def/over/class specifier              |
+|  [10]   | `ArResolverContext`                                 | asset resolver    | the asset-resolution context a stage open binds              |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: stage open, create, and export
 - rail: format#USD_STAGE
-- note: `UsdStage` is the codec root; `Open` reads a file/layer, `CreateNew`/`CreateInMemory` author a fresh stage, `Export`/`ExportToString`/`Flatten` write the composed result.
+- note: surfaces are `UsdStage` methods unless prefixed `UsdGeom.`; `Open` reads a file/layer, `CreateNew`/`CreateInMemory` author a fresh stage, `Export`/`ExportToString`/`Flatten` write it, and `InitialLoadSet` (`LoadAll`/`LoadNone`) is the nested payload-load enum
 
-| [INDEX] | [SURFACE]                                                                                                              | [ENTRY_FAMILY] | [RAIL]                                                                                                                                                                                              |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `UsdStage.Open(string filePath, UsdStage.InitialLoadSet load)` / `Open(SdfLayerHandle rootLayer, …)`                   | static open    | reads a `.usd*` file or layer into a stage; `UsdStage.InitialLoadSet` is the nested payload-load enum (`LoadAll`/`LoadNone`) the open/create overloads take                                         |
-|  [02]   | `UsdStage.OpenMasked(string filePath, UsdStagePopulationMask mask, …)`                                                 | static open    | partial-stage open under a population mask                                                                                                                                                          |
-|  [03]   | `UsdStage.CreateNew(string identifier, …)` / `CreateInMemory(…)`                                                       | static create  | authors a new on-disk or in-memory stage                                                                                                                                                            |
-|  [04]   | `UsdStage.Save()` / `SaveSessionLayers()` / `Reload()`                                                                 | persist        | writes dirty layers / session layers / reloads                                                                                                                                                      |
-|  [05]   | `UsdStage.Export(string filename, bool addSourceFileComment, StdStringMap args)` / `ExportToString(out string)`        | export         | writes the composed stage to a file/string                                                                                                                                                          |
-|  [06]   | `UsdStage.Flatten(bool addSourceFileComment)` → `SdfLayerHandle`                                                       | flatten        | composes the layer stack into one flat layer                                                                                                                                                        |
-|  [07]   | `UsdStage.GetRootLayer()` / `GetSessionLayer()` / `GetEditTarget()` / `SetEditTarget(UsdEditTarget)`                   | layer access   | the root/session layers and the active edit target                                                                                                                                                  |
-|  [08]   | `UsdGeom.UsdGeomGetStageUpAxis(UsdStage)` → `TfToken` / `UsdGeomSetStageUpAxis(UsdStage, TfToken)` → `bool`            | stage metadata | the PER-STAGE `upAxis` metadatum (`"Y"` the USD default, `"Z"` the CAD/BIM export posture) — the import basis selects per stage off this token, the `format` row's Y-up `Frame` staying the default |
-|  [09]   | `UsdGeom.UsdGeomGetStageMetersPerUnit(UsdStage)` → `double`                                                            | stage metadata | the per-stage linear-unit scale (`metersPerUnit`, default) beside the up-axis read                                                                                                                  |
-|  [10]   | `UsdStage.MuteLayer(string)` / `SetStartTimeCode(double)` / `SetEndTimeCode(double)` / `SetTimeCodesPerSecond(double)` | stage meta     | layer muting and the animation time range                                                                                                                                                           |
-|  [11]   | `UsdStage.IsSupportedFile(string filePath)`                                                                            | probe          | format admissibility before open                                                                                                                                                                    |
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [CAPABILITY]                                      |
+| :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------------------ |
+|  [01]   | `Open(string, InitialLoadSet)` / `Open(SdfLayerHandle, …)`          | static open    | reads a `.usd*` file or layer into a stage        |
+|  [02]   | `OpenMasked(string, UsdStagePopulationMask, …)`                     | static open    | partial-stage open under a population mask        |
+|  [03]   | `CreateNew(string identifier, …)` / `CreateInMemory(…)`             | static create  | authors a new on-disk or in-memory stage          |
+|  [04]   | `Save()` / `SaveSessionLayers()` / `Reload()`                       | persist        | writes dirty / session layers / reloads           |
+|  [05]   | `Export(string, bool, StdStringMap)` / `ExportToString(out string)` | export         | writes the composed stage to a file/string        |
+|  [06]   | `Flatten(bool addSourceFileComment)` → `SdfLayerHandle`             | flatten        | composes the layer stack into one flat layer      |
+|  [07]   | `GetRootLayer` / `GetSessionLayer`                                  | layer access   | the root and session layers                       |
+|  [08]   | `GetEditTarget` / `SetEditTarget(UsdEditTarget)`                    | layer access   | reads/sets the active edit target                 |
+|  [09]   | `UsdGeom.UsdGeomGetStageUpAxis(UsdStage)` → `TfToken`               | stage metadata | per-stage `upAxis` (`"Y"` default, `"Z"` CAD/BIM) |
+|  [10]   | `UsdGeom.UsdGeomSetStageUpAxis(UsdStage, TfToken)` → `bool`         | stage metadata | authors the per-stage `upAxis` token              |
+|  [11]   | `UsdGeom.UsdGeomGetStageMetersPerUnit(UsdStage)` → `double`         | stage metadata | per-stage linear-unit scale (`metersPerUnit`)     |
+|  [12]   | `MuteLayer(string)`                                                 | stage meta     | layer muting                                      |
+|  [13]   | `SetStartTimeCode` / `SetEndTimeCode` / `SetTimeCodesPerSecond`     | stage meta     | the animation time range (`double`)               |
+|  [14]   | `IsSupportedFile(string filePath)`                                  | probe          | format admissibility before open                  |
 
 [ENTRYPOINT_SCOPE]: prim definition, traversal, and composition
 - rail: format#USD_PRIM
-- note: `DefinePrim`/`OverridePrim` author the namespace; `Traverse` walks it; `GetReferences`/`GetPayloads`/`GetVariantSets` author the composition arcs.
+- note: surfaces are `UsdStage` or `UsdPrim` methods; `DefinePrim`/`OverridePrim` author the namespace, `Traverse` walks it, and `GetReferences`/`GetPayloads`/`GetVariantSets` author the composition arcs
 
-| [INDEX] | [SURFACE]                                                                                                       | [ENTRY_FAMILY] | [RAIL]                                    |
-| :-----: | :-------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------- |
-|  [01]   | `UsdStage.DefinePrim(SdfPath path, TfToken typeName)` / `DefinePrim(SdfPath)`                                   | author         | defines (or returns) a typed prim         |
-|  [02]   | `UsdStage.OverridePrim(SdfPath)` / `CreateClassPrim(SdfPath)` / `RemovePrim(SdfPath)`                           | author         | an override / class prim / removal        |
-|  [03]   | `UsdStage.GetPrimAtPath(SdfPath)` / `GetObjectAtPath(SdfPath)` / `GetDefaultPrim()` / `SetDefaultPrim(UsdPrim)` | navigate       | path lookup and default-prim access       |
-|  [04]   | `UsdStage.Traverse()` / `Traverse(Usd_PrimFlagsPredicate)` / `TraverseAll()` → `UsdPrimRange`                   | traverse       | filtered/unfiltered scene-graph walk      |
-|  [05]   | `UsdPrim.GetChildren()` / `GetParent()` / `GetChild(TfToken)` / `GetPath()` / `GetName()` / `GetTypeName()`     | navigate       | prim hierarchy and identity               |
-|  [06]   | `UsdPrim.GetReferences().AddReference(SdfReference, UsdListPosition)` / `GetPayloads()`                         | compose        | external reference / deferred payload arc |
-|  [07]   | `UsdPrim.GetVariantSets().AddVariantSet(string)` / `GetVariantSet(string).SetVariantSelection(…)`               | compose        | variant set authoring and selection       |
-|  [08]   | `UsdPrim.IsA(TfType)` / `HasAPI(TfType)` / `ApplyAPI(TfToken)` / `IsActive()` / `SetActive(bool)`               | schema query   | typed-schema and applied-API membership   |
-|  [09]   | `UsdPrim.Load(SdfPath)` / `UsdStage.Load(SdfPath, UsdLoadPolicy)` / `Unload(SdfPath)`                           | payload load   | activate/deactivate a payload subtree     |
+| [INDEX] | [SURFACE]                                                                    | [ENTRY_FAMILY] | [CAPABILITY]                           |
+| :-----: | :--------------------------------------------------------------------------- | :------------- | :------------------------------------- |
+|  [01]   | `DefinePrim(SdfPath, TfToken typeName)` / `DefinePrim(SdfPath)`              | author         | defines (or returns) a typed prim      |
+|  [02]   | `OverridePrim(SdfPath)` / `CreateClassPrim(SdfPath)` / `RemovePrim(SdfPath)` | author         | override / class prim / removal        |
+|  [03]   | `GetPrimAtPath` / `GetObjectAtPath` / `GetDefaultPrim` / `SetDefaultPrim`    | navigate       | path lookup + default-prim access      |
+|  [04]   | `Traverse()` / `Traverse(Usd_PrimFlagsPredicate)` / `TraverseAll()`          | traverse       | scene-graph walk → `UsdPrimRange`      |
+|  [05]   | `GetChildren` / `GetParent` / `GetChild(TfToken)`                            | navigate       | prim children and parent               |
+|  [06]   | `GetPath` / `GetName` / `GetTypeName`                                        | navigate       | prim identity                          |
+|  [07]   | `GetReferences().AddReference(SdfReference, UsdListPosition)`                | compose        | external reference arc                 |
+|  [08]   | `GetPayloads()`                                                              | compose        | deferred payload arc                   |
+|  [09]   | `GetVariantSets().AddVariantSet(string)`                                     | compose        | variant set authoring                  |
+|  [10]   | `GetVariantSet(string).SetVariantSelection(…)`                               | compose        | variant selection                      |
+|  [11]   | `IsA(TfType)` / `HasAPI(TfType)` / `ApplyAPI(TfToken)`                       | schema query   | typed-schema + applied-API membership  |
+|  [12]   | `IsActive()` / `SetActive(bool)`                                             | schema query   | prim active-state                      |
+|  [13]   | `UsdPrim.Load(SdfPath)` / `Unload(SdfPath)`                                  | payload load   | prim-level payload activate/deactivate |
+|  [14]   | `UsdStage.Load(SdfPath, UsdLoadPolicy)`                                      | payload load   | stage-level payload load               |
 
 [ENTRYPOINT_SCOPE]: attribute and primvar authoring + value IO
 - rail: format#USD_VALUE
-- note: `CreateAttribute` takes a `SdfValueTypeName`; `Set`/`Get` exchange through `VtValue` at an optional `UsdTimeCode`; the typed `Vt*Array` is the bulk point/index/uv payload.
+- note: surfaces are `UsdPrim`/`UsdAttribute` methods; `CreateAttribute` takes a `SdfValueTypeName`, `Set`/`Get` exchange through `VtValue` at an optional `UsdTimeCode`, and the typed `Vt*Array` is the bulk payload
 
-| [INDEX] | [SURFACE]                                                                                                                    | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `UsdPrim.CreateAttribute(TfToken name, SdfValueTypeName typeName, SdfVariability variability)`                               | author         | authors a typed attribute on a prim          |
-|  [02]   | `UsdPrim.GetAttribute(TfToken)` / `GetAttributes()` / `CreateRelationship(TfToken)` / `GetRelationship(TfToken)`             | access         | attribute/relationship lookup                |
-|  [03]   | `UsdAttribute.Set(VtValue value, UsdTimeCode time)` / `Set(VtValue value)`                                                   | write          | writes a (time-sampled) attribute value      |
-|  [04]   | `UsdAttribute.Get(VtValue value, UsdTimeCode time)` / `GetTypeName()`                                                        | read           | reads a (time-sampled) attribute value       |
-|  [05]   | `UsdAttribute.GetNumTimeSamples()` / `GetTimeSamples()` / `ValueMightBeTimeVarying()`                                        | time query     | the time-sample inspection for animated data |
-|  [06]   | `new VtVec3fArray(uint n)` / `push_back(GfVec3f)` / `resize(uint)` / `size()` / `this[int]`                                  | array build    | the bulk point/normal payload array          |
-|  [07]   | `UsdGeomPrimvarsAPI.Get(UsdStage, SdfPath).CreatePrimvar(TfToken, SdfValueTypeName, TfToken interpolation, int elementSize)` | primvar        | per-vertex/face/uniform interpolated data    |
-|  [08]   | `new SdfPath(string path)` / `AppendChild(TfToken)` / `AppendProperty(TfToken)` / `IsPrimPath()` / `GetAsString()`           | path build     | scene-graph path construction                |
+| [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY] | [CAPABILITY]                              |
+| :-----: | :-------------------------------------------------------------------------- | :------------- | :---------------------------------------- |
+|  [01]   | `CreateAttribute(TfToken, SdfValueTypeName, SdfVariability)`                | author         | authors a typed attribute on a prim       |
+|  [02]   | `GetAttribute(TfToken)` / `GetAttributes()`                                 | access         | attribute lookup                          |
+|  [03]   | `CreateRelationship(TfToken)` / `GetRelationship(TfToken)`                  | access         | relationship lookup                       |
+|  [04]   | `UsdAttribute.Set(VtValue, UsdTimeCode)` / `Set(VtValue)`                   | write          | writes a (time-sampled) attribute value   |
+|  [05]   | `UsdAttribute.Get(VtValue, UsdTimeCode)` / `GetTypeName()`                  | read           | reads a (time-sampled) attribute value    |
+|  [06]   | `GetNumTimeSamples()` / `GetTimeSamples()` / `ValueMightBeTimeVarying()`    | time query     | time-sample inspection for animated data  |
+|  [07]   | `new VtVec3fArray(uint n)` / `push_back(GfVec3f)` / `resize(uint)`          | array build    | the bulk point/normal payload array       |
+|  [08]   | `size()` / `this[int]`                                                      | array build    | array size and indexer                    |
+|  [09]   | `UsdGeomPrimvarsAPI.CreatePrimvar(TfToken, SdfValueTypeName, TfToken, int)` | primvar        | per-vertex/face/uniform interpolated data |
+|  [10]   | `new SdfPath(string)` / `AppendChild(TfToken)` / `AppendProperty(TfToken)`  | path build     | scene-graph path construction             |
+|  [11]   | `IsPrimPath()` / `GetAsString()`                                            | path build     | path predicate and string form            |
 
 [ENTRYPOINT_SCOPE]: typed geometry/shading schema authoring
 - rail: format#USD_SCHEMA
-- note: each schema `Define(stage, path)`s the prim and exposes `Get*Attr`/`Create*Attr`; the xform-op stack and material binding are authored through the typed schema, never raw attributes.
+- note: each schema `Define(stage, path)`s the prim and exposes `Get*Attr`/`Create*Attr`; `new UsdGeom*(UsdPrim)` wraps a traversed prim (import read); material binding is `UsdShadeMaterialBindingAPI.Apply(prim).Bind(...)`
 
-| [INDEX] | [SURFACE]                                                                                                                                                           | [ENTRY_FAMILY]       | [RAIL]                                                                                                                                                                   |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `UsdGeomMesh.Define(UsdStage stage, SdfPath path)`; `new UsdGeomMesh(UsdPrim prim)`                                                                                 | schema define / wrap | `Define` authors a new mesh prim (export); the `new UsdGeomMesh(UsdPrim)` ctor wraps a traversed prim onto the typed mesh schema (the import read path after `Traverse`) |
-|  [02]   | `UsdGeomMesh.GetPointsAttr()` / `CreatePointsAttr(VtValue, bool writeSparsely)` / `GetNormalsAttr()`                                                                | mesh attr            | points / sparse points / normals (`PointBased`)                                                                                                                          |
-|  [03]   | `UsdGeomMesh.GetFaceVertexCountsAttr()` / `GetFaceVertexIndicesAttr()` / `GetSubdivisionSchemeAttr()`                                                               | mesh attr            | topology and subdivision scheme                                                                                                                                          |
-|  [04]   | `UsdGeomXformable.AddXformOp(UsdGeomXformOp.Type, UsdGeomXformOp.Precision, TfToken opSuffix, bool isInverseOp)`                                                    | xform                | adds an ordered transform op                                                                                                                                             |
-|  [05]   | `UsdGeomXformable.AddTranslateOp(…)` / `AddRotateXYZOp(…)` / `AddScaleOp(…)` / `SetXformOpOrder(…)`                                                                 | xform                | the convenience xform-op authors                                                                                                                                         |
-|  [06]   | `UsdGeomImageable.MakeVisible(UsdTimeCode)` / `MakeInvisible(UsdTimeCode)` / `ComputeVisibility(…)`                                                                 | visibility           | the visibility authoring                                                                                                                                                 |
-|  [07]   | `UsdShadeMaterial.Define(UsdStage, SdfPath)` / `UsdShadeMaterialBindingAPI.Apply(UsdPrim).Bind(UsdShadeMaterial, TfToken bindingStrength, TfToken materialPurpose)` | shade                | material define and bind                                                                                                                                                 |
-|  [08]   | `UsdGeomXformCache.GetLocalToWorldTransform(UsdPrim)` → `GfMatrix4d` / `UsdGeomBBoxCache.ComputeWorldBound(UsdPrim)` → `GfBBox3d`                                   | compute              | cached world transform / bound                                                                                                                                           |
+| [INDEX] | [SURFACE]                                                                    | [ENTRY_FAMILY] | [CAPABILITY]                      |
+| :-----: | :--------------------------------------------------------------------------- | :------------- | :-------------------------------- |
+|  [01]   | `UsdGeomMesh.Define(UsdStage, SdfPath)` / `new UsdGeomMesh(UsdPrim)`         | define/wrap    | mesh prim define + typed wrap     |
+|  [02]   | `UsdGeomMesh.GetPointsAttr()` / `GetNormalsAttr()`                           | mesh attr      | points and normals (`PointBased`) |
+|  [03]   | `UsdGeomMesh.CreatePointsAttr(VtValue, bool writeSparsely)`                  | mesh attr      | authors (sparse) points           |
+|  [04]   | `UsdGeomMesh.GetFaceVertexCountsAttr()` / `GetFaceVertexIndicesAttr()`       | mesh attr      | face topology                     |
+|  [05]   | `UsdGeomMesh.GetSubdivisionSchemeAttr()`                                     | mesh attr      | subdivision scheme                |
+|  [06]   | `UsdGeomXformable.AddXformOp(Type, Precision, TfToken, bool)`                | xform          | adds an ordered transform op      |
+|  [07]   | `UsdGeomXformable.AddTranslateOp(…)` / `AddRotateXYZOp(…)` / `AddScaleOp(…)` | xform          | convenience xform-op authors      |
+|  [08]   | `UsdGeomXformable.SetXformOpOrder(…)`                                        | xform          | sets the xform-op order           |
+|  [09]   | `UsdGeomImageable.MakeVisible(UsdTimeCode)` / `MakeInvisible(UsdTimeCode)`   | visibility     | visibility authoring              |
+|  [10]   | `UsdGeomImageable.ComputeVisibility(…)`                                      | visibility     | resolves computed visibility      |
+|  [11]   | `UsdShadeMaterial.Define(UsdStage, SdfPath)`                                 | shade          | material define                   |
+|  [12]   | `UsdShadeMaterialBindingAPI.Bind(UsdShadeMaterial, TfToken, TfToken)`        | shade          | material bind                     |
+|  [13]   | `UsdGeomXformCache.GetLocalToWorldTransform(UsdPrim)` → `GfMatrix4d`         | compute        | cached world transform            |
+|  [14]   | `UsdGeomBBoxCache.ComputeWorldBound(UsdPrim)` → `GfBBox3d`                   | compute        | cached world bound                |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

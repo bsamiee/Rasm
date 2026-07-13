@@ -32,91 +32,91 @@ Integration into the `document/report#NBCLIENT_ENGINE` owner is the binding cont
 
 `CellControlSignal(Exception)` is the loop-control base (a normal `Exception`, not an error); `CellExecutionComplete` and `CellExecutionError` both subclass it, and `CellTimeoutError(TimeoutError, CellControlSignal)` subclasses it AS WELL AS stdlib `TimeoutError` — the execution loop catches `CellControlSignal` to distinguish a clean cell end (`CellExecutionComplete`) from a fault, while the `TimeoutError` base makes a timeout also catchable as a stdlib timeout. `DeadKernelError(RuntimeError)` is the one fault OUTSIDE the `CellControlSignal` hierarchy. `CellExecutionError` is a structured, picklable fault: `__init__(traceback, ename, evalue)` (note the `traceback`-first positional order) sets the three attributes, `__reduce__` makes it cross-process safe, and `__str__` returns the traceback (or `"{ename}: {evalue}"`); the loop builds it from the kernel `error` reply via `from_cell_and_msg(cell, msg)`. `CellTimeoutError.error_from_timeout_and_cell(msg, timeout, cell)` is the parallel classmethod that builds a timeout fault carrying a previewed cell-source snippet.
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]     | [CAPABILITY]                                                                                                                   |
-| :-----: | :---------------------- | :---------------- | :----------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `CellControlSignal`     | control base      | base loop signal (`<- Exception`); caught to branch loop flow                                                                  |
-|  [02]   | `CellExecutionComplete` | completion signal | raised to end cell execution loop (`<- CellControlSignal`)                                                                     |
-|  [03]   | `CellExecutionError`    | cell fault        | cell raised; attrs `traceback`/`ename`/`evalue`; `<- CellControlSignal`; built via `from_cell_and_msg`; picklable via `reduce` |
-|  [04]   | `CellTimeoutError`      | timeout fault     | cell exceeded `timeout`; `<- (TimeoutError, CellControlSignal)`; built via `error_from_timeout_and_cell`                       |
-|  [05]   | `DeadKernelError`       | kernel fault      | kernel process died during execution; `<- RuntimeError` (sole non-`CellControlSignal` fault)                                   |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]     | [CAPABILITY]                                                                        |
+| :-----: | :---------------------- | :---------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `CellControlSignal`     | control base      | base loop signal (`<- Exception`); caught to branch loop flow                       |
+|  [02]   | `CellExecutionComplete` | completion signal | raised to end cell execution loop (`<- CellControlSignal`)                          |
+|  [03]   | `CellExecutionError`    | cell fault        | cell raised; `traceback`/`ename`/`evalue`; built via `from_cell_and_msg`; picklable |
+|  [04]   | `CellTimeoutError`      | timeout fault     | cell exceeded `timeout`; built via `error_from_timeout_and_cell`                    |
+|  [05]   | `DeadKernelError`       | kernel fault      | kernel process died mid-run; the sole non-`CellControlSignal` fault                 |
 
 [ENTRYPOINT_SCOPE]: fault constructors
 - rail: notebook — `nbclient.exceptions`
 
-| [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY]  | [CAPABILITY]                                                                                         |
-| :-----: | :---------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `CellExecutionError(traceback, ename, evalue)`                          | constructor     | direct construct (`traceback`-first positional order)                                                |
-|  [02]   | `CellExecutionError.from_cell_and_msg(cell, msg: dict)`                 | reply builder   | build from a cell + kernel `execute_reply`/`error` reply dict; folds stream outputs into the message |
-|  [03]   | `CellTimeoutError.error_from_timeout_and_cell(msg, timeout: int, cell)` | timeout builder | build a timeout fault with a previewed cell-source snippet                                           |
+| [INDEX] | [SURFACE]                                                          | [CAPABILITY]                                                       |
+| :-----: | :----------------------------------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | `CellExecutionError(traceback, ename, evalue)`                     | direct construct (`traceback`-first positional order)              |
+|  [02]   | `CellExecutionError.from_cell_and_msg(cell, msg)`                  | build from a cell + kernel `error` reply dict; folds stream output |
+|  [03]   | `CellTimeoutError.error_from_timeout_and_cell(msg, timeout, cell)` | build a timeout fault with a previewed cell-source snippet         |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: notebook execution
 - rail: notebook — `nbclient` / `nbclient.NotebookClient`
 
-Sync rows `[03]`/`[05]`/`[09]`/`[11]`/`[14]` are `run_sync` wrappers auto-generated from the `async_` mirror beneath them; the async form carries the authoritative signature and is the form the report rail composes (`async_execute`). `[01]` is the module-level one-shot; `[02]` is the constructor. The constructor accepts `resources` (the dict the one-shot seeds with `metadata.path` from `cwd`).
+Sync rows `[03]`/`[05]`/`[09]`/`[11]`/`[14]` are `run_sync` wrappers auto-generated from the `async_` mirror beneath them; the async form carries the authoritative signature and is the form the report rail composes (`async_execute`). `[01]` is the module-level one-shot; `[02]` is the constructor. The constructor accepts `resources` (the dict the one-shot seeds with `metadata.path` from `cwd`). Every `execute`/cell method returns the mutated `NotebookNode`, `start_new_kernel_client` a `KernelClient`; signatures below carry param names, dropping the shared return, defaults, and redundant annotations.
 
-| [INDEX] | [SURFACE]                                                                                                           | [ENTRY_FAMILY]     | [CAPABILITY]                                                                                                                              |
-| :-----: | :------------------------------------------------------------------------------------------------------------------ | :----------------- | :---------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `nbclient.execute(nb, cwd=None, km=None, **kwargs) -> NotebookNode`                                                 | one-shot function  | construct a client, run all cells, return modified `NotebookNode`; `cwd` seeds `resources["metadata"]["path"]`                            |
-|  [02]   | `NotebookClient(nb: NotebookNode, km: KernelManager \| None = None, **kw)`                                          | constructor        | bind a `NotebookNode` to a kernel manager; config via traits and a `resources=` dict                                                      |
-|  [03]   | `execute(reset_kc=False, **kwargs) -> NotebookNode`                                                                 | sync execute       | run all cells; returns modified `NotebookNode`                                                                                            |
-|  [04]   | `async_execute(reset_kc=False, **kwargs) -> NotebookNode`                                                           | async execute      | the rail's entrypoint; runs all cells on the loop; returns modified `NotebookNode`                                                        |
-|  [05]   | `execute_cell(cell, cell_index, execution_count=None, store_history=True) -> NotebookNode`                          | sync cell          | execute a single cell; mutates `cell` in place                                                                                            |
-|  [06]   | `async_execute_cell(cell: NotebookNode, cell_index: int, execution_count=None, store_history=True) -> NotebookNode` | async cell         | coroutine single-cell execution; mutates `cell` in place                                                                                  |
-|  [07]   | `setup_kernel(**kwargs)`                                                                                            | sync ctx manager   | `@contextmanager`; start kernel, yield, shutdown                                                                                          |
-|  [08]   | `async_setup_kernel(**kwargs)`                                                                                      | async ctx manager  | `@asynccontextmanager`; registers SIGINT/SIGTERM + `atexit` cleanup and fires `on_notebook_complete`/`on_notebook_error` around the yield |
-|  [09]   | `start_new_kernel(**kwargs)`                                                                                        | sync kernel start  | start a fresh kernel outside the context manager                                                                                          |
-|  [10]   | `async_start_new_kernel(**kwargs) -> None`                                                                          | async kernel start | coroutine variant; populates `self.km`                                                                                                    |
-|  [11]   | `start_new_kernel_client() -> KernelClient`                                                                         | sync client start  | start + connect the kernel client after the kernel runs                                                                                   |
-|  [12]   | `async_start_new_kernel_client() -> KernelClient`                                                                   | async client start | coroutine variant; sets `self.kc`                                                                                                         |
-|  [13]   | `process_message(msg: dict, cell, cell_index) -> NotebookNode \| None`                                              | message handler    | route a single kernel message to outputs; mutates `cell.outputs` in place                                                                 |
-|  [14]   | `wait_for_reply(msg_id, cell=None)` / alias `_wait_for_reply`                                                       | sync wait          | block until the kernel idle reply; `_wait_for_reply` is the back-compat name papermill calls                                              |
-|  [15]   | `async_wait_for_reply(msg_id: str, cell=None) -> dict[str, Any] \| None`                                            | async wait         | coroutine variant; returns the matching shell reply or `None` on timeout                                                                  |
-|  [16]   | `create_kernel_manager() -> KernelManager`                                                                          | km factory         | build a `KernelManager` from `kernel_manager_class`                                                                                       |
-|  [17]   | `reset_execution_trackers() -> None`                                                                                | state reset        | reset timing and cell-index state                                                                                                         |
+| [INDEX] | [SURFACE]                                                              | [CAPABILITY]                                                |
+| :-----: | :--------------------------------------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | `nbclient.execute(nb, cwd, km, **kwargs)`                              | one-shot construct + run; `cwd` seeds `metadata.path`       |
+|  [02]   | `NotebookClient(nb, km, **kw)`                                         | bind a node to a kernel manager; traits + `resources=` dict |
+|  [03]   | `execute(reset_kc, **kwargs)`                                          | sync `run_sync` wrapper of `async_execute`                  |
+|  [04]   | `async_execute(reset_kc, **kwargs)`                                    | the rail entrypoint; runs all cells on the loop             |
+|  [05]   | `execute_cell(cell, cell_index, execution_count, store_history)`       | sync wrapper; mutates `cell` in place                       |
+|  [06]   | `async_execute_cell(cell, cell_index, execution_count, store_history)` | coroutine single-cell exec; mutates `cell` in place         |
+|  [07]   | `setup_kernel(**kwargs)`                                               | sync `@contextmanager`: start, yield, shutdown              |
+|  [08]   | `async_setup_kernel(**kwargs)`                                         | `@asynccontextmanager`; SIGINT/SIGTERM + `atexit` cleanup   |
+|  [09]   | `start_new_kernel(**kwargs)`                                           | sync fresh-kernel start outside the ctx manager             |
+|  [10]   | `async_start_new_kernel(**kwargs)`                                     | coroutine; populates `self.km`                              |
+|  [11]   | `start_new_kernel_client()`                                            | sync start + connect the kernel client                      |
+|  [12]   | `async_start_new_kernel_client()`                                      | coroutine; sets `self.kc`                                   |
+|  [13]   | `process_message(msg, cell, cell_index)`                               | route one kernel msg to outputs; mutates `cell.outputs`     |
+|  [14]   | `wait_for_reply(msg_id, cell)` / `_wait_for_reply`                     | sync block until idle reply (`_wait_for_reply` alias)       |
+|  [15]   | `async_wait_for_reply(msg_id, cell)`                                   | coroutine; returns the shell reply or `None` on timeout     |
+|  [16]   | `create_kernel_manager()`                                              | build a `KernelManager` from `kernel_manager_class`         |
+|  [17]   | `reset_execution_trackers()`                                           | reset timing + cell-index state                             |
 
 [ENTRYPOINT_SCOPE]: output-hook and widget capture
 - rail: notebook — `nbclient.NotebookClient`
 
 The output-hook surface intercepts a running cell's display output by `msg_id`, enabling live widget-state capture without subclassing. `register_output_hook` pushes an `OutputWidget` (`nbclient.output_widget.OutputWidget`) onto a per-`msg_id` stack (last registered wins, mirroring JupyterLab's `registerMessageHook`); the client routes `display_data`/`update_display_data`/comm messages to it. `on_comm_open_jupyter_widget` is the comm-open handler that instantiates an `OutputWidget` from the widget registry on a `comm_open` whose target is a Jupyter widget. This is the path `store_widget_state=True` drives to populate `metadata.widgets`. `OutputWidget` itself exposes `output`/`clear_output`/`set_state`/`sync_state`/`handle_msg`/`send` — the rail never subclasses it; it is the runtime sink the client manages.
 
-| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY]  | [CAPABILITY]                                                           |
-| :-----: | :------------------------------------------------------------------ | :-------------- | :--------------------------------------------------------------------- |
-|  [01]   | `register_output_hook(msg_id: str, hook: OutputWidget)`             | hook push       | push an `OutputWidget` onto the `msg_id` stack                         |
-|  [02]   | `remove_output_hook(msg_id: str, hook: OutputWidget)`               | hook pop        | pop a previously registered output hook (asserts identity)             |
-|  [03]   | `output(outs, msg, display_id, cell_index) -> NotebookNode \| None` | output sink     | append a kernel output message to the cell's `outputs`                 |
-|  [04]   | `clear_output(outs, msg, cell_index)`                               | output clear    | apply a `clear_output` message to the cell                             |
-|  [05]   | `clear_display_id_mapping(cell_index: int)`                         | display reset   | clear the cell's `display_id -> output` index                          |
-|  [06]   | `handle_comm_msg(outs, msg, cell_index)`                            | comm router     | dispatch a Jupyter comm (widget) message                               |
-|  [07]   | `on_comm_open_jupyter_widget(msg) -> Any \| None`                   | comm-open hook  | build an `OutputWidget` from the widget registry on widget `comm_open` |
-|  [08]   | `set_widgets_metadata()`                                            | widget snapshot | write captured widget state to `metadata.widgets`                      |
+| [INDEX] | [SURFACE]                                   | [CAPABILITY]                                                           |
+| :-----: | :------------------------------------------ | :--------------------------------------------------------------------- |
+|  [01]   | `register_output_hook(msg_id, hook)`        | push an `OutputWidget` onto the `msg_id` stack                         |
+|  [02]   | `remove_output_hook(msg_id, hook)`          | pop a previously registered output hook (asserts identity)             |
+|  [03]   | `output(outs, msg, display_id, cell_index)` | append a kernel output message to the cell's `outputs`                 |
+|  [04]   | `clear_output(outs, msg, cell_index)`       | apply a `clear_output` message to the cell                             |
+|  [05]   | `clear_display_id_mapping(cell_index)`      | clear the cell's `display_id -> output` index                          |
+|  [06]   | `handle_comm_msg(outs, msg, cell_index)`    | dispatch a Jupyter comm (widget) message                               |
+|  [07]   | `on_comm_open_jupyter_widget(msg)`          | build an `OutputWidget` from the widget registry on widget `comm_open` |
+|  [08]   | `set_widgets_metadata()`                    | write captured widget state to `metadata.widgets`                      |
 
 [ENTRYPOINT_SCOPE]: key configuration traits
 - rail: notebook — `nbclient.NotebookClient`
 
-| [INDEX] | [SURFACE]                | [TRAIT_TYPE]                               | [CAPABILITY]                                                                |
-| :-----: | :----------------------- | :----------------------------------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `timeout`                | `Integer=None`                             | per-cell execution timeout in seconds (`None` = no limit)                   |
-|  [02]   | `startup_timeout`        | `Integer=60`                               | kernel start wait in seconds                                                |
-|  [03]   | `kernel_name`            | `Unicode=''`                               | kernel spec name override (`''` = notebook's own kernelspec)                |
-|  [04]   | `allow_errors`           | `Bool=False`                               | continue execution past cell errors                                         |
-|  [05]   | `allow_error_names`      | `List`                                     | error names tolerated even when `allow_errors=False`                        |
-|  [06]   | `force_raise_errors`     | `Bool=False`                               | raise `CellExecutionError` even with `allow_errors`/`raises-exception` tag  |
-|  [07]   | `skip_cells_with_tag`    | `Unicode='skip-execution'`                 | skip cells bearing this metadata tag                                        |
-|  [08]   | `record_timing`          | `Bool=True`                                | record per-cell timing in cell metadata                                     |
-|  [09]   | `store_widget_state`     | `Bool=True`                                | capture Jupyter widget state into notebook `metadata.widgets`               |
-|  [10]   | `shutdown_kernel`        | `Enum('graceful'\|'immediate')='graceful'` | kernel shutdown policy                                                      |
-|  [11]   | `interrupt_on_timeout`   | `Bool=False`                               | send kernel interrupt on cell timeout instead of failing                    |
-|  [12]   | `error_on_timeout`       | `Dict=None`                                | fake `error` reply dict injected on timeout (`ename`/`evalue`/`traceback`)  |
-|  [13]   | `iopub_timeout`          | `Integer=4`                                | seconds to wait for iopub output after an idle reply                        |
-|  [14]   | `raise_on_iopub_timeout` | `Bool=False`                               | raise instead of warn when iopub output is late                             |
-|  [15]   | `coalesce_streams`       | `Bool=False`                               | merge consecutive stream outputs into one                                   |
-|  [16]   | `shell_timeout_interval` | `Integer=5`                                | shell-channel poll granularity (seconds) the reply loop waits per `get_msg` |
-|  [17]   | `kernel_manager_class`   | `Type(klass=KernelManager)`                | `KernelManager` subclass `create_kernel_manager` instantiates               |
-|  [18]   | `extra_arguments`        | `List(Unicode)`                            | extra CLI args appended to the kernel launch                                |
-|  [19]   | `ipython_hist_file`      | `Unicode=':memory:'`                       | IPython history-file path appended as a launch arg (`:memory:` = ephemeral) |
-|  [20]   | `display_data_priority`  | `List`                                     | MIME-type preference order for display output selection                     |
+| [INDEX] | [SURFACE]                | [TRAIT_TYPE]                               | [CAPABILITY]                                                   |
+| :-----: | :----------------------- | :----------------------------------------- | :------------------------------------------------------------- |
+|  [01]   | `timeout`                | `Integer=None`                             | per-cell execution timeout in seconds (`None` = no limit)      |
+|  [02]   | `startup_timeout`        | `Integer=60`                               | kernel start wait in seconds                                   |
+|  [03]   | `kernel_name`            | `Unicode=''`                               | kernel spec name override (`''` = notebook's own kernelspec)   |
+|  [04]   | `allow_errors`           | `Bool=False`                               | continue execution past cell errors                            |
+|  [05]   | `allow_error_names`      | `List`                                     | error names tolerated even when `allow_errors=False`           |
+|  [06]   | `force_raise_errors`     | `Bool=False`                               | `CellExecutionError` past `allow_errors`/`raises-exception`    |
+|  [07]   | `skip_cells_with_tag`    | `Unicode='skip-execution'`                 | skip cells bearing this metadata tag                           |
+|  [08]   | `record_timing`          | `Bool=True`                                | record per-cell timing in cell metadata                        |
+|  [09]   | `store_widget_state`     | `Bool=True`                                | capture Jupyter widget state into notebook `metadata.widgets`  |
+|  [10]   | `shutdown_kernel`        | `Enum('graceful'\|'immediate')='graceful'` | kernel shutdown policy                                         |
+|  [11]   | `interrupt_on_timeout`   | `Bool=False`                               | send kernel interrupt on cell timeout instead of failing       |
+|  [12]   | `error_on_timeout`       | `Dict=None`                                | fake `error` reply on timeout (`ename`/`evalue`/`traceback`)   |
+|  [13]   | `iopub_timeout`          | `Integer=4`                                | seconds to wait for iopub output after an idle reply           |
+|  [14]   | `raise_on_iopub_timeout` | `Bool=False`                               | raise instead of warn when iopub output is late                |
+|  [15]   | `coalesce_streams`       | `Bool=False`                               | merge consecutive stream outputs into one                      |
+|  [16]   | `shell_timeout_interval` | `Integer=5`                                | shell-channel poll granularity, reply loop ticks per `get_msg` |
+|  [17]   | `kernel_manager_class`   | `Type(klass=KernelManager)`                | `KernelManager` subclass `create_kernel_manager` builds        |
+|  [18]   | `extra_arguments`        | `List(Unicode)`                            | extra CLI args appended to the kernel launch                   |
+|  [19]   | `ipython_hist_file`      | `Unicode=':memory:'`                       | IPython history-file launch arg (`:memory:` = ephemeral)       |
+|  [20]   | `display_data_priority`  | `List`                                     | MIME-type preference order for display output selection        |
 
 [ENTRYPOINT_SCOPE]: lifecycle-hook traits (kept OFF the reproducible plan)
 - rail: notebook — `nbclient.NotebookClient`

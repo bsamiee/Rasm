@@ -56,43 +56,43 @@
 [ENTRYPOINT_SCOPE]: top-level facade
 - rail: secrets
 
-| [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY]  | [RAIL]                                                                 |
-| :-----: | :-------------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------------------- |
-|  [01]   | `get_password(service_name, username) -> str \| None`                       | secret read     | retrieve password or `None`                                            |
-|  [02]   | `set_password(service_name, username, password) -> None`                    | secret write    | store password string                                                  |
-|  [03]   | `delete_password(service_name, username) -> None`                           | secret delete   | remove stored password                                                 |
-|  [04]   | `get_credential(service_name, username: str \| None) -> Credential \| None` | structured read | retrieve username+password pair (None username = backend-default user) |
-|  [05]   | `get_keyring() -> KeyringBackend`                                           | backend query   | return the active backend instance                                     |
-|  [06]   | `set_keyring(keyring) -> None`                                              | backend set     | override the active backend (test boundary)                            |
+| [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY]  | [RAIL]                              |
+| :-----: | :-------------------------------------------------------------------------- | :-------------- | :---------------------------------- |
+|  [01]   | `get_password(service_name, username) -> str \| None`                       | secret read     | retrieve password or `None`         |
+|  [02]   | `set_password(service_name, username, password) -> None`                    | secret write    | store password string               |
+|  [03]   | `delete_password(service_name, username) -> None`                           | secret delete   | remove stored password              |
+|  [04]   | `get_credential(service_name, username: str \| None) -> Credential \| None` | structured read | pair; `None` user = backend default |
+|  [05]   | `get_keyring() -> KeyringBackend`                                           | backend query   | return the active backend instance  |
+|  [06]   | `set_keyring(keyring) -> None`                                              | backend set     | override the active backend         |
 
 [ENTRYPOINT_SCOPE]: backend discovery and selection
 - rail: secrets
 
-| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]  | [RAIL]                                                                    |
-| :-----: | :-------------------------------------------------- | :-------------- | :------------------------------------------------------------------------ |
-|  [01]   | `core.init_backend(limit=None) -> KeyringBackend`   | backend init    | pick the highest-priority viable backend (optionally filtered by `limit`) |
-|  [02]   | `core.load_env() -> KeyringBackend \| None`         | env select      | resolve `PYTHON_KEYRING_BACKEND` to a backend                             |
-|  [03]   | `core.load_config() -> KeyringBackend \| None`      | config select   | resolve `keyringrc.cfg` to a backend                                      |
-|  [04]   | `core.load_keyring(keyring_name) -> KeyringBackend` | name resolve    | import-load a backend by dotted class name                                |
-|  [05]   | `core.recommended(backend) -> bool`                 | viability       | predicate: backend has positive (recommended) priority                    |
-|  [06]   | `core.disable() -> None`                            | backend disable | write config selecting the fail (null) backend                            |
-|  [07]   | `backend.get_all_keyring() -> list[KeyringBackend]` | backend list    | enumerate all registered backends                                         |
-|  [08]   | `backend.by_priority`                               | sort key        | `attrgetter('priority')` ranking key over backends                        |
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]  | [RAIL]                                                |
+| :-----: | :-------------------------------------------------- | :-------------- | :---------------------------------------------------- |
+|  [01]   | `core.init_backend(limit=None) -> KeyringBackend`   | backend init    | pick highest-priority viable backend; `limit` filters |
+|  [02]   | `core.load_env() -> KeyringBackend \| None`         | env select      | resolve `PYTHON_KEYRING_BACKEND` to a backend         |
+|  [03]   | `core.load_config() -> KeyringBackend \| None`      | config select   | resolve `keyringrc.cfg` to a backend                  |
+|  [04]   | `core.load_keyring(keyring_name) -> KeyringBackend` | name resolve    | import-load a backend by dotted class name            |
+|  [05]   | `core.recommended(backend) -> bool`                 | viability       | predicate: backend priority is positive               |
+|  [06]   | `core.disable() -> None`                            | backend disable | write config selecting the fail (null) backend        |
+|  [07]   | `backend.get_all_keyring() -> list[KeyringBackend]` | backend list    | enumerate all registered backends                     |
+|  [08]   | `backend.by_priority`                               | sort key        | `attrgetter('priority')` ranking key over backends    |
 
 [ENTRYPOINT_SCOPE]: `KeyringBackend` abstract/extension interface
 - rail: secrets
 - defined on `backend.KeyringBackend` (PUBLIC_TYPES [01]); custom stores subclass and implement the abstract reads/writes plus the `priority` ranking.
 
-| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY]  | [RAIL]                                                                   |
-| :-----: | :-------------------------------------------------------- | :-------------- | :----------------------------------------------------------------------- |
-|  [01]   | `get_password(service, username) -> str \| None`          | abstract method | read secret from store                                                   |
-|  [02]   | `set_password(service, username, password) -> None`       | abstract method | write secret to store                                                    |
-|  [03]   | `delete_password(service, username) -> None`              | abstract method | remove secret from store                                                 |
-|  [04]   | `get_credential(service, username) -> Credential \| None` | method          | read structured credential                                               |
-|  [05]   | `priority` (class property)                               | viability rank  | float rank; raises `NotImplementedError` on the base, must be overridden |
-|  [06]   | `viable` (class property)                                 | viability gate  | whether the backend's deps/platform are present                          |
-|  [07]   | `get_viable_backends() -> set[type[KeyringBackend]]`      | discovery       | viable subclasses ranked by priority                                     |
-|  [08]   | `with_properties(**kwargs)` / `set_properties_from_env()` | configure       | clone with overrides / hydrate props from env                            |
+| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY]  | [RAIL]                                          |
+| :-----: | :-------------------------------------------------------- | :-------------- | :---------------------------------------------- |
+|  [01]   | `get_password(service, username) -> str \| None`          | abstract method | read secret from store                          |
+|  [02]   | `set_password(service, username, password) -> None`       | abstract method | write secret to store                           |
+|  [03]   | `delete_password(service, username) -> None`              | abstract method | remove secret from store                        |
+|  [04]   | `get_credential(service, username) -> Credential \| None` | method          | read structured credential                      |
+|  [05]   | `priority` (class property)                               | viability rank  | float rank; base raises `NotImplementedError`   |
+|  [06]   | `viable` (class property)                                 | viability gate  | whether the backend's deps/platform are present |
+|  [07]   | `get_viable_backends() -> set[type[KeyringBackend]]`      | discovery       | viable subclasses ranked by priority            |
+|  [08]   | `with_properties(**kwargs)` / `set_properties_from_env()` | configure       | clone with overrides / hydrate props from env   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

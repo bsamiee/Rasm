@@ -35,82 +35,95 @@
 [PUBLIC_TYPE_SCOPE]: drawable element vocabulary
 - rail: figure
 
-The shape vocabulary is the bounded grammar a figure builds from. `Lines`/`Line` and `Arc`/`ArcLine` derive from `Path`/`Circle`, so a polyline or arc IS a path/circle — a figure transform applies to the typed element, never to a re-emitted tag. `Group` is the structural `<g>` container that carries shared transform/style and z-ordered children.
+The shape vocabulary is the bounded grammar a figure builds from. `Lines`/`Line` and `Arc`/`ArcLine` derive from `Path`/`Circle`, so a polyline or arc IS a path/circle — a figure transform applies to the typed element, never to a re-emitted tag. `Group` is the structural `<g>` container that carries shared transform/style and z-ordered children. Every constructor carries a trailing `**kwargs`/`**args` for SVG presentation attributes; the one long constructor (`Text`, row `[09]`) is spelled below the table.
 
-| [INDEX] | [TYPE]          | [BASE]                   | [ROLE]                                                                                                                                           |
-| :-----: | :-------------- | :----------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Rectangle`     | DrawingBasicElement      | `Rectangle(x, y, width, height, **kwargs)` axis-aligned rect                                                                                     |
-|  [02]   | `Circle`        | DrawingBasicElement      | `Circle(cx, cy, r, **kwargs)`                                                                                                                    |
-|  [03]   | `Ellipse`       | DrawingBasicElement      | `Ellipse(cx, cy, rx, ry, **kwargs)`                                                                                                              |
-|  [04]   | `Path`          | DrawingBasicElement      | `Path(d='', **kwargs)` SVG path with typed command builders                                                                                      |
-|  [05]   | `Lines`         | Path                     | `Lines(sx, sy, *points, close=False, **kwargs)` polyline/polygon                                                                                 |
-|  [06]   | `Line`          | Lines                    | `Line(sx, sy, ex, ey, **kwargs)` single segment                                                                                                  |
-|  [07]   | `Arc`           | Path                     | `Arc(cx, cy, r, start_deg, end_deg, cw=False, **kwargs)` arc path                                                                                |
-|  [08]   | `ArcLine`       | Circle                   | `ArcLine(cx, cy, r, start_deg, end_deg, **kwargs)` circle-derived arc                                                                            |
-|  [09]   | `Text`          | DrawingParentElement     | `Text(text, font_size, x=None, y=None, *, center=False, line_height=1, line_offset=0, path=None, start_offset=None, ...)` multiline/on-path text |
-|  [10]   | `TSpan`         | (_TextContainingElement) | `TSpan(text, **kwargs)` styled text run inside `Text`                                                                                            |
-|  [11]   | `Image`         | DrawingBasicElement      | `Image(x, y, width, height, path=None, data=None, embed=False, mime_type=None, ...)` linked/embedded raster                                      |
-|  [12]   | `Use`           | DrawingBasicElement      | `Use(other_elem, x, y, **kwargs)` `<use>` instanced reference                                                                                    |
-|  [13]   | `Group`         | DrawingParentElement     | `Group(children=(), ordered_children=None, **args)` `<g>` transform/style container                                                              |
-|  [14]   | `Raster`        | object                   | `Raster(png_data=None, png_file=None)` raw raster payload for embedding                                                                          |
-|  [15]   | `Raw`           | DrawingElement           | `Raw(content, defs=())` verbatim SVG/markup escape hatch                                                                                         |
-|  [16]   | `ForeignObject` | DrawingParentElement     | `<foreignObject>` embedded non-SVG (HTML) content                                                                                                |
-|  [17]   | `NoElement`     | DrawingElement           | empty sentinel element (renders nothing)                                                                                                         |
+| [INDEX] | [TYPE]          | [BASE]                   | [ROLE]                                                                                      |
+| :-----: | :-------------- | :----------------------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | `Rectangle`     | DrawingBasicElement      | `Rectangle(x, y, width, height)` axis-aligned rect                                          |
+|  [02]   | `Circle`        | DrawingBasicElement      | `Circle(cx, cy, r)`                                                                         |
+|  [03]   | `Ellipse`       | DrawingBasicElement      | `Ellipse(cx, cy, rx, ry)`                                                                   |
+|  [04]   | `Path`          | DrawingBasicElement      | `Path(d='')` SVG path with typed command builders                                           |
+|  [05]   | `Lines`         | Path                     | `Lines(sx, sy, *points, close=False)` polyline/polygon                                      |
+|  [06]   | `Line`          | Lines                    | `Line(sx, sy, ex, ey)` single segment                                                       |
+|  [07]   | `Arc`           | Path                     | `Arc(cx, cy, r, start_deg, end_deg, cw=False)` arc path                                     |
+|  [08]   | `ArcLine`       | Circle                   | `ArcLine(cx, cy, r, start_deg, end_deg)` circle-derived arc                                 |
+|  [09]   | `Text`          | DrawingParentElement     | multiline / on-path text; full constructor `[09]` below                                     |
+|  [10]   | `TSpan`         | (_TextContainingElement) | `TSpan(text)` styled text run inside `Text`                                                 |
+|  [11]   | `Image`         | DrawingBasicElement      | `Image(x, y, width, height, path=None, data=None, embed=False, mime_type=None, ...)` raster |
+|  [12]   | `Use`           | DrawingBasicElement      | `Use(other_elem, x, y)` `<use>` instanced reference                                         |
+|  [13]   | `Group`         | DrawingParentElement     | `Group(children=(), ordered_children=None)` `<g>` transform/style container                 |
+|  [14]   | `Raster`        | object                   | `Raster(png_data=None, png_file=None)` raw raster payload for embedding                     |
+|  [15]   | `Raw`           | DrawingElement           | `Raw(content, defs=())` verbatim SVG/markup escape hatch                                    |
+|  [16]   | `ForeignObject` | DrawingParentElement     | `<foreignObject>` embedded non-SVG (HTML) content                                           |
+|  [17]   | `NoElement`     | DrawingElement           | empty sentinel element (renders nothing)                                                    |
+
+- [09]: `Text(text, font_size, x=None, y=None, *, center=False, line_height=1, line_offset=0, path=None, start_offset=None, ...)` — multiline / on-path text run.
 
 [PUBLIC_TYPE_SCOPE]: def-tier paint and effect owners
 - rail: figure
 
-Paint, clip, mask, marker, and filter owners live in `<defs>` and are referenced by id; they are `DrawingDef` subclasses a figure registers once via `append_def`/`draw_def` and reuses across shapes. `LinearGradient`/`RadialGradient` carry `GradientStop` children through `add_stop`; `Filter` holds `FilterItem` primitive children.
+Paint, clip, mask, marker, and filter owners live in `<defs>` and are referenced by id; they are `DrawingDef` subclasses a figure registers once via `append_def`/`draw_def` and reuses across shapes. `LinearGradient`/`RadialGradient` carry `GradientStop` children through `add_stop`; `Filter` holds `FilterItem` primitive children. Every constructor carries a trailing `**kwargs`/`**args` for SVG attributes; both gradients default `gradientUnits='userSpaceOnUse'`.
 
-| [INDEX] | [TYPE]           | [KIND]     | [ROLE]                                                                                                                         |
-| :-----: | :--------------- | :--------- | :----------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `LinearGradient` | paint def  | `LinearGradient(x1, y1, x2, y2, gradientUnits='userSpaceOnUse', **kwargs)`; `.add_stop(offset, color, opacity=None, **kwargs)` |
-|  [02]   | `RadialGradient` | paint def  | `RadialGradient(cx, cy, r, gradientUnits='userSpaceOnUse', fy=None, **kwargs)`; `.add_stop(...)`                               |
-|  [03]   | `GradientStop`   | paint sub  | `<stop>` color/offset child of a gradient                                                                                      |
-|  [04]   | `Pattern`        | paint def  | `Pattern(width, height, x=None, y=None, patternUnits='userSpaceOnUse', **kwargs)` tiled fill                                   |
-|  [05]   | `Filter`         | effect def | `Filter(children=(), ordered_children=None, **args)` filter container                                                          |
-|  [06]   | `FilterItem`     | effect sub | `FilterItem(tag_name, **args)` one `<fe*>` filter primitive                                                                    |
-|  [07]   | `ClipPath`       | clip def   | `ClipPath(children=(), ordered_children=None, **args)` `<clipPath>` geometric clip                                             |
-|  [08]   | `Mask`           | mask def   | `Mask(children=(), ordered_children=None, **args)` `<mask>` luminance/alpha mask                                               |
-|  [09]   | `Marker`         | marker def | `Marker(minx, miny, maxx, maxy, scale=1, orient='auto', **kwargs)` line-endpoint/vertex marker                                 |
+| [INDEX] | [TYPE]           | [KIND]     | [ROLE]                                                                               |
+| :-----: | :--------------- | :--------- | :----------------------------------------------------------------------------------- |
+|  [01]   | `LinearGradient` | paint def  | `LinearGradient(x1, y1, x2, y2)`; `.add_stop(offset, color, opacity=None)`           |
+|  [02]   | `RadialGradient` | paint def  | `RadialGradient(cx, cy, r, fy=None)`; `.add_stop(...)`                               |
+|  [03]   | `GradientStop`   | paint sub  | `<stop>` color/offset child of a gradient                                            |
+|  [04]   | `Pattern`        | paint def  | `Pattern(width, height, x=None, y=None, patternUnits='userSpaceOnUse')` tiled fill   |
+|  [05]   | `Filter`         | effect def | `Filter(children=(), ordered_children=None)` filter container                        |
+|  [06]   | `FilterItem`     | effect sub | `FilterItem(tag_name)` one `<fe*>` filter primitive                                  |
+|  [07]   | `ClipPath`       | clip def   | `ClipPath(children=(), ordered_children=None)` `<clipPath>` geometric clip           |
+|  [08]   | `Mask`           | mask def   | `Mask(children=(), ordered_children=None)` `<mask>` luminance/alpha mask             |
+|  [09]   | `Marker`         | marker def | `Marker(minx, miny, maxx, maxy, scale=1, orient='auto')` line-endpoint/vertex marker |
 
 [PUBLIC_TYPE_SCOPE]: animation algebra
 - rail: figure
 
-SMIL animation elements attach to a parent via `append_anim`/`extend_anim`; `Animate` is the per-attribute root, the three subclasses specialize transform/motion/discrete-set, and `SyncedAnimationConfig` (threaded through `Drawing(animation_config=...)` or `Context`) drives a synchronized timeline with optional on-canvas playback controls. This is the static-SVG animation path; live UI animation stays outside the package.
+SMIL animation elements attach to a parent via `append_anim`/`extend_anim`; `Animate` is the per-attribute root, the three subclasses specialize transform/motion/discrete-set, and `SyncedAnimationConfig` (threaded through `Drawing(animation_config=...)` or `Context`) drives a synchronized timeline with optional on-canvas playback controls. This is the static-SVG animation path; live UI animation stays outside the package. Every `Animate*` constructor carries a trailing `**kwargs`; the long `SyncedAnimationConfig` constructor (row `[06]`) is spelled below the table.
 
-| [INDEX] | [TYPE]                  | [BASE]              | [ROLE]                                                                                                                                                                      |
-| :-----: | :---------------------- | :------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Animate`               | DrawingBasicElement | `Animate(attributeName, dur, from_or_values=None, to=None, begin=None, other_elem=None, **kwargs)`                                                                          |
-|  [02]   | `AnimateTransform`      | Animate             | `AnimateTransform(type, dur, from_or_values, to=None, begin=None, attributeName='transform', ...)`                                                                          |
-|  [03]   | `AnimateMotion`         | Animate             | `AnimateMotion(path, dur, from_or_values=None, to=None, begin=None, ...)` motion along a path                                                                               |
-|  [04]   | `Set`                   | Animate             | `Set(attributeName, dur, to=None, begin=None, ...)` discrete attribute set                                                                                                  |
-|  [05]   | `Discard`               | Animate             | `Discard(attributeName, begin=None, **kwargs)` `<discard>` element-removal hint                                                                                             |
-|  [06]   | `SyncedAnimationConfig` | object              | `SyncedAnimationConfig(duration, start_delay=0, end_delay=0, repeat_count='indefinite', fill='freeze', show_playback_controls=False, ...)` synchronized timeline + controls |
-|  [07]   | `FrameAnimation`        | object              | `FrameAnimation(draw_func=None, callback=None)` per-frame redraw driver (frame-render egress)                                                                               |
+| [INDEX] | [TYPE]                  | [BASE]              | [ROLE]                                                                                   |
+| :-----: | :---------------------- | :------------------ | :--------------------------------------------------------------------------------------- |
+|  [01]   | `Animate`               | DrawingBasicElement | `Animate(attributeName, dur, from_or_values=None, to=None, begin=None, other_elem=None)` |
+|  [02]   | `AnimateTransform`      | Animate             | transform animation; full constructor `[02]` below                                       |
+|  [03]   | `AnimateMotion`         | Animate             | `AnimateMotion(path, dur, from_or_values=None, to=None, begin=None)` motion along a path |
+|  [04]   | `Set`                   | Animate             | `Set(attributeName, dur, to=None, begin=None)` discrete attribute set                    |
+|  [05]   | `Discard`               | Animate             | `Discard(attributeName, begin=None)` `<discard>` element-removal hint                    |
+|  [06]   | `SyncedAnimationConfig` | object              | synchronized timeline + playback controls; full constructor `[06]` below                 |
+|  [07]   | `FrameAnimation`        | object              | `FrameAnimation(draw_func=None, callback=None)` per-frame redraw driver                  |
+
+- [02]: `AnimateTransform(type, dur, from_or_values, to=None, begin=None, attributeName='transform')` — transform animation over the named attribute.
+- [06]: `SyncedAnimationConfig(duration, start_delay=0, end_delay=0, repeat_count='indefinite', fill='freeze', show_playback_controls=False, ...)` — synchronized timeline threaded through `Drawing(animation_config=)`.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Drawing` build, z-order, serialize
 - rail: figure
 
-`Drawing(width, height, origin=(0,0), context=None, animation_config=None, id_prefix='d')` is the canvas; `append`/`draw`/`extend` (each taking keyword `z=` for z-order) is the single polymorphic insertion surface — `draw` accepts any drawable or an object exposing a draw protocol, `append` takes an element directly, so there is no per-shape `add_rect`/`add_circle` family. `append_def`/`draw_def` register a `<defs>` owner; `append_css`/`append_javascript`/`append_title`/`embed_google_font` attach document-level assets. Serialization is the one egress family: `as_svg`/`save_svg` for the SVG string/file, `as_html`/`save_html` for standalone HTML, with the raster/video rows gated behind the absent extras.
+`Drawing(width, height, origin=(0,0), context=None, animation_config=None, id_prefix='d')` is the canvas; `append`/`draw`/`extend` (each taking keyword `z=` for z-order) is the single polymorphic insertion surface — `draw` accepts any drawable or an object exposing a draw protocol, `append` takes an element directly, so there is no per-shape `add_rect`/`add_circle` family. `append_def`/`draw_def` register a `<defs>` owner; `append_css`/`append_javascript`/`append_title`/`embed_google_font` attach document-level assets. Serialization is the one egress family: `as_svg`/`save_svg` for the SVG string/file, `as_html`/`save_html` for standalone HTML, with the raster/video rows gated behind the absent extras. Every member below is `Drawing.<name>`; the two long serialize overloads carry their full signature here:
 
-| [INDEX] | [MEMBER]                                                                                                                                                                    | [KIND]    | [ROLE]                                                                                                                                                   |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Drawing(width, height, origin=(0, 0), context=None, animation_config=None, id_prefix='d', **svg_args)`                                                                     | construct | canvas; `origin='center'`/`(x,y)` and `context.invert_y` set coordinate frame                                                                            |
-|  [02]   | `Drawing.append(element, *, z=None)` / `draw(obj, *, z=None, **kwargs)` / `extend(iterable, *, z=None)`                                                                     | build     | insert a drawable (or draw-protocol object); `z` orders                                                                                                  |
-|  [03]   | `Drawing.append_def(element)` / `draw_def(obj, **kwargs)`                                                                                                                   | build     | register a `<defs>`-tier paint/effect owner                                                                                                              |
-|  [04]   | `Drawing.append_css(css_text)` / `append_javascript(js_text, onload=None)` / `append_title(text, **kwargs)`                                                                 | build     | attach document-level CSS / JS / title                                                                                                                   |
-|  [05]   | `Drawing.embed_google_font(family, text=None, display='swap', **kwargs)`                                                                                                    | build     | inline a Google font `@font-face` (network fetch at build)                                                                                               |
-|  [06]   | `Drawing.insert(i, element)` / `remove(element)` / `clear()` / `reverse()` / `count(element)` / `index(element)`                                                            | build     | `MutableSequence` editing of the child list                                                                                                              |
-|  [07]   | `Drawing.set_pixel_scale(s=1)` / `set_render_size(w=None, h=None)` / `calc_render_size()`                                                                                   | size      | declared render/output pixel size and scale                                                                                                              |
-|  [08]   | `Drawing.as_svg(output_file=None, randomize_ids=False, header=..., skip_js=False, skip_css=False, context=None)` / `save_svg(fname, encoding='utf-8', context=None)`        | serialize | SVG string / file egress                                                                                                                                 |
-|  [09]   | `Drawing.as_html(output_file=None, title=None, randomize_ids=False, context=None, fix_embed_iframe=False)` / `save_html(fname, title=None, encoding='utf-8', context=None)` | serialize | standalone HTML egress                                                                                                                                   |
-|  [10]   | `Drawing.all_elements(context=None)` / `all_css(context=None)` / `all_javascript(context=None)`                                                                             | query     | flattened element/CSS/JS streams for inspection                                                                                                          |
-|  [11]   | `Drawing.rasterize(to_file=None, context=None)` / `save_png(fname, context=None)`                                                                                           | raster    | [GATED] PNG via optional `cairoSVG`; absent on core — route raster to `resvg-py`/`vl-convert`/`pyvips`                                                   |
-|  [12]   | `Drawing.as_gif/as_mp4/as_video/as_spritesheet/as_animation_frames(...)` / `save_gif/save_mp4/save_video/save_spritesheet(...)`                                             | raster    | [GATED] video/frame egress via optional `imageio`+ffmpeg; absent on core — run any ffmpeg assembly through the runtime worker `to_process.run_sync` seam |
-|  [13]   | `Drawing.display_inline/display_image/display_iframe(context=None)`                                                                                                         | notebook  | Jupyter rich display (notebook boundary only)                                                                                                            |
+- call: `as_svg(output_file=None, randomize_ids=False, header=..., skip_js=False, skip_css=False, context=None)` / `save_svg(fname, encoding='utf-8', context=None)` — SVG string / file egress
+- call: `as_html(output_file=None, title=None, randomize_ids=False, context=None, fix_embed_iframe=False)` / `save_html(fname, title=None, encoding='utf-8', context=None)` — standalone HTML egress
+
+| [INDEX] | [MEMBER]                                                           | [KIND]    | [ROLE]                                                  |
+| :-----: | :----------------------------------------------------------------- | :-------- | :------------------------------------------------------ |
+|  [01]   | `Drawing(...)`                                                     | construct | the document canvas (signature in the lead)             |
+|  [02]   | `append(element)` / `draw(obj)` / `extend(iterable)`               | build     | insert a drawable (or draw-protocol object); `z` orders |
+|  [03]   | `append_def(element)` / `draw_def(obj)`                            | build     | register a `<defs>`-tier paint/effect owner             |
+|  [04]   | `append_css(css_text)` / `append_title(text)`                      | build     | attach document-level CSS / title                       |
+|  [05]   | `append_javascript(js_text, onload=None)`                          | build     | attach document-level JS (`onload` hook)                |
+|  [06]   | `embed_google_font(family, text=None, display='swap')`             | build     | inline a Google font `@font-face` (network fetch)       |
+|  [07]   | `insert(i, element)` / `remove(element)` / `clear()` / `reverse()` | build     | `MutableSequence` edits of the child list               |
+|  [08]   | `count(element)` / `index(element)`                                | query     | `MutableSequence` count / index lookup                  |
+|  [09]   | `set_pixel_scale(s=1)` / `calc_render_size()`                      | size      | pixel scale / computed render size                      |
+|  [10]   | `set_render_size(w=None, h=None)`                                  | size      | declared output render size                             |
+|  [11]   | `as_svg(...)` / `save_svg(...)`                                    | serialize | SVG string / file egress (call above)                   |
+|  [12]   | `as_html(...)` / `save_html(...)`                                  | serialize | standalone HTML egress (call above)                     |
+|  [13]   | `all_elements/all_css/all_javascript(context=None)`                | query     | flattened element / CSS / JS streams for inspection     |
+|  [14]   | `rasterize(to_file=None, context=None)`                            | raster    | [GATED] SVG-to-pixels via `cairoSVG` (absent)           |
+|  [15]   | `save_png(fname, context=None)`                                    | raster    | [GATED] PNG file; route to `resvg-py`/`vl-convert`      |
+|  [16]   | `as_gif/as_mp4/as_video/as_spritesheet/as_animation_frames(...)`   | raster    | [GATED] in-memory video/frame (`imageio`+ffmpeg)        |
+|  [17]   | `save_gif/save_mp4/save_video/save_spritesheet(...)`               | raster    | [GATED] file egress; ffmpeg via `to_process.run_sync`   |
+|  [18]   | `display_inline/display_image/display_iframe(context=None)`        | notebook  | Jupyter rich display (notebook boundary only)           |
 
 [ENTRYPOINT_SCOPE]: `Path` command builders
 - rail: figure
@@ -131,27 +144,34 @@ SMIL animation elements attach to a parent via `append_anim`/`extend_anim`; `Ani
 [ENTRYPOINT_SCOPE]: element animation and titling
 - rail: figure
 
-Every `DrawingBasicElement`/`DrawingParentElement` carries the animation-attach surface: `append_anim`/`extend_anim` attach SMIL `Animate*` children, while `add_key_frame`/`add_attribute_key_sequence` are the keyframe-builder shortcut that constructs the animation timeline from value/time pairs. `append_title` adds an accessible `<title>`. These are shared across the vocabulary, so animation dispatches off the base, not a per-shape method.
+Every `DrawingBasicElement`/`DrawingParentElement` carries the animation-attach surface: `append_anim`/`extend_anim` attach SMIL `Animate*` children, while `add_key_frame`/`add_attribute_key_sequence` are the keyframe-builder shortcut that constructs the animation timeline from value/time pairs. `append_title` adds an accessible `<title>`. These are shared across the vocabulary, so animation dispatches off the base, not a per-shape method (drop the `<element>.` prefix below).
 
-| [INDEX] | [MEMBER]                                                                            | [KIND]  | [ROLE]                                                     |
-| :-----: | :---------------------------------------------------------------------------------- | :------ | :--------------------------------------------------------- |
-|  [01]   | `<element>.append_anim(animate_element)` / `extend_anim(animate_iterable)`          | animate | attach one / many SMIL `Animate*` children                 |
-|  [02]   | `<element>.add_key_frame(time, animation_args=None, **attr_values)`                 | animate | build a keyframe at `time` for the given attribute values  |
-|  [03]   | `<element>.add_attribute_key_sequence(attr, times, values, *, animation_args=None)` | animate | build an attribute's full keyframe timeline from sequences |
-|  [04]   | `<element>.append_title(text, **kwargs)`                                            | a11y    | attach an accessible `<title>` annotation                  |
+| [INDEX] | [MEMBER]                                                                  | [KIND]  | [ROLE]                                          |
+| :-----: | :------------------------------------------------------------------------ | :------ | :---------------------------------------------- |
+|  [01]   | `append_anim(animate_element)` / `extend_anim(animate_iterable)`          | animate | attach one / many SMIL `Animate*` children      |
+|  [02]   | `add_key_frame(time, animation_args=None, **attr_values)`                 | animate | build a keyframe at `time` for attribute values |
+|  [03]   | `add_attribute_key_sequence(attr, times, values, *, animation_args=None)` | animate | build an attribute's full keyframe timeline     |
+|  [04]   | `append_title(text)`                                                      | a11y    | attach an accessible `<title>` annotation       |
 
 [ENTRYPOINT_SCOPE]: module-level helpers
 - rail: figure
 
 The data-URI helpers (`svg_as_data_uri`/`svg_as_utf8_data_uri`/`bytes_as_data_uri`) emit `data:` URIs for inline embedding; `escape_cdata` sanitizes verbatim content; the `animate_*`/`render_svg_frames`/`save_video`/`frame_animate_*` helpers drive frame-sequence animation. The frame/video helpers depend on the absent extras and on ffmpeg, so they are boundary-gated alongside the `Drawing` raster rows.
 
-| [INDEX] | [MEMBER]                                                                                                                                                                | [KIND]  | [ROLE]                                                             |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------ | :----------------------------------------------------------------- |
-|  [01]   | `svg_as_data_uri(txt, ..., mime='image/svg+xml')` / `svg_as_utf8_data_uri(txt, ...)` / `bytes_as_data_uri(data, ..., mime='image/svg+xml')`                             | encode  | SVG/byte `data:` URI for inline embedding                          |
-|  [02]   | `escape_cdata(content)`                                                                                                                                                 | encode  | escape verbatim markup for safe inline inclusion                   |
-|  [03]   | `animate_element_sequence(times, element_sequence)` / `animate_text_sequence(container, times, values, *text_args, kwargs_list=None, **text_kwargs)`                    | animate | build a frame-keyed element/text animation sequence                |
-|  [04]   | `render_svg_frames(frames, align_bottom=False, align_right=False, bg=(255,255,255,255), verbose=False, **kwargs)` / `save_video(frames, file, verbose=False, **kwargs)` | raster  | [GATED] frame-render / video assembly via optional extras + ffmpeg |
-|  [05]   | `frame_animate_video(out_file, draw_func=None, jupyter=False, **video_args)` / `frame_animate_spritesheet(...)` / `frame_animate_jupyter(...)`                          | raster  | [GATED] frame-driven animation egress (optional extras)            |
+- call: `render_svg_frames(frames, align_bottom=False, align_right=False, bg=(255,255,255,255), verbose=False, **kwargs)` — [GATED] frame-render via optional extras + ffmpeg
+- call: `animate_text_sequence(container, times, values, *text_args, kwargs_list=None, **text_kwargs)` — frame-keyed text animation sequence
+
+| [INDEX] | [MEMBER]                                                             | [KIND]  | [ROLE]                                           |
+| :-----: | :------------------------------------------------------------------- | :------ | :----------------------------------------------- |
+|  [01]   | `svg_as_data_uri(txt, ..., mime='image/svg+xml')`                    | encode  | SVG `data:` URI for inline embedding             |
+|  [02]   | `svg_as_utf8_data_uri(txt, ...)`                                     | encode  | UTF-8 SVG `data:` URI                            |
+|  [03]   | `bytes_as_data_uri(data, ..., mime='image/svg+xml')`                 | encode  | raw-byte `data:` URI                             |
+|  [04]   | `escape_cdata(content)`                                              | encode  | escape verbatim markup for safe inclusion        |
+|  [05]   | `animate_element_sequence(times, element_sequence)`                  | animate | frame-keyed element animation sequence           |
+|  [06]   | `animate_text_sequence(...)`                                         | animate | frame-keyed text animation sequence (call above) |
+|  [07]   | `render_svg_frames(...)` / `save_video(frames, file, verbose=False)` | raster  | [GATED] frame-render / video assembly (ffmpeg)   |
+|  [08]   | `frame_animate_video(out_file, draw_func=None, jupyter=False)`       | raster  | [GATED] frame-driven video egress                |
+|  [09]   | `frame_animate_spritesheet(...)` / `frame_animate_jupyter(...)`      | raster  | [GATED] spritesheet / jupyter frame egress       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

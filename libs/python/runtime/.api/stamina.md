@@ -73,16 +73,16 @@
 - rail: resilience
 - `retry` and `retry_context` share one keyword schema: `on` (required), `attempts=10`, `timeout=45.0`, `wait_initial=0.1`, `wait_max=5.0`, `wait_jitter=1.0`, `wait_exp_base=2`. `timeout`/`wait_*` accept `float | timedelta`. Backoff for attempt `n` is `min(wait_max, wait_initial * wait_exp_base**(n-1) + uniform(0, wait_jitter))`. `attempts=None` and `timeout=None` lift the respective stop condition (at least one must bound the loop). `retry` auto-detects sync/async/generator/async-generator wrapped callables; `retry_context` yields `Attempt` and is consumed by both `for`/`with` and `async for`/`with`.
 
-| [INDEX] | [SURFACE]                                                                                                        | [ENTRY_FAMILY] | [RAIL]                                                    |
-| :-----: | :--------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
-|  [01]   | `retry(*, on, attempts=10, timeout=45.0, wait_initial=0.1, wait_max=5.0, wait_jitter=1.0, wait_exp_base=2)`      | decorator      | wrap sync/async/(async)gen callable on `on`               |
-|  [02]   | `retry_context(on, attempts=10, timeout=45.0, wait_initial=0.1, wait_max=5.0, wait_jitter=1.0, wait_exp_base=2)` | iterator       | retry inline block; yields `Attempt` per iteration        |
-|  [03]   | `RetryingCaller(attempts=..., timeout=..., wait_*=...)`                                                          | caller build   | construct reusable sync caller (policy frozen)            |
-|  [04]   | `AsyncRetryingCaller(attempts=..., timeout=..., wait_*=...)`                                                     | caller build   | construct reusable async caller                           |
-|  [05]   | `RetryingCaller.on(on)` / `AsyncRetryingCaller.on(on)`                                                           | binding        | bind the `on` target -> `Bound*` caller                   |
-|  [06]   | `Attempt.num` / `Attempt.next_wait`                                                                              | introspection  | current attempt number; jitter-less next-wait lower bound |
-|  [07]   | `is_active` / `set_active(bool)`                                                                                 | toggle         | enable/disable retrying process-globally                  |
-|  [08]   | `is_testing` / `set_testing(bool, *, attempts=1)`                                                                | toggle         | deterministic test mode (collapse backoff, cap attempts)  |
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                                    |
+| :-----: | :----------------------------------------------------- | :------------- | :-------------------------------------------------------- |
+|  [01]   | `retry(*, on, …schema)`                                | decorator      | wrap sync/async/(async)gen callable on `on`               |
+|  [02]   | `retry_context(on, …schema)`                           | iterator       | retry inline block; yields `Attempt` per iteration        |
+|  [03]   | `RetryingCaller(…schema)`                              | caller build   | construct reusable sync caller (policy frozen)            |
+|  [04]   | `AsyncRetryingCaller(…schema)`                         | caller build   | construct reusable async caller                           |
+|  [05]   | `RetryingCaller.on(on)` / `AsyncRetryingCaller.on(on)` | binding        | bind the `on` target -> `Bound*` caller                   |
+|  [06]   | `Attempt.num` / `Attempt.next_wait`                    | introspection  | current attempt number; jitter-less next-wait lower bound |
+|  [07]   | `is_active` / `set_active(bool)`                       | toggle         | enable/disable retrying process-globally                  |
+|  [08]   | `is_testing` / `set_testing(bool, *, attempts=1)`      | toggle         | deterministic test mode (collapse backoff, cap attempts)  |
 
 [ENTRYPOINT_SCOPE]: instrumentation operations (`stamina.instrumentation`)
 - rail: resilience

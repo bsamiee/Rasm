@@ -66,32 +66,35 @@ The manifest model is a three-level stack: a `ChunkManifest` maps chunk keys to 
 - rail: virtual-dataset
 
 Each `Parser` is a runtime-checkable `Protocol`: `__call__(url: str, registry: ObjectStoreRegistry) -> ManifestStore`. Construct a parser with its format options, then pass the instance (not a string) to `open_virtual_dataset`; the parser fans the URL through the registry-resolved object store and emits the `ManifestStore`.
+- call: `ZarrParser`/`DMRPPParser` take `(group=None, skip_variables=None)`; `NetCDF3Parser`/`FITSParser` add `reader_options=None`
+- call: `HDFParser(group=None, drop_variables=None, reader_factory=BlockStoreReader)`; `KerchunkJSONParser(group=None, fs_root=None, skip_variables=None)`; `KerchunkParquetParser(group=None, fs_root=None, skip_variables=None, reader_options=None)`; `IcechunkParser(*, branch=None, tag=None, snapshot_id=None, group=None, skip_variables=None, batch_size=100000)`
 
-| [INDEX] | [SYMBOL]                                                                                                                 | [PACKAGE_ROLE] | [CAPABILITY]                     |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------- |
-|  [01]   | `parsers.HDFParser(group=None, drop_variables=None, reader_factory=BlockStoreReader)`                                    | parser         | HDF5 and NetCDF4 files           |
-|  [02]   | `parsers.NetCDF3Parser(group=None, skip_variables=None, reader_options=None)`                                            | parser         | classic NetCDF3 files            |
-|  [03]   | `parsers.ZarrParser(group=None, skip_variables=None)`                                                                    | parser         | Zarr v2/v3 stores                |
-|  [04]   | `parsers.DMRPPParser(group=None, skip_variables=None)`                                                                   | parser         | NASA DMR++ sidecar files         |
-|  [05]   | `parsers.FITSParser(group=None, skip_variables=None, reader_options=None)`                                               | parser         | FITS astronomical image files    |
-|  [06]   | `parsers.KerchunkJSONParser(group=None, fs_root=None, skip_variables=None)`                                              | parser         | kerchunk JSON reference files    |
-|  [07]   | `parsers.KerchunkParquetParser(group=None, fs_root=None, skip_variables=None, reader_options=None)`                      | parser         | kerchunk Parquet reference files |
-|  [08]   | `parsers.IcechunkParser(*, branch=None, tag=None, snapshot_id=None, group=None, skip_variables=None, batch_size=100000)` | parser         | Icechunk snapshot read           |
+| [INDEX] | [SYMBOL]                        | [CAPABILITY]                     |
+| :-----: | :------------------------------ | :------------------------------- |
+|  [01]   | `parsers.HDFParser`             | HDF5 and NetCDF4 files           |
+|  [02]   | `parsers.NetCDF3Parser`         | classic NetCDF3 files            |
+|  [03]   | `parsers.ZarrParser`            | Zarr v2/v3 stores                |
+|  [04]   | `parsers.DMRPPParser`           | NASA DMR++ sidecar files         |
+|  [05]   | `parsers.FITSParser`            | FITS astronomical image files    |
+|  [06]   | `parsers.KerchunkJSONParser`    | kerchunk JSON reference files    |
+|  [07]   | `parsers.KerchunkParquetParser` | kerchunk Parquet reference files |
+|  [08]   | `parsers.IcechunkParser`        | Icechunk snapshot read           |
 
 [PUBLIC_TYPE_SCOPE]: registry, executors, codecs
 - rail: virtual-dataset
 
 `ObjectStoreRegistry` is the canonical scheme->store map; import it from `obspec_utils.registry` (the `virtualizarr` re-export is deprecated). The `parallel` module ships concrete executors for `open_virtual_mfdataset`. The `codecs` module bridges zarr-v2 and zarr-v3 codec configs, the boundary that lets a v2 source manifest write a v3 store.
 
-| [INDEX] | [SYMBOL]                                                                  | [PACKAGE_ROLE] | [CAPABILITY]                                                                    |
-| :-----: | :------------------------------------------------------------------------ | :------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `obspec_utils.registry.ObjectStoreRegistry(stores=None)`                  | registry       | scheme->`obstore` map; `register(url, store)` / `resolve(url) -> (store, path)` |
-|  [02]   | `virtualizarr.parallel.SerialExecutor`                                    | executor       | in-process serial mfdataset combine                                             |
-|  [03]   | `virtualizarr.parallel.DaskDelayedExecutor`                               | executor       | `dask.delayed` parallel combine                                                 |
-|  [04]   | `virtualizarr.parallel.LithopsEagerFunctionExecutor`                      | executor       | serverless (Lithops) parallel combine                                           |
-|  [05]   | `virtualizarr.parallel.get_executor(parallel)`                            | dispatch       | resolve `'dask'`/`'lithops'`/`False`/`type[Executor]` to an executor            |
-|  [06]   | `virtualizarr.codecs.convert_to_codec_pipeline(...)` / `get_codecs`       | codec bridge   | build/extract a zarr-v3 `CodecPipeline` from manifest metadata                  |
-|  [07]   | `virtualizarr.codecs.zarr_codec_config_to_v3` / `zarr_codec_config_to_v2` | codec bridge   | convert zarr codec configs between v2 and v3                                    |
+| [INDEX] | [SYMBOL]                                          | [PACKAGE_ROLE] | [CAPABILITY]                                                   |
+| :-----: | :------------------------------------------------ | :------------- | :------------------------------------------------------------- |
+|  [01]   | `ObjectStoreRegistry(stores=None)`                | registry       | canonical URL-scheme->`obstore` store map                      |
+|  [02]   | `parallel.SerialExecutor`                         | executor       | in-process serial mfdataset combine                            |
+|  [03]   | `parallel.DaskDelayedExecutor`                    | executor       | `dask.delayed` parallel combine                                |
+|  [04]   | `parallel.LithopsEagerFunctionExecutor`           | executor       | serverless (Lithops) parallel combine                          |
+|  [05]   | `parallel.get_executor(parallel)`                 | dispatch       | resolve `'dask'`/`'lithops'`/`False`/`type[Executor]`          |
+|  [06]   | `codecs.convert_to_codec_pipeline` / `get_codecs` | codec bridge   | build/extract a zarr-v3 `CodecPipeline` from manifest metadata |
+|  [07]   | `codecs.zarr_codec_config_to_v3`                  | codec bridge   | convert a zarr-v2 codec config to v3                           |
+|  [08]   | `codecs.zarr_codec_config_to_v2`                  | codec bridge   | convert a zarr-v3 codec config to v2                           |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -99,27 +102,32 @@ Each `Parser` is a runtime-checkable `Protocol`: `__call__(url: str, registry: O
 - rail: virtual-dataset
 
 `url`/`urls`, `registry`, and `parser` are the three required positionals; `loadable_variables` selects the variables read eagerly (everything else stays a `ManifestArray`), and `decode_times` toggles CF time decoding. `open_virtual_mfdataset` adds the full `xarray.combine_*` vocabulary plus a `parallel` executor selector.
+- call: `open_virtual_dataset(url, registry, parser, drop_variables=None, loadable_variables=None, decode_times=None) -> xr.Dataset`; `open_virtual_datatree(url, registry, parser, *, loadable_variables=None, decode_times=None) -> xr.DataTree`
+- call: `open_virtual_mfdataset(urls, registry, parser, concat_dim=None, compat='no_conflicts', preprocess=None, data_vars='all', coords='different', combine='by_coords', parallel=False, join='outer', attrs_file=None, combine_attrs='override', **kwargs) -> xr.Dataset`
+- call: `ManifestStore.to_virtual_dataset(group='', loadable_variables=None, decode_times=None) -> xr.Dataset`; `ManifestStore.to_virtual_datatree(group='', *, loadable_variables=None, decode_times=None) -> xr.DataTree`
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                            | [ENTRY_FAMILY] | [RAIL]                     |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------- |
-|  [01]   | `open_virtual_dataset(url, registry, parser, drop_variables=None, loadable_variables=None, decode_times=None) -> xr.Dataset`                                                                                                                                         | open           | single virtual dataset     |
-|  [02]   | `open_virtual_datatree(url, registry, parser, *, loadable_variables=None, decode_times=None) -> xr.DataTree`                                                                                                                                                         | open           | virtual data tree          |
-|  [03]   | `open_virtual_mfdataset(urls, registry, parser, concat_dim=None, compat='no_conflicts', preprocess=None, data_vars='all', coords='different', combine='by_coords', parallel=False, join='outer', attrs_file=None, combine_attrs='override', **kwargs) -> xr.Dataset` | open           | multi-file virtual dataset |
-|  [04]   | `ManifestStore.to_virtual_dataset(group='', loadable_variables=None, decode_times=None) -> xr.Dataset`                                                                                                                                                               | lift           | manifest store -> dataset  |
-|  [05]   | `ManifestStore.to_virtual_datatree(group='', *, loadable_variables=None, decode_times=None) -> xr.DataTree`                                                                                                                                                          | lift           | manifest store -> datatree |
+| [INDEX] | [SURFACE]                           | [ENTRY_FAMILY] | [RAIL]                     |
+| :-----: | :---------------------------------- | :------------- | :------------------------- |
+|  [01]   | `open_virtual_dataset`              | open           | single virtual dataset     |
+|  [02]   | `open_virtual_datatree`             | open           | virtual data tree          |
+|  [03]   | `open_virtual_mfdataset`            | open           | multi-file virtual dataset |
+|  [04]   | `ManifestStore.to_virtual_dataset`  | lift           | manifest store -> dataset  |
+|  [05]   | `ManifestStore.to_virtual_datatree` | lift           | manifest store -> datatree |
 
 [ENTRYPOINT_SCOPE]: `virtualize` accessor exports
 - rail: virtual-dataset
 
 The accessor is registered on the `virtualize` name; `ds.virtualize.to_icechunk(...)` and `ds.virtualize.to_kerchunk(...)` are the only write surfaces. There is no accessor `to_zarr` (writing real bytes is out of scope); `to_icechunk` writes virtual chunk references into an `IcechunkStore`, `to_kerchunk` emits a reference document.
+- call: `ds.virtualize.to_icechunk(store, *, group=None, append_dim=None, region=None, validate_containers=True, last_updated_at=None) -> None`; `dt.virtualize.to_icechunk(store, *, write_inherited_coords=False, validate_containers=True, last_updated_at=None, **kwargs) -> None`
+- call: `ds.virtualize.to_kerchunk(filepath=None, format='dict', record_size=100000, categorical_threshold=10) -> KerchunkStoreRefs | None`; `ds.virtualize.rename_paths(new) -> xr.Dataset`; `ds.virtualize.nbytes`
 
-| [INDEX] | [SURFACE]                                                                                                                               | [ENTRY_FAMILY] | [RAIL]                           |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------- |
-|  [01]   | `ds.virtualize.to_icechunk(store, *, group=None, append_dim=None, region=None, validate_containers=True, last_updated_at=None) -> None` | export         | write references to Icechunk     |
-|  [02]   | `ds.virtualize.to_kerchunk(filepath=None, format='dict', record_size=100000, categorical_threshold=10) -> KerchunkStoreRefs \| None`    | export         | write/return kerchunk references |
-|  [03]   | `ds.virtualize.rename_paths(new) -> xr.Dataset`                                                                                         | mutate         | rewrite chunk reference paths    |
-|  [04]   | `ds.virtualize.nbytes`                                                                                                                  | metadata       | virtual dataset reference size   |
-|  [05]   | `dt.virtualize.to_icechunk(store, *, write_inherited_coords=False, validate_containers=True, last_updated_at=None, **kwargs) -> None`   | export         | write data tree to Icechunk      |
+| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY] | [RAIL]                           |
+| :-----: | :--------------------------- | :------------- | :------------------------------- |
+|  [01]   | `ds.virtualize.to_icechunk`  | export         | write references to Icechunk     |
+|  [02]   | `ds.virtualize.to_kerchunk`  | export         | write/return kerchunk references |
+|  [03]   | `ds.virtualize.rename_paths` | mutate         | rewrite chunk reference paths    |
+|  [04]   | `ds.virtualize.nbytes`       | metadata       | virtual dataset reference size   |
+|  [05]   | `dt.virtualize.to_icechunk`  | export         | write data tree to Icechunk      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

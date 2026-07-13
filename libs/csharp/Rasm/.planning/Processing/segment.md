@@ -1135,16 +1135,27 @@ flowchart LR
 
 ## [07]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]         | [OWNER]                                                         | [KIND]                                                              | [RAIL]                                             | [CASES] |
-| :-----: | :---------------- | :-------------------------------------------------------------- | :------------------------------------------------------------------ | :------------------------------------------------- | :-----: |
-|  [01]   | Shape descriptors | `MeshDescriptor` + descriptor arms                              | `[Union]` over the `spectral` filter algebra; typed projection rows | `DescribeShape<TOut> → Fin<TOut>`                  |    1    |
-|  [02]   | Blue-noise gate   | `MeshSamplingSpectrumReceipt` + gate arm                        | low-frequency energy bound stamped into the `sample` receipt        | `ValidateSamplingSpectrum → Fin<SampleResult>`     |    —    |
-|  [03]   | Feature edges     | `MeshFeatureKind` + `MeshFeaturePolicy` + `FeatureReceipt`      | eight-kind taxonomy, scale-derived policy, censused receipt         | `DetectFeatureEdgesDetailed → Fin<FeatureReceipt>` |    8    |
-|  [04]   | Segmentation      | `MeshSegmentation` + `Segment<TOut>`                            | frozen six-case `[Union]`, one dispatch, one receipt shape          | `Segment<TOut> → Fin<TOut>`                        |    6    |
-|  [05]   | Direction fields  | `CrossFieldKey` + GODF arms                                     | smoothest LOBPCG / constrained Cholesky / cone-prescribed, one memo | `CrossFieldAt → Fin<Vector3d>`                     |    3    |
-|  [06]   | Stripe scalar     | stripe arm                                                      | cross-field-aligned level-set over blended vertex frames            | `StripeAt → Fin<double>`                           |    —    |
-|  [07]   | Host restructure  | `RemeshKind`/`QuadTarget` + `ApplyRemeshDetailed` + flatten arm | host-capture unions + parameter-echo receipts                       | `ApplyRemeshDetailed → Fin<RemeshResult>`          |   2+2   |
-|  [08]   | Evidence          | receipt family                                                  | `ValidityClaim.All` fold + declared gates + `AtomProjection` rows   | gated `Fin` projections                            |    —    |
+One owner per axis; capability is a case, arm, or policy column, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes, and the per-owner kind rides the indexed notes below.
+
+| [INDEX] | [CONCERN]         | [OWNER]                                 | [RAIL]                                             | [CASES] |
+| :-----: | :---------------- | :-------------------------------------- | :------------------------------------------------- | :-----: |
+|  [01]   | Shape descriptors | `MeshDescriptor`                        | `DescribeShape<TOut> → Fin<TOut>`                  |    1    |
+|  [02]   | Blue-noise gate   | `MeshSamplingSpectrumReceipt`           | `ValidateSamplingSpectrum → Fin<SampleResult>`     |    —    |
+|  [03]   | Feature edges     | `MeshFeatureKind` + `MeshFeaturePolicy` | `DetectFeatureEdgesDetailed → Fin<FeatureReceipt>` |    8    |
+|  [04]   | Segmentation      | `MeshSegmentation` + `Segment<TOut>`    | `Segment<TOut> → Fin<TOut>`                        |    6    |
+|  [05]   | Direction fields  | `CrossFieldKey`                         | `CrossFieldAt → Fin<Vector3d>`                     |    3    |
+|  [06]   | Stripe scalar     | stripe arm                              | `StripeAt → Fin<double>`                           |    —    |
+|  [07]   | Host restructure  | `RemeshKind`/`QuadTarget`               | `ApplyRemeshDetailed → Fin<RemeshResult>`          |   2+2   |
+|  [08]   | Evidence          | receipt family                          | gated `Fin` projections                            |    —    |
+
+- [01]-[SHAPE_DESCRIPTORS]: descriptor arms — `[Union]` over the `spectral` filter algebra; typed projection rows.
+- [02]-[BLUE_NOISE_GATE]: gate arm — low-frequency energy bound stamped into the `sample` receipt.
+- [03]-[FEATURE_EDGES]: `+ FeatureReceipt` — eight-kind taxonomy, scale-derived policy, censused receipt.
+- [04]-[SEGMENTATION]: frozen six-case `[Union]`, one dispatch, one receipt shape.
+- [05]-[DIRECTION_FIELDS]: GODF arms — smoothest LOBPCG / constrained Cholesky / cone-prescribed, one memo.
+- [06]-[STRIPE_SCALAR]: cross-field-aligned level-set over blended vertex frames.
+- [07]-[HOST_RESTRUCTURE]: `+ ApplyRemeshDetailed` + flatten arm — host-capture unions + parameter-echo receipts.
+- [08]-[EVIDENCE]: `ValidityClaim.All` fold + declared gates + `AtomProjection` rows.
 
 The flood, grow, cluster, affinity, and UV-accumulation loops are the named statement-kernel exemption — measured label/graph hot loops behind `Fin` admission; the QuadRemesh/Reduce/LSCM arms are the named platform-forced boundary (native calls returning nullable results, converted at the seam).
 

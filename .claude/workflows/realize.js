@@ -320,10 +320,9 @@ const codexPrompt = (label, task, schema, o) => {
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every heavy read/investigate lane routes here: terra by default; CODEX=false restores a fully native run.
-// QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively
-// at the role's Claude twin (terra->opus, sol->fable, luna->sonnet) — the caller owns the re-dispatch; the
-// sonnet wrapper never executes work itself.
+// Every heavy read/investigate lane routes here: terra by default; CODEX=false restores a fully native run. QUOTA FALLBACK: a codex receipt whose
+// failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->fable, luna->sonnet) — the
+// caller owns the re-dispatch, the sonnet wrapper never executes work itself.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
     agent(

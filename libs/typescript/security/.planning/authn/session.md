@@ -4,11 +4,11 @@ The identity plane's session owner: the `Subject`/`Session`/`CredentialRef`/`Tok
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                 | [PUBLIC]                                                                                              |
-| :-----: | :--------------- | :--------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
-|  [01]   | `IDENTITY_VOCAB` | the identity/session shapes, the fault, the two identity ports         | `Subject`, `Session`, `CredentialRef`, `TokenPair`, `SessionFault`, `SessionStore`, `IdentityJournal` |
-|  [02]   | `ROTATION_LAW`   | the rotation statechart, mint, reuse-detect, revoke, bearer seam       | `Token`, `RotationStep`, `BearerGuard`, `CurrentClaims`                                               |
-|  [03]   | `COOKIE_EGRESS`  | the cookie-attribute table, platform-codec framing, CSRF double-submit | `Cookie`, `CookieSpec`, `CsrfFault`                                                                   |
+| [INDEX] | [CLUSTER]        | [PUBLIC]                                                                                              |
+| :-----: | :--------------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | `IDENTITY_VOCAB` | `Subject`, `Session`, `CredentialRef`, `TokenPair`, `SessionFault`, `SessionStore`, `IdentityJournal` |
+|  [02]   | `ROTATION_LAW`   | `Token`, `RotationStep`, `BearerGuard`, `CurrentClaims`                                               |
+|  [03]   | `COOKIE_EGRESS`  | `Cookie`, `CookieSpec`, `CsrfFault`                                                                   |
 
 ## [02]-[IDENTITY_VOCAB]
 

@@ -19,7 +19,7 @@ ONE `Evaluation` owner holds the lattice: `ClosestOf` — the polymorphic closes
 - Growth: a new evaluatable form is ONE `ClosestOf` arm recovering its richest evidence plus its `Capability.Closest` admission — the receipt, the projection rows, and every consumer are untouched; a new receipt facet is ONE `Option` field + ONE `ProjectionRow` + ONE `IsValid` conjunct, and every existing arm compiles unchanged (absent facet = `None`); a new projection output type is ONE row, never a switch arm.
 - Boundary: the `typeof(TOut)` switch-cascade inside `Project<TOut>` is the named killed form — projection is `ProjectionRow` data through the ONE `AtomProjection.Rows` rail, so receipt projection, atom projection, and every downstream `.Project<TOut>` share one dispatch mechanism; the `parameterMode` boolean is the named killed knob — `double` means distance at this altitude, and parameter/span/signed/containment facet selection is `Spatial/support` `SupportProjection`'s row vocabulary over this receipt (`Parameter`/`Distance`/`Uv`/`Component`/`MeshPoint` rows read the fields directly), so the same evidence serves every facet without a mode flag; `ClosestHit.At` computes `Distance` from the target — a caller-supplied distance is the rejected trust hole; evaluation READS `Rhino.Geometry` only — document/view reach is the boundary-law violation; the lattice preserves capability totally — every recovery the mature kernel performed (curve perpendicular frames, brep edge-component tangent frames with the perpendicular-frame-then-tangent-plane fallback, mesh normal frames, cloud stored normals, box interior-exclusion closest points) lands in an arm, the two recursion fixes change no terminating input's result, and the face-refusal totalization trades exactly one degenerate answer — a silently untrimmed underlying-surface point — for a typed refusal.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -322,16 +322,19 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; a new evaluatable form, receipt facet, or projection output is an arm, field, or row — never a sibling surface.
+One owner per axis; a new evaluatable form, receipt facet, or projection output is an arm, field, or row — never a sibling surface. Rows `[05]`/`[06]` carry member families whose per-member rails the keyed list below records.
 
-| [INDEX] | [CONCERN]           | [OWNER]                                                                  | [KIND]                                                          | [RAIL]                                                          | [CASES] |
-| :-----: | :------------------ | :----------------------------------------------------------------------- | :-------------------------------------------------------------- | :-------------------------------------------------------------- | :-----: |
-|  [01]   | Closest evidence    | `ClosestHit`                                                             | `readonly record struct` receipt, 9 fields, `IValidityEvidence` | `At` factory (pure); `IsValid` fold                             |    9    |
-|  [02]   | Receipt projection  | `ClosestHit.Project<TOut>`                                               | `ProjectionRow` rows through `AtomProjection.Rows`              | `Fin<TOut>` over `Fault`                                        |    8    |
-|  [03]   | Closest evaluation  | `Evaluation.ClosestOf`                                                   | `extension(object?)` 18-arm recovery lattice                    | `Fin<ClosestHit>`                                               |   18    |
-|  [04]   | Signed distance     | `Evaluation.SignedDistanceOf`                                            | analytic arms + receipt normal-sign fallthrough                 | `Fin<double>`                                                   |    6    |
-|  [05]   | Surface evaluation  | `NormalAt`/`FrameAt`/`SurfaceUv`/`SurfaceSampleUv`/`SurfaceSamplePoints` | orientation-corrected surface members                           | `Fin<Vector3d>`/`Fin<Plane>`/`Fin<Point2d>`/`Fin<Seq<Point3d>>` |    5    |
-|  [06]   | Sampling + vertices | `SamplePoints`/`CurveSampleParameters`/`VerticesOf`                      | polymorphic samplers over one `Fractions` policy                | `Fin<Seq<Point3d>>`/`Fin<Seq<double>>`                          |    3    |
+| [INDEX] | [CONCERN]           | [OWNER]                       | [KIND]                                    | [RAIL]                       | [CASES] |
+| :-----: | :------------------ | :---------------------------- | :---------------------------------------- | :--------------------------- | :-----: |
+|  [01]   | Closest evidence    | `ClosestHit`                  | `readonly record struct`, 9-field receipt | `At` factory; `IsValid` fold |    9    |
+|  [02]   | Receipt projection  | `ClosestHit.Project<TOut>`    | `ProjectionRow` via `AtomProjection.Rows` | `Fin<TOut>` over `Fault`     |    8    |
+|  [03]   | Closest evaluation  | `Evaluation.ClosestOf`        | `extension(object?)` recovery lattice     | `Fin<ClosestHit>`            |   18    |
+|  [04]   | Signed distance     | `Evaluation.SignedDistanceOf` | analytic arms + normal-sign fallthrough   | `Fin<double>`                |    6    |
+|  [05]   | Surface evaluation  | `Evaluation`                  | orientation-corrected surface members     | per member                   |    5    |
+|  [06]   | Sampling + vertices | `Evaluation`                  | samplers over one `Fractions` policy      | per member                   |    3    |
+
+- [05]-[SURFACE]: `NormalAt` → `Fin<Vector3d>`, `FrameAt` → `Fin<Plane>`, `SurfaceUv` → `Fin<Point2d>`, `SurfaceSampleUv` → `Fin<Seq<Point2d>>`, `SurfaceSamplePoints` → `Fin<Seq<Point3d>>`.
+- [06]-[SAMPLING]: `SamplePoints` → `Fin<Seq<Point3d>>` (6 arms), `CurveSampleParameters` → `Fin<Seq<double>>`, `VerticesOf` → `Fin<Seq<Point3d>>` (15 arms).
 
 Every fence composes the `Domain/rails` `Op`/`Fault` vocabulary, the `Domain/normalization` `Capability` rows and `Lease` recoveries, the `Domain/validation` oracle, and the `Numerics/atoms` projection rail as settled material; no arm re-derives type admissibility, no facet travels as a sentinel, and no member reaches past `Rhino.Geometry`.
 

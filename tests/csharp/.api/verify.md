@@ -12,29 +12,36 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                             | [KIND]        | [CAPABILITY]                                                                                          |
-| :-----: | :----------------------------------- | :------------ | :---------------------------------------------------------------------------------------------------- |
-|  [01]   | `Verifier`                           | static entry  | the `Verify*` overload family; every call returns `SettingsTask`                                      |
-|  [02]   | `SettingsTask`                       | fluent task   | awaitable (`TaskAwaiter<VerifyResult>`) with per-call setting verbs                                   |
-|  [03]   | `VerifySettings`                     | settings      | instance form of the same verbs; `UseFileName` excludes `UseTypeName`/`UseMethodName`/`UseParameters` |
-|  [04]   | `VerifierSettings`                   | static config | process-wide scrubbers, serialization, `DerivePathInfo` path routing                                  |
-|  [05]   | `VerifyChecks` / `DanglingSnapshots` | hygiene       | whole-tree snapshot hygiene walk; untracked-snapshot gate on CI                                       |
-|  [06]   | `VerifyDiffPlex` / `OutputType`      | diff renderer | `Initialize(OutputType)` once per assembly; `Full`/`Compact`/`Minimal`                                |
+| [INDEX] | [SYMBOL]                        | [KIND]        | [CAPABILITY]                                                                         |
+| :-----: | :------------------------------ | :------------ | :----------------------------------------------------------------------------------- |
+|  [01]   | `Verifier`                      | static entry  | the `Verify*` overload family; every call returns `SettingsTask`                     |
+|  [02]   | `SettingsTask`                  | fluent task   | awaitable (`TaskAwaiter<VerifyResult>`) with per-call setting verbs                  |
+|  [03]   | `VerifySettings`                | settings      | instance verbs; `UseFileName` excludes `UseTypeName`/`UseMethodName`/`UseParameters` |
+|  [04]   | `VerifierSettings`              | static config | process-wide scrubbers, serialization, `DerivePathInfo` path routing                 |
+|  [05]   | `VerifyChecks`                  | hygiene       | whole-tree snapshot hygiene walk                                                     |
+|  [06]   | `DanglingSnapshots`             | hygiene       | untracked-snapshot gate on CI                                                        |
+|  [07]   | `VerifyDiffPlex` / `OutputType` | diff renderer | `Initialize(OutputType)` once per assembly; `Full`/`Compact`/`Minimal`               |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                               | [KIND]    | [CAPABILITY]                                                                                          |
-| :-----: | :---------------------------------------------------------------------- | :-------- | :---------------------------------------------------------------------------------------------------- |
-|  [01]   | `Verifier.Verify(string?, VerifySettings?)`                             | snapshot  | string target; `object?`, `Task<T>`, `Stream`, `byte[]` forms mirror                                  |
-|  [02]   | `Verifier.VerifyJson` / `VerifyXml` / `VerifyTuple`                     | snapshot  | syntax-aware targets                                                                                  |
-|  [03]   | `Verifier.VerifyFile` / `VerifyFiles` / `VerifyDirectory` / `VerifyZip` | snapshot  | file-system and archive targets with include filters and scrubbers                                    |
-|  [04]   | `SettingsTask.UseDirectory/UseFileName/UseParameters/UniqueFor*`        | routing   | snapshot path and discriminant control                                                                |
-|  [05]   | `SettingsTask.ScrubLines*/ScrubInlineGuids/AddScrubber/IgnoreMember<T>` | scrubbing | deterministic snapshot normalization                                                                  |
-|  [06]   | `SettingsTask.AutoVerify(bool includeBuildServer, bool throwException)` | control   | accept-current mode; `DisableDiff()` suppresses the diff tool                                         |
-|  [07]   | `VerifyChecks.Run()`                                                    | hygiene   | gitignore, csproj snapshot-nesting, editorconfig, gitattributes checks; throws `VerifyCheckException` |
-|  [08]   | `VerifyDiffPlex.Initialize(OutputType)` / `UseDiffPlex(...)`            | diff      | global arm (second call throws) and per-verification override                                         |
+The fence carries the full `Verify`, `AutoVerify`, and `VerifyDiffPlex.Initialize` signatures; the 4 hygiene check kinds are `[HYGIENE]` law.
 
-```csharp contract
+| [INDEX] | [SURFACE]                                           | [KIND]    | [CAPABILITY]                                                  |
+| :-----: | :-------------------------------------------------- | :-------- | :------------------------------------------------------------ |
+|  [01]   | `Verifier.Verify(string?, VerifySettings?)`         | snapshot  | string target; `object?`/`Task<T>`/`Stream`/`byte[]` mirror   |
+|  [02]   | `Verifier.VerifyJson` / `VerifyXml` / `VerifyTuple` | snapshot  | syntax-aware targets                                          |
+|  [03]   | `Verifier.VerifyFile` / `VerifyFiles`               | snapshot  | file targets with include filters and scrubbers               |
+|  [04]   | `Verifier.VerifyDirectory` / `VerifyZip`            | snapshot  | directory and archive targets                                 |
+|  [05]   | `SettingsTask.UseDirectory` / `UseFileName`         | routing   | snapshot directory and filename                               |
+|  [06]   | `SettingsTask.UseParameters` / `UniqueFor*`         | routing   | parameter and discriminant path segments                      |
+|  [07]   | `SettingsTask.ScrubLines*` / `ScrubInlineGuids`     | scrubbing | line and inline-GUID normalization                            |
+|  [08]   | `SettingsTask.AddScrubber` / `IgnoreMember<T>`      | scrubbing | custom scrubber and member ignore                             |
+|  [09]   | `SettingsTask.AutoVerify(...)`                      | control   | accept-current mode; `DisableDiff()` suppresses the diff tool |
+|  [10]   | `VerifyChecks.Run()`                                | hygiene   | whole-tree hygiene walk; throws `VerifyCheckException`        |
+|  [11]   | `VerifyDiffPlex.Initialize(OutputType)`             | diff      | global arm; a second call throws                              |
+|  [12]   | `UseDiffPlex(...)`                                  | diff      | per-verification diff override                                |
+
+```csharp signature
 public static partial class Verifier {
     public static SettingsTask Verify(string? target, VerifySettings? settings = null,
         [CallerFilePath] string sourceFile = "");

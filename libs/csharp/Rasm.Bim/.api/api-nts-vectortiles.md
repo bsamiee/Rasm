@@ -35,24 +35,32 @@ pyramid for MapLibre/Mapbox-GL, distinct from the 3D-Tiles glTF stack (`subtree`
 - namespace: `NetTopologySuite.IO.VectorTiles`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]         | [RAIL]   | [CAPABILITY]                                                                                                                                                                                                                                                                                                        |
-| :-----: | :--------------- | :------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `VectorTile`     | geometry | one MVT tile; `ulong TileId` (the WebMercator `Tile.Id`), `IList<Layer> Layers`, `bool IsEmpty` (all layers empty). The unit `MapboxTileReader.Read` produces and `MapboxTileWriter.Write` consumes                                                                                                                 |
-|  [02]   | `Layer`          | geometry | a named feature group inside a tile; `string Name`, `IList<IFeature> Features`, `virtual bool IsEmpty`. The MVT layer the renderer styles by `Name`                                                                                                                                                                 |
-|  [03]   | `VectorTileTree` | geometry | the tile pyramid; `IEnumerable<ulong>` of populated tile ids, `this[ulong tileId]` get/set, `bool TryGet(ulong, out VectorTile)`, `List<ulong> GetTileIds()`, `void GetExtents(out double[] bounds, out int minZoom, out int maxZoom)`. The dictionary-backed multi-zoom tile set `Add` populates and `Write` walks |
+| [INDEX] | [SYMBOL]         | [CAPABILITY]                                                                                                     |
+| :-----: | :--------------- | :--------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `VectorTile`     | one MVT tile; `ulong TileId` (the WebMercator `Tile.Id`), `IList<Layer> Layers`, `bool IsEmpty`                  |
+|  [02]   | `Layer`          | a named feature group; `string Name`, `IList<IFeature> Features`, `virtual bool IsEmpty`                         |
+|  [03]   | `VectorTileTree` | the tile pyramid over `IEnumerable<ulong>` ids; `this[ulong]` get/set, `TryGet`, `GetTileIds()`, `GetExtents(…)` |
 
 [PUBLIC_TYPE_SCOPE]: the WebMercator tile algebra
 - package: `NetTopologySuite.IO.VectorTiles`
 - namespace: `NetTopologySuite.IO.VectorTiles.Tiles`, `NetTopologySuite.IO.VectorTiles.Tiles.WebMercator`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]             | [RAIL]   | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| :-----: | :------------------- | :------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Tile`               | geometry | one XYZ tile; `int X`/`Y`/`Zoom`, `double Top`/`Bottom`/`Left`/`Right`/`CenterLat`/`CenterLon` (EPSG:4326 bbox), `ulong Id`, `Tile Parent`, `bool IsValid`. Ctors `Tile(ulong id)` / `Tile(int x, int y, int zoom)` — the tile definition `MapboxTileReader.Read(stream, tile)` decodes against                                                                                                                                                                                                             |
-|  [02]   | `Tile` (static)      | geometry | `Tile? CreateAroundLocation(double lat, double lon, int zoom)` / `ulong CreateAroundLocationId(...)` (the tile a coordinate falls in), `ulong CalculateTileId(int zoom, int x, int y)`, `(int x, int y, int zoom) CalculateTile(ulong id)`, `bool IsDirectNeighbour(ulong, ulong)` — the id↔(x,y,zoom) bijection the tilers walk                                                                                                                                                                            |
-|  [03]   | `Tile` (instance)    | geometry | `TileRange GetSubTiles(int zoom)` (the child range one level down), `ulong GetSubTileIdFor(double lat, double lon)`, `Tile InvertX()` / `InvertY()` (the TMS↔XYZ Y-flip), `string ToGeoJson()` (the tile footprint as GeoJSON)                                                                                                                                                                                                                                                                              |
-|  [04]   | `TileRange`          | geometry | a rectangular `(XMin,YMin,XMax,YMax,Zoom)` block of tiles; `IEnumerable<Tile?>`, ctor `TileRange(int xMin, int yMin, int xMax, int yMax, int zoom)`, `long Count`, `bool Contains(Tile)`, `IEnumerable<Tile?> EnumerateInCenterFirst()` (center-out emission for progressive tile streaming)                                                                                                                                                                                                                |
-|  [05]   | `WebMercatorHandler` | geometry | static EPSG:3857 projection math; `(double x, double y) LatLonToMeters(double lat, double lon)` / `MetersToLatLon`, `(long x, long y) FromMetersToPixels((double,double) m, int zoom, int tileSize = 512)` / `FromPixelsToMeters` — the spherical-mercator leg the tile bbox derives from (distinct from the `ProjNET`/OSR geodetic reprojection; this is the web-tile pixel grid only). The `MetersToPixels`/`PixelsToMeters` `(double,double)` overloads are `[Obsolete]` — bind the `From…`/`long` forms |
+The cell names each type's members; full signatures are the keyed roster below.
+
+| [INDEX] | [SYMBOL]             | [CAPABILITY]                                                                                                    |
+| :-----: | :------------------- | :-------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Tile`               | `int X`/`Y`/`Zoom`, `double Top`/`Bottom`/`Left`/`Right`, `ulong Id`, `Tile Parent`, `bool IsValid`             |
+|  [02]   | `Tile` (static)      | `CreateAroundLocation`, `CreateAroundLocationId`, `CalculateTileId`, `CalculateTile`, `IsDirectNeighbour`       |
+|  [03]   | `Tile` (instance)    | `GetSubTiles`, `GetSubTileIdFor`, `InvertX`/`InvertY` (TMS↔XYZ Y-flip), `ToGeoJson`                             |
+|  [04]   | `TileRange`          | a `(XMin,YMin,XMax,YMax,Zoom)` block; `IEnumerable<Tile?>`, `Count`, `Contains(Tile)`, `EnumerateInCenterFirst` |
+|  [05]   | `WebMercatorHandler` | static EPSG:3857 math: `LatLonToMeters`/`MetersToLatLon`, `FromMetersToPixels`/`FromPixelsToMeters`             |
+
+- [01]-[TILE]: fields `int X`/`Y`/`Zoom`, `double Top`/`Bottom`/`Left`/`Right`/`CenterLat`/`CenterLon` (EPSG:4326 bbox), `ulong Id`, `Tile Parent`, `bool IsValid`; ctors `Tile(ulong id)` / `Tile(int x, int y, int zoom)` — the tile `MapboxTileReader.Read(stream, tile)` decodes against.
+- [02]-[TILE_STATIC]: `Tile? CreateAroundLocation(double lat, double lon, int zoom)` / `ulong CreateAroundLocationId(...)`; `ulong CalculateTileId(int zoom, int x, int y)`; `(int x, int y, int zoom) CalculateTile(ulong id)`; `bool IsDirectNeighbour(ulong, ulong)` — the id↔(x,y,zoom) bijection the tilers walk.
+- [03]-[TILE_INSTANCE]: `TileRange GetSubTiles(int zoom)`; `ulong GetSubTileIdFor(double lat, double lon)`; `Tile InvertX()` / `InvertY()`; `string ToGeoJson()` (the tile footprint as GeoJSON).
+- [04]-[TILE_RANGE]: ctor `TileRange(int xMin, int yMin, int xMax, int yMax, int zoom)`; `long Count`; `bool Contains(Tile)`; `IEnumerable<Tile?> EnumerateInCenterFirst()` (center-out emission for progressive streaming).
+- [05]-[WEB_MERCATOR]: `(double x, double y) LatLonToMeters(double lat, double lon)` / `MetersToLatLon`; `(long x, long y) FromMetersToPixels((double,double) m, int zoom, int tileSize = 512)` / `FromPixelsToMeters`. The `MetersToPixels`/`PixelsToMeters` `(double,double)` overloads are `[Obsolete]` — bind the `From…`/`long` forms.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -61,26 +69,30 @@ pyramid for MapLibre/Mapbox-GL, distinct from the 3D-Tiles glTF stack (`subtree`
 - namespace: `NetTopologySuite.IO.VectorTiles`
 - rail: geometry
 
-| [INDEX] | [SURFACE]                                            | [CALL_SHAPE]                                                                             | [CAPABILITY]                                                                                                                                                                                     |
-| :-----: | :--------------------------------------------------- | :--------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `VectorTileTree.Add`                                 | `(FeatureCollection features, int zoom = 14, string layerName = "default")`              | fixed-zoom ingest — every feature sliced into its zoom-14 tile(s) under one layer name                                                                                                           |
-|  [02]   | `VectorTileTree.Add`                                 | `(IEnumerable<IFeature> features, int zoom = 14, string layerName = "default")`          | the `IEnumerable` mirror — the `GeoFeature` row stream straight into the pyramid                                                                                                                 |
-|  [03]   | `VectorTileTree.Add`                                 | `(FeatureCollection features, ToFeatureZoomAndLayerFunc toFeatureZoomAndLayer)`          | per-feature LOD + layer routing — the func returns `IEnumerable<(IFeature, int zoom, string layerName)>` so one feature lands at multiple zooms / multiple named layers (the LOD pyramid policy) |
-|  [04]   | `VectorTileTree.Add`                                 | `(IEnumerable<IFeature> features, ToFeatureZoomAndLayerFunc toFeatureZoomAndLayer)`      | the `IEnumerable` mirror of the routed ingest                                                                                                                                                    |
-|  [05]   | `VectorTileTree.Add`                                 | `(IEnumerable<(IFeature feature, int zoom, string layerName)> featuresZoomAndLayer)`     | the already-tupled form — the explicit `(feature, zoom, layer)` triples bypassing the router                                                                                                     |
-|  [06]   | `VectorTileTree.Add`                                 | `(IFeature feature, int zoom, string layerName)`                                         | the single-feature leaf the batch forms fold onto                                                                                                                                                |
-|  [07]   | `VectorTileTreeExtensions.ToFeatureZoomAndLayerFunc` | `delegate IEnumerable<(IFeature feature, int zoom, string layerName)>(IFeature feature)` | the per-feature LOD/layer policy delegate — the discriminator a `[SmartEnum]`/match over an element `IfcDomain`/scale folds the zoom-and-layer assignment onto                                   |
+`VectorTileTree.Add` slices features into tiles; `zoom` defaults to 14, `layerName` to `"default"`. `ToFeatureZoomAndLayerFunc` is `delegate IEnumerable<(IFeature feature, int zoom, string layerName)>(IFeature feature)` — the per-feature LOD/layer discriminator a `[SmartEnum]`/match over an element `IfcDomain`/scale folds onto.
+
+| [INDEX] | [CALL]                                                                    | [CAPABILITY]                                      |
+| :-----: | :------------------------------------------------------------------------ | :------------------------------------------------ |
+|  [01]   | `Add(FeatureCollection, int zoom = 14, string layerName = "default")`     | fixed-zoom ingest under one layer name            |
+|  [02]   | `Add(IEnumerable<IFeature>, int zoom = 14, string layerName = "default")` | the `IEnumerable` mirror                          |
+|  [03]   | `Add(FeatureCollection, ToFeatureZoomAndLayerFunc)`                       | per-feature LOD + layer routing                   |
+|  [04]   | `Add(IEnumerable<IFeature>, ToFeatureZoomAndLayerFunc)`                   | the routed-ingest `IEnumerable` mirror            |
+|  [05]   | `Add(IEnumerable<(IFeature, int zoom, string layerName)>)`                | already-tupled triples, the router bypassed       |
+|  [06]   | `Add(IFeature feature, int zoom, string layerName)`                       | the single-feature leaf the batch forms fold onto |
+|  [07]   | `ToFeatureZoomAndLayerFunc`                                               | the per-feature LOD/layer policy delegate         |
 
 [ENTRYPOINT_SCOPE]: pyramid bounds and tile geometry
 - package: `NetTopologySuite.IO.VectorTiles`
 - namespace: `NetTopologySuite.IO.VectorTiles`, `NetTopologySuite.IO.VectorTiles.Tiles`
 - rail: geometry
 
-| [INDEX] | [SURFACE]                   | [CALL_SHAPE]                                              | [CAPABILITY]                                                                                                                                                    |
-| :-----: | :-------------------------- | :-------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `VectorTileTree.GetExtents` | `(out double[] bounds, out int minZoom, out int maxZoom)` | the populated pyramid's geographic envelope and zoom span — the `bounds`/`minzoom`/`maxzoom` feeding the `VectorTileSource` TileJSON the Mapbox catalog authors |
-|  [02]   | `Tile.ToGeoJson`            | `()` → `string`                                           | one tile footprint as a GeoJSON polygon — the tile-grid overlay/debug geometry                                                                                  |
-|  [03]   | `Tile.GetSubTiles`          | `(int zoom)` → `TileRange`                                | the child tile range one or more levels down — the LOD descent the pyramid build walks                                                                          |
+`GetExtents` fills `(out double[] bounds, out int minZoom, out int maxZoom)` — the populated pyramid's geographic envelope and zoom span.
+
+| [INDEX] | [CALL]                                     | [CAPABILITY]                                                 |
+| :-----: | :----------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `VectorTileTree.GetExtents(…)`             | envelope + zoom span for the `VectorTileSource` TileJSON     |
+|  [02]   | `Tile.ToGeoJson()` → `string`              | one tile footprint as a GeoJSON polygon (grid overlay/debug) |
+|  [03]   | `Tile.GetSubTiles(int zoom)` → `TileRange` | the child tile range one+ levels down (LOD descent)          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -26,13 +26,13 @@ per-connection db_config, and serialize/deserialize — reaching them through th
 [PACKAGE_ASSET_SCOPE]: bundle dependency graph — which package carries which surface
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]      | [CAPABILITY]                                                                                  |
-| :-----: | :-------------------------------- | :------------------ | :-------------------------------------------------------------------------------------------- |
-|  [01]   | `SQLitePCLRaw.bundle_e_sqlite3`   | bundle (no DLL)     | pins config + native, fixes the provider to `e_sqlite3`                                       |
-|  [02]   | `SQLitePCLRaw.config.e_sqlite3`   | config dependency   | carries `Batteries`/`Batteries_V2` (assembly `SQLitePCLRaw.batteries_v2`)                     |
-|  [03]   | `SQLitePCLRaw.provider.e_sqlite3` | provider dependency | `SQLite3Provider_e_sqlite3 : ISQLite3Provider`, the bundled P/Invoke impl                     |
-|  [04]   | `SQLitePCLRaw.core`               | core dependency     | the `SQLitePCL.raw` static API and `sqlite3`/`sqlite3_backup`/`sqlite3_snapshot` handle types |
-|  [05]   | `SourceGear.sqlite3`              | native dependency   | SQLite 3.50.4 `e_sqlite3` binaries across 31 RIDs                                             |
+| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]      | [CAPABILITY]                                                              |
+| :-----: | :-------------------------------- | :------------------ | :------------------------------------------------------------------------ |
+|  [01]   | `SQLitePCLRaw.bundle_e_sqlite3`   | bundle (no DLL)     | pins config + native, fixes the provider to `e_sqlite3`                   |
+|  [02]   | `SQLitePCLRaw.config.e_sqlite3`   | config dependency   | carries `Batteries`/`Batteries_V2` (assembly `SQLitePCLRaw.batteries_v2`) |
+|  [03]   | `SQLitePCLRaw.provider.e_sqlite3` | provider dependency | `SQLite3Provider_e_sqlite3 : ISQLite3Provider`, the bundled P/Invoke impl |
+|  [04]   | `SQLitePCLRaw.core`               | core dependency     | the `SQLitePCL.raw` static API + the `sqlite3*` handle types              |
+|  [05]   | `SourceGear.sqlite3`              | native dependency   | SQLite 3.50.4 `e_sqlite3` binaries across 31 RIDs                         |
 
 [RID_ABI]: native asset placement
 - the bundle ships `e_sqlite3` for 31 RIDs (every desktop/mobile/wasm RID): `osx-arm64`, `osx-x64`, `win-x64`/`x86`/`arm64`, `linux-x64`/`arm64`/`musl-*`/`riscv64`/`s390x`/`ppc64le`, `android-*`, `ios*`, `maccatalyst-*`, `browser-wasm`

@@ -43,13 +43,13 @@ implementation members of the gear-hash kernel; only `GetChunks()` and the const
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: construction and chunking — one ctor, one enumeration method
+[ENTRYPOINT_SCOPE]: construction and chunking — one ctor ([01]), one enumeration method ([02]).
 - rail: chunking
 
-| [INDEX] | [SURFACE]                                                                           | [ENTRY_FAMILY] | [CAPABILITY]                                                                            |
-| :-----: | :---------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | `FastCdc(byte[] source, uint minSize, uint avgSize, uint maxSize, bool eof = true)` | ctor           | one constructor; `eof` is an optional parameter (default `true`), not a second overload |
-|  [02]   | `IEnumerable<Chunk> GetChunks()`                                                    | enumeration    | lazy iterator over `Next()`; yields `Chunk` rows until a `null` cut ends the stream     |
+| [INDEX] | [SURFACE]                                                                           | [CAPABILITY]                            |
+| :-----: | :---------------------------------------------------------------------------------- | :-------------------------------------- |
+|  [01]   | `FastCdc(byte[] source, uint minSize, uint avgSize, uint maxSize, bool eof = true)` | the sole ctor; `eof` default `true`     |
+|  [02]   | `IEnumerable<Chunk> GetChunks()`                                                    | lazy iterator; yields `Chunk` to `null` |
 
 The ctor validates eagerly: `null`/empty `source` throw `ArgumentNullException`/`ArgumentException`;
 `minSize`/`avgSize`/`maxSize` outside their constant bounds throw `ArgumentOutOfRangeException`;

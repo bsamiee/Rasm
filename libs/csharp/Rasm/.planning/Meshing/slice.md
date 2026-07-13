@@ -373,15 +373,21 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes, and the per-axis kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN] | [OWNER]       | [KIND]                                                                                                   | [RAIL]                                | [CASES] |
-| :-----: | :------------- | :------------ | :------------------------------------------------------------------------------------------------------- | :------------------------------------ | :-----: |
-|  [01]   | Slice stack    | `SliceOp`     | request record (one modality; the plan union is the modality axis) folded by ONE `Apply`                 | `Slicing.Apply → Fin<SliceStack>`     |    —    |
-|  [1a]   | Layer policies | `LayerPlan`   | `[Union]` five height-law seed rows over ONE `March` integrator (`[GENERATOR_LAW]`)                      | `Elevations → Fin<Arr<double>>`       |    5    |
-|  [1b]   | Run facts      | `SliceFrame`  | derived record — extent, binned steepest slope, overhang start+cosine rows, nesting axis (one soup pass) | value (read by the height laws)       |    —    |
-|  [1c]   | Slice policy   | `SlicePolicy` | policy row — watertight gate · layer ceiling · bins · parallel floor · composed `IntersectPolicy`        | value (`IValidityEvidence`)           |    —    |
-|  [1d]   | Result + wire  | `SliceStack`  | frozen five-channel SoA forest wire + `ContourAt`/`LayerAt`/`RootsOf`/`Depth` typed projections          | carrier (channels frozen at assembly) |    —    |
+| [INDEX] | [AXIS_CONCERN] | [OWNER]       | [RAIL]                                | [CASES] |
+| :-----: | :------------- | :------------ | :------------------------------------ | :-----: |
+|  [01]   | Slice stack    | `SliceOp`     | `Slicing.Apply → Fin<SliceStack>`     |    —    |
+|  [02]   | Layer policies | `LayerPlan`   | `Elevations → Fin<Arr<double>>`       |    5    |
+|  [03]   | Run facts      | `SliceFrame`  | value (read by the height laws)       |    —    |
+|  [04]   | Slice policy   | `SlicePolicy` | value (`IValidityEvidence`)           |    —    |
+|  [05]   | Result + wire  | `SliceStack`  | carrier (channels frozen at assembly) |    —    |
+
+- [01]-[SLICE_STACK]: request record (one modality; the plan union is the modality axis) folded by ONE `Apply`.
+- [02]-[LAYER_POLICIES]: `[Union]` five height-law seed rows over ONE `March` integrator (`[GENERATOR_LAW]`).
+- [03]-[RUN_FACTS]: derived record — extent, binned steepest slope, overhang start+cosine rows, nesting axis (one soup pass).
+- [04]-[SLICE_POLICY]: policy row — watertight gate · layer ceiling · bins · parallel floor · composed `IntersectPolicy`.
+- [05]-[RESULT_WIRE]: frozen five-channel SoA forest wire + `ContourAt`/`LayerAt`/`RootsOf`/`Depth` typed projections.
 
 ## [04]-[RESEARCH]
 

@@ -9,36 +9,57 @@
         <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Fabrication">
-        <PackageReference Include="ACadSharp" />
-        <PackageReference Include="CavalierContours" />
+    <ItemGroup Label="Geometry Engines">
         <PackageReference Include="Clipper2" />
-        <PackageReference Include="DSTV.Net" />
+        <PackageReference Include="CavalierContours" />
         <PackageReference Include="geometry3Sharp" />
-        <PackageReference Include="MTConnect.NET-Common" />
+        <PackageReference Include="SharpVoronoiLib" Aliases="Voronoi" />
+    </ItemGroup>
+
+    <ItemGroup Label="Exchange Ingress">
+        <PackageReference Include="ACadSharp" />
+        <PackageReference Include="DSTV.Net" />
         <PackageReference Include="OcctNet.Wrapper" />
-        <PackageReference Include="PicoGK" />
-        <PackageReference Include="RectangleBinPack.CSharp" />
+    </ItemGroup>
+
+    <ItemGroup Label="Kinematics">
         <PackageReference Include="Rhino3dm" Aliases="R3" />
         <PackageReference Include="Robots" />
-        <PackageReference Include="SharpVoronoiLib" Aliases="Voronoi" />
-        <PackageReference Include="System.IO.Hashing" />
-        <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Additive">
+        <PackageReference Include="PicoGK" />
+    </ItemGroup>
+
+    <ItemGroup Label="Tooling Data">
+        <PackageReference Include="MTConnect.NET-Common" />
+    </ItemGroup>
+
+    <ItemGroup Label="Nesting">
+        <PackageReference Include="RectangleBinPack.CSharp" />
     </ItemGroup>
 
     <ItemGroup Label="Vendored Natives" Condition="Exists('vendor')">
-        <!-- lib3mf 2.5.0 (BSD-2) + OpenCAMLib 2023.01.11 SHARED libocl (LGPL-2.1 dynamic-link): no NuGet artifact exists for either; RID-keyed LFS natives ride vendor/runtimes, the ACT binding source stages compile-excluded at vendor/sdk until realization. -->
+        <!-- lib3mf + OpenCAMLib ship no NuGet artifact; RID-keyed LFS natives ride vendor/runtimes, the ACT binding source stages compile-excluded at vendor/sdk until realization. -->
         <Content Include="vendor/runtimes/**" CopyToOutputDirectory="PreserveNewest" />
         <Compile Remove="vendor/**/*.cs" />
     </ItemGroup>
 
-    <ItemGroup Label="Substrate">
-        <PackageReference Include="CommunityToolkit.HighPerformance" />
+    <ItemGroup Label="Numeric">
+        <PackageReference Include="UnitsNet" />
         <PackageReference Include="MathNet.Numerics" />
-        <PackageReference Include="NodaTime" />
-        <PackageReference Include="QuikGraph" />
-        <PackageReference Include="Riok.Mapperly" />
         <PackageReference Include="System.Numerics.Tensors" />
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+    </ItemGroup>
+
+    <ItemGroup Label="Identity Time">
+        <PackageReference Include="System.IO.Hashing" />
+        <PackageReference Include="NodaTime" />
+    </ItemGroup>
+
+    <ItemGroup Label="Mapping Graph">
+        <PackageReference Include="Riok.Mapperly" />
+        <PackageReference Include="QuikGraph" />
     </ItemGroup>
 
     <ItemGroup Label="System Usings">

@@ -18,14 +18,14 @@
 [PUBLIC_TYPE_SCOPE]: IDS document family
 - rail: ids-validation
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]    | [RAIL]                                                                                                          |
-| :-----: | :------------------------- | :--------------- | :-------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Ids`                      | document root    | container for `specifications`; carries the `info` metadata dict                                                |
-|  [02]   | `Specification`            | requirement unit | applicability + requirement facets; mutated in place by `validate`                                              |
-|  [03]   | `Restriction`              | value constraint | `(options=None, base="string")` pattern/enumeration/bounds value filter                                         |
-|  [04]   | `Cardinality`              | usage literal    | `Literal["required","optional","prohibited"]` facet/usage clause                                                |
-|  [05]   | `IdsXmlValidationError`    | parse failure    | raised by `open`/`from_string` when XSD validation fails (wraps `xmlschema`)                                    |
-|  [06]   | `XMLSchemaValidationError` | parse failure    | the underlying `xmlschema.validators.exceptions` error `IdsXmlValidationError` wraps (NOT an `ifctester` class) |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]    | [RAIL]                                                                                 |
+| :-----: | :------------------------- | :--------------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `Ids`                      | document root    | container for `specifications`; carries the `info` metadata dict                       |
+|  [02]   | `Specification`            | requirement unit | applicability + requirement facets; mutated in place by `validate`                     |
+|  [03]   | `Restriction`              | value constraint | `(options=None, base="string")` pattern/enumeration/bounds value filter                |
+|  [04]   | `Cardinality`              | usage literal    | `Literal["required","optional","prohibited"]` facet/usage clause                       |
+|  [05]   | `IdsXmlValidationError`    | parse failure    | raised by `open`/`from_string` when XSD validation fails (wraps `xmlschema`)           |
+|  [06]   | `XMLSchemaValidationError` | parse failure    | underlying `xmlschema` error `IdsXmlValidationError` wraps (external, not `ifctester`) |
 
 [PUBLIC_TYPE_SCOPE]: facet family (`ifctester.facet`)
 - rail: ids-validation
@@ -59,14 +59,14 @@
 [PUBLIC_TYPE_SCOPE]: structured report graph (`ifctester.reporter`)
 - rail: ids-validation output
 
-The `Json`-family `report()` returns a `Results` TypedDict — the machine-readable result graph a programmatic consumer reads field-by-field, NOT a stringified blob.
+The `Json`-family `report()` returns a `Results` `TypedDict` read field-by-field, not a stringified blob. Every level carries a `total_<scope>`/`_pass`/`_fail` count triple and a `percent_<scope>_pass` (`int | "N/A"`); every level also carries a `status`; the fields below are the distinctive graph edges.
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]   | [FIELDS]                                                                                                                                                                                                 |
-| :-----: | :--------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Results`              | report root     | `status: bool`, `total_specifications`/`_pass`/`_fail`, `total_requirements`/`_pass`/`_fail`, `total_checks`/`_pass`/`_fail`, `percent_*` (`int \| "N/A"`), `specifications: list[ResultsSpecification]` |
-|  [02]   | `ResultsSpecification` | per-spec result | `name`/`description`/`status`/`is_skipped`/`is_ifc_version`, `total_applicable`/`_pass`/`_fail`, `applicable_entities: list[ResultsEntity]`, `cardinality`, `requirements: list[ResultsRequirement]`     |
-|  [03]   | `ResultsRequirement`   | per-req result  | `facet_type`/`metadata`/`label`/`value`/`status`, `passed_entities`/`failed_entities: list[ResultsEntity]`, `total_pass`/`_fail`, `percent_pass`                                                         |
-|  [04]   | `ResultsEntity`        | per-entity row  | `reason`, `element: entity_instance`, `class`, `predefined_type`, `name`, `global_id`, `id`, `tag`                                                                                                       |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]   | [FIELDS]                                                                                   |
+| :-----: | :--------------------- | :-------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | `Results`              | report root     | `status: bool`, the three count triples, `specifications: list[ResultsSpecification]`      |
+|  [02]   | `ResultsSpecification` | per-spec result | `name`/`description`/`is_skipped`/`is_ifc_version`, `cardinality`, applicable/requirements |
+|  [03]   | `ResultsRequirement`   | per-req result  | `facet_type`/`metadata`/`label`/`value`, `passed`/`failed_entities: list[ResultsEntity]`   |
+|  [04]   | `ResultsEntity`        | per-entity row  | `reason`, `element`, `class`, `predefined_type`, `name`, `global_id`, `id`, `tag`          |
 
 [PUBLIC_TYPE_SCOPE]: reporter family (`ifctester.reporter`)
 - rail: ids-validation output
@@ -87,44 +87,50 @@ The `Json`-family `report()` returns a `Results` TypedDict — the machine-reada
 [ENTRYPOINT_SCOPE]: IDS document I/O (`ifctester.ids`)
 - rail: ids-validation
 
-| [INDEX] | [SURFACE]                                                                                                                     | [ENTRY_FAMILY] | [RAIL]                                                                            |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `ids.open(filepath: str, validate: bool=False) -> Ids`                                                                        | loader         | parse IDS XML file; `validate=True` raises `IdsXmlValidationError` on XSD failure |
-|  [02]   | `ids.from_string(xml: str, validate: bool=False) -> Ids`                                                                      | loader         | parse IDS XML string                                                              |
-|  [03]   | `Ids(title="Untitled", copyright=None, version=None, description=None, author=None, date=None, purpose=None, milestone=None)` | constructor    | new IDS document; metadata folds into `Ids.info`                                  |
-|  [04]   | `Ids.to_string() -> str`                                                                                                      | serializer     | serialize to IDS XML string                                                       |
-|  [05]   | `Ids.to_xml(filepath="output.xml") -> bool`                                                                                   | serializer     | write IDS XML to file, return XSD-valid flag                                      |
-|  [06]   | `Ids.parse(data: dict) -> Ids`                                                                                                | mutator        | populate `info`/`specifications` from a parsed `xmlschema` dict (not raw XML)     |
-|  [07]   | `Ids.asdict() -> dict`                                                                                                        | projector      | the IDS dict the XSD encoder consumes                                             |
+The `Ids(title="Untitled", copyright=None, version=None, description=None, author=None, date=None, purpose=None, milestone=None)` ctor folds metadata into `Ids.info`.
+
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                                 |
+| :-----: | :------------------------------------------------------- | :------------- | :----------------------------------------------------- |
+|  [01]   | `ids.open(filepath: str, validate: bool=False) -> Ids`   | loader         | parse IDS XML file; `validate=True` raises on XSD fail |
+|  [02]   | `ids.from_string(xml: str, validate: bool=False) -> Ids` | loader         | parse IDS XML string                                   |
+|  [03]   | `Ids(title="Untitled", ...)`                             | constructor    | new IDS document (full ctor in lead)                   |
+|  [04]   | `Ids.to_string() -> str`                                 | serializer     | serialize to IDS XML string                            |
+|  [05]   | `Ids.to_xml(filepath="output.xml") -> bool`              | serializer     | write IDS XML to file, return XSD-valid flag           |
+|  [06]   | `Ids.parse(data: dict) -> Ids`                           | mutator        | populate `info`/`specifications` from `xmlschema` dict |
+|  [07]   | `Ids.asdict() -> dict`                                   | projector      | the IDS dict the XSD encoder consumes                  |
 
 [ENTRYPOINT_SCOPE]: validation (`ifctester.ids`)
 - rail: ids-validation
 
-| [INDEX] | [SURFACE]                                                                                                                                                             | [ENTRY_FAMILY] | [RAIL]                                                                                           |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `Ids.validate(ifc_file, should_filter_version=False, filepath=None) -> None`                                                                                          | validator      | reset, version-check, then validate every spec in place; `filepath` only records the source name |
-|  [02]   | `Specification.validate(ifc_file, should_filter_version=False) -> None`                                                                                               | validator      | validate one specification (NO `filepath` arg)                                                   |
-|  [03]   | `Specification(name="Unnamed", minOccurs=0, maxOccurs="unbounded", ifcVersion=["IFC2X3","IFC4","IFC4X3_ADD2"], identifier=None, description=None, instructions=None)` | constructor    | new specification with applicability/requirement facet lists                                     |
-|  [04]   | `Specification.check_ifc_version(ifc_file) -> bool`                                                                                                                   | version check  | sets `is_ifc_version` from `ifc_file.schema_identifier in self.ifcVersion`                       |
-|  [05]   | `Specification.get_usage() -> Cardinality` / `set_usage(usage)`                                                                                                       | cardinality    | derive/set `minOccurs`/`maxOccurs` from the usage clause                                         |
-|  [06]   | `Specification.reset_status() -> None`                                                                                                                                | mutator        | clear `status` and the applicable/passed/failed entity sets                                      |
+The `Specification(name="Unnamed", minOccurs=0, maxOccurs="unbounded", ifcVersion=["IFC2X3","IFC4","IFC4X3_ADD2"], identifier=None, description=None, instructions=None)` ctor holds the applicability/requirement facet lists.
+
+| [INDEX] | [SURFACE]                                                                    | [ENTRY_FAMILY] | [RAIL]                                 |
+| :-----: | :--------------------------------------------------------------------------- | :------------- | :------------------------------------- |
+|  [01]   | `Ids.validate(ifc_file, should_filter_version=False, filepath=None) -> None` | validator      | reset, version-check, validate specs   |
+|  [02]   | `Specification.validate(ifc_file, should_filter_version=False) -> None`      | validator      | validate one spec (no `filepath`)      |
+|  [03]   | `Specification(name="Unnamed", ...)`                                         | constructor    | new specification (full ctor in lead)  |
+|  [04]   | `Specification.check_ifc_version(ifc_file) -> bool`                          | version check  | set `is_ifc_version` from schema match |
+|  [05]   | `Specification.get_usage() -> Cardinality` / `set_usage(usage)`              | cardinality    | derive/set `minOccurs`/`maxOccurs`     |
+|  [06]   | `Specification.reset_status() -> None`                                       | mutator        | clear `status` and the entity sets     |
 
 [VALIDATION_RESULT_STATE]: after `Ids.validate`, each `Specification` carries `status: bool | None` (tri-state: `True` pass, `False` fail, `None` skipped/not-applicable — NOT a plain bool), `is_ifc_version: bool | None`, `applicable_entities: list[entity_instance]` (the matched applicability set), `passed_entities: set[entity_instance]`, and `failed_entities: set[entity_instance]`. The consumer reads the entity sets for per-element evidence, not only the spec-level `status`.
 
 [ENTRYPOINT_SCOPE]: facet construction (`ifctester.facet`)
 - rail: ids-validation
 
-| [INDEX] | [SURFACE]                                                                                      | [ENTRY_FAMILY] | [RAIL]                                                                        |
-| :-----: | :--------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `Entity(name="IFCWALL", predefinedType=None, instructions=None)`                               | constructor    | entity facet                                                                  |
-|  [02]   | `Attribute(name="Name", value=None, cardinality="required", instructions=None)`                | constructor    | attribute facet                                                               |
-|  [03]   | `Classification(value=None, system=None, uri=None, cardinality="required", instructions=None)` | constructor    | classification facet                                                          |
-|  [04]   | `Property(propertySet, baseName, value, dataType, uri, cardinality, instructions)`             | constructor    | property facet                                                                |
-|  [05]   | `Material(value=None, uri=None, cardinality="required", instructions=None)`                    | constructor    | material facet                                                                |
-|  [06]   | `PartOf(name, predefinedType, relation, cardinality="required", instructions=None)`            | constructor    | partof facet                                                                  |
-|  [07]   | `Restriction(options=None, base="string")`                                                     | constructor    | value restriction                                                             |
-|  [08]   | `Facet.filter(ifc_file, elements) -> list[entity_instance]`                                    | method         | filter a candidate element list by facet predicate (`elements` may be `None`) |
-|  [09]   | `Facet.to_string(clause_type, specification=None, requirement=None) -> str`                    | method         | render the facet clause as IDS prose                                          |
+Every facet constructor ends `..., cardinality="required", instructions=None` (`Entity`/`PartOf` also take `predefinedType`); `Restriction(options=None, base="string")` and the `Facet` methods stand apart.
+
+| [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY] | [RAIL]                               |
+| :-----: | :-------------------------------------------------------------------------- | :------------- | :----------------------------------- |
+|  [01]   | `Entity(name="IFCWALL", predefinedType=None, ...)`                          | constructor    | entity facet                         |
+|  [02]   | `Attribute(name="Name", value=None, ...)`                                   | constructor    | attribute facet                      |
+|  [03]   | `Classification(value=None, system=None, uri=None, ...)`                    | constructor    | classification facet                 |
+|  [04]   | `Property(propertySet, baseName, value, dataType, uri, ...)`                | constructor    | property facet                       |
+|  [05]   | `Material(value=None, uri=None, ...)`                                       | constructor    | material facet                       |
+|  [06]   | `PartOf(name, predefinedType, relation, ...)`                               | constructor    | partof facet                         |
+|  [07]   | `Restriction(options=None, base="string")`                                  | constructor    | value restriction                    |
+|  [08]   | `Facet.filter(ifc_file, elements) -> list[entity_instance]`                 | method         | filter elements by facet predicate   |
+|  [09]   | `Facet.to_string(clause_type, specification=None, requirement=None) -> str` | method         | render the facet clause as IDS prose |
 
 [ENTRYPOINT_SCOPE]: reporter output (`ifctester.reporter`)
 - rail: ids-validation output

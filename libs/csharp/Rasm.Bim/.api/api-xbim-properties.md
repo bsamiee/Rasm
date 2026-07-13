@@ -19,33 +19,43 @@
 - rail: properties#PROPERTY_TEMPLATES
 - note: `Definitions<T>` is the generic catalogue (`T: QuantityPropertySetDef`); instantiate `Definitions<PropertySetDef>(Version)` for property sets and `Definitions<QtoSetDef>(Version)` for quantity sets, then `LoadAllDefault` to populate from the bundled buildingSMART data. Both `PropertySetDef` and `QtoSetDef` derive the shared `QuantityPropertySetDef` base, so the catalogue indexes either by name.
 
-| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]    | [RAIL]                                                                                                                                           |
-| :-----: | :----------------------------------- | :--------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Definitions<T>`                     | catalogue root   | the `T: QuantityPropertySetDef` set — load/index/query/save the bundled templates per `Version`                                                  |
-|  [02]   | `QuantityPropertySetDef`             | set-def base     | `Name`, `Definition`, `IfcVersion`, `ApplicableClasses`, `DefinitionAliases`, the `Definitions` member sequence, the `this[name]` member indexer |
-|  [03]   | `PropertySetDef`                     | property-set def | `: QuantityPropertySetDef` — `PropertyDefinitions: List<PropertyDef>`, `Applicability`, `ApplicableTypeValue`, `templatetype`, `IfdGuid`         |
-|  [04]   | `QtoSetDef`                          | quantity-set def | `: QuantityPropertySetDef` — `QuantityDefinitions: List<QtoDef>`, `MethodOfMeasurement`, `ApplicableTypeValue`                                   |
-|  [05]   | `QuantityPropertySetDef.Definitions` | member sequence  | `IEnumerable<QuantityPropertyDef>` — the abstract member access the base indexer folds (`PropertyDefinitions` or `QuantityDefinitions`)          |
-|  [06]   | `ApplicableClass`                    | applicability    | `ClassName` + `PredefinedType` — the IFC entity (and optional predefined type) the set applies to                                                |
-|  [07]   | `IfcVersion`                         | schema carrier   | `version` + `schema` — the IFC schema label stamped on each set definition                                                                       |
-|  [08]   | `NameAlias`                          | localized alias  | the per-language display name/definition alias a set or property carries                                                                         |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]    | [RAIL]                                                             |
+| :-----: | :----------------------------------- | :--------------- | :----------------------------------------------------------------- |
+|  [01]   | `Definitions<T>`                     | catalogue root   | load/index/query/save bundled templates per `Version`              |
+|  [02]   | `QuantityPropertySetDef`             | set-def base     | the set-def base (members [02])                                    |
+|  [03]   | `PropertySetDef`                     | property-set def | `: QuantityPropertySetDef` — property-set (members [03])           |
+|  [04]   | `QtoSetDef`                          | quantity-set def | `: QuantityPropertySetDef` — quantity-set (members [04])           |
+|  [05]   | `QuantityPropertySetDef.Definitions` | member sequence  | `IEnumerable<QuantityPropertyDef>` — the base indexer's members    |
+|  [06]   | `ApplicableClass`                    | applicability    | `ClassName` + `PredefinedType` — the IFC entity the set applies to |
+|  [07]   | `IfcVersion`                         | schema carrier   | `version` + `schema` — the schema label on each set definition     |
+|  [08]   | `NameAlias`                          | localized alias  | per-language display-name/definition alias                         |
+
+- [02]-[SETDEF]: `Name`, `Definition`, `IfcVersion`, `ApplicableClasses`, `DefinitionAliases`, `Definitions`, `this[name]`.
+- [03]-[PSET]: `PropertyDefinitions: List<PropertyDef>`, `Applicability`, `ApplicableTypeValue`, `templatetype`, `IfdGuid`.
+- [04]-[QTO]: `QuantityDefinitions: List<QtoDef>`, `MethodOfMeasurement`, `ApplicableTypeValue`.
 
 [PUBLIC_TYPE_SCOPE]: property and quantity definitions (`Xbim.Properties`)
 - rail: properties#PROPERTY_TEMPLATES
 - note: a `PropertyDef` is one named property in a set carrying its `PropertyType` (which value-type kind: single/enumerated/bounded/list/table/reference/complex) and its `ValueDef` (the data type and allowed values); a `QtoDef` is one base quantity carrying its `QtoTypeEnum` (length/area/volume/weight/count/time).
 
-| [INDEX] | [SYMBOL]                                                                                                                                                                   | [TYPE_FAMILY]       | [RAIL]                                                                                                                                           |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `QuantityPropertyDef`                                                                                                                                                      | def base            | `Name`, `Definition`, `NameAliases`, `DefinitionAliases` — the shared property/quantity definition head                                          |
-|  [02]   | `PropertyDef`                                                                                                                                                              | property def        | `: QuantityPropertyDef` — `PropertyType`, `ValueDef`, `IfdGuid`                                                                                  |
-|  [03]   | `QtoDef`                                                                                                                                                                   | quantity def        | `: QuantityPropertyDef` — `QuantityType: QtoTypeEnum`                                                                                            |
-|  [04]   | `PropertyType`                                                                                                                                                             | value-type kind     | `PropertyValueType: IPropertyValueType` — the discriminated value-type wrapper (`_value` is the concrete `TypeProperty*`)                        |
-|  [05]   | `IPropertyValueType` + `TypeSimpleProperty` / `TypeComplexProperty`                                                                                                        | value-type contract | the property value-type kind interface and its simple/complex split                                                                              |
-|  [06]   | `TypePropertySingleValue` / `TypePropertyBoundedValue` / `TypePropertyEnumeratedValue` / `TypePropertyListValue` / `TypePropertyTableValue` / `TypePropertyReferenceValue` | value-type case     | the six IFC property value-type kinds (`IfcPropertySingleValue`/`…BoundedValue`/`…EnumeratedValue`/`…ListValue`/`…TableValue`/`…ReferenceValue`) |
-|  [07]   | `DataType` / `DataTypeEnum`                                                                                                                                                | data-type axis      | the IFC measure/value data type (`IfcLabel`/`IfcReal`/`IfcBoolean`/`IfcLengthMeasure`/…) a property's value carries                              |
-|  [08]   | `ValueDef` / `ValueRangeDef` / `Value` / `EnumList` / `ConstantDef`                                                                                                        | value catalogue     | the allowed-value / range / enumeration-list / constant definitions a property declares                                                          |
-|  [09]   | `UnitType` / `SimplePropertyUnitType` / `SimplePropertyDataType`                                                                                                           | unit axis           | the IFC unit the property/quantity is measured in and the simple-property data/unit pairing                                                      |
-|  [10]   | `QtoTypeEnum` / `templatetype` / `DataTypeEnum`                                                                                                                            | enum                | the quantity kind (`Q_LENGTH`/`Q_AREA`/`Q_VOLUME`/`Q_WEIGHT`/`Q_COUNT`/`Q_TIME`) / Pset template-type / data-type closed axes                    |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]       | [RAIL]                                                        |
+| :-----: | :---------------------------------------------- | :------------------ | :------------------------------------------------------------ |
+|  [01]   | `QuantityPropertyDef`                           | def base            | `Name`/`Definition`/`NameAliases`/`DefinitionAliases`         |
+|  [02]   | `PropertyDef`                                   | property def        | `: QuantityPropertyDef` — `PropertyType`/`ValueDef`/`IfdGuid` |
+|  [03]   | `QtoDef`                                        | quantity def        | `: QuantityPropertyDef` — `QuantityType: QtoTypeEnum`         |
+|  [04]   | `PropertyType`                                  | value-type kind     | `PropertyValueType: IPropertyValueType` wrapper               |
+|  [05]   | `IPropertyValueType`                            | value-type contract | the value-type kind interface                                 |
+|  [06]   | `TypeSimpleProperty` / `TypeComplexProperty`    | value-type contract | the simple/complex split                                      |
+|  [07]   | `TypeProperty*` value-type cases (6)            | value-type case     | the six IFC property value-type kinds (roster [07])           |
+|  [08]   | `DataType` / `DataTypeEnum`                     | data-type axis      | IFC value data type: `IfcLabel`/`IfcReal`/`IfcBoolean`/…      |
+|  [09]   | `ValueDef` + value catalogue                    | value catalogue     | allowed-value/range/enum-list/constant defs (roster [09])     |
+|  [10]   | `UnitType` + unit axis                          | unit axis           | IFC unit + data/unit pairing (roster [10])                    |
+|  [11]   | `QtoTypeEnum` / `templatetype` / `DataTypeEnum` | enum                | quantity/template/data-type axes (values [11])                |
+
+- [07]-[CASES]: `TypePropertySingleValue`/`TypePropertyBoundedValue`/`TypePropertyEnumeratedValue`/`TypePropertyListValue`/`TypePropertyTableValue`/`TypePropertyReferenceValue` mirror `IfcPropertySingleValue`/`…BoundedValue`/`…EnumeratedValue`/`…ListValue`/`…TableValue`/`…ReferenceValue`.
+- [09]-[VALUES]: `ValueDef`/`ValueRangeDef`/`Value`/`EnumList`/`ConstantDef`.
+- [10]-[UNITS]: `UnitType`/`SimplePropertyUnitType`/`SimplePropertyDataType`.
+- [11]-[QTO]: `Q_LENGTH`/`Q_AREA`/`Q_VOLUME`/`Q_WEIGHT`/`Q_COUNT`/`Q_TIME`.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -53,39 +63,44 @@
 - rail: properties#PROPERTY_TEMPLATES
 - note: construct the typed catalogue for a `Version` (`IFC2x3`/`IFC4`/`IFC4x3`), then `LoadAllDefault` to populate from the bundled buildingSMART definitions; `LoadFromDirectory`/`Load(Stream)` ingest custom or updated definition files. The `IfcVersion` carrier (`version`+`schema`) is the per-set schema STAMP read back off a loaded definition, distinct from the `Version` constructor enum.
 
-| [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY] | [RAIL]                                                        |
-| :-----: | :------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------ |
-|  [01]   | `new Definitions<PropertySetDef>(Version version)` / `new Definitions<QtoSetDef>(Version version)` | construct      | the typed Pset / Qto catalogue for a schema version           |
-|  [02]   | `definitions.LoadAllDefault()`                                                                     | load           | populate from the bundled buildingSMART standard definitions  |
-|  [03]   | `definitions.LoadIFC4COBie()` / `definitions.LoadIFC4AndCOBie()`                                   | load           | the IFC4 + COBie definition supersets                         |
-|  [04]   | `definitions.LoadFromDirectory(string directory, SearchOption = TopDirectoryOnly)`                 | load           | ingest a directory of definition files (custom/updated Psets) |
-|  [05]   | `definitions.Load(string path)` / `Load(Stream stream)` / `Load(TextReader reader)`                | load           | ingest one definition file/stream                             |
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                                          |
+| :-----: | :------------------------------------------------------------------ | :------------- | :---------------------------------------------- |
+|  [01]   | `new Definitions<PropertySetDef>(Version)` / `<QtoSetDef>(Version)` | construct      | typed Pset/Qto catalogue per schema version     |
+|  [02]   | `definitions.LoadAllDefault()`                                      | load           | populate from bundled buildingSMART definitions |
+|  [03]   | `definitions.LoadIFC4COBie()` / `definitions.LoadIFC4AndCOBie()`    | load           | the IFC4 + COBie definition supersets           |
+|  [04]   | `definitions.LoadFromDirectory(string directory, SearchOption)`     | load           | ingest a directory of definition files          |
+|  [05]   | `definitions.Load(string)` / `(Stream)` / `(TextReader)`            | load           | ingest one definition file/stream               |
 
 [ENTRYPOINT_SCOPE]: catalogue query
 - rail: properties#PROPERTY_TEMPLATES
 - note: index a set by name, enumerate the sets, or query across all properties; the member indexer on a set resolves one property/quantity by name.
+- note: `GetAllProperties`/`GetPropertiesWhere` are generic `where TP: QuantityPropertyDef`.
 
-| [INDEX] | [SURFACE]                                                                              | [ENTRY_FAMILY] | [RAIL]                                                                                      |
-| :-----: | :------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `definitions[string name]` → `T`                                                       | index          | resolve one `PropertySetDef`/`QtoSetDef` by `Pset_*`/`Qto_*` name (null if absent)          |
-|  [02]   | `definitions.DefinitionSets` → `IEnumerable<T>`                                        | enumerate      | every loaded set definition                                                                 |
-|  [03]   | `setDef[string name]` → `QuantityPropertyDef`                                          | index          | resolve one property/quantity within a set by name                                          |
-|  [04]   | `setDef.Definitions` → `IEnumerable<QuantityPropertyDef>`                              | enumerate      | the member properties (`PropertyDefinitions`) / quantities (`QuantityDefinitions`) of a set |
-|  [05]   | `definitions.GetAllProperties<TP>(bool nested = true)` where `TP: QuantityPropertyDef` | query          | every property/quantity across all sets (optionally descending into complex properties)     |
-|  [06]   | `definitions.GetPropertiesWhere<TP>(Func<TP, bool> predicate, bool nested = true)`     | query          | filtered cross-set property/quantity query                                                  |
-|  [07]   | `setDef.ApplicableClasses` / `setDef.AddApplicableClass(ApplicableClass)`              | applicability  | the IFC classes a set applies to (read + author)                                            |
+| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [RAIL]                                                |
+| :-----: | :-------------------------------------------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `definitions[string name]` → `T`                          | index          | resolve a set by name (null if absent)                |
+|  [02]   | `definitions.DefinitionSets` → `IEnumerable<T>`           | enumerate      | every loaded set definition                           |
+|  [03]   | `setDef[string name]` → `QuantityPropertyDef`             | index          | resolve one property/quantity within a set by name    |
+|  [04]   | `setDef.Definitions` → `IEnumerable<QuantityPropertyDef>` | enumerate      | the set's `PropertyDefinitions`/`QuantityDefinitions` |
+|  [05]   | `definitions.GetAllProperties<TP>(bool nested = true)`    | query          | every property/quantity across all sets               |
+|  [06]   | `definitions.GetPropertiesWhere<TP>(Func<TP, bool>)`      | query          | filtered cross-set property/quantity query            |
+|  [07]   | `setDef.ApplicableClasses` / `AddApplicableClass(...)`    | applicability  | the IFC classes a set applies to (read + author)      |
 
 [ENTRYPOINT_SCOPE]: definition read and save
 - rail: properties#PROPERTY_TEMPLATES
 - note: read a property's data type and value-type kind to drive the typed property model; save authored/updated definitions back to disk.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                  | [ENTRY_FAMILY] | [RAIL]                                                                                                                                                                                                                                                                                       |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `propertyDef.PropertyType.PropertyValueType` → `IPropertyValueType` (`TypePropertySingleValue`/`…BoundedValue`/`…ReferenceValue`/`TypeSimpleProperty`/`…EnumeratedValue`/`…ListValue`/`…TableValue`/`TypeComplexProperty`) | read           | the property's value-type kind AND its scalar IFC data type — the `TypePropertySingleValue`/`…BoundedValue`/`…ReferenceValue` `DataType.Type` (`DataTypeEnum`) + `TypeSimpleProperty.DataType.Type` carry the token; the composite enumerated/list/table/complex kinds carry no scalar token |
-|  [02]   | `propertyDef.ValueDef` → `ValueDef` (`[Obsolete]`)                                                                                                                                                                         | read           | the IFC2x3 min/max/default value catalogue — carries NO data type (the scalar IFC type lives on the value-type kind above); read for the allowed `Value`/`ValueRangeDef`/`EnumList` only, never as the data-type source                                                                      |
-|  [03]   | `qtoDef.QuantityType` → `QtoTypeEnum`                                                                                                                                                                                      | read           | the base quantity's kind (`Q_LENGTH`/`Q_AREA`/`Q_VOLUME`/`Q_WEIGHT`/`Q_COUNT`/`Q_TIME`)                                                                                                                                                                                                      |
-|  [04]   | `setDef.IfcVersion` / `setDef.Definition` / `setDef.DefinitionAliases`                                                                                                                                                     | read           | the set's schema, human definition, and localized aliases                                                                                                                                                                                                                                    |
-|  [05]   | `definitions.Save(string path, string name)` / `Save(string path, T pSet)` / `SaveToDirectory(string directory)`                                                                                                           | save           | persist authored/updated definitions                                                                                                                                                                                                                                                         |
+| [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [RAIL]                                              |
+| :-----: | :---------------------------------------------------------- | :------------- | :-------------------------------------------------- |
+|  [01]   | `propertyDef.PropertyType.PropertyValueType`                | read           | value-type kind + `DataTypeEnum` (rules [01])       |
+|  [02]   | `propertyDef.ValueDef` → `ValueDef` (`[Obsolete]`)          | read           | `[Obsolete]` catalogue; no data type (values [02])  |
+|  [03]   | `qtoDef.QuantityType` → `QtoTypeEnum`                       | read           | the base quantity kind (`QtoTypeEnum`, values [11]) |
+|  [04]   | `setDef.IfcVersion` / `.Definition` / `.DefinitionAliases`  | read           | the set's schema, definition, and localized aliases |
+|  [05]   | `definitions.Save(string, string)` / `Save(string, T pSet)` | save           | persist an authored/updated definition              |
+|  [06]   | `definitions.SaveToDirectory(string directory)`             | save           | persist every definition to a directory             |
+
+- [01]-[VALUE_TYPE]: the scalar `DataTypeEnum` token lives on the `TypePropertySingleValue`/`…BoundedValue`/`…ReferenceValue` `DataType.Type` + `TypeSimpleProperty.DataType.Type`; the composite enumerated/list/table/complex kinds carry no scalar token.
+- [02]-[VALUEDEF]: read `ValueDef` for the allowed `Value`/`ValueRangeDef`/`EnumList` only, never as the data-type source — the scalar IFC type lives on the value-type kind above.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

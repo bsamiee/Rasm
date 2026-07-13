@@ -10,17 +10,30 @@
 
 ## [01]-[COMPONENT_ROSTER]
 
-| [INDEX] | [FAMILY]     | [COMPONENTS]                                                                                                                                                                                                                                                                      | [AXIS_NOTE]                                                                                                                 |
-| :-----: | :----------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | line         | `LinePath` `Line` `LineRadial` `SplitLinePath`                                                                                                                                                                                                                                    | `LinePath` = data line (accessors + `curve` + `defined`); `Line` = two-point segment; `SplitLinePath` = per-segment styling |
-|  [02]   | area         | `Area` `AreaClosed` `AreaStack` `Stack`                                                                                                                                                                                                                                           | `AreaClosed` closes to a scale's zero; stacks take `keys` + offset/order policy                                             |
-|  [03]   | bar          | `Bar` `BarRounded` `BarGroup` `BarGroupHorizontal` `BarStack` `BarStackHorizontal`                                                                                                                                                                                                | `Bar` = one rect; group/stack variants fold a band scale + keys into laid-out rects via children-as-function                |
-|  [04]   | radial       | `Arc` `Pie`                                                                                                                                                                                                                                                                       | generator props (`innerRadius`/`padAngle`/…); `Pie` children-as-function exposes arcs for custom slice rendering            |
-|  [05]   | link         | `LinkHorizontal` `LinkVertical` `LinkRadial` + `Link{Horizontal,Vertical,Radial}{Curve,Line,Step}` (+ matching `path*` factories)                                                                                                                                                 | hierarchy/graph edges; 12 typed variants on one source/target accessor shape                                                |
-|  [06]   | point/region | `Circle` `Polygon` (+`getPoints`/`getPoint`) `Threshold`                                                                                                                                                                                                                          | `Threshold` shades above/below-crossing regions between two series                                                          |
-|  [07]   | policy/utils | `stackOffset`/`STACK_OFFSETS`/`STACK_OFFSET_NAMES` `stackOrder`/`STACK_ORDERS`/`STACK_ORDER_NAMES` · `getX` `getY` `getSource` `getTarget` `getFirstItem` `getSecondItem` `getBandwidth` `degreesToRadians` · `D3ShapeFactories` (`arc` `area` `line` `pie` `radialLine` `stack`) | stack policy vocabularies as named tables; accessor defaults; headless generator escape                                     |
+Per-family behaviour notes carry to the keyed list below; every component emits an addressable React SVG element.
 
-```ts contract
+| [INDEX] | [FAMILY]     | [COMPONENTS]                                                                                           |
+| :-----: | :----------- | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | line         | `LinePath` `Line` `LineRadial` `SplitLinePath`                                                         |
+|  [02]   | area         | `Area` `AreaClosed` `AreaStack` `Stack`                                                                |
+|  [03]   | bar          | `Bar` `BarRounded` `BarGroup` `BarGroupHorizontal` `BarStack` `BarStackHorizontal`                     |
+|  [04]   | radial       | `Arc` `Pie`                                                                                            |
+|  [05]   | link         | `LinkHorizontal` `LinkVertical` `LinkRadial` + `Link{Horizontal,Vertical,Radial}{Curve,Line,Step}`     |
+|  [06]   | point/region | `Circle` `Polygon` (+`getPoints`/`getPoint`) `Threshold`                                               |
+|  [07]   | stack policy | `stackOffset`/`STACK_OFFSETS`/`STACK_OFFSET_NAMES` `stackOrder`/`STACK_ORDERS`/`STACK_ORDER_NAMES`     |
+|  [08]   | accessors    | `getX` `getY` `getSource` `getTarget` `getFirstItem` `getSecondItem` `getBandwidth` `degreesToRadians` |
+|  [09]   | generators   | `D3ShapeFactories` (`arc` `area` `line` `pie` `radialLine` `stack`)                                    |
+
+- [01]-[LINE]: `LinePath` the data line (accessors + `curve` + `defined`); `Line` a two-point segment; `SplitLinePath` per-segment styling.
+- [02]-[AREA]: `AreaClosed` closes to a scale's zero; stacks take `keys` + offset/order policy.
+- [03]-[BAR]: `Bar` is one rect; group/stack variants fold a band scale + keys into laid-out rects via children-as-function.
+- [04]-[RADIAL]: generator props (`innerRadius`/`padAngle`/…); `Pie` children-as-function exposes arcs for custom slice rendering.
+- [05]-[LINK]: hierarchy/graph edges; 12 typed variants on one source/target accessor shape, with matching `path*` factories.
+- [06]-[POINT_REGION]: `Threshold` shades above/below-crossing regions between two series.
+- [07]-[STACK_POLICY]: offset/order vocabularies as named lookup tables — `offset="wiggle"` is a data row, never a hand-computed baseline.
+- [09]-[GENERATORS]: the headless generator escape when no element must render.
+
+```ts signature
 // Accessor-driven: scales close over the accessors, the component emits one styleable SVG element.
 <LinePath<Point> data={series} x={(d) => x(d.t)} y={(d) => y(d.v)} curve={curveMonotoneX} className={cn("stroke-accent", lineClass)} />
 <AreaClosed<Point> data={series} x={(d) => x(d.t)} y={(d) => y(d.v)} yScale={y} curve={curveMonotoneX} fill="url(#ramp)" />

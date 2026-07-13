@@ -62,25 +62,25 @@
 [PUBLIC_TYPE_SCOPE]: sources and filters
 - rail: visuals — `vtkmodules.vtkFiltersSources`, `vtkFiltersCore`, `vtkFiltersGeneral`
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]               | [ROLE]                                                                                                                                                            |
-| :-----: | :--------------------------- | :-------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `vtkSphereSource`            | source                      | parametric sphere mesh                                                                                                                                            |
-|  [02]   | `vtkConeSource`              | source                      | cone mesh                                                                                                                                                         |
-|  [03]   | `vtkCubeSource`              | source                      | box mesh                                                                                                                                                          |
-|  [04]   | `vtkCylinderSource`          | source                      | cylinder mesh                                                                                                                                                     |
-|  [05]   | `vtkPlaneSource`             | source                      | planar grid mesh                                                                                                                                                  |
-|  [06]   | `vtkContourFilter`           | filter                      | iso-surface/iso-line extraction                                                                                                                                   |
-|  [07]   | `vtkClipPolyData`            | filter                      | clip surface by implicit function                                                                                                                                 |
-|  [08]   | `vtkCutter`                  | filter                      | cross-section by implicit function                                                                                                                                |
-|  [09]   | `vtkGlyph3D`                 | filter                      | place a glyph at each point                                                                                                                                       |
-|  [10]   | `vtkThreshold`               | filter                      | extract cells by scalar range                                                                                                                                     |
-|  [11]   | `vtkSmoothPolyDataFilter`    | filter                      | Laplacian surface smoothing                                                                                                                                       |
-|  [12]   | `vtkDecimatePro`             | filter                      | triangle-count reduction                                                                                                                                          |
-|  [13]   | `vtkPolyDataNormals`         | filter                      | compute point/cell normals                                                                                                                                        |
-|  [14]   | `vtkTriangleFilter`          | filter                      | triangulate polygons/strips                                                                                                                                       |
-|  [15]   | `vtkTransformPolyDataFilter` | filter                      | apply a `vtkTransform` to geometry                                                                                                                                |
-|  [16]   | `vtkFeatureEdges`            | filter (`vtkFiltersCore`)   | extract boundary / feature-angle / non-manifold / manifold edges as line `vtkPolyData` — the crease-and-outline linework the plan/section drawing egress consumes |
-|  [17]   | `vtkPolyDataSilhouette`      | filter (`vtkFiltersHybrid`) | view-dependent silhouette outline of a surface relative to a `vtkCamera` — the true occluding-contour line set for a projected drawing                            |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]               | [ROLE]                                                                  |
+| :-----: | :--------------------------- | :-------------------------- | :---------------------------------------------------------------------- |
+|  [01]   | `vtkSphereSource`            | source                      | parametric sphere mesh                                                  |
+|  [02]   | `vtkConeSource`              | source                      | cone mesh                                                               |
+|  [03]   | `vtkCubeSource`              | source                      | box mesh                                                                |
+|  [04]   | `vtkCylinderSource`          | source                      | cylinder mesh                                                           |
+|  [05]   | `vtkPlaneSource`             | source                      | planar grid mesh                                                        |
+|  [06]   | `vtkContourFilter`           | filter                      | iso-surface/iso-line extraction                                         |
+|  [07]   | `vtkClipPolyData`            | filter                      | clip surface by implicit function                                       |
+|  [08]   | `vtkCutter`                  | filter                      | cross-section by implicit function                                      |
+|  [09]   | `vtkGlyph3D`                 | filter                      | place a glyph at each point                                             |
+|  [10]   | `vtkThreshold`               | filter                      | extract cells by scalar range                                           |
+|  [11]   | `vtkSmoothPolyDataFilter`    | filter                      | Laplacian surface smoothing                                             |
+|  [12]   | `vtkDecimatePro`             | filter                      | triangle-count reduction                                                |
+|  [13]   | `vtkPolyDataNormals`         | filter                      | compute point/cell normals                                              |
+|  [14]   | `vtkTriangleFilter`          | filter                      | triangulate polygons/strips                                             |
+|  [15]   | `vtkTransformPolyDataFilter` | filter                      | apply a `vtkTransform` to geometry                                      |
+|  [16]   | `vtkFeatureEdges`            | filter (`vtkFiltersCore`)   | boundary/feature/non-manifold/manifold edge extraction to `vtkPolyData` |
+|  [17]   | `vtkPolyDataSilhouette`      | filter (`vtkFiltersHybrid`) | view-dependent silhouette outline relative to a `vtkCamera`             |
 
 [PUBLIC_TYPE_SCOPE]: I/O and geometry
 - rail: visuals — `vtkmodules.vtkIOGeometry`, `vtkIOPLY`, `vtkIOXML`, `vtkCommonTransforms`

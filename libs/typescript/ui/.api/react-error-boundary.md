@@ -17,30 +17,31 @@
 
 [PUBLIC_TYPE_SCOPE]: the boundary prop union, recovery contract, and context
 - rail: view/primitive
-- `ErrorBoundaryProps` is a discriminated union — exactly one of the three recovery arms is set (the others typed `never`), so the recovery strategy is one prop choice, not three parallel components. `FallbackProps` is the payload every arm receives.
+- `ErrorBoundaryProps` is a discriminated union — exactly one of the three recovery arms is set (the others typed `never`), so the recovery strategy is one prop choice, not three parallel components. The arms: `fallback` (static `ReactNode`), `FallbackComponent` (`ComponentType<FallbackProps>`), `fallbackRender` ((`FallbackProps`) => `ReactNode`). `FallbackProps` is the payload every arm receives.
 
-| [INDEX] | [SYMBOL]                                                                                        | [TYPE_FAMILY]       | [CONSUMER_BOUNDARY]                                                                                                                                                                                                            |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ErrorBoundaryProps` = `…WithFallback \| …WithComponent \| …WithRender`                         | discriminated props | `view/primitive` — `fallback` (static `ReactNode`) \| `FallbackComponent` (`ComponentType<FallbackProps>`) \| `fallbackRender` (`(FallbackProps) => ReactNode`), mutually exclusive                                            |
-|  [02]   | `FallbackProps` (`error: unknown`, `resetErrorBoundary: (...args) => void`)                     | recovery payload    | the recovery receives the thrown value — the squashed tagged `E` a `useAtomSuspense` read produces via `Cause.squash`, or whatever a `showBoundary` caller passed — and the reset trigger; renders the `wire/fault` projection |
-|  [03]   | `ErrorBoundarySharedProps` (`onError`, `onReset`, `resetKeys`, `children`)                      | shared props        | `onError` logs to `telemetry`; `resetKeys` re-arms the boundary on dependency change; `onReset` runs the retry effect                                                                                                          |
-|  [04]   | `onReset` details: `{reason:"imperative-api", args}` \| `{reason:"keys", prev, next}`           | reset discriminant  | distinguishes an explicit `resetErrorBoundary()` call from a `resetKeys` change so the retry effect knows its trigger                                                                                                          |
-|  [05]   | `OnErrorCallback` (`(error, info: ErrorInfo) => void`)                                          | error callback      | the `onError` shape; `info.componentStack` locates the throw site                                                                                                                                                              |
-|  [06]   | `ErrorBoundaryContext` / `ErrorBoundaryContextType` (`didCatch`, `error`, `resetErrorBoundary`) | context             | the context `useErrorBoundary` reads; a subtree hook resolves the nearest boundary through it                                                                                                                                  |
-|  [07]   | `UseErrorBoundaryApi` (`error`, `resetBoundary`, `showBoundary`)                                | hook api            | the `useErrorBoundary` return — imperative escalation + reset for async/event-handler failures                                                                                                                                 |
+| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                      |
+| :-----: | :----------------------------------------------------- | :------------ | :------------------------------------------------------- |
+|  [01]   | `ErrorBoundaryProps`                                   | props union   | the three mutually-exclusive recovery arms (see lead)    |
+|  [02]   | `FallbackProps` (`error`, `resetErrorBoundary`)        | payload       | the `Cause.squash`ed tagged `E`; renders `wire/fault`    |
+|  [03]   | `ErrorBoundarySharedProps`                             | shared props  | `onError`→telemetry, `resetKeys` re-arm, `onReset` retry |
+|  [04]   | `onReset` `{reason:"imperative-api", args}`            | reset kind    | an explicit `resetErrorBoundary()` call                  |
+|  [05]   | `onReset` `{reason:"keys", prev, next}`                | reset kind    | a `resetKeys` dependency change                          |
+|  [06]   | `OnErrorCallback` (`(error, info: ErrorInfo) => void`) | error cb      | `info.componentStack` locates the throw site             |
+|  [07]   | `ErrorBoundaryContext` / `ErrorBoundaryContextType`    | context       | `didCatch`/`error`/`resetErrorBoundary` context          |
+|  [08]   | `UseErrorBoundaryApi`                                  | hook api      | async/event escalation + reset                           |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: boundary component, escalation hook, and HOC wrap
 - rail: view/primitive
-- Three entries: the boundary component, the hook that pushes uncaught failures into it, and the HOC that wraps a row. One boundary owner; the modality (static / render-prop / component recovery) is the prop union arm.
+- Three entries: the boundary component, the hook that pushes uncaught failures into it, and the HOC that wraps a row. One boundary owner; the modality (static / render-prop / component recovery) is the prop union arm. `withErrorBoundary` returns a `ForwardRefExoticComponent`.
 
-| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                                                                                                                                                                                                  |
-| :-----: | :-------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `<ErrorBoundary FallbackComponent \| fallbackRender \| fallback … onError onReset resetKeys>` | boundary       | `view` — wraps a route/panel/atom-bound subtree; catches render errors, renders the fault projection                                                                                                                                                                                 |
-|  [02]   | `useErrorBoundary(): { error, resetBoundary, showBoundary }`                                  | escalate       | `view` — `showBoundary(Cause.squash(cause))` pushes a carrier-less throw (event handler, raw promise — outside any atom/suspense/transition) into the nearest boundary; pass the squashed `E` so `FallbackProps.error` matches the `useAtomSuspense` path; `resetBoundary()` retries |
-|  [03]   | `withErrorBoundary(Component, errorBoundaryProps): ForwardRefExoticComponent<…>`              | HOC wrap       | wraps a single row with a fixed boundary config where JSX nesting is awkward (ref-forwarded)                                                                                                                                                                                         |
-|  [04]   | `getErrorMessage(thrown: unknown): string \| undefined`                                       | extract        | pulls a display message from an unknown thrown value at the recovery boundary; the pre-`Match` recovery for non-tagged throws                                                                                                                                                        |
+| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                    |
+| :-----: | :----------------------------------------------------------- | :------------- | :----------------------------------------------------- |
+|  [01]   | `<ErrorBoundary … onError onReset resetKeys>`                | boundary       | wraps a subtree; render errors → fault projection      |
+|  [02]   | `useErrorBoundary(): { error, resetBoundary, showBoundary }` | escalate       | escalate a carrier-less throw; `resetBoundary` retries |
+|  [03]   | `withErrorBoundary(Component, errorBoundaryProps)`           | HOC wrap       | ref-forwarded HOC wrap where JSX nesting is awkward    |
+|  [04]   | `getErrorMessage(thrown: unknown): string \| undefined`      | extract        | display message from an unknown throw; pre-`Match`     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

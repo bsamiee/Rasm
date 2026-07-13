@@ -18,50 +18,50 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: `zlib_ng.zlib_ng` codec carriers and checksums
-- rail: compression — namespace `zlib_ng.zlib_ng`. The codec objects are underscore-prefixed runtime classes minted by the factory functions (`compressobj`/`decompressobj`/`_ZlibDecompressor(...)`), never imported or constructed by name; bind them by the factory that mints them. They mirror the stdlib `zlib` compressor/decompressor objects exactly.
+- rail: compression — namespace `zlib_ng.zlib_ng`. The codec objects are underscore-prefixed runtime classes minted by the factory functions (`compressobj`/`decompressobj`/`_ZlibDecompressor(...)`), never imported or constructed by name; bind them by the factory that mints them. `_Compress` mirrors zlib with `compress(data) -> bytes` + `flush(mode=Z_FINISH) -> bytes`; `_Decompress` adds `decompress(data, max_length=0) -> bytes` + `flush(length=DEF_BUF_SIZE)` with `unused_data`/`unconsumed_tail`/`eof` (trailing bytes, parked input, end state); `_ZlibDecompressor(wbits=MAX_WBITS, zdict=None)` is the modern `decompress(data, max_length=-1) -> bytes` decoder with `unused_data`/`needs_input`/`eof`; `_ParallelCompress(buffersize, level).compress_and_crc(data, zdict) -> (bytes, int)` returns one raw-DEFLATE block plus its CRC-32 in one GIL-releasing call; `_GzipReader(fp, buffersize=32768)` is a `RawIOBase` source (`readinto`/`read`/`readall`/`seek`/`tell`) wrapped in a `BufferedReader` by `GzipNGFile`; `zlib_ng.error` mirrors `zlib.error`.
 
-| [INDEX] | [SYMBOL]            | [PACKAGE_ROLE]             | [CAPABILITY]                                                                                                                                                                                                                         |
-| :-----: | :------------------ | :------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `_Compress`         | incremental compressor     | minted by `compressobj`; zlib-style `compress(data) -> bytes` + `flush(mode=Z_FINISH) -> bytes`                                                                                                                                      |
-|  [02]   | `_Decompress`       | incremental decompressor   | minted by `decompressobj`; `decompress(data, max_length=0) -> bytes` + `flush(length=DEF_BUF_SIZE)`; `unused_data`/`unconsumed_tail`/`eof` carry trailing bytes, parked input, and end state                                         |
-|  [03]   | `_ZlibDecompressor` | bytes-feeding decompressor | modern isal-style decode constructed as `_ZlibDecompressor(wbits=MAX_WBITS, zdict=None)`; `decompress(data, max_length=-1) -> bytes`; `unused_data`/`needs_input`/`eof` — the `BufferedReader`-friendly decoder behind `_GzipReader` |
-|  [04]   | `_ParallelCompress` | block codec                | `_ParallelCompress(buffersize, level)`; `compress_and_crc(data, zdict) -> (bytes, int)` returns one raw-DEFLATE block plus its CRC-32 in a single GIL-releasing call — the per-thread engine `gzip_ng_threaded` fans across workers  |
-|  [05]   | `_GzipReader`       | gzip stream reader         | `_GzipReader(fp, buffersize=32768)`; a `RawIOBase` gzip decode source (`readinto`/`read`/`readall`/`seek`/`tell`) wrapped in a `BufferedReader` by `GzipNGFile`; the engine behind `gzip_ng.decompress`                              |
-|  [06]   | `zlib_ng.error`     | codec fault                | the `zlib.error` mirror raised on malformed input or an invalid parameter — caught at the seam and lifted onto the `expression.Result` rail                                                                                          |
+| [INDEX] | [SYMBOL]            | [PACKAGE_ROLE]             | [CAPABILITY]                                                   |
+| :-----: | :------------------ | :------------------------- | :------------------------------------------------------------- |
+|  [01]   | `_Compress`         | incremental compressor     | minted by `compressobj`; the `compress`/`flush` pair           |
+|  [02]   | `_Decompress`       | incremental decompressor   | minted by `decompressobj`; `decompress`/`flush` + state props  |
+|  [03]   | `_ZlibDecompressor` | bytes-feeding decompressor | modern bytes-feeding decoder behind `_GzipReader`              |
+|  [04]   | `_ParallelCompress` | block codec                | per-thread block engine `gzip_ng_threaded` fans across workers |
+|  [05]   | `_GzipReader`       | gzip stream reader         | gzip decode source behind `gzip_ng.decompress`                 |
+|  [06]   | `zlib_ng.error`     | codec fault                | the `zlib.error` mirror, lifted to `expression.Result`         |
 
 [PUBLIC_TYPE_SCOPE]: `gzip_ng` container types
-- rail: compression — namespace `zlib_ng.gzip_ng` (stdlib `gzip` drop-in) and `zlib_ng.gzip_ng_threaded`
+- rail: compression — namespace `zlib_ng.gzip_ng` (stdlib `gzip` drop-in) and `zlib_ng.gzip_ng_threaded`. `GzipNGFile(filename=None, mode=None, compresslevel=9, fileobj=None, mtime=None)` is the stdlib `GzipFile` mirror (binary `BufferedIOBase` over a gzip container, `mtime=0` for reproducible framing); `gzip_ng_threaded.open(filename, mode='wb'|'rb', compresslevel=..., threads=1, block_size=...)` returns the writer that fans block compression (`_ParallelCompress.compress_and_crc`) across worker threads and recombines per-block CRCs with `crc32_combine` into the single gzip trailer, or the GIL-escaping multi-threaded decode reader.
 
-| [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE]       | [CAPABILITY]                                                                                                                                                                                                                                                                       |
-| :-----: | :------------------------ | :------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `gzip_ng.GzipNGFile`      | gzip file codec      | the stdlib `GzipFile` mirror — `GzipNGFile(filename=None, mode=None, compresslevel=9, fileobj=None, mtime=None)`; binary `BufferedIOBase` read/write over a gzip container, `mtime=0` for reproducible framing                                                                     |
-|  [02]   | `gzip_ng_threaded` writer | threaded gzip writer | `gzip_ng_threaded.open(filename, mode='wb', compresslevel=..., threads=1, block_size=...)` returns a writer that fans block compression (`_ParallelCompress.compress_and_crc`) across worker threads, recombining per-block CRCs with `crc32_combine` into the single gzip trailer |
-|  [03]   | `gzip_ng_threaded` reader | threaded gzip reader | `gzip_ng_threaded.open(filename, mode='rb', ...)` returns a GIL-escaping multi-threaded gzip decode reader over the same container format                                                                                                                                          |
+| [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE]       | [CAPABILITY]                                                |
+| :-----: | :------------------------ | :------------------- | :---------------------------------------------------------- |
+|  [01]   | `gzip_ng.GzipNGFile`      | gzip file codec      | binary `BufferedIOBase` gzip file; `mtime=0` reproducible   |
+|  [02]   | `gzip_ng_threaded` writer | threaded gzip writer | fans block compress across threads; `crc32_combine` trailer |
+|  [03]   | `gzip_ng_threaded` reader | threaded gzip reader | GIL-escaping multi-threaded gzip decode reader              |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `zlib_ng.zlib_ng` one-shot, streaming, and checksum
-- rail: compression — the `zlib` API mirror; `wbits` selects the container (`MAX_WBITS`=zlib, `MAX_WBITS|16`=gzip, `-MAX_WBITS`=raw DEFLATE)
+- rail: compression — the `zlib` API mirror; `wbits` selects the container (`MAX_WBITS`=zlib, `MAX_WBITS|16`=gzip, `-MAX_WBITS`=raw DEFLATE). The one-shot pair is `compress(data, level=-1, wbits=MAX_WBITS) -> bytes` / `decompress(data, wbits=MAX_WBITS, bufsize=DEF_BUF_SIZE) -> bytes`, and the streaming factories are `compressobj(level=-1, method=DEFLATED, wbits=MAX_WBITS, memLevel=DEF_MEM_LEVEL, strategy=Z_DEFAULT_STRATEGY, zdict=None) -> _Compress` and `decompressobj(wbits=MAX_WBITS, zdict=None) -> _Decompress`.
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                                                                                                            | [CAPABILITY]                                                                                                                                               |
-| :-----: | :---------------------- | :-------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `zlib_ng.compress`      | `compress(data, level=-1, wbits=MAX_WBITS) -> bytes`                                                                                    | one-shot zlib/gzip/raw-DEFLATE compress                                                                                                                    |
-|  [02]   | `zlib_ng.decompress`    | `decompress(data, wbits=MAX_WBITS, bufsize=DEF_BUF_SIZE) -> bytes`                                                                      | one-shot decompress                                                                                                                                        |
-|  [03]   | `zlib_ng.compressobj`   | `compressobj(level=-1, method=DEFLATED, wbits=MAX_WBITS, memLevel=DEF_MEM_LEVEL, strategy=Z_DEFAULT_STRATEGY, zdict=None) -> _Compress` | streaming compressor with a shared `zdict`                                                                                                                 |
-|  [04]   | `zlib_ng.decompressobj` | `decompressobj(wbits=MAX_WBITS, zdict=None) -> _Decompress`                                                                             | streaming decompressor                                                                                                                                     |
-|  [05]   | `zlib_ng.crc32`         | `crc32(data, value=0) -> int`                                                                                                           | CRC-32 checksum, resumable via `value`                                                                                                                     |
-|  [06]   | `zlib_ng.crc32_combine` | `crc32_combine(crc1, crc2, len2) -> int`                                                                                                | combine two CRC-32s into the checksum of the concatenation — the parallel-block gzip-trailer recombination the threaded writer and `package/codec` rely on |
-|  [07]   | `zlib_ng.adler32`       | `adler32(data, value=1) -> int`                                                                                                         | Adler-32 checksum (the zlib-container trailer)                                                                                                             |
+| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                                | [CAPABILITY]                               |
+| :-----: | :---------------------- | :---------------------------------------------------------- | :----------------------------------------- |
+|  [01]   | `zlib_ng.compress`      | `compress(data, level=-1, wbits=MAX_WBITS) -> bytes`        | one-shot zlib/gzip/raw-DEFLATE compress    |
+|  [02]   | `zlib_ng.decompress`    | `decompress(data, wbits=MAX_WBITS) -> bytes`                | one-shot decompress                        |
+|  [03]   | `zlib_ng.compressobj`   | `compressobj(level=-1, …) -> _Compress`                     | streaming compressor with a shared `zdict` |
+|  [04]   | `zlib_ng.decompressobj` | `decompressobj(wbits=MAX_WBITS, zdict=None) -> _Decompress` | streaming decompressor                     |
+|  [05]   | `zlib_ng.crc32`         | `crc32(data, value=0) -> int`                               | CRC-32 checksum, resumable via `value`     |
+|  [06]   | `zlib_ng.crc32_combine` | `crc32_combine(crc1, crc2, len2) -> int`                    | combine two CRC-32s -> concat checksum     |
+|  [07]   | `zlib_ng.adler32`       | `adler32(data, value=1) -> int`                             | Adler-32 checksum (zlib trailer)           |
 
 [ENTRYPOINT_SCOPE]: `gzip_ng` container one-shot and file
-- rail: compression — `zlib_ng.gzip_ng` / `zlib_ng.gzip_ng_threaded`
+- rail: compression — `zlib_ng.gzip_ng` / `zlib_ng.gzip_ng_threaded`. `gzip_ng.open(filename, mode='rb', compresslevel=9, encoding=None, errors=None, newline=None)` is the file-like endpoint (text modes wrap `GzipNGFile` in a `TextIOWrapper`); `gzip_ng_threaded.open(filename, mode='rb', compresslevel=9, threads=1, block_size=...)` is the multi-threaded block-fan reader/writer.
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                                                             | [CAPABILITY]                                                                       |
-| :-----: | :---------------------- | :--------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `gzip_ng.compress`      | `compress(data, compresslevel=9, *, mtime=None) -> bytes`                                | one-shot gzip-container compress (`mtime=0` for reproducible bytes)                |
-|  [02]   | `gzip_ng.decompress`    | `decompress(data) -> bytes`                                                              | one-shot gzip-container decompress (concatenated-member aware)                     |
-|  [03]   | `gzip_ng.open`          | `open(filename, mode='rb', compresslevel=9, encoding=None, errors=None, newline=None)`   | file-like gzip endpoint; text modes wrap `GzipNGFile` in a `TextIOWrapper`         |
-|  [04]   | `gzip_ng_threaded.open` | `gzip_ng_threaded.open(filename, mode='rb', compresslevel=9, threads=1, block_size=...)` | the multi-threaded block-fan gzip reader/writer — the GIL-escaping throughput path |
+| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                              | [CAPABILITY]                                       |
+| :-----: | :---------------------- | :-------------------------------------------------------- | :------------------------------------------------- |
+|  [01]   | `gzip_ng.compress`      | `compress(data, compresslevel=9, *, mtime=None) -> bytes` | one-shot gzip compress (`mtime=0` reproducible)    |
+|  [02]   | `gzip_ng.decompress`    | `decompress(data) -> bytes`                               | one-shot gzip decompress (multi-member aware)      |
+|  [03]   | `gzip_ng.open`          | `open(filename, mode='rb', …)`                            | file-like gzip endpoint; text-mode `TextIOWrapper` |
+|  [04]   | `gzip_ng_threaded.open` | `gzip_ng_threaded.open(filename, …)`                      | multi-threaded block-fan gzip reader/writer        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

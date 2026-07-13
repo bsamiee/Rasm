@@ -18,14 +18,16 @@
 [PUBLIC_TYPE_SCOPE]: diff owner and change axis
 - rail: model-diff
 
-| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]    | [CAPABILITY]                                                                                                            |
-| :-----: | :------------------------- | :---------------- | :---------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `IfcDiff`                  | diff root         | drives the two-model comparison; holds `old`/`new`, `change_register`, `added_elements`/`deleted_elements`, `precision` |
-|  [02]   | `RELATIONSHIP_TYPE`        | diff-axis literal | `Literal["geometry","attributes","type","property","container","aggregate","classification"]` — the closed change axes  |
-|  [03]   | `IfcDiff.change_register`  | change map        | `dict[GlobalId(str), dict[str, object]]` — per-element marker dict keyed by the `*_changed` change kind                 |
-|  [04]   | `IfcDiff.added_elements`   | added set         | `set[str]` of GlobalIds present in `new` but not `old` (disjoint from `change_register`)                                |
-|  [05]   | `IfcDiff.deleted_elements` | deleted set       | `set[str]` of GlobalIds present in `old` but not `new`                                                                  |
-|  [06]   | `DiffTerminator`           | walk control      | the recursion-terminator helper bounding the dependent-entity representation walk                                       |
+The seven `RELATIONSHIP_TYPE` axes — `geometry`, `attributes`, `type`, `property`, `container`, `aggregate`, `classification` — are the closed `Literal` change vocabulary; `change_register` is GlobalId-keyed and disjoint from the `added`/`deleted` sets.
+
+| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]    | [CAPABILITY]                                                                     |
+| :-----: | :------------------------- | :---------------- | :------------------------------------------------------------------------------- |
+|  [01]   | `IfcDiff`                  | diff root         | the comparison root; holds `old`/`new`, `change_register`, the sets, `precision` |
+|  [02]   | `RELATIONSHIP_TYPE`        | diff-axis literal | `Literal` of the seven closed change axes (values in the lead)                   |
+|  [03]   | `IfcDiff.change_register`  | change map        | `dict[GlobalId(str), dict[str, object]]` — per-element `*_changed` marker dict   |
+|  [04]   | `IfcDiff.added_elements`   | added set         | `set[str]` GlobalIds in `new` not `old` (disjoint from `change_register`)        |
+|  [05]   | `IfcDiff.deleted_elements` | deleted set       | `set[str]` GlobalIds in `old` not `new`                                          |
+|  [06]   | `DiffTerminator`           | walk control      | recursion terminator bounding the dependent-entity representation walk           |
 
 [CHANGE_MARKER_KEYS]: the `change_register[guid]` value-dict keys are the bounded `*_changed` vocabulary, NOT a stringified `deepdiff` blob — `geometry_changed: True`, `attributes_changed: True`, `type_changed: True`, `container_changed: True`, `aggregate_changed: True`, `classification_changed: True` are boolean flags, while `properties_changed` carries the full `DeepDiff` pset-comparison result (a dict, or `True` on a comparison exception). A single element accumulates multiple markers in one dict.
 
@@ -34,17 +36,19 @@
 [ENTRYPOINT_SCOPE]: diff construction, execution, and export
 - rail: model-diff
 
-| [INDEX] | [SURFACE]                                                                      | [CALL_SHAPE]                         | [CAPABILITY]                                                                                                 |
-| :-----: | :----------------------------------------------------------------------------- | :----------------------------------- | :----------------------------------------------------------------------------------------------------------- |
-|  [01]   | `IfcDiff(old, new, relationships=None, is_shallow=True, filter_elements=None)` | two `ifcopenshell.file` plus options | construct the comparison; `relationships` defaults to `["geometry"]`, `filter_elements` a selector pre-scope |
-|  [02]   | `IfcDiff.diff() -> None`                                                       | none                                 | run the comparison; populates `change_register`/`added_elements`/`deleted_elements` in place                 |
-|  [03]   | `IfcDiff.export(path: str) -> None`                                            | path                                 | write a JSON report `{"added": [...], "deleted": [...], "changed": change_register}`                         |
-|  [04]   | `IfcDiff.diff_element(old, new)`                                               | two `entity_instance`                | per-element attribute diff feeding `attributes_changed`                                                      |
-|  [05]   | `IfcDiff.diff_element_relationships(old, new) -> bool`                         | two `entity_instance`                | per-relationship diff over the `relationships` axis                                                          |
-|  [06]   | `IfcDiff.diff_representation(old_rep_id, new_rep_id) -> bool`                  | two representation step ids          | tessellated representation-shape diff via `ifcopenshell.geom`                                                |
-|  [07]   | `IfcDiff.get_precision() -> float`                                             | none                                 | derive the model length-precision feeding `DeepDiff` `math_epsilon`                                          |
+The `IfcDiff(old, new, relationships=None, is_shallow=True, filter_elements=None)` ctor takes two `ifcopenshell.file` models; `relationships` defaults to `["geometry"]` and `filter_elements` pre-scopes the compared element set. The per-element legs take two `entity_instance`, the representation leg two step ids.
 
-The `relationships` argument is the diff-axis selector: passing a subset of `RELATIONSHIP_TYPE` (e.g. `["attributes", "property"]`) skips the costly `ifcopenshell.geom` representation leg the `"geometry"` axis triggers.
+| [INDEX] | [SURFACE]                                                     | [CAPABILITY]                                                           |
+| :-----: | :------------------------------------------------------------ | :--------------------------------------------------------------------- |
+|  [01]   | `IfcDiff(old, new, ...)`                                      | construct the comparison (ctor signature in the lead)                  |
+|  [02]   | `IfcDiff.diff() -> None`                                      | run the comparison, populating the three result surfaces in place      |
+|  [03]   | `IfcDiff.export(path: str) -> None`                           | write JSON `{"added":[...],"deleted":[...],"changed":change_register}` |
+|  [04]   | `IfcDiff.diff_element(old, new)`                              | per-element attribute diff feeding `attributes_changed`                |
+|  [05]   | `IfcDiff.diff_element_relationships(old, new) -> bool`        | per-relationship diff over the `relationships` axis                    |
+|  [06]   | `IfcDiff.diff_representation(old_rep_id, new_rep_id) -> bool` | tessellated representation-shape diff via `ifcopenshell.geom`          |
+|  [07]   | `IfcDiff.get_precision() -> float`                            | model length-precision feeding `DeepDiff` `math_epsilon`               |
+
+The `relationships` argument is the diff-axis selector: passing a subset of `RELATIONSHIP_TYPE` (e.g. `["attributes", "property"]`) skips the costly `ifcopenshell.geom` representation leg the `"geometry"` axis triggers. `diff()` populates the three result surfaces in place; the per-element legs take two `entity_instance`, the representation leg two step ids.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

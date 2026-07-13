@@ -39,51 +39,57 @@
 
 The logical layer maps CLR values to Parquet physical types with repetition/definition-level handling for nullables and nesting. `LogicalColumnWriter<TElement>` and `LogicalColumnReader<TElement>` are the typed batch mirror over the physical `ColumnWriter`/`ColumnReader`. For a column whose element type is only known at runtime, `ColumnDescriptor.Apply<TReturn>(LogicalTypeFactory, IColumnDescriptorVisitor<TReturn>)` dispatches into the visitor's `OnColumnDescriptor<TPhysical, TLogical, TElement>()` (the strongly-typed continuation reached by reflection-free generic dispatch); `ILogicalColumnWriterVisitor<TReturn>`/`ILogicalColumnReaderVisitor<TReturn>` are the same pattern over an opened logical stream. `ColumnWriter.LogicalWriterOverride<TElement>()`/`ColumnReader.LogicalReaderOverride<TElement>()` force an element type that overrides the schema-inferred default. `Nested<T>` is the public struct-nesting wrapper for repeated/struct columns; `ColumnReader.LogicalReader(useNesting: true)` opts an untyped reader into `Nested<T>` reassembly.
 
-| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]      | [RAIL]                                                                                               |
-| :-----: | :------------------------------------- | :----------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `LogicalColumnWriter<TValue>`          | typed writer       | `WriteBatch(ReadOnlySpan<TValue>)`                                                                   |
-|  [02]   | `LogicalColumnReader<TValue>`          | typed reader       | `ReadBatch(Span<TValue>)`, `ReadAll`, `GetEnumerator`                                                |
-|  [03]   | `LogicalColumnStream`                  | stream base        | shared buffered batch state                                                                          |
-|  [04]   | `ILogicalColumnWriterVisitor<TReturn>` | writer visitor     | runtime-typed logical-writer dispatch                                                                |
-|  [05]   | `ILogicalColumnReaderVisitor<TReturn>` | reader visitor     | runtime-typed logical-reader dispatch                                                                |
-|  [06]   | `IColumnDescriptorVisitor<TReturn>`    | descriptor visitor | `OnColumnDescriptor<TPhysical,TLogical,TElement>()` continuation reached by `ColumnDescriptor.Apply` |
-|  [07]   | `LogicalTypeFactory`                   | type factory       | maps CLR types to logical Parquet types                                                              |
-|  [08]   | `LogicalReadConverterFactory`          | read converter     | custom physical→CLR conversion                                                                       |
-|  [09]   | `LogicalWriteConverterFactory`         | write converter    | custom CLR→physical conversion                                                                       |
-|  [10]   | `Nested<T>`                            | nesting wrapper    | public struct-nesting wrapper for repeated/struct schemas                                            |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]      | [RAIL]                                                           |
+| :-----: | :------------------------------------- | :----------------- | :--------------------------------------------------------------- |
+|  [01]   | `LogicalColumnWriter<TValue>`          | typed writer       | `WriteBatch(ReadOnlySpan<TValue>)`                               |
+|  [02]   | `LogicalColumnReader<TValue>`          | typed reader       | `ReadBatch(Span<TValue>)`, `ReadAll`, `GetEnumerator`            |
+|  [03]   | `LogicalColumnStream`                  | stream base        | shared buffered batch state                                      |
+|  [04]   | `ILogicalColumnWriterVisitor<TReturn>` | writer visitor     | runtime-typed logical-writer dispatch                            |
+|  [05]   | `ILogicalColumnReaderVisitor<TReturn>` | reader visitor     | runtime-typed logical-reader dispatch                            |
+|  [06]   | `IColumnDescriptorVisitor<TReturn>`    | descriptor visitor | `OnColumnDescriptor<TPhysical,TLogical,TElement>()` continuation |
+|  [07]   | `LogicalTypeFactory`                   | type factory       | maps CLR types to logical Parquet types                          |
+|  [08]   | `LogicalReadConverterFactory`          | read converter     | custom physical→CLR conversion                                   |
+|  [09]   | `LogicalWriteConverterFactory`         | write converter    | custom CLR→physical conversion                                   |
+|  [10]   | `Nested<T>`                            | nesting wrapper    | public struct-nesting wrapper for repeated/struct schemas        |
 
 [PUBLIC_TYPE_SCOPE]: schema and physical value family
 - rail: columnar-file-codec
 
 `Schema.GroupNode`/`Schema.PrimitiveNode` build the column tree; `LogicalType` (root `ParquetSharp` namespace) is the annotated-logical-type base, its sealed subtypes (`StringLogicalType`/`DecimalLogicalType`/`DateLogicalType`/`TimestampLogicalType`/`TimeLogicalType`/`IntLogicalType`/`JsonLogicalType`/`BsonLogicalType`/`UuidLogicalType`/`Float16LogicalType`/`ListLogicalType`/`MapLogicalType`/`EnumLogicalType`/`IntervalLogicalType`/`NullLogicalType`/`NoneLogicalType`) reached by the `LogicalType.Decimal(...)`/`.Timestamp(...)`/`.String()` static factories. The physical value structs (`ByteArray`, `FixedLenByteArray`, `Int96`, `Date`, `DateTimeNanos`, `TimeSpanNanos`) are the public wire-level representations the converters target; a Parquet `Decimal` cell physically materializes through `FixedLenByteArray` (`DecimalConverter`/`Decimal128` are internal). `Statistics<TValue>` exposes the per-column typed min/max/null-count the page-index pushdown reads.
 
-| [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY]     | [RAIL]                                                                        |
-| :-----: | :--------------------------------------------------- | :---------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `Schema.GroupNode`                                   | schema node       | struct/group schema node                                                      |
-|  [02]   | `Schema.PrimitiveNode`                               | schema node       | leaf primitive schema node                                                    |
-|  [03]   | `Schema.Node`                                        | schema node base  | shared node identity/repetition                                               |
-|  [04]   | `LogicalType` (+ sealed subtypes)                    | logical type      | annotated logical type base + `Decimal`/`Timestamp`/`String` factory subtypes |
-|  [05]   | `SchemaDescriptor`                                   | schema descriptor | flattened leaf-column descriptor                                              |
-|  [06]   | `ColumnDescriptor`                                   | column descriptor | one leaf column's type/levels                                                 |
-|  [07]   | `Statistics` / `Statistics<TValue>`                  | column statistics | typed min/max/null-count per column chunk                                     |
-|  [08]   | `ByteArray` / `FixedLenByteArray`                    | physical value    | variable/fixed binary cell (decimal materializes here)                        |
-|  [09]   | `Int96` / `Date` / `DateTimeNanos` / `TimeSpanNanos` | physical value    | legacy/temporal physical cells                                                |
+| [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY]     | [RAIL]                                                 |
+| :-----: | :--------------------------------------------------- | :---------------- | :----------------------------------------------------- |
+|  [01]   | `Schema.GroupNode`                                   | schema node       | struct/group schema node                               |
+|  [02]   | `Schema.PrimitiveNode`                               | schema node       | leaf primitive schema node                             |
+|  [03]   | `Schema.Node`                                        | schema node base  | shared node identity/repetition                        |
+|  [04]   | `LogicalType` (+ sealed subtypes)                    | logical type      | base; `Decimal`/`Timestamp`/`String` factory subtypes  |
+|  [05]   | `SchemaDescriptor`                                   | schema descriptor | flattened leaf-column descriptor                       |
+|  [06]   | `ColumnDescriptor`                                   | column descriptor | one leaf column's type/levels                          |
+|  [07]   | `Statistics` / `Statistics<TValue>`                  | column statistics | typed min/max/null-count per column chunk              |
+|  [08]   | `ByteArray` / `FixedLenByteArray`                    | physical value    | variable/fixed binary cell (decimal materializes here) |
+|  [09]   | `Int96` / `Date` / `DateTimeNanos` / `TimeSpanNanos` | physical value    | legacy/temporal physical cells                         |
 
 [PUBLIC_TYPE_SCOPE]: enum and policy family
 - rail: columnar-file-codec
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]   | [RAIL]                                                                                                                        |
-| :-----: | :-------------------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Compression`               | codec enum      | `Uncompressed`/`Snappy`/`Gzip`/`Brotli`/`Zstd`/`Lz4`/`Lz4Frame`/`Lzo`/`Bz2`/`Lz4Hadoop`                                       |
-|  [02]   | `Encoding`                  | encoding enum   | `Plain`/`PlainDictionary`/`Rle`/`DeltaBinaryPacked`/`DeltaLengthByteArray`/`DeltaByteArray`/`RleDictionary`/`ByteStreamSplit` |
-|  [03]   | `ParquetVersion`            | format enum     | physical format version selector                                                                                              |
-|  [04]   | `ParquetDataPageVersion`    | page enum       | `V1`/`V2` data-page layout                                                                                                    |
-|  [05]   | `LogicalTypeEnum`           | logical enum    | logical type discriminant                                                                                                     |
-|  [06]   | `PhysicalType`              | physical enum   | `Boolean`/`Int32`/`Int64`/`Float`/`Double`/`ByteArray`/`Fixed`                                                                |
-|  [07]   | `Repetition`                | level enum      | `Required`/`Optional`/`Repeated`                                                                                              |
-|  [08]   | `SortOrder` / `ColumnOrder` | order enum      | column sort-order metadata                                                                                                    |
-|  [09]   | `ParquetCipher`             | crypto enum     | `AesGcmV1`/`AesGcmCtrV1` PME cipher                                                                                           |
-|  [10]   | `SizeStatisticsLevel`       | statistics enum | none/chunk/page size-statistics level                                                                                         |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]   | [RAIL]                                                             |
+| :-----: | :-------------------------- | :-------------- | :----------------------------------------------------------------- |
+|  [01]   | `Compression`               | codec enum      | per-column compression codec (vocabulary in the value fence below) |
+|  [02]   | `Encoding`                  | encoding enum   | per-column physical encoding (vocabulary in the value fence below) |
+|  [03]   | `ParquetVersion`            | format enum     | physical format version selector                                   |
+|  [04]   | `ParquetDataPageVersion`    | page enum       | `V1`/`V2` data-page layout                                         |
+|  [05]   | `LogicalTypeEnum`           | logical enum    | logical type discriminant                                          |
+|  [06]   | `PhysicalType`              | physical enum   | `Boolean`/`Int32`/`Int64`/`Float`/`Double`/`ByteArray`/`Fixed`     |
+|  [07]   | `Repetition`                | level enum      | `Required`/`Optional`/`Repeated`                                   |
+|  [08]   | `SortOrder` / `ColumnOrder` | order enum      | column sort-order metadata                                         |
+|  [09]   | `ParquetCipher`             | crypto enum     | `AesGcmV1`/`AesGcmCtrV1` PME cipher                                |
+|  [10]   | `SizeStatisticsLevel`       | statistics enum | none/chunk/page size-statistics level                              |
+
+```csharp signature
+// Compression / Encoding — the full C++-core vocabularies the writer selects per column
+enum Compression { Uncompressed, Snappy, Gzip, Brotli, Zstd, Lz4, Lz4Frame, Lzo, Bz2, Lz4Hadoop }
+enum Encoding { Plain, PlainDictionary, Rle, DeltaBinaryPacked, DeltaLengthByteArray, DeltaByteArray, RleDictionary, ByteStreamSplit }
+```
 
 ## [03]-[ENTRYPOINTS]
 
@@ -126,38 +132,45 @@ The row-oriented layer maps a `TTuple` (a `ValueTuple`, or a POCO whose columns 
 
 `Arrow.FileWriter` writes `Apache.Arrow` `RecordBatch`/`Table` (and `ChunkedArray`/`IArrowArray` column chunks) straight to Parquet; `Arrow.FileReader.GetRecordBatchReader(rowGroups?, columns?)` returns an `IArrowArrayStream` that streams selected row groups and columns back as Arrow batches over the C Data Interface. This is the zero-managed-copy column path: Parquet bytes ↔ `Apache.Arrow` `RecordBatch` with no per-cell CLR boxing.
 
-| [INDEX] | [SURFACE]                                                                     | [CALL_SHAPE] | [CAPABILITY]                                     |
-| :-----: | :---------------------------------------------------------------------------- | :----------- | :----------------------------------------------- |
-|  [01]   | `new Arrow.FileWriter(stream, schema, props, arrowProps, leaveOpen)`          | ctor         | opens an Arrow-schema Parquet writer             |
-|  [02]   | `Arrow.FileWriter.WriteRecordBatch(recordBatch, chunkSize)`                   | arrow write  | writes an `Apache.Arrow` record batch            |
-|  [03]   | `Arrow.FileWriter.WriteTable(table, chunkSize)`                               | arrow write  | writes an `Apache.Arrow` table                   |
-|  [04]   | `Arrow.FileWriter.WriteBufferedRecordBatch(batch)` / `.NewBufferedRowGroup()` | arrow write  | buffered unequal-length batch path               |
-|  [05]   | `Arrow.FileWriter.WriteColumnChunk(IArrowArray \| ChunkedArray)`              | arrow write  | writes one Arrow column chunk                    |
-|  [06]   | `new Arrow.FileReader(stream, props, arrowProps, leaveOpen)`                  | ctor         | opens an Arrow-projecting Parquet reader         |
-|  [07]   | `Arrow.FileReader.GetRecordBatchReader(rowGroups, columns)`                   | arrow read   | streams `IArrowArrayStream` of Arrow batches     |
-|  [08]   | `Arrow.FileReader.ParquetReader` / `.SchemaManifest`                          | accessor     | drops to the low-level reader / Arrow schema map |
+| [INDEX] | [SURFACE]                                                            | [CALL_SHAPE] | [CAPABILITY]                                 |
+| :-----: | :------------------------------------------------------------------- | :----------- | :------------------------------------------- |
+|  [01]   | `new Arrow.FileWriter(stream, schema, props, arrowProps, leaveOpen)` | ctor         | opens an Arrow-schema Parquet writer         |
+|  [02]   | `Arrow.FileWriter.WriteRecordBatch(recordBatch, chunkSize)`          | arrow write  | writes an `Apache.Arrow` record batch        |
+|  [03]   | `Arrow.FileWriter.WriteTable(table, chunkSize)`                      | arrow write  | writes an `Apache.Arrow` table               |
+|  [04]   | `Arrow.FileWriter.WriteBufferedRecordBatch(batch)`                   | arrow write  | buffered unequal-length batch write          |
+|  [05]   | `Arrow.FileWriter.NewBufferedRowGroup()`                             | arrow write  | opens a new buffered row group               |
+|  [06]   | `Arrow.FileWriter.WriteColumnChunk(IArrowArray \| ChunkedArray)`     | arrow write  | writes one Arrow column chunk                |
+|  [07]   | `new Arrow.FileReader(stream, props, arrowProps, leaveOpen)`         | ctor         | opens an Arrow-projecting Parquet reader     |
+|  [08]   | `Arrow.FileReader.GetRecordBatchReader(rowGroups, columns)`          | arrow read   | streams `IArrowArrayStream` of Arrow batches |
+|  [09]   | `Arrow.FileReader.ParquetReader`                                     | accessor     | drops to the low-level reader                |
+|  [10]   | `Arrow.FileReader.SchemaManifest`                                    | accessor     | the Arrow schema map                         |
 
 [ENTRYPOINT_SCOPE]: writer tuning and Parquet Modular Encryption
 - rail: columnar-file-codec
 
-`WriterPropertiesBuilder` is the full tuning surface; every column-targeting method has a global, `string path`, and `ColumnPath` overload. `Encryption.CryptoFactory` derives `FileEncryptionProperties`/`FileDecryptionProperties` from a `KmsConnectionConfig` plus an `EncryptionConfiguration`, wrapping data-encryption keys with KEKs from a customer `IKmsClient`; `RotateMasterKeys` re-wraps an existing file's keys.
+`WriterPropertiesBuilder` is the full tuning surface; every `[SURFACE]` below is a `.` builder call on it, and every column-targeting method carries a global, `string path`, and `ColumnPath` overload (the `path?` slot).
 
-| [INDEX] | [SURFACE]                                                                                          | [CALL_SHAPE] | [CAPABILITY]                                  |
-| :-----: | :------------------------------------------------------------------------------------------------- | :----------- | :-------------------------------------------- |
-|  [01]   | `WriterPropertiesBuilder.Compression(path?, codec)` / `.CompressionLevel(path?, n)`                | builder      | per-column codec and level                    |
-|  [02]   | `.EnableDictionary(path?)` / `.DisableDictionary(path?)`                                           | builder      | per-column dictionary encoding                |
-|  [03]   | `.Encoding(path?, encoding)`                                                                       | builder      | per-column physical encoding                  |
-|  [04]   | `.EnableWritePageIndex(path?)` / `.EnablePageChecksum()`                                           | builder      | column/offset index + CRC page checksums      |
-|  [05]   | `.SortingColumns(WriterProperties.SortingColumn[])`                                                | builder      | declares sorted-column metadata               |
-|  [06]   | `.EnableStatistics(path?)` / `.SetMaxStatisticsSize(n)`                                            | builder      | per-column statistics policy                  |
-|  [07]   | `.MaxRowGroupLength(n)` / `.DataPagesize(n)` / `.WriteBatchSize(n)`                                | builder      | row-group / page / batch sizing               |
-|  [08]   | `.Version(ParquetVersion)` / `.DataPageVersion(ParquetDataPageVersion)`                            | builder      | format and data-page version                  |
-|  [09]   | `.EnableStoreDecimalAsInteger()` / `.CreatedBy(s)`                                                 | builder      | decimal storage + writer signature            |
-|  [10]   | `.Encryption(FileEncryptionProperties?)` / `.Build()`                                              | builder      | binds PME and materializes `WriterProperties` |
-|  [11]   | `new CryptoFactory(kmsClientFactory)`                                                              | ctor         | binds a customer `IKmsClient` factory         |
-|  [12]   | `CryptoFactory.GetFileEncryptionProperties(kmsConfig, encConfig, filePath?)`                       | crypto call  | derives PME file encryption properties        |
-|  [13]   | `CryptoFactory.GetFileDecryptionProperties(kmsConfig, decConfig, filePath?)`                       | crypto call  | derives PME file decryption properties        |
-|  [14]   | `CryptoFactory.RotateMasterKeys(kmsConfig, parquetFilePath, doubleWrapping, cacheLifetimeSeconds)` | crypto call  | re-wraps keys for an existing file            |
+| [INDEX] | [SURFACE]                                                               | [CALL_SHAPE] | [CAPABILITY]                               |
+| :-----: | :---------------------------------------------------------------------- | :----------- | :----------------------------------------- |
+|  [01]   | `.Compression(path?, codec)` / `.CompressionLevel(path?, n)`            | builder      | per-column codec and level                 |
+|  [02]   | `.EnableDictionary(path?)` / `.DisableDictionary(path?)`                | builder      | per-column dictionary encoding             |
+|  [03]   | `.Encoding(path?, encoding)`                                            | builder      | per-column physical encoding               |
+|  [04]   | `.EnableWritePageIndex(path?)` / `.EnablePageChecksum()`                | builder      | column/offset index + CRC page checksums   |
+|  [05]   | `.SortingColumns(WriterProperties.SortingColumn[])`                     | builder      | declares sorted-column metadata            |
+|  [06]   | `.EnableStatistics(path?)` / `.SetMaxStatisticsSize(n)`                 | builder      | per-column statistics policy               |
+|  [07]   | `.MaxRowGroupLength(n)` / `.DataPagesize(n)` / `.WriteBatchSize(n)`     | builder      | row-group / page / batch sizing            |
+|  [08]   | `.Version(ParquetVersion)` / `.DataPageVersion(ParquetDataPageVersion)` | builder      | format and data-page version               |
+|  [09]   | `.EnableStoreDecimalAsInteger()` / `.CreatedBy(s)`                      | builder      | decimal storage + writer signature         |
+|  [10]   | `.Encryption(FileEncryptionProperties?)` / `.Build()`                   | builder      | binds PME, materializes `WriterProperties` |
+
+`Encryption.CryptoFactory` derives `FileEncryptionProperties`/`FileDecryptionProperties` from a `KmsConnectionConfig` plus an `EncryptionConfiguration`, wrapping data-encryption keys with KEKs from a customer `IKmsClient`; `.RotateMasterKeys(kmsConfig, parquetFilePath, doubleWrapping, cacheLifetimeSeconds)` re-wraps an existing file's keys.
+
+| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE] | [CAPABILITY]                           |
+| :-----: | :-------------------------------------------------------------- | :----------- | :------------------------------------- |
+|  [01]   | `new CryptoFactory(kmsClientFactory)`                           | ctor         | binds a customer `IKmsClient` factory  |
+|  [02]   | `.GetFileEncryptionProperties(kmsConfig, encConfig, filePath?)` | crypto call  | derives PME file encryption properties |
+|  [03]   | `.GetFileDecryptionProperties(kmsConfig, decConfig, filePath?)` | crypto call  | derives PME file decryption properties |
+|  [04]   | `.RotateMasterKeys(…)`                                          | crypto call  | re-wraps keys for an existing file     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

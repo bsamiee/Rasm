@@ -16,13 +16,13 @@
 
 The whole surface is three functions over a two-value assertiveness axis and a string-or-`aria-labelledby` message.
 
-| [INDEX] | [SYMBOL]                                      | [KIND]   | [CAPABILITY_BOUNDARY]                                                                       |
-| :-----: | :-------------------------------------------- | :------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `announce(message, assertiveness?, timeout?)` | push     | append `message` to the matching region; defaults `'assertive'`, `7000`ms then node removed |
-|  [02]   | `clearAnnouncer(assertiveness)`               | flush    | empty a region's queued nodes (runtime clears both on a falsy arg; the type requires it)    |
-|  [03]   | `destroyAnnouncer()`                          | teardown | remove the singleton region from the DOM and null it (next announce re-creates)             |
+| [INDEX] | [SYMBOL]           | [KIND]   | [CAPABILITY_BOUNDARY]                                                                       |
+| :-----: | :----------------- | :------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | `announce`         | push     | append `message` to the matching region; defaults `'assertive'`, `7000`ms then node removed |
+|  [02]   | `clearAnnouncer`   | flush    | empty a region's queued nodes (runtime clears both on a falsy arg; the type requires it)    |
+|  [03]   | `destroyAnnouncer` | teardown | remove the singleton region from the DOM and null it (next announce re-creates)             |
 
-```ts contract
+```ts signature
 type Assertiveness = 'assertive' | 'polite'
 type Message = string | { 'aria-labelledby': string }   // object form renders role=img aria-labelledby (announce an existing node's label)
 declare function announce(message: Message, assertiveness?: Assertiveness, timeout?: number): void   // defaults: 'assertive', 7000

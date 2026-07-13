@@ -14,31 +14,33 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: connection and message vocabulary
+[PUBLIC_TYPE_SCOPE]: connection and message vocabulary; `NatsConnection` members are the [03] entrypoints, the `ConnectionOptions` field roster is keyed below the table
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                                                                            | [TYPE_FAMILY] | [CONSUMER]                                                                      |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :------------ | :------------------------------------------------------------------------------ |
-|  [01]   | `NatsConnection` (`publish`, `subscribe`, `request`, `drain`, `close`, `closed`, `status`)          | connection    | the scoped capability `net/pubsub` acquires and drains                          |
-|  [02]   | `Subscription` (async iterable of `Msg`)                                                            | subscription  | core-NATS ephemeral fanout; JetStream consumers supersede it for the engine row |
-|  [03]   | `Msg` (`subject`, `data`, `headers?`, `reply?`, `respond`)                                          | message       | the raw frame; the engine folds to `Envelope`                                   |
-|  [04]   | `MsgHdrs` / `headers()` (`append`, `set`, `get`, iterable)                                          | header codec  | `Nats-Msg-Id` dedup identity carriage                                           |
-|  [05]   | `Empty`                                                                                             | payload       | the zero-byte payload constant                                                  |
-|  [06]   | `ConnectionOptions` (`servers`, `name`, `reconnect`, `maxReconnectAttempts`, `token`/`user`/`pass`) | options       | dial configuration from `Setting.fanout` rows                                   |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [CONSUMER]                                                                         |
+| :-----: | :---------------------- | :------------ | :--------------------------------------------------------------------------------- |
+|  [01]   | `NatsConnection`        | connection    | the scoped capability `net/pubsub` acquires and drains                             |
+|  [02]   | `Subscription`          | subscription  | async iterable of `Msg`; ephemeral fanout, JetStream supersedes it                 |
+|  [03]   | `Msg`                   | message       | `subject`, `data`, `headers?`, `reply?`, `respond`; raw frame folded to `Envelope` |
+|  [04]   | `MsgHdrs` / `headers()` | header codec  | `append`/`set`/`get`, iterable; `Nats-Msg-Id` dedup identity carriage              |
+|  [05]   | `Empty`                 | payload       | the zero-byte payload constant                                                     |
+|  [06]   | `ConnectionOptions`     | options       | dial configuration from `Setting.fanout` rows; fields keyed below                  |
+
+- [06]-[CONNECTIONOPTIONS]: `servers`, `name`, `reconnect`, `maxReconnectAttempts`, `token`/`user`/`pass`.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: dialing and lifecycle
 - rail: system-apis
 
-| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [CONSUMER]                                                        |
-| :-----: | :---------------------------------------------------- | :------------- | :---------------------------------------------------------------- |
-|  [01]   | `wsconnect(options): Promise<NatsConnection>`         | dial           | the one connection acquisition, `Effect.acquireRelease`-bracketed |
-|  [02]   | `nc.drain(): Promise<void>`                           | teardown       | the release arm — flushes subscriptions before close              |
-|  [03]   | `nc.closed(): Promise<void \| Error>`                 | lifecycle      | the settled-close observation a supervisor reads                  |
-|  [04]   | `nc.publish(subject, payload?, { headers?, reply? })` | core publish   | fire-and-forget fanout with no persistence guarantee              |
-|  [05]   | `nc.subscribe(subject, opts?)`                        | core subscribe | ephemeral delivery — absent listeners miss; JetStream owns replay |
-|  [06]   | `nc.request(subject, payload?, opts?)`                | request-reply  | growth row — RPC-shaped exchange over the same connection         |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CONSUMER]                                                        |
+| :-----: | :-------------------------------------------- | :------------- | :---------------------------------------------------------------- |
+|  [01]   | `wsconnect(options): Promise<NatsConnection>` | dial           | the one connection acquisition, `Effect.acquireRelease`-bracketed |
+|  [02]   | `nc.drain(): Promise<void>`                   | teardown       | the release arm — flushes subscriptions before close              |
+|  [03]   | `nc.closed(): Promise<void \| Error>`         | lifecycle      | the settled-close observation a supervisor reads                  |
+|  [04]   | `nc.publish(subject, payload?, opts?)`        | core publish   | fire-and-forget; `{ headers?, reply? }`, no persistence           |
+|  [05]   | `nc.subscribe(subject, opts?)`                | core subscribe | ephemeral delivery; absent listeners miss, JetStream owns replay  |
+|  [06]   | `nc.request(subject, payload?, opts?)`        | request-reply  | growth row — RPC-shaped exchange over the same connection         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

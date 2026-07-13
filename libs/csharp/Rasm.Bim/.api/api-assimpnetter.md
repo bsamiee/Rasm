@@ -27,78 +27,88 @@ algebra (triangulate, tangent-space, normal generation, coordinate-handedness) a
 - namespace: `Assimp`
 - rail: scene-exchange
 
-| [INDEX] | [SYMBOL]            | [RAIL]         | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| :-----: | :------------------ | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `AssimpContext`     | scene-exchange | `sealed`, `IDisposable`; the single entrypoint owning import/export/convert, `Scale`/`X-Y-ZAxisRotation` root-transform, `PropertyConfigurations`, IO-system override, and format introspection                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-|  [02]   | `PostProcessSteps`  | scene-exchange | `[Flags]` enum of every post-import transform: `Triangulate`, `CalculateTangentSpace`, `GenerateNormals`/`GenerateSmoothNormals`/`ForceGenerateNormals`/`DropNormals`, `JoinIdenticalVertices`, `MakeLeftHanded`/`FlipUVs`/`FlipWindingOrder`, `PreTransformVertices`, `GlobalScale`, `LimitBoneWeights`/`SplitByBoneCount`/`Debone`, `OptimizeMeshes`/`OptimizeGraph`, `FindDegenerates`/`FindInvalidData`/`FindInstances`, `RemoveComponent`/`RemoveRedundantMaterials`, `GenerateUVCoords`/`TransformUVCoords`, `EmbedTextures`, `GenerateBoundingBoxes`, `ValidateDataStructure`, `ImproveCacheLocality`, `SortByPrimitiveType`, `SplitLargeMeshes`, `FixInFacingNormals` |
-|  [03]   | `PostProcessPreset` | scene-exchange | static presets folding `PostProcessSteps`: `ConvertToLeftHanded`, `TargetRealTimeFast`, `TargetRealTimeQuality`, `TargetRealTimeMaximumQuality`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-|  [04]   | `PropertyConfig`    | scene-exchange | a named importer/exporter configuration value (`SetConfig`/`RemoveConfig`/`ContainsConfig` on the context)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-|  [05]   | `ExcludeComponent`  | scene-exchange | `[Flags]` component mask paired with `PostProcessSteps.RemoveComponent` (normals, colors, tangents, bones, animations,...)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| [INDEX] | [SYMBOL]            | [CAPABILITY]                                                                                                  |
+| :-----: | :------------------ | :------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `AssimpContext`     | `sealed`/`IDisposable` entrypoint — import/export/convert, root-transform, config, IO override, introspection |
+|  [02]   | `PostProcessSteps`  | `[Flags]` enum of every post-import transform — see [02]                                                      |
+|  [03]   | `PostProcessPreset` | presets folding `PostProcessSteps`: `ConvertToLeftHanded`, `TargetRealTimeFast`/`Quality`/`MaximumQuality`    |
+|  [04]   | `PropertyConfig`    | named importer/exporter config value (`SetConfig`/`RemoveConfig`/`ContainsConfig`)                            |
+|  [05]   | `ExcludeComponent`  | `[Flags]` component mask for `PostProcessSteps.RemoveComponent` (normals, colors, tangents, bones, anims, …)  |
+
+- [02]-[POST_PROCESS_STEPS]: `Triangulate`, `CalculateTangentSpace`, `GenerateNormals`/`GenerateSmoothNormals`/`ForceGenerateNormals`/`DropNormals`, `JoinIdenticalVertices`, `MakeLeftHanded`/`FlipUVs`/`FlipWindingOrder`, `PreTransformVertices`, `GlobalScale`, `LimitBoneWeights`/`SplitByBoneCount`/`Debone`, `OptimizeMeshes`/`OptimizeGraph`, `FindDegenerates`/`FindInvalidData`/`FindInstances`, `RemoveComponent`/`RemoveRedundantMaterials`, `GenerateUVCoords`/`TransformUVCoords`, `EmbedTextures`, `GenerateBoundingBoxes`, `ValidateDataStructure`, `ImproveCacheLocality`, `SortByPrimitiveType`, `SplitLargeMeshes`, `FixInFacingNormals`.
 
 [PUBLIC_TYPE_SCOPE]: scene graph model
 - package: `AssimpNetter`
 - namespace: `Assimp`
 - rail: scene-exchange
 
-| [INDEX] | [SYMBOL]                | [RAIL]         | [CAPABILITY]                                                                                                                                                                                                                                                                                        |
-| :-----: | :---------------------- | :------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Scene`                 | scene-exchange | `sealed`; root container — `RootNode`, `SceneFlags`, and `Meshes`/`Materials`/`Lights`/`Cameras`/`Textures`/`Animations` lists with `Has*`/`*Count`; `FindBone`, `GetEmbeddedTexture`, `Metadata`                                                                                                   |
-|  [02]   | `Node`                  | scene-exchange | `Name`, `Transform` (`Assimp.Matrix4x4` — the binding's OWN column-vector matrix struct, DISTINCT from `System.Numerics.Matrix4x4`, so the numerics narrow is a transpose), `Parent`, `Children` (`NodeCollection`), `MeshIndices` (indices into `Scene.Meshes`); the recursive transform hierarchy |
-|  [03]   | `Mesh`                  | scene-exchange | `Name`, `PrimitiveType`, `MaterialIndex`, `Vertices`/`Normals`/`Tangents`/`BiTangents` (`List<Vector3>`), `Faces`, `VertexColorChannels`/`TextureCoordinateChannels` (multi-channel arrays), `Bones`; `Has*`/`*Count` guards                                                                        |
-|  [04]   | `Face`                  | scene-exchange | one primitive's vertex-index list — `Indices` (`List<int>`) + `IndexCount` (`= Indices.Count`, the per-face fan-triangulation bound) and `HasIndices`                                                                                                                                               |
-|  [05]   | `Bone` / `VertexWeight` | scene-exchange | a skinning bone (offset matrix + `VertexWeight[]`) and per-vertex weight                                                                                                                                                                                                                            |
-|  [06]   | `Metadata`              | scene-exchange | `sealed` `Dictionary<string, Metadata.Entry>`; `Entry` is a `readonly record struct (MetaDataType DataType, object Data)` with typed `DataAs<T>()` — scene/node key-value metadata (units, up-axis, authoring tool)                                                                                 |
-|  [07]   | `BoundingBox`           | scene-exchange | per-mesh AABB populated by `PostProcessSteps.GenerateBoundingBoxes`                                                                                                                                                                                                                                 |
+| [INDEX] | [SYMBOL]                | [CAPABILITY]                                                                                                |
+| :-----: | :---------------------- | :---------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Scene`                 | `sealed` root — `RootNode`, `SceneFlags`, content collections + accessors — see [01]                        |
+|  [02]   | `Node`                  | `Name`, `Transform` (`Assimp.Matrix4x4`), `Parent`, `Children` (`NodeCollection`), `MeshIndices` — see [02] |
+|  [03]   | `Mesh`                  | `Name`, `PrimitiveType`, `MaterialIndex`, `Vertices`/`Normals`/`Tangents`/`BiTangents`, `Faces` — see [03]  |
+|  [04]   | `Face`                  | primitive vertex-index list — `Indices` (`List<int>`), `IndexCount` (`= Indices.Count`), `HasIndices`       |
+|  [05]   | `Bone` / `VertexWeight` | a skinning bone (offset matrix + `VertexWeight[]`) and per-vertex weight                                    |
+|  [06]   | `Metadata`              | `sealed` `Dictionary<string, Metadata.Entry>`; `Entry` `record struct (MetaDataType, object)` — see [06]    |
+|  [07]   | `BoundingBox`           | per-mesh AABB populated by `PostProcessSteps.GenerateBoundingBoxes`                                         |
+
+- [01]-[SCENE]: `Meshes`/`Materials`/`Lights`/`Cameras`/`Textures`/`Animations` lists with `Has*`/`*Count`; `FindBone`, `GetEmbeddedTexture`, `Metadata`.
+- [02]-[NODE]: `Transform` is `Assimp.Matrix4x4`, the binding's OWN column-vector matrix struct, distinct from `System.Numerics.Matrix4x4`, so the numerics narrow transposes; `MeshIndices` index into `Scene.Meshes`; the recursive transform hierarchy.
+- [03]-[MESH]: `Vertices`/`Normals`/`Tangents`/`BiTangents` are `List<Vector3>`; `VertexColorChannels`/`TextureCoordinateChannels` multi-channel arrays; `Bones`; `Has*`/`*Count` guards.
+- [06]-[METADATA]: `DataAs<T>()` typed accessor; scene/node key-value metadata (units, up-axis, authoring tool).
 
 [PUBLIC_TYPE_SCOPE]: material and texture model
 - package: `AssimpNetter`
 - namespace: `Assimp`
 - rail: scene-exchange
 
-| [INDEX] | [SYMBOL]                         | [RAIL]         | [CAPABILITY]                                                                                                                                                                                                                                                         |
-| :-----: | :------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Material`                       | scene-exchange | property-bag material: `Name`, `ShadingMode`, `ColorDiffuse`/`Ambient`/`Specular` (`Vector4`), `GetMaterialTexture`/`HasProperty`, and the nested `PBRMaterialProperties` (BaseColor/Metalness/Roughness/Normal/Emission texture slots) + `ShaderMaterialProperties` |
-|  [02]   | `Material.PBRMaterialProperties` | scene-exchange | the metallic-roughness PBR view: `HasTextureBaseColor`/`TextureBaseColor`, `TextureMetalness`, `TextureRoughness`, `TextureNormalCamera`, `TextureEmissionColor` (each a `TextureSlot`)                                                                              |
-|  [03]   | `TextureSlot`                    | scene-exchange | a texture binding: file path, `TextureType`, UV index, `TextureMapping`, `TextureWrapMode`, blend factor, `TextureOperation`                                                                                                                                         |
-|  [04]   | `TextureType`                    | scene-exchange | enum of texture semantics (`BaseColor`, `Diffuse`, `Normals`, `Metalness`, `Roughness`, `EmissionColor`,...)                                                                                                                                                         |
-|  [05]   | `EmbeddedTexture`                | scene-exchange | a texture stored in the scene (compressed bytes or raw `Texel[]`); reached via `Scene.GetEmbeddedTexture`                                                                                                                                                            |
-|  [06]   | `ShadingMode` / `BlendMode`      | scene-exchange | classic shading model and material blend-mode enums                                                                                                                                                                                                                  |
-|  [07]   | `MaterialProperty`               | scene-exchange | a raw typed material property key (`PropertyType`) the high-level accessors wrap                                                                                                                                                                                     |
+| [INDEX] | [SYMBOL]                    | [CAPABILITY]                                                                                               |
+| :-----: | :-------------------------- | :--------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Material`                  | props: `Name`, `ShadingMode`, color slots (`Vector4`), `GetMaterialTexture`/`HasProperty` — see [01]       |
+|  [02]   | `PBRMaterialProperties`     | metallic-roughness view (nested on `Material`) — 5 `TextureSlot` slots — see [02]                          |
+|  [03]   | `TextureSlot`               | binding: file path, `TextureType`, UV index, `TextureMapping`/`TextureWrapMode`, blend, `TextureOperation` |
+|  [04]   | `TextureType`               | texture-semantic enum (`BaseColor`, `Diffuse`, `Normals`, `Metalness`, `Roughness`, `EmissionColor`, …)    |
+|  [05]   | `EmbeddedTexture`           | texture in the scene (compressed bytes or raw `Texel[]`); via `Scene.GetEmbeddedTexture`                   |
+|  [06]   | `ShadingMode` / `BlendMode` | classic shading model and material blend-mode enums                                                        |
+|  [07]   | `MaterialProperty`          | raw typed material property key (`PropertyType`) the high-level accessors wrap                             |
+
+- [01]-[MATERIAL]: `ColorDiffuse`/`Ambient`/`Specular` (`Vector4`) color slots; nested `PBRMaterialProperties` (BaseColor/Metalness/Roughness/Normal/Emission texture slots) + `ShaderMaterialProperties`.
+- [02]-[PBR_MATERIAL_PROPERTIES]: `HasTextureBaseColor`/`TextureBaseColor`, `TextureMetalness`, `TextureRoughness`, `TextureNormalCamera`, `TextureEmissionColor` (each a `TextureSlot`).
 
 [PUBLIC_TYPE_SCOPE]: animation, format introspection, IO, and logging
 - package: `AssimpNetter`
 - namespace: `Assimp`
 - rail: scene-exchange
 
-| [INDEX] | [SYMBOL]                                                | [RAIL]         | [CAPABILITY]                                                                                                                                                                |
-| :-----: | :------------------------------------------------------ | :------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Animation`                                             | scene-exchange | a named animation with `NodeAnimationChannel`s (TRS keyframes) and morph channels                                                                                           |
-|  [02]   | `NodeAnimationChannel`                                  | scene-exchange | per-node `VectorKey`/`QuaternionKey` keyframes + pre/post `AnimationBehaviour`                                                                                              |
-|  [03]   | `MeshMorphAnimationChannel` / `MeshAnimationAttachment` | scene-exchange | vertex-morph animation tracks and morph targets                                                                                                                             |
-|  [04]   | `ExportFormatDescription`                               | scene-exchange | a supported export format descriptor: `FormatId` (the `exportFormatId` arg), `Description`, `FileExtension`                                                                 |
-|  [05]   | `ImporterDescription`                                   | scene-exchange | a supported importer descriptor: name, file extensions, `ImporterFeatureFlags`                                                                                              |
-|  [06]   | `IOSystem` / `IOStream`                                 | scene-exchange | `abstract` custom virtual-filesystem seams; `SetIOSystem` routes imports through a custom byte source                                                                       |
-|  [07]   | `LogStream` / `ConsoleLogStream` / `DefaultLogStream`   | scene-exchange | native-log capture seams (`LoggingCallback`) for diagnostics                                                                                                                |
-|  [08]   | `ExportDataBlob`                                        | scene-exchange | in-memory export result — `Data` (`byte[]`, the `exportFormatId` payload) + `Name` and the `NextBlob` chained satellite blob (`HasData` guard); `BlobBinaryReader` reads it |
-|  [09]   | `AssimpException`                                       | scene-exchange | thrown on native import/export failure; the boundary catch that lowers to `BimFault.CodecReject`                                                                            |
+| [INDEX] | [SYMBOL]                                                | [CAPABILITY]                                                                  |
+| :-----: | :------------------------------------------------------ | :---------------------------------------------------------------------------- |
+|  [01]   | `Animation`                                             | named animation — `NodeAnimationChannel`s (TRS keys), morph channels          |
+|  [02]   | `NodeAnimationChannel`                                  | per-node `VectorKey`/`QuaternionKey` keys + `AnimationBehaviour`              |
+|  [03]   | `MeshMorphAnimationChannel` / `MeshAnimationAttachment` | vertex-morph animation tracks and morph targets                               |
+|  [04]   | `ExportFormatDescription`                               | descriptor: `FormatId` (`exportFormatId` arg), `Description`, `FileExtension` |
+|  [05]   | `ImporterDescription`                                   | descriptor: name, extensions, `ImporterFeatureFlags`                          |
+|  [06]   | `IOSystem` / `IOStream`                                 | `abstract` custom VFS seams; `SetIOSystem` routes a custom byte source        |
+|  [07]   | `LogStream` / `ConsoleLogStream` / `DefaultLogStream`   | native-log capture seams (`LoggingCallback`)                                  |
+|  [08]   | `ExportDataBlob`                                        | in-memory result — `Data` (`byte[]`), `Name`, `NextBlob` (`BlobBinaryReader`) |
+|  [09]   | `AssimpException`                                       | thrown on native failure; boundary catch → `BimFault.CodecReject`             |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: AssimpContext — import
+[ENTRYPOINT_SCOPE]: AssimpContext — import (members on `AssimpContext`)
 - package: `AssimpNetter`
 - namespace: `Assimp`
 - rail: scene-exchange
 
-| [INDEX] | [SURFACE]                                 | [CALL_SHAPE]                                                                                  | [CAPABILITY]                                       |
-| :-----: | :---------------------------------------- | :-------------------------------------------------------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `AssimpContext.ImportFile`                | `(string file)` / `(string file, PostProcessSteps)`                                           | import a scene from a file path                    |
-|  [02]   | `AssimpContext.ImportFileFromStream`      | `(Stream, string formatHint = null)` / `(Stream, PostProcessSteps, string formatHint = null)` | import from a stream with a format hint            |
-|  [03]   | `AssimpContext.GetSupportedImportFormats` | `()` → `string[]`                                                                             | the importable extensions of the loaded native lib |
-|  [04]   | `AssimpContext.GetImporterDescriptions`   | `()` → `ImporterDescription[]`                                                                | per-importer capability descriptors                |
-|  [05]   | `AssimpContext.GetImporterDescriptionFor` | `(string fileExtension)` → `ImporterDescription`                                              | the importer that handles an extension             |
-|  [06]   | `AssimpContext.IsImportFormatSupported`   | `(string format)` → `bool`                                                                    | guard before import                                |
+| [INDEX] | [SURFACE]                   | [CALL_SHAPE]                                             | [CAPABILITY]                            |
+| :-----: | :-------------------------- | :------------------------------------------------------- | :-------------------------------------- |
+|  [01]   | `ImportFile`                | `(string file[, PostProcessSteps])`                      | import a scene from a file path         |
+|  [02]   | `ImportFileFromStream`      | `(Stream[, PostProcessSteps], string formatHint = null)` | import from a stream with a format hint |
+|  [03]   | `GetSupportedImportFormats` | `()` → `string[]`                                        | importable extensions of the native lib |
+|  [04]   | `GetImporterDescriptions`   | `()` → `ImporterDescription[]`                           | per-importer capability descriptors     |
+|  [05]   | `GetImporterDescriptionFor` | `(string fileExtension)` → `ImporterDescription`         | the importer that handles an extension  |
+|  [06]   | `IsImportFormatSupported`   | `(string format)` → `bool`                               | guard before import                     |
 
-[ENTRYPOINT_SCOPE]: AssimpContext — export
+[ENTRYPOINT_SCOPE]: AssimpContext — export (members on `AssimpContext`)
 - package: `AssimpNetter`
 - namespace: `Assimp`
 - rail: scene-exchange
@@ -107,27 +117,28 @@ algebra (triangulate, tangent-space, normal generation, coordinate-handedness) a
 `gltf2`, `glb2`, `obj`, `stl`); a `PostProcessSteps` argument is a PRE-export transform applied
 to the scene before serialization.
 
-| [INDEX] | [SURFACE]                                 | [CALL_SHAPE]                                                                              | [CAPABILITY]                                        |
-| :-----: | :---------------------------------------- | :---------------------------------------------------------------------------------------- | :-------------------------------------------------- |
-|  [01]   | `AssimpContext.ExportFile`                | `(Scene, string fileName, string exportFormatId)` / `(…, PostProcessSteps preProcessing)` | export a scene to a file in the chosen format       |
-|  [02]   | `AssimpContext.ExportToBlob`              | `(Scene, string exportFormatId)` / `(…, PostProcessSteps)` → `ExportDataBlob`             | export to an in-memory blob (no file)               |
-|  [03]   | `AssimpContext.GetSupportedExportFormats` | `()` → `ExportFormatDescription[]`                                                        | the exportable formats + their `FormatId`/extension |
-|  [04]   | `AssimpContext.IsExportFormatSupported`   | `(string format)` → `bool`                                                                | guard before export                                 |
+| [INDEX] | [SURFACE]                   | [CALL_SHAPE]                                            | [CAPABILITY]                              |
+| :-----: | :-------------------------- | :------------------------------------------------------ | :---------------------------------------- |
+|  [01]   | `ExportFile`                | `(Scene, fileName, exportFormatId[, PostProcessSteps])` | export scene to a file                    |
+|  [02]   | `ExportToBlob`              | `(Scene, exportFormatId[, PostProcessSteps])`           | → `ExportDataBlob` in-memory blob         |
+|  [03]   | `GetSupportedExportFormats` | `()` → `ExportFormatDescription[]`                      | exportable formats + `FormatId`/extension |
+|  [04]   | `IsExportFormatSupported`   | `(string format)` → `bool`                              | guard before export                       |
 
-[ENTRYPOINT_SCOPE]: AssimpContext — convert and configure
+[ENTRYPOINT_SCOPE]: AssimpContext — convert and configure (members on `AssimpContext`)
 - package: `AssimpNetter`
 - namespace: `Assimp`
 - rail: scene-exchange
 
-| [INDEX] | [SURFACE]                                                                   | [CALL_SHAPE]                                                                                                                   | [CAPABILITY]                                 |
-| :-----: | :-------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------- |
-|  [01]   | `AssimpContext.ConvertFromFileToFile`                                       | `(in, out, exportFormatId)` / `(in, out, exportFormatId, exportSteps)` / `(in, importSteps, out, exportFormatId, exportSteps)` | one-call file→file transcode                 |
-|  [02]   | `AssimpContext.ConvertFromFileToBlob`                                       | `(in, exportFormatId, …)`                                                                                                      | file→blob transcode                          |
-|  [03]   | `AssimpContext.ConvertFromStreamToFile`                                     | `(Stream, importFormatHint, out, exportFormatId, …)`                                                                           | stream→file transcode                        |
-|  [04]   | `AssimpContext.ConvertFromStreamToBlob`                                     | `(Stream, importFormatHint, exportFormatId, …)`                                                                                | stream→blob transcode                        |
-|  [05]   | `AssimpContext.SetConfig` / `RemoveConfig` / `ContainsConfig`               | `(PropertyConfig)` / `(string)`                                                                                                | importer/exporter tuning                     |
-|  [06]   | `AssimpContext.SetIOSystem` / `RemoveIOSystem`                              | `(IOSystem)`                                                                                                                   | route IO through a custom virtual filesystem |
-|  [07]   | `AssimpContext.Scale` / `XAxisRotation` / `YAxisRotation` / `ZAxisRotation` | properties                                                                                                                     | a root-transform applied on import           |
+| [INDEX] | [SURFACE]                         | [CALL_SHAPE]                                              | [CAPABILITY]                     |
+| :-----: | :-------------------------------- | :-------------------------------------------------------- | :------------------------------- |
+|  [01]   | `ConvertFromFileToFile`           | `(in[, importSteps], out, exportFormatId[, exportSteps])` | file→file transcode              |
+|  [02]   | `ConvertFromFileToBlob`           | `(in, exportFormatId, …)`                                 | file→blob transcode              |
+|  [03]   | `ConvertFromStreamToFile`         | `(Stream, importFormatHint, out, exportFormatId, …)`      | stream→file transcode            |
+|  [04]   | `ConvertFromStreamToBlob`         | `(Stream, importFormatHint, exportFormatId, …)`           | stream→blob transcode            |
+|  [05]   | `SetConfig`                       | `(PropertyConfig)`                                        | importer/exporter tuning         |
+|  [06]   | `RemoveConfig` / `ContainsConfig` | `(string)`                                                | remove/query a config by name    |
+|  [07]   | `SetIOSystem` / `RemoveIOSystem`  | `(IOSystem)`                                              | route IO through a custom VFS    |
+|  [08]   | `Scale`, `X`/`Y`/`ZAxisRotation`  | properties                                                | root-transform applied on import |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -246,10 +246,12 @@ public readonly record struct CloudCorrespondenceSet(
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [AXIS_CONCERN]        | [OWNER]                         | [KIND]                                               | [RAIL]                                     | [CASES] |
-| :-----: | :-------------------- | :------------------------------ | :--------------------------------------------------- | :----------------------------------------- | :-----: |
-|  [01]   | Transport policy      | `CloudTransportPolicy`          | one record; balanced/unbalanced/debiased as columns  | `Of → Fin<CloudTransportPolicy>`           |    —    |
-|  [02]   | Stop outcome          | `SinkhornStopKind`              | `[SmartEnum<int>]` + `Converged` column              | receipt row                                |    4    |
-|  [03]   | Solve + projection    | `CloudTransport`/`SinkhornPlan` | one log-domain kernel; five `ProjectionRow` egresses | `Sinkhorn<TOut> → Fin<TOut>`               |    5    |
-|  [04]   | Underflow policy      | `LogUnderflowFloor`             | named constant + `SinkhornNumericStatus` evidence    | receipt row                                |    2    |
-|  [05]   | Correspondence answer | `CloudCorrespondenceSet`        | thresholded entries + coverage/quantile fold         | `OfCoupling → Fin<CloudCorrespondenceSet>` |    —    |
+One owner per axis; every rail reads `entry → Fin<result>`, the result named in each owner's Entry bullet.
+
+| [INDEX] | [AXIS_CONCERN]        | [OWNER]                         | [KIND]                                            | [RAIL]           | [CASES] |
+| :-----: | :-------------------- | :------------------------------ | :------------------------------------------------ | :--------------- | :-----: |
+|  [01]   | Transport policy      | `CloudTransportPolicy`          | one record; balanced/unbalanced/debiased columns  | `Of`             |    —    |
+|  [02]   | Stop outcome          | `SinkhornStopKind`              | `[SmartEnum<int>]` + `Converged` column           | receipt row      |    4    |
+|  [03]   | Solve + projection    | `CloudTransport`/`SinkhornPlan` | log-domain kernel; five `ProjectionRow` egresses  | `Sinkhorn<TOut>` |    5    |
+|  [04]   | Underflow policy      | `LogUnderflowFloor`             | named constant + `SinkhornNumericStatus` evidence | receipt row      |    2    |
+|  [05]   | Correspondence answer | `CloudCorrespondenceSet`        | thresholded entries + coverage/quantile fold      | `OfCoupling`     |    —    |

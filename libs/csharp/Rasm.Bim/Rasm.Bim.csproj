@@ -9,12 +9,12 @@
         <ProjectReference Include="../Rasm.Element/Rasm.Element.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Seam Generators">
+    <ItemGroup Label="Seam Contracts">
         <PackageReference Include="Generator.Equals" PrivateAssets="all" />
         <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
     </ItemGroup>
 
-    <ItemGroup Label="Interchange">
+    <ItemGroup Label="Model Interchange">
         <PackageReference Include="ACadSharp" />
         <PackageReference Include="Alimer.Bindings.MeshOptimizer" />
         <PackageReference Include="AssimpNetter" />
@@ -27,13 +27,36 @@
         <PackageReference Include="SharpGLTF.Ext.3DTiles" />
         <PackageReference Include="SharpGLTF.Runtime" />
         <PackageReference Include="SharpGLTF.Toolkit" />
+        <PackageReference Include="Speckle.Objects" />
+        <PackageReference Include="Speckle.Sdk" />
         <PackageReference Include="StructuralAnalysisFormat" />
+        <PackageReference Include="subtree" />
         <PackageReference Include="Themis.Las" />
         <PackageReference Include="UniversalSceneDescription" />
         <PackageReference Include="Unofficial.laszip.netstandard" />
+        <PackageReference Include="Xbim.CobieExpress" />
+        <PackageReference Include="Xbim.CobieExpress.Exchanger" />
+        <PackageReference Include="Xbim.IO.CobieExpress" />
     </ItemGroup>
 
-    <ItemGroup Label="Energy Model Exchange">
+    <ItemGroup Label="Review">
+        <PackageReference Include="ids-lib" />
+        <PackageReference Include="Smino.Bcf.Toolkit" />
+        <PackageReference Include="SwiftCollections.Lean" />
+        <PackageReference Include="Xbim.InformationSpecifications" />
+    </ItemGroup>
+
+    <ItemGroup Label="Domain Vocabulary">
+        <PackageReference Include="BrickSchema.Net" />
+        <PackageReference Include="NodaMoney" />
+        <PackageReference Include="VividOrange.Cases" />
+        <PackageReference Include="VividOrange.Countries" />
+        <PackageReference Include="VividOrange.Loads" />
+        <PackageReference Include="VividOrange.Stages" />
+        <PackageReference Include="Xbim.Properties" />
+    </ItemGroup>
+
+    <ItemGroup Label="Energy Exchange">
         <PackageReference Include="DragonflySchema" />
         <PackageReference Include="HoneybeeSchema" />
         <PackageReference Include="NREL.OpenStudio.macOS-arm64" ExcludeAssets="build" GeneratePathProperty="true" />
@@ -45,62 +68,36 @@
                  CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
-    <ItemGroup Label="COBie Exchange">
-        <PackageReference Include="Xbim.CobieExpress" />
-        <PackageReference Include="Xbim.CobieExpress.Exchanger" />
-        <PackageReference Include="Xbim.IO.CobieExpress" />
-    </ItemGroup>
-
-    <ItemGroup Label="Review">
-        <PackageReference Include="ids-lib" />
-        <PackageReference Include="Smino.Bcf.Toolkit" />
-        <PackageReference Include="SwiftCollections.Lean" />
-        <PackageReference Include="Xbim.InformationSpecifications" />
-        <PackageReference Include="Xbim.Properties" />
-    </ItemGroup>
-
-    <ItemGroup Label="Building Systems Ontology">
-        <PackageReference Include="BrickSchema.Net" />
-    </ItemGroup>
-
-    <ItemGroup Label="Structural Taxonomy">
-        <PackageReference Include="VividOrange.Cases" />
-        <PackageReference Include="VividOrange.Countries" />
-        <PackageReference Include="VividOrange.Loads" />
-        <PackageReference Include="VividOrange.Stages" />
-    </ItemGroup>
-
     <ItemGroup Label="Geospatial">
         <PackageReference Include="bertt.CityJSON" />
         <PackageReference Include="FlatGeobuf" />
         <PackageReference Include="GISBlox.IO.GeoParquet" />
         <PackageReference Include="MaxRev.Gdal.Core" />
         <PackageReference Include="MaxRev.Gdal.MacosRuntime.Minimal.arm64" />
-        <PackageReference Include="NetTopologySuite" />
         <PackageReference Include="NetTopologySuite.IO.Esri.Shapefile" />
         <PackageReference Include="NetTopologySuite.IO.GeoJSON4STJ" />
         <PackageReference Include="NetTopologySuite.IO.GeoPackage" />
         <PackageReference Include="NetTopologySuite.IO.VectorTiles" />
         <PackageReference Include="NetTopologySuite.IO.VectorTiles.Mapbox" />
         <PackageReference Include="pocketken.H3" />
-        <PackageReference Include="SharpKml.Core" />
-        <PackageReference Include="subtree" />
-    </ItemGroup>
-
-    <ItemGroup Label="Speckle Sync Seam">
-        <PackageReference Include="Speckle.Objects" />
-        <PackageReference Include="Speckle.Sdk" />
-    </ItemGroup>
-
-    <ItemGroup Label="Domain Foundation">
-        <PackageReference Include="CommunityToolkit.HighPerformance" />
-        <PackageReference Include="NodaMoney" />
-        <PackageReference Include="NodaTime" />
         <PackageReference Include="ProjNET" />
+        <PackageReference Include="SharpKml.Core" />
+    </ItemGroup>
+
+    <ItemGroup Label="Numeric Algorithm">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+        <PackageReference Include="NetTopologySuite" />
         <PackageReference Include="QuikGraph" />
-        <PackageReference Include="System.IO.Hashing" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
         <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Identity Time">
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="System.IO.Hashing" />
+    </ItemGroup>
+
+    <ItemGroup Label="Functional Core">
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
     <ItemGroup Label="System Usings">

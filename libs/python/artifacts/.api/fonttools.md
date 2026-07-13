@@ -21,105 +21,133 @@
 
 `TTFont` is the single binary-font owner: `font[tag]` returns the parsed table object (lazy-decompiled on first access when `lazy=True`), `font.keys()` enumerates present tags, `font.flavor` is `None`/`"woff"`/`"woff2"`. `ttLib.newTable(tag)` is a module function (not a `TTFont` method) that allocates an empty table; `TTCollection` owns `.ttc`/`.otc` font collections.
 
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]  | [CAPABILITY]                                                                                 |
-| :-----: | :----------------------------- | :-------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `fontTools.ttLib.TTFont`       | font container  | sfnt/WOFF/WOFF2 read-write container; `font[tag]` table access, `lazy`/`cfg`/`flavor` policy |
-|  [02]   | `fontTools.ttLib.TTCollection` | font collection | `(file, shareTables=False)` — TTC/OTC collection of `TTFont` members                         |
-|  [03]   | `fontTools.ttLib.TTLibError`   | font fault      | binary-font IO/parse error rail                                                              |
+| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]  | [CAPABILITY]                                                                      |
+| :-----: | :----------------------------- | :-------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `fontTools.ttLib.TTFont`       | font container  | sfnt/WOFF/WOFF2 container; `font[tag]` table access, `lazy`/`cfg`/`flavor` policy |
+|  [02]   | `fontTools.ttLib.TTCollection` | font collection | `(file, shareTables=False)` — TTC/OTC collection of `TTFont` members              |
+|  [03]   | `fontTools.ttLib.TTLibError`   | font fault      | binary-font IO/parse error rail                                                   |
 
 [PUBLIC_TYPE_SCOPE]: glyph pen protocol (`fontTools.pens`)
 - rail: fonts
 
-Pens are the outline read/write algebra: `TTFont.getGlyphSet()[name].draw(pen)` (segment protocol) or `.drawPoints(pen)` (point protocol) replays a glyph into any pen; pens compose by forwarding. The segment protocol is `moveTo`/`lineTo`/`qCurveTo`/`curveTo`/`closePath`/`endPath`/`addComponent`.
+Pens are the outline read/write algebra: `TTFont.getGlyphSet()[name].draw(pen)` (segment protocol) or `.drawPoints(pen)` (point protocol) replays a glyph into any pen; pens compose by forwarding. The segment protocol is `moveTo`/`lineTo`/`qCurveTo`/`curveTo`/`closePath`/`endPath`/`addComponent`. Every pen is `fontTools.pens.<module>.<Name>`; the cell drops the `fontTools.pens.` prefix.
+- call: `svgPathPen.SVGPathPen(glyphSet, ntos=str)` — emit SVG `d` path via `.getCommands()`
+- call: `transformPen.TransformPen(outPen, transformation)` — apply affine while forwarding
+- call: `ttGlyphPen.TTGlyphPen(glyphSet, handleOverflowingTransforms, outputImpliedClosingLine)` — build a `glyf` `Glyph` via `.glyph(...)`
+- call: `t2CharStringPen.T2CharStringPen(width, glyphSet, roundTolerance=0.5, CFF2=False)` — emit Type 2 charstring
+- call: `recordingPen.lerpRecordings(rec1, rec2, factor)` — interpolate two `RecordingPen` captures
 
-| [INDEX] | [SYMBOL]                                                                             | [PACKAGE_ROLE]      | [CAPABILITY]                                                                                                   |
-| :-----: | :----------------------------------------------------------------------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `fontTools.pens.basePen.BasePen`                                                     | outline pen base    | abstract segment receiver; `qCurveTo` decomposes to `_curveToOne` for cubic-only pens                          |
-|  [02]   | `fontTools.pens.pointPen.AbstractPointPen`                                           | point pen base      | `beginPath`/`addPoint`/`endPath`/`addComponent` point protocol                                                 |
-|  [03]   | `fontTools.pens.recordingPen.RecordingPen` / `RecordingPointPen`                     | recording pen       | capture segment/point calls into `.value`, replay via `.replay(pen)`                                           |
-|  [04]   | `fontTools.pens.recordingPen.DecomposingRecordingPen`                                | flattening recorder | record with component references decomposed to outlines                                                        |
-|  [05]   | `fontTools.pens.recordingPen.lerpRecordings`                                         | interpolation       | `lerpRecordings(rec1, rec2, factor)` — interpolate two recordings (variable-font master blend)                 |
-|  [06]   | `fontTools.pens.pointPen.PointToSegmentPen` / `SegmentToPointPen`                    | protocol adapter    | convert between point and segment pen protocols                                                                |
-|  [07]   | `fontTools.pens.svgPathPen.SVGPathPen`                                               | SVG path pen        | `(glyphSet, ntos=str)` — emit SVG `d` path via `.getCommands()`                                                |
-|  [08]   | `fontTools.pens.transformPen.TransformPen` / `TransformPointPen`                     | transform pen       | `(outPen, transformation)` — apply affine while forwarding segments/points                                     |
-|  [09]   | `fontTools.pens.boundsPen.BoundsPen` / `ControlBoundsPen`                            | bounds pen          | compute exact / control-point glyph bounding box                                                               |
-|  [10]   | `fontTools.pens.statisticsPen.StatisticsPen` / `StatisticsControlPen` / `MomentsPen` | moments pen         | glyph area/moments/mean (exact vs control-bbox) for outline-quality metrics                                    |
-|  [11]   | `fontTools.pens.areaPen.AreaPen`                                                     | area pen            | signed contour area                                                                                            |
-|  [12]   | `fontTools.pens.ttGlyphPen.TTGlyphPen` / `TTGlyphPointPen`                           | TrueType pen        | `(glyphSet, handleOverflowingTransforms, outputImpliedClosingLine)` — build a `glyf` `Glyph` via `.glyph(...)` |
-|  [13]   | `fontTools.pens.t2CharStringPen.T2CharStringPen`                                     | CFF pen             | `(width, glyphSet, roundTolerance=0.5, CFF2=False)` — emit Type 2 charstring                                   |
-|  [14]   | `fontTools.pens.reverseContourPen.ReverseContourPen`                                 | winding flip        | reverse contour direction while forwarding (CFF↔glyf winding convention)                                       |
-|  [15]   | `fontTools.pens.filterPen.FilterPen` / `FilterPointPen`                              | filter base         | pass-through pen base for building outline transforms by subclassing                                           |
-|  [16]   | `fontTools.pens.roundingPen.RoundingPen` / `RoundingPointPen`                        | rounding pen        | round coordinates to integers while forwarding                                                                 |
-|  [17]   | `fontTools.pens.hashPointPen.HashPointPen`                                           | hash pen            | content hash of a glyph outline (interpolation-compatibility checks)                                           |
-|  [18]   | `fontTools.pens.cairoPen.CairoPen` / `qtPen.QtPen` / `freetypePen.FreeTypePen`       | render pen          | draw a glyph into a cairo/Qt/FreeType surface (optional native backends)                                       |
+| [INDEX] | [SYMBOL]                                           | [PACKAGE_ROLE]      | [CAPABILITY]                                                  |
+| :-----: | :------------------------------------------------- | :------------------ | :------------------------------------------------------------ |
+|  [01]   | `basePen.BasePen`                                  | outline pen base    | segment receiver base; `qCurveTo` decomposes to `_curveToOne` |
+|  [02]   | `pointPen.AbstractPointPen`                        | point pen base      | `beginPath`/`addPoint`/`endPath`/`addComponent`               |
+|  [03]   | `recordingPen.RecordingPen` / `RecordingPointPen`  | recording pen       | capture segment/point calls into `.value`; `.replay(pen)`     |
+|  [04]   | `recordingPen.DecomposingRecordingPen`             | flattening recorder | record with component references decomposed to outlines       |
+|  [05]   | `recordingPen.lerpRecordings`                      | interpolation       | interpolate two `RecordingPen` captures by `factor`           |
+|  [06]   | `pointPen.PointToSegmentPen` / `SegmentToPointPen` | protocol adapter    | convert between point and segment pen protocols               |
+|  [07]   | `svgPathPen.SVGPathPen`                            | SVG path pen        | emit SVG `d` path via `.getCommands()`                        |
+|  [08]   | `transformPen.TransformPen` / `TransformPointPen`  | transform pen       | apply affine while forwarding                                 |
+|  [09]   | `boundsPen.BoundsPen` / `ControlBoundsPen`         | bounds pen          | exact / control-point glyph bounding box                      |
+|  [10]   | `statisticsPen.StatisticsPen`                      | moments pen         | glyph area/moments/mean (exact) for outline metrics           |
+|  [11]   | `statisticsPen.StatisticsControlPen`               | moments pen         | glyph area/moments/mean (control bbox) for outline metrics    |
+|  [12]   | `statisticsPen.MomentsPen`                         | moments pen         | raw glyph moments base for the statistics pens                |
+|  [13]   | `areaPen.AreaPen`                                  | area pen            | signed contour area                                           |
+|  [14]   | `ttGlyphPen.TTGlyphPen` / `TTGlyphPointPen`        | TrueType pen        | build a `glyf` `Glyph` via `.glyph(...)`                      |
+|  [15]   | `t2CharStringPen.T2CharStringPen`                  | CFF pen             | emit Type 2 charstring                                        |
+|  [16]   | `reverseContourPen.ReverseContourPen`              | winding flip        | reverse contour direction (CFF↔glyf winding)                  |
+|  [17]   | `filterPen.FilterPen` / `FilterPointPen`           | filter base         | pass-through base for outline transforms by subclassing       |
+|  [18]   | `roundingPen.RoundingPen` / `RoundingPointPen`     | rounding pen        | round coordinates to integers while forwarding                |
+|  [19]   | `hashPointPen.HashPointPen`                        | hash pen            | content hash of a glyph outline (compat checks)               |
+|  [20]   | `cairoPen.CairoPen`                                | render pen          | draw a glyph into a cairo surface (optional backend)          |
+|  [21]   | `qtPen.QtPen`                                      | render pen          | draw a glyph into a Qt surface (optional backend)             |
+|  [22]   | `freetypePen.FreeTypePen`                          | render pen          | draw a glyph into a FreeType surface (optional backend)       |
 
 [PUBLIC_TYPE_SCOPE]: variable-font, subset, synthesis, and merge engines
 - rail: fonts
 
-| [INDEX] | [SYMBOL]                                       | [PACKAGE_ROLE]   | [CAPABILITY]                                                                                                                                                |
-| :-----: | :--------------------------------------------- | :--------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `fontTools.designspaceLib.DesignSpaceDocument` | varfont document | axes/sources/instances container; `.read(path)`/`.write(path)`/`.addAxis`/`.addSource`/`.addInstance`                                                       |
-|  [02]   | `fontTools.designspaceLib.AxisDescriptor`      | axis record      | `(tag, name, minimum, default, maximum, map, …)` — one variation axis                                                                                       |
-|  [03]   | `fontTools.designspaceLib.SourceDescriptor`    | source record    | `(filename, path, font, name, location, designLocation, …)` — one master                                                                                    |
-|  [04]   | `fontTools.designspaceLib.InstanceDescriptor`  | instance record  | `(filename, path, font, name, location, locationLabel, …)` — one static cut                                                                                 |
-|  [05]   | `fontTools.subset.Subsetter`                   | subsetter engine | `(options)` — `populate(...)` then `subset(font)`; in-place table pruning                                                                                   |
-|  [06]   | `fontTools.subset.Options`                     | subset policy    | `(**kwargs)` — `layout_features`/`name_IDs`/`hinting`/`flavor`/`retain_gids`/`glyph_names`/`desubroutinize`/`drop_tables`/`harfbuzz_repacker`/`with_zopfli` |
-|  [07]   | `fontTools.fontBuilder.FontBuilder`            | synthesis owner  | `(unitsPerEm, isTTF, glyphDataFormat)` — high-level `setup*` table family then `.font`                                                                      |
-|  [08]   | `fontTools.merge.Merger`                       | font combiner    | `(options)` — `merge(fontfiles)` combining tables across fonts                                                                                              |
+| [INDEX] | [SYMBOL]                                       | [PACKAGE_ROLE]   | [CAPABILITY]                                                         |
+| :-----: | :--------------------------------------------- | :--------------- | :------------------------------------------------------------------- |
+|  [01]   | `fontTools.designspaceLib.DesignSpaceDocument` | varfont document | axes/sources/instances container; IO + `add*` builders               |
+|  [02]   | `fontTools.designspaceLib.AxisDescriptor`      | axis record      | `(tag, name, minimum, default, maximum, map, …)` — a variation axis  |
+|  [03]   | `fontTools.designspaceLib.SourceDescriptor`    | source record    | `(filename, path, font, name, location, designLocation, …)`          |
+|  [04]   | `fontTools.designspaceLib.InstanceDescriptor`  | instance record  | `(filename, path, font, name, location, locationLabel, …)`           |
+|  [05]   | `fontTools.subset.Subsetter`                   | subsetter engine | `(options)` — `populate(...)` then `subset(font)`; in-place pruning  |
+|  [06]   | `fontTools.subset.Options`                     | subset policy    | `(**kwargs)` — feature/hint/name/table retention (keys below)        |
+|  [07]   | `fontTools.fontBuilder.FontBuilder`            | synthesis owner  | `(unitsPerEm, isTTF, glyphDataFormat)`; `setup*` family then `.font` |
+|  [08]   | `fontTools.merge.Merger`                       | font combiner    | `(options)` — `merge(fontfiles)` combining tables across fonts       |
+
+- [06]-[OPTIONS]: `layout_features`/`name_IDs`/`hinting`/`flavor`/`retain_gids`/`glyph_names`/`desubroutinize`/`drop_tables`/`harfbuzz_repacker`/`with_zopfli`.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: font container IO and glyph access
 - rail: fonts
 
-`TTFont(path, lazy=True)` opens read-mostly; `flavor="woff2"` selects WOFF2 output before `save`. `getGlyphSet()` is the read-path glyph factory whose members `.draw(pen)`/`.drawPoints(pen)` feed the pen family; `getBestCmap()` resolves the Unicode-to-glyph map for shaping/subset input.
+`TTFont(path, lazy=True)` opens read-mostly; `flavor="woff2"` selects WOFF2 output before `save`. `getGlyphSet()` is the read-path glyph factory whose members `.draw(pen)`/`.drawPoints(pen)` feed the pen family; `getBestCmap()` resolves the Unicode-to-glyph map for shaping/subset input. Cells drop the `TTFont.` method prefix.
+- call: `TTFont(file=None, sfntVersion='\x00\x01\x00\x00', flavor=None, recalcBBoxes=True, recalcTimestamp=True, lazy=None, fontNumber=-1, cfg={})`
+- call: `TTFont.saveXML(fileOrPath, newlinestr='\n', **XMLSavingOptions)` / `TTFont.importXML(fileOrPath)`
+- call: `TTFont.getGlyphSet(preferCFF=True, location=None, normalized=False, recalcBounds=True)`
 
-| [INDEX] | [SURFACE]                                                                                                                                   | [ENTRY_FAMILY]   | [CAPABILITY]                                                                                        |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------ | :--------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `TTFont(file=None, sfntVersion='\x00\x01\x00\x00', flavor=None, recalcBBoxes=True, recalcTimestamp=True, lazy=None, fontNumber=-1, cfg={})` | construction     | open or create a font; `flavor`/`lazy`/`cfg` policy                                                 |
-|  [02]   | `TTFont.save(file, reorderTables=True)`                                                                                                     | binary export    | write OTF/TTF/WOFF/WOFF2 to path or buffer                                                          |
-|  [03]   | `TTFont.saveXML(fileOrPath, newlinestr='\n', **XMLSavingOptions)` / `TTFont.importXML(fileOrPath)`                                          | TTX round-trip   | write/read the TTX XML representation                                                               |
-|  [04]   | `TTFont.getGlyphSet(preferCFF=True, location=None, normalized=False, recalcBounds=True)`                                                    | glyph factory    | glyph set whose members expose `.draw(pen)`/`.drawPoints(pen)`; `location` cuts a variable instance |
-|  [05]   | `TTFont.getBestCmap(cmapPreferences=…)`                                                                                                     | unicode map      | `{codepoint: glyphName}` from the best `cmap` subtable                                              |
-|  [06]   | `TTFont.getGlyphOrder()` / `setGlyphOrder(order)` / `getReverseGlyphMap(rebuild=False)`                                                     | glyph order      | ordered glyph names and `{name: GID}` map                                                           |
-|  [07]   | `TTFont.getGlyphName(glyphID)` / `getGlyphID(glyphName)`                                                                                    | name-gid resolve | bidirectional glyph-name/GID lookup                                                                 |
-|  [08]   | `TTFont.keys()` / `TTFont[tag]` / `fontTools.ttLib.newTable(tag)`                                                                           | table access     | enumerate tags, fetch a parsed table, allocate a new one                                            |
+| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY]   | [CAPABILITY]                                           |
+| :-----: | :--------------------------------------------------------- | :--------------- | :----------------------------------------------------- |
+|  [01]   | `TTFont(...)`                                              | construction     | open/create a font; `flavor`/`lazy`/`cfg` policy       |
+|  [02]   | `save(file, reorderTables=True)`                           | binary export    | write OTF/TTF/WOFF/WOFF2 to path or buffer             |
+|  [03]   | `saveXML(...)` / `importXML(...)`                          | TTX round-trip   | write/read the TTX XML representation                  |
+|  [04]   | `getGlyphSet(...)`                                         | glyph factory    | glyph set; `location` cuts a variable instance         |
+|  [05]   | `getBestCmap(cmapPreferences=…)`                           | unicode map      | `{codepoint: glyphName}` from the best `cmap` subtable |
+|  [06]   | `getGlyphOrder()` / `setGlyphOrder(order)`                 | glyph order      | ordered glyph names                                    |
+|  [07]   | `getReverseGlyphMap(rebuild=False)`                        | glyph order      | `{name: GID}` reverse map                              |
+|  [08]   | `getGlyphName(glyphID)` / `getGlyphID(glyphName)`          | name-gid resolve | bidirectional glyph-name/GID lookup                    |
+|  [09]   | `keys()` / `TTFont[tag]` / `fontTools.ttLib.newTable(tag)` | table access     | enumerate tags, fetch a table, allocate a new one      |
 
 [ENTRYPOINT_SCOPE]: variable-font compile and instance
 - rail: fonts
 
 `varLib.build` compiles a variable font from a designspace; `varLib.instancer.instantiateVariableFont` is the partial/full instancing engine — limit a subset of axes to pin a static or reduced-axis cut that downstream shaping/subsetting consumes.
+- call: `varLib.build(designspace, master_finder=…, exclude=[], optimize=True, colr_layer_reuse=True, drop_implied_oncurves=False)`
+- call: `varLib.instancer.instantiateVariableFont(varfont, axisLimits, inplace=False, optimize=True, overlap=OverlapMode.KEEP_AND_SET_FLAGS, updateFontNames=False, *, downgradeCFF2=False, static=False)`
+- call: `DesignSpaceDocument.read(path)` / `.write(path)` / `.addAxis(a)` / `.addSource(s)` / `.addInstance(i)`
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                          | [ENTRY_FAMILY]  | [CAPABILITY]                                           |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------- | :----------------------------------------------------- |
-|  [01]   | `varLib.build(designspace, master_finder=…, exclude=[], optimize=True, colr_layer_reuse=True, drop_implied_oncurves=False)`                                                                        | varfont compile | build a variable `TTFont` (+ model) from a designspace |
-|  [02]   | `varLib.instancer.instantiateVariableFont(varfont, axisLimits, inplace=False, optimize=True, overlap=OverlapMode.KEEP_AND_SET_FLAGS, updateFontNames=False, *, downgradeCFF2=False, static=False)` | instancing      | pin/limit axes to a static or reduced-axis instance    |
-|  [03]   | `DesignSpaceDocument.read(path)` / `.write(path)` / `.addAxis(a)` / `.addSource(s)` / `.addInstance(i)`                                                                                            | designspace IO  | read/build the axes-sources-instances project          |
+| [INDEX] | [SURFACE]                           | [ENTRY_FAMILY]  | [CAPABILITY]                                           |
+| :-----: | :---------------------------------- | :-------------- | :----------------------------------------------------- |
+|  [01]   | `varLib.build(...)`                 | varfont compile | build a variable `TTFont` (+ model) from a designspace |
+|  [02]   | `instantiateVariableFont(...)`      | instancing      | pin/limit axes to a static or reduced-axis instance    |
+|  [03]   | `DesignSpaceDocument` read/build IO | designspace IO  | read/build the axes-sources-instances project          |
 
 [ENTRYPOINT_SCOPE]: subsetting and feature compilation
 - rail: fonts
 
 `Subsetter` prunes a `TTFont` in place to the populated glyph/Unicode set before `save`; `Options.flavor` re-flavors the output to WOFF/WOFF2 in the same pass. `feaLib.addOpenTypeFeatures` compiles a `.fea` source into the font's GSUB/GPOS/GDEF tables.
+- call: `Subsetter(options).populate(glyphs=[], gids=[], unicodes=[], text='')`
+- call: `feaLib.builder.addOpenTypeFeatures(font, featurefile, tables=None, debug=False)`
 
-| [INDEX] | [SURFACE]                                                                         | [ENTRY_FAMILY]   | [CAPABILITY]                                              |
-| :-----: | :-------------------------------------------------------------------------------- | :--------------- | :-------------------------------------------------------- |
-|  [01]   | `Options(**kwargs)`                                                               | subset policy    | configure feature/hint/name/table retention and `flavor`  |
-|  [02]   | `Subsetter(options).populate(glyphs=[], gids=[], unicodes=[], text='')`           | glyph selection  | declare the retained set by name, GID, codepoint, or text |
-|  [03]   | `Subsetter.subset(font)`                                                          | subset execution | prune `font` in place; must precede `TTFont.save`         |
-|  [04]   | `feaLib.builder.addOpenTypeFeatures(font, featurefile, tables=None, debug=False)` | feature compile  | compile `.fea` Layout features into GSUB/GPOS/GDEF        |
+| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]   | [CAPABILITY]                                              |
+| :-----: | :--------------------------- | :--------------- | :-------------------------------------------------------- |
+|  [01]   | `Options(**kwargs)`          | subset policy    | configure feature/hint/name/table retention and `flavor`  |
+|  [02]   | `Subsetter.populate(...)`    | glyph selection  | declare the retained set by name, GID, codepoint, or text |
+|  [03]   | `Subsetter.subset(font)`     | subset execution | prune `font` in place; must precede `TTFont.save`         |
+|  [04]   | `feaLib.addOpenTypeFeatures` | feature compile  | compile `.fea` Layout features into GSUB/GPOS/GDEF        |
 
 [ENTRYPOINT_SCOPE]: synthesis, merge, outline conversion, and Unicode resolution
 - rail: fonts
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                                                                                                     | [ENTRY_FAMILY]     | [CAPABILITY]                                                                                       |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | `FontBuilder(unitsPerEm, isTTF=True).setupGlyphOrder/setupCharacterMap/setupHead/setupMaxp/setupGlyf/setupCFF/setupCFF2/setupHorizontalHeader/setupHorizontalMetrics/setupVerticalHeader/setupVerticalMetrics/setupNameTable/setupOS2/setupPost/setupFvar/setupGvar/setupAvar/setupStat/setupCOLR/setupCPAL/setupDummyDSIG(...)` then `.font` | font synthesis     | build a complete font from scratch through the `setup*` family (note `setupStat`, not `setupSTAT`) |
-|  [02]   | `feaLib.builder.addOpenTypeFeaturesFromString(font, features, …)`                                                                                                                                                                                                                                                                             | inline feature     | compile `.fea` features supplied as a string (no temp file)                                        |
-|  [03]   | `varLib.featureVars.addFeatureVariations(font, conditionalSubstitutions, …)`                                                                                                                                                                                                                                                                  | feature variations | add rvrn-style conditional GSUB substitutions to a variable font                                   |
-|  [04]   | `colorLib.builder.buildCOLR(colorGlyphs, …)` / `buildCPAL(palettes, …)`                                                                                                                                                                                                                                                                       | color tables       | build COLRv0/COLRv1 + CPAL color-glyph tables for `setupCOLR`/`setupCPAL`                          |
-|  [05]   | `Merger(options).merge(fontfiles)`                                                                                                                                                                                                                                                                                                            | font merge         | combine multiple fonts' tables into one `TTFont`                                                   |
-|  [06]   | `cu2qu.curve_to_quadratic(curve, max_err, all_quadratic=True)` / `cu2qu.ufo.fonts_to_quadratic(fonts, …)` / `qu2cu.quadratic_to_curves(...)`                                                                                                                                                                                                  | outline convert    | convert cubic⇄quadratic per-curve or whole-font for CFF↔glyf moves                                 |
-|  [07]   | `unicodedata.script(char)` / `script_extension` / `block` / `ot_tags_from_script(script)` / `ot_tag_to_script(tag)` / `script_horizontal_direction(script)` / `script_name`/`script_code`                                                                                                                                                     | unicode resolve    | resolve script/block and bidirectionally map the OpenType script tags shaping needs                |
+`FontBuilder` synthesizes a whole font through its `setup*` family (table casing follows the method — `setupStat`, not `setupSTAT`); `Merger` combines fonts, `cu2qu`/`qu2cu` convert outlines per-curve or whole-font, and `unicodedata` resolves script/block and the OpenType script tags.
+- call: `FontBuilder(unitsPerEm, isTTF=True).setupGlyphOrder/setupCharacterMap/setupHead/setupMaxp/setupGlyf/setupCFF/setupCFF2/setupHorizontalHeader/setupHorizontalMetrics/setupVerticalHeader/setupVerticalMetrics/setupNameTable/setupOS2/setupPost/setupFvar/setupGvar/setupAvar/setupStat/setupCOLR/setupCPAL/setupDummyDSIG(...)` then `.font`
+- call: `feaLib.builder.addOpenTypeFeaturesFromString(font, features, …)`
+- call: `varLib.featureVars.addFeatureVariations(font, conditionalSubstitutions, …)`
+- call: `colorLib.builder.buildCOLR(colorGlyphs, …)` / `buildCPAL(palettes, …)`
+- call: `cu2qu.curve_to_quadratic(curve, max_err, all_quadratic=True)` / `cu2qu.ufo.fonts_to_quadratic(fonts, …)` / `qu2cu.quadratic_to_curves(...)`
+- call: `unicodedata.script(char)` / `script_extension` / `block` / `ot_tags_from_script(script)` / `ot_tag_to_script(tag)` / `script_horizontal_direction(script)` / `script_name`/`script_code`
+
+| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY]     | [CAPABILITY]                                                              |
+| :-----: | :------------------------------------- | :----------------- | :------------------------------------------------------------------------ |
+|  [01]   | `FontBuilder.setup*(...)` → `.font`    | font synthesis     | build a complete font from scratch through the `setup*` family            |
+|  [02]   | `addOpenTypeFeaturesFromString(...)`   | inline feature     | compile `.fea` features supplied as a string (no temp file)               |
+|  [03]   | `addFeatureVariations(...)`            | feature variations | add rvrn-style conditional GSUB substitutions to a variable font          |
+|  [04]   | `colorLib.builder.buildCOLR/buildCPAL` | color tables       | build COLRv0/COLRv1 + CPAL color-glyph tables for `setupCOLR`/`setupCPAL` |
+|  [05]   | `Merger(options).merge(fontfiles)`     | font merge         | combine multiple fonts' tables into one `TTFont`                          |
+|  [06]   | `cu2qu`/`qu2cu` convert                | outline convert    | convert cubic⇄quadratic per-curve or whole-font for CFF↔glyf moves        |
+|  [07]   | `unicodedata` script/OT-tag            | unicode resolve    | resolve script/block and map OpenType script tags bidirectionally         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

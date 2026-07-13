@@ -1,52 +1,99 @@
 # [TS_IAC_ARCHITECTURE]
 
-The domain map of `iac` — the plane-distinct deploy package outside the runtime graph. Three sub-domains (`program`, `operate`, `kube`) meet through one `StackSpec` value, one arm-keyed dispatch, and one Automation-API ledger; every runtime alignment is a mirrored deploy fact, never an import the runtime carries.
-
-Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, camelCase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
+`iac` owns the plane-distinct deploy package outside the runtime graph: sub-domains `program`, `operate`, and `kube` meet through one `StackSpec` value, one arm-keyed dispatch, and one Automation-API ledger. Every runtime alignment is a mirrored deploy fact, never an import the runtime carries.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
 iac/
 └── src/
-    ├── program/          # Program shapes, arm dispatch, Automation-API driver, and bootstrap-axis legs
-    │   ├── spec.ts       # StackSpec: decoded arm union, tiers, capability profile, backend, outputs plane
-    │   ├── provider.ts   # Capability-by-arm map + realizer; shared k8s estate beside docker estate
-    │   ├── automation.ts # Sole executor: LocalWorkspace, Stream ledger, RunReceipt, retry, budgets, fleet verbs
-    │   └── source.ts     # Source — github repo/branch-law/environment gates/deploy keys/webhook + the synced-folder distribution dialect record
-    ├── operate/          # Secrets, observability realization, policy, the hosted control plane
-    │   ├── secret.ts     # Doppler hierarchy, mirror fan-out, RBAC rows, and the three-lane cert pipeline
-    │   ├── observe.ts    # Lgtm (LGTM distribution + OTel collector) → Boards: grafana dashboards, alert/SLO compile, tenant orgs, machine identity
-    │   ├── policy.ts     # Guard policies, DriftReport projection, isolated sweep, conform read-back, PKO loop
-    │   └── cloud.ts      # CloudPlane schedules/settings/webhooks/RBAC/environments plus EscApi rail
-    └── kube/             # The k8s estate tiers (either plane source)
-        ├── workload.ts   # Spec row to RBAC, Deployment, PDB/HPA, Service, env seam, and _LIFE anchor
-        ├── traffic.ts    # TLS sink, Gateway API edge, Ingress recovery, external-dns, tunnel/WAF/vanity rows
-        ├── data.ts       # ObjectStore, Nats, typed CNPG cluster, archive, Pooler, tenancy, replication
-        └── tenant.ts     # Tenants — Capsule Tenant CRs | vcluster planes via _MODES, the StackReference platform seam
+    ├── program/          # Program shapes, arm dispatch, the Automation-API drive, and the bootstrap legs
+    │   ├── spec.ts       # StackSpec — the one decoded deploy value an app supplies
+    │   ├── provider.ts   # Capability-by-arm map and realizer over the shared k8s and docker estates
+    │   ├── automation.ts # Sole executor — the Automation-API driver with resilience and the fleet verbs
+    │   └── source.ts     # Source-control shells the Doppler mirror fills, plus the distribution leg
+    ├── operate/          # Secrets, observability realization, policy, and the hosted control plane
+    │   ├── secret.ts     # Doppler hierarchy, mirror fan-out, access RBAC, and the three-lane cert axis
+    │   ├── observe.ts    # LGTM distribution and OTel collector compiled onto Grafana boards
+    │   ├── policy.ts     # Guard policies, drift projection, and the in-cluster PKO reconcile loop
+    │   └── cloud.ts      # Hosted control-plane twin set, gated on the cloud backend
+    └── kube/             # K8s estate tiers realized on either plane
+        ├── workload.ts   # One spec row realized as the full typed workload set with its _LIFE anchor
+        ├── traffic.ts    # Gateway API edge with external-dns automation and the tunnel/WAF/vanity rows
+        ├── data.ts       # Typed CNPG data plane — object store, NATS, backups, pooler, replication
+        └── tenant.ts     # Isolation modes and the cross-stack platform seam
 ```
 
 ## [02]-[SEAMS]
 
-```text seams
-program/spec    →  typescript:runtime/work     # [PORT]: StackOutputs.sharding → ShardingConfig.layerFromEnv
-kube/data       ←  typescript:data/lane        # [SHAPE]: Pg.image/Pg.rows extension roster priced into the CNPG image
-kube/data       ←  typescript:data/lane        # [BOUNDARY]: Tenancy.rls ensure roster applied by the in-cluster provision job
-kube/data       ←  typescript:runtime/net      # [BOUNDARY]: JetStream posture read by Setting.fanout.origin
-kube/workload   ←  typescript:runtime/proc     # [SHAPE]: Setting.life.drain + probe routes mirrored as the _LIFE anchor
-kube/workload   ←  typescript:security/crypt   # [BOUNDARY]: doppler-run leased env injection at the entrypoint wrap
-operate/observe ←  typescript:core/observe     # [PROJECTION]: DashboardModel.Encoded + Alert.Spec + Slo.Objective realized as grafana rows
-kube/tenant     ←  typescript:data/lane        # [SHAPE]: Tenancy locus vocabulary the pgTier escalation and RLS ensure rows read
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: IaC package seam registry
+    accDescr: IaC plane owners exchanging stack outputs, data-plane shapes, lifecycle posture, leased secrets, and observability projections with the runtime, data, security, and core packages, edge rails colored by kind and nodes classed by seam direction.
+    subgraph iac[IAC]
+        Program[Program plane]
+        Operate[Operate plane]
+        Kube[Kube estate]
+    end
+    Runtime{{runtime}}
+    Data[(data)]
+    Security([security])
+    Core([core])
+    Program e1@-->|"[PORT]: StackOutputs"| Runtime
+    Data e2@-->|"[SHAPE]: Pg.rows"| Kube
+    Data e3@-->|"[BOUNDARY]: Tenancy.rls"| Kube
+    Runtime e4@-->|"[BOUNDARY]: JetStream posture"| Kube
+    Runtime e5@-->|"[SHAPE]: Setting.life"| Kube
+    Security e6@-->|"[BOUNDARY]: leased env"| Kube
+    Core e7@-->|"[PROJECTION]: DashboardModel"| Operate
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    class Program,Operate,Kube primary
+    class Runtime external
+    class Data data
+    class Security,Core annotation
+    class e1,e2,e3,e4,e5,e6 edgeControl
+    class e7 edgeExternal
 ```
 
-## [03]-[ORGANIZATION]
+## [03]-[PRINCIPLE]
 
-`program` owns the shapes, the drive, and the bootstrap-axis legs: `spec` is the one decoded value an app supplies (arm, tiers, profile with tenancy and compute axes, backend, coordinates, Doppler ref, rotation epoch) and the typed outputs plane with the one `pairsOf` channel-flatten; `provider` keeps the capability-by-arm data and the arm realizer on one page, proves every spec coordinate on the `DeployFault` rail before any `PulumiFn`, and holds `_estate` — the single k8s-estate composition both the metal bootstrap and the EKS escalation feed — beside the docker machine estate that realizes the realized arm's full column at container depth; `automation` is the only executor with resilience internalized (stream-bridged events, jittered retry on state locks, per-run budgets) plus the fleet verbs; `source` provisions the source-control shells the Doppler mirror fills and the static-distribution leg. `operate` mints, realizes, and governs: `secret` is the material owner with the mirror fan-out, access RBAC rows, and the three-lane cert axis; `observe` compiles the core suite's boards, alerts, and SLOs onto Grafana; `policy` judges before apply, projects drift after, and runs the in-cluster PKO reconcile loop; `cloud` is the hosted twin set gated on `backend: cloud`. `kube` realizes the estate on either plane: `workload` turns one spec row into the full typed set including its RBAC, budget, and autoscale rows; `traffic` fronts through the Gateway API with external-dns automation and the tunnel/WAF/vanity rows; `data` lands the typed CNPG plane — plugin-archived backups, pooler bind, tenancy escalation, replication seam; `tenant` realizes the isolation modes and the cross-stack platform seam.
+One `StackSpec` decodes into an arm, and the arm realizer proves every spec coordinate on the `DeployFault` rail before minting a `PulumiFn` — a rejected coordinate never reaches a provider. `provider` holds the single `_estate` composition the metal bootstrap and the EKS escalation both feed, so k8s realization keeps one owner across planes beside the docker machine estate at container depth. `automation` is the sole executor; resilience, retry, and per-run budgets internalize there. Per-file wiring — the tier rows each realizer emits, the mirror fan-out, the reconcile loop — lives on the owning implementation pages.
 
 ## [04]-[BOUNDARIES]
 
 - Nothing imports this package at runtime; values cross back only as typed stack outputs read from env at boot.
-- iac applies DDL and extension rosters at provision; the data wave verifies at startup; the runtime never mutates schema. Out-of-band DB divergence is the data plane's fail-closed startup verify, never a pulumi read-back.
-- The object-engine vocabulary is `minio | ceph` (pgsty/minio continuation image, Ceph RGW); Garage has no spelling to select — it cannot honor `If-None-Match: *` conditional put.
-- The self-hosted transcoder assets the viewer pins (draco/basis/meshopt) ship with the app shell and serve byte-identical through the runtime asset rows; a foreign-CDN side-load is a CSP breach.
-- No queue extension is provisioned: the data matrix carries none; SKIP-LOCKED outbox statements and the runtime relay own the class.
+- iac applies DDL and extension rosters at provision and the data wave verifies at startup; the runtime never mutates schema, so out-of-band divergence fails closed at startup, never a pulumi read-back.
+- Object-engine vocabulary is `minio | ceph` — pgsty/minio continuation image and Ceph RGW; Garage carries no spelling, unable to honor an `If-None-Match: *` conditional put.
+- Viewer-pinned transcoder assets (draco/basis/meshopt) ship with the app shell and serve byte-identical through the runtime asset rows; a foreign-CDN side-load is a CSP breach.
+- No queue extension is provisioned; the data matrix carries none, and SKIP-LOCKED outbox statements with the runtime relay own the class.

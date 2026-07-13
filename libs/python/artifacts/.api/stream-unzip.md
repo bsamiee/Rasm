@@ -24,72 +24,72 @@
 
 The encryption-mechanism allow-list is a closed vocabulary of opaque sentinel objects: `NO_ENCRYPTION`, `ZIP_CRYPTO`, `AE_1`, `AE_2`, `AES_128`, `AES_192`, `AES_256` (each a `NewType('_Encryption', object)` singleton — the `_Encryption` constructor is private so a consumer cannot mint a new mechanism, only select from the seven); `_ALL_ENCRYPTIONS` is the default-permitting tuple in that exact order. The error tree is a single rooted hierarchy: `UnzipError` is the root, `UnzipValueError(UnzipError, ValueError)` is the boundary base, and the recoverable families descend DIRECTLY from `UnzipValueError` — `DataError` (truncation, integrity, unsupported-feature, signature), `UncompressError` (decompressor backend faults), `PasswordError` (incorrect-password + mechanism-not-allowed faults), and `MissingPasswordError` (an encrypted member with no `password`, a SIBLING of `PasswordError` under `UnzipValueError`, NOT beneath it) — while `InvalidOperationError(UnzipError)` sits OUTSIDE `ValueError` for iteration-order misuse. One `except UnzipError` catches all; `except UnzipValueError` catches every recoverable boundary failure (including both `PasswordError` and `MissingPasswordError`); `except InvalidOperationError` catches only the API-misuse guard.
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]      | [RAIL]                                                                                                     |
-| :-----: | :-------------------------------- | :----------------- | :--------------------------------------------------------------------------------------------------------- |
-|  [01]   | `NO_ENCRYPTION`                   | mechanism sentinel | `_Encryption` singleton; permit unencrypted members                                                        |
-|  [02]   | `ZIP_CRYPTO`                      | mechanism sentinel | `_Encryption` singleton; permit legacy ZipCrypto members                                                   |
-|  [03]   | `AE_1`                            | mechanism sentinel | `_Encryption` singleton; permit WinZip AE-1 (CRC-retained) members                                         |
-|  [04]   | `AE_2`                            | mechanism sentinel | `_Encryption` singleton; permit WinZip AE-2 (CRC-zeroed) members                                           |
-|  [05]   | `AES_128`                         | mechanism sentinel | `_Encryption` singleton; permit AES-128 key-length members                                                 |
-|  [06]   | `AES_192`                         | mechanism sentinel | `_Encryption` singleton; permit AES-192 key-length members                                                 |
-|  [07]   | `AES_256`                         | mechanism sentinel | `_Encryption` singleton; permit AES-256 key-length members                                                 |
-|  [08]   | `_ALL_ENCRYPTIONS`                | sentinel tuple     | default `allowed_encryption_mechanisms` permitting every mechanism above                                   |
-|  [09]   | `UnzipError`                      | error root         | `Exception` base for every `stream_unzip` failure                                                          |
-|  [10]   | `UnzipValueError`                 | error              | `UnzipError` + `ValueError`; boundary base for data + password families                                    |
-|  [11]   | `DataError`                       | error              | `UnzipValueError`; malformed/unsupported container base                                                    |
-|  [12]   | `UnexpectedSignatureError`        | error              | `DataError`; local-file/record signature mismatch                                                          |
-|  [13]   | `TruncatedDataError`              | error              | `DataError`; member data truncated mid-stream                                                              |
-|  [14]   | `TruncatedExtraError`             | error              | `DataError`; extra-field block truncated                                                                   |
-|  [15]   | `InvalidExtraError`               | error              | `TruncatedExtraError`; malformed extra-field block                                                         |
-|  [16]   | `TruncatedZip64ExtraError`        | error              | `TruncatedExtraError`; ZIP64 extra-field truncated                                                         |
-|  [17]   | `MissingExtraError`               | error              | `DataError`; required extra-field block absent                                                             |
-|  [18]   | `MissingAESExtraError`            | error              | `MissingExtraError`; WinZip-AES extra-field absent on an AES member                                        |
-|  [19]   | `TruncatedAESExtraError`          | error              | `TruncatedExtraError`; WinZip-AES extra-field truncated                                                    |
-|  [20]   | `InvalidAESKeyLengthError`        | error              | `TruncatedExtraError`; AES key-length byte outside 1/2/3                                                   |
-|  [21]   | `IntegrityError`                  | error              | `DataError`; verified-content mismatch base                                                                |
-|  [22]   | `CRC32IntegrityError`             | error              | `IntegrityError`; streamed CRC32 mismatch                                                                  |
-|  [23]   | `SizeIntegrityError`              | error              | `IntegrityError`; declared-size mismatch base                                                              |
-|  [24]   | `CompressedSizeIntegrityError`    | error              | `SizeIntegrityError`; streamed compressed-size mismatch                                                    |
-|  [25]   | `UncompressedSizeIntegrityError`  | error              | `SizeIntegrityError`; streamed uncompressed-size mismatch                                                  |
-|  [26]   | `HMACIntegrityError`              | error              | `IntegrityError`; WinZip-AES HMAC-SHA1 authentication mismatch                                             |
-|  [27]   | `UncompressError`                 | error              | `UnzipValueError`; decompressor backend failure base                                                       |
-|  [28]   | `DeflateError`                    | error              | `UncompressError`; deflate/deflate64 decompression failure                                                 |
-|  [29]   | `BZ2Error`                        | error              | `UncompressError`; bzip2 decompression failure                                                             |
-|  [30]   | `UnsupportedFeatureError`         | error              | `DataError`; container uses an unsupported feature base                                                    |
-|  [31]   | `UnsupportedCompressionTypeError` | error              | `UnsupportedFeatureError`; compression method not deflate/deflate64/bz2/store                              |
-|  [32]   | `UnsupportedFlagsError`           | error              | `UnsupportedFeatureError`; general-purpose flag bits unsupported                                           |
-|  [33]   | `UnsupportedZip64Error`           | error              | `UnsupportedFeatureError`; ZIP64 present while `allow_zip64=False`                                         |
-|  [34]   | `NotStreamUnzippable`             | error              | `UnsupportedFeatureError`; archive cannot be unzipped in a single forward pass                             |
-|  [35]   | `PasswordError`                   | error              | `UnzipValueError`; encryption/password family base                                                         |
-|  [36]   | `MissingPasswordError`            | error              | `UnzipValueError` (SIBLING of `PasswordError`, NOT under it); encrypted member but `password is None` base |
-|  [37]   | `MissingZipCryptoPasswordError`   | error              | `MissingPasswordError`; ZipCrypto member without a password                                                |
-|  [38]   | `MissingAESPasswordError`         | error              | `MissingPasswordError`; WinZip-AES member without a password                                               |
-|  [39]   | `IncorrectPasswordError`          | error              | `PasswordError`; supplied password rejected base                                                           |
-|  [40]   | `IncorrectZipCryptoPasswordError` | error              | `IncorrectPasswordError`; ZipCrypto password-verify byte mismatch                                          |
-|  [41]   | `IncorrectAESPasswordError`       | error              | `IncorrectPasswordError`; WinZip-AES password-verify (PBKDF2) mismatch                                     |
-|  [42]   | `EncryptionMechanismNotAllowed`   | error              | `PasswordError`; member mechanism excluded by the allow-list base                                          |
-|  [43]   | `FileIsNotEncrypted`              | error              | `EncryptionMechanismNotAllowed`; `password` given but member is plaintext and `NO_ENCRYPTION` excluded     |
-|  [44]   | `ZipCryptoNotAllowed`             | error              | `EncryptionMechanismNotAllowed`; ZipCrypto excluded by the allow-list                                      |
-|  [45]   | `AESNotAllowed`                   | error              | `EncryptionMechanismNotAllowed`; WinZip-AES excluded base                                                  |
-|  [46]   | `AE1NotAllowed`                   | error              | `AESNotAllowed`; AE-1 excluded                                                                             |
-|  [47]   | `AE2NotAllowed`                   | error              | `AESNotAllowed`; AE-2 excluded                                                                             |
-|  [48]   | `AES128NotAllowed`                | error              | `AESNotAllowed`; AES-128 key length excluded                                                               |
-|  [49]   | `AES192NotAllowed`                | error              | `AESNotAllowed`; AES-192 key length excluded                                                               |
-|  [50]   | `AES256NotAllowed`                | error              | `AESNotAllowed`; AES-256 key length excluded                                                               |
-|  [51]   | `InvalidOperationError`           | error              | `UnzipError` (NOT `ValueError`); API-misuse base                                                           |
-|  [52]   | `UnfinishedIterationError`        | error              | `InvalidOperationError`; advanced to the next member before draining the prior member's chunks             |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]      | [RAIL]                                                                         |
+| :-----: | :-------------------------------- | :----------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `NO_ENCRYPTION`                   | mechanism sentinel | `_Encryption` singleton; permit unencrypted members                            |
+|  [02]   | `ZIP_CRYPTO`                      | mechanism sentinel | `_Encryption` singleton; permit legacy ZipCrypto members                       |
+|  [03]   | `AE_1`                            | mechanism sentinel | `_Encryption` singleton; permit WinZip AE-1 (CRC-retained) members             |
+|  [04]   | `AE_2`                            | mechanism sentinel | `_Encryption` singleton; permit WinZip AE-2 (CRC-zeroed) members               |
+|  [05]   | `AES_128`                         | mechanism sentinel | `_Encryption` singleton; permit AES-128 key-length members                     |
+|  [06]   | `AES_192`                         | mechanism sentinel | `_Encryption` singleton; permit AES-192 key-length members                     |
+|  [07]   | `AES_256`                         | mechanism sentinel | `_Encryption` singleton; permit AES-256 key-length members                     |
+|  [08]   | `_ALL_ENCRYPTIONS`                | sentinel tuple     | default `allowed_encryption_mechanisms` permitting every mechanism above       |
+|  [09]   | `UnzipError`                      | error root         | `Exception` base for every `stream_unzip` failure                              |
+|  [10]   | `UnzipValueError`                 | error              | `UnzipError` + `ValueError`; boundary base for data + password families        |
+|  [11]   | `DataError`                       | error              | `UnzipValueError`; malformed/unsupported container base                        |
+|  [12]   | `UnexpectedSignatureError`        | error              | `DataError`; local-file/record signature mismatch                              |
+|  [13]   | `TruncatedDataError`              | error              | `DataError`; member data truncated mid-stream                                  |
+|  [14]   | `TruncatedExtraError`             | error              | `DataError`; extra-field block truncated                                       |
+|  [15]   | `InvalidExtraError`               | error              | `TruncatedExtraError`; malformed extra-field block                             |
+|  [16]   | `TruncatedZip64ExtraError`        | error              | `TruncatedExtraError`; ZIP64 extra-field truncated                             |
+|  [17]   | `MissingExtraError`               | error              | `DataError`; required extra-field block absent                                 |
+|  [18]   | `MissingAESExtraError`            | error              | `MissingExtraError`; WinZip-AES extra-field absent on an AES member            |
+|  [19]   | `TruncatedAESExtraError`          | error              | `TruncatedExtraError`; WinZip-AES extra-field truncated                        |
+|  [20]   | `InvalidAESKeyLengthError`        | error              | `TruncatedExtraError`; AES key-length byte outside 1/2/3                       |
+|  [21]   | `IntegrityError`                  | error              | `DataError`; verified-content mismatch base                                    |
+|  [22]   | `CRC32IntegrityError`             | error              | `IntegrityError`; streamed CRC32 mismatch                                      |
+|  [23]   | `SizeIntegrityError`              | error              | `IntegrityError`; declared-size mismatch base                                  |
+|  [24]   | `CompressedSizeIntegrityError`    | error              | `SizeIntegrityError`; streamed compressed-size mismatch                        |
+|  [25]   | `UncompressedSizeIntegrityError`  | error              | `SizeIntegrityError`; streamed uncompressed-size mismatch                      |
+|  [26]   | `HMACIntegrityError`              | error              | `IntegrityError`; WinZip-AES HMAC-SHA1 authentication mismatch                 |
+|  [27]   | `UncompressError`                 | error              | `UnzipValueError`; decompressor backend failure base                           |
+|  [28]   | `DeflateError`                    | error              | `UncompressError`; deflate/deflate64 decompression failure                     |
+|  [29]   | `BZ2Error`                        | error              | `UncompressError`; bzip2 decompression failure                                 |
+|  [30]   | `UnsupportedFeatureError`         | error              | `DataError`; container uses an unsupported feature base                        |
+|  [31]   | `UnsupportedCompressionTypeError` | error              | `UnsupportedFeatureError`; compression method not deflate/deflate64/bz2/store  |
+|  [32]   | `UnsupportedFlagsError`           | error              | `UnsupportedFeatureError`; general-purpose flag bits unsupported               |
+|  [33]   | `UnsupportedZip64Error`           | error              | `UnsupportedFeatureError`; ZIP64 present while `allow_zip64=False`             |
+|  [34]   | `NotStreamUnzippable`             | error              | `UnsupportedFeatureError`; archive cannot be unzipped in a single forward pass |
+|  [35]   | `PasswordError`                   | error              | `UnzipValueError`; encryption/password family base                             |
+|  [36]   | `MissingPasswordError`            | error              | `UnzipValueError`; encrypted member but `password is None` base                |
+|  [37]   | `MissingZipCryptoPasswordError`   | error              | `MissingPasswordError`; ZipCrypto member without a password                    |
+|  [38]   | `MissingAESPasswordError`         | error              | `MissingPasswordError`; WinZip-AES member without a password                   |
+|  [39]   | `IncorrectPasswordError`          | error              | `PasswordError`; supplied password rejected base                               |
+|  [40]   | `IncorrectZipCryptoPasswordError` | error              | `IncorrectPasswordError`; ZipCrypto password-verify byte mismatch              |
+|  [41]   | `IncorrectAESPasswordError`       | error              | `IncorrectPasswordError`; WinZip-AES password-verify (PBKDF2) mismatch         |
+|  [42]   | `EncryptionMechanismNotAllowed`   | error              | `PasswordError`; member mechanism excluded by the allow-list base              |
+|  [43]   | `FileIsNotEncrypted`              | error              | `EncryptionMechanismNotAllowed`; plaintext + `password`, `NO_ENCRYPTION` off   |
+|  [44]   | `ZipCryptoNotAllowed`             | error              | `EncryptionMechanismNotAllowed`; ZipCrypto excluded by the allow-list          |
+|  [45]   | `AESNotAllowed`                   | error              | `EncryptionMechanismNotAllowed`; WinZip-AES excluded base                      |
+|  [46]   | `AE1NotAllowed`                   | error              | `AESNotAllowed`; AE-1 excluded                                                 |
+|  [47]   | `AE2NotAllowed`                   | error              | `AESNotAllowed`; AE-2 excluded                                                 |
+|  [48]   | `AES128NotAllowed`                | error              | `AESNotAllowed`; AES-128 key length excluded                                   |
+|  [49]   | `AES192NotAllowed`                | error              | `AESNotAllowed`; AES-192 key length excluded                                   |
+|  [50]   | `AES256NotAllowed`                | error              | `AESNotAllowed`; AES-256 key length excluded                                   |
+|  [51]   | `InvalidOperationError`           | error              | `UnzipError` (NOT `ValueError`); API-misuse base                               |
+|  [52]   | `UnfinishedIterationError`        | error              | `InvalidOperationError`; advanced to next member before draining prior chunks  |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: streaming functions
 - rail: bundle
 
-`stream_unzip` returns a lazy `Generator` of `(name, size, chunks)` triples; iterating drives the container chunk by chunk so peak memory stays bounded by `chunk_size` and a single member window — never the whole archive. `name` is the raw `bytes` member path (the bundle owner decodes it once at the boundary; the package never assumes an encoding) and `size` is the declared uncompressed length — concretely `None` when the local header has a data-descriptor flag AND the member is compressed (deflate/deflate64/bzip2), since the real size only arrives in the trailing data descriptor; a stored member with a data descriptor but no header size is unstreamable and raises `NotStreamUnzippable`. `chunks` is a nested `Generator[bytes]` that MUST be fully consumed before advancing, or the outer generator raises `UnfinishedIterationError` at the NEXT member boundary (the guard fires on re-entry, not eagerly). `password` (`bytes`, not `str` — the bundle owner passes `password.encode()`) decrypts ZipCrypto and WinZip-AES members; the record's own extra fields (the `\x01\x99` AES extra, the general-purpose flag bits) select the mechanism, so one call covers every scheme. `allow_zip64` permits ZIP64 size/offset extra fields; `allowed_encryption_mechanisms` is the accept allow-list (default `_ALL_ENCRYPTIONS`). `async_stream_unzip` mirrors the signature over async iterables, yielding an `AsyncGenerator` of `(name, size, async_chunks)`; internally it runs the SYNC `stream_unzip` on a worker thread (`asyncio.run_in_executor` under asyncio, `trio.to_thread.run_sync` under trio) and bridges the two directions through sentinel-terminated thread hops, auto-detecting whether it is inside an asyncio loop or a trio nursery — so it is the native `anyio`-compatible boundary for both backends, never a busy-loop or a hand-rolled executor in the consumer.
+`stream_unzip` returns a lazy `Generator` of `(name, size, chunks)` triples; iterating drives the container chunk by chunk so peak memory stays bounded by `chunk_size` and a single member window — never the whole archive. `name` is the raw `bytes` member path (the bundle owner decodes it once at the boundary; the package never assumes an encoding) and `size` is the declared uncompressed length — concretely `None` when the local header has a data-descriptor flag AND the member is compressed (deflate/deflate64/bzip2), since the real size only arrives in the trailing data descriptor; a stored member with a data descriptor but no header size is unstreamable and raises `NotStreamUnzippable`. `chunks` is a nested `Generator[bytes]` that MUST be fully consumed before advancing, or the outer generator raises `UnfinishedIterationError` at the NEXT member boundary (the guard fires on re-entry, not eagerly). `password` (`bytes`, not `str` — the bundle owner passes `password.encode()`) decrypts ZipCrypto and WinZip-AES members; the record's own extra fields (the `\x01\x99` AES extra, the general-purpose flag bits) select the mechanism, so one call covers every scheme. `allow_zip64` permits ZIP64 size/offset extra fields; `allowed_encryption_mechanisms` is the accept allow-list (default `_ALL_ENCRYPTIONS`). `async_stream_unzip` mirrors the signature over async iterables, yielding an `AsyncGenerator` of `(name, size, async_chunks)`; internally it runs the SYNC `stream_unzip` on a worker thread (`asyncio.run_in_executor` under asyncio, `trio.to_thread.run_sync` under trio) and bridges the two directions through sentinel-terminated thread hops, auto-detecting whether it is inside an asyncio loop or a trio nursery — so it is the native `anyio`-compatible boundary for both backends, never a busy-loop or a hand-rolled executor in the consumer. Both entrypoints share the knob set `password: bytes | None=None, chunk_size: int=65536, allow_zip64: bool=True, allowed_encryption_mechanisms: Container[_Encryption]=_ALL_ENCRYPTIONS` and yield `(name: bytes, size: int | None, chunks)` triples — a `Generator`/`AsyncGenerator` over `tuple[bytes, int | None, Generator[bytes] | AsyncGenerator[bytes]]`; the table carries only the input iterable each takes.
 
-| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                                                                                                                                                                                                                                                | [CAPABILITY]                                  |
-| :-----: | :------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------- |
-|  [01]   | `stream_unzip`       | `stream_unzip(zipfile_chunks: Iterable[bytes], password: bytes \| None=None, chunk_size: int=65536, allow_zip64: bool=True, allowed_encryption_mechanisms: Container[_Encryption]=_ALL_ENCRYPTIONS) -> Generator[tuple[bytes, int \| None, Generator[bytes]]]`              | stream-extract a ZIP archive member by member |
-|  [02]   | `async_stream_unzip` | `async_stream_unzip(chunks: AsyncIterable[bytes], password: bytes \| None=None, chunk_size: int=65536, allow_zip64: bool=True, allowed_encryption_mechanisms: Container[_Encryption]=_ALL_ENCRYPTIONS) -> AsyncGenerator[tuple[bytes, int \| None, AsyncGenerator[bytes]]]` | async mirror over async container chunks      |
+| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                          | [CAPABILITY]                                  |
+| :-----: | :------------------- | :---------------------------------------------------- | :-------------------------------------------- |
+|  [01]   | `stream_unzip`       | `stream_unzip(zipfile_chunks: Iterable[bytes], …)`    | stream-extract a ZIP archive member by member |
+|  [02]   | `async_stream_unzip` | `async_stream_unzip(chunks: AsyncIterable[bytes], …)` | async mirror over async container chunks      |
 
 [ENTRYPOINT_SCOPE]: encryption-mechanism allow-list
 - rail: bundle

@@ -21,7 +21,7 @@ Every mass-properties handle is a disposable native resource leased through the 
 - Growth: a new mass projection (a gyration tensor, a centroid-frame inertia) is one `MassProperty` row — key, suffix, output, three moment columns, one extract delegate — zero operation edits; a new mass domain is one `MassKind` row binding its requirement and compute/aggregate delegates; a new analytic centroid carrier is one `CentroidOf` switch arm.
 - Boundary: eleven measures are three cases over two policy enums — a `MeasureLength`/`MeasureArea`/`MeasureVolume`/`MeasureCentroid` sibling-operation family is the named proliferation this coordinate design deletes; every mass handle is leased (`Lease<IDisposable>.Owned(…).Use(…)`) and a raw `Compute` whose handle escapes the projection scope is the resource-leak defect; the moment-demand columns request EXACTLY the moments the extraction reads (magnitude requests none, inertia requests all three) so the host never computes unread moments; `MassKind.None` rejects through its delegates rather than a null-object silently succeeding; the area path threads `context.Fractional`/`context.Absolute.Value` into the host tolerances and a hardcoded tolerance literal is the deleted form.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -309,7 +309,7 @@ public static partial class Analyze {
 - Growth: a new box metric is one `BoxMetric` call arm (two projection lambdas); a new enclosing solid (a capsule, an ellipsoid) is one case composing the SAME `EnclosingSamples` + `RitterFit`/native-fit machinery; a new recovery frame source is one case arm — never a `BoundsCalculator` sibling class.
 - Boundary: fifteen modalities live on ONE union dispatched by ONE `Switch` — a `BoundingBoxOps`/`OrientedBoxOps`/`EnclosingSolidOps` class family is the named fragmentation this owner deletes; the aspect-ratio denominator floors at `RhinoMath.ZeroTolerance` so a degenerate extent yields a large finite ratio, never an infinity crossing the rail; `Corners(unique: true)` deduplicates at MODEL absolute tolerance from the threaded `Context`, never a literal epsilon; the enclosing fits are measured approximations by contract — Ritter over N surface samples (`EnclosingSampleCount` the named default, a bare count literal the dead form), documented as the bounding guarantee (every sample enclosed), not a minimal-ball claim; the box-metric operations accept `BoundingBox` or `Box` VALUES as the geometry input (the box is the analyzed object), the recovery operations accept geometry — one union serves both altitudes and the type gates keep them disjoint.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using LanguageExt;
@@ -512,7 +512,7 @@ public static partial class Analyze {
 - Growth: a new conformance metric (a percentile band, a signed RMS, a Hausdorff estimate) is ONE row — key, output, three columns, one projection delegate — zero pipeline edits; a new target admission class is one column read by `AcceptsTarget`, never a parallel sampling pipeline.
 - Boundary: the residual pipeline is ONE sampling fold parameterized by the metric row — a `DistanceConformance`/`ContainmentConformance`/`SignedConformance` operation family is the deleted sibling form; distance measurement routes through the `Spatial/support` projection gate exclusively — a local closest-point/containment switch beside `SupportSpace` is the killed parallel proximity rail; `WithinTolerance` inside every sample is DERIVED at construction from the threaded model tolerance (`|d| <= context.Absolute.Value`), so the receipt is self-consistent by construction and the evidence law makes an inconsistent sample unrepresentable past the oracle; percentiles reach only the `Distribution` row — the factory already stripped them elsewhere, and the projection signature still carries them so the row set stays uniform.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Runtime.InteropServices;
@@ -661,14 +661,14 @@ flowchart LR
 
 One owner per axis; a new measure, bound, or metric is a row or a case, never a sibling surface.
 
-| [INDEX] | [CONCERN]              | [OWNER]             | [KIND]                                                             | [RAIL]                                   | [CASES] |
-| :-----: | :--------------------- | :------------------ | :----------------------------------------------------------------- | :--------------------------------------- | :-----: |
-|  [01]   | Measure vocabulary     | `Measure`           | `[Union]` — 3 cases spanning 11 factories over the mass coordinate | `Operation → Eff<Env, Seq<TOut>>`        |    3    |
-|  [02]   | Mass domain            | `MassKind`          | `[SmartEnum<int>]` + `Requirement` + compute/aggregate delegates   | `Fin<IDisposable>` leased handles        |    4    |
-|  [03]   | Mass projection        | `MassProperty`      | `[SmartEnum<int>]` + moment columns + typed extract delegate       | `Fin<Seq<TValue>>` oracle-admitted       |    8    |
-|  [04]   | Bounding vocabulary    | `Bounds`            | `[Union]` — recovery/projection/metric/enclosing clusters          | `Operation → Eff<Env, Seq<TOut>>`        |   15    |
-|  [05]   | Conformance vocabulary | `ConformanceMetric` | `[SmartEnum<int>]` + admission columns + projection delegate       | `Fin<Seq<TOut>>` through `Project<TOut>` |    8    |
-|  [06]   | Residual receipt       | `ResidualSample`    | `readonly record struct` + `IValidityEvidence` consistency law     | evidence carrier                         |    —    |
+| [INDEX] | [CONCERN]              | [OWNER]             | [KIND]                                    | [RAIL]                             | [CASES] |
+| :-----: | :--------------------- | :------------------ | :---------------------------------------- | :--------------------------------- | :-----: |
+|  [01]   | Measure vocabulary     | `Measure`           | `[Union]` — 3 cases, 11 factories         | `Operation → Eff<Env, Seq<TOut>>`  |    3    |
+|  [02]   | Mass domain            | `MassKind`          | `[SmartEnum<int>]` compute/aggregate rows | `Fin<IDisposable>` leased handles  |    4    |
+|  [03]   | Mass projection        | `MassProperty`      | `[SmartEnum<int>]` moment cols, extract   | `Fin<Seq<TValue>>` oracle-admitted |    8    |
+|  [04]   | Bounding vocabulary    | `Bounds`            | `[Union]` — 4 modality clusters           | `Operation → Eff<Env, Seq<TOut>>`  |   15    |
+|  [05]   | Conformance vocabulary | `ConformanceMetric` | `[SmartEnum<int>]` admission + projection | `Fin<Seq<TOut>>` `Project<TOut>`   |    8    |
+|  [06]   | Residual receipt       | `ResidualSample`    | `readonly record struct` + evidence law   | evidence carrier                   |    —    |
 
 All three fences are transcription-complete host captures: the mass compute/aggregate/extract lattice with its lease discipline, the fifteen-modality bounds dispatch with the shared Ritter fold, and the metric-row residual pipeline. The `Stat`/`Distribution`/`SampleMoment` statistics substrate is `Domain/stats` law composed here; the support-distance projection is `Spatial/support` + `Processing/intent` law; the exact curve deviation is `Analysis/relations` law.
 

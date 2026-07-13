@@ -15,17 +15,17 @@
 
 Time-free: the graph is constructed, wired with `pipe`, driven synchronously; the delta unit is a signed `MultiSet` with no version. `output` receives the `MultiSet` directly — there is no `Message`/`FRONTIER` envelope.
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]            | [CAPABILITY_BOUNDARY]                                                                |
-| :-----: | :------------------------------ | :----------------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `D2` (no options)               | class                    | the graph; `newInput()` mints a `RootStreamBuilder`, `run`/`step`/`finalize`         |
-|  [02]   | `RootStreamBuilder<T>`          | class                    | input handle — `sendData(collection)` ONLY; no `sendFrontier`, no version            |
-|  [03]   | `StreamBuilder<T>`              | class (`IStreamBuilder`) | pipeline node; 1..20-arity `pipe(...)` over `PipedOperator`s                         |
-|  [04]   | `MultiSet<T>` (`MultiSetArray`) | class                    | signed multiset — `map`/`filter`/`negate`/`concat`/`consolidate`/`extend`/`getInner` |
-|  [05]   | `Index<K, V>`                   | class                    | in-memory keyed trace — `get`/`getMultiplicity`/`join`; NO `reconstructAt`/`compact` |
-|  [06]   | `KeyValue<K, V>` = `[K, V]`     | tuple alias              | the keyed-record shape the keyed operators require                                   |
-|  [07]   | `PipedOperator<I, O>`           | function alias           | `(stream: IStreamBuilder<I>) => IStreamBuilder<O>` — the ONE operator shape          |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]  | [CAPABILITY_BOUNDARY]                                                                |
+| :-----: | :------------------------------ | :------------- | :----------------------------------------------------------------------------------- |
+|  [01]   | `D2` (no options)               | class          | the graph; `newInput()` mints a `RootStreamBuilder`, `run`/`step`/`finalize`         |
+|  [02]   | `RootStreamBuilder<T>`          | class          | input handle — `sendData(collection)` ONLY; no `sendFrontier`, no version            |
+|  [03]   | `StreamBuilder<T>`              | class          | pipeline node (`IStreamBuilder`); 1..20-arity `pipe(...)` over `PipedOperator`s      |
+|  [04]   | `MultiSet<T>` (`MultiSetArray`) | class          | elementwise `map`/`filter`/`negate`/`concat`/`consolidate`/`extend`/`getInner`       |
+|  [05]   | `Index<K, V>`                   | class          | in-memory keyed trace — `get`/`getMultiplicity`/`join`; NO `reconstructAt`/`compact` |
+|  [06]   | `KeyValue<K, V>` = `[K, V]`     | tuple alias    | the keyed-record shape the keyed operators require                                   |
+|  [07]   | `PipedOperator<I, O>`           | function alias | `(stream: IStreamBuilder<I>) => IStreamBuilder<O>` — the ONE operator shape          |
 
-```ts contract
+```ts signature
 // No initialFrontier, no version on sendData — the minimal, time-free graph. output sees the raw MultiSet, not a Message.
 declare class D2 implements ID2 {
   constructor()
@@ -56,15 +56,33 @@ declare class Index<K, V> {
 
 The operator library is the SAME ONE-shape `PipedOperator<I, O>` composed by `pipe` as d2ts — the roster is SEED DATA on it. d2mini drops the versioned operators (`iterate` fixpoint, `buffer`) and adds the `sorted-btree` ordered lane. Four families, same as d2ts minus recursion.
 
-| [INDEX] | [FAMILY]      | [OPERATORS]                                                                                                                                       | [SHAPE_BOUNDARY]                                                        |
-| :-----: | :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------- |
-|  [01]   | element-wise  | `map` `filter` `negate` `concat` `consolidate` `debug` `output`                                                                                   | `PipedOperator<T, …>`; `output` sees the raw `MultiSet`                 |
-|  [02]   | keying        | `keyBy(fn)` `unkey()` `rekey(fn)` `filterBy(other)`                                                                                               | `T ⇄ KeyValue<K, T>`; `filterBy` semijoins against a key stream         |
-|  [03]   | keyed fold    | `join`(+`inner`/`left`/`right`/`full`/`anti`, `JoinType`) `reduce` `count` `distinct` `groupBy`(+`sum`/`count`/`avg`/`min`/`max`/`median`/`mode`) | `KeyValue<K, V>` in — the incremental Semigroup fold per key            |
-|  [04]   | ordered       | `topK` `topKWithIndex` `topKWithFractionalIndex` `orderBy`(+`WithIndex`/`WithFractionalIndex`)                                                    | fractional-index maintenance; NO full re-sort                           |
-|  [05]   | ordered/BTree | `topKWithFractionalIndexBTree` `orderByWithFractionalIndexBTree` (`loadBTree()`)                                                                  | SEALED — files unreferenced by the catalog-bound barrel; not importable |
+| [INDEX] | [OPERATOR]                        | [FAMILY]      | [SHAPE_BOUNDARY]                                                  |
+| :-----: | :-------------------------------- | :------------ | :---------------------------------------------------------------- |
+|  [01]   | `map`                             | element-wise  | `MultiSet<T>→U` elementwise transform                             |
+|  [02]   | `filter`                          | element-wise  | drop elements failing the predicate                               |
+|  [03]   | `negate`                          | element-wise  | flip multiplicities (retraction)                                  |
+|  [04]   | `concat`                          | element-wise  | union two `MultiSet` deltas                                       |
+|  [05]   | `consolidate`                     | element-wise  | collapse equal elements, sum multiplicity                         |
+|  [06]   | `debug`                           | element-wise  | tap the delta stream for tracing                                  |
+|  [07]   | `output(fn)`                      | element-wise  | sink — `fn` sees the raw `MultiSet`, not a `Message`              |
+|  [08]   | `keyBy(fn)`                       | keying        | `T → KeyValue<K, T>`                                              |
+|  [09]   | `unkey()`                         | keying        | `KeyValue<K, T> → T`                                              |
+|  [10]   | `rekey(fn)`                       | keying        | remap the key of a `KeyValue`                                     |
+|  [11]   | `filterBy(other)`                 | keying        | semijoin against a key stream                                     |
+|  [12]   | `join`                            | keyed fold    | `+ JoinType` inner/left/right/full/anti; incremental per-key join |
+|  [13]   | `reduce`                          | keyed fold    | the incremental Semigroup fold per key                            |
+|  [14]   | `count`                           | keyed fold    | per-key element count                                             |
+|  [15]   | `distinct`                        | keyed fold    | dedupe per key; rejects negative multiplicity                     |
+|  [16]   | `groupBy`                         | keyed fold    | `+ sum/count/avg/min/max/median/mode` aggregates                  |
+|  [17]   | `topK`                            | ordered       | keep the top-K per key by comparator                              |
+|  [18]   | `topKWithIndex`                   | ordered       | top-K with a numeric position index                               |
+|  [19]   | `topKWithFractionalIndex`         | ordered       | top-K with a stable fractional index; NO re-sort                  |
+|  [20]   | `orderBy`                         | ordered       | `+ WithIndex`/`WithFractionalIndex`; incremental order            |
+|  [21]   | `topKWithFractionalIndexBTree`    | ordered/BTree | SEALED — barrel omits the file; not importable                    |
+|  [22]   | `orderByWithFractionalIndexBTree` | ordered/BTree | SEALED — barrel omits the file; not importable                    |
+|  [23]   | `loadBTree()`                     | ordered/BTree | SEALED — no subpath; unreachable                                  |
 
-```ts contract
+```ts signature
 // Same pipe/join/reduce/groupBy algebra as d2ts — the reducer is a @effect/typeclass Semigroup applied per key.
 type JoinType = 'inner' | 'left' | 'right' | 'full' | 'anti'
 declare function join<K, V1, V2, T>(other: IStreamBuilder<KeyValue<K, V2>>, type?: JoinType): PipedOperator<T, KeyValue<K, [V1 | null, V2 | null]>>
@@ -74,7 +92,7 @@ declare const groupByOperators: { sum; count; avg; min; max; median; mode }
 declare function filterBy<K, V1, T>(other: IStreamBuilder<KeyValue<K, unknown>>): PipedOperator<T, KeyValue<K, V1>>   // semijoin
 ```
 
-```ts contract
+```ts signature
 // The reachable ordered lane: fractional string indices give a stable position without renumbering, so an insert moves one key, never a re-sort. The *BTree twins are defined in dist/operators/orderByBTree.js and topKWithFractionalIndexBTree.js but neither file is re-exported by dist/operators/index.js and no subpath exists — sealed until upstream re-exports them.
 declare function topKWithFractionalIndex<K, V1, T>(cmp: (a: V1, b: V1) => number, opts?: { limit?; offset? }): PipedOperator<T, KeyValue<K, [V1, string]>>
 declare function orderByWithFractionalIndex<T, Ve>(valueExtractor: (v: V) => Ve, opts?: { comparator?; limit?; offset? }): (s: IStreamBuilder<T>) => IStreamBuilder<KeyValue<K, [V, string]>>

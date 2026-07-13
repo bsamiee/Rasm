@@ -207,11 +207,16 @@ public abstract partial record GeometryFault {
 
 ## [03]-[DENSITY_BAR]
 
-One owner for the whole geometry fault rail; a new failure is a case in its sibling's sub-band, never a sibling union. The `[RAIL]` cell names the channel each owner serves.
+One owner for the whole geometry fault rail; a new failure is a case in its sibling's sub-band, never a sibling union. The `[RAIL]` cell names the channel each owner serves, and the per-axis kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]     | [OWNER]            | [KIND]                                                                                                                | [RAIL]                                                                       | [CASES] |
-| :-----: | :----------------- | :----------------- | :-------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------- | :-----: |
-|  [01]   | Fault family       | `GeometryFault`    | `[Union]` band 2400-2449, typed discriminant payloads + `Code`/`Message`/`Cluster` derived folds + `ToError` lowering | `GeometryFault.<Case>(...).ToError() → Error` (the `Fin<T>` failure channel) |   25    |
-|  [02]   | Cluster taxonomy   | `FaultCluster`     | `[SmartEnum<int>]` keyed by stride base, `Name`/`Namespace` columns + `OfCode` stride arithmetic                      | `FaultCluster.OfCode(code)` (pure, total over the band)                      |   13    |
-|  [03]   | Parametric stages  | `ParametricStage`  | `[SmartEnum<string>]` `StringOrdinal`-keyed stage vocabulary (`ParametricFault` discriminant)                         | payload row on the union                                                     |    5    |
-|  [04]   | Development stages | `DevelopmentStage` | `[SmartEnum<string>]` `StringOrdinal`-keyed stage vocabulary (`DevelopmentFault` discriminant)                        | payload row on the union                                                     |    4    |
+| [INDEX] | [AXIS_CONCERN]     | [OWNER]            | [RAIL]                                                                       | [CASES] |
+| :-----: | :----------------- | :----------------- | :--------------------------------------------------------------------------- | :-----: |
+|  [01]   | Fault family       | `GeometryFault`    | `GeometryFault.<Case>(...).ToError() → Error` (the `Fin<T>` failure channel) |   25    |
+|  [02]   | Cluster taxonomy   | `FaultCluster`     | `FaultCluster.OfCode(code)` (pure, total over the band)                      |   13    |
+|  [03]   | Parametric stages  | `ParametricStage`  | payload row on the union                                                     |    5    |
+|  [04]   | Development stages | `DevelopmentStage` | payload row on the union                                                     |    4    |
+
+- [01]-[FAULT_FAMILY]: `[Union]` band 2400-2449, typed discriminant payloads + `Code`/`Message`/`Cluster` derived folds + `ToError` lowering.
+- [02]-[CLUSTER_TAXONOMY]: `[SmartEnum<int>]` keyed by stride base, `Name`/`Namespace` columns + `OfCode` stride arithmetic.
+- [03]-[PARAMETRIC_STAGES]: `[SmartEnum<string>]` `StringOrdinal`-keyed stage vocabulary (`ParametricFault` discriminant).
+- [04]-[DEVELOPMENT_STAGES]: `[SmartEnum<string>]` `StringOrdinal`-keyed stage vocabulary (`DevelopmentFault` discriminant).

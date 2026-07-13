@@ -380,13 +380,13 @@ public static class SyncMerge {
 }
 ```
 
-| [INDEX] | [POLICY]                | [VALUE]                                                               | [BINDING]                                                                                    |
-| :-----: | :---------------------- | :-------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | scalar default          | LWW by `(Hlc, OriginStoreId)`; `FirstWriter` inverts to earliest-wins | total order, deterministic across peers; the `(cmp, isFirstWriter)` switch flips both arms   |
-|  [02]   | crdt lane               | `Crdt.Apply` join-semilattice                                         | converges by merge; the multi-writer offline substrate                                       |
-|  [03]   | causal fork             | equal `(stamp, origin)` divergent content                             | `SyncFault.Forked` halts merge; never a soft conflict                                        |
-|  [04]   | conservation            | receipt `IsValid` — `ValidityClaim.All` over the carried `Batch`      | a breach is `SyncFault.Unconserved` failing the rail                                         |
-|  [05]   | whole-relation truncate | `Kind.WholeRelation` → session `Truncate` delegate                    | the winning truncate clears the `(Model, Family)` relation; `Held` answers the relation head |
+| [INDEX] | [POLICY]                | [VALUE]                                                 | [BINDING]                                          |
+| :-----: | :---------------------- | :------------------------------------------------------ | :------------------------------------------------- |
+|  [01]   | scalar default          | LWW `(Hlc, OriginStoreId)`; `FirstWriter` earliest-wins | deterministic total order across peers             |
+|  [02]   | crdt lane               | `Crdt.Apply` join-semilattice                           | converges by merge; multi-writer offline substrate |
+|  [03]   | causal fork             | equal `(stamp, origin)` divergent content               | `SyncFault.Forked` halts merge                     |
+|  [04]   | conservation            | receipt `IsValid` — `ValidityClaim.All` over `Batch`    | a breach is `SyncFault.Unconserved`                |
+|  [05]   | whole-relation truncate | `Kind.WholeRelation` → session `Truncate` delegate      | clears `(Model, Family)`; `Held` answers the head  |
 
 ## [04]-[SYNC_TRANSPORTS]
 
@@ -466,12 +466,12 @@ public static class SyncPump {
 }
 ```
 
-| [INDEX] | [POLICY]                  | [VALUE]                                                      | [BINDING]                                                                        |
-| :-----: | :------------------------ | :----------------------------------------------------------- | :------------------------------------------------------------------------------- |
-|  [01]   | intra-cluster replication | Marten daemon `HotCold`                                      | this axis is the cross-store/offline lane only                                   |
-|  [02]   | graph checkout            | fetch+apply the root entry; `GraphDiff` is the BLOB manifest | the `Closure` blob set transfers through the blob store, never an op-log `Fetch` |
-|  [03]   | Speckle marshal           | DI-resolved instance `IOperations`                           | runs outside-Rhino; `rootObjId` → `ContentKey`; drift faults                     |
-|  [04]   | http delta                | AppHost `OutboundHop` pipeline                               | database excluded from the hop law                                               |
+| [INDEX] | [POLICY]                  | [VALUE]                                            | [BINDING]                                               |
+| :-----: | :------------------------ | :------------------------------------------------- | :------------------------------------------------------ |
+|  [01]   | intra-cluster replication | Marten daemon `HotCold`                            | this axis is the cross-store/offline lane only          |
+|  [02]   | graph checkout            | fetch+apply root; `GraphDiff` is the BLOB manifest | `Closure` set via the blob store, not an op-log `Fetch` |
+|  [03]   | Speckle marshal           | DI-resolved instance `IOperations`                 | outside-Rhino; `rootObjId` → `ContentKey`; drift faults |
+|  [04]   | http delta                | AppHost `OutboundHop` pipeline                     | database excluded from the hop law                      |
 
 ## [05]-[PRESENCE]
 

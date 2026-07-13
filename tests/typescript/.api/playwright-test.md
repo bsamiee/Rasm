@@ -14,17 +14,17 @@
 
 [ENTRYPOINT_SCOPE]: the value exports — everything a spec or config file imports from the barrel.
 
-| [INDEX] | [SYMBOL]                           | [TYPE]                                                                  | [CAPABILITY]                                                                |
-| :-----: | :--------------------------------- | :---------------------------------------------------------------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `test`                             | `TestType<PlaywrightTestArgs & …Options, …WorkerArgs & …WorkerOptions>` | the runner; declares tests + owns fixtures (see [02])                       |
-|  [02]   | `expect`                           | `Expect<{}>`                                                            | web-first auto-retrying assertions (see [03])                               |
-|  [03]   | `devices`                          | keyed descriptor map                                                    | `devices['Desktop Chrome']` → a `use` preset; the parameterized device axis |
-|  [04]   | `defineConfig(config, ...configs)` | 6 overloads → `PlaywrightTestConfig`                                    | config-as-code with right-fold merge of later configs                       |
-|  [05]   | `mergeTests(...tests)`             | `MergedTestType<List>`                                                  | compose independent fixture sets into one `test`                            |
-|  [06]   | `mergeExpects(...expects)`         | `MergedExpect<List>`                                                    | compose independent matcher sets into one `expect`                          |
-|  [07]   | `_baseTest`                        | `TestType<{}, {}>`                                                      | the fixture-free base to `.extend` from scratch                             |
+| [INDEX] | [SYMBOL]       | [TYPE]                               | [CAPABILITY]                                                  |
+| :-----: | :------------- | :----------------------------------- | :------------------------------------------------------------ |
+|  [01]   | `test`         | `TestType<TestArgs, WorkerArgs>`     | the runner; declares tests + owns fixtures ([02])             |
+|  [02]   | `expect`       | `Expect<{}>`                         | web-first auto-retrying assertions ([03])                     |
+|  [03]   | `devices`      | keyed descriptor map                 | `devices['Desktop Chrome']` → a `use` preset; the device axis |
+|  [04]   | `defineConfig` | 6 overloads → `PlaywrightTestConfig` | config-as-code; right-fold merge of later configs             |
+|  [05]   | `mergeTests`   | `MergedTestType<List>`               | compose independent fixture sets into one `test`              |
+|  [06]   | `mergeExpects` | `MergedExpect<List>`                 | compose independent matcher sets into one `expect`            |
+|  [07]   | `_baseTest`    | `TestType<{}, {}>`                   | the fixture-free base to `.extend` from scratch               |
 
-```ts contract
+```ts signature
 export const test: TestType<PlaywrightTestArgs & PlaywrightTestOptions, PlaywrightWorkerArgs & PlaywrightWorkerOptions>
 export const expect: Expect<{}>
 export const devices: { [name: string]: DeviceDescriptor }         // e.g. devices['iPhone 15'] → viewport/userAgent/deviceScaleFactor preset
@@ -38,7 +38,7 @@ export function mergeExpects<List extends any[]>(...expects: List): MergedExpect
 
 The `TestType` interface is ONE dispatch surface — `test(title, body)` plus modifier and lifecycle members hung off it, never a family of parallel entrypoints. Its type parameters carry the FIXTURE bag: fixtures are a typed DI rail (`.extend<Fixtures>`), and the built-in fixtures below are SEED ROWS on that rail, not a fixed roster — a custom fixture is a new row, `mergeTests` unions two fixture sets.
 
-```ts contract
+```ts signature
 interface TestType<TestArgs, WorkerArgs> {
   (title: string, body: (args: TestArgs & WorkerArgs, testInfo: TestInfo) => Promise<void> | void): void
   (title: string, details: TestDetails, body: (args: TestArgs & WorkerArgs, testInfo: TestInfo) => Promise<void> | void): void
@@ -62,7 +62,7 @@ interface PlaywrightWorkerArgs { playwright: typeof import('playwright-core'); b
 
 Page/context CONTROL surfaces the fixture rail composes — the four families a hermetic platform fixture rides:
 
-```ts contract
+```ts signature
 // page.clock — fake-time control: install() AUTO-ADVANCES from its epoch, so pre-jump ticks carry the page-load offset;
 //   callbacks fired by fastForward/pauseAt see the exact target instant — exact-text assertions ride the post-jump surface.
 interface Clock {
@@ -86,7 +86,7 @@ await cdp.send('WebAuthn.removeVirtualAuthenticator', { authenticatorId })   // 
 
 `expect` is a SEPARATE assertion library from `@effect/vitest`'s — its matchers AUTO-RETRY against a live browser until they pass or time out, which no synchronous matcher can do. Never mix the two `expect` symbols in one spec file.
 
-```ts contract
+```ts signature
 type Expect<ExtendedMatchers = {}> = {
   <T = unknown>(actual: T, messageOrOptions?: string | { message?: string }): MakeMatchers<void, T, ExtendedMatchers>
   soft: Expect<ExtendedMatchers>                                                       // record failure, keep going
@@ -106,7 +106,7 @@ type Expect<ExtendedMatchers = {}> = {
 
 `defineConfig` is config-as-code: `projects: Project[]` is the browser × device matrix (each project a `{ name, use }` row where `use` layers `devices[...]` presets), and `use: PlaywrightTestOptions` sets the shared context. Options are ONE bag, split test-scoped vs worker-scoped.
 
-```ts contract
+```ts signature
 // type PlaywrightTestConfig<T = {}, W = {}> = Config<PlaywrightTestOptions & CustomProperties<T>, PlaywrightWorkerOptions & CustomProperties<W>>  (Config extends TestConfig — the optional input fields live there)
 interface TestConfig<T = {}, W = {}> {
   testDir?: string; testMatch?: string | RegExp | (string | RegExp)[]; outputDir?: string        // outputDir defaults to <package.json-dir>/test-results — a ROOT write on a bare run
@@ -134,7 +134,7 @@ interface Project<T, W> {  // beyond name/use/testMatch: the dependency topology
 
 `@playwright/test/reporter` is the SPI a custom reporter implements to project results as data — the seam that feeds the e2e gauge a machine result rather than console text.
 
-```ts contract
+```ts signature
 // import type { Reporter, FullConfig, Suite, TestCase, TestResult, TestStep, TestError, WorkerInfo, FullResult } from "@playwright/test/reporter"
 interface Reporter {
   onBegin?(config: FullConfig, suite: Suite): void

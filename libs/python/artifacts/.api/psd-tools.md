@@ -23,40 +23,41 @@
 
 `PSDImage` is the document root and also a `GroupMixin`, so the top of the layer tree is iterated/indexed directly on it. Every node is a `Layer` (the polymorphic root carrying geometry/blend/opacity/mask/effects/clipping + the `topil`/`numpy`/`composite` egress); the concrete kind is one of seven subclasses discriminated by `Layer.kind`, never a parallel reader type. `Group` is the only container subclass (it mixes in `GroupMixin`); `PixelLayer` carries raster channels; `TypeLayer` carries the text engine dict; `ShapeLayer` carries vector/stroke origination; `SmartObjectLayer` wraps an embedded/linked payload; `AdjustmentLayer`/`FillLayer` carry the descriptor-driven non-destructive edits. `Mask`, `Effects`, and `SmartObject` are the side-channel owners reached off a layer. The two warnings are the only non-fatal signals; parse/IO failure raises ordinary exceptions lifted at the boundary.
 
-| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY]      | [RAIL]                                                                                       |
-| :-----: | :------------------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `PSDImage`                                         | document root      | the whole PSD/PSB; `GroupMixin` over the top-level layers + factory/egress/save surface      |
-|  [02]   | `Layer`                                            | layer root         | polymorphic node; geometry/blend/opacity/mask/effects/clipping + `topil`/`numpy`/`composite` |
-|  [03]   | `GroupMixin`                                       | container algebra  | tree traversal/mutation mixed into `PSDImage` and `Group` (`descendants`/`find`/`append`)    |
-|  [04]   | `Group`                                            | group layer        | a layer that contains layers; `Group.new`/`group_layers`; `open_folder` state                |
-|  [05]   | `PixelLayer`                                       | raster layer       | bitmap channel data; `PixelLayer.frompil` author; `has_pixels`                               |
-|  [06]   | `TypeLayer`                                        | text layer         | live text: `text`/`engine_dict`/`font_names`/`text_type`/`transform`/`warp`/`typesetting`    |
-|  [07]   | `ShapeLayer`                                       | vector layer       | vector-mask shape + `stroke`/`origination`; geometry-derived bbox                            |
-|  [08]   | `SmartObjectLayer`                                 | smart object layer | wraps a `SmartObject` (embedded/linked external asset)                                       |
-|  [09]   | `AdjustmentLayer`                                  | adjustment layer   | non-destructive edit (`Curves`/`Levels`/`HueSaturation`/... descriptor subclasses)           |
-|  [10]   | `FillLayer`                                        | fill layer         | solid/gradient/pattern fill (`SolidColorFill`/`GradientFill`/`PatternFill`)                  |
-|  [11]   | `Mask`                                             | layer mask         | raster/vector mask off a layer; `topil`/`data`/`bbox`/`disabled`/`real_flags`                |
-|  [12]   | `Effects`                                          | layer styles       | iterable of `DropShadow`/`OuterGlow`/`ColorOverlay`/`Stroke`/`BevelEmboss`/`Satin`/...       |
-|  [13]   | `SmartObject`                                      | smart payload      | embedded/linked asset bytes + `filetype`/`resolution`/`warp`/`open`/`save`                   |
-|  [14]   | `PSDDecompressionWarning` / `PSDLargeImageWarning` | warning            | non-fatal decode-size / large-image signals (both `UserWarning`)                             |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]      | [RAIL]                                                                        |
+| :-----: | :------------------------ | :----------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `PSDImage`                | document root      | `GroupMixin` over top-level layers + factory/egress/save surface              |
+|  [02]   | `Layer`                   | layer root         | geometry/blend/opacity/mask/effects/clipping + `topil`/`numpy`/`composite`    |
+|  [03]   | `GroupMixin`              | container algebra  | traversal + mutation on `PSDImage`/`Group` (`descendants`/`find`/`append`)    |
+|  [04]   | `Group`                   | group layer        | contains layers; `Group.new`/`group_layers`; `open_folder` state              |
+|  [05]   | `PixelLayer`              | raster layer       | bitmap channels; `PixelLayer.frompil` author; `has_pixels`                    |
+|  [06]   | `TypeLayer`               | text layer         | `text`/`engine_dict`/`font_names`/`text_type`/`transform`/`warp`              |
+|  [07]   | `ShapeLayer`              | vector layer       | vector-mask shape + `stroke`/`origination`; geometry-derived bbox             |
+|  [08]   | `SmartObjectLayer`        | smart object layer | wraps a `SmartObject` (embedded/linked external asset)                        |
+|  [09]   | `AdjustmentLayer`         | adjustment layer   | non-destructive edit (`Curves`/`Levels`/`HueSaturation`/... subclasses)       |
+|  [10]   | `FillLayer`               | fill layer         | `SolidColorFill`/`GradientFill`/`PatternFill`                                 |
+|  [11]   | `Mask`                    | layer mask         | raster/vector mask; `topil`/`data`/`bbox`/`disabled`/`real_flags`             |
+|  [12]   | `Effects`                 | layer styles       | `DropShadow`/`OuterGlow`/`ColorOverlay`/`Stroke`/`BevelEmboss`/`Satin` styles |
+|  [13]   | `SmartObject`             | smart payload      | embedded/linked bytes + `filetype`/`resolution`/`warp`/`open`/`save`          |
+|  [14]   | `PSDDecompressionWarning` | warning            | non-fatal decode-size signal (`UserWarning`)                                  |
+|  [15]   | `PSDLargeImageWarning`    | warning            | non-fatal large-image signal (`UserWarning`)                                  |
 
 [PUBLIC_TYPE_SCOPE]: constant vocabularies (closed Enum/IntEnum tables)
 - rail: layered
 
 These are the closed enums the layer records key on — pass the member, never a raw PSD int/byte. `BlendMode` is the 28-case Photoshop blend vocabulary (members are 4-byte tokens, e.g. `NORMAL == b'norm'`, `PASS_THROUGH == b'pass'`); `Compression` is the 4-case per-channel codec selector that `save`/`create_*` take; `ColorMode` is the 8-case document color model (the CMYK/LAB/DUOTONE authority the pub/print plane needs); `ChannelID` enumerates color + mask channels; `Tag`/`Resource` are the tagged-block / image-resource key spaces the inspect path reads. `Clipping`, `SectionDivider`, and `SheetColorType` complete the structural vocabulary.
 
-| [INDEX] | [SYMBOL]         | [PACKAGE_ROLE]     | [MEMBERS_EFFECT]                                                                                                                      |
-| :-----: | :--------------- | :----------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `BlendMode`      | blend vocabulary   | 28 cases — `PASS_THROUGH`/`NORMAL`/`MULTIPLY`/`SCREEN`/`OVERLAY`/`SOFT_LIGHT`/.../`LUMINOSITY` (byte tokens)                          |
-|  [02]   | `Compression`    | channel codec      | `RAW` / `RLE` / `ZIP` / `ZIP_WITH_PREDICTION` — per-channel save codec                                                                |
-|  [03]   | `ColorMode`      | color model        | `BITMAP` / `GRAYSCALE` / `INDEXED` / `RGB` / `CMYK` / `MULTICHANNEL` / `DUOTONE` / `LAB`                                              |
-|  [04]   | `ChannelID`      | channel index      | `CHANNEL_0..9` / `TRANSPARENCY_MASK` / `USER_LAYER_MASK` / `REAL_USER_LAYER_MASK`                                                     |
-|  [05]   | `Clipping`       | clip role          | `BASE` / `NON_BASE` — clipping-layer membership                                                                                       |
-|  [06]   | `SectionDivider` | group marker       | `OTHER` / `OPEN_FOLDER` / `CLOSED_FOLDER` / `BOUNDING_SECTION_DIVIDER`                                                                |
-|  [07]   | `Tag`            | tagged-block key   | 94 cases — `TYPE_TOOL_OBJECT_SETTING` / `VECTOR_MASK_SETTING1` / `SMART_OBJECT_LAYER_DATA1` / `OBJECT_BASED_EFFECTS_LAYER_INFO` / ... |
-|  [08]   | `Resource`       | image-resource key | 129 cases — `ICC_PROFILE` / `RESOLUTION_INFO` / `XMP_METADATA` / `THUMBNAIL_RESOURCE` / ...                                           |
-|  [09]   | `ProtectedFlags` | lock vocabulary    | `COMPLETE` / transparency / composite / position — `Layer.lock(flags)` argument                                                       |
-|  [10]   | `TextType`       | text layout        | `POINT` / `PARAGRAPH` — `TypeLayer.text_type`                                                                                         |
+| [INDEX] | [SYMBOL]         | [PACKAGE_ROLE]     | [MEMBERS_EFFECT]                                                                              |
+| :-----: | :--------------- | :----------------- | :-------------------------------------------------------------------------------------------- |
+|  [01]   | `BlendMode`      | blend vocabulary   | 28 cases — `PASS_THROUGH`/`NORMAL`/`MULTIPLY`/`SCREEN`/`OVERLAY`/…/`LUMINOSITY` (byte tokens) |
+|  [02]   | `Compression`    | channel codec      | `RAW`/`RLE`/`ZIP`/`ZIP_WITH_PREDICTION` — per-channel save codec                              |
+|  [03]   | `ColorMode`      | color model        | `BITMAP`/`GRAYSCALE`/`INDEXED`/`RGB`/`CMYK`/`MULTICHANNEL`/`DUOTONE`/`LAB`                    |
+|  [04]   | `ChannelID`      | channel index      | `CHANNEL_0..9`/`TRANSPARENCY_MASK`/`USER_LAYER_MASK`/`REAL_USER_LAYER_MASK`                   |
+|  [05]   | `Clipping`       | clip role          | `BASE`/`NON_BASE` — clipping-layer membership                                                 |
+|  [06]   | `SectionDivider` | group marker       | `OTHER`/`OPEN_FOLDER`/`CLOSED_FOLDER`/`BOUNDING_SECTION_DIVIDER`                              |
+|  [07]   | `Tag`            | tagged-block key   | 94 cases — `TYPE_TOOL_OBJECT_SETTING`/`VECTOR_MASK_SETTING1`/`SMART_OBJECT_LAYER_DATA1`/…     |
+|  [08]   | `Resource`       | image-resource key | 129 cases — `ICC_PROFILE`/`RESOLUTION_INFO`/`XMP_METADATA`/`THUMBNAIL_RESOURCE`/…             |
+|  [09]   | `ProtectedFlags` | lock vocabulary    | `COMPLETE`/transparency/composite/position — `Layer.lock(flags)` argument                     |
+|  [10]   | `TextType`       | text layout        | `POINT`/`PARAGRAPH` — `TypeLayer.text_type`                                                   |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -65,50 +66,62 @@ These are the closed enums the layer records key on — pass the member, never a
 
 `PSDImage.open` is the single decode factory across path/stream/bytes/`PathLike`; `max_alloc_bytes` caps the decompression-bomb allocation (the guard behind `PSDDecompressionWarning`/`PSDLargeImageWarning`). `PSDImage.new` mints a blank document keyed by a `ColorMode`-mapped mode string (`RGB`/`RGBA`/`CMYK`/`L`/`LA`) + size + `depth` (8/16/32) + background `color`; `PSDImage.frompil` lifts a single PIL image into a one-layer document. There is no per-format reader — PSD and PSB share `open`, the version discriminated internally and surfaced on `PSDImage.version`.
 
-| [INDEX] | [SURFACE]          | [CALL_SHAPE]                                                          | [CAPABILITY]                                               |
-| :-----: | :----------------- | :-------------------------------------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | `PSDImage.open`    | `open(fp, max_alloc_bytes=None, **kwargs) -> PSDImage`                | decode a `.psd`/`.psb` from path/stream/bytes/`PathLike`   |
-|  [02]   | `PSDImage.new`     | `new(mode, size, color=0, depth=8, **kwargs) -> PSDImage`             | mint a blank document (mode = `RGB`/`RGBA`/`CMYK`/`L`/...) |
-|  [03]   | `PSDImage.frompil` | `frompil(image, compression=Compression.RLE, color=None) -> PSDImage` | lift one PIL image into a single-layer document            |
-|  [04]   | `PSDImage.save`    | `save(fp, mode='wb', **kwargs) -> None`                               | encode the document tree back to PSD/PSB bytes             |
+| [INDEX] | [SURFACE]          | [CALL_SHAPE]                                                          | [CAPABILITY]                            |
+| :-----: | :----------------- | :-------------------------------------------------------------------- | :-------------------------------------- |
+|  [01]   | `PSDImage.open`    | `open(fp, max_alloc_bytes=None, **kwargs) -> PSDImage`                | decode path/stream/bytes/`PathLike`     |
+|  [02]   | `PSDImage.new`     | `new(mode, size, color=0, depth=8, **kwargs) -> PSDImage`             | blank doc; `RGB`/`RGBA`/`CMYK`/`L`/`LA` |
+|  [03]   | `PSDImage.frompil` | `frompil(image, compression=Compression.RLE, color=None) -> PSDImage` | lift one PIL image to a 1-layer doc     |
+|  [04]   | `PSDImage.save`    | `save(fp, mode='wb', **kwargs) -> None`                               | encode the tree back to PSD/PSB bytes   |
 
 [ENTRYPOINT_SCOPE]: tree traversal + structural authoring (the `GroupMixin` algebra + layer factories/moves)
 - rail: layered
 
-The `GroupMixin` is mixed into both `PSDImage` and `Group`, so the same container surface walks the document and any sub-group: iterate/index for direct children, `descendants(include_clip=...)` for the full recursive flatten, `find`/`findall` for name lookup, and `append`/`insert`/`extend`/`remove`/`pop`/`clear` for mutation. Authoring is `PSDImage.create_pixel_layer`/`create_group` (mint + attach in one call), `PixelLayer.frompil`/`Group.new`/`Group.group_layers` (mint detached, then attach), and the per-layer relocation/lifecycle methods `move_to_group`/`move_up`/`move_down`/`delete_layer`/`lock`/`unlock`. `Group.extract_bbox` computes the union bbox over a layer set.
+The `GroupMixin` is mixed into both `PSDImage` and `Group`, so the same container surface walks the document and any sub-group: iterate/index for direct children, `descendants(include_clip=...)` for the full recursive flatten, `find`/`findall` for name lookup, and `append`/`insert`/`extend`/`remove`/`pop`/`clear` for mutation. Authoring is `PSDImage.create_pixel_layer`/`create_group` (mint + attach in one call), `PixelLayer.frompil`/`Group.new`/`Group.group_layers` (mint detached, then attach), and the per-layer relocation/lifecycle methods `move_to_group`/`move_up`/`move_down`/`delete_layer`/`lock`/`unlock`. `Group.extract_bbox` computes the union bbox over a layer set. Every mint factory shares the attribute tail `(name, top=0, left=0, compression=Compression.RLE, opacity=255, blend_mode=BlendMode.NORMAL)` — `create_group`/`Group.new`/`group_layers` default `blend_mode=BlendMode.PASS_THROUGH` and carry `open_folder=True`, and `extract_bbox` takes `include_invisible=False`/`include_clipping=False`; the CALL_SHAPE heads below carry only the distinguishing arguments.
 
-| [INDEX] | [SURFACE]                                                              | [CALL_SHAPE]                                                                                                                                  | [CAPABILITY]                                          |
-| :-----: | :--------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `GroupMixin.descendants`                                               | `descendants(include_clip=True) -> Iterator[Layer]`                                                                                           | recursive depth-first flatten of the whole subtree    |
-|  [02]   | `GroupMixin.find` / `findall`                                          | `find(name) -> Layer \| None`; `findall(name) -> Iterator[Layer]`                                                                             | first / all layers by name                            |
-|  [03]   | `GroupMixin.append` / `insert` / `extend` / `remove` / `pop` / `clear` | `append(layer)`; `insert(index, layer)`; `pop(index=-1) -> Layer`                                                                             | structural mutation of a group's child list           |
-|  [04]   | `PSDImage.create_pixel_layer`                                          | `create_pixel_layer(image, name='Layer', top=0, left=0, compression=Compression.RLE, opacity=255, blend_mode=BlendMode.NORMAL) -> PixelLayer` | mint + attach a raster layer from a PIL image         |
-|  [05]   | `PSDImage.create_group`                                                | `create_group(layer_list=None, name='Group', opacity=255, blend_mode=BlendMode.PASS_THROUGH, open_folder=True) -> Group`                      | mint + attach a group, optionally re-parenting layers |
-|  [06]   | `PixelLayer.frompil`                                                   | `frompil(image, parent, name='Layer', top=0, left=0, compression=Compression.RLE, **kwargs) -> PixelLayer`                                    | mint a detached raster layer under a parent           |
-|  [07]   | `Group.new` / `group_layers`                                           | `Group.new(parent, name='Group', open_folder=True) -> Group`; `group_layers(parent, layers, name='Group', open_folder=True) -> Group`         | mint an empty / layers-wrapping group                 |
-|  [08]   | `Layer.move_to_group` / `move_up` / `move_down` / `delete_layer`       | `move_to_group(group) -> Self`; `move_up(offset=1) -> Self`; `delete_layer() -> Self`                                                         | relocate / re-order / remove a layer                  |
-|  [09]   | `Layer.lock` / `unlock`                                                | `lock(lock_flags=ProtectedFlags.COMPLETE) -> None`; `unlock() -> None`                                                                        | toggle the protected/locked flags                     |
-|  [10]   | `Group.extract_bbox`                                                   | `extract_bbox(layers, include_invisible=False, include_clipping=False) -> tuple[int,int,int,int]`                                             | union bbox over a layer set                           |
+| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                              | [CAPABILITY]                                 |
+| :-----: | :---------------------------- | :-------------------------------------------------------- | :------------------------------------------- |
+|  [01]   | `GroupMixin.descendants`      | `descendants(include_clip=True) -> Iterator[Layer]`       | recursive depth-first subtree flatten        |
+|  [02]   | `GroupMixin.find` / `findall` | `find(name)`; `findall(name) -> Iterator[Layer]`          | first / all matches by name                  |
+|  [03]   | `GroupMixin` mutation         | `insert(index, layer)`; `pop(index=-1) -> Layer`          | list-protocol mutation of a group's children |
+|  [04]   | `PSDImage.create_pixel_layer` | `create_pixel_layer(image, …) -> PixelLayer`              | mint + attach a raster layer                 |
+|  [05]   | `PSDImage.create_group`       | `create_group(layer_list=None, …) -> Group`               | mint + attach a group, re-parenting          |
+|  [06]   | `PixelLayer.frompil`          | `frompil(image, parent, …) -> PixelLayer`                 | mint a detached raster layer                 |
+|  [07]   | `Group.new` / `group_layers`  | `Group.new(parent, …)`; `group_layers(parent, layers, …)` | mint empty / layers-wrapping group           |
+|  [08]   | `Layer.move_to_group`         | `move_to_group(group) -> Self`                            | relocate a layer under a group               |
+|  [09]   | `Layer.move_up` / `move_down` | `move_up(offset=1)`; `move_down(offset=1) -> Self`        | re-order within the parent                   |
+|  [10]   | `Layer.delete_layer`          | `delete_layer() -> Self`                                  | remove a layer from the tree                 |
+|  [11]   | `Layer.lock`                  | `lock(lock_flags=ProtectedFlags.COMPLETE) -> None`        | set the protected/locked flags               |
+|  [12]   | `Layer.unlock`                | `unlock() -> None`                                        | clear the protected/locked flags             |
+|  [13]   | `Group.extract_bbox`          | `extract_bbox(layers, …) -> tuple[int,int,int,int]`       | union bbox over a layer set                  |
 
 [ENTRYPOINT_SCOPE]: pixel/mask/effects/text egress + the PIL/NumPy seam
 - rail: layered
 
-`composite` is the blend-faithful render: it walks the (sub)tree applying each layer's `BlendMode`/`opacity`/`clipping`/`mask`/`effects` and returns a flattened `PIL.Image.Image` (on `PSDImage` it is the whole document; on `Layer`/`Group` it is that node), with `viewport`/`layer_filter`/`apply_icc`/`force`/`ignore_preview` knobs — this is the authority over a naive layer-by-layer paste. `topil`/`numpy` extract a single node's stored channels (no blend), `channel`-selectable (`'color'`/`'shape'`/`'alpha'`/`'mask'` or a `ChannelID`). `thumbnail`/`has_thumbnail`/`has_preview` recover the embedded merged preview. `Mask.topil`, `Effects.find`/`items`, `TypeLayer.text`/`engine_dict`/`warp`, and `SmartObject.open`/`save`/`filetype` are the side-channel egress. The `pil_io`/`numpy_io` module functions are the lower seam the methods sit on, callable directly for batch conversion.
+`composite` is the blend-faithful render authority over a naive layer-by-layer paste — it walks the (sub)tree applying each layer's `BlendMode`/`opacity`/`clipping`/`mask`/`effects` and returns a flattened `PIL.Image.Image` (the whole document on `PSDImage`, that node on `Layer`/`Group`). The four long signatures hoist here so the CALL_SHAPE column below carries the compact head: `composite(viewport=None, force=False, color=1.0, alpha=0.0, layer_filter=None, ignore_preview=False, apply_icc=True)`, its module-level form `composite_pil(layer, color, alpha, viewport, layer_filter, force, as_layer=False, apply_icc=True)`, `Mask.topil(real=True, layer_sized=False, **kwargs)`, and `create_mask(image, top=None, left=None, compression=Compression.RLE) -> Mask`. `topil`/`numpy` extract a single node's stored channels (no blend), `channel`-selectable (`'color'`/`'shape'`/`'alpha'`/`'mask'` or a `ChannelID`), returning `Image.Image`/`np.ndarray` (or `None` when the node carries no such channel). The `pil_io`/`numpy_io` module functions are the lower seam the methods sit on, callable directly for batch conversion.
 
-| [INDEX] | [SURFACE]                                                                    | [CALL_SHAPE]                                                                                                                          | [CAPABILITY]                                               |
-| :-----: | :--------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------ | :--------------------------------------------------------- |
-|  [01]   | `PSDImage.composite` / `Layer.composite`                                     | `composite(viewport=None, force=False, color=1.0, alpha=0.0, layer_filter=None, ignore_preview=False, apply_icc=True) -> Image.Image` | blend-faithful flatten of the document / a node            |
-|  [02]   | `psd_tools.composite.composite_pil`                                          | `composite_pil(layer, color, alpha, viewport, layer_filter, force, as_layer=False, apply_icc=True) -> Image.Image \| None`            | the module-level compositor the methods wrap               |
-|  [03]   | `PSDImage.topil` / `Layer.topil`                                             | `topil(channel=None, apply_icc=True) -> Image.Image \| None`                                                                          | one node's stored channels to PIL (no blend)               |
-|  [04]   | `PSDImage.numpy` / `Layer.numpy`                                             | `numpy(channel=None, real_mask=True) -> np.ndarray \| None`                                                                           | one node's channels to a NumPy band array                  |
-|  [05]   | `PSDImage.thumbnail` / `has_thumbnail` / `has_preview`                       | `thumbnail() -> Image.Image \| None`; `has_preview() -> bool`                                                                         | the embedded merged preview / its presence                 |
-|  [06]   | `Mask.topil`                                                                 | `Mask.topil(real=True, layer_sized=False, **kwargs) -> Image.Image \| None`                                                           | render a layer mask to a grayscale PIL image               |
-|  [07]   | `Layer.create_mask` / `update_mask` / `remove_mask`                          | `create_mask(image, top=None, left=None, compression=Compression.RLE) -> Mask`                                                        | author / replace / drop a raster layer mask                |
-|  [08]   | `Effects.find` / `Effects.items` / `Effects.enabled`                         | `find(name, enabled=True) -> Iterator[_Effect]`; `items -> list`                                                                      | enumerate enabled layer styles (shadow/glow/overlay/...)   |
-|  [09]   | `TypeLayer.text` / `engine_dict` / `transform` / `warp`                      | `@property text -> str`; `@property engine_dict`                                                                                      | live text string + the Photoshop type-engine descriptor    |
-|  [10]   | `SmartObject.open` / `save` / `filetype` / `resolution`                      | `open(external_dir=None) -> IO[bytes]` (context mgr); `save(...) -> None`                                                             | extract / re-emit the embedded/linked smart-object asset   |
-|  [11]   | `pil_io.convert_layer_to_pil` / `convert_image_data_to_pil` / `get_pil_mode` | `convert_layer_to_pil(layer, channel, apply_icc) -> Image.Image \| None`                                                              | the lower PIL conversion seam (ICC post-process, mode map) |
-|  [12]   | `numpy_io.get_array` / `get_layer_data` / `get_image_data`                   | `get_array(layer_or_psd, channel, **kwargs) -> np.ndarray \| None`                                                                    | the lower NumPy band seam for batch extraction             |
+| [INDEX] | [SURFACE]                                | [CALL_SHAPE]                                        | [CAPABILITY]                         |
+| :-----: | :--------------------------------------- | :-------------------------------------------------- | :----------------------------------- |
+|  [01]   | `PSDImage.composite` / `Layer.composite` | `composite(…) -> Image.Image`                       | blend-faithful document/node flatten |
+|  [02]   | `composite.composite_pil`                | `composite_pil(…) -> Image.Image \| None`           | module-level compositor wrapped      |
+|  [03]   | `PSDImage.topil` / `Layer.topil`         | `topil(channel=None, apply_icc=True)`               | stored channels to PIL (no blend)    |
+|  [04]   | `PSDImage.numpy` / `Layer.numpy`         | `numpy(channel=None, real_mask=True)`               | channels to a NumPy band array       |
+|  [05]   | `PSDImage.thumbnail`                     | `thumbnail() -> Image.Image \| None`                | the embedded merged preview          |
+|  [06]   | `PSDImage.has_thumbnail` / `has_preview` | `has_thumbnail()`; `has_preview() -> bool`          | merged-preview presence probes       |
+|  [07]   | `Mask.topil`                             | `Mask.topil(…) -> Image.Image \| None`              | layer mask to grayscale PIL          |
+|  [08]   | `Layer.create_mask`                      | `create_mask(…) -> Mask`                            | author a raster layer mask           |
+|  [09]   | `Layer.update_mask` / `remove_mask`      | `update_mask(image)`; `remove_mask()`               | replace / drop a raster mask         |
+|  [10]   | `Effects.find`                           | `find(name, enabled=True) -> Iterator[_Effect]`     | enumerate enabled styles             |
+|  [11]   | `Effects.items` / `enabled`              | `items -> list`; `enabled -> bool`                  | style list + any-enabled flag        |
+|  [12]   | `TypeLayer.text` / `engine_dict`         | `text -> str`; `engine_dict`                        | live text + type-engine dict         |
+|  [13]   | `TypeLayer.transform` / `warp`           | `transform`; `warp`                                 | text transform + warp descriptors    |
+|  [14]   | `SmartObject.open` / `save`              | `open(external_dir=None) -> IO[bytes]`; `save(...)` | extract / re-emit the asset          |
+|  [15]   | `SmartObject.filetype` / `resolution`    | `filetype`; `resolution`                            | asset format + DPI evidence          |
+|  [16]   | `pil_io.convert_layer_to_pil`            | `convert_layer_to_pil(…) -> Image.Image \| None`    | lower PIL seam (ICC/mode)            |
+|  [17]   | `pil_io.convert_image_data_to_pil`       | `convert_image_data_to_pil(...)`                    | image-data plane to PIL              |
+|  [18]   | `pil_io.get_pil_mode`                    | `get_pil_mode(color_mode, alpha)`                   | PSD mode → PIL mode bridge           |
+|  [19]   | `numpy_io.get_array`                     | `get_array(layer_or_psd, channel, …)`               | lower NumPy band seam (batch)        |
+|  [20]   | `numpy_io.get_layer_data`                | `get_layer_data(...)`                               | per-layer band extraction            |
+|  [21]   | `numpy_io.get_image_data`                | `get_image_data(...)`                               | merged-image band extraction         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

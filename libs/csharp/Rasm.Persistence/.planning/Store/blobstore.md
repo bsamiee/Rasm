@@ -364,17 +364,17 @@ public readonly record struct BlobRemote(
     Func<IO<Seq<ContentAddress>>> List);
 ```
 
-| [INDEX] | [POLICY]         | [VALUE]                                              | [BINDING]                                                                                                                |
-| :-----: | :--------------- | :--------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | content-key name | `ContentAddress.Of(UInt128)` over kernel `XxHash128` | wraps the seam raw `UInt128` keys; never a second identity                                                               |
-|  [02]   | per-leg dispatch | `ObjectClient.Map`                                   | union case IS the dispatch; no mismatch guard                                                                            |
-|  [03]   | write-once seal  | provider conditional-write `412`-noop                | no read-before-write; the seal is the concurrency primitive                                                              |
-|  [04]   | integrity        | `ChecksumAlgorithm.XXHASH128` + `Wire`               | the content key supplied as the whole-object checksum; never re-hashed                                                   |
-|  [05]   | WORM/object-lock | `ObjectLock` SET on the write                        | `Compliance`/`Governance` immutable for `Retain`; `LegalHold` indefinite; `Locked` reachable via the catalog `WormUntil` |
-|  [06]   | fault rail       | one `RemoteStoreFault.Lift` per edge                 | `Transport.IsTransient` the sole retry gate                                                                              |
-|  [07]   | checksum honesty | per-row SDK-native stance                            | S3 `XxHash128` (the one server-verified digest); Azure `Crc64`; GCS `Crc32c`; Minio/Presigned `None`                     |
-|  [08]   | presigned grants | `GrantMinter` → `ObjectGrant` per op                 | `FormPost`/`SignedUrl` executed over the ONE engine; `GrantExpired` on a lapsed grant, never `Denied`                    |
-|  [09]   | receipt path     | every write via `MultipartTransfer.Upload`           | `BlobTransferReceipt` + frame correlation; a no-op-sink `store.Put` beside it is the deleted form                        |
+| [INDEX] | [POLICY]         | [VALUE]                                     | [BINDING]                                                           |
+| :-----: | :--------------- | :------------------------------------------ | :------------------------------------------------------------------ |
+|  [01]   | content-key name | `ContentAddress.Of` over kernel `XxHash128` | wraps the seam raw keys; never a second identity                    |
+|  [02]   | per-leg dispatch | `ObjectClient.Map`                          | union case IS the dispatch; no mismatch guard                       |
+|  [03]   | write-once seal  | provider conditional-write `412`-noop       | no read-before-write; the seal is the concurrency primitive         |
+|  [04]   | integrity        | `ChecksumAlgorithm.XXHASH128` + `Wire`      | the content key IS the whole-object checksum; never re-hashed       |
+|  [05]   | WORM/object-lock | `ObjectLock` SET on the write               | `Governance`/`Compliance` immutable; `LegalHold` indefinite         |
+|  [06]   | fault rail       | one `RemoteStoreFault.Lift` per edge        | `Transport.IsTransient` the sole retry gate                         |
+|  [07]   | checksum honesty | per-row SDK-native stance                   | S3 `XxHash128`; Azure `Crc64`; GCS `Crc32c`; Minio/Presigned `None` |
+|  [08]   | presigned grants | `GrantMinter` → `ObjectGrant` per op        | `FormPost`/`SignedUrl`; `GrantExpired`, never `Denied`              |
+|  [09]   | receipt path     | every write via `MultipartTransfer.Upload`  | `BlobTransferReceipt` carries the frame correlation                 |
 
 ## [03]-[MULTIPART_TRANSFER]
 
@@ -756,13 +756,13 @@ public static class BlobGc {
 }
 ```
 
-| [INDEX] | [POLICY]         | [VALUE]                                                | [BINDING]                                                                         |
-| :-----: | :--------------- | :----------------------------------------------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | write protocol   | open-pending -> blob -> catalog -> close-pending       | crash leaves a pending-fenced orphan, never a dangling reference                  |
-|  [02]   | txn owner        | identity+event in the Marten session                   | blob is write-first; no two-ORM atomicity (`H10`)                                 |
-|  [03]   | GC executor      | the ONE `Version/retention` `RetentionSweep`           | blob lane projects `RetentionFact` + `InFlightFence`; no parallel sweeper         |
-|  [04]   | GC reachability  | mark over EVERY AS-OF cut                              | full-history; head-only GC is forbidden (`H10`)                                   |
-|  [05]   | lineage catalog  | same row the snapshot spine has                        | registers in the `blob` retention class; one GC governs both                      |
-|  [06]   | encryption       | `ApplyS3`/`ApplyGcs`/`ApplyMinio`; Azure at the client | applied on every provider's wire, not decorative; SSE key id host-supplied        |
-|  [07]   | WORM/object-lock | `WormUntil` column + `WormEvict` arrow                 | `Locked` reachable; eligibility fence + typed evict refusal, no provider 403 leak |
-|  [08]   | tenancy          | `Tenant` column + RLS-filtered catalog                 | per-tenant name prefix; cross-tenant reclaim unrepresentable                      |
+| [INDEX] | [POLICY]         | [VALUE]                                          | [BINDING]                                                          |
+| :-----: | :--------------- | :----------------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | write protocol   | open-pending -> blob -> catalog -> close-pending | crash leaves a pending-fenced orphan, never a dangling reference   |
+|  [02]   | txn owner        | identity+event in the Marten session             | blob is write-first; no two-ORM atomicity (`H10`)                  |
+|  [03]   | GC executor      | the ONE `Version/retention` `RetentionSweep`     | projects `RetentionFact` + `InFlightFence`; no parallel sweeper    |
+|  [04]   | GC reachability  | mark over EVERY AS-OF cut                        | full-history; head-only GC is forbidden (`H10`)                    |
+|  [05]   | lineage catalog  | same row the snapshot spine has                  | registers in the `blob` retention class; one GC governs both       |
+|  [06]   | encryption       | `ApplyS3`/`ApplyGcs`/`ApplyMinio`                | applied on every wire, Azure host-dialed; SSE key id host-supplied |
+|  [07]   | WORM/object-lock | `WormUntil` column + `WormEvict` arrow           | eligibility fence + typed evict; `Locked` reachable, no 403 leak   |
+|  [08]   | tenancy          | `Tenant` column + RLS-filtered catalog           | per-tenant name prefix; cross-tenant reclaim unrepresentable       |

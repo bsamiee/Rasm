@@ -49,10 +49,9 @@ const TARGET_NAMES = TARGETS.map((t) => '`' + (t.split('/').filter(Boolean).pop(
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-// Per-folder discovery PRODUCT (the on-disk report): `pages` per card are disk-verified Anchors
-// targets proving page-disjoint implement groups; `malformed_ripples` is a required attestation
-// (empty = none found); `coverage` is part of the product — requested vs actually-read scope.
-// One anchor = one fact at one coordinate; interpretation never lives in an anchor row.
+// Per-folder discovery PRODUCT (the on-disk report): `pages` per card are disk-verified Anchors targets proving page-disjoint implement groups;
+// `malformed_ripples` is a required attestation (empty = none found); `coverage` is part of the product — requested vs actually-read scope. One
+// anchor = one fact at one coordinate; interpretation never lives in an anchor row.
 const ANCHOR = {
     type: 'object',
     additionalProperties: false,
@@ -813,8 +812,8 @@ const solLane = (task, o) => {
         .catch(() => ({ ok: false, report: '', entries: 0, headline: '', failure: 'lane died' }));
 };
 
-// Page-disjointness is PROVEN, never assumed: every ordered card must carry >=1 verified page,
-// gate pairs merge, and components pack heaviest-first into <= IMPL_FAN buckets without splitting.
+// Page-disjointness is PROVEN, never assumed: every ordered card must carry >=1 verified page, gate pairs merge, and
+// components pack heaviest-first into <= IMPL_FAN buckets without splitting.
 const cardGroups = (t) => {
     const inOrder = new Set(t.order || []);
     const cards = (t.cards || []).filter((c) => inOrder.has(c.slug));
@@ -992,7 +991,8 @@ const implementPrompt = (folder, seq, note, report) =>
             (note ? '\n' + note : ''),
     ].join('\n');
 
-// critiquePrompt feeds the sol codex lane (+ native fable twin): neutral stance — hostile register degrades codex, safe for the twin; the hostile pass is redteam (native).
+// critiquePrompt feeds the sol codex lane (+ native fable twin): neutral stance — hostile register degrades
+// codex, safe for the twin; the hostile pass is redteam (native).
 const critiquePrompt = (folder, seq, report) =>
     [
         DOCTRINE,

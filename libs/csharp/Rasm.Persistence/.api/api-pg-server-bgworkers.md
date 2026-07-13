@@ -38,13 +38,14 @@ TimescaleDB policy scheduling (continuous-aggregate/retention/columnstore cadenc
 process-side `persistence-maintenance` cadence). Preloaded as `pg_cron`; `cron.schedule` supports
 both 5-field cron and PG18 interval syntax (`'30 seconds'`).
 
-| [INDEX] | [FUNCTION]                          | [SIGNATURE]                                                       | [SEMANTICS]                                                        |
-| :-----: | :---------------------------------- | :---------------------------------------------------------------- | :----------------------------------------------------------------- |
-|  [01]   | `cron.schedule`                     | `cron.schedule('name', '* * * * *', 'SQL')`                       | register a recurring SQL job; returns `bigint` jobid               |
-|  [02]   | `cron.schedule_in_database`         | `cron.schedule_in_database('name', sched, 'SQL', 'db'[, 'user'])` | job scoped to a target database/role                               |
-|  [03]   | `cron.unschedule`                   | `cron.unschedule('name')` / `cron.unschedule(jobid)`              | remove a job by name or id                                         |
-|  [04]   | `cron.alter_job`                    | `cron.alter_job(jobid, schedule:=…, active:=…)`                   | mutate cadence / pause a job                                       |
-|  [05]   | `cron.job` / `cron.job_run_details` | views                                                             | configured jobs and run history (status, return_message, end_time) |
+| [INDEX] | [FUNCTION]                  | [SIGNATURE]                              | [SEMANTICS]                                          |
+| :-----: | :-------------------------- | :--------------------------------------- | :--------------------------------------------------- |
+|  [01]   | `cron.schedule`             | `('name', '* * * * *', 'SQL')`           | register a recurring SQL job; returns `bigint` jobid |
+|  [02]   | `cron.schedule_in_database` | `('name', sched, 'SQL', 'db'[, 'user'])` | job scoped to a target database/role                 |
+|  [03]   | `cron.unschedule`           | `('name')` / `(jobid)`                   | remove a job by name or id                           |
+|  [04]   | `cron.alter_job`            | `(jobid, schedule:=…, active:=…)`        | mutate cadence / pause a job                         |
+|  [05]   | `cron.job`                  | view                                     | configured jobs                                      |
+|  [06]   | `cron.job_run_details`      | view                                     | run history: `status`, `return_message`, `end_time`  |
 
 Consumer: the page schedules in-DB maintenance through `cron.schedule_in_database` only where the
 cadence must be server-local (a job the process must not own); the `cron.job_run_details` view feeds
@@ -55,14 +56,17 @@ a maintenance-receipt fact. A job that the AppHost schedule port already owns is
 Declarative range/list partition maintenance over a PG18-native partitioned parent, run by the
 `pg_partman_bgw` background worker (the preload-library spelling; the extension installs as
 `pg_partman`). Owns time/serial partition lifecycle for the `OpLogEntry`-rollup and audit-history
-tables; consumed at `Version/retention` where retention is partition drop, not row `DELETE`.
+tables; consumed at `Version/retention` where retention is partition drop, not row `DELETE`. Calls take
+named params (`p_* := …`); `create_parent` defaults `p_type := 'range'`.
 
-| [INDEX] | [SURFACE]                     | [SIGNATURE]                                                                                                | [SEMANTICS]                                                                                  |
-| :-----: | :---------------------------- | :--------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `partman.create_parent`       | `partman.create_parent(p_parent_table := 't', p_control := 'col', p_interval := 'i'[, p_type := 'range'])` | declare a partition set (named params)                                                       |
-|  [02]   | `partman.run_maintenance`     | `partman.run_maintenance([p_parent_table := 't'])` / `partman.run_maintenance_proc()`                      | create future / drop expired parts; the proc is the `pg_cron`-callable form                  |
-|  [03]   | `partman.part_config`         | table                                                                                                      | per-parent `premake`, `retention`, `retention_keep_table`, `infinite_time_partitions` policy |
-|  [04]   | `partman.partition_data_proc` | `partman.partition_data_proc(p_parent_table := 't')`                                                       | back-fills existing rows into the new partition set                                          |
+| [INDEX] | [SURFACE]                     | [SIGNATURE]                                         | [SEMANTICS]                                     |
+| :-----: | :---------------------------- | :-------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | `partman.create_parent`       | `(p_parent_table, p_control, p_interval[, p_type])` | declare a partition set                         |
+|  [02]   | `partman.run_maintenance`     | `([p_parent_table])` / `run_maintenance_proc()`     | create future / drop expired partitions         |
+|  [03]   | `partman.part_config`         | table                                               | per-parent partition policy table               |
+|  [04]   | `partman.partition_data_proc` | `(p_parent_table)`                                  | back-fills existing rows into the partition set |
+
+- [03]-[PART_CONFIG]: `partman.part_config` carries per-parent `premake`, `retention`, `retention_keep_table`, `infinite_time_partitions` policy.
 
 Consumer: a partitioned history table declares one `create_parent` call in a migration; the
 `pg_partman_bgw` worker (or a `cron.schedule`d `run_maintenance_proc`) rolls partitions, and
@@ -76,12 +80,15 @@ lock at swap, the in-DB online alternative to `VACUUM FULL` and to an out-of-DB 
 Preloaded as `pg_squeeze`; consumed at `Store/provisioning#PROVISIONING_ROWS` where a scheduled reclaim
 runs as a pure in-DB bgworker registered through `squeeze.tables`, never an external binary.
 
-| [INDEX] | [SURFACE]                                      | [SIGNATURE]                                                         | [SEMANTICS]                                                                                                 |
-| :-----: | :--------------------------------------------- | :------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------- |
-|  [01]   | `squeeze.squeeze_table`                        | `squeeze.squeeze_table('schema', 'table'[, 'index', 'tablespace'])` | one-shot online rewrite to reclaim bloat                                                                    |
-|  [02]   | `squeeze.start_worker`                         | `squeeze.start_worker()`                                            | start the per-database scheduling bgworker                                                                  |
-|  [03]   | `squeeze.tables`                               | table                                                               | scheduled-table registry: `schedule` (cron), `free_space_extent_threshold`, `vacuum_max_age` policy columns |
-|  [04]   | `squeeze.squeeze_table_recent` / `squeeze.log` | views                                                               | last-run state and the per-run reclaim log (receipt source)                                                 |
+| [INDEX] | [SURFACE]                      | [SIGNATURE]                                    | [SEMANTICS]                                     |
+| :-----: | :----------------------------- | :--------------------------------------------- | :---------------------------------------------- |
+|  [01]   | `squeeze.squeeze_table`        | `('schema', 'table'[, 'index', 'tablespace'])` | one-shot online rewrite to reclaim bloat        |
+|  [02]   | `squeeze.start_worker`         | `()`                                           | start the per-database scheduling bgworker      |
+|  [03]   | `squeeze.tables`               | table                                          | scheduled-table registry (policy columns below) |
+|  [04]   | `squeeze.squeeze_table_recent` | view                                           | last-run state                                  |
+|  [05]   | `squeeze.log`                  | view                                           | per-run reclaim log (receipt source)            |
+
+- [03]-[SQUEEZE_TABLES]: `squeeze.tables` registry carries `schedule` (cron), `free_space_extent_threshold`, `vacuum_max_age` policy columns.
 
 Consumer: a table that needs scheduled reclaim gets one `INSERT INTO squeeze.tables (..., schedule)`
 row; the bgworker reads the `schedule` cron column and rewrites on cadence. A scheduled
@@ -124,16 +131,19 @@ package's real public surface, not the resolved-artifact reflection this catalog
 
 Session/object audit logging into the server log. PRELOADED as `pgaudit`; the runtime obligation is
 the bound `pgaudit.log` GUC value verified read-only against `pg_settings`. Owned at
-`Version/retention#AUDIT_BINDING` where a `DataClassification` binds to one audit category.
+`Version/retention#AUDIT_BINDING` where a `DataClassification` binds to one audit category. Rows
+[01]-[05] are `pgaudit.*` session GUCs bound via `SET <guc> = <value>` (the [VALUE] column carries
+`<value>`); `pg_settings` is the read-only verification view probed by
+`SELECT setting FROM pg_settings WHERE name = ANY(...)`.
 
-| [INDEX] | [SURFACE]                     | [SIGNATURE]                                  | [SEMANTICS]                                                                                |
-| :-----: | :---------------------------- | :------------------------------------------- | :----------------------------------------------------------------------------------------- |
-|  [01]   | `pgaudit.log` (GUC)           | `SET pgaudit.log = 'read, write, ddl, role'` | session-audit class selection (`read`/`write`/`function`/`role`/`ddl`/`misc`/`all`)        |
-|  [02]   | `pgaudit.log_catalog` (GUC)   | `SET pgaudit.log_catalog = off`              | exclude `pg_catalog` statements                                                            |
-|  [03]   | `pgaudit.log_relation` (GUC)  | `SET pgaudit.log_relation = on`              | one log entry per relation in a statement                                                  |
-|  [04]   | `pgaudit.log_parameter` (GUC) | `SET pgaudit.log_parameter = on`             | include bound statement parameters                                                         |
-|  [05]   | `pgaudit.role` (GUC)          | `SET pgaudit.role = 'auditor'`               | object-audit role for `GRANT`-scoped per-object auditing                                   |
-|  [06]   | `pg_settings`                 | view                                         | read-only GUC verification probe (`SELECT setting FROM pg_settings WHERE name = ANY(...)`) |
+| [INDEX] | [SURFACE]               | [VALUE]                    | [SEMANTICS]                                                                 |
+| :-----: | :---------------------- | :------------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `pgaudit.log`           | `'read, write, ddl, role'` | audit class selection (`read`/`write`/`function`/`role`/`ddl`/`misc`/`all`) |
+|  [02]   | `pgaudit.log_catalog`   | `off`                      | exclude `pg_catalog` statements                                             |
+|  [03]   | `pgaudit.log_relation`  | `on`                       | one log entry per relation in a statement                                   |
+|  [04]   | `pgaudit.log_parameter` | `on`                       | include bound statement parameters                                          |
+|  [05]   | `pgaudit.role`          | `'auditor'`                | object-audit role for `GRANT`-scoped per-object auditing                    |
+|  [06]   | `pg_settings`           | view                       | read-only GUC verification probe                                            |
 
 Consumer + stack: the audit binding maps a `DataClassification` to one pgaudit category and binds it
 per-tenant through `BindTenant` (`Version/retention#AUDIT_BINDING`); the provisioning verifier folds

@@ -14,14 +14,14 @@
 
 [PUBLIC_TYPE_SCOPE]: the three module exports — the plugin registration Stryker discovers, the standalone factory, and the JSON options schema. `strykerPlugins` is the only member `@stryker-mutator/core` reads; the rest are for embedding hosts.
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]           | [CAPABILITY]                                                                                           |
-| :-----: | :------------------------ | :---------------------- | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | `strykerPlugins`          | `FactoryPlugin[]`       | the registration array; `FactoryPlugin<PluginKind.Checker, ["$injector"]>`                             |
-|  [02]   | `createTypescriptChecker` | factory                 | `(injector) => TypescriptChecker`; standalone construction for embedders                               |
-|  [03]   | `strykerValidationSchema` | JSON schema             | `typeof typescript-checker-options.json` — validates the plugin option bag                             |
-|  [04]   | `TypescriptChecker`       | internal `Checker` impl | the class `createTypescriptChecker` returns (not a public export); `init` / `check` / `group` per [02] |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]           | [CAPABILITY]                                                        |
+| :-----: | :------------------------ | :---------------------- | :------------------------------------------------------------------ |
+|  [01]   | `strykerPlugins`          | `FactoryPlugin[]`       | the registration array `@stryker-mutator/core` discovers            |
+|  [02]   | `createTypescriptChecker` | factory                 | standalone `TypescriptChecker` construction for embedders           |
+|  [03]   | `strykerValidationSchema` | JSON schema             | validates the plugin option bag                                     |
+|  [04]   | `TypescriptChecker`       | internal `Checker` impl | the `createTypescriptChecker` return; `init`/`check`/`group` ([02]) |
 
-```ts contract
+```ts signature
 // index.d.ts @9.6.1 — the public barrel is three exports; PluginKind imports from @stryker-mutator/api/plugin (core [04]).
 import { PluginKind } from '@stryker-mutator/api/plugin'
 export declare const strykerPlugins: FactoryPlugin<PluginKind.Checker, ["$injector"]>[]
@@ -40,15 +40,15 @@ declare class TypescriptChecker implements Checker {   // internal — the creat
 
 [PUBLIC_TYPE_SCOPE]: the `@stryker-mutator/api/check` verdict algebra — a two-arm discriminated union on `CheckStatus`. `check` returns a `Record<mutantId, CheckResult>`; Stryker maps each arm onto a `MutantStatus` and only the passing arm proceeds to the runner.
 
-| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]         | [CAPABILITY]                                                                                                                      |
-| :-----: | :------------- | :-------------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Checker`      | interface             | `init` + `check` + optional `group`; the plugin implements all three                                                              |
-|  [02]   | `CheckResult`  | discriminated union   | `PassedCheckResult \| FailedCheckResult`, keyed by `status`                                                                       |
-|  [03]   | `CheckStatus`  | enum                  | `Passed = "passed"` \| `CompileError = "compileError"`                                                                            |
-|  [04]   | `Mutant`       | interface             | id + location + `mutatorName` + `replacement` + coverage — the check input                                                        |
-|  [05]   | `MutantStatus` | union (report-schema) | the receipt vocabulary owned by `stryker-mutator-core.md` [03]; `CompileError` here removes the mutant from the score denominator |
+| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]         | [CAPABILITY]                                                    |
+| :-----: | :------------- | :-------------------- | :-------------------------------------------------------------- |
+|  [01]   | `Checker`      | interface             | `init` + `check` + optional `group`                             |
+|  [02]   | `CheckResult`  | discriminated union   | `PassedCheckResult \| FailedCheckResult`, keyed by `status`     |
+|  [03]   | `CheckStatus`  | enum                  | `Passed = "passed"` \| `CompileError = "compileError"`          |
+|  [04]   | `Mutant`       | interface             | id + location + `mutatorName` + `replacement` + coverage        |
+|  [05]   | `MutantStatus` | union (report-schema) | report receipt vocabulary; owner `stryker-mutator-core.md` [03] |
 
-```ts contract
+```ts signature
 // check-result.d.ts — the pre-filter verdict; a CompileError carries the tsc `reason` for the report.
 type CheckResult = PassedCheckResult | FailedCheckResult
 interface PassedCheckResult { status: CheckStatus.Passed }
@@ -63,15 +63,15 @@ type MutantStatus = "Killed" | "Survived" | "NoCoverage" | "CompileError" | "Run
 
 The plugin has NO imperative surface — it is four `stryker.config` rows plus one nested option bag. `checkers` activates it; the rest are the compile context. `stryker.config.json` carries these as data on the one `PartialStrykerOptions` object, never as code. `tsconfigFile`, `checkerNodeArgs`, and `disableTypeChecks` are CORE `StrykerOptions` fields the checker reads; `typescriptChecker` is the plugin-owned bag validated by `strykerValidationSchema`.
 
-| [INDEX] | [CONFIG_ROW]                                          | [OWNER] | [CAPABILITY]                                                            |
-| :-----: | :---------------------------------------------------- | :------ | :---------------------------------------------------------------------- |
-|  [01]   | `checkers: string[]`                                  | core    | `["typescript"]` activates this plugin in the pre-filter phase          |
-|  [02]   | `tsconfigFile: string`                                | core    | the project tsconfig the in-memory compiler loads (follows references)  |
-|  [03]   | `checkerNodeArgs: string[]`                           | core    | node args for the checker child process (heap for large graphs)         |
-|  [04]   | `disableTypeChecks: boolean \| string`                | core    | glob of files whose `// @ts-nocheck` is injected so mutants compile     |
-|  [05]   | `typescriptChecker.prioritizePerformanceOverAccuracy` | plugin  | `true` = coarser grouping / faster; `false` = one-mutant groups / exact |
+| [INDEX] | [CONFIG_ROW]                                          | [OWNER] | [CAPABILITY]                                               |
+| :-----: | :---------------------------------------------------- | :------ | :--------------------------------------------------------- |
+|  [01]   | `checkers: string[]`                                  | core    | `["typescript"]` activates the pre-filter phase            |
+|  [02]   | `tsconfigFile: string`                                | core    | project tsconfig loaded in-memory; follows references      |
+|  [03]   | `checkerNodeArgs: string[]`                           | core    | checker child-process node args (heap for large graphs)    |
+|  [04]   | `disableTypeChecks: boolean \| string`                | core    | glob whose `// @ts-nocheck` is injected so mutants compile |
+|  [05]   | `typescriptChecker.prioritizePerformanceOverAccuracy` | plugin  | `true` = coarser/faster groups; `false` = one-mutant/exact |
 
-```ts contract
+```ts signature
 // The generated plugin option bag (src-generated/typescript-checker-options.d.ts) — the ONLY plugin-owned field.
 interface TypescriptCheckerPluginOptions {
   typescriptChecker: { prioritizePerformanceOverAccuracy: boolean }

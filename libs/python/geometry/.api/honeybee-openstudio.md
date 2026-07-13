@@ -21,56 +21,80 @@
 
 [PUBLIC_TYPE_SCOPE]: OpenStudio SDK re-export (`honeybee_openstudio.openstudio`)
 - rail: energy-modeling
-- The single indirection over the native `openstudio` SDK: every OpenStudio C++ class the translators touch is re-exported under an `OS`-prefixed alias, so the rest of the package (and the owner) references `OSModel`/`OSConstruction`/`OSGas` etc. through this module rather than importing `openstudio` directly. This isolates the SDK-version coupling to one module.
+- The single indirection over the native `openstudio` SDK: every OpenStudio C++ class the translators touch is re-exported under an `OS`-prefixed alias, so the rest of the package (and the owner) references `OSModel`/`OSConstruction`/`OSGas` etc. through this module rather than importing `openstudio` directly. This isolates the SDK-version coupling to one module (`OSModel` is the `openstudio.openstudiomodelcore.Model`). Rows drop the shared `OS` alias prefix.
 
-| [INDEX] | [SYMBOL]                                                                                                  | [TYPE_FAMILY]   | [CAPABILITY]                                                                           |
-| :-----: | :-------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------- |
-|  [01]   | `OSModel`                                                                                                 | model root      | the OpenStudio `Model` (`openstudio.openstudiomodelcore.Model`) the translation builds |
-|  [02]   | `OSConstruction` / `OSConstructionAirBoundary` / `OSDefaultConstructionSet`                               | construction    | OpenStudio construction + default-construction-set objects                             |
-|  [03]   | `OSMasslessOpaqueMaterial` / `OSGas` / `OSGasMixture` / `OSBlind`                                         | material        | OpenStudio material objects                                                            |
-|  [04]   | `OSLights` / `OSElectricEquipment` / `OSGasEquipment` / `OSInternalMass`                                  | load            | OpenStudio load objects (+ their `*Definition` pairs)                                  |
-|  [05]   | `OSDaylightingControl` / `OSDesignDay` / `OSBuildingStory`                                                | model object    | daylighting / design-day / story objects                                               |
-|  [06]   | `OSGeneratorPVWatts` / `OSElectricLoadCenterDistribution` / `OSElectricLoadCenterInverterPVWatts`         | generation      | on-site PV generation objects                                                          |
-|  [07]   | `OSEnergyManagementSystemProgram` / `OSEnergyManagementSystemActuator` / `OSEnergyManagementSystemSensor` | EMS             | EnergyManagementSystem objects (dynamic-construction control)                          |
-|  [08]   | `OSAirflowNetworkSimpleOpening` / `OSAirflowNetworkCrack` / `OSAirflowNetworkHorizontalOpening`           | airflow network | natural-ventilation airflow-network objects                                            |
+| [INDEX] | [SYMBOL]                                                              | [TYPE_FAMILY]   | [CAPABILITY]                                  |
+| :-----: | :-------------------------------------------------------------------- | :-------------- | :-------------------------------------------- |
+|  [01]   | `Model`                                                               | model root      | the OpenStudio `Model` the translation builds |
+|  [02]   | `Construction` / `ConstructionAirBoundary` / `DefaultConstructionSet` | construction    | construction + default-construction-set       |
+|  [03]   | `MasslessOpaqueMaterial` / `Gas` / `GasMixture` / `Blind`             | material        | OpenStudio material objects                   |
+|  [04]   | `Lights` / `ElectricEquipment` / `GasEquipment` / `InternalMass`      | load            | load objects (+ their `*Definition` pairs)    |
+|  [05]   | `DaylightingControl` / `DesignDay` / `BuildingStory`                  | model object    | daylighting / design-day / story objects      |
+|  [06]   | `GeneratorPVWatts`                                                    | generation      | on-site PV generator                          |
+|  [07]   | `ElectricLoadCenterDistribution`                                      | generation      | PV load-center distribution                   |
+|  [08]   | `ElectricLoadCenterInverterPVWatts`                                   | generation      | PVWatts inverter                              |
+|  [09]   | `EnergyManagementSystemProgram`                                       | EMS             | EMS program (dynamic-construction control)    |
+|  [10]   | `EnergyManagementSystemActuator`                                      | EMS             | EMS actuator                                  |
+|  [11]   | `EnergyManagementSystemSensor`                                        | EMS             | EMS sensor                                    |
+|  [12]   | `AirflowNetworkSimpleOpening`                                         | airflow network | natural-ventilation simple opening            |
+|  [13]   | `AirflowNetworkCrack`                                                 | airflow network | natural-ventilation crack                     |
+|  [14]   | `AirflowNetworkHorizontalOpening`                                     | airflow network | natural-ventilation horizontal opening        |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: model translation writers (`honeybee_openstudio.writer`)
 - rail: energy-modeling
-- `model_to_openstudio` is the core translation (returns a live OpenStudio `Model`); the `model_to_*` family serializes onward. The per-object translators are the legs the model translator composes — the owner calls `model_to_openstudio`/`model_to_osm`, not the per-object functions.
+- `model_to_openstudio` is the core translation (returns a live OpenStudio `Model`); the `model_to_*` family serializes onward. The per-object translators are the legs the model translator composes — the owner calls `model_to_openstudio`/`model_to_osm`, not the per-object functions. Every `model_to_*` writer takes `(model, seed_model=None, ...)`; `model_to_gbxml(model, triangulate_non_planar_orphaned=True, full_geometry=False, ...)` routes through a distinct geometry path.
 
-| [INDEX] | [SURFACE]                                                                                                                                          | [CALL_SHAPE]        | [CAPABILITY]                                                                                 |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------ | :------------------------------------------------------------------------------------------- |
-|  [01]   | `model_to_openstudio(model, seed_model=None, schedule_directory=None, use_geometry_names=False, ...)`                                              | honeybee `Model`    | translate to a live OpenStudio `Model` (the in-process core)                                 |
-|  [02]   | `model_to_osm(model, seed_model=None, ...)`                                                                                                        | honeybee `Model`    | translate to the serialized OSM STRING (no folder arg; the consumer owns the artifact write) |
-|  [03]   | `model_to_idf(model, seed_model=None, ...)`                                                                                                        | honeybee `Model`    | translate to the serialized EnergyPlus IDF STRING                                            |
-|  [04]   | `model_to_epjson(model, seed_model=None, ...)`                                                                                                     | honeybee `Model`    | translate to the serialized EnergyPlus epJSON STRING                                         |
-|  [05]   | `model_to_gbxml(model, triangulate_non_planar_orphaned=True, full_geometry=False, ...)`                                                            | honeybee `Model`    | translate to the serialized gbXML STRING (interoperability export)                           |
-|  [06]   | `room_to_openstudio` / `face_to_openstudio` / `aperture_to_openstudio` / `door_to_openstudio` / `shade_to_openstudio` / `shade_mesh_to_openstudio` | object + `os_model` | per-object translators the model writer composes (adjacency-mapped)                          |
+| [INDEX] | [SURFACE]                  | [CALL_SHAPE]      | [CAPABILITY]                                                       |
+| :-----: | :------------------------- | :---------------- | :----------------------------------------------------------------- |
+|  [01]   | `model_to_openstudio`      | honeybee `Model`  | translate to a live OpenStudio `Model` (the in-process core)       |
+|  [02]   | `model_to_osm`             | honeybee `Model`  | translate to the serialized OSM string (consumer owns the write)   |
+|  [03]   | `model_to_idf`             | honeybee `Model`  | translate to the serialized EnergyPlus IDF string                  |
+|  [04]   | `model_to_epjson`          | honeybee `Model`  | translate to the serialized EnergyPlus epJSON string               |
+|  [05]   | `model_to_gbxml`           | honeybee `Model`  | translate to the serialized gbXML string (interoperability export) |
+|  [06]   | `room_to_openstudio`       | object + os_model | per-object room translator (adjacency-mapped)                      |
+|  [07]   | `face_to_openstudio`       | object + os_model | per-object face translator                                         |
+|  [08]   | `aperture_to_openstudio`   | object + os_model | per-object aperture translator                                     |
+|  [09]   | `door_to_openstudio`       | object + os_model | per-object door translator                                         |
+|  [10]   | `shade_to_openstudio`      | object + os_model | per-object shade translator                                        |
+|  [11]   | `shade_mesh_to_openstudio` | object + os_model | per-object shade-mesh translator                                   |
 
 [ENTRYPOINT_SCOPE]: model readers (`honeybee_openstudio.reader`)
 - rail: energy-modeling
-- Reverse import: OpenStudio/IDF/gbXML -> honeybee `Model`. The `extract_all_*` helpers pull the resource tables first; the per-object `*_from_openstudio` readers rebuild the geometry+properties.
+- Reverse import: OpenStudio/IDF/gbXML -> honeybee `Model`. The `extract_all_*` helpers pull the resource tables first (constructions before schedules); the per-object `*_from_openstudio` readers rebuild the geometry+properties. The readers take `reset_properties=False`, and `model_from_osm_file` additionally `print_warnings=False`.
 
-| [INDEX] | [SURFACE]                                                                                                                                                  | [CALL_SHAPE]         | [CAPABILITY]                                             |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------- | :------------------------------------------------------- |
-|  [01]   | `model_from_openstudio(os_model, reset_properties=False)`                                                                                                  | OpenStudio `Model`   | import a live OpenStudio model into honeybee             |
-|  [02]   | `model_from_osm_file(osm_file, reset_properties=False, print_warnings=False)` / `model_from_osm(osm_str, ...)`                                             | `.osm` file / string | import from an OSM file or string                        |
-|  [03]   | `model_from_idf_file(idf_file, ...)` / `model_from_gbxml_file(gbxml_file, ...)`                                                                            | `.idf` / gbXML file  | import from EnergyPlus IDF / gbXML                       |
-|  [04]   | `extract_all_constructions(os_model, schedules=None)` / `extract_all_schedules(os_model)`                                                                  | OpenStudio `Model`   | pull the resource tables (the readers' dependency order) |
-|  [05]   | `room_from_openstudio` / `face_from_openstudio` / `construction_set_from_openstudio` / `program_type_from_openstudio` / `ideal_air_system_from_openstudio` | OpenStudio object    | per-object reverse translators                           |
+| [INDEX] | [SURFACE]                          | [CALL_SHAPE]       | [CAPABILITY]                                   |
+| :-----: | :--------------------------------- | :----------------- | :--------------------------------------------- |
+|  [01]   | `model_from_openstudio`            | OpenStudio `Model` | import a live OpenStudio model into honeybee   |
+|  [02]   | `model_from_osm_file`              | `.osm` file        | import from an OSM file                        |
+|  [03]   | `model_from_osm`                   | `.osm` string      | import from an OSM string                      |
+|  [04]   | `model_from_idf_file`              | `.idf` file        | import from EnergyPlus IDF                     |
+|  [05]   | `model_from_gbxml_file`            | gbXML file         | import from gbXML                              |
+|  [06]   | `extract_all_constructions`        | OpenStudio `Model` | pull the construction resource table           |
+|  [07]   | `extract_all_schedules`            | OpenStudio `Model` | pull the schedule resource table               |
+|  [08]   | `room_from_openstudio`             | OpenStudio object  | per-object room reverse translator             |
+|  [09]   | `face_from_openstudio`             | OpenStudio object  | per-object face reverse translator             |
+|  [10]   | `construction_set_from_openstudio` | OpenStudio object  | per-object construction-set reverse translator |
+|  [11]   | `program_type_from_openstudio`     | OpenStudio object  | per-object program-type reverse translator     |
+|  [12]   | `ideal_air_system_from_openstudio` | OpenStudio object  | per-object ideal-air-system reverse translator |
 
 [ENTRYPOINT_SCOPE]: simulation parameter translation (`honeybee_openstudio.simulation`)
 - rail: energy-modeling
-- Translate the honeybee `SimulationParameter` family and EPW into OpenStudio model objects, in-process.
+- Translate the honeybee `SimulationParameter` family and EPW into OpenStudio model objects, in-process. `simulation_parameter_to_openstudio(sim_par, seed_model=None)` translates the full bundle and `assign_epw_to_model(epw_file, os_model, set_climate_zone=False)` attaches the weather file.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                      | [CALL_SHAPE]              | [CAPABILITY]                                                      |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------ | :---------------------------------------------------------------- |
-|  [01]   | `simulation_parameter_to_openstudio(sim_par, seed_model=None)`                                                                                                                                 | `SimulationParameter`     | translate the full sim-par bundle to OpenStudio objects           |
-|  [02]   | `assign_epw_to_model(epw_file, os_model, set_climate_zone=False)`                                                                                                                              | epw + `os_model`          | attach the weather file and derive the ASHRAE climate zone        |
-|  [03]   | `run_period_to_openstudio` / `design_day_to_openstudio` / `sizing_to_openstudio` / `shadow_calculation_to_openstudio` / `simulation_control_to_openstudio` / `simulation_output_to_openstudio` | sim-par part + `os_model` | per-part sim-par translators                                      |
-|  [04]   | `os_path(path_str)` / `os_vector_len(vector)`                                                                                                                                                  | path / vector             | SDK path/vector adapters (the `openstudio` C++ marshalling shims) |
+| [INDEX] | [SURFACE]                            | [CALL_SHAPE]          | [CAPABILITY]                                    |
+| :-----: | :----------------------------------- | :-------------------- | :---------------------------------------------- |
+|  [01]   | `simulation_parameter_to_openstudio` | `SimulationParameter` | translate the full sim-par bundle to OpenStudio |
+|  [02]   | `assign_epw_to_model`                | epw + os_model        | attach EPW and derive the ASHRAE climate zone   |
+|  [03]   | `run_period_to_openstudio`           | part + os_model       | run-period translator                           |
+|  [04]   | `design_day_to_openstudio`           | part + os_model       | design-day translator                           |
+|  [05]   | `sizing_to_openstudio`               | part + os_model       | sizing-parameter translator                     |
+|  [06]   | `shadow_calculation_to_openstudio`   | part + os_model       | shadow-calculation translator                   |
+|  [07]   | `simulation_control_to_openstudio`   | part + os_model       | simulation-control translator                   |
+|  [08]   | `simulation_output_to_openstudio`    | part + os_model       | simulation-output translator                    |
+|  [09]   | `os_path(path_str)`                  | path                  | SDK path marshalling shim                       |
+|  [10]   | `os_vector_len(vector)`              | vector                | SDK vector marshalling shim                     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

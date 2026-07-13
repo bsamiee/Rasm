@@ -34,25 +34,41 @@ The reflected `__all__` is exactly `['__version__', '__author__', '__resvg_versi
 [ENTRYPOINT_SCOPE]: SVG-to-PNG render
 - rail: imaging
 
-`svg_to_bytes` accepts `svg_string` OR `svg_path` (exactly one required; `.svgz` gzip files decompress on the path arm); sizing is the `width`/`height`/`zoom`/`dpi` rows; parsing is `background`/`style_sheet`/`resources_dir`/`languages`; font resolution is `skip_system_fonts` plus `font_files`/`font_dirs`/`font_size` and the six `*_family` rows; rendering quality is the `shape_rendering`/`text_rendering`/`image_rendering` `Literal` policy axis; `log_information` toggles engine debug logs to stdout. It returns PNG-encoded `bytes`. All parameters are keyword-defaulted, so the consuming `RenderPolicy` projects exactly the axes a render needs through one `**`-spread, never a positional wall.
+`svg_to_bytes(svg_string=None, svg_path=None, background=None, ...) -> bytes` accepts `svg_string` OR `svg_path` (exactly one required; `.svgz` gzip files decompress on the path arm); sizing is the `width`/`height`/`zoom`/`dpi` rows; parsing is `background`/`style_sheet`/`resources_dir`/`languages`; font resolution is `skip_system_fonts` plus `font_files`/`font_dirs`/`font_size` and the six `*_family` rows; rendering quality is the `shape_rendering`/`text_rendering`/`image_rendering` `Literal` policy axis; `log_information` toggles engine debug logs to stdout. It returns PNG-encoded `bytes`. All parameters are keyword-defaulted, so the consuming `RenderPolicy` projects exactly the axes a render needs through one `**`-spread, never a positional wall.
 
-| [INDEX] | [SURFACE]      | [CALL_SHAPE]                                                                  | [CAPABILITY]                                          |
-| :-----: | :------------- | :---------------------------------------------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `svg_to_bytes` | `svg_to_bytes(svg_string=None, svg_path=None, background=None, ...) -> bytes` | render SVG markup or `.svg`/`.svgz` file to PNG bytes |
+| [INDEX] | [SURFACE]      | [CAPABILITY]                                          |
+| :-----: | :------------- | :---------------------------------------------------- |
+|  [01]   | `svg_to_bytes` | render SVG markup or `.svg`/`.svgz` file to PNG bytes |
 
 [ENTRYPOINT_SCOPE]: `svg_to_bytes` parameter axes
 - rail: imaging
 
-The reflected signature (full keyword order: `svg_string, svg_path, background, skip_system_fonts, log_information, width, height, zoom, dpi, style_sheet, resources_dir, languages, font_size, font_family, serif_family, sans_serif_family, cursive_family, fantasy_family, monospace_family, font_files, font_dirs, shape_rendering, text_rendering, image_rendering`) decomposes into source, sizing, parsing, font, rendering-policy, and logging axes. Every parameter below traces to the native `inspect.signature` and the shipped `__init__.pyi` stub; the three `Literal` policy params and `languages` carry an `Ellipsis` runtime default in the native signature that resolves to the documented per-axis default inside the extension.
+The reflected signature decomposes into source, sizing, parsing, font, rendering-policy, and logging axes; the `python signature` fence below is the exact native `inspect.signature` keyword order and the shipped `__init__.pyi` stub. The three `Literal` policy params and `languages` carry an `Ellipsis` runtime default in the native signature that resolves to the documented per-axis default inside the extension.
 
-| [INDEX] | [AXIS]  | [PARAMETERS]                                                                                                                                                                                                                                                                                                    | [CAPABILITY]                                                                        |
-| :-----: | :------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | source  | `svg_string: str \| None = None`, `svg_path: str \| None = None`                                                                                                                                                                                                                                                | UTF-8 SVG markup or `.svg`/`.svgz` file path (exactly one required)                 |
-|  [02]   | sizing  | `width: int \| None = None`, `height: int \| None = None`, `zoom: float \| None = None`, `dpi: float = 0.0`                                                                                                                                                                                                     | explicit pixel size, zoom multiplier, or DPI (`0.0` = SVG-declared size)            |
-|  [03]   | parsing | `background: str \| None = None`, `style_sheet: str \| None = None`, `resources_dir: str \| None = None`, `languages: list[str] \| None = None`                                                                                                                                                                 | CSS canvas background, injected stylesheet, `xlink:href` root, `<switch>` languages |
-|  [04]   | font    | `skip_system_fonts: bool = False`, `font_files: list[str] \| None = None`, `font_dirs: list[str] \| None = None`, `font_size: float = 16.0`, `font_family`/`serif_family`/`sans_serif_family`/`cursive_family`/`fantasy_family`/`monospace_family: str \| None = None`                                          | system/explicit-file/directory font loading with the six generic-family overrides   |
-|  [05]   | policy  | `shape_rendering: Literal["optimize_speed","crisp_edges","geometric_precision"] = "geometric_precision"`, `text_rendering: Literal["optimize_speed","optimize_legibility","geometric_precision"] = "optimize_legibility"`, `image_rendering: Literal["optimize_quality","optimize_speed"] = "optimize_quality"` | per-axis shape/text/image rendering quality policy                                  |
-|  [06]   | logging | `log_information: bool = False`                                                                                                                                                                                                                                                                                 | print resvg debug logs to stdout (diagnostic only; off in production)               |
+```python signature
+svg_to_bytes(
+    svg_string: str | None = None, svg_path: str | None = None,
+    background: str | None = None, skip_system_fonts: bool = False, log_information: bool = False,
+    width: int | None = None, height: int | None = None, zoom: float | None = None, dpi: float = 0.0,
+    style_sheet: str | None = None, resources_dir: str | None = None, languages: list[str] | None = None,
+    font_size: float = 16.0,
+    font_family: str | None = None, serif_family: str | None = None, sans_serif_family: str | None = None,
+    cursive_family: str | None = None, fantasy_family: str | None = None, monospace_family: str | None = None,
+    font_files: list[str] | None = None, font_dirs: list[str] | None = None,
+    shape_rendering: Literal["optimize_speed", "crisp_edges", "geometric_precision"] = "geometric_precision",
+    text_rendering: Literal["optimize_speed", "optimize_legibility", "geometric_precision"] = "optimize_legibility",
+    image_rendering: Literal["optimize_quality", "optimize_speed"] = "optimize_quality",
+) -> bytes
+```
+
+| [INDEX] | [AXIS]  | [CAPABILITY]                                                                        |
+| :-----: | :------ | :---------------------------------------------------------------------------------- |
+|  [01]   | source  | UTF-8 SVG markup or `.svg`/`.svgz` file path (exactly one required)                 |
+|  [02]   | sizing  | explicit pixel size, zoom multiplier, or DPI (`0.0` = SVG-declared size)            |
+|  [03]   | parsing | CSS canvas background, injected stylesheet, `xlink:href` root, `<switch>` languages |
+|  [04]   | font    | system/explicit-file/directory font loading with the six generic-family overrides   |
+|  [05]   | policy  | per-axis shape/text/image rendering quality policy                                  |
+|  [06]   | logging | print resvg debug logs to stdout (diagnostic only; off in production)               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -1,101 +1,124 @@
 # [APPUI]
 
-`Rasm.AppUi` is the APP-PLATFORM product-UI engine: one Avalonia shell that mounts onto any admitted substrate — Rhino panel and modal, GH2 companion window, standalone desktop, sidecar shell, headless proof surface — through one abstract `SurfaceHost` axis. It consumes AppHost ports, Persistence queries, and Compute receipts as settled vocabulary and never references Rhino or GH directly. The domain folder-map lives in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the open work in `TASKLOG.md`.
+`Rasm.AppUi` owns the APP-PLATFORM product UI — one Avalonia shell mounting onto any admitted substrate through the abstract `SurfaceHost` axis, folding AppHost ports, Persistence queries, and Compute receipts into settled product vocabulary. It references no host toolkit directly, so every Rhino and GH2 surface reaches the shell through a seam contract.
 
 ## [01]-[ROUTER]
 
-- [01]-[NAVIGATION](.planning/Shell/navigation.md)
-- [02]-[SCREENS](.planning/Shell/screens.md)
-- [03]-[HOSTS](.planning/Shell/hosts.md)
-- [04]-[COMMANDS](.planning/Shell/commands.md)
-- [05]-[CONTROLS](.planning/Shell/controls.md)
-- [06]-[SOLVER](.planning/Shell/solver.md)
-- [07]-[VIRTUALIZATION](.planning/Shell/virtualization.md)
-- [08]-[DIALOGS](.planning/Shell/dialogs.md)
-- [09]-[INPUT](.planning/Shell/input.md)
-- [10]-[ACCESSIBILITY](.planning/Shell/accessibility.md)
-- [11]-[PIPELINE](.planning/Render/pipeline.md)
-- [12]-[MESHLETS](.planning/Render/meshlets.md)
-- [13]-[PATHTRACE](.planning/Render/pathtrace.md)
-- [14]-[SHADING](.planning/Render/shading.md)
-- [15]-[IMMERSIVE](.planning/Render/immersive.md)
-- [16]-[REALITY](.planning/Render/reality.md)
-- [17]-[CAPTURE](.planning/Render/capture.md)
-- [18]-[DRAFTING](.planning/Render/drafting.md)
-- [19]-[ANIMATION](.planning/Render/animation.md)
-- [20]-[DASHBOARDS](.planning/Charts/dashboards.md)
-- [21]-[CUSTOM](.planning/Charts/custom.md)
-- [22]-[BASEMAP](.planning/Charts/basemap.md)
-- [23]-[INSPECTOR](.planning/Editing/inspector.md)
-- [24]-[TABLES](.planning/Editing/tables.md)
-- [25]-[FORMS](.planning/Editing/forms.md)
-- [26]-[HISTORY](.planning/Editing/history.md)
-- [27]-[LIVEDATA](.planning/Editing/livedata.md)
-- [28]-[GRAPH](.planning/Editing/graph.md)
-- [29]-[NOTEBOOK](.planning/Document/notebook.md)
-- [30]-[MEDIA](.planning/Document/media.md)
-- [31]-[EXPORT](.planning/Document/export.md)
-- [32]-[SYNC](.planning/Collab/sync.md)
-- [33]-[ISSUES](.planning/Collab/issues.md)
-- [34]-[TOUR](.planning/Collab/tour.md)
-- [35]-[EVIDENCE](.planning/Diagnostics/evidence.md)
-- [36]-[PROOF](.planning/Diagnostics/proof.md)
-- [37]-[DEVLOOP](.planning/Diagnostics/devloop.md)
-- [38]-[GOVERNOR](.planning/Diagnostics/governor.md)
-- [39]-[TOKENS](.planning/Theme/tokens.md)
-- [40]-[TYPOGRAPHY](.planning/Theme/typography.md)
-- [41]-[MOTION](.planning/Theme/motion.md)
-- [42]-[ASSETS](.planning/Theme/assets.md)
-- [43]-[LOCALE](.planning/Theme/locale.md)
+[SHELL]:
+- [01]-[NAVIGATION](.planning/Shell/navigation.md): Routing spine with a typed deep-link grammar over dockable layouts.
+- [02]-[SCREENS](.planning/Shell/screens.md): Screen catalog with ref-counted activation and OAPH-paced state.
+- [03]-[HOSTS](.planning/Shell/hosts.md): Host-neutral surface mounting through seam delegate columns.
+- [04]-[COMMANDS](.planning/Shell/commands.md): Command vocabulary with availability algebra and total receipts.
+- [05]-[CONTROLS](.planning/Shell/controls.md): `ControlIntent` union materialized through one control factory.
+- [06]-[SOLVER](.planning/Shell/solver.md): Layout-constraint Kiwi algebra solved by one custom panel.
+- [07]-[VIRTUALIZATION](.planning/Shell/virtualization.md): One virtual-window owner over change-sets and an extent ledger.
+- [08]-[DIALOGS](.planning/Shell/dialogs.md): Typed-Fin dialog intents with dismissal-as-value over agnostic pickers.
+- [09]-[INPUT](.planning/Shell/input.md): Command-derived hotkeys, behavior rows, and the pan-zoom device fabric.
+- [10]-[ACCESSIBILITY](.planning/Shell/accessibility.md): Automation identity, tab-order and trap law, one WCAG luminance gate.
+
+[RENDER]:
+- [11]-[PIPELINE](.planning/Render/pipeline.md): Render-graph pass-DAG with per-backend targets and a resolve ladder.
+- [12]-[MESHLETS](.planning/Render/meshlets.md): Compute residency-cluster consumption with hysteresis LOD and a cull cut.
+- [13]-[PATHTRACE](.planning/Render/pathtrace.md): BVH, ReSTIR, and denoise oracle over the one light rig.
+- [14]-[SHADING](.planning/Render/shading.md): Per-backend GPU shader cache feeding the layered-BSDF shade pass.
+- [15]-[IMMERSIVE](.planning/Render/immersive.md): OpenXR stereo design-review and passthrough over the shared device.
+- [16]-[REALITY](.planning/Render/reality.md): Gaussian-splat and point-cloud capture over the one residency carrier.
+- [17]-[CAPTURE](.planning/Render/capture.md): Raster capsule, color-policy owner, and vector-print encode rows.
+- [18]-[DRAFTING](.planning/Render/drafting.md): Sheet drafting consuming the hidden-line receipt with one DWG/DXF write leg.
+- [19]-[ANIMATION](.planning/Render/animation.md): Timeline keyframe-track union with track-owned interpolation.
+
+[CHARTS]:
+- [20]-[DASHBOARDS](.planning/Charts/dashboards.md): Chart series and axis rows with downsampled stream binding and brushing.
+- [21]-[CUSTOM](.planning/Charts/custom.md): Custom-visual Skia layout algebra with a keyed color-policy projection.
+- [22]-[BASEMAP](.planning/Charts/basemap.md): Tiled basemap with Bim-owned overlays beside the viewport.
+
+[EDITING]:
+- [23]-[INSPECTOR](.planning/Editing/inspector.md): Typed property inspection with ranked editor rows and diff3 conflict hunks.
+- [24]-[TABLES](.planning/Editing/tables.md): Tabular and hierarchical projection routed through the virtual window.
+- [25]-[FORMS](.planning/Editing/forms.md): Form-schema wizard through the control factory, batch-edit folding one receipt.
+- [26]-[HISTORY](.planning/Editing/history.md): Revertible-op inverse algebra over the recorder and a durable-ledger arm.
+- [27]-[LIVEDATA](.planning/Editing/livedata.md): Reactive data spine over closed data-source cases and change-set operators.
+- [28]-[GRAPH](.planning/Editing/graph.md): Node-editor parametric canvas with an admission gate and co-edit merge.
+
+[DOCUMENT]:
+- [29]-[NOTEBOOK](.planning/Document/notebook.md): Capability-pinned cells composing the recompute graph with co-edited replay.
+- [30]-[MEDIA](.planning/Document/media.md): Markdown inlines and codec rows on the one surface seam.
+- [31]-[EXPORT](.planning/Document/export.md): Paginated flow reports with PDF security, an Office arm, and a print arm.
+
+[COLLAB]:
+- [32]-[SYNC](.planning/Collab/sync.md): Live-merge authority and the typed edit-intent stream onto the durable ledger.
+- [33]-[ISSUES](.planning/Collab/issues.md): openBIM issue board projection over the Bim BCF contract.
+- [34]-[TOUR](.planning/Collab/tour.md): Review tour as a camera-track projection with presenter-follow presence.
+
+[DIAGNOSTICS]:
+- [35]-[EVIDENCE](.planning/Diagnostics/evidence.md): Evidence-receipt union, correlation join, and the 6xxx fault registry.
+- [36]-[PROOF](.planning/Diagnostics/proof.md): Capture lanes, the headless proof matrix, goldens, and a typed proof fault.
+- [37]-[DEVLOOP](.planning/Diagnostics/devloop.md): Hot-reload knobs, inspector HUD, flamegraph, solve scrub, and a REPL.
+- [38]-[GOVERNOR](.planning/Diagnostics/governor.md): Perf-budget quality governor with timestamp attribution.
+
+[THEME]:
+- [39]-[TOKENS](.planning/Theme/tokens.md): Design-token engine with an OKLab ramp mix and atomic theme swap.
+- [40]-[TYPOGRAPHY](.planning/Theme/typography.md): Type roles, embedded-font admission, and one live-front-matter shaping rail.
+- [41]-[MOTION](.planning/Theme/motion.md): Motion tokens with spring algebra and a progress-to-token map.
+- [42]-[ASSETS](.planning/Theme/assets.md): Nameof-derived asset-key vocabulary with rank-fallback sourcing.
+- [43]-[LOCALE](.planning/Theme/locale.md): Locale rows over Resx, ICU, and time with a typed locale fault and live captioning.
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain libraries that implement UI framework, rendering, GPU backends, charts, content, and CAD exchange — entirely distinct from the C# substrate registry.
+Product-UI libraries — UI toolkit, GPU rendering, media, drafting exchange, and collaboration — admitted by this folder; versions centralize in the C# manifest.
 
 [UI_FRAMEWORK]:
 - `Avalonia`
 - `Avalonia.Desktop`
 - `Avalonia.Headless`
-- `Avalonia.Headless.XUnit` — `[AvaloniaFact]`/`[AvaloniaTheory]` per-test headless session carrier; the AppUi test-shell csproj carries the reference.
+- `Avalonia.Headless.XUnit` — the AppUi test-shell csproj carries this per-test headless session reference.
 - `Avalonia.Themes.Fluent`
 - `Avalonia.Fonts.Inter`
-- `Avalonia.Controls.DataGrid`
-- `Avalonia.Controls.ColorPicker`
-- `Avalonia.AvaloniaEdit`
-- `AvaloniaEdit.TextMate`
-
-[REACTIVE]:
 - `ReactiveUI`
 - `ReactiveUI.Avalonia`
 - `ReactiveUI.Validation`
 - `Xaml.Behaviors.Avalonia`
 - `System.Reactive`
 - `DynamicData`
-
-[DOCKING_DIALOGS]:
 - `Dock.Avalonia`
 - `Dock.Model.ReactiveUI`
 - `Dock.Serializer.SystemTextJson`
 - `DialogHost.Avalonia`
+- `Kiwi`
 
-[INSPECTION_CHARTING]:
+[CONTROLS_THEME]:
+- `Avalonia.Controls.DataGrid`
+- `Avalonia.Controls.ColorPicker`
+- `Avalonia.AvaloniaEdit`
+- `AvaloniaEdit.TextMate`
 - `bodong.Avalonia.PropertyGrid`
 - `bodong.PropertyModels`
 - `LiveChartsCore.SkiaSharpView.Avalonia`
+- `AsyncImageLoader.Avalonia`
+- `FluentIcons.Avalonia`
+- `FluentIcons.Common`
+- `Markdig`
+- `PanAndZoom`
+- `Semi.Avalonia`
+- `Semi.Avalonia.DataGrid`
+- `Semi.Avalonia.ColorPicker`
+- `Semi.Avalonia.Dock`
+- `Semi.Avalonia.AvaloniaEdit`
+- `Irihi.Ursa`
+- `Irihi.Ursa.Themes.Semi`
+- `Irihi.Ursa.ReactiveUIExtension`
 
-[RENDER_TEXT]:
+[RENDER_GPU]:
 - `Avalonia.Skia`
 - `SkiaSharp`
 - `SkiaSharp.HarfBuzz`
 - `SkiaSharp.NativeAssets.macOS`
-- `SkiaSharp.NativeAssets.Linux` — transitive distribution-closure floor (central pin only)
-- `SkiaSharp.NativeAssets.Linux.NoDependencies` — glibc-only Linux natives for the headless proof lane
+- `SkiaSharp.NativeAssets.Linux` — transitive distribution-closure floor, central pin only.
+- `SkiaSharp.NativeAssets.Linux.NoDependencies` — glibc-only Linux natives for the headless proof lane.
 - `HarfBuzzSharp.NativeAssets.macOS`
-- `HarfBuzzSharp.NativeAssets.Linux` — transitive distribution-closure floor (central pin only)
+- `HarfBuzzSharp.NativeAssets.Linux` — transitive distribution-closure floor, central pin only.
 - `Svg.Controls.Skia.Avalonia`
 - `Svg.Skia`
-
-[GPU_BACKEND]:
 - `Silk.NET.WebGPU`
 - `Silk.NET.WebGPU.Native.WGPU`
 - `Silk.NET.WebGPU.Extensions.WGPU`
@@ -104,71 +127,31 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 - `Silk.NET.OpenXR.Extensions.EXT`
 - `Silk.NET.OpenXR.Extensions.FB`
 
-> [!NOTE]
-> `Wgpu` owns the WebGPU viewport over `Silk.NET.WebGPU`, `Silk.NET.WebGPU.Native.WGPU`, and `Silk.NET.WebGPU.Extensions.WGPU`; OpenXR composes the same device for immersive review, and `Avalonia.Skia` remains the viewport fallback floor.
-
-[ASSETS_CONTENT]:
-- `AsyncImageLoader.Avalonia`
-- `FluentIcons.Avalonia`
-- `FluentIcons.Common`
-- `Markdig`
-- `PanAndZoom`
-
-[LAYOUT]:
-- `Kiwi`
-
-[MEDIA]:
+[MEDIA_INPUT]:
 - `FFmpeg.AutoGen`
 - `HanumanInstitute.LibMpv`
 - `HanumanInstitute.LibMpv.Avalonia`
-
-[INPUT_FABRIC]:
 - `HidSharp`
 - `Silk.NET.Input`
 - `Silk.NET.SDL`
 - `Melanchall.DryWetMidi`
 
-[DRAFTING_EXPORT]:
+[EXCHANGE_COLLAB]:
 - `ACadSharp`
 - `DocumentFormat.OpenXml`
 - `lcmsNET`
 - `PDFsharp`
 - `PDFsharp-MigraDoc`
-
-[THEME_SUITE]:
-- `Semi.Avalonia`
-- `Semi.Avalonia.DataGrid`
-- `Semi.Avalonia.ColorPicker`
-- `Semi.Avalonia.Dock`
-- `Semi.Avalonia.AvaloniaEdit`
-
-[EXTENDED_CONTROLS]:
-- `Irihi.Ursa`
-- `Irihi.Ursa.Themes.Semi`
-- `Irihi.Ursa.ReactiveUIExtension`
-
-[GRAPH_MAP_SURFACES]:
 - `NodeEditorAvalonia`
 - `Mapsui.Avalonia12`
-
-[COLLABORATION_LOCALE]:
 - `LoroCs`
 - `MessageFormat`
 - `Whisper.net`
 
 [DEV_LOOP]:
-- `ProDiagnostics`
-- `HotAvalonia`
-- `Avalonia.Markup.Xaml.Loader`
-
-> [!NOTE]
-> The Dev Loop family binds `Debug`-only with `PrivateAssets="all"`. `ProDiagnostics` mounts runtime tree, property, style, event, and layout inspection behind the `HotAvalonia` closure; `HotAvalonia` and `Avalonia.Markup.Xaml.Loader` own XAML reload and runtime inflation.
-
-> [!NOTE]
-> The theme and extended-control families bind Semi tokens, Ursa controls, NodeEditor graph editing, Mapsui overlays, Loro collaboration, ICU message formatting, and PDFsharp/MigraDoc export through their package rows.
-
-> [!NOTE]
-> Media and export engines bind through native-backed rows: FFmpeg encodes compositor frames, LibMpv decodes playback, lcmsNET manages print color, and Whisper.net produces offline captions.
+- `ProDiagnostics` — Debug-only tree, property, style, event, and layout inspection.
+- `HotAvalonia` — Debug-only XAML reload and runtime inflation.
+- `Avalonia.Markup.Xaml.Loader` — Debug-only markup loader inside the HotAvalonia closure.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
@@ -188,7 +171,7 @@ Substrate libraries from the C# registry that this folder consumes directly. Ful
 - `UnitsNet`
 
 [GRAPH_ALGORITHM]:
-- `QuikGraph` — the parametric graph-canvas topology walks behind `Editing/graph.md`.
+- `QuikGraph` — the parametric graph-canvas topology walks.
 
 [COLOR_SCIENCE]:
-- `Wacton.Unicolour` — perceptual color math for theme tokens, gamut-safe palettes, and contrast proofs.
+- `Wacton.Unicolour` — perceptual color math for theme tokens and contrast proofs.

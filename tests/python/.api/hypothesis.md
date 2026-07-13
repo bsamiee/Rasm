@@ -11,26 +11,28 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                        | [KIND]            | [CAPABILITY]                                                                                                                                   |
-| :-----: | :------------------------------ | :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SearchStrategy[Ex]`            | generic class     | typed generator; `.map`/`.filter`/`.flatmap` compose it — the strategy floor `resolve` returns                                                 |
-|  [02]   | `settings`                      | policy class      | run policy: `deadline`/`max_examples`/`phases`/`derandomize`/`stateful_step_count`/`suppress_health_check`/`print_blob`                        |
-|  [03]   | `Phase`                         | enum              | run phases `explicit`/`reuse`/`generate`/`target`/`shrink`/`explain`; a profile lists the active subset                                        |
-|  [04]   | `HealthCheck`                   | enum              | health gates `data_too_large`/`filter_too_much`/`too_slow`/`large_base_example`/`function_scoped_fixture`/`differing_executors`/`nested_given` |
-|  [05]   | `Verbosity`                     | enum              | reporting level for the run reporter                                                                                                           |
-|  [06]   | `RuleBasedStateMachine`         | base class        | stateful subject; `rule`/`initialize`/`invariant` methods drive a randomized command trace                                                     |
-|  [07]   | `Bundle[Ex]`                    | strategy class    | named symbolic store; `consume=True`/`draw_references` govern reference lifetime across rules                                                  |
-|  [08]   | `MultipleResults[Ex]`           | result carrier    | zero-or-many bundle emission returned by `multiple(...)`                                                                                       |
-|  [09]   | `DrawFn`                        | callable protocol | the `@composite` draw callback resolving a strategy inside a generator body                                                                    |
-|  [10]   | `ExampleDatabase`               | abstract base     | persisted-example contract; the five concrete rows below compose the replay stack                                                              |
-|  [11]   | `DirectoryBasedExampleDatabase` | database          | on-disk store under `.cache/hypothesis/examples` — the durable local corpus                                                                    |
-|  [12]   | `BackgroundWriteDatabase`       | database          | async-write wrapper keeping example persistence off the run critical path                                                                      |
-|  [13]   | `MultiplexedDatabase`           | database          | fan-out over an ordered database set: local write plus read-only replay                                                                        |
-|  [14]   | `ReadOnlyDatabase`              | database          | write-suppressing wrapper; the CI replay leg never mutates the shared corpus                                                                   |
-|  [15]   | `GitHubArtifactDatabase`        | database          | read-only fetch of a CI artifact corpus keyed by `owner`/`repo`                                                                                |
-|  [16]   | `InMemoryExampleDatabase`       | database          | ephemeral store for isolated in-process replay                                                                                                 |
+| [INDEX] | [SYMBOL]                        | [KIND]            | [CAPABILITY]                                                                     |
+| :-----: | :------------------------------ | :---------------- | :------------------------------------------------------------------------------- |
+|  [01]   | `SearchStrategy[Ex]`            | generic class     | typed generator; `.map`/`.filter`/`.flatmap` compose the floor `resolve` returns |
+|  [02]   | `settings`                      | policy class      | run-policy knobs governing deadline, example budget, phases, suppressions        |
+|  [03]   | `Phase`                         | enum              | the run-phase enum; a profile lists the active subset                            |
+|  [04]   | `HealthCheck`                   | enum              | the health-gate enum; a profile suppresses selected gates                        |
+|  [05]   | `Verbosity`                     | enum              | reporting level for the run reporter                                             |
+|  [06]   | `RuleBasedStateMachine`         | base class        | stateful subject; `rule`/`initialize`/`invariant` drive a randomized trace       |
+|  [07]   | `Bundle[Ex]`                    | strategy class    | named symbolic store; `consume`/`draw_references` govern reference lifetime      |
+|  [08]   | `MultipleResults[Ex]`           | result carrier    | zero-or-many bundle emission returned by `multiple(...)`                         |
+|  [09]   | `DrawFn`                        | callable protocol | the `@composite` draw callback resolving a strategy in a generator body          |
+|  [10]   | `ExampleDatabase`               | abstract base     | persisted-example contract; the five concrete rows compose the replay stack      |
+|  [11]   | `DirectoryBasedExampleDatabase` | database          | on-disk store under `.cache/hypothesis/examples` — the durable local corpus      |
+|  [12]   | `BackgroundWriteDatabase`       | database          | async-write wrapper keeping persistence off the run critical path                |
+|  [13]   | `MultiplexedDatabase`           | database          | fan-out over an ordered database set: local write plus read-only replay          |
+|  [14]   | `ReadOnlyDatabase`              | database          | write-suppressing wrapper; the CI replay leg never mutates the corpus            |
+|  [15]   | `GitHubArtifactDatabase`        | database          | read-only fetch of a CI artifact corpus keyed by `owner`/`repo`                  |
+|  [16]   | `InMemoryExampleDatabase`       | database          | ephemeral store for isolated in-process replay                                   |
 
-```python contract
+[ENUM_VOCABULARY]: `settings` knobs — `deadline`/`max_examples`/`phases`/`derandomize`/`stateful_step_count`/`suppress_health_check`/`print_blob`; `Phase` — `explicit`/`reuse`/`generate`/`target`/`shrink`/`explain`; `HealthCheck` — `data_too_large`/`filter_too_much`/`too_slow`/`large_base_example`/`function_scoped_fixture`/`differing_executors`/`nested_given`.
+
+```python signature
 class SearchStrategy[Ex]:
     def map[T](self, pack: Callable[[Ex], T]) -> SearchStrategy[T]: ...
     def filter(self, condition: Callable[[Ex], object]) -> SearchStrategy[Ex]: ...
@@ -50,20 +52,20 @@ class Bundle[Ex](SearchStrategy[Ex]):
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                              | [KIND]      | [CAPABILITY]                                                                                                  |
-| :-----: | :----------------------------------------------------- | :---------- | :------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `given(*strategies, **kw_strategies)`                  | decorator   | binds strategies to a test's arguments — `@spec` composes it via `hyp_given(resolve(subject))`                |
-|  [02]   | `settings(parent=..., **kwargs)`                       | decorator   | overlays run policy on one law; `@spec` applies `parent=` for a pinned profile and `deadline=` for `timeout=` |
-|  [03]   | `example(*args, **kwargs)`                             | decorator   | seeds an always-run explicit case consumed in the `Phase.explicit` phase                                      |
-|  [04]   | `assume(condition)`                                    | guard       | discards the current example when the precondition fails, counting against the filter budget                  |
-|  [05]   | `note(value)`                                          | observation | records a per-example note surfaced only on the minimal failing counterexample                                |
-|  [06]   | `event(value, payload="")`                             | statistic   | tags a drawn value for the statistics fold; `@spec(events=...)` emits one per draw                            |
-|  [07]   | `target(observation, *, label="")`                     | search bias | steers generation toward extremal observations under the `Phase.target` phase                                 |
-|  [08]   | `reproduce_failure(version, blob)`                     | decorator   | replays one serialized counterexample blob deterministically                                                  |
-|  [09]   | `is_hypothesis_test(f)`                                | predicate   | True for a `@given`-wrapped callable; the runtime plugin auto-marks matches `property`                        |
-|  [10]   | `run_state_machine_as_test(factory, *, settings=None)` | driver      | executes a `RuleBasedStateMachine`; `model_based` calls it under the resolved profile                         |
+| [INDEX] | [SURFACE]                          | [KIND]      | [CAPABILITY]                                                                          |
+| :-----: | :--------------------------------- | :---------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `given`                            | decorator   | binds strategies to test arguments via `hyp_given(resolve(subject))`                  |
+|  [02]   | `settings`                         | decorator   | overlays run policy; `parent=` picks a profile, `deadline=` sets `timeout=`           |
+|  [03]   | `example`                          | decorator   | seeds an always-run explicit case consumed in the `Phase.explicit` phase              |
+|  [04]   | `assume`                           | guard       | discards the example when the precondition fails, against the filter budget           |
+|  [05]   | `note`                             | observation | records a per-example note surfaced only on the minimal failing counterexample        |
+|  [06]   | `event`                            | statistic   | tags a drawn value for the statistics fold; `@spec(events=...)` emits one per draw    |
+|  [07]   | `target`                           | search bias | steers generation toward extremal observations under the `Phase.target` phase         |
+|  [08]   | `reproduce_failure(version, blob)` | decorator   | replays one serialized counterexample blob deterministically                          |
+|  [09]   | `is_hypothesis_test`               | predicate   | True for a `@given`-wrapped callable; the plugin auto-marks matches `property`        |
+|  [10]   | `run_state_machine_as_test`        | driver      | executes a `RuleBasedStateMachine`; `model_based` calls it under the resolved profile |
 
-```python contract
+```python signature
 def given(*args: SearchStrategy[object] | ellipsis, **kwargs: SearchStrategy[object] | ellipsis) -> Callable[[Callable[..., None]], Callable[..., None]]: ...
 def assume(condition: object) -> Literal[True]: ...
 def event(value: str, payload: Any = "") -> None: ...

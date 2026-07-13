@@ -19,27 +19,47 @@
 - rail: authn/otp
 - `OTPStrategy` is the one discriminant. Options are additive: verify extends generate with `token` + tolerance. `VerifyResult` is a tagged-by-boolean union — `delta` exists on both `valid: true` arms; the TOTP arm additionally carries `timeStep`/`epoch`. Narrow `if (result.valid)`, then `"timeStep" in result` for the TOTP-only fields.
 
-| [INDEX] | [SYMBOL]                                                                                                                                                                  | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                                                                                                                                                                                                                                                                                                                                   |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `OTPStrategy = 'totp' \| 'hotp'`                                                                                                                                          | strategy value   | the one dispatch key; `generate`/`verify`/`OTP` route on it                                                                                                                                                                                                                                                                                                                           |
-|  [02]   | `VerifyResult = { valid: true; delta; epoch; timeStep }` (TOTP) `\| { valid: true; delta }` (HOTP) `\| { valid: false }`                                                  | tagged result    | `delta` → HOTP counter resync (`counter + delta + 1`) / TOTP drift; TOTP-only `timeStep` → RFC-6238 step number (the `afterTimeStep` replay floor), `epoch` → matched period start                                                                                                                                                                                                    |
-|  [03]   | `OTPFunctionalOptions` / `OTPVerifyFunctionalOptions` (functional rail) · `OTPGenerateOptions` / `OTPVerifyOptions` (class rail — NO `strategy`/`crypto`/`base32` fields) | option algebra   | `secret`, `strategy`, `algorithm`, `digits`, `period`/`epoch`/`t0` (TOTP), `counter` (HOTP); verify adds `token`, `epochTolerance`/`counterTolerance`, and `afterTimeStep` — the native TOTP replay floor rejecting `timeStep <= afterTimeStep`; a functional `verify` call types against `OTPVerifyFunctionalOptions`, never the class-rail `OTPVerifyOptions` the root also exports |
-|  [04]   | `OTPAuthOptions` `{ crypto?: CryptoPlugin; base32?: Base32Plugin }`                                                                                                       | plugin override  | the port-injection slot on every entry                                                                                                                                                                                                                                                                                                                                                |
-|  [05]   | `HashAlgorithm = 'sha1' \| 'sha256' \| 'sha512'` (root) · `digits` numeric field (default 6)                                                                              | primitive params | authenticator-compat defaults (`sha1`/6-digit); raise per policy                                                                                                                                                                                                                                                                                                                      |
+| [INDEX] | [SYMBOL]                                                                                               | [TYPE_FAMILY]    |
+| :-----: | :----------------------------------------------------------------------------------------------------- | :--------------- |
+|  [01]   | `OTPStrategy = 'totp' \| 'hotp'`                                                                       | strategy value   |
+|  [02]   | `VerifyResult = { valid: true; delta; epoch; timeStep } \| { valid: true; delta } \| { valid: false }` | tagged result    |
+|  [03]   | `OTPFunctionalOptions` / `OTPVerifyFunctionalOptions` · `OTPGenerateOptions` / `OTPVerifyOptions`      | option algebra   |
+|  [04]   | `OTPAuthOptions` `{ crypto?: CryptoPlugin; base32?: Base32Plugin }`                                    | plugin override  |
+|  [05]   | `HashAlgorithm = 'sha1' \| 'sha256' \| 'sha512'` · `digits` numeric field (default 6)                  | primitive params |
+
+[CONSUMER_BOUNDARY] per member:
+- [01]-[STRATEGY]: the one dispatch key; `generate`/`verify`/`OTP` route on it.
+- [02]-[RESULT]: `delta` → HOTP counter resync (`counter + delta + 1`) / TOTP drift; TOTP-only `timeStep` → RFC-6238 step number (the `afterTimeStep` replay floor), `epoch` → matched period start.
+- [03]-[OPTIONS]: `OTPFunctionalOptions`/`OTPVerifyFunctionalOptions` (functional rail) and `OTPGenerateOptions`/`OTPVerifyOptions` (class rail, NO `strategy`/`crypto`/`base32` fields, and never crossed by a functional `verify`). Fields: `secret`, `strategy`, `algorithm`, `digits`, `period`/`epoch`/`t0` (TOTP), `counter` (HOTP); verify adds `token`, `epochTolerance`/`counterTolerance`, `afterTimeStep` (the native TOTP replay floor rejecting `timeStep <= afterTimeStep`).
+- [04]-[PLUGIN_OVERRIDE]: the port-injection slot on every entry.
+- [05]-[PARAMS]: authenticator-compat defaults (`sha1`/6-digit); raise per policy — `HashAlgorithm` is root-exported, `digits` defaults to 6.
 
 [PUBLIC_TYPE_SCOPE]: the plugin ports — the swap point that makes crypto shared, not siloed
 - rail: authn/otp ← sign/crypto
 - `CryptoPlugin`/`Base32Plugin` are structural ports exported from the `otplib` root — satisfy one with a plain object literal, no factory needed. The named `create*Plugin` factories, the `*Context` wrappers, and the `OTPHooks`/`Digits` types live in `@otplib/core` — a direct catalog pin with its own catalogue (`.api/otplib-core.md`); reach for them by sub-import only when named construction beats a literal. This is the seam by which otplib HMAC rides `@oslojs/crypto`.
 
-| [INDEX] | [SYMBOL]                                                                                                                                   | [SOURCE]                                          | [CONSUMER_BOUNDARY]                                                                                                                                                                                                    |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `CryptoPlugin { name; hmac(alg,key,data); randomBytes(len); constantTimeEqual(a,b) }`                                                      | `otplib` root                                     | structural crypto port; satisfied by a `sign/crypto` object over `@oslojs/crypto`                                                                                                                                      |
-|  [02]   | `Base32Plugin { name; encode(data,opts?); decode(str) }`                                                                                   | `otplib` root                                     | structural base32 port; default `ScureBase32Plugin`, swap to `@oslojs/encoding` base32                                                                                                                                 |
-|  [03]   | `NobleCryptoPlugin` / `ScureBase32Plugin`                                                                                                  | `otplib` root                                     | the bundled defaults (`@noble/hashes` / `@scure/base32`)                                                                                                                                                               |
-|  [04]   | `createCryptoPlugin({ name?, hmac, randomBytes, constantTimeEqual? })` / `createBase32Plugin({ name?, encode, decode })` / `stringToBytes` | `@otplib/core` (factory) · root (`stringToBytes`) | named plugin construction — optional; a plain object satisfies the port                                                                                                                                                |
-|  [05]   | `OTPHooks { encodeToken?; validateToken?; truncateDigest? }`                                                                               | `@otplib/core`                                    | non-standard OTP (Steam Guard alphabet, custom truncation); reached via the `hooks?` option field                                                                                                                      |
-|  [06]   | `OTPGuardrails` / `OTPGuardrailsConfig` / `createGuardrails(cfg)`                                                                          | `otplib` root                                     | validation caps — `Partial<OTPGuardrailsConfig>` over `MIN_SECRET_BYTES`/`MAX_SECRET_BYTES`/`MIN_PERIOD`/`MAX_PERIOD`/`MAX_COUNTER`/`MAX_WINDOW` (UPPER_SNAKE keys; no digits guardrail — `digits` is an option field) |
-|  [07]   | `OTPResult<T,E>` / `wrapResult` / `wrapResultAsync`                                                                                        | `otplib` root                                     | optional never-throw wrapping of an entry into a tagged result                                                                                                                                                         |
+| [INDEX] | [SYMBOL]                                                                              | [SOURCE]       |
+| :-----: | :------------------------------------------------------------------------------------ | :------------- |
+|  [01]   | `CryptoPlugin { name; hmac(alg,key,data); randomBytes(len); constantTimeEqual(a,b) }` | `otplib` root  |
+|  [02]   | `Base32Plugin { name; encode(data,opts?); decode(str) }`                              | `otplib` root  |
+|  [03]   | `NobleCryptoPlugin` / `ScureBase32Plugin`                                             | `otplib` root  |
+|  [04]   | `createCryptoPlugin({ name?, hmac, randomBytes, constantTimeEqual? })`                | `@otplib/core` |
+|  [05]   | `createBase32Plugin({ name?, encode, decode })`                                       | `@otplib/core` |
+|  [06]   | `stringToBytes`                                                                       | `otplib` root  |
+|  [07]   | `OTPHooks { encodeToken?; validateToken?; truncateDigest? }`                          | `@otplib/core` |
+|  [08]   | `OTPGuardrails` / `OTPGuardrailsConfig` / `createGuardrails(cfg)`                     | `otplib` root  |
+|  [09]   | `OTPResult<T,E>` / `wrapResult` / `wrapResultAsync`                                   | `otplib` root  |
+
+[CONSUMER_BOUNDARY] per port:
+- [01]-[CRYPTO_PORT]: structural crypto port; satisfied by a `sign/crypto` object over `@oslojs/crypto`.
+- [02]-[BASE32_PORT]: structural base32 port; default `ScureBase32Plugin`, swap to `@oslojs/encoding` base32.
+- [03]-[DEFAULTS]: the bundled defaults (`@noble/hashes` / `@scure/base32`).
+- [04]-[CRYPTO_FACTORY]: named plugin construction — optional; a plain object satisfies the port.
+- [05]-[BASE32_FACTORY]: named plugin construction — optional; a plain object satisfies the port.
+- [06]-[STRING_BYTES]: the string→bytes helper for hand-built plugin input.
+- [07]-[HOOKS]: non-standard OTP (Steam Guard alphabet, custom truncation); reached via the `hooks?` option field.
+- [08]-[GUARDRAILS]: validation caps — `Partial<OTPGuardrailsConfig>` over `MIN_SECRET_BYTES`/`MAX_SECRET_BYTES`/`MIN_PERIOD`/`MAX_PERIOD`/`MAX_COUNTER`/`MAX_WINDOW` (UPPER_SNAKE keys; no digits guardrail — `digits` is an option field).
+- [09]-[RESULT_WRAP]: optional never-throw wrapping of an entry into a tagged result.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -47,22 +67,33 @@
 - rail: authn/otp
 - `strategy` selects TOTP vs HOTP as a *value*; the same call shape serves both (HOTP requires `counter`, TOTP uses `period`/`epoch`). Prefer `generate`/`verify` (async, plugin-agnostic); the `*Sync` mirror needs a sync-HMAC plugin.
 
-| [INDEX] | [SURFACE]                                                                                           | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                              |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------- |
-|  [01]   | `generate(options: OTPGenerateOptions): Promise<string>` / `generateSync(...)`                      | mint token     | `authn/otp` challenge issuance; `Effect.tryPromise`/`Effect.try` |
-|  [02]   | `verify(options: OTPVerifyOptions): Promise<VerifyResult>` / `verifySync(...)`                      | check token    | second-factor verify; constant-time internally; narrow `.valid`  |
-|  [03]   | `generateSecret(options?: { length?; crypto?; base32? }): string`                                   | mint secret    | Base32 shared secret at enrollment (default 20 bytes/160-bit)    |
-|  [04]   | `generateURI({ strategy?, issuer, label, secret, algorithm?, digits?, period?, counter? }): string` | provisioning   | `otpauth://` URI for QR enrollment at the `ui` edge              |
+| [INDEX] | [SURFACE]                                                                                           | [ENTRY_FAMILY] |
+| :-----: | :-------------------------------------------------------------------------------------------------- | :------------- |
+|  [01]   | `generate(options: OTPGenerateOptions): Promise<string>` / `generateSync(...)`                      | mint token     |
+|  [02]   | `verify(options: OTPVerifyOptions): Promise<VerifyResult>` / `verifySync(...)`                      | check token    |
+|  [03]   | `generateSecret(options?: { length?; crypto?; base32? }): string`                                   | mint secret    |
+|  [04]   | `generateURI({ strategy?, issuer, label, secret, algorithm?, digits?, period?, counter? }): string` | provisioning   |
+
+[CONSUMER_BOUNDARY] per entry:
+- [01]-[MINT_TOKEN]: `authn/otp` challenge issuance; `Effect.tryPromise`/`Effect.try`.
+- [02]-[CHECK_TOKEN]: second-factor verify; constant-time internally; narrow `.valid`.
+- [03]-[MINT_SECRET]: Base32 shared secret at enrollment (default 20 bytes/160-bit).
+- [04]-[PROVISION]: `otpauth://` URI for QR enrollment at the `ui` edge.
 
 [ENTRYPOINT_SCOPE]: the class rail — strategy-fixed specializations over the same options
 - rail: authn/otp
 - `OTP` is the strategy-dynamic wrapper (constructed once with `{ strategy, crypto, base32, guardrails }`); `TOTP`/`HOTP` are the fixed-strategy classes with the tighter per-strategy signatures. Use a class when the plugin/guardrail config is fixed for a subject and reused across calls.
 
-| [INDEX] | [SURFACE]                                                                                                                       | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                         |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------ | :------------- | :---------------------------------------------------------- |
-|  [01]   | `new OTP({ strategy?, crypto?, base32?, guardrails? })` → `.generate`/`.verify`/`.generateSecret`/`.generateURI`/`.getStrategy` | unified class  | pre-bound plugin/guardrail config reused per subject        |
-|  [02]   | `new TOTP(options)` → `.generate`/`.verify(token, opts?)` · `getRemainingTime()` / `getTimeStepUsed()`                          | TOTP class     | time-window UI (seconds-left), `afterTimeStep` replay guard |
-|  [03]   | `new HOTP(options)` → `.generate(counter, opts?)` / `.verify({ token, counter, counterTolerance? })` / `.toURI(counter?)`       | HOTP class     | counter-based codes; `delta` resync                         |
+| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] |
+| :-----: | :------------------------------------------------------ | :------------- |
+|  [01]   | `new OTP({ strategy?, crypto?, base32?, guardrails? })` | unified class  |
+|  [02]   | `new TOTP(options)`                                     | TOTP class     |
+|  [03]   | `new HOTP(options)`                                     | HOTP class     |
+
+[CONSUMER_BOUNDARY] per class:
+- [01]-[UNIFIED]: `.generate`/`.verify`/`.generateSecret`/`.generateURI`/`.getStrategy`; pre-bound plugin/guardrail config reused per subject.
+- [02]-[TOTP]: `.generate`/`.verify(token, opts?)` · `getRemainingTime()` / `getTimeStepUsed()`; time-window UI (seconds-left), `afterTimeStep` replay guard.
+- [03]-[HOTP]: `.generate(counter, opts?)` / `.verify({ token, counter, counterTolerance? })` / `.toURI(counter?)`; counter-based codes, `delta` resync.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

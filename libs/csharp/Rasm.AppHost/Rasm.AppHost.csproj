@@ -8,21 +8,11 @@
         <ProjectReference Include="../Rasm/Rasm.csproj" />
     </ItemGroup>
 
-    <ItemGroup Label="Runtime Spine">
-        <PackageReference Include="AspNetCore.HealthChecks.Kafka" />
-        <PackageReference Include="AspNetCore.HealthChecks.Nats" />
-        <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
-        <PackageReference Include="AspNetCore.HealthChecks.Redis" />
-        <PackageReference Include="AspNetCore.HealthChecks.System" />
-        <PackageReference Include="AspNetCore.HealthChecks.Uris" />
+    <ItemGroup Label="Hosting Composition">
         <PackageReference Include="Cronos" />
         <PackageReference Include="FluentValidation" />
         <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
-        <PackageReference Include="Microsoft.AspNetCore.Authorization" />
-        <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" />
-        <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" />
         <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
-        <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
         <PackageReference Include="Microsoft.Extensions.Configuration" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
         <PackageReference Include="Microsoft.Extensions.Configuration.CommandLine" />
@@ -30,59 +20,52 @@
         <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
         <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-        <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
-        <PackageReference Include="Microsoft.Extensions.Diagnostics.ResourceMonitoring" />
         <PackageReference Include="Microsoft.Extensions.Hosting" />
         <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" />
-        <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.ObjectPool" />
         <PackageReference Include="Microsoft.Extensions.Options" />
         <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
-        <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" />
+        <PackageReference Include="Scrutor" />
+        <PackageReference Include="System.CommandLine" />
+    </ItemGroup>
+
+    <ItemGroup Label="Observability">
+        <PackageReference Include="AspNetCore.HealthChecks.Kafka" />
+        <PackageReference Include="AspNetCore.HealthChecks.Nats" />
+        <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
+        <PackageReference Include="AspNetCore.HealthChecks.Redis" />
+        <PackageReference Include="AspNetCore.HealthChecks.System" />
+        <PackageReference Include="AspNetCore.HealthChecks.Uris" />
+        <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" />
+        <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" />
+        <PackageReference Include="Microsoft.Extensions.Compliance.Redaction" />
+        <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" />
+        <PackageReference Include="Microsoft.Extensions.Diagnostics.ResourceMonitoring" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
         <PackageReference Include="Microsoft.Extensions.Telemetry" />
         <PackageReference Include="Microsoft.Extensions.Telemetry.Abstractions" />
-        <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
-        <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" />
-        <PackageReference Include="Microsoft.IdentityModel.Tokens" />
-        <PackageReference Include="NuGet.Versioning" />
-        <PackageReference Include="OpenFeature" />
-        <PackageReference Include="OpenIddict.Client" />
         <PackageReference Include="OpenTelemetry" />
         <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
         <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
         <PackageReference Include="OpenTelemetry.Instrumentation.Http" />
         <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" />
-        <PackageReference Include="Polly.Core" />
-        <PackageReference Include="Polly.Extensions" />
-        <PackageReference Include="Polly.RateLimiting" />
         <PackageReference Include="Pyroscope.OpenTelemetry" />
-        <PackageReference Include="Scrutor" />
         <PackageReference Include="Serilog" />
         <PackageReference Include="Serilog.Extensions.Hosting" />
         <PackageReference Include="Serilog.Sinks.Console" />
         <PackageReference Include="Serilog.Sinks.File" />
-        <PackageReference Include="Sigstore" />
-        <PackageReference Include="System.CommandLine" />
-        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
     </ItemGroup>
 
-    <ItemGroup Label="Time">
-        <PackageReference Include="NodaTime" />
-        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
-    </ItemGroup>
-
-    <ItemGroup Label="Ports Transport">
-        <PackageReference Include="Grpc.AspNetCore" />
+    <ItemGroup Label="Outbound Transport">
         <PackageReference Include="Grpc.AspNetCore.HealthChecks" />
         <PackageReference Include="Grpc.AspNetCore.Web" />
         <PackageReference Include="Grpc.Core.Api" />
-        <PackageReference Include="Grpc.Net.Client" />
         <PackageReference Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson" />
-    </ItemGroup>
-
-    <ItemGroup Label="Provisioning">
-        <PackageReference Include="Velopack" />
+        <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
+        <PackageReference Include="Microsoft.Extensions.ServiceDiscovery" />
+        <PackageReference Include="Polly.Core" />
+        <PackageReference Include="Polly.Extensions" />
+        <PackageReference Include="Polly.RateLimiting" />
     </ItemGroup>
 
     <ItemGroup Label="Capability Agent">
@@ -94,8 +77,18 @@
         <PackageReference Include="ModelContextProtocol" />
         <PackageReference Include="ModelContextProtocol.AspNetCore" />
         <PackageReference Include="ModelContextProtocol.Core" />
-        <PackageReference Include="System.IO.Hashing" />
-        <PackageReference Include="System.Numerics.Tensors" />
+    </ItemGroup>
+
+    <ItemGroup Label="Identity Supply">
+        <PackageReference Include="Microsoft.AspNetCore.Authorization" />
+        <PackageReference Include="Microsoft.IdentityModel.JsonWebTokens" />
+        <PackageReference Include="Microsoft.IdentityModel.Protocols.OpenIdConnect" />
+        <PackageReference Include="Microsoft.IdentityModel.Tokens" />
+        <PackageReference Include="NuGet.Versioning" />
+        <PackageReference Include="OpenFeature" />
+        <PackageReference Include="OpenIddict.Client" />
+        <PackageReference Include="Sigstore" />
+        <PackageReference Include="Velopack" />
     </ItemGroup>
 
     <ItemGroup Label="Sandbox Live Wire">
@@ -107,6 +100,25 @@
         <PackageReference Include="OPCFoundation.NetStandard.Opc.Ua.PubSub" />
         <PackageReference Include="System.IO.Ports" />
         <PackageReference Include="Wasmtime" />
+    </ItemGroup>
+
+    <ItemGroup Label="Functional Core">
+        <PackageReference Include="Thinktecture.Runtime.Extensions.Json" />
+    </ItemGroup>
+
+    <ItemGroup Label="Time Identity">
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="NodaTime.Serialization.SystemTextJson" />
+        <PackageReference Include="System.IO.Hashing" />
+    </ItemGroup>
+
+    <ItemGroup Label="Numeric Substrate">
+        <PackageReference Include="System.Numerics.Tensors" />
+    </ItemGroup>
+
+    <ItemGroup Label="Wire Codegen">
+        <PackageReference Include="Grpc.AspNetCore" />
+        <PackageReference Include="Grpc.Net.Client" />
     </ItemGroup>
 
 </Project>

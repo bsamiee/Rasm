@@ -24,7 +24,7 @@ Run all four in one parallel block:
 
 READ 100%, one batch (`==> path <==` headers delimit files):
 
-```bash
+```bash copy-safe
 fd -H -t f -e md -E 'IDEAS.md' -E 'TASKLOG.md' . libs/.planning libs/csharp/.planning libs/python/.planning libs/typescript/.planning -X tail -n +1
 ```
 
@@ -37,7 +37,7 @@ Spent only on what TARGET or the arrived objective names — folder cores are ne
 - One folder: READ `<pkg>/README.md` + `<pkg>/ARCHITECTURE.md`, then `loc <pkg>/.planning` (the page inventory with the thinness/complexity signal a bare `ls` hides) and `ls <pkg>/.api/`.
 - A bare language: batch the branch's folder cores in one command:
 
-```bash
+```bash template
 fd -H -t f --max-depth 3 -E '_tmp' -E '.planning' '^(README|ARCHITECTURE)\.md$' libs/<lang> -X tail -n +1
 ```
 
@@ -47,16 +47,16 @@ fd -H -t f --max-depth 3 -E '_tmp' -E '.planning' '^(README|ARCHITECTURE)\.md$' 
 
 The session shapes and their entry rails — selected when the objective arrives, never before:
 
-| [INDEX] | [SHAPE]                            | [ENTRY]                                                                                                            |
-| :-----: | :--------------------------------- | :----------------------------------------------------------------------------------------------------------------- |
-|  [01]   | Major cross-folder campaign        | design workflow: survey->draft->judge->decide -> root DECISION brief -> `realize` executes it; `cold-verify` gates |
-|  [02]   | Campaign brief authoring           | `brief` with `{targets, upstream, deep, mandate, review, gold}` — one brief or a dependency-ordered waterfall      |
-|  [03]   | Targeted rebuild / quality pass    | `rebuild` with a target path, an array of paths, or `{targets}` — every targeted page hostile-rebuilt              |
-|  [04]   | Align / clean / hygiene            | `align-cards`, `hygiene-sweep`, `tidy-planning-docs`                                                               |
-|  [05]   | Idea/task pool + realization       | `ideate` (pool generation), `implement-cs`/`implement-py`/`implement-ts` (cards -> fences)                         |
-|  [06]   | Doctrine refining (`docs/stacks/`) | `stack-cs`/`stack-py`/`stack-ts`                                                                                   |
-|  [07]   | Package roster / catalog work      | `survey` (research -> admit -> catalog -> integrate, per folder), `rebuild-api`                                    |
-|  [08]   | Finalization / corrections pass    | `finalize` with a package root or folder subset (split-brain, phantoms, flow, collapse — post-build closure)       |
+| [INDEX] | [SHAPE]                            | [ENTRY]                                                                                           |
+| :-----: | :--------------------------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | Major cross-folder campaign        | design workflow: survey->draft->judge->decide -> DECISION brief -> `realize`; `cold-verify` gates |
+|  [02]   | Campaign brief authoring           | `brief` `{targets, upstream, deep, mandate, review, gold}` — one or dependency-ordered waterfall  |
+|  [03]   | Targeted rebuild / quality pass    | `rebuild` with a target path, an array of paths, or `{targets}` — every page hostile-rebuilt      |
+|  [04]   | Align / clean / hygiene            | `align-cards`, `hygiene-sweep`, `tidy-planning-docs`                                              |
+|  [05]   | Idea/task pool + realization       | `ideate` (pool generation), `implement-cs`/`implement-py`/`implement-ts` (cards -> fences)        |
+|  [06]   | Doctrine refining (`docs/stacks/`) | `stack-cs`/`stack-py`/`stack-ts`                                                                  |
+|  [07]   | Package roster / catalog work      | `survey` (research -> admit -> catalog -> integrate, per folder), `rebuild-api`                   |
+|  [08]   | Finalization / corrections pass    | `finalize` a package root or folder subset (split-brain, phantoms, flow, collapse)                |
 
 A shape with no fitting workflow gets a one-off workflow authored via `.claude/skills/workflow-creator` and deleted after landing. Passes re-run across sessions until cold passes find nothing.
 

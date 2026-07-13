@@ -14,18 +14,23 @@
 
 ## [02]-[RESOURCE_SURFACE]
 
-Every resource extends `pulumi.CustomResource` with `static get`/`isInstance` + `constructor(name, args, opts?)`. Private-key PEM outputs are state-encrypted sensitive. `subject` is a structured DN (`commonName`/`organization`/…); `dnsNames`/`ipAddresses`/`uris` are the SAN lists.
+Every resource extends `pulumi.CustomResource` with `static get`/`isInstance` + `constructor(name, args, opts?)`. Private-key PEM outputs are state-encrypted sensitive. `subject` is a structured DN (`commonName`/`organization`/…); `dnsNames`/`ipAddresses`/`uris` are the SAN lists. `SelfSignedCert` and `LocallySignedCert` share the outputs `certPem`, `validityStartTime`/`EndTime`, `readyForRenewal`.
 
 [PUBLIC_TYPE_SCOPE]: resource roster
-- rail: fabric
 
-| [INDEX] | [SYMBOL]            | [REQUIRED_ARGS]                                                                        | [KEY_OUTPUTS]                                                                                                                      |
-| :-----: | :------------------ | :------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `PrivateKey`        | `algorithm` (`RSA`\|`ECDSA`\|`ED25519`)                                                | `privateKeyPem`, `privateKeyPemPkcs8`, `privateKeyOpenssh`, `publicKeyPem`, `publicKeyOpenssh`, `publicKeyFingerprintMd5`/`Sha256` |
-|  [02]   | `CertRequest`       | `privateKeyPem`                                                                        | `certRequestPem`                                                                                                                   |
-|  [03]   | `SelfSignedCert`    | `allowedUses`, `validityPeriodHours`, `privateKeyPem`                                  | `certPem`, `validityStartTime`/`EndTime`, `readyForRenewal`                                                                        |
-|  [04]   | `LocallySignedCert` | `allowedUses`, `validityPeriodHours`, `certRequestPem`, `caPrivateKeyPem`, `caCertPem` | `certPem`, `validityStartTime`/`EndTime`, `readyForRenewal`                                                                        |
-|  [05]   | `Provider`          | —                                                                                      | explicit provider instance                                                                                                         |
+| [INDEX] | [SYMBOL]            | [REQUIRED_ARGS]                                                                        |
+| :-----: | :------------------ | :------------------------------------------------------------------------------------- |
+|  [01]   | `PrivateKey`        | `algorithm` (`RSA`\|`ECDSA`\|`ED25519`)                                                |
+|  [02]   | `CertRequest`       | `privateKeyPem`                                                                        |
+|  [03]   | `SelfSignedCert`    | `allowedUses`, `validityPeriodHours`, `privateKeyPem`                                  |
+|  [04]   | `LocallySignedCert` | `allowedUses`, `validityPeriodHours`, `certRequestPem`, `caPrivateKeyPem`, `caCertPem` |
+|  [05]   | `Provider`          | —                                                                                      |
+
+[KEY_OUTPUTS]: per resource
+- [01]-`PrivateKey`: `privateKeyPem`, `privateKeyPemPkcs8`, `privateKeyOpenssh`, `publicKeyPem`, `publicKeyOpenssh`, `publicKeyFingerprintMd5`/`Sha256`.
+- [02]-`CertRequest`: `certRequestPem`.
+- [03]-`SelfSignedCert` / [04]-`LocallySignedCert`: `certPem`, `validityStartTime`/`EndTime`, `readyForRenewal` (shared).
+- [05]-`Provider`: explicit provider instance.
 
 [PUBLIC_TYPE_SCOPE]: data sources (external material)
 - rail: fabric
@@ -59,16 +64,16 @@ Key + cert PEMs stack into the kube TLS + traffic rows; `effect` owns the profil
 
 [RAIL]: `tls → effect + sibling providers`
 
-| [INDEX] | [TLS_SEAM]                                   | [STACKS_WITH]                                       | [COMPOSED_RAIL]                                                                         |
-| :-----: | :------------------------------------------- | :-------------------------------------------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | cert-profile args                            | `Schema.Struct` + `Schema.Literal` (allowedUses)    | ONE decoded `CertProfile` value → the chain args                                        |
-|  [02]   | `PrivateKey.privateKeyPem` + `Cert.certPem`  | `@pulumi/kubernetes` `Secret` (`kubernetes.io/tls`) | `stringData: { "tls.crt": certPem, "tls.key": privateKeyPem }` → `kube/traffic` ingress |
-|  [03]   | CA root `SelfSignedCert` (`isCaCertificate`) | N `LocallySignedCert` leaves                        | one CA signs the mesh; mTLS between `kube` workloads                                    |
-|  [04]   | `PrivateKey.privateKeyPem` (secret)          | `@pulumiverse/doppler` `Secret` / `Redacted`        | CA key stored canonically; wrapped `Redacted` in outputs                                |
-|  [05]   | `readyForRenewal` / `validityEndTime`        | `previewRefresh` drift fold (`OpType`)              | rotation window → reissue op in the drift receipt                                       |
-|  [06]   | `getCertificateOutput({url})`                | `Output` graph                                      | pin/trust an external endpoint's chain at deploy time                                   |
+| [INDEX] | [TLS_SEAM]                                  | [STACKS_WITH]                      | [COMPOSED_RAIL]                                   |
+| :-----: | :------------------------------------------ | :--------------------------------- | :------------------------------------------------ |
+|  [01]   | cert-profile args                           | `Schema.Struct` + `Schema.Literal` | decoded `CertProfile` → chain args                |
+|  [02]   | `PrivateKey.privateKeyPem` + `Cert.certPem` | `@pulumi/kubernetes`               | `kubernetes.io/tls` `stringData` → `kube/traffic` |
+|  [03]   | CA root `SelfSignedCert`                    | N `LocallySignedCert` leaves       | one CA signs the mesh; `kube` mTLS                |
+|  [04]   | `PrivateKey.privateKeyPem` (secret)         | `@pulumiverse/doppler`             | CA key stored canonically, wrapped `Redacted`     |
+|  [05]   | `readyForRenewal` / `validityEndTime`       | `previewRefresh` drift fold        | rotation window → reissue drift op                |
+|  [06]   | `getCertificateOutput({url})`               | `Output` graph                     | pin an external chain at deploy time              |
 
-```ts contract
+```ts signature
 // iac/kube/traffic — cert-profile → chain → TLS secret, one pipeline
 const key = new tls.PrivateKey("svc", { algorithm: profile.algorithm, ecdsaCurve: profile.curve }, { parent })
 const cert = new tls.LocallySignedCert("svc", {

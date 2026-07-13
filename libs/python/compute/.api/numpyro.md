@@ -18,12 +18,12 @@
 - `nuts_sampler` name: `"numpyro"` (verified live: `pymc.sampling.mcmc.sample` `nuts_sampler: Literal["pymc", "nutpie", "numpyro", "blackjax"]`).
 - `nuts_sampler_kwargs` forwards verbatim to `pymc.sampling.jax.sample_jax_nuts(nuts_sampler="numpyro", **kwargs)`; the accelerator-lever keys are the only surface the study drives.
 
-| [INDEX] | [KWARG]                  | [VALUE_DOMAIN]                 | [ROLE]                                                                                         |
-| :-----: | :----------------------- | :----------------------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | `chain_method`           | `"parallel"` \| `"vectorized"` | how chains map over devices — `"parallel"` `pmap` over host devices, `"vectorized"` one `vmap` |
-|  [02]   | `postprocessing_backend` | `"cpu"` \| `"gpu"` \| `None`   | device for `_device_put` of the raw draws before the `DataTree` build                          |
-|  [03]   | `nuts_kwargs`            | `dict`                         | passthrough to numpyro `NUTS(...)` (e.g. `target_accept_prob`, `max_tree_depth`, `dense_mass`) |
-|  [04]   | `idata_kwargs`           | `dict`                         | forwarded to the `InferenceData` build (`log_likelihood=`, `coords=`, `dims=`)                 |
+| [INDEX] | [KWARG]                  | [VALUE_DOMAIN]                 | [ROLE]                                                                   |
+| :-----: | :----------------------- | :----------------------------- | :----------------------------------------------------------------------- |
+|  [01]   | `chain_method`           | `"parallel"` \| `"vectorized"` | `"parallel"` = `pmap` over devices, `"vectorized"` = one `vmap`          |
+|  [02]   | `postprocessing_backend` | `"cpu"` \| `"gpu"` \| `None`   | device for `_device_put` of the raw draws before the `DataTree` build    |
+|  [03]   | `nuts_kwargs`            | `dict`                         | `NUTS(...)` kwargs: `target_accept_prob`, `max_tree_depth`, `dense_mass` |
+|  [04]   | `idata_kwargs`           | `dict`                         | `InferenceData` build: `log_likelihood=`, `coords=`, `dims=`             |
 
 ## [03]-[DECLINE]
 

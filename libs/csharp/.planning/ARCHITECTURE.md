@@ -1,49 +1,157 @@
 # [CSHARP_BRANCH_ARCHITECTURE]
 
-The branch domain map of `libs/csharp` — the strata-ordered package roster and the one project-reference graph. Each package is a genuine higher-order domain; its local architecture map owns structure, owners, and seams.
-
-Each node is a package folder; the language's `.planning/` scaffold is authoring substrate, never part of the map.
+`libs/csharp` orders the C# packages across the strata under one acyclic, upward-only reference graph: the `Rasm` kernel at the base, the AEC domain and app platform above it, the host boundary at the leaf. Each package's interior is its own architecture's charter; the branch roster, the cross-runtime seams, and the stratum-permission law are the branch grain.
 
 ## [01]-[PACKAGE_ROSTER]
 
 ```text codemap
 libs/csharp/
-├── Rasm/              # [KERNEL]        — RhinoCommon-aware geometry/numeric kernel
-├── Rasm.Element/      # [AEC_DOMAIN]    — Lowest-AEC element seam: the ElementGraph property-graph + IElementProjection/IGraphConstraint contracts
-├── Rasm.Materials/    # [AEC_DOMAIN]    — Host-neutral profiles, appearance, and construction
-├── Rasm.Bim/          # [AEC_DOMAIN]    — Host-neutral BIM object model and IFC/glTF/STEP exchange
-├── Rasm.Fabrication/  # [AEC_DOMAIN]
-├── Rasm.AppHost/      # [APP_PLATFORM]  — Runtime spine: lifecycle, clocks, config, ports, observability
-├── Rasm.Compute/      # [APP_PLATFORM]  — Measured execution: tensor, model, solver, runtime
-├── Rasm.Persistence/  # [APP_PLATFORM]  — Durable stores: store, element, ingest, query, version
-├── Rasm.AppUi/        # [APP_PLATFORM]  — Avalonia product UI: shell, render, charts, editing, document, collab, diagnostics, theme
-├── Rasm.Rhino/        # [HOST_BOUNDARY] — RhinoCommon host APIs; references only Rasm
-└── Rasm.Grasshopper/  # [HOST_BOUNDARY] — GH2 host APIs; references only Rasm
+├── Rasm/              # [KERNEL]        RhinoCommon-aware geometry and numeric kernel
+├── Rasm.Element/      # [AEC_DOMAIN]    Lowest AEC element seam onto the one ElementGraph
+├── Rasm.Materials/    # [AEC_DOMAIN]    Host-neutral profiles, appearance, and construction
+├── Rasm.Bim/          # [AEC_DOMAIN]    Host-neutral BIM object model and IFC/glTF/STEP exchange
+├── Rasm.Fabrication/  # [AEC_DOMAIN]    Host-neutral fabrication and detailing
+├── Rasm.AppHost/      # [APP_PLATFORM]  Runtime spine and app-platform composition root
+├── Rasm.Compute/      # [APP_PLATFORM]  Measured tensor, model, and solver execution
+├── Rasm.Persistence/  # [APP_PLATFORM]  Durable element, query, and version stores
+├── Rasm.AppUi/        # [APP_PLATFORM]  Avalonia product UI shell
+├── Rasm.Rhino/        # [HOST_BOUNDARY] RhinoCommon host APIs; references only Rasm
+└── Rasm.Grasshopper/  # [HOST_BOUNDARY] GH2 host APIs; references only Rasm
 ```
 
-The planning-scoped packages carry a `.planning/` scaffold with the four index docs and design pages; `Rasm.Element` is the lowest-AEC element seam the AEC peers and the app-platform stores depend up on. `Rasm.Rhino` and `Rasm.Grasshopper` are HOST-BOUNDARY planning packages of the same shape: each carries the four index docs, design pages under one `.planning/`, and a folder `.api/` tier over its host assemblies (RhinoCommon + Eto; Grasshopper2 + Eto), referencing only the `Rasm` kernel.
+Planning-scoped packages carry a `.planning/` scaffold of four index docs and design pages; `Rasm.Element` is the lowest AEC seam the AEC peers and app-platform stores depend up on. `Rasm.Rhino` and `Rasm.Grasshopper` add a folder `.api/` tier over their host assemblies (RhinoCommon + Eto; Grasshopper2 + Eto) and reference only the `Rasm` kernel.
 
 ## [02]-[SEAMS]
 
-```text seams
-Rasm.AppHost      →  typescript:core/interchange  # [WIRE]: ReceiptEnvelope/HLC/Tenant + capability SDK
-Rasm.Compute      →  typescript:core/interchange  # [WIRE]: proto suite wire + FaultDetail
-Rasm.Persistence  →  typescript:core/interchange  # [WIRE]: OpLog/Snapshot CRDT wire
-Rasm              →  python:runtime               # [CONTENT_KEY]: XxHash128 content-identity seed parity
-Rasm.Element      ⇄  python:geometry              # [WIRE]: ElementGraph content-key one XxHash128 seed + vocabulary companion decodes, never re-mints
-Rasm.Element      ⇄  typescript:core/interchange  # [WIRE]: ElementGraph/Node/Relationship content-keyed wire the TypeScript peer decodes
-Rasm.Bim          ⇄  python:geometry              # [TESSELLATION]: GLB/IFC tessellation rail — C# requests, Python evaluates
-Rasm.AppHost      ⇄  python:runtime               # [WIRE]: gRPC companion server + capability invoke
-Rasm.Compute      ←  python:compute               # [GRADUATION]: graduation evidence HandoffAxis
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: C# branch cross-runtime seam registry
+    accDescr: C# branch packages exchanging content-keyed wires, tessellation, and graduation evidence with the TypeScript core and the Python geometry, runtime, and compute peers, edge rails colored by kind and nodes classed by seam direction.
+    subgraph csharp[LIBS/CSHARP]
+        Rasm[Rasm]
+        Element[Rasm.Element]
+        Bim[Rasm.Bim]
+        AppHost[Rasm.AppHost]
+        Compute[Rasm.Compute]
+        Persistence[Rasm.Persistence]
+    end
+    Core{{typescript:core}}
+    Runtime{{python:runtime}}
+    Geometry{{python:geometry}}
+    PyCompute([python:compute])
+    AppHost e1@-->|"[WIRE]: ReceiptEnvelope"| Core
+    Compute e2@-->|"[WIRE]: FileDescriptorSet"| Core
+    Persistence e3@-->|"[WIRE]: OpLogWire"| Core
+    Rasm e4@<-->|"[CONTENT_KEY]: XxHash128"| Runtime
+    Element e5@<-->|"[WIRE]: ElementGraph"| Geometry
+    Element e6@<-->|"[WIRE]: ElementGraph"| Core
+    Bim e7@<-->|"[TESSELLATION]: TessellationRequest"| Geometry
+    AppHost e8@<-->|"[WIRE]: DiscoveryResult"| Runtime
+    PyCompute e9@-->|"[GRADUATION]: HandoffAxis"| Compute
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    class Rasm,Element,Bim,AppHost,Compute,Persistence primary
+    class Core,Runtime,Geometry external
+    class PyCompute annotation
+    class e1,e2,e3,e4,e5,e6,e7,e8,e9 edgeData
 ```
+
+Every cross-runtime seam is data-bearing: the peer decodes the content-keyed wire without re-minting. Owning package pages enumerate the per-shape bytes; each diagram edge is the single load-bearing contract at its partner grain.
 
 ## [03]-[DEPENDENCY_DIRECTION]
 
-Dependency is strictly upward through the strata; the graph is acyclic with the kernel at the base, `Rasm.AppHost` as the app-platform root, and the app shells at the host leaf. This is the project-reference graph the planning-scoped folders consume as settled vocabulary.
+Dependency is strictly upward through the strata, acyclic, with the kernel at the base, `Rasm.AppHost` the app-platform composition root, and the host shells at the leaf. Downward references are legal including skips; no host-neutral package references a host-boundary package.
 
-- `Rasm` references no sibling and is referenced by every C# stratum above it.
-- `Rasm.Element` (the lowest-AEC element seam) references only `Rasm` and names no IFC or provider package; it is referenced as the shared lower stratum by the AEC peers and by `Rasm.Persistence`/`Rasm.Compute`.
-- The AEC-domain peers (`Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`) reference `{Rasm, Rasm.Element}` and never reference each other — alignment travels through the `IElementProjection`/`IGraphConstraint` seam contracts and the content-keyed wire, never an AEC-peer project reference. They are host-neutral and consume an app-platform capability only at a content-keyed wire seam (reproduced bit-identically), never through an upward project reference.
-- `Rasm.AppHost` references only `Rasm` and is referenced by `Rasm.Compute` and `Rasm.AppUi`; `Rasm.Persistence` references only `Rasm` and `Rasm.Element` (it persists the `ElementGraph` as its system of record) — AppHost is a PORT peer whose adapters decode Persistence-owned coordination, cache, and frame shapes, never a Persistence downward reference; `Rasm.Compute` references `Rasm`, `Rasm.AppHost`, `Rasm.Persistence`, and `Rasm.Element` (its `Analysis` rail reads the concrete `ElementGraph` and writes `Assessment` nodes back); `Rasm.AppUi` references `Rasm`, `Rasm.AppHost`, `Rasm.Compute`, and `Rasm.Persistence` and stays pure-UI with no AEC-domain reference. `Rasm.Compute` references `Rasm.Persistence` for the cache/artifact/benchmark indexes; `Rasm.Persistence` never references `Rasm.Compute`.
-- No host-neutral package (KERNEL, AEC-DOMAIN, APP-PLATFORM) references a HOST-BOUNDARY package. `Rasm.AppUi` is the app-platform consuming leaf and references no host boundary. `Rasm.Rhino` and `Rasm.Grasshopper` reference only `Rasm` and enter at the host app root that composes a live host.
-- `Rasm.Bim` consumes the `Rasm` kernel content-identity seed (the seed-zero `XxHash128` content-hash entry the kernel owns) and the tessellation rail as settled wire vocabulary, never through a `Rasm.Compute` project reference, so the AEC-domain never depends upward on the app-platform.
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart TB
+    accTitle: C# branch package stratum law
+    accDescr: Four stacked strata from the host boundary through the app platform and the AEC domain onto the kernel, downward-only reference edges, the host-boundary skip straight to the kernel, and the forbidden host-neutral upward edge styled red.
+    subgraph L4[HOST BOUNDARY]
+        Host[Rasm.Rhino]
+    end
+    subgraph L3[APP PLATFORM]
+        Platform[Rasm.AppHost]
+    end
+    subgraph L2[AEC DOMAIN]
+        Domain[Rasm.Element]
+    end
+    subgraph L1[KERNEL]
+        Kernel[Rasm]
+    end
+    Platform --> Domain
+    Domain --> Kernel
+    Host -.->|"legal skip: host to kernel"| Kernel
+    Kernel -->|"forbidden: host-neutral upward"| L4
+    linkStyle 2 stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dasharray:4 6
+    linkStyle 3 stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    classDef stratumHost fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef stratumPlatform fill:#FF79C680,stroke:#FF79C6,color:#F8F8F2
+    classDef stratumDomain fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    class Host stratumHost
+    class Platform stratumPlatform
+    class Domain stratumDomain
+    class Kernel boundary
+```
+
+- KERNEL: `Rasm` references no sibling and carries every stratum above it.
+- AEC seam: `Rasm.Element` references only `Rasm`, names no IFC or provider package; the AEC peers and app-platform stores reference it.
+- AEC peers: each references `{Rasm, Rasm.Element}`, never a peer, never upward; alignment travels seam contracts and the content-keyed wire.
+- APP-PLATFORM root: `Rasm.AppHost` references only `Rasm`; a PORT peer decoding Persistence shapes without a downward `Rasm.Persistence` reference.
+- APP-PLATFORM stores: `Rasm.Persistence` references `{Rasm, Rasm.Element}` and persists the `ElementGraph`; `Rasm.Compute` reads it one-way.
+- APP-PLATFORM leaves: `Rasm.Compute` and `Rasm.AppUi` reference downward only; `Rasm.AppUi` stays pure-UI, no AEC-domain or host-boundary reference.
+- HOST-BOUNDARY: `Rasm.Rhino` and `Rasm.Grasshopper` reference only `Rasm` and enter at the host app root; no host-neutral package references them.

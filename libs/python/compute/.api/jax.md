@@ -52,21 +52,23 @@
 
 [ENTRYPOINT_SCOPE]: compilation and differentiation transforms
 - rail: accelerator
+- call: `jit(fun, *, static_argnums, static_argnames, donate_argnums, in_shardings, out_shardings)`, `grad(fun, argnums=0, has_aux=False, holomorphic=False, allow_int=False)`, `value_and_grad(fun, argnums=0, has_aux=False)`, `jacfwd(fun, argnums=0, has_aux=False, holomorphic=False)`, `jacrev(fun, argnums=0, has_aux=False, allow_int=False)`, `hessian(fun, argnums=0, has_aux=False)`
+- call: `jvp(fun, primals, tangents, has_aux=False)`, `vjp(fun, *primals, has_aux=False)`, `linearize(fun, *primals, has_aux=False)`, `checkpoint(fun, *, prevent_cse=True, policy, static_argnums)` (alias `remat`), `custom_jvp(fun, nondiff_argnums=())`, `custom_vjp(fun, nondiff_argnums=())`
 
-| [INDEX] | [SURFACE]                                                                                   | [ENTRY_FAMILY]    | [CAPABILITY]                           |
-| :-----: | :------------------------------------------------------------------------------------------ | :---------------- | :------------------------------------- |
-|  [01]   | `jit(fun, *, static_argnums, static_argnames, donate_argnums, in_shardings, out_shardings)` | compile           | XLA compilation of a function          |
-|  [02]   | `grad(fun, argnums=0, has_aux=False, holomorphic=False, allow_int=False)`                   | reverse autodiff  | gradient of a scalar-valued function   |
-|  [03]   | `value_and_grad(fun, argnums=0, has_aux=False)`                                             | reverse autodiff  | value and gradient in one pass         |
-|  [04]   | `jacfwd(fun, argnums=0, has_aux=False, holomorphic=False)`                                  | forward autodiff  | forward-mode Jacobian                  |
-|  [05]   | `jacrev(fun, argnums=0, has_aux=False, allow_int=False)`                                    | reverse autodiff  | reverse-mode Jacobian                  |
-|  [06]   | `hessian(fun, argnums=0, has_aux=False)`                                                    | second-order      | Hessian via `jacfwd(jacrev(...))`      |
-|  [07]   | `jvp(fun, primals, tangents, has_aux=False)`                                                | forward autodiff  | Jacobian-vector product                |
-|  [08]   | `vjp(fun, *primals, has_aux=False)`                                                         | reverse autodiff  | vector-Jacobian product closure        |
-|  [09]   | `linearize(fun, *primals, has_aux=False)`                                                   | linearization     | value plus linear tangent map          |
-|  [10]   | `checkpoint(fun, *, prevent_cse=True, policy, static_argnums)`                              | rematerialization | gradient checkpointing (alias `remat`) |
-|  [11]   | `custom_jvp(fun, nondiff_argnums=())`                                                       | custom rule       | attaches a custom JVP rule             |
-|  [12]   | `custom_vjp(fun, nondiff_argnums=())`                                                       | custom rule       | attaches a custom VJP rule             |
+| [INDEX] | [SURFACE]        | [ENTRY_FAMILY]    | [CAPABILITY]                           |
+| :-----: | :--------------- | :---------------- | :------------------------------------- |
+|  [01]   | `jit`            | compile           | XLA compilation of a function          |
+|  [02]   | `grad`           | reverse autodiff  | gradient of a scalar-valued function   |
+|  [03]   | `value_and_grad` | reverse autodiff  | value and gradient in one pass         |
+|  [04]   | `jacfwd`         | forward autodiff  | forward-mode Jacobian                  |
+|  [05]   | `jacrev`         | reverse autodiff  | reverse-mode Jacobian                  |
+|  [06]   | `hessian`        | second-order      | Hessian via `jacfwd(jacrev(...))`      |
+|  [07]   | `jvp`            | forward autodiff  | Jacobian-vector product                |
+|  [08]   | `vjp`            | reverse autodiff  | vector-Jacobian product closure        |
+|  [09]   | `linearize`      | linearization     | value plus linear tangent map          |
+|  [10]   | `checkpoint`     | rematerialization | gradient checkpointing (alias `remat`) |
+|  [11]   | `custom_jvp`     | custom rule       | attaches a custom JVP rule             |
+|  [12]   | `custom_vjp`     | custom rule       | attaches a custom VJP rule             |
 
 [ENTRYPOINT_SCOPE]: vectorization, parallelism, and staging
 - rail: accelerator
@@ -106,30 +108,34 @@
 [ENTRYPOINT_SCOPE]: `jax.numpy` array construction, predicates, and reductions
 - rail: accelerator
 - the array constructor surface every sibling carrier is built from; arrays are immutable, so writes go through `x.at[idx].set/add/mul(v)`. `jnp.asarray` is the canonical host->device adoption boundary; `isfinite`/`isnan` are the finiteness predicates a solver/receipt rail reads to gate divergence. `jnp.float64` is the explicit double-precision dtype handed to `asarray`/`ShapeDtypeStruct` once `config.update("jax_enable_x64", True)` is set (the x32 default truncates it).
+- the `jnp` reductions (`max`/`sum`/`argmin`) fold verdict codes, residual totals, and candidate indices; they replace Python `max`/`sum`/`float()` over a `Tracer`, which raise inside a transform.
+- call: `asarray(x, dtype=None)`, `diagonal(a, offset=0, axis1=0, axis2=1)`, `where(cond, x, y)`, `clip(a, min, max)`, `einsum(subscripts, *operands)`, `max(a, axis=None, keepdims=False)`, `sum(a, axis=None)`, `argmin(a, axis=None)`
 
-| [INDEX] | [SURFACE]                                                                                | [ENTRY_FAMILY] | [CAPABILITY]                                                                                                                                                                                                                     |
-| :-----: | :--------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `numpy.asarray(x, dtype=None)` / `array(...)`                                            | adoption       | adopt host/NumPy data to a device `Array` under active precision                                                                                                                                                                 |
-|  [02]   | `numpy.isfinite(x)` / `isnan(x)` / `isinf(x)`                                            | predicate      | element-wise finiteness mask; the divergence/finiteness gate                                                                                                                                                                     |
-|  [03]   | `numpy.diagonal(a, offset=0, axis1=0, axis2=1)`                                          | extraction     | diagonal of a matrix/batched matrix (Hessian-diag, trace prep)                                                                                                                                                                   |
-|  [04]   | `numpy.where(cond, x, y)` / `clip(a, min, max)`                                          | selection      | branchless select / clamp inside a traced kernel                                                                                                                                                                                 |
-|  [05]   | `numpy.einsum(subscripts, *operands)`                                                    | contraction    | named-index tensor contraction lowered to XLA dot-general                                                                                                                                                                        |
-|  [06]   | `numpy.linalg.{solve,lstsq,norm,cholesky,svd,eigh}`                                      | dense linalg   | NumPy-API linear algebra; `lineax` owns the iterative/structured path                                                                                                                                                            |
-|  [07]   | `numpy.max(a, axis=None, keepdims=False)` / `sum(a, axis=None)` / `argmin(a, axis=None)` | reduction      | worst-case / total / index reductions over a traced array (verdict-code fold, residual total, candidate-index select); the `jnp` reduction replaces Python `max`/`sum`/`float()` over a `Tracer`, which raise inside a transform |
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [CAPABILITY]                                                     |
+| :-----: | :-------------------------------------------------- | :------------- | :--------------------------------------------------------------- |
+|  [01]   | `numpy.asarray` / `array`                           | adoption       | adopt host/NumPy data to a device `Array` under active precision |
+|  [02]   | `numpy.isfinite` / `isnan` / `isinf`                | predicate      | element-wise finiteness mask; the divergence/finiteness gate     |
+|  [03]   | `numpy.diagonal`                                    | extraction     | diagonal of a matrix/batched matrix (Hessian-diag, trace prep)   |
+|  [04]   | `numpy.where` / `clip`                              | selection      | branchless select / clamp inside a traced kernel                 |
+|  [05]   | `numpy.einsum`                                      | contraction    | named-index tensor contraction lowered to XLA dot-general        |
+|  [06]   | `numpy.linalg.{solve,lstsq,norm,cholesky,svd,eigh}` | dense linalg   | NumPy-API linear algebra; `lineax` owns the iterative path       |
+|  [07]   | `numpy.max` / `sum` / `argmin`                      | reduction      | worst-case / total / index reductions over a traced array        |
 
 [ENTRYPOINT_SCOPE]: pytree operations (`jax.tree_util`)
 - rail: accelerator
 - every sibling carrier (`equinox.Module`, `diffrax`/`optimistix`/`lineax` solver states, `optax.OptState`) is a registered pytree; these are the flatten/map/leaf operations that walk and reconstruct those carriers. `tree_leaves` is the canonical "all array leaves of a model/state" extraction the receipt and finiteness rails fold over.
 
-| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CAPABILITY]                                                             |
-| :-----: | :-------------------------------------------------------- | :------------- | :----------------------------------------------------------------------- |
-|  [01]   | `tree_util.tree_map(f, tree, *rest)`                      | pytree map     | map a function over the leaves of one-or-more aligned trees              |
-|  [02]   | `tree_util.tree_leaves(tree, is_leaf=None)`               | pytree extract | flat list of leaves in deterministic order (fold/finiteness scan source) |
-|  [03]   | `tree_util.tree_structure(tree)` / `tree_flatten(tree)`   | pytree split   | `PyTreeDef` (+ leaves) for structure-preserving reconstruction           |
-|  [04]   | `tree_util.tree_unflatten(treedef, leaves)`               | pytree rebuild | rebuild a tree from a `PyTreeDef` and a leaf list                        |
-|  [05]   | `tree_util.tree_reduce(f, tree, initializer)`             | pytree fold    | fold a binary op over all leaves (norm/sum receipts)                     |
-|  [06]   | `tree_util.register_pytree_node(cls, flatten, unflatten)` | registration   | register a custom carrier as a pytree node                               |
-|  [07]   | `tree_util.Partial(fun, *args, **kwargs)`                 | pytree closure | pytree-compatible partial application (traceable closure)                |
+- call: `tree_map(f, tree, *rest)`, `tree_leaves(tree, is_leaf=None)`, `tree_structure(tree)` / `tree_flatten(tree)`, `tree_unflatten(treedef, leaves)`, `tree_reduce(f, tree, initializer)`, `register_pytree_node(cls, flatten, unflatten)`, `Partial(fun, *args, **kwargs)`
+
+| [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY] | [CAPABILITY]                                                        |
+| :-----: | :------------------------------------------ | :------------- | :------------------------------------------------------------------ |
+|  [01]   | `tree_util.tree_map`                        | pytree map     | map a function over the leaves of one-or-more aligned trees         |
+|  [02]   | `tree_util.tree_leaves`                     | pytree extract | flat list of leaves in deterministic order (fold/finiteness source) |
+|  [03]   | `tree_util.tree_structure` / `tree_flatten` | pytree split   | `PyTreeDef` (+ leaves) for structure-preserving reconstruction      |
+|  [04]   | `tree_util.tree_unflatten`                  | pytree rebuild | rebuild a tree from a `PyTreeDef` and a leaf list                   |
+|  [05]   | `tree_util.tree_reduce`                     | pytree fold    | fold a binary op over all leaves (norm/sum receipts)                |
+|  [06]   | `tree_util.register_pytree_node`            | registration   | register a custom carrier as a pytree node                          |
+|  [07]   | `tree_util.Partial`                         | pytree closure | pytree-compatible partial application (traceable closure)           |
 
 [ENTRYPOINT_SCOPE]: neural-net and SciPy mirrors (`jax.nn`, `jax.scipy`)
 - rail: accelerator

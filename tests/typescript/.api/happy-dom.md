@@ -22,7 +22,7 @@ happy-dom is the FAST DOM of the `_testkit` unit lane: it renders nothing and ru
 |  [04]   | `DetachedWindowAPI`        | class         | `window.happyDOM`; the async-settle + viewport + settings control rail              |
 |  [05]   | `IOptionalBrowserSettings` | interface     | the one construction policy bag (see [03])                                          |
 
-```ts contract
+```ts signature
 // Prefer `new Window(...)` over touching globals when a spec needs an isolated DOM; the vitest 'happy-dom' environment builds a GlobalWindow for you.
 declare class Window extends BrowserWindow {
   readonly happyDOM: DetachedWindowAPI
@@ -44,16 +44,16 @@ declare class DetachedWindowAPI {
 
 [ENTRYPOINT_SCOPE]: multi-page / multi-context navigation without a browser process — the in-process analogue of the `playwright-test` e2e driver, used when an e2e-shaped flow must stay in the fast lane.
 
-| [INDEX] | [SURFACE]                                                     | [PRODUCES]                  | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------ | :-------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `new Browser({ settings?, console? })`                        | `Browser`                   | root; `.defaultContext`, `.contexts`, `.newIncognitoContext()`        |
-|  [02]   | `browser.newPage()`                                           | `BrowserPage`               | a tab; `.mainFrame`, `.content` get/set, `.url` get/set, `.closed`    |
-|  [03]   | `page.goto(url, IGoToOptions?)`                               | `Promise<Response \| null>` | fetch + parse a document into the page (honors nav settings)          |
-|  [04]   | `page.evaluate(script)` / `evaluateModule({url,module})`      | `any`                       | run a `string \| Script` in page scope; module form for ESM           |
-|  [05]   | `page.waitUntilComplete()` / `page.abort()` / `page.reload()` | `Promise`                   | per-page settle / cancel / reload                                     |
-|  [06]   | `DetachedBrowser*`                                            | class family                | reuse an existing global window as the browser root (vitest env case) |
+| [INDEX] | [SURFACE]                                       | [PRODUCES]                  | [CAPABILITY]                                            |
+| :-----: | :---------------------------------------------- | :-------------------------- | :------------------------------------------------------ |
+|  [01]   | `new Browser({ settings?, console? })`          | `Browser`                   | root; `.contexts`, `.newIncognitoContext()`             |
+|  [02]   | `browser.newPage()`                             | `BrowserPage`               | tab; `.mainFrame`, `.content`/`.url` get/set, `.closed` |
+|  [03]   | `page.goto(url, IGoToOptions?)`                 | `Promise<Response \| null>` | fetch + parse a document into the page                  |
+|  [04]   | `page.evaluate(script)` / `evaluateModule(…)`   | `any`                       | run a `string \| Script`; module form for ESM           |
+|  [05]   | `page.waitUntilComplete()`/`abort()`/`reload()` | `Promise`                   | per-page settle / cancel / reload                       |
+|  [06]   | `DetachedBrowser*`                              | class family                | reuse the global window as browser root (vitest env)    |
 
-```ts contract
+```ts signature
 declare class Browser {
   readonly contexts: BrowserContext[]; readonly settings: IBrowserSettings
   get defaultContext(): BrowserContext
@@ -73,7 +73,7 @@ declare class BrowserPage {
 
 `IOptionalBrowserSettings` is ONE parameterized policy bag threaded through `Window`, `Browser`, and the vitest `environmentOptions.happyDOM` key — never a matrix of constructor flags. It is where a unit spec bounds cost and picks fidelity knobs.
 
-```ts contract
+```ts signature
 interface IOptionalBrowserSettings {
   disableJavaScriptEvaluation?: boolean; disableJavaScriptFileLoading?: boolean   // the "no script execution" fast default
   disableCSSFileLoading?: boolean; enableImageFileLoading?: boolean
@@ -93,11 +93,12 @@ interface IOptionalBrowserSettings {
 
 The full WHATWG roster — `Document`, the `Element`/`Node` tree, the `Event` family (`CustomEvent`, `KeyboardEvent`, `PointerEvent`, `SubmitEvent`, …), the CSS-rule family (`CSSStyleSheet`, `CSSStyleRule`, `CSSMediaRule`, `CSSContainerRule`, …), the fetch/file family (`Request`, `Response`, `Headers`, `Blob`, `File`, `FormData`), and the observers (`MutationObserver`, `ResizeObserver`, `IntersectionObserver`) — is SEED DATA re-exported by the one barrel, never a list a consumer hand-enumerates. A spec reaches these as globals (vitest env) or off a `Window` instance; the catalog owners are the entry `Window`/`Browser` and the two utility owners below.
 
-| [INDEX] | [SYMBOL]                                                             | [CAPABILITY]                                                                                                                          |
-| :-----: | :------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `VirtualConsole` / `VirtualConsolePrinter`                           | capture console output as structured records; `printer.readAll()` drains for assertion — the console-parity seam                      |
-|  [02]   | `DOMParser` / `XMLSerializer`                                        | parse an HTML/XML string to a document and serialize back — the fragment round-trip a `tests/contracts/` golden byte assertion drives |
-|  [03]   | `BrowserErrorCaptureEnum` / `BrowserNavigationCrossOriginPolicyEnum` | the bounded vocabularies `settings.errorCapture` / `navigation.crossOriginPolicy` select                                              |
+| [INDEX] | [SYMBOL]                                   | [CAPABILITY]                                                                 |
+| :-----: | :----------------------------------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `VirtualConsole` / `VirtualConsolePrinter` | console capture; `printer.readAll()` drains for assertion                    |
+|  [02]   | `DOMParser` / `XMLSerializer`              | HTML/XML ↔ document round-trip; the `tests/contracts/` golden byte assertion |
+|  [03]   | `BrowserErrorCaptureEnum`                  | vocabulary `settings.errorCapture` selects                                   |
+|  [04]   | `BrowserNavigationCrossOriginPolicyEnum`   | vocabulary `navigation.crossOriginPolicy` selects                            |
 
 ## [05]-[INTEGRATION]
 

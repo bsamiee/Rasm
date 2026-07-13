@@ -12,31 +12,33 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: store admin, the object surface, and the result shapes
+[PUBLIC_TYPE_SCOPE]: store admin, the object surface, and the result shapes; `Objm`/`ObjectStore` members are the [03] entrypoints
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                                                                                                                | [TYPE_FAMILY]  | [CONSUMER]                                                                             |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------- |
-|  [01]   | `Objm` (`create`, `open`, `list`)                                                                                                       | store admin    | store ensure at engine Layer build over the core connection                            |
-|  [02]   | `ObjectStore` (`put`, `putBlob`, `get`, `getBlob`, `info`, `list`, `delete`, `link`, `linkStore`, `watch`, `seal`, `status`, `destroy`) | object surface | one surface; stream-versus-blob is a member selection on payload size, never a wrapper |
-|  [03]   | `ObjectInfo` (returned by `put`/`info`; `meta.options.max_chunk_size` rules chunking)                                                   | receipt        | the object fact — name, size, chunk, digest evidence                                   |
-|  [04]   | `ObjectResult` (`data: ReadableStream<Uint8Array>`, `error: Promise`)                                                                   | read result    | body stream plus the deferred fault channel — both are consumed                        |
-|  [05]   | `PurgeResponse` (from `delete`)                                                                                                         | receipt        | removal evidence                                                                       |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]  | [CONSUMER]                                                                                |
+| :-----: | :-------------- | :------------- | :---------------------------------------------------------------------------------------- |
+|  [01]   | `Objm`          | store admin    | store ensure at engine Layer build over the core connection                               |
+|  [02]   | `ObjectStore`   | object surface | one surface; stream-vs-blob is a member selection on payload size                         |
+|  [03]   | `ObjectInfo`    | receipt        | the object fact — name, size, chunk, digest; `meta.options.max_chunk_size` rules chunking |
+|  [04]   | `ObjectResult`  | read result    | `data: ReadableStream<Uint8Array>`, `error: Promise` — both are consumed                  |
+|  [05]   | `PurgeResponse` | receipt        | from `delete`; removal evidence                                                           |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: store lifecycle, chunked transfer, and aliasing
 - rail: boundaries
 
-| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY]  | [CONSUMER]                                                                       |
-| :-----: | :-------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------- |
-|  [01]   | `new Objm(nc)` → `objm.create(name, opts?)` / `objm.open(name)` / `objm.list()`               | mint            | store ensure per topology row                                                    |
-|  [02]   | `os.put(meta, rs: ReadableStream<Uint8Array>): Promise<ObjectInfo>`                           | chunked write   | the default write — chunked by `meta.options.max_chunk_size`, digested per chunk |
-|  [03]   | `os.putBlob(meta, data: Uint8Array)` / `os.getBlob(name): Promise<Uint8Array \| null>`        | blob write/read | small bounded payloads only — the whole body materializes                        |
-|  [04]   | `os.get(name): Promise<ObjectResult \| null>`                                                 | chunked read    | `.data` streams the body; `.error` settles the deferred fault — observe both     |
-|  [05]   | `os.info(name)` / `os.list()` / `os.watch(opts?)`                                             | census + tail   | object facts, store census, change tail                                          |
-|  [06]   | `os.link(name, meta: ObjectInfo)` / `os.linkStore(name, bucket: ObjectStore)`                 | alias           | byte-free aliasing of one object or a whole store                                |
-|  [07]   | `os.delete(name): Promise<PurgeResponse>` / `os.seal()` / `os.status(opts?)` / `os.destroy()` | admin           | removal, read-only freeze, introspection, teardown                               |
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [CONSUMER]                                                    |
+| :-----: | :--------------------------------------------------- | :------------- | :------------------------------------------------------------ |
+|  [01]   | `new Objm(nc)` → `create`/`open`/`list`              | mint           | store ensure per topology row                                 |
+|  [02]   | `os.put(meta, rs)`                                   | chunked write  | → `Promise<ObjectInfo>`; chunked, digested per chunk          |
+|  [03]   | `os.putBlob(meta, data)`                             | blob write     | small bounded payload; whole body materializes                |
+|  [04]   | `os.getBlob(name)`                                   | blob read      | → `Promise<Uint8Array \| null>`; small bounded payload        |
+|  [05]   | `os.get(name)`                                       | chunked read   | → `Promise<ObjectResult \| null>`; observe `.data` + `.error` |
+|  [06]   | `os.info(name)` / `os.list()` / `os.watch(opts?)`    | census + tail  | object facts, store census, change tail                       |
+|  [07]   | `os.link(name, meta)` / `os.linkStore(name, bucket)` | alias          | byte-free aliasing of one object or a whole store             |
+|  [08]   | `os.delete(name)`                                    | remove         | → `Promise<PurgeResponse>`; removal evidence                  |
+|  [09]   | `os.seal()` / `os.status(opts?)` / `os.destroy()`    | admin          | read-only freeze, introspection, teardown                     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -46,42 +46,44 @@
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: compilation decorators
+[ENTRYPOINT_SCOPE]: compilation decorators — every JIT decorator accepts `cache`, `parallel`, `fastmath`, `boundscheck`, `nogil` options
 - rail: accelerator
 
-| [INDEX] | [SURFACE]                                                                           | [ENTRY_FAMILY]  | [CAPABILITY]                                                                 |
-| :-----: | :---------------------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `njit(*args, **kws)`                                                                | nopython JIT    | `jit(nopython=True)`; accepts `cache`, `parallel`, `fastmath`, `boundscheck` |
-|  [02]   | `jit(signature_or_function, locals, cache, pipeline_class, boundscheck, **options)` | JIT             | compiles with optional object-mode and explicit signatures                   |
-|  [03]   | `cfunc(sig, locals, cache, pipeline_class, **options)`                              | C callback      | compiles a function to a C-callable function pointer                         |
-|  [04]   | `vectorize(ftylist_or_function, **kws)`                                             | ufunc builder   | lifts a scalar kernel into a NumPy ufunc; `target='cpu'\|'parallel'`         |
-|  [05]   | `guvectorize(*args, **kwargs)`                                                      | gufunc builder  | builds a generalized ufunc from a layout signature                           |
-|  [06]   | `stencil(func_or_mode, **options)`                                                  | stencil builder | compiles a fixed-window neighborhood kernel                                  |
-|  [07]   | `experimental.jitclass`                                                             | class JIT       | compiles a class with typed instance fields to native layout                 |
-|  [08]   | `jit_module(**kwargs)`                                                              | module JIT      | applies `jit` to every top-level function in the calling module              |
+| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY]  | [CAPABILITY]                                       |
+| :-----: | :-------------------------------------------------------------- | :-------------- | :------------------------------------------------- |
+|  [01]   | `njit(*args, **kws)`                                            | nopython JIT    | `jit(nopython=True)`                               |
+|  [02]   | `jit(signature_or_function, locals, pipeline_class, **options)` | JIT             | object-mode fallback + explicit signatures         |
+|  [03]   | `cfunc(sig, locals, cache, pipeline_class, **options)`          | C callback      | compiles to a C-callable function pointer          |
+|  [04]   | `vectorize(ftylist_or_function, **kws)`                         | ufunc builder   | scalar → NumPy ufunc; `target='cpu'\|'parallel'`   |
+|  [05]   | `guvectorize(*args, **kwargs)`                                  | gufunc builder  | builds a generalized ufunc from a layout signature |
+|  [06]   | `stencil(func_or_mode, **options)`                              | stencil builder | compiles a fixed-window neighborhood kernel        |
+|  [07]   | `experimental.jitclass`                                         | class JIT       | compiles a typed-field class to native layout      |
+|  [08]   | `jit_module(**kwargs)`                                          | module JIT      | applies `jit` to every module-level function       |
 
-[ENTRYPOINT_SCOPE]: parallel, runtime, and extension surfaces
+[ENTRYPOINT_SCOPE]: parallel and runtime surfaces
 - rail: accelerator
 
-| [INDEX] | [SURFACE]                                                                                           | [ENTRY_FAMILY]       | [CAPABILITY]                                                                       |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :------------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `prange(*args)`                                                                                     | parallel range       | parallel loop range honored under `parallel=True`                                  |
-|  [02]   | `get_num_threads()`                                                                                 | thread query         | active numba thread count                                                          |
-|  [03]   | `set_num_threads(n)`                                                                                | thread control       | bounds the numba threadpool                                                        |
-|  [04]   | `parallel_chunksize(n)`                                                                             | chunk control        | context manager setting parallel chunk size                                        |
-|  [05]   | `objmode(**vars)`                                                                                   | escape hatch         | runs a Python block in object mode inside nopython                                 |
-|  [06]   | `literally(x)` / `literal_unroll(it)`                                                               | literal force        | forces literal typing / unrolls a heterogeneous tuple loop                         |
-|  [07]   | `typeof(x)` / `from_dtype(dt)`                                                                      | type reflection      | infers a numba type from a value or NumPy dtype                                    |
-|  [08]   | `get_thread_id()` / `threading_layer()`                                                             | thread introspection | active worker thread id / resolved backend (`tbb`/`omp`/`workqueue`)               |
-|  [09]   | `get_parallel_chunksize()` / `set_parallel_chunksize(n)`                                            | chunk query/set      | read or set the parallel chunk size outside a context manager                      |
-|  [10]   | `carray(ptr, shape, dtype=None)` / `farray(...)`                                                    | FFI bridge           | wrap a raw C pointer as a C-/Fortran-ordered NumPy array inside nopython           |
-|  [11]   | `gdb()` / `gdb_init(...)` / `gdb_breakpoint()`                                                      | debug                | attach gdb to a running compiled kernel                                            |
-|  [12]   | `extending.overload(fn)` / `overload_method(typ, name)` / `overload_attribute(typ, name)`           | overload registrar   | register nopython implementations for a function, method, or attribute             |
-|  [13]   | `extending.intrinsic(fn)`                                                                           | intrinsic            | declares a low-level typed code-generation primitive                               |
-|  [14]   | `extending.register_jitable(fn)`                                                                    | jitable mark         | marks a pure-Python helper callable from nopython                                  |
-|  [15]   | `extending.as_numba_type(py_type)` / `typeof_impl.register`                                         | type mapping         | maps a Python/annotation type to a numba type; teaches `typeof`                    |
-|  [16]   | `extending.box` / `unbox` / `models` / `make_attribute_wrapper` / `lower_builtin` / `type_callable` | native model         | full data-model extension to expose a foreign type to nopython                     |
-|  [17]   | `experimental.structref.register` / `StructRefProxy` / `define_proxy` / `define_boxing`             | struct ref           | mutable, reference-semantics struct type for nopython (the `jitclass` alternative) |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY]       | [CAPABILITY]                                         |
+| :-----: | :------------------------------------------------------- | :------------------- | :--------------------------------------------------- |
+|  [01]   | `prange(*args)`                                          | parallel range       | parallel loop range honored under `parallel=True`    |
+|  [02]   | `get_num_threads()`                                      | thread query         | active numba thread count                            |
+|  [03]   | `set_num_threads(n)`                                     | thread control       | bounds the numba threadpool                          |
+|  [04]   | `parallel_chunksize(n)`                                  | chunk control        | context manager setting parallel chunk size          |
+|  [05]   | `objmode(**vars)`                                        | escape hatch         | runs a Python block in object mode inside nopython   |
+|  [06]   | `literally(x)` / `literal_unroll(it)`                    | literal force        | literal typing / unroll a heterogeneous tuple loop   |
+|  [07]   | `typeof(x)` / `from_dtype(dt)`                           | type reflection      | infers a numba type from a value or NumPy dtype      |
+|  [08]   | `get_thread_id()` / `threading_layer()`                  | thread introspection | worker thread id / backend (`tbb`/`omp`/`workqueue`) |
+|  [09]   | `get_parallel_chunksize()` / `set_parallel_chunksize(n)` | chunk query/set      | read/set parallel chunk size outside a context mgr   |
+|  [10]   | `carray(ptr, shape, dtype=None)` / `farray(...)`         | FFI bridge           | raw C pointer → C-/F-ordered NumPy array in nopython |
+|  [11]   | `gdb()` / `gdb_init(...)` / `gdb_breakpoint()`           | debug                | attach gdb to a running compiled kernel              |
+
+[EXTENSION_SURFACES]: the `numba.extending`/`numba.experimental` registrars that teach nopython about foreign types.
+- [01]-[OVERLOAD]: `extending.overload(fn)` / `overload_method(typ, name)` / `overload_attribute(typ, name)` — register nopython implementations for a function, method, or attribute.
+- [02]-[INTRINSIC]: `extending.intrinsic(fn)` — declares a low-level typed code-generation primitive.
+- [03]-[JITABLE]: `extending.register_jitable(fn)` — marks a pure-Python helper callable from nopython.
+- [04]-[TYPE_MAPPING]: `extending.as_numba_type(py_type)` / `typeof_impl.register` — maps a Python/annotation type to a numba type; teaches `typeof`.
+- [05]-[NATIVE_MODEL]: `extending.box` / `unbox` / `models` / `make_attribute_wrapper` / `lower_builtin` / `type_callable` — full data-model extension to expose a foreign type to nopython.
+- [06]-[STRUCT_REF]: `experimental.structref.register` / `StructRefProxy` / `define_proxy` / `define_boxing` — mutable, reference-semantics struct type for nopython (the `jitclass` alternative).
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -99,13 +101,10 @@
 - Typed containers (`typed.List`, `typed.Dict`) cross the nopython boundary; reflected Python lists and dicts do not.
 
 [INTEGRATION_TOPOLOGY]:
-
-| [INDEX] | [SIBLING]   | [SEAM]                                                                                                                                                                                                              |
-| :-----: | :---------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `numpy`     | the type substrate: `from_dtype`/`typeof` map NumPy dtypes to numba types; `vectorize`/`guvectorize` emit real `numpy` ufuncs/gufuncs that compose with broadcasting and `np.einsum`-shaped reductions              |
-|  [02]   | `scipy`     | a `cfunc`-compiled kernel's `.ctypes`/`.address` feeds `scipy.LowLevelCallable`, so a numba kernel drops directly into `scipy.integrate.quad`/`scipy.ndimage` C callbacks with zero Python-call overhead per sample |
-|  [03]   | `mpmath`    | the validation oracle for an `njit` kernel: run the compiled fast path, then `mpmath.almosteq` against a high-`dps` reference to certify the speedup did not cost accuracy                                          |
-|  [04]   | `extending` | when an admitted domain type must enter nopython, register it via `as_numba_type`/`box`/`unbox`/`models` rather than copying its fields into a numba-native shape                                                   |
+- `numpy`: the type substrate: `from_dtype`/`typeof` map NumPy dtypes to numba types; `vectorize`/`guvectorize` emit real `numpy` ufuncs/gufuncs that compose with broadcasting and `np.einsum`-shaped reductions.
+- `scipy`: a `cfunc`-compiled kernel's `.ctypes`/`.address` feeds `scipy.LowLevelCallable`, so a numba kernel drops directly into `scipy.integrate.quad`/`scipy.ndimage` C callbacks with zero Python-call overhead per sample.
+- `mpmath`: the validation oracle for an `njit` kernel: run the compiled fast path, then `mpmath.almosteq` against a high-`dps` reference to certify the speedup did not cost accuracy.
+- `extending`: when an admitted domain type must enter nopython, register it via `as_numba_type`/`box`/`unbox`/`models` rather than copying its fields into a numba-native shape.
 
 [RAIL_LAW]:
 - Package: `numba`

@@ -18,17 +18,22 @@
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                                               | [KIND]  | [CAPABILITY]                                                             |
-| :-----: | :-------------------------------------------------------------------------------------- | :------ | :----------------------------------------------------------------------- |
-|  [01]   | `new FakeTimeProvider()` / `new FakeTimeProvider(DateTimeOffset startDateTime)`         | ctor    | fixed epoch start or explicit start instant                              |
-|  [02]   | `Advance(TimeSpan delta)` / `SetUtcNow(DateTimeOffset value)`                           | control | move time forward; due timers fire synchronously on the advancing thread |
-|  [03]   | `AdjustTime(DateTimeOffset value)`                                                      | control | shift the clock without firing timers                                    |
-|  [04]   | `AutoAdvanceAmount { get; set; }`                                                       | policy  | every `GetUtcNow()` read advances by the amount; default zero            |
-|  [05]   | `GetUtcNow()` / `GetTimestamp()` / `TimestampFrequency`                                 | read    | deterministic reads; frequency fixed at `10000000`                       |
-|  [06]   | `SetLocalTimeZone(TimeZoneInfo localTimeZone)` / `LocalTimeZone`                        | policy  | timezone-dependent behavior under test                                   |
-|  [07]   | `CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)` | timer   | fake `ITimer` driven purely by advances                                  |
+The fence carries the full `CreateTimer` signature and the `FakeTimeProvider` shape.
 
-```csharp contract
+| [INDEX] | [SURFACE]                                               | [KIND]  | [CAPABILITY]                                                    |
+| :-----: | :------------------------------------------------------ | :------ | :-------------------------------------------------------------- |
+|  [01]   | `new FakeTimeProvider()`                                | ctor    | fixed epoch start                                               |
+|  [02]   | `new FakeTimeProvider(DateTimeOffset startDateTime)`    | ctor    | explicit start instant                                          |
+|  [03]   | `Advance(TimeSpan delta)`                               | control | move time forward; due timers fire on the advancing thread      |
+|  [04]   | `SetUtcNow(DateTimeOffset value)`                       | control | jump the clock to an instant; crossed timers fire               |
+|  [05]   | `AdjustTime(DateTimeOffset value)`                      | control | shift the clock without firing timers                           |
+|  [06]   | `AutoAdvanceAmount { get; set; }`                       | policy  | every `GetUtcNow()` read advances by the amount; default 0      |
+|  [07]   | `GetUtcNow()` / `GetTimestamp()` / `TimestampFrequency` | read    | deterministic reads; frequency fixed at `10000000`              |
+|  [08]   | `SetLocalTimeZone(TimeZoneInfo localTimeZone)`          | policy  | set the test timezone                                           |
+|  [09]   | `LocalTimeZone`                                         | read    | the current test timezone                                       |
+|  [10]   | `CreateTimer(...)`                                      | timer   | fake `ITimer` driven purely by advances; signature in the fence |
+
+```csharp signature
 public class FakeTimeProvider : TimeProvider {
     public DateTimeOffset Start { get; }
     public TimeSpan AutoAdvanceAmount { get; set; }

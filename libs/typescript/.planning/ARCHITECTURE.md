@@ -1,58 +1,107 @@
 # [TYPESCRIPT_BRANCH_ARCHITECTURE]
 
-The branch domain map of `libs/typescript` — capability domains in dependency waves, acyclic with `core` at the base. Wire decode is the core interchange plane's boundary concern, never the branch center; deployment (`iac`) is the plane-distinct citizen outside the runtime graph; dev infrastructure lives under `tests/` (`tests/contracts/`, `tests/typescript/`), never in the branch. The data spine is `dataflow-system.md`; folder sub-domain maps and mirrored seam rows live in each folder `ARCHITECTURE.md`.
+`libs/typescript` in dependency waves — capability domains, acyclic with `core` at the base. Wire decode is the core interchange plane's boundary concern, never the branch center; deployment (`iac`) is the plane-distinct citizen outside the runtime graph; dev infrastructure lives under `tests/` (`tests/contracts/`, `tests/typescript/`), never the branch. Data-spine law is `dataflow-system.md`.
 
-Each node is a folder root; the `.planning/` scaffold is authoring substrate, never part of the map.
-
-## [01]-[PACKAGE_MAP]
+## [01]-[DOMAIN_MAP]
 
 ```text codemap
 libs/typescript/
-├── core/       # runtime — branch law: value floor, state algebra, the keyed-decode interchange plane, observe vocabulary
-├── security/   # runtime — identity and custody: authn, authz, crypto authority, leased secrets, stateless over ports
-├── data/       # runtime — durable persistence: journal, guarantee lanes, object plane, typed read side
-├── runtime/    # runtime — execution: proc substrate, net, OTLP wire, front door, durable work, ai, browser condition
-├── ui/         # runtime — interface: component system + view plane, with viewer as the spatial second Nx project
-└── iac/        # deploy  — Pulumi typed programs: StackSpec arm dispatch, k8s tiers, secrets, observe realization, policy
+├── core/       # branch law: value floor, state algebra, the keyed-decode interchange plane, observe vocabulary
+├── security/   # identity and custody: authn, authz, crypto authority, leased secrets, stateless over ports
+├── data/       # durable persistence: journal, guarantee lanes, object plane, typed read side
+├── runtime/    # execution: proc substrate, net, OTLP wire, front door, durable work, ai, browser condition
+├── ui/         # interface: component system and view plane, viewer the spatial second Nx project
+└── iac/        # deploy: Pulumi typed programs, StackSpec arm dispatch, k8s tiers, secrets, observe, policy
 ```
 
 ## [02]-[SEAMS]
 
-```text seams
-core     ⇄  csharp:Rasm              # [CONTENT_KEY]: XxHash128 seed-zero :x32 content-identity parity
-core     ←  csharp:Rasm.AppHost      # [WIRE]: Hlc halves + ReceiptEnvelope/TenantContext/livewire/FlagVerdict/CredentialPem
-core     ⇄  csharp:Rasm.Compute      # [WIRE]: proto suite + FaultDetail + ProgressMark frames + QuantityWire + the descriptor drift gate
-core     ←  csharp:Rasm.Persistence  # [WIRE]: OpLog/Snapshot CRDT wire + JsonPatch egress
-core     ⇄  csharp:Rasm.Element      # [WIRE]: ElementGraph content-keyed wire under the drift gate
-core     ←  csharp:Rasm.Bim          # [WIRE]: BcfTopic/BcfViewpoint + BimWire/DiffWire/OpLogWire/IdsAudit golden-byte parity + GeoFeature WKB
-core     ←  csharp:Rasm.Materials    # [WIRE]: MaterialWire/PbrGroups appearance decode
-core     ←  csharp:Rasm.AppUi        # [WIRE]: Command/Gate + RenderReceipt + Residency + Control/Layout wires + EvidenceFeed
-runtime  ←  csharp:Rasm.AppHost      # [TRANSPORT]: OTLP export alignment at the shared collector
-ui       ←  csharp:Rasm.AppHost      # [WIRE]: livewire triple materialized at the viewer panel
-ui       ←  csharp:Rasm.AppUi        # [WIRE]: ControlIntentWire + LayoutConstraintWire materialized at viewer/panel
-ui       ←  csharp:Rasm.AppUi        # [RECEIPT]: RenderReceiptWire / RenderReceipt paired with local render evidence at viewer/probe
-ui       ←  csharp:Rasm.Bim          # [WIRE]: BCF marks + GlobalId selection sets
-ui       ←  csharp:Rasm.Materials    # [WIRE]: PbrGroups appearance into the scene
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: TypeScript branch seam registry
+    accDescr: TypeScript branch owners core, runtime, and ui consuming kinded wires produced by the C# packages, edge rails colored by kind and nodes classed by seam direction.
+    subgraph ts[LIBS/TYPESCRIPT]
+        Core[Core interchange plane]
+        Runtime[Runtime execution]
+        Ui[UI view plane]
+    end
+    Rasm{{Rasm}}
+    AppHost([Rasm.AppHost])
+    Compute{{Rasm.Compute}}
+    Persistence[(Rasm.Persistence)]
+    Element{{Rasm.Element}}
+    Bim([Rasm.Bim])
+    Materials([Rasm.Materials])
+    AppUi([Rasm.AppUi])
+    Rasm e1@<-->|"[CONTENT_KEY]: XxHash128"| Core
+    AppHost e2@-->|"[WIRE]: ReceiptEnvelopeWire"| Core
+    Compute e3@<-->|"[WIRE]: QuantityFamily"| Core
+    Persistence e4@-->|"[WIRE]: CrdtOpWire"| Core
+    Element e5@<-->|"[WIRE]: rasm.element.v1"| Core
+    Bim e6@-->|"[WIRE]: IfcWire"| Core
+    Materials e7@-->|"[WIRE]: MaterialWire"| Core
+    AppUi e8@-->|"[WIRE]: CommandPayloadWire"| Core
+    AppHost e9@-->|"[TRANSPORT]: OtelExport"| Runtime
+    AppHost e10@-->|"[WIRE]: BindingStatusWire"| Ui
+    AppUi e11@-->|"[WIRE]: ControlIntentWire"| Ui
+    AppUi e12@-->|"[RECEIPT]: RenderReceipt"| Ui
+    Bim e13@-->|"[WIRE]: GlobalIdSet"| Ui
+    Materials e14@-->|"[WIRE]: PbrGroups"| Ui
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
+    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
+    class Core,Runtime,Ui primary
+    class Rasm,Compute,Element external
+    class Persistence data
+    class AppHost,Bim,Materials,AppUi annotation
+    class e1,e2,e3,e4,e5,e6,e7,e8,e10,e11,e13,e14 edgeData
+    class e12 edgeSuccess
+    class e9 edgeExternal
 ```
 
-Every C#-minted family decodes exactly once through the core interchange codec registry; the ui rows above name where the decoded landings materialize. TS consumes the GLB tessellation rail through the C#-owned wire; no TS↔Python seam exists. Folder-level seam rows live in each folder `ARCHITECTURE.md` `[02]-[SEAMS]` and mirror the csharp endpoint files verbatim.
+Every C#-minted family decodes exactly once through the core interchange codec registry; the `ui` edges name where the decoded landings materialize. TS consumes the GLB tessellation rail through the C#-owned wire; no TS↔Python seam exists. Folder-level seam rows live in each folder's `[02]-[SEAMS]` and mirror the csharp endpoint files verbatim.
 
 ## [03]-[DEPENDENCY_DIRECTION]
 
-Dependency flows strictly downward through the waves — W0 `core`, W1 `security`, W2 `data`, W3 `runtime`, W4 `ui`/`iac`. The permitted-edge table is the whole import law:
+Dependency flows strictly downward through the waves — W0 `core`, W1 `security`, W2 `data`, W3 `runtime`, W4 `ui`/`iac`. Permitted edges are the whole import law:
 
-| [INDEX] | [FROM]     | [MAY_IMPORT]               | [NOTES]                                                                                              |
-| :-----: | :--------- | :------------------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `core`     | (nothing)                  | Runs identically under node, bun, and the browser; imported by every runtime folder                  |
-|  [02]   | `security` | `core`                     | State lives behind port Tags; the folder never imports `data`                                        |
-|  [03]   | `data`     | `core`, `security`         | The one direct `data → security` edge: `journal/retain` Shredder + `lane/tenant` ambient TenantScope |
-|  [04]   | `runtime`  | `core`, `security`, `data` | Both process planes; the browser condition is the same package, never a sibling                      |
-|  [05]   | `ui`       | `core`, `runtime`          | `viewer` is a second Nx project inside the folder with the same edge set                             |
-|  [06]   | `iac`      | `core`, `data`             | Type/value reads only (`DashboardModel`, `Alert`, `Slo.Objective`, `Pg`)                             |
+| [INDEX] | [FROM]     | [MAY_IMPORT]               | [NOTES]                                                                               |
+| :-----: | :--------- | :------------------------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `core`     | (nothing)                  | Runs identically under node, bun, and the browser; imported by every runtime folder   |
+|  [02]   | `security` | `core`                     | State lives behind port Tags; the folder never imports `data`                         |
+|  [03]   | `data`     | `core`, `security`         | The one `data → security` edge: `journal/retain` Shredder + `lane/tenant` TenantScope |
+|  [04]   | `runtime`  | `core`, `security`, `data` | Both process planes; the browser condition is the same package, never a sibling       |
+|  [05]   | `ui`       | `core`, `runtime`          | `viewer` is a second Nx project inside the folder with the same edge set              |
+|  [06]   | `iac`      | `core`, `data`             | Type/value reads only (`DashboardModel`, `Alert`, `Slo.Objective`, `Pg`)              |
 
-Port satisfaction happens at app composition, never as an upward import:
-- Security's `SessionStore`/`IdentityJournal`/`ClaimStore`/`RelationStore` Tags are satisfied by `data` scope-built Layers.
-- Data's `Embedder`/`Reranker` Tags are satisfied by the `runtime` ai plane; the durable embed band's `Persistence.BackingPersistence` requirement is satisfied at the same root by the data key-value scope.
-- The `ui` viewer `GlbViewport` Tag is satisfied by the browser composition root from `runtime` Depot verified-arrival pairs (ContentKey + whole-buffer GLB octets, byteOffset zero) and the Depot residency ledger cell.
-- The `ui` atom `LIVE_BRIDGE` rows bind the `runtime` browser host planes — Router location/pending, Install stance/fresh, Guard.dirty, Vault.status — through `Atom.subscribable`/`Atom.subscriptionRef` at app composition; the wiring is the composition root's own code.
-- The one value crossing back from `iac` is typed `StackOutputs.sharding` read by `runtime` `ShardingConfig.layerFromEnv` — an env fact, never an import.
+Port satisfaction happens at app composition, never as an upward import: every port Tag a folder declares binds to a downstream folder's Layer at the composition root, so a stateless upper folder never reaches up for its dependency. The one value crossing back is typed `StackOutputs.sharding` read by `runtime` `ShardingConfig.layerFromEnv` — an env fact, never an import.

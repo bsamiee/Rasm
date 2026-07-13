@@ -17,105 +17,133 @@
 [PUBLIC_TYPE_SCOPE]: scene graph, cameras, and the transform spine
 - rail: scene
 
-| [INDEX] | [SYMBOL]                                                             | [TYPE_FAMILY]   | [CONSUMER]                                                                                                                |
-| :-----: | :------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `Scene` / `Object3D` / `Group`                                       | scene node      | `viewer/scene/glb` — the residency root; every loaded GLB node is an `Object3D` subtree grafted under one `Scene`         |
-|  [02]   | `Mesh` / `InstancedMesh` / `BatchedMesh` / `SkinnedMesh`             | drawable        | `viewer/scene/glb` — `BatchedMesh`/`InstancedMesh` collapse repeated element geometry into one draw call for large models |
-|  [03]   | `PerspectiveCamera` / `OrthographicCamera` / `ArrayCamera`           | camera          | `viewer/geo/project` — projection/camera sync; `viewer/scene/glb` frames the loaded bounds                                |
-|  [04]   | `Raycaster` / `Layers`                                               | pick / mask     | `viewer/mark/selection` — pointer→`GlobalId` element hit-test over the residency graph                                    |
-|  [05]   | `BufferGeometry` / `BufferAttribute` / `InterleavedBufferAttribute`  | geometry buffer | `viewer/scene/glb` — decoded vertex/index buffers land as typed-array attributes, never per-vertex objects                |
-|  [06]   | `Box3` / `Sphere` / `Frustum` / `Vector3` / `Matrix4` / `Quaternion` | math value      | `viewer/geo/project`, `viewer/scene/glb` — bounds, framing, frustum-cull, and the transform algebra                       |
+| [INDEX] | [SYMBOL]                                                             | [TYPE_FAMILY]   | [CONSUMER]                                     |
+| :-----: | :------------------------------------------------------------------- | :-------------- | :--------------------------------------------- |
+|  [01]   | `Scene` / `Object3D` / `Group`                                       | scene node      | `viewer/scene/glb` — residency root, GLB graft |
+|  [02]   | `Mesh` / `InstancedMesh` / `BatchedMesh` / `SkinnedMesh`             | drawable        | `viewer/scene/glb` — repeats to one draw call  |
+|  [03]   | `PerspectiveCamera` / `OrthographicCamera` / `ArrayCamera`           | camera          | `viewer/geo/project` — camera sync, bounds     |
+|  [04]   | `Raycaster` / `Layers`                                               | pick / mask     | `viewer/mark/selection` — `GlobalId` hit-test  |
+|  [05]   | `BufferGeometry` / `BufferAttribute` / `InterleavedBufferAttribute`  | geometry buffer | `viewer/scene/glb` — typed-array attributes    |
+|  [06]   | `Box3` / `Sphere` / `Frustum` / `Vector3` / `Matrix4` / `Quaternion` | math value      | `viewer/geo`, `viewer/scene/glb` — transform   |
 
 [PUBLIC_TYPE_SCOPE]: materials, textures, and color management — the OpenPBR binding target
 - rail: scene
 
-| [INDEX] | [SYMBOL]                                                                                 | [TYPE_FAMILY] | [CONSUMER]                                                                                                                                                                                                              |
-| :-----: | :--------------------------------------------------------------------------------------- | :------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `MeshPhysicalMaterial`                                                                   | PBR material  | `viewer/scene/appearance` — the OpenPBR bind target; carries `clearcoat*`, `sheen*`, `transmission`/`thickness`/`attenuation*`, `ior`, `iridescence*`, `specularIntensity`/`specularColor`, `anisotropy*`, `dispersion` |
-|  [02]   | `MeshStandardMaterial` / `MeshBasicMaterial` / `ShaderMaterial`                          | material base | `viewer/scene/appearance` — metallic-roughness base, unlit recovery, and the raw-shader escape hatch                                                                                                                    |
-|  [03]   | `Texture` / `CompressedTexture` / `CompressedArrayTexture` / `DataTexture`               | texture       | `viewer/scene/glb` — KTX2/Basis transcode lands as a `CompressedTexture`; HDR env as `DataTexture`                                                                                                                      |
-|  [04]   | `Color` / `ColorManagement` / `SRGBColorSpace` / `LinearSRGBColorSpace`                  | color space   | `viewer/scene/appearance` — the working/output color-space contract the OpenPBR albedo decode honors                                                                                                                    |
-|  [05]   | `ACESFilmicToneMapping` / `AgXToneMapping` / `NeutralToneMapping`                        | tone map enum | `viewer/scene/glb` — the renderer tone-map policy row; AgX/Neutral for physically-faithful HDR                                                                                                                          |
-|  [06]   | `DirectionalLight` / `AmbientLight` / `HemisphereLight` / `RectAreaLight` / `LightProbe` | light         | `viewer/scene/glb` — analytic light rows beside the IBL environment                                                                                                                                                     |
+The OpenPBR lobe fields carried by `MeshPhysicalMaterial` are catalogued in the [03] appearance-binding rows.
+
+| [INDEX] | [SYMBOL]                                                                   | [TYPE_FAMILY] | [CONSUMER]                                  |
+| :-----: | :------------------------------------------------------------------------- | :------------ | :------------------------------------------ |
+|  [01]   | `MeshPhysicalMaterial`                                                     | PBR material  | `viewer/scene/appearance` — OpenPBR target  |
+|  [02]   | `MeshStandardMaterial` / `MeshBasicMaterial` / `ShaderMaterial`            | material base | `viewer/scene/appearance` — MR/unlit/shader |
+|  [03]   | `Texture` / `CompressedTexture` / `CompressedArrayTexture` / `DataTexture` | texture       | `viewer/scene/glb` — KTX2/Basis + HDR       |
+|  [04]   | `Color` / `ColorManagement` / `SRGBColorSpace` / `LinearSRGBColorSpace`    | color space   | `viewer/scene/appearance` — color-space     |
+|  [05]   | `ACESFilmicToneMapping` / `AgXToneMapping` / `NeutralToneMapping`          | tone map enum | `viewer/scene/glb` — tone-map; AgX/Neutral  |
+|  [06]   | `DirectionalLight` / `AmbientLight` / `HemisphereLight` / `RectAreaLight`  | light         | `viewer/scene/glb` — analytic lights        |
+|  [07]   | `LightProbe`                                                               | light probe   | `viewer/scene/glb` — irradiance probe       |
 
 [PUBLIC_TYPE_SCOPE]: WebGPU backend, node materials, and compute (`three/webgpu`)
 - rail: scene
 
-| [INDEX] | [SYMBOL]                                                                                          | [TYPE_FAMILY]    | [CONSUMER]                                                                                                                                                          |
-| :-----: | :------------------------------------------------------------------------------------------------ | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `Renderer` / `WebGPUBackend` / `WebGLBackend`                                                     | unified renderer | `viewer/scene/glb` — one `Renderer` abstract over a WebGPU or WebGL2 backend chosen by the `navigator.gpu` + `renderer.hasFeature` capability probe (post-`init()`) |
-|  [02]   | `MeshPhysicalNodeMaterial` / `MeshStandardNodeMaterial`                                           | node material    | `viewer/scene/appearance` — the WebGPU-path OpenPBR material whose lobes are TSL node graphs, not fixed uniforms                                                    |
-|  [03]   | `PostProcessing` / `RendererUtils`                                                                | post pipeline    | `viewer/probe/receipt` — the post chain whose framebuffer feeds the `RenderReceipt` frame-hash                                                                      |
-|  [04]   | `ComputeNode` / `StorageBufferNode` / `StorageBufferAttribute` / `IndirectStorageBufferAttribute` | GPU compute      | `viewer/scene/glb` — GPU-side buffer transforms (skinning, culling) as compute passes, WebGPU-gated                                                                 |
+| [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY]    | [CONSUMER]                                     |
+| :-----: | :---------------------------------------------------------- | :--------------- | :--------------------------------------------- |
+|  [01]   | `Renderer` / `WebGPUBackend` / `WebGLBackend`               | unified renderer | `viewer/scene/glb` — WebGPU/WebGL2 backend     |
+|  [02]   | `MeshPhysicalNodeMaterial` / `MeshStandardNodeMaterial`     | node material    | `viewer/scene/appearance` — WebGPU OpenPBR TSL |
+|  [03]   | `PostProcessing` / `RendererUtils`                          | post pipeline    | `viewer/probe/receipt` — `RenderReceipt` chain |
+|  [04]   | `ComputeNode` / `StorageBufferNode`                         | GPU compute      | `viewer/scene/glb` — compute-pass transforms   |
+|  [05]   | `StorageBufferAttribute` / `IndirectStorageBufferAttribute` | compute buffer   | `viewer/scene/glb` — storage/indirect attrs    |
 
 [PUBLIC_TYPE_SCOPE]: loader and animation contracts
 - rail: scene
 
-| [INDEX] | [SYMBOL]                                                         | [TYPE_FAMILY] | [CONSUMER]                                                                                                                               |
-| :-----: | :--------------------------------------------------------------- | :------------ | :--------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Loader` / `LoadingManager`                                      | loader base   | `viewer/scene/glb` — the one loader base every codec extends; `LoadingManager` folds progress/error across the GLB dependency set        |
-|  [02]   | `GLTFLoader` (`three/addons`) / `GLTF` result                    | GLB loader    | `viewer/scene/glb` — parses the GLB to a `{ scene, animations, cameras, asset }` result; plugin-configured for DRACO/KTX2/Meshopt        |
-|  [03]   | `PMREMGenerator` / `WebGLCubeRenderTarget`                       | IBL prefilter | `viewer/scene/glb` — prefilters an equirect/scene environment into the mip-chain `MeshPhysicalMaterial` samples for image-based lighting |
-|  [04]   | `AnimationMixer` / `AnimationClip` / `AnimationAction` / `Clock` | animation     | `viewer/scene/glb` — GLB animation tracks bound to a per-frame mixer under one `Clock`                                                   |
+Every row is consumed by `viewer/scene/glb`.
+
+| [INDEX] | [SYMBOL]                                                         | [TYPE_FAMILY] | [CONSUMER]                                            |
+| :-----: | :--------------------------------------------------------------- | :------------ | :---------------------------------------------------- |
+|  [01]   | `Loader` / `LoadingManager`                                      | loader base   | codec base; `LoadingManager` folds GLB progress/error |
+|  [02]   | `GLTFLoader` (`three/addons`) / `GLTF` result                    | GLB loader    | parses to `{ scene, animations, cameras, asset }`     |
+|  [03]   | `PMREMGenerator` / `WebGLCubeRenderTarget`                       | IBL prefilter | prefilters equirect/scene into the IBL mip-chain      |
+|  [04]   | `AnimationMixer` / `AnimationClip` / `AnimationAction` / `Clock` | animation     | GLB tracks on a per-frame mixer + `Clock`             |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: renderer construction and the frame loop
 - rail: scene
+- Both renderers take `{ canvas, antialias, alpha?, powerPreference? }`; every row serves `viewer/scene/glb`.
 
-| [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY]         | [CONSUMER]                                                                                                                                                                                                                     |
-| :-----: | :------------------------------------------------------------------------------------------------- | :--------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new WebGLRenderer({ canvas, antialias, alpha, powerPreference })` / `.setPixelRatio` / `.setSize` | build renderer         | `viewer/scene/glb` — the WebGL2 backend bound to the viewer `<canvas>` ref                                                                                                                                                     |
-|  [02]   | `new WebGPURenderer({ canvas, antialias })` / `await renderer.init()` / `.hasFeature(name)`        | build renderer (async) | `viewer/scene/glb` — the WebGPU backend; `init()` awaits adapter/device, `hasFeature` (post-`init()`; `hasFeatureAsync` is deprecated) gates the upgrade, resolving to `GPUDevice.features.has(name)` (`.api/webgpu-types.md`) |
-|  [03]   | `renderer.setAnimationLoop(fn)` / `.render(scene, camera)` / `.renderAsync(scene, camera)`         | frame loop             | `viewer/scene/glb` — the RAF-driven loop; `renderAsync` is the WebGPU submit; `null` loop pauses under `<Activity>` hidden                                                                                                     |
-|  [04]   | `renderer.outputColorSpace` / `.toneMapping` / `.toneMappingExposure` / `.setClearColor`           | output policy          | `viewer/scene/glb` — output color-space + tone-map + exposure; the physically-faithful display contract                                                                                                                        |
-|  [05]   | `renderer.compileAsync(scene, camera)` / `renderer.dispose()` / `computeAsync(node)`               | precompile / dispose   | `viewer/scene/glb` — pre-warm shaders before first frame; `dispose()` under the Effect `Scope` finalizer releases GPU memory                                                                                                   |
+| [INDEX] | [SURFACE]                                                                                | [ENTRY_FAMILY]       | [CONSUMER]            |
+| :-----: | :--------------------------------------------------------------------------------------- | :------------------- | :-------------------- |
+|  [01]   | `new WebGLRenderer(opts)` / `.setPixelRatio` / `.setSize`                                | build renderer       | WebGL2 canvas backend |
+|  [02]   | `new WebGPURenderer(opts)` / `await renderer.init()` / `.hasFeature(name)`               | build (async)        | WebGPU async, [02]    |
+|  [03]   | `renderer.setAnimationLoop(fn)` / `.render(s, c)` / `.renderAsync(s, c)`                 | frame loop           | RAF loop, submit      |
+|  [04]   | `renderer.outputColorSpace` / `.toneMapping` / `.toneMappingExposure` / `.setClearColor` | output policy        | display contract      |
+|  [05]   | `renderer.compileAsync(s, c)` / `renderer.dispose()` / `computeAsync(node)`              | precompile / dispose | pre-warm, dispose     |
+
+- [02]-[WEBGPU_UPGRADE]: `hasFeature` (post-`init()`; `hasFeatureAsync` deprecated) gates the upgrade, resolving to `GPUDevice.features.has(name)` (`.api/webgpu-types.md`); the `null` loop pauses under `<Activity>` hidden.
 
 [ENTRYPOINT_SCOPE]: GLB ingestion — the plugin-configured decode pipeline
 - rail: scene
+- Every row serves `viewer/scene/glb`; codec wasm runs in the `browser` decode-worker, never the render thread.
 
-| [INDEX] | [SURFACE]                                                                                      | [ENTRY_FAMILY]   | [CONSUMER]                                                                                                                                                                                                                                                                                                                          |
-| :-----: | :--------------------------------------------------------------------------------------------- | :--------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new GLTFLoader(manager).setDRACOLoader(d).setKTX2Loader(k).setMeshoptDecoder(MeshoptDecoder)` | configure codecs | `viewer/scene/glb` — one loader, codecs attached by injection; the meshopt-gated row wires `MeshoptDecoder` only when the asset flags `EXT_meshopt_compression`                                                                                                                                                                     |
-|  [02]   | `loader.register((parser) => plugin)` / `loader.parseAsync(buffer, path)` / `.loadAsync(url)`  | parse            | `viewer/scene/glb` — `parseAsync` over the residency `ArrayBuffer` (already content-key-verified at `wire`); `register` adds an extension plugin                                                                                                                                                                                    |
-|  [03]   | `new DRACOLoader().setDecoderPath(p).setDecoderConfig({ type })` / `.preload()`                | draco codec      | `viewer/scene/glb` — the geometry-decompression codec; its wasm runs in the `browser` decode-worker, not the render thread                                                                                                                                                                                                          |
-|  [04]   | `new KTX2Loader().setTranscoderPath(p).detectSupport(renderer)`                                | basis codec      | `viewer/scene/glb` — GPU-texture transcode; `detectSupport` reads the renderer's compressed-format capabilities to pick the target: `GPUDevice.features` for the `texture-compression-bc`/`-etc2`/`-astc` `GPUFeatureName` members (`.api/webgpu-types.md`) on the WebGPU backend, `WEBGL_compressed_texture_*` extensions on WebGL |
-|  [05]   | `KTX2Loader` / `RGBELoader` / `TextureLoader` → `renderer.initTexture(tex)`                    | texture ingest   | `viewer/scene/glb` — compressed/HDR/8-bit texture rows; `initTexture` uploads eagerly to avoid first-frame hitching                                                                                                                                                                                                                 |
+| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY] | [CONSUMER]             |
+| :-----: | :-------------------------------------------------------------------------------------------- | :------------- | :--------------------- |
+|  [01]   | `new GLTFLoader(manager).setDRACOLoader(d).setKTX2Loader(k).setMeshoptDecoder(m)`             | codec setup    | injection, [01]        |
+|  [02]   | `loader.register((parser) => plugin)` / `loader.parseAsync(buffer, path)` / `.loadAsync(url)` | parse          | buffer `parseAsync`    |
+|  [03]   | `new DRACOLoader().setDecoderPath(p).setDecoderConfig({ type })` / `.preload()`               | draco codec    | geometry codec         |
+|  [04]   | `new KTX2Loader().setTranscoderPath(p).detectSupport(renderer)`                               | basis codec    | transcode target, [04] |
+|  [05]   | `KTX2Loader` / `RGBELoader` / `TextureLoader` → `renderer.initTexture(tex)`                   | texture ingest | eager `initTexture`    |
+
+- [01]-[MESHOPT_GATE]: `MeshoptDecoder` wires only when the asset flags `EXT_meshopt_compression`.
+- [04]-[TRANSCODE_TARGET]: `detectSupport` reads the renderer's compressed-format capabilities — `GPUDevice.features` for the `texture-compression-bc`/`-etc2`/`-astc` `GPUFeatureName` members (`.api/webgpu-types.md`) on WebGPU, `WEBGL_compressed_texture_*` extensions on WebGL.
 
 [ENTRYPOINT_SCOPE]: OpenPBR appearance binding on `MeshPhysicalMaterial`
 - rail: scene
+- Every row binds `MeshPhysicalMaterial`/`MeshPhysicalNodeMaterial` fields decoded from `wire#vocab`; consumer `viewer/scene/appearance` unless noted.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                          | [ENTRY_FAMILY]                   | [CONSUMER]                                                                                                                                 |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `material.clearcoat` / `.clearcoatRoughness` / `.clearcoatMap` / `.clearcoatNormalMap`                                                                                                             | coat lobe                        | `viewer/scene/appearance` — the OpenPBR coat weight/roughness/maps decoded from `wire#vocab` appearance                                    |
-|  [02]   | `.sheen` / `.sheenColor` / `.sheenRoughness` — `.transmission` / `.thickness` / `.attenuationColor` / `.attenuationDistance` / `.ior`                                                              | sheen / transmission             | `viewer/scene/appearance` — fuzz and volumetric/refraction lobes; `ior`+`dispersion` the glass rows                                        |
-|  [03]   | `.iridescence` / `.iridescenceIOR` / `.iridescenceThicknessRange` — `.anisotropy` / `.anisotropyRotation`                                                                                          | thin-film / aniso                | `viewer/scene/appearance` — thin-film interference and anisotropic-highlight lobes with their maps                                         |
-|  [04]   | `.specularIntensity` / `.specularColor` / `.metalness` / `.roughness` / `.envMapIntensity` — `.emissive` / `.emissiveIntensity` / `.opacity` / `.transparent` / `.side` (`FrontSide`/`DoubleSide`) | base + emission + geometry + IBL | `viewer/scene/appearance` — the metallic-roughness base, the emission pair, the opacity/side geometry rows, and the IBL contribution scale |
-|  [05]   | `pmrem.fromScene(RoomEnvironment(), 0.04)` / `pmrem.fromEquirectangular(hdr)` → `scene.environment`                                                                                                | IBL bind                         | `viewer/scene/glb` — the prefiltered environment map every `MeshPhysicalMaterial` samples; `RoomEnvironment` is the neutral studio default |
+| [INDEX] | [SURFACE]                                                                              | [ENTRY_FAMILY]      | [CONSUMER]             |
+| :-----: | :------------------------------------------------------------------------------------- | :------------------ | :--------------------- |
+|  [01]   | `material.clearcoat` / `.clearcoatRoughness` / `.clearcoatMap` / `.clearcoatNormalMap` | coat lobe           | coat weight/rough/maps |
+|  [02]   | `.sheen` / `.sheenColor` / `.sheenRoughness`                                           | sheen lobe          | fuzz layer             |
+|  [03]   | `.transmission` / `.thickness` / `.attenuationColor` / `.attenuationDistance` / `.ior` | transmission        | refraction; glass      |
+|  [04]   | `.iridescence` / `.iridescenceIOR` / `.iridescenceThicknessRange`                      | thin-film           | interference + maps    |
+|  [05]   | `.anisotropy` / `.anisotropyRotation`                                                  | anisotropy          | aniso highlight + maps |
+|  [06]   | `.specularIntensity` / `.specularColor`                                                | specular            | specular tint          |
+|  [07]   | `.metalness` / `.roughness` / `.envMapIntensity`                                       | metallic base + IBL | MR base + IBL scale    |
+|  [08]   | `.emissive` / `.emissiveIntensity` / `.opacity` / `.transparent` / `.side`             | emission + geometry | emission, [08]         |
+|  [09]   | `pmrem.fromScene(env, 0.04)` / `.fromEquirectangular(hdr)` → `scene.environment`       | IBL bind            | `viewer/scene/glb` env |
+
+- [08]-[SIDE]: `.side` takes `FrontSide`/`DoubleSide`; `dispersion` rides the [03] glass rows.
+- [09]-[IBL_DEFAULT]: `RoomEnvironment()` is the neutral studio default the prefilter bakes; every `MeshPhysicalMaterial` samples the result.
 
 [ENTRYPOINT_SCOPE]: interaction, node-shader authoring, and evidence
 - rail: scene
+- Node-shader verbs are `three/tsl`; `BufferGeometryUtils` is `three/addons`; `OrbitControls extends Controls extends EventDispatcher`.
 
-| [INDEX] | [SURFACE]                                                                                             | [ENTRY_FAMILY] | [CONSUMER]                                                                                                                            |
-| :-----: | :---------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `new OrbitControls(camera, dom)` / `ArcballControls` / `MapControls` — `.update()` / `.dispose()`     | camera control | `viewer/geo/project` — orbit/arcball/map navigation rows; disposed under the Effect `Scope` finalizer                                 |
-|  [02]   | `Fn(([...]) => node)` / `uniform(v)` / `texture(t, uv)` / `vec3` / `mix` / `mrt({...})` (`three/tsl`) | node shader    | `viewer/scene/appearance` — TSL node graphs authoring the WebGPU-path material lobes; `mrt` for the G-buffer receipt targets          |
-|  [03]   | `renderer.getPixelRatio()` / `renderer.readRenderTargetPixelsAsync(rt, ...)`                          | frame readback | `viewer/probe/receipt` — the pixel readback the `RenderReceipt` frame-hash consumes for deterministic render evidence                 |
-|  [04]   | `BufferGeometryUtils.mergeGeometries(list)` / `.mergeVertices(geo)` (`three/addons`)                  | geometry fold  | `viewer/scene/glb` — merges same-material submeshes into one buffer, cutting draw calls on large residency sets                       |
-|  [05]   | `controls.addEventListener("change", fn)` / `controls.target`                                         | control events | `viewer/geo` — `OrbitControls extends Controls extends EventDispatcher`; the `change` dispatch folds the settled camera into the atom |
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY]    | [CONSUMER]                              |
+| :-----: | :------------------------------------------------------------------- | :---------------- | :-------------------------------------- |
+|  [01]   | `new OrbitControls(cam, dom)` / `ArcballControls` / `MapControls`    | camera control    | `viewer/geo/project` — camera nav       |
+|  [02]   | `controls.update()` / `controls.dispose()`                           | control lifecycle | `viewer/geo` — update, `Scope` dispose  |
+|  [03]   | `Fn(...)` / `uniform` / `texture` / `vec3` / `mix` / `mrt`           | node shader       | `viewer/scene/appearance` — TSL lobes   |
+|  [04]   | `renderer.getPixelRatio()` / `.readRenderTargetPixelsAsync(rt, ...)` | frame readback    | `viewer/probe/receipt` — pixel readback |
+|  [05]   | `BufferGeometryUtils.mergeGeometries(list)` / `.mergeVertices(geo)`  | geometry fold     | `viewer/scene/glb` — merge submeshes    |
+|  [06]   | `controls.addEventListener("change", fn)` / `controls.target`        | control events    | `viewer/geo` — `change` folds camera    |
 
 [ENTRYPOINT_SCOPE]: animation drive and draw-call collapse
 - rail: scene
+- Every row serves `viewer/scene`; loop-mode constants are core `three`.
 
-| [INDEX] | [SURFACE]                                                                                                                                                               | [ENTRY_FAMILY] | [CONSUMER]                                                                                                 |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new AnimationMixer(root)` / `mixer.clipAction(clip)` / `mixer.update(deltaTime)` / `mixer.timeScale`                                                                   | mixer drive    | `viewer/scene` — one mixer per animated graft; `update` advances inside the one frame loop                 |
-|  [02]   | `action.play()` / `.stop()` / `.reset()` / `.setLoop(mode, repetitions)` / `.paused` / `.enabled` — `LoopOnce` / `LoopRepeat` / `LoopPingPong`                          | action control | `viewer/scene` — clip playback policy; loop-mode constants from core `three`                               |
-|  [03]   | `mixer.stopAllAction()` / `mixer.uncacheRoot(root)`                                                                                                                     | mixer teardown | `viewer/scene` — eviction releases every action binding before the subtree disposes                        |
-|  [04]   | `new Clock()` / `clock.getDelta()` / `clock.getElapsedTime()`                                                                                                           | time source    | `viewer/scene` — the one delta source the frame loop feeds every mixer                                     |
-|  [05]   | `new InstancedMesh(geometry, material, count)` / `.setMatrixAt(i, matrix)` / `.instanceMatrix` / `.computeBoundingSphere()`                                             | instanced draw | `viewer/scene` — repeated identical geometry as one draw call                                              |
-|  [06]   | `new BatchedMesh(maxInstances, maxVertices, maxIndices, material)` / `.addGeometry(geo)` / `.addInstance(geoId)` / `.setMatrixAt(i, matrix)` / `.setVisibleAt(i, flag)` | batched draw   | `viewer/scene` — distinct same-material geometries batched into one draw call with per-instance visibility |
-|  [07]   | `renderer.initTexture(texture)`                                                                                                                                         | eager upload   | `viewer/scene` — uploads decoded textures ahead of first use so the first frame never hitches              |
+| [INDEX] | [SURFACE]                                                                        | [ENTRY_FAMILY]  | [CONSUMER]                    |
+| :-----: | :------------------------------------------------------------------------------- | :-------------- | :---------------------------- |
+|  [01]   | `new AnimationMixer(root)` / `mixer.clipAction(clip)` / `mixer.timeScale`        | mixer build     | one mixer per animated graft  |
+|  [02]   | `mixer.update(deltaTime)` / `mixer.stopAllAction()` / `mixer.uncacheRoot(root)`  | mixer drive     | advance + teardown in loop    |
+|  [03]   | `action.play()` / `.stop()` / `.reset()` / `.paused` / `.enabled`                | action control  | clip playback state           |
+|  [04]   | `action.setLoop(mode, repetitions)` — `LoopOnce` / `LoopRepeat` / `LoopPingPong` | loop mode       | loop-mode policy constants    |
+|  [05]   | `new Clock()` / `clock.getDelta()` / `clock.getElapsedTime()`                    | time source     | one delta source per mixer    |
+|  [06]   | `new InstancedMesh(geometry, material, count)` / `.instanceMatrix`               | instanced build | repeated geometry, one draw   |
+|  [07]   | `.setMatrixAt(i, matrix)` / `.computeBoundingSphere()`                           | instanced slot  | per-instance matrix + bounds  |
+|  [08]   | `new BatchedMesh(maxInstances, maxVertices, maxIndices, material)`               | batched build   | distinct geoms, one draw call |
+|  [09]   | `.addGeometry(geo)` / `.addInstance(geoId)`                                      | batched add     | geometry + instance ids       |
+|  [10]   | `.setMatrixAt(i, matrix)` / `.setVisibleAt(i, flag)`                             | batched slot    | per-instance matrix + visible |
+|  [11]   | `renderer.initTexture(texture)`                                                  | eager upload    | upload ahead of first frame   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -18,18 +18,29 @@
 - rail: interchange/codec
 - `Decoder`/`Encoder` are the configured-once instances. `ExtensionCodec` maps a MessagePack ext type-byte to a decoder; `ExtData` is a raw undecoded ext (type + bytes). The `context` option adds a read/write field every extension decoder receives (typed via the internal `ContextOf`/`SplitUndefined`, not a barrel import) — the kernel-identity thread. `DecoderOptions`/`EncoderOptions` are flat `Readonly<Partial<...>>` policy records.
 
-| [INDEX] | [SYMBOL]                                                                        | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                                                                                    |
-| :-----: | :------------------------------------------------------------------------------ | :------------- | :--------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Decoder<ContextType>`                                                          | decoder        | `interchange/codec`/`interchange/codec` configured-once decode; sync + async methods                                   |
-|  [02]   | `Encoder<ContextType>` (`.encode`, `.encodeSharedRef`)                          | encoder        | rare `wire`-owned egress; `encodeSharedRef` zero-copy into a worker transfer                                           |
-|  [03]   | `DecoderOptions<C>`                                                             | policy record  | `useBigInt64`/`extensionCodec`/`context`/`max*Length`/`keyDecoder`/`mapKeyConverter`                                   |
-|  [04]   | `EncoderOptions<C>`                                                             | policy record  | `sortKeys` (canonical)/`useBigInt64`/`ignoreUndefined`/`forceIntegerToFloat`                                           |
-|  [05]   | `ExtensionCodec<C>` (`.register`, `.tryToEncode`, `.decode`, `defaultCodec`)    | ext registry   | the 16-byte `Hlc` ext row + domain CRDT ext rows; one codec per decoder                                                |
-|  [06]   | `ExtData` (`type`, `data`)                                                      | raw ext        | an unregistered ext type surfaced verbatim for `Match` dispatch                                                        |
-|  [07]   | `ExtensionDecoderType<C>` / `ExtensionEncoderType<C>` / `ExtensionCodecType<C>` | ext fn types   | the `(data, type, context) => value` decode signature the `Hlc` row implements                                         |
-|  [08]   | `context` option + `Decoder<ContextType>` generic                               | context thread | the `value/identity` interner passed into every ext decode; decode-once mint (internally `ContextOf`/`SplitUndefined`) |
-|  [09]   | `DecodeError extends Error`                                                     | decode fault   | malformed-frame throw caught at `Effect.try` → `interchange/codec`                                                     |
-|  [10]   | `EXT_TIMESTAMP` (`-1`) + `encodeTimestampExtension`/`decodeTimestampExtension`  | built-in ext   | reserved ext `-1` for `Date` fields; auto-registered in `ExtensionCodec.defaultCodec`, retained beside the domain rows |
+| [INDEX] | [SYMBOL]                                                                        | [TYPE_FAMILY]  |
+| :-----: | :------------------------------------------------------------------------------ | :------------- |
+|  [01]   | `Decoder<ContextType>`                                                          | decoder        |
+|  [02]   | `Encoder<ContextType>` (`.encode`, `.encodeSharedRef`)                          | encoder        |
+|  [03]   | `DecoderOptions<C>`                                                             | policy record  |
+|  [04]   | `EncoderOptions<C>`                                                             | policy record  |
+|  [05]   | `ExtensionCodec<C>` (`.register`, `.tryToEncode`, `.decode`, `defaultCodec`)    | ext registry   |
+|  [06]   | `ExtData` (`type`, `data`)                                                      | raw ext        |
+|  [07]   | `ExtensionDecoderType<C>` / `ExtensionEncoderType<C>` / `ExtensionCodecType<C>` | ext fn types   |
+|  [08]   | `context` option + `Decoder<ContextType>` generic                               | context thread |
+|  [09]   | `DecodeError extends Error`                                                     | decode fault   |
+|  [10]   | `EXT_TIMESTAMP` (`-1`) + `encodeTimestampExtension`/`decodeTimestampExtension`  | built-in ext   |
+
+- [01]-[DECODER]: configured-once decode; sync + async methods.
+- [02]-[ENCODER]: rare `wire`-owned egress; `encodeSharedRef` zero-copy into a worker transfer.
+- [03]-[DECODER_OPTIONS]: `useBigInt64`/`extensionCodec`/`context`/`max*Length`/`keyDecoder`/`mapKeyConverter`.
+- [04]-[ENCODER_OPTIONS]: `sortKeys` (canonical)/`useBigInt64`/`ignoreUndefined`/`forceIntegerToFloat`.
+- [05]-[EXT_CODEC]: the 16-byte `Hlc` ext row + domain CRDT ext rows; one codec per decoder.
+- [06]-[EXT_DATA]: an unregistered ext type surfaced verbatim for `Match` dispatch.
+- [07]-[EXT_FN]: the `(data, type, context) => value` decode signature the `Hlc` row implements.
+- [08]-[CONTEXT]: the `value/identity` interner passed into every ext decode; decode-once mint (internally `ContextOf`/`SplitUndefined`).
+- [09]-[DECODE_ERROR]: malformed-frame throw caught at `Effect.try` → `interchange/codec`.
+- [10]-[TIMESTAMP]: reserved ext `-1` for `Date` fields; auto-registered in `ExtensionCodec.defaultCodec`, retained beside the domain rows.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -37,16 +48,25 @@
 - rail: interchange/codec
 - The sync `decode`/`decodeMulti` cover a buffered frame; the async `decodeAsync`/`decodeArrayStream`/`decodeMultiStream` accept a `ReadableStreamLike` (a whatwg `ReadableStream` or an `AsyncIterable`) and yield an `AsyncGenerator` — the `effect` `Stream` source for the CRDT log. Every entry threads the same `DecoderOptions` (extension codec, context, limits).
 
-| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                            |
-| :-----: | :----------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------- |
-|  [01]   | `decode(buffer, options?): unknown`                                | one frame      | `interchange/codec` single `CrdtOpWire` → `Schema.decodeUnknown`               |
-|  [02]   | `decodeMulti(buffer, options?): Generator<unknown>`                | sync multi     | concatenated ops in one buffered frame                                         |
-|  [03]   | `decodeMultiStream(streamLike, options?): AsyncGenerator<unknown>` | stream multi   | `interchange/codec` `OpLog` log → `Stream.fromAsyncIterable` → `store/journal` |
-|  [04]   | `decodeArrayStream(streamLike, options?): AsyncGenerator<unknown>` | stream array   | a top-level MessagePack array streamed element-by-element                      |
-|  [05]   | `decodeAsync(streamLike, options?): Promise<unknown>`              | async one      | one large frame arriving in chunks                                             |
-|  [06]   | `new Decoder({ extensionCodec, context, useBigInt64, ...limits })` | configured     | the reused decoder carrying the `Hlc` ext + interner context                   |
-|  [07]   | `extensionCodec.register({ type, encode, decode })`                | ext row        | the C#-minted 16-byte `Hlc` ext type → kernel `Hlc`                            |
-|  [08]   | `new Encoder({ sortKeys:true }).encode(v)` / `.encodeSharedRef(v)` | egress         | canonical re-encode; `encodeSharedRef` for a zero-copy `Worker` transfer       |
+| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] |
+| :-----: | :----------------------------------------------------------------- | :------------- |
+|  [01]   | `decode(buffer, options?): unknown`                                | one frame      |
+|  [02]   | `decodeMulti(buffer, options?): Generator<unknown>`                | sync multi     |
+|  [03]   | `decodeMultiStream(streamLike, options?): AsyncGenerator<unknown>` | stream multi   |
+|  [04]   | `decodeArrayStream(streamLike, options?): AsyncGenerator<unknown>` | stream array   |
+|  [05]   | `decodeAsync(streamLike, options?): Promise<unknown>`              | async one      |
+|  [06]   | `new Decoder({ extensionCodec, context, useBigInt64, ...limits })` | configured     |
+|  [07]   | `extensionCodec.register({ type, encode, decode })`                | ext row        |
+|  [08]   | `new Encoder({ sortKeys:true }).encode(v)` / `.encodeSharedRef(v)` | egress         |
+
+- [01]-[DECODE]: single `CrdtOpWire` → `Schema.decodeUnknown`.
+- [02]-[DECODE_MULTI]: concatenated ops in one buffered frame.
+- [03]-[DECODE_MULTI_STREAM]: `OpLog` log → `Stream.fromAsyncIterable` → `store/journal`.
+- [04]-[DECODE_ARRAY_STREAM]: a top-level MessagePack array streamed element-by-element.
+- [05]-[DECODE_ASYNC]: one large frame arriving in chunks.
+- [06]-[NEW_DECODER]: the reused decoder carrying the `Hlc` ext + interner context.
+- [07]-[REGISTER]: the C#-minted 16-byte `Hlc` ext type → kernel `Hlc`.
+- [08]-[NEW_ENCODER]: canonical re-encode; `encodeSharedRef` for a zero-copy `Worker` transfer.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

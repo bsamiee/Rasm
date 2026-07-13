@@ -31,17 +31,17 @@ into the model, which is the inverted, rejected direction.
 [PUBLIC_TYPE_SCOPE]: tool dispatch and operation drivers
 - rail: schema-tooling
 
-| [INDEX] | [SYMBOL]                                   | [PACKAGE_ROLE]    | [CAPABILITY]                                                                          |
-| :-----: | :----------------------------------------- | :---------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `OperationExecutor`                        | tool executor     | `Design`; reflection entrypoint `dotnet ef` drives via nested `OperationBase`         |
-|  [02]   | `OperationExecutor.OperationBase`          | operation marker  | `Design`; per-verb nested op (`AddMigration`, `OptimizeContext`, …)                   |
-|  [03]   | `MigrationsOperations`                     | migration driver  | `Design.Internal` `[EntityFrameworkInternal]`; add/remove/script/list                 |
-|  [04]   | `DbContextOperations`                      | context driver    | `Design.Internal` `[EntityFrameworkInternal]`; optimize/scaffold/pending              |
-|  [05]   | `DesignTimeServicesBuilder`                | service builder   | `Design.Internal` `[EntityFrameworkInternal]`; composes the design `IServiceProvider` |
-|  [06]   | `DesignTimeServiceCollectionExtensions`    | service extension | `Design`; `AddEntityFrameworkDesignTimeServices` / `AddDbContextDesignTimeServices`   |
-|  [07]   | `IOperationReporter` / `OperationReporter` | reporter          | `Design` (iface) + `Design.Internal` (impl); emits error/warn/info/verbose            |
-|  [08]   | `OperationException`                       | tool failure      | `Design`; design-time operation failure                                               |
-|  [09]   | `DbContextActivator`                       | context probe     | `Design`; instantiates a `DbContext` for design-time use                              |
+| [INDEX] | [SYMBOL]                                   | [PACKAGE_ROLE]    | [CAPABILITY]                                                           |
+| :-----: | :----------------------------------------- | :---------------- | :--------------------------------------------------------------------- |
+|  [01]   | `OperationExecutor`                        | tool executor     | `Design`; reflection entrypoint `dotnet ef` drives via `OperationBase` |
+|  [02]   | `OperationExecutor.OperationBase`          | operation marker  | `Design`; per-verb nested op (`AddMigration`, `OptimizeContext`, …)    |
+|  [03]   | `MigrationsOperations`                     | migration driver  | `Design.Internal`; add/remove/script/list                              |
+|  [04]   | `DbContextOperations`                      | context driver    | `Design.Internal`; optimize/scaffold/pending                           |
+|  [05]   | `DesignTimeServicesBuilder`                | service builder   | `Design.Internal`; composes the design `IServiceProvider`              |
+|  [06]   | `DesignTimeServiceCollectionExtensions`    | service extension | `Design`; the two `Add*DesignTimeServices` registrars                  |
+|  [07]   | `IOperationReporter` / `OperationReporter` | reporter          | `Design` iface + `Design.Internal` impl; error/warn/info/verbose       |
+|  [08]   | `OperationException`                       | tool failure      | `Design`; design-time operation failure                                |
+|  [09]   | `DbContextActivator`                       | context probe     | `Design`; instantiates a `DbContext` for design-time use               |
 
 [PUBLIC_TYPE_SCOPE]: migration and model scaffolding outputs
 - rail: schema-tooling
@@ -62,51 +62,60 @@ into the model, which is the inverted, rejected direction.
 [PUBLIC_TYPE_SCOPE]: C# generation surfaces and bundle
 - rail: schema-tooling
 
-| [INDEX] | [SYMBOL]                                                         | [PACKAGE_ROLE]    | [CAPABILITY]                                                                 |
-| :-----: | :--------------------------------------------------------------- | :---------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `ICSharpHelper` / `CSharpHelper`                                 | C# helper         | `Design` (iface) + `Design.Internal` (impl); emits C# literals/fragments     |
-|  [02]   | `CSharpMigrationsGenerator`                                      | C# generator      | `Migrations.Design`; full migration + designer + snapshot                    |
-|  [03]   | `CSharpMigrationOperationGenerator`                              | C# generator      | `Migrations.Design`; emits `MigrationOperation` Up/Down code                 |
-|  [04]   | `CSharpSnapshotGenerator`                                        | C# generator      | `Migrations.Design`; emits the model snapshot                                |
-|  [05]   | `MigrationsCodeGenerator` / `IMigrationsCodeGenerator`           | C# generator base | `Migrations.Design`; the language-agnostic generator contract                |
-|  [06]   | `CSharpDbContextGeneratorBase` / `CSharpEntityTypeGeneratorBase` | C# generator      | `Scaffolding.Internal` `[EntityFrameworkInternal]`; reverse-engineer code    |
-|  [07]   | `MigrationsBundle`                                               | bundle tool       | `Migrations.Design`; static `Execute(...)` self-contained migrator EXE entry |
+| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE]    | [CAPABILITY]                                                    |
+| :-----: | :---------------------------------- | :---------------- | :-------------------------------------------------------------- |
+|  [01]   | `ICSharpHelper` / `CSharpHelper`    | C# helper         | `Design` iface + `Design.Internal` impl; C# literals/fragments  |
+|  [02]   | `CSharpMigrationsGenerator`         | C# generator      | `Migrations.Design`; full migration + designer + snapshot       |
+|  [03]   | `CSharpMigrationOperationGenerator` | C# generator      | `Migrations.Design`; emits `MigrationOperation` Up/Down code    |
+|  [04]   | `CSharpSnapshotGenerator`           | C# generator      | `Migrations.Design`; emits the model snapshot                   |
+|  [05]   | `IMigrationsCodeGenerator`          | C# generator base | `Migrations.Design`; the language-agnostic contract             |
+|  [06]   | `MigrationsCodeGenerator`           | C# generator base | `Migrations.Design`; the abstract generator base                |
+|  [07]   | `CSharpDbContextGeneratorBase`      | C# generator      | `Scaffolding.Internal`; reverse-engineer context code           |
+|  [08]   | `CSharpEntityTypeGeneratorBase`     | C# generator      | `Scaffolding.Internal`; reverse-engineer entity-type code       |
+|  [09]   | `MigrationsBundle`                  | bundle tool       | `Migrations.Design`; `Execute(...)` self-contained migrator EXE |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: design-service registration and operation dispatch
 - rail: schema-tooling
 
-| [INDEX] | [SURFACE]                                                             | [CALL_SHAPE]  | [CAPABILITY]                                          |
-| :-----: | :-------------------------------------------------------------------- | :------------ | :---------------------------------------------------- |
-|  [01]   | `services.AddEntityFrameworkDesignTimeServices(reporter?, accessor?)` | service call  | registers the EF design-time service graph            |
-|  [02]   | `services.AddDbContextDesignTimeServices(DbContext)`                  | service call  | adds a context's own design-time services             |
-|  [03]   | `new DesignTimeServicesBuilder(...).Build(context)`                   | service build | builds the design `IServiceProvider` (internal API)   |
-|  [04]   | `new OperationExecutor(IOperationReportHandler, IDictionary args)`    | tool ctor     | the reflection-driven executor `dotnet ef` constructs |
-|  [05]   | `DbContextActivator.CreateInstance(contextType, ...)`                 | context probe | instantiates a `DbContext` from a design assembly     |
+| [INDEX] | [SURFACE]                                                             | [CALL_SHAPE]  | [CAPABILITY]                                    |
+| :-----: | :-------------------------------------------------------------------- | :------------ | :---------------------------------------------- |
+|  [01]   | `services.AddEntityFrameworkDesignTimeServices(reporter?, accessor?)` | service call  | registers the EF design-time service graph      |
+|  [02]   | `services.AddDbContextDesignTimeServices(DbContext)`                  | service call  | adds a context's own design-time services       |
+|  [03]   | `new DesignTimeServicesBuilder(...).Build(context)`                   | service build | builds the design `IServiceProvider` (internal) |
+|  [04]   | `new OperationExecutor(IOperationReportHandler, IDictionary args)`    | tool ctor     | the reflection executor `dotnet ef` constructs  |
+|  [05]   | `DbContextActivator.CreateInstance(contextType, ...)`                 | context probe | instantiates a design-time `DbContext`          |
 
 [ENTRYPOINT_SCOPE]: migration operations (`MigrationsOperations`, internal API)
 - rail: schema-tooling
 
-| [INDEX] | [SURFACE]                                                                                     | [CALL_SHAPE]   | [CAPABILITY]                                                    |
-| :-----: | :-------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------- |
-|  [01]   | `AddMigration(name, outputDir, contextType, namespace, dryRun)`                               | tool operation | scaffolds a migration → `MigrationFiles`                        |
-|  [02]   | `RemoveMigration(contextType, force, dryRun)`                                                 | tool operation | removes the last migration → `MigrationFiles`                   |
-|  [03]   | `ScriptMigration(fromMigration, toMigration, MigrationsSqlGenerationOptions, contextType)`    | tool operation | emits idempotent SQL between two migrations                     |
-|  [04]   | `GetMigrations(contextType, connectionString, noConnect)`                                     | tool operation | lists migrations → `IEnumerable<MigrationInfo>`                 |
-|  [05]   | `UpdateDatabase(targetMigration, connectionString, contextType)`                              | tool operation | applies migrations (service deploys use scripts/bundle instead) |
-|  [06]   | `MigrationsScaffolder.ScaffoldMigration(name, rootNamespace, subNamespace, language, dryRun)` | scaffold       | the underlying scaffold → `ScaffoldedMigration`                 |
+Every row is a `MigrationsOperations` tool operation; service deploys apply schema through `ScriptMigration`
+idempotent SQL or `MigrationsBundle`, never `UpdateDatabase`, and `MigrationsScaffolder.ScaffoldMigration`
+(row [06]) is the underlying scaffold behind `AddMigration`.
+
+| [INDEX] | [SURFACE]                                                                                     | [CAPABILITY]                          |
+| :-----: | :-------------------------------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `AddMigration(name, outputDir, contextType, namespace, dryRun)`                               | scaffold → `MigrationFiles`           |
+|  [02]   | `RemoveMigration(contextType, force, dryRun)`                                                 | remove last → `MigrationFiles`        |
+|  [03]   | `ScriptMigration(fromMigration, toMigration, MigrationsSqlGenerationOptions, contextType)`    | idempotent SQL between two migrations |
+|  [04]   | `GetMigrations(contextType, connectionString, noConnect)`                                     | list → `IEnumerable<MigrationInfo>`   |
+|  [05]   | `UpdateDatabase(targetMigration, connectionString, contextType)`                              | apply migrations to a target          |
+|  [06]   | `MigrationsScaffolder.ScaffoldMigration(name, rootNamespace, subNamespace, language, dryRun)` | scaffold → `ScaffoldedMigration`      |
 
 [ENTRYPOINT_SCOPE]: context operations (`DbContextOperations`, internal API)
 - rail: schema-tooling
 
-| [INDEX] | [SURFACE]                                                                                                   | [CALL_SHAPE]   | [CAPABILITY]                                                                                                                                                                       |
-| :-----: | :---------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Optimize(outputDir, modelNamespace, contextTypeName, suffix, scaffoldModel, precompileQueries, nativeAot)` | tool operation | compiled-model + precompiled-query generation → `IReadOnlyList<string>` files (the `dotnet ef dbcontext optimize` verb; nested executor class `OperationExecutor.OptimizeContext`) |
-|  [02]   | `ScaffoldContext(provider, connectionString, ...)`                                                          | tool operation | DB-first context scaffold (rejected direction)                                                                                                                                     |
-|  [03]   | `HasPendingModelChanges(contextType)`                                                                       | tool operation | true if the model has drifted past the last migration                                                                                                                              |
-|  [04]   | `GetContextInfo(contextType)` / `CreateContext(contextType)`                                                | tool operation | context metadata / a live design-time `DbContext`                                                                                                                                  |
-|  [05]   | `MigrationsBundle.Execute(context, assembly, startupAssembly, args)`                                        | bundle entry   | the `efbundle` self-contained migrator EXE `Main`                                                                                                                                  |
+`Optimize(outputDir, modelNamespace, contextTypeName, suffix, scaffoldModel, precompileQueries, nativeAot)`
+is the compiled-model + precompiled-query generator returning the generated `IReadOnlyList<string>` file
+paths — the `dotnet ef dbcontext optimize` verb, nested executor class `OperationExecutor.OptimizeContext`.
+
+| [INDEX] | [SURFACE]                                                            | [CAPABILITY]                                      |
+| :-----: | :------------------------------------------------------------------- | :------------------------------------------------ |
+|  [01]   | `ScaffoldContext(provider, connectionString, ...)`                   | DB-first context scaffold (rejected direction)    |
+|  [02]   | `HasPendingModelChanges(contextType)`                                | true if the model drifted past the last migration |
+|  [03]   | `GetContextInfo(contextType)` / `CreateContext(contextType)`         | context metadata / a live design-time `DbContext` |
+|  [04]   | `MigrationsBundle.Execute(context, assembly, startupAssembly, args)` | the `efbundle` self-contained migrator `Main`     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

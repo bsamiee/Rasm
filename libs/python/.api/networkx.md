@@ -97,37 +97,45 @@
 
 [ENTRYPOINT_SCOPE]: algorithm families
 - rail: graph
-- every algorithm accepts `*, backend=None, **backend_kwargs`
+- every algorithm accepts `*, backend=None, **backend_kwargs`; community entries live under `nx.community` (prefix omitted below)
 
-| [INDEX] | [FAMILY]      | [ENTRY]                                                                                                               | [RESULT]                   |
-| :-----: | :------------ | :-------------------------------------------------------------------------------------------------------------------- | :------------------------- |
-|  [01]   | shortest path | `shortest_path(G, source=None, target=None, weight=None, method='dijkstra')`                                          | path or path dict          |
-|  [02]   | shortest path | `dijkstra_path(G, source, target, weight='weight')`                                                                   | node list                  |
-|  [03]   | shortest path | `astar_path(G, source, target, heuristic=None, weight='weight')`                                                      | node list                  |
-|  [04]   | DAG           | `topological_sort(G)`                                                                                                 | node generator             |
-|  [05]   | DAG           | `is_directed_acyclic_graph(G)`                                                                                        | bool                       |
-|  [06]   | components    | `connected_components(G)`                                                                                             | set generator              |
-|  [07]   | components    | `strongly_connected_components(G)`                                                                                    | set generator              |
-|  [08]   | spanning tree | `minimum_spanning_tree(G, weight='weight', algorithm='kruskal')`                                                      | graph                      |
-|  [09]   | shortest path | `floyd_warshall(G, weight='weight')`                                                                                  | dist-dict-of-dicts         |
-|  [10]   | components    | `weakly_connected_components(G)`                                                                                      | set generator              |
-|  [11]   | components    | `condensation(G, scc=None)`                                                                                           | DAG of SCCs                |
-|  [12]   | DAG           | `descendants(G, source)` / `ancestors(G, source)`                                                                     | node set                   |
-|  [13]   | DAG           | `transitive_closure(G, reflexive=False)`                                                                              | graph                      |
-|  [14]   | cycles        | `simple_cycles(G, length_bound=None)` / `find_cycle(G, source=None)`                                                  | cycle generator            |
-|  [15]   | traversal     | `dfs_tree(G, source=None, depth_limit=None)` / `bfs_tree(G, source, ...)`                                             | tree graph                 |
-|  [16]   | centrality    | `pagerank(G, alpha=0.85, personalization=None, max_iter=100, tol=1e-06, nstart=None, weight='weight', dangling=None)` | node-score dict            |
-|  [17]   | centrality    | `betweenness_centrality(G, k=None, normalized=True, weight=None, endpoints=False, seed=None)`                         | node-score dict            |
-|  [18]   | centrality    | `eigenvector_centrality` / `closeness_centrality` / `degree_centrality`                                               | node-score dict            |
-|  [19]   | flow          | `maximum_flow(flowG, _s, _t, capacity='capacity', flow_func=None)`                                                    | (value, flow dict)         |
-|  [20]   | flow          | `min_cost_flow(G, ...)` / `network_simplex(G, ...)`                                                                   | flow dict / cost           |
-|  [21]   | community     | `nx.community.louvain_communities(G, weight='weight', resolution=1, threshold=1e-07, max_level=None, seed=None)`      | list[set]                  |
-|  [22]   | community     | `nx.community.greedy_modularity_communities(G, weight=None, resolution=1, cutoff=1, best_n=None)`                     | list[frozenset]            |
-|  [23]   | community     | `nx.community.girvan_newman(G, most_valuable_edge=None)` / `nx.community.modularity(G, communities, ...)`             | community iterator / float |
-|  [24]   | isomorphism   | `is_isomorphic(G1, G2, node_match=None, edge_match=None)`                                                             | bool                       |
-|  [25]   | relabel       | `relabel_nodes(G, mapping, copy=True)` / `convert_node_labels_to_integers(G, ...)`                                    | graph                      |
-|  [26]   | set algebra   | `compose(G, H)` / `union(G, H)` / `disjoint_union(G, H)`                                                              | graph                      |
-|  [27]   | attributes    | `get_node_attributes(G, name)` / `set_node_attributes(G, values, name=None)`                                          | dict / in-place            |
+| [INDEX] | [FAMILY]      | [ENTRY]                                                                                             | [RESULT]           |
+| :-----: | :------------ | :-------------------------------------------------------------------------------------------------- | :----------------- |
+|  [01]   | shortest path | `shortest_path(G, source=None, target=None, weight=None, method='dijkstra')`                        | path or path dict  |
+|  [02]   | shortest path | `dijkstra_path(G, source, target, weight='weight')`                                                 | node list          |
+|  [03]   | shortest path | `astar_path(G, source, target, heuristic=None, weight='weight')`                                    | node list          |
+|  [04]   | DAG           | `topological_sort(G)`                                                                               | node generator     |
+|  [05]   | DAG           | `is_directed_acyclic_graph(G)`                                                                      | bool               |
+|  [06]   | components    | `connected_components(G)`                                                                           | set generator      |
+|  [07]   | components    | `strongly_connected_components(G)`                                                                  | set generator      |
+|  [08]   | spanning tree | `minimum_spanning_tree(G, weight='weight', algorithm='kruskal')`                                    | graph              |
+|  [09]   | shortest path | `floyd_warshall(G, weight='weight')`                                                                | dist-dict-of-dicts |
+|  [10]   | components    | `weakly_connected_components(G)`                                                                    | set generator      |
+|  [11]   | components    | `condensation(G, scc=None)`                                                                         | DAG of SCCs        |
+|  [12]   | DAG           | `descendants(G, source)` / `ancestors(G, source)`                                                   | node set           |
+|  [13]   | DAG           | `transitive_closure(G, reflexive=False)`                                                            | graph              |
+|  [14]   | cycles        | `simple_cycles(G, length_bound=None)` / `find_cycle(G, source=None)`                                | cycle generator    |
+|  [15]   | traversal     | `dfs_tree(G, source=None, depth_limit=None)` / `bfs_tree(G, source, ...)`                           | tree graph         |
+|  [16]   | flow          | `maximum_flow(flowG, _s, _t, capacity='capacity', flow_func=None)`                                  | (value, flow dict) |
+|  [17]   | flow          | `min_cost_flow(G, ...)` / `network_simplex(G, ...)`                                                 | flow dict / cost   |
+|  [18]   | community     | `louvain_communities(G, weight='weight', resolution=1, threshold=1e-07, max_level=None, seed=None)` | list[set]          |
+|  [19]   | community     | `greedy_modularity_communities(G, weight=None, resolution=1, cutoff=1, best_n=None)`                | list[frozenset]    |
+|  [20]   | community     | `girvan_newman(G, most_valuable_edge=None)`                                                         | community iterator |
+|  [21]   | community     | `modularity(G, communities, ...)`                                                                   | float              |
+|  [22]   | isomorphism   | `is_isomorphic(G1, G2, node_match=None, edge_match=None)`                                           | bool               |
+|  [23]   | relabel       | `relabel_nodes(G, mapping, copy=True)` / `convert_node_labels_to_integers(G, ...)`                  | graph              |
+|  [24]   | set algebra   | `compose(G, H)` / `union(G, H)` / `disjoint_union(G, H)`                                            | graph              |
+|  [25]   | attributes    | `get_node_attributes(G, name)` / `set_node_attributes(G, values, name=None)`                        | dict / in-place    |
+
+[ENTRYPOINT_SCOPE]: centrality algorithms
+- rail: graph
+- every algorithm accepts `*, backend=None, **backend_kwargs` and returns a node-score dict
+
+| [INDEX] | [ENTRY]                                                                                                               |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `pagerank(G, alpha=0.85, personalization=None, max_iter=100, tol=1e-06, nstart=None, weight='weight', dangling=None)` |
+|  [02]   | `betweenness_centrality(G, k=None, normalized=True, weight=None, endpoints=False, seed=None)`                         |
+|  [03]   | `eigenvector_centrality` / `closeness_centrality` / `degree_centrality`                                               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

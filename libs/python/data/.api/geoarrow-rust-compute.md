@@ -15,80 +15,90 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: result carriers, method enums, and parameter aliases
+[PUBLIC_TYPE_SCOPE]: result carriers
 - rail: geospatial-ingress
 
-Geometry-returning operations yield `GeoArray` or `GeoChunkedArray`; scalar-returning operations yield `Array` or `ChunkedArray`; `explode` returns a `Table`. The scalar/primitive carriers (`Array`/`ChunkedArray`/`Table`) are owned by `arro3.core` (the lightweight Arrow runtime); the geometry carriers (`GeoArray`/`GeoChunkedArray`/`Geometry`) are owned by `geoarrow.rust.core` and re-consumed here. Method enums are `StrEnum` members (`enums.py`); each pairs with a lowercase `Literal` alias (`types.py`) accepted interchangeably at call sites.
+Geometry-returning operations yield `GeoArray`/`GeoChunkedArray` (owned by `geoarrow.rust.core`, alongside the `Geometry` scalar); scalar-returning operations yield `Array`/`ChunkedArray` and `explode` a `Table` (owned by `arro3.core`, the lightweight Arrow runtime). Chunking mirrors the input.
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [RAIL]                                                                                                                        |
-| :-----: | :---------------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `GeoArray`              | result carrier  | geometry-typed Arrow array (from `geoarrow.rust.core`)                                                                        |
-|  [02]   | `GeoChunkedArray`       | result carrier  | chunked geometry-typed Arrow array (from `geoarrow.rust.core`)                                                                |
-|  [03]   | `Array`                 | result carrier  | scalar/primitive Arrow array result (from `arro3.core`)                                                                       |
-|  [04]   | `ChunkedArray`          | result carrier  | chunked scalar/primitive Arrow array result (from `arro3.core`)                                                               |
-|  [05]   | `Table`                 | result carrier  | Arrow table result for `explode` (from `arro3.core`)                                                                          |
-|  [06]   | `AreaMethod`            | method enum     | `StrEnum`: `Euclidean` (planar), `Ellipsoidal` (Karney geodesic, meter²), `Spherical` (Chamberlain-Duquette)                  |
-|  [07]   | `LengthMethod`          | method enum     | `StrEnum`: `Euclidean`, `Ellipsoidal` (Karney), `Haversine` (mean radius 6371.088 km), `Vincenty`                             |
-|  [08]   | `SimplifyMethod`        | method enum     | `StrEnum`: `RDP` (Ramer-Douglas-Peucker), `VW` (Visvalingam-Whyatt), `VW_Preserve` (topology-preserving VW)                   |
-|  [09]   | `RotateOrigin`          | method enum     | `StrEnum`: `Center` (bbox center), `Centroid`                                                                                 |
-|  [10]   | `AreaMethodT`           | parameter alias | `Literal['ellipsoidal', 'euclidean', 'spherical']`                                                                            |
-|  [11]   | `LengthMethodT`         | parameter alias | `Literal['ellipsoidal', 'euclidean', 'haversine', 'vincenty']`                                                                |
-|  [12]   | `SimplifyMethodT`       | parameter alias | `Literal['rdp', 'vw', 'vw_preserve']`                                                                                         |
-|  [13]   | `RotateOriginT`         | parameter alias | `Literal['center', 'centroid']`                                                                                               |
-|  [14]   | `GeoInterfaceProtocol`  | input protocol  | scalar geometry implementing `__geo_interface__` (e.g. a `shapely` geometry)                                                  |
-|  [15]   | `NumpyArrayProtocolf64` | input protocol  | object exposing the numpy `__array__` f64 interface                                                                           |
-|  [16]   | `ScalarGeometry`        | parameter alias | `Union[GeoInterfaceProtocol, geoarrow.rust.core.Geometry]` — a single geometry input                                          |
-|  [17]   | `AffineTransform`       | parameter type  | `Union[tuple[6 floats], tuple[9 floats], tuple[float, ...]]` — a 6- or 9-element affine; integrates with the `affine` library |
-|  [18]   | `BroadcastGeometry`     | parameter type  | `Union[ScalarGeometry, ArrowArrayExportable, ArrowStreamExportable]` — scalar-or-array geometry broadcast against `input`     |
+| [INDEX] | [SYMBOL]          | [ROLE]                                      |
+| :-----: | :---------------- | :------------------------------------------ |
+|  [01]   | `GeoArray`        | geometry-typed Arrow array                  |
+|  [02]   | `GeoChunkedArray` | chunked geometry-typed Arrow array          |
+|  [03]   | `Array`           | scalar/primitive Arrow array result         |
+|  [04]   | `ChunkedArray`    | chunked scalar/primitive Arrow array result |
+|  [05]   | `Table`           | Arrow table result for `explode`            |
+
+[PUBLIC_TYPE_SCOPE]: method-selection enums
+- rail: geospatial-ingress
+
+Each is a `StrEnum` (`enums.py`) paired with a lowercase `Literal` alias (`AreaMethodT`, `LengthMethodT`, `SimplifyMethodT`, `RotateOriginT` in `types.py`) accepted interchangeably; the alias value is the member name lowercased.
+
+| [INDEX] | [SYMBOL]         | [MEMBERS]                                                                                |
+| :-----: | :--------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `AreaMethod`     | `Euclidean` planar, `Ellipsoidal` Karney geodesic (m²), `Spherical` Chamberlain-Duquette |
+|  [02]   | `LengthMethod`   | `Euclidean`, `Ellipsoidal` Karney, `Haversine` (mean radius 6371.088 km), `Vincenty`     |
+|  [03]   | `SimplifyMethod` | `RDP` Ramer-Douglas-Peucker, `VW` Visvalingam-Whyatt, `VW_Preserve` topology-preserving  |
+|  [04]   | `RotateOrigin`   | `Center` bbox center, `Centroid`                                                         |
+
+[PUBLIC_TYPE_SCOPE]: input protocols and parameter types
+- rail: geospatial-ingress
+
+| [INDEX] | [SYMBOL]                | [ROLE]                                                                                 |
+| :-----: | :---------------------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `GeoInterfaceProtocol`  | scalar geometry implementing `__geo_interface__` (e.g. a `shapely` geometry)           |
+|  [02]   | `NumpyArrayProtocolf64` | object exposing the numpy `__array__` f64 interface                                    |
+|  [03]   | `ScalarGeometry`        | `Union[GeoInterfaceProtocol, geoarrow.rust.core.Geometry]` — one geometry input        |
+|  [04]   | `AffineTransform`       | `Union[tuple[float, ...]]` — 6- or 9-float affine; pairs with the `affine` library     |
+|  [05]   | `BroadcastGeometry`     | `Union[ScalarGeometry, ArrowArrayExportable, ArrowStreamExportable]` broadcast operand |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: measurement and predicate operations
 - rail: geospatial-ingress
 
-Scalar-returning operations consume one geometry array (`ArrowArrayExportable | ArrowStreamExportable`) and return `Array | ChunkedArray` matching the input chunking. Method-bearing rows select the metric via the enum or its lowercase `Literal` alias.
+Scalar-returning operations consume one geometry array and return `Array | ChunkedArray` matching the input chunking; `total_bounds` collapses to a 4-tuple. A method row selects its metric via the enum or its lowercase `Literal` alias; `line_locate_point`'s `point` and `frechet_distance`'s `other` take a scalar `__geo_interface__`/`Geometry` or an Arrow array/stream broadcast operand.
 
-| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                                                                                                      | [CAPABILITY]                                          |
-| :-----: | :------------------- | :-------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `area`               | `area(input, *, method: AreaMethod \| AreaMethodT = Euclidean) -> Array \| ChunkedArray`                                          | unsigned area per geometry                            |
-|  [02]   | `signed_area`        | `signed_area(input, *, method: AreaMethod \| AreaMethodT = Euclidean) -> Array \| ChunkedArray`                                   | signed area (orientation-aware)                       |
-|  [03]   | `length`             | `length(input, *, method: LengthMethod \| LengthMethodT = Euclidean) -> Array \| ChunkedArray`                                    | line length per metric                                |
-|  [04]   | `geodesic_perimeter` | `geodesic_perimeter(input) -> Array \| ChunkedArray`                                                                              | ellipsoidal perimeter in meters                       |
-|  [05]   | `is_empty`           | `is_empty(input) -> Array \| ChunkedArray`                                                                                        | boolean empty test per geometry                       |
-|  [06]   | `frechet_distance`   | `frechet_distance(input, other: BroadcastGeometry) -> Array \| ChunkedArray`                                                      | Fréchet distance between LineStrings                  |
-|  [07]   | `line_locate_point`  | `line_locate_point(input, point: GeoInterfaceProtocol \| ArrowArrayExportable \| ArrowStreamExportable) -> Array \| ChunkedArray` | fractional location of nearest point on line          |
-|  [08]   | `total_bounds`       | `total_bounds(input) -> Tuple[float, float, float, float]`                                                                        | extent `(xmin, ymin, xmax, ymax)` over all geometries |
+| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                               | [CAPABILITY]                                     |
+| :-----: | :------------------- | :--------------------------------------------------------- | :----------------------------------------------- |
+|  [01]   | `area`               | `area(input, *, method: AreaMethod = Euclidean)`           | unsigned area per geometry                       |
+|  [02]   | `signed_area`        | `signed_area(input, *, method: AreaMethod = Euclidean)`    | signed area (orientation-aware)                  |
+|  [03]   | `length`             | `length(input, *, method: LengthMethod = Euclidean)`       | line length per metric                           |
+|  [04]   | `geodesic_perimeter` | `geodesic_perimeter(input)`                                | ellipsoidal perimeter in meters                  |
+|  [05]   | `is_empty`           | `is_empty(input)`                                          | boolean empty test per geometry                  |
+|  [06]   | `frechet_distance`   | `frechet_distance(input, other: BroadcastGeometry)`        | Fréchet distance between LineStrings             |
+|  [07]   | `line_locate_point`  | `line_locate_point(input, point)`                          | fractional location of nearest point on line     |
+|  [08]   | `total_bounds`       | `total_bounds(input) -> tuple[float, float, float, float]` | extent `(xmin, ymin, xmax, ymax)` over all geoms |
 
 [ENTRYPOINT_SCOPE]: geometry-constructing and morphology operations
 - rail: geospatial-ingress
 
-Geometry-returning operations consume one geometry array and return `GeoArray | GeoChunkedArray` matching the input chunking; `explode` consumes a stream and returns a `Table`.
+Geometry-returning operations consume one geometry array and return `GeoArray | GeoChunkedArray` matching the input chunking; `explode` consumes a stream and returns a `Table`. `line_interpolate_point`'s `fraction` broadcasts as a Python scalar, a numpy f64 array, or an Arrow array; `simplify` defaults `method=RDP`.
 
-| [INDEX] | [SURFACE]                | [CALL_SHAPE]                                                                                                                            | [CAPABILITY]                                  |
-| :-----: | :----------------------- | :-------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------- |
-|  [01]   | `center`                 | `center(input) -> GeoArray \| GeoChunkedArray`                                                                                          | bounding-box center point                     |
-|  [02]   | `centroid`               | `centroid(input) -> GeoArray \| GeoChunkedArray`                                                                                        | arithmetic-mean centroid point                |
-|  [03]   | `convex_hull`            | `convex_hull(input) -> GeoArray \| GeoChunkedArray`                                                                                     | QuickHull convex hull polygon                 |
-|  [04]   | `envelope`               | `envelope(input) -> GeoArray \| GeoChunkedArray`                                                                                        | axis-aligned bounding-box polygon             |
-|  [05]   | `polylabel`              | `polylabel(input, tolerance: float) -> GeoArray \| GeoChunkedArray`                                                                     | pole-of-inaccessibility label point           |
-|  [06]   | `simplify`               | `simplify(input, epsilon: float, *, method: SimplifyMethod \| SimplifyMethodT = RDP) -> GeoArray \| GeoChunkedArray`                    | tolerance simplification (RDP/VW/VW_Preserve) |
-|  [07]   | `densify`                | `densify(input, max_distance: float) -> GeoArray \| GeoChunkedArray`                                                                    | interpolate coordinates at max spacing        |
-|  [08]   | `chaikin_smoothing`      | `chaikin_smoothing(input, n_iterations: int) -> GeoArray \| GeoChunkedArray`                                                            | Chaikin corner-cutting smoothing              |
-|  [09]   | `line_interpolate_point` | `line_interpolate_point(input, fraction: float \| int \| ArrowArrayExportable \| NumpyArrayProtocolf64) -> GeoArray \| GeoChunkedArray` | point at fractional distance along line       |
-|  [10]   | `explode`                | `explode(input: ArrowStreamExportable) -> Table`                                                                                        | split multi-part geometries into one row each |
+| [INDEX] | [SURFACE]                | [CALL_SHAPE]                                                 | [CAPABILITY]                                  |
+| :-----: | :----------------------- | :----------------------------------------------------------- | :-------------------------------------------- |
+|  [01]   | `center`                 | `center(input)`                                              | bounding-box center point                     |
+|  [02]   | `centroid`               | `centroid(input)`                                            | arithmetic-mean centroid point                |
+|  [03]   | `convex_hull`            | `convex_hull(input)`                                         | QuickHull convex hull polygon                 |
+|  [04]   | `envelope`               | `envelope(input)`                                            | axis-aligned bounding-box polygon             |
+|  [05]   | `polylabel`              | `polylabel(input, tolerance: float)`                         | pole-of-inaccessibility label point           |
+|  [06]   | `simplify`               | `simplify(input, epsilon: float, *, method: SimplifyMethod)` | tolerance simplification                      |
+|  [07]   | `densify`                | `densify(input, max_distance: float)`                        | interpolate coordinates at max spacing        |
+|  [08]   | `chaikin_smoothing`      | `chaikin_smoothing(input, n_iterations: int)`                | Chaikin corner-cutting smoothing              |
+|  [09]   | `line_interpolate_point` | `line_interpolate_point(input, fraction)`                    | point at fractional distance along line       |
+|  [10]   | `explode`                | `explode(input: ArrowStreamExportable) -> Table`             | split multi-part geometries into one row each |
 
 [ENTRYPOINT_SCOPE]: affine transformations
 - rail: geospatial-ingress
 
-Affine operations consume a geometry array (`geom`) and return `GeoArray | GeoChunkedArray`. `affine_transform` applies a full matrix; `rotate`/`scale`/`skew`/`translate` are the named-component rows. `rotate` selects its pivot via `RotateOrigin`, its lowercase alias, or an explicit `(x, y)` tuple.
+Affine operations consume a geometry array (`geom`) and return `GeoArray | GeoChunkedArray`. `affine_transform` applies a full matrix; `rotate`/`scale`/`skew`/`translate` are named-component rows over the same kernel. `rotate` pivots via `RotateOrigin`, its lowercase alias, or an explicit `(x, y)` tuple.
 
-| [INDEX] | [SURFACE]          | [CALL_SHAPE]                                                                                                                 | [CAPABILITY]                                     |
-| :-----: | :----------------- | :--------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `affine_transform` | `affine_transform(input, transform: AffineTransform) -> GeoArray \| GeoChunkedArray`                                         | apply full affine matrix                         |
-|  [02]   | `rotate`           | `rotate(geom, angle: float, *, origin: RotateOrigin \| RotateOriginT \| tuple[float, float]) -> GeoArray \| GeoChunkedArray` | rotate by angle about origin                     |
-|  [03]   | `scale`            | `scale(geom, xfact: float, yfact: float) -> GeoArray \| GeoChunkedArray`                                                     | scale by per-axis factors                        |
-|  [04]   | `skew`             | `skew(geom, xs: float, ys: float) -> GeoArray \| GeoChunkedArray`                                                            | skew from bounding-box center by per-axis angles |
-|  [05]   | `translate`        | `translate(geom, xoff: float, yoff: float) -> GeoArray \| GeoChunkedArray`                                                   | translate by `(xoff, yoff)` offsets              |
+| [INDEX] | [SURFACE]          | [CALL_SHAPE]                                          | [CAPABILITY]                                     |
+| :-----: | :----------------- | :---------------------------------------------------- | :----------------------------------------------- |
+|  [01]   | `affine_transform` | `affine_transform(input, transform: AffineTransform)` | apply full affine matrix                         |
+|  [02]   | `rotate`           | `rotate(geom, angle: float, *, origin)`               | rotate by angle about origin                     |
+|  [03]   | `scale`            | `scale(geom, xfact: float, yfact: float)`             | scale by per-axis factors                        |
+|  [04]   | `skew`             | `skew(geom, xs: float, ys: float)`                    | skew from bounding-box center by per-axis angles |
+|  [05]   | `translate`        | `translate(geom, xoff: float, yoff: float)`           | translate by `(xoff, yoff)` offsets              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

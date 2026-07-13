@@ -43,12 +43,12 @@
 
 These structural `Protocol` types are the polymorphic discriminator: every `from_arrow` and builder accepts any object implementing the matching dunder, so `pyarrow`, `nanoarrow`, `polars`, ADBC readers, and arro3 itself all flow through one entrypoint with no producer-specific branch. `ArrowArrayExportable` vs `ArrowStreamExportable` is the load-bearing dispatch axis: the same accessor returns an in-memory `Array` for the former and a streaming `ArrayReader` for the latter.
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]    | [ROLE]                                                                                       |
-| :-----: | :---------------------- | :--------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `ArrowSchemaExportable` | structural proto | any object with `__arrow_c_schema__` (Schema/Field/DataType)                                 |
-|  [02]   | `ArrowArrayExportable`  | structural proto | any object with `__arrow_c_array__` (Array/RecordBatch)                                      |
-|  [03]   | `ArrowStreamExportable` | structural proto | any object with `__arrow_c_stream__` (reader/ChunkedArray)                                   |
-|  [04]   | `ArrayInput`            | union alias      | `ArrowArrayExportable`, NumPy ndarray, or Buffer-protocol object accepted by builders/`take` |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]    | [ROLE]                                                       |
+| :-----: | :---------------------- | :--------------- | :----------------------------------------------------------- |
+|  [01]   | `ArrowSchemaExportable` | structural proto | any object with `__arrow_c_schema__` (Schema/Field/DataType) |
+|  [02]   | `ArrowArrayExportable`  | structural proto | any object with `__arrow_c_array__` (Array/RecordBatch)      |
+|  [03]   | `ArrowStreamExportable` | structural proto | any object with `__arrow_c_stream__` (reader/ChunkedArray)   |
+|  [04]   | `ArrayInput`            | union alias      | `ArrowArrayExportable`/ndarray/Buffer for builders/`take`    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -114,68 +114,74 @@ These structural `Protocol` types are the polymorphic discriminator: every `from
 [ENTRYPOINT_SCOPE]: Table construction and operations
 - rail: arrow-memory
 
-| [INDEX] | [SURFACE]                                                                                                                | [ENTRY_FAMILY]  | [CAPABILITY]                                              |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------- |
-|  [01]   | `Table.from_arrays(arrays, ...)`                                                                                         | array intake    | build from column list                                    |
-|  [02]   | `Table.from_pydict(mapping, ...)`                                                                                        | dict intake     | build from `{name: array}` dict                           |
-|  [03]   | `Table.from_batches(batches, schema)`                                                                                    | batch intake    | build from record-batch list                              |
-|  [04]   | `Table.from_arrow(input)`                                                                                                | capsule intake  | PyCapsule table import                                    |
-|  [05]   | `Table.column(i)` / `.columns`                                                                                           | column access   | column by index or all columns                            |
-|  [06]   | `Table.select(columns)`                                                                                                  | projection      | select named or indexed columns                           |
-|  [07]   | `Table.drop_columns(columns)`                                                                                            | projection      | remove named columns                                      |
-|  [08]   | `Table.rename_columns(names)`                                                                                            | schema mutation | rename all columns                                        |
-|  [09]   | `Table.slice(offset, length)`                                                                                            | window          | zero-copy row slice                                       |
-|  [10]   | `Table.add_column/set_column/append_column/remove_column`                                                                | mutation        | positional column insert/replace/append/drop              |
-|  [11]   | `Table.with_schema(schema)`                                                                                              | schema mutation | replace schema (metadata/types)                           |
-|  [12]   | `Table.rechunk(*, max_chunksize=None)`                                                                                   | repartition     | re-chunk all columns (keyword-only)                       |
-|  [13]   | `Table.combine_chunks()`                                                                                                 | consolidation   | flatten each column to one chunk                          |
-|  [14]   | `Table.column(i\|str)` / `.field(i\|str)` / `.column_names` / `.num_rows` / `.num_columns` / `.shape` / `.chunk_lengths` | access          | index-or-name column/field plus shape metadata            |
-|  [15]   | `Table.to_batches()`                                                                                                     | export          | emit `RecordBatch` list                                   |
-|  [16]   | `Table.to_reader()`                                                                                                      | export          | emit `RecordBatchReader` (streaming `__arrow_c_stream__`) |
-|  [17]   | `Table.to_struct_array()`                                                                                                | export          | export as struct `ChunkedArray`                           |
+| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY]  | [CAPABILITY]                                 |
+| :-----: | :-------------------------------------------------------- | :-------------- | :------------------------------------------- |
+|  [01]   | `Table.from_arrays(arrays, ...)`                          | array intake    | build from column list                       |
+|  [02]   | `Table.from_pydict(mapping, ...)`                         | dict intake     | build from `{name: array}` dict              |
+|  [03]   | `Table.from_batches(batches, schema)`                     | batch intake    | build from record-batch list                 |
+|  [04]   | `Table.from_arrow(input)`                                 | capsule intake  | PyCapsule table import                       |
+|  [05]   | `Table.column(i)` / `.columns`                            | column access   | column by index or all columns               |
+|  [06]   | `Table.select(columns)`                                   | projection      | select named or indexed columns              |
+|  [07]   | `Table.drop_columns(columns)`                             | projection      | remove named columns                         |
+|  [08]   | `Table.rename_columns(names)`                             | schema mutation | rename all columns                           |
+|  [09]   | `Table.slice(offset, length)`                             | window          | zero-copy row slice                          |
+|  [10]   | `Table.add_column/set_column/append_column/remove_column` | mutation        | positional column insert/replace/append/drop |
+|  [11]   | `Table.with_schema(schema)`                               | schema mutation | replace schema (metadata/types)              |
+|  [12]   | `Table.rechunk(*, max_chunksize=None)`                    | repartition     | re-chunk all columns (keyword-only)          |
+|  [13]   | `Table.combine_chunks()`                                  | consolidation   | flatten each column to one chunk             |
+|  [14]   | `Table.column(i\|str)` / `.field(i\|str)`                 | access          | column or field by index or name             |
+|  [15]   | `.column_names` / `.num_rows` / `.num_columns`            | metadata        | column names, row and column counts          |
+|  [16]   | `.shape` / `.chunk_lengths`                               | metadata        | shape tuple and per-chunk lengths            |
+|  [17]   | `Table.to_batches()`                                      | export          | emit `RecordBatch` list                      |
+|  [18]   | `Table.to_reader()`                                       | export          | emit streaming `RecordBatchReader`           |
+|  [19]   | `Table.to_struct_array()`                                 | export          | export as struct `ChunkedArray`              |
 
-[ENTRYPOINT_SCOPE]: schema, field, and type operations
+[ENTRYPOINT_SCOPE]: schema, field, and scalar operations
 - rail: arrow-memory
 
-| [INDEX] | [SURFACE]                                                                                                               | [ENTRY_FAMILY]    | [CAPABILITY]                                                                                                                                                                                                                                                                                           |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------- | :---------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Schema.from_arrow(input)`                                                                                              | capsule intake    | from `ArrowSchemaExportable`                                                                                                                                                                                                                                                                           |
-|  [02]   | `Schema.append/insert/set/remove`                                                                                       | mutation          | field add/insert-at/replace/drop (returns new)                                                                                                                                                                                                                                                         |
-|  [03]   | `Schema.field(i\|str)` / `.get_field_index(name)` / `.get_all_field_indices(name)`                                      | access            | field by index-or-name, name->index lookup                                                                                                                                                                                                                                                             |
-|  [04]   | `Schema.names` / `.types` / `.metadata` / `.metadata_str`                                                               | metadata          | column names, types, raw and str metadata                                                                                                                                                                                                                                                              |
-|  [05]   | `Schema.with_metadata(metadata)` / `.remove_metadata()` / `.empty_table()`                                              | mutation          | retag metadata or mint an empty `Table`                                                                                                                                                                                                                                                                |
-|  [06]   | `Field.with_name/with_type/with_nullable/with_metadata/remove_metadata`                                                 | mutation          | rename, retype, set nullability, retag (returns new)                                                                                                                                                                                                                                                   |
-|  [07]   | `Field.name` / `.type` / `.nullable` / `.metadata` / `.metadata_str`                                                    | metadata          | field descriptor accessors                                                                                                                                                                                                                                                                             |
-|  [08]   | `DataType` classmethod constructors                                                                                     | type construction | `null/bool/int8..uint64/float16..float64`, `decimal128/256`, `binary/string/large_*`, `binary_view/string_view`, `date32/64`, `time32/64`, `timestamp(unit,tz=)`, `duration`, `month_day_nano_interval`, `list/large_list/list_view/large_list_view`, `map`, `struct`, `dictionary`, `run_end_encoded` |
-|  [09]   | `DataType.is_*` predicates                                                                                              | type test         | ~55 classmethod predicates over any `ArrowSchemaExportable` (`is_integer`, `is_nested`, `is_dictionary`, `is_run_end_encoded`, `is_dictionary_key_type`, ...)                                                                                                                                          |
-|  [10]   | `DataType.value_type` / `.value_field` / `.fields` / `.bit_width` / `.list_size` / `.time_unit` / `.tz` / `.num_fields` | introspection     | nested/temporal/decimal type structure                                                                                                                                                                                                                                                                 |
-|  [11]   | `Scalar.from_arrow(input)`                                                                                              | capsule intake    | from `ArrowArrayExportable`                                                                                                                                                                                                                                                                            |
-|  [12]   | `Scalar.as_py()` / `.cast(target_type)` / `.is_valid` / `.field` / `.type`                                              | export/test       | Python value, cast, validity, field, type                                                                                                                                                                                                                                                              |
+| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY] | [CAPABILITY]                              |
+| :-----: | :------------------------------------------------------------------------- | :------------- | :---------------------------------------- |
+|  [01]   | `Schema.from_arrow(input)`                                                 | capsule intake | from `ArrowSchemaExportable`              |
+|  [02]   | `Schema.append/insert/set/remove`                                          | mutation       | field add/insert/replace/drop (new)       |
+|  [03]   | `Schema.field(i\|str)`                                                     | access         | field by index or name                    |
+|  [04]   | `Schema.get_field_index(name)` / `.get_all_field_indices(name)`            | access         | name to first or all matching indices     |
+|  [05]   | `Schema.names` / `.types` / `.metadata` / `.metadata_str`                  | metadata       | column names, types, raw and str metadata |
+|  [06]   | `Schema.with_metadata` / `.remove_metadata()` / `.empty_table()`           | mutation       | retag metadata or mint an empty `Table`   |
+|  [07]   | `Field.with_name/with_type/with_nullable/with_metadata/remove_metadata`    | mutation       | rename, retype, set nullable, retag (new) |
+|  [08]   | `Field.name` / `.type` / `.nullable` / `.metadata` / `.metadata_str`       | metadata       | field descriptor accessors                |
+|  [09]   | `Scalar.from_arrow(input)`                                                 | capsule intake | from `ArrowArrayExportable`               |
+|  [10]   | `Scalar.as_py()` / `.cast(target_type)` / `.is_valid` / `.field` / `.type` | export/test    | Python value, cast, validity, field, type |
+
+`DataType` is built only through classmethod constructors; predicates and introspection accessors operate over any `ArrowSchemaExportable`.
+- [01]-[CONSTRUCTORS]: `null/bool/int8..uint64/float16..float64`, `decimal128/256`, `binary/string/large_*`, `binary_view/string_view`, `date32/64`, `time32/64`, `timestamp(unit,tz=)`, `duration`, `month_day_nano_interval`, `list/large_list/list_view/large_list_view`, `map`, `struct`, `dictionary`, `run_end_encoded`.
+- [02]-[PREDICATES]: ~55 `is_*` classmethods (`is_integer`, `is_nested`, `is_dictionary`, `is_run_end_encoded`, `is_dictionary_key_type`, ...).
+- [03]-[INTROSPECTION]: `.value_type` / `.value_field` / `.fields` / `.bit_width` / `.list_size` / `.time_unit` / `.tz` / `.num_fields` expose nested/temporal/decimal type structure.
 
 [ENTRYPOINT_SCOPE]: streaming readers and structural builders
 - rail: arrow-memory
 
 The four `dictionary_*`/`list_*` accessor functions are `@overload`-dispatched on input protocol: an `ArrowArrayExportable` argument returns an in-memory `Array`, an `ArrowStreamExportable` argument returns a streaming `ArrayReader` (zero buffering). Builders take Arrow type and null `mask` as keyword-only refinements; `struct_array` requires `fields` as a keyword.
 
-| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [CAPABILITY]                                                |
-| :-----: | :----------------------------------------------------------------------- | :------------- | :---------------------------------------------------------- |
-|  [01]   | `ArrayReader.from_arrays(field, arrays)` / `.from_stream(data)`          | construction   | build from array iterable or PyCapsule stream               |
-|  [02]   | `ArrayReader.read_all()`                                                 | consume        | collect remaining arrays into a `ChunkedArray`              |
-|  [03]   | `ArrayReader.read_next_array()` / `__next__` / `__iter__`                | consume        | pull next `Array`; reader is single-pass                    |
-|  [04]   | `ArrayReader.field` / `.closed`                                          | metadata       | element `Field`; exhaustion guard                           |
-|  [05]   | `RecordBatchReader.from_batches(schema, batches)` / `.from_stream(data)` | construction   | build from batch iterable or PyCapsule stream               |
-|  [06]   | `RecordBatchReader.read_all()`                                           | consume        | collect remaining batches into a `Table`                    |
-|  [07]   | `RecordBatchReader.read_next_batch()` / `__next__` / `__iter__`          | consume        | pull next `RecordBatch`; single-pass                        |
-|  [08]   | `RecordBatchReader.schema` / `.closed`                                   | metadata       | result `Schema`; exhaustion guard                           |
-|  [09]   | `list_array(offsets, values, *, type=None, mask=None)`                   | builder        | variable-length (large-)list array                          |
-|  [10]   | `fixed_size_list_array(values, list_size, *, type=None, mask=None)`      | builder        | fixed-size list array                                       |
-|  [11]   | `struct_array(arrays, *, fields, type=None, mask=None)`                  | builder        | struct array; `fields` keyword-only                         |
-|  [12]   | `struct_field(values, /, indices)`                                       | accessor       | chained struct field by `int\|Sequence[int]`                |
-|  [13]   | `dictionary_dictionary(array)`                                           | accessor       | dictionary values; `Array`/`ArrayReader` by input proto     |
-|  [14]   | `dictionary_indices(array)`                                              | accessor       | dictionary indices; `Array`/`ArrayReader` by input proto    |
-|  [15]   | `list_flatten(input)`                                                    | transform      | unnest one list level; `Array`/`ArrayReader` by input proto |
-|  [16]   | `list_offsets(input, *, logical=True)`                                   | accessor       | list offset buffer; `logical` adjusts for slicing           |
-|  [17]   | `Buffer(buffer)` / `Buffer.to_bytes()` / `__buffer__`                    | raw buffer     | wrap and re-export a Python buffer-protocol object          |
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [CAPABILITY]                                 |
+| :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------------- |
+|  [01]   | `ArrayReader.from_arrays(field, arrays)` / `.from_stream(data)`     | construction   | from array iterable or capsule stream        |
+|  [02]   | `ArrayReader.read_all()`                                            | consume        | collect arrays into a `ChunkedArray`         |
+|  [03]   | `ArrayReader.read_next_array()` / `__next__` / `__iter__`           | consume        | pull next `Array`; reader is single-pass     |
+|  [04]   | `ArrayReader.field` / `.closed`                                     | metadata       | element `Field`; exhaustion guard            |
+|  [05]   | `RecordBatchReader.from_batches(schema, batches)`                   | construction   | from batch iterable                          |
+|  [06]   | `RecordBatchReader.from_stream(data)`                               | construction   | from PyCapsule stream                        |
+|  [07]   | `RecordBatchReader.read_all()`                                      | consume        | collect remaining batches into a `Table`     |
+|  [08]   | `RecordBatchReader.read_next_batch()` / `__next__` / `__iter__`     | consume        | pull next `RecordBatch`; single-pass         |
+|  [09]   | `RecordBatchReader.schema` / `.closed`                              | metadata       | result `Schema`; exhaustion guard            |
+|  [10]   | `list_array(offsets, values, *, type=None, mask=None)`              | builder        | variable-length (large-)list array           |
+|  [11]   | `fixed_size_list_array(values, list_size, *, type=None, mask=None)` | builder        | fixed-size list array                        |
+|  [12]   | `struct_array(arrays, *, fields, type=None, mask=None)`             | builder        | struct array; `fields` keyword-only          |
+|  [13]   | `struct_field(values, /, indices)`                                  | accessor       | chained struct field by `int\|Sequence[int]` |
+|  [14]   | `dictionary_dictionary(array)`                                      | accessor       | dictionary values (overload-dispatched)      |
+|  [15]   | `dictionary_indices(array)`                                         | accessor       | dictionary indices (overload-dispatched)     |
+|  [16]   | `list_flatten(input)`                                               | transform      | unnest one list level (overload-dispatched)  |
+|  [17]   | `list_offsets(input, *, logical=True)`                              | accessor       | list offset buffer; `logical` slice-adjust   |
+|  [18]   | `Buffer(buffer)` / `Buffer.to_bytes()` / `__buffer__`               | raw buffer     | wrap and re-export a buffer-protocol object  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

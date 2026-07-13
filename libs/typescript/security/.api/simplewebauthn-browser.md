@@ -19,24 +19,37 @@
 - rail: authn/webauthn
 - These are the exact shapes the server half generates (options) and verifies (response). The browser never mints or verifies them — it receives the options from the server, invokes the authenticator, and returns the response. A `Schema` at the fetch boundary decodes both directions.
 
-| [INDEX] | [SYMBOL]                                                                                            | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                                                 |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `PublicKeyCredentialCreationOptionsJSON` / `PublicKeyCredentialRequestOptionsJSON`                  | server → client | input to `startRegistration`/`startAuthentication`; issued by the server generators |
-|  [02]   | `RegistrationResponseJSON` / `AuthenticationResponseJSON`                                           | client → server | output POSTed back to `verifyRegistrationResponse`/`verifyAuthenticationResponse`   |
-|  [03]   | `AuthenticatorAttestationResponseJSON` / `AuthenticatorAssertionResponseJSON`                       | nested response | the credential response payloads inside the two response JSONs                      |
-|  [04]   | `Base64URLString` / `AuthenticatorTransportFuture` (`'ble'\|'hybrid'\|'internal'\|'nfc'\|'usb'\|…`) | wire scalar     | base64url credential fields; transport hints for the descriptor                     |
-|  [05]   | `WebAuthnCredential` / `PublicKeyCredentialHint` / `CredentialDeviceType` / `AttestationFormat`     | domain vocab    | the stored-credential shape and the ceremony hint/format enums                      |
+| [INDEX] | [SYMBOL]                                                                                            | [TYPE_FAMILY]   |
+| :-----: | :-------------------------------------------------------------------------------------------------- | :-------------- |
+|  [01]   | `PublicKeyCredentialCreationOptionsJSON` / `PublicKeyCredentialRequestOptionsJSON`                  | server → client |
+|  [02]   | `RegistrationResponseJSON` / `AuthenticationResponseJSON`                                           | client → server |
+|  [03]   | `AuthenticatorAttestationResponseJSON` / `AuthenticatorAssertionResponseJSON`                       | nested response |
+|  [04]   | `Base64URLString` / `AuthenticatorTransportFuture` (`'ble'\|'hybrid'\|'internal'\|'nfc'\|'usb'\|…`) | wire scalar     |
+|  [05]   | `WebAuthnCredential` / `PublicKeyCredentialHint` / `CredentialDeviceType` / `AttestationFormat`     | domain vocab    |
+
+[CONSUMER_BOUNDARY] per shape:
+- [01]-[OPTIONS_IN]: input to `startRegistration`/`startAuthentication`; issued by the server generators.
+- [02]-[RESPONSE_OUT]: output POSTed back to `verifyRegistrationResponse`/`verifyAuthenticationResponse`.
+- [03]-[NESTED]: the credential response payloads inside the two response JSONs.
+- [04]-[WIRE_SCALAR]: base64url credential fields; transport hints for the descriptor.
+- [05]-[DOMAIN_VOCAB]: the stored-credential shape and the ceremony hint/format enums.
 
 [PUBLIC_TYPE_SCOPE]: the ceremony option shapes and the error rail
 - rail: authn/webauthn
 - `StartRegistrationOpts`/`StartAuthenticationOpts` are the exact call-option types; `WebAuthnError` is the tagged fault whose `code` (12-arm union) discriminates the failure the raw `DOMException` obscures.
 
-| [INDEX] | [SYMBOL]                                                                                                                                  | [TYPE_FAMILY]      | [CONSUMER_BOUNDARY]                                                                                     |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------------------ |
-|  [01]   | `StartRegistrationOpts` `{ optionsJSON; useAutoRegister? }`                                                                               | call option        | the `startRegistration` argument shape                                                                  |
-|  [02]   | `StartAuthenticationOpts` `{ optionsJSON; useBrowserAutofill?; verifyBrowserAutofillInput? }`                                             | call option        | the `startAuthentication` argument shape                                                                |
-|  [03]   | `WebAuthnError` (`extends Error`, `code: WebAuthnErrorCode`, `cause`)                                                                     | tagged fault       | the pre-classified reject value the ceremony `Promise` throws; the `catch` arm of the ceremony `Effect` |
-|  [04]   | `WebAuthnErrorCode` (`'ERROR_CEREMONY_ABORTED'` \| `'ERROR_INVALID_RP_ID'` \| `'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED'` \| … 12 arms) | error discriminant | `Match` on `.code` → tagged domain fault + user-facing message                                          |
+| [INDEX] | [SYMBOL]                                                                                      | [TYPE_FAMILY]      |
+| :-----: | :-------------------------------------------------------------------------------------------- | :----------------- |
+|  [01]   | `StartRegistrationOpts` `{ optionsJSON; useAutoRegister? }`                                   | call option        |
+|  [02]   | `StartAuthenticationOpts` `{ optionsJSON; useBrowserAutofill?; verifyBrowserAutofillInput? }` | call option        |
+|  [03]   | `WebAuthnError` (`extends Error`, `code: WebAuthnErrorCode`, `cause`)                         | tagged fault       |
+|  [04]   | `WebAuthnErrorCode`                                                                           | error discriminant |
+
+[CONSUMER_BOUNDARY] per shape:
+- [01]-[REG_OPTS]: the `startRegistration` argument shape.
+- [02]-[AUTH_OPTS]: the `startAuthentication` argument shape.
+- [03]-[FAULT]: the pre-classified reject value the ceremony `Promise` throws; the `catch` arm of the ceremony `Effect`.
+- [04]-[ERROR_CODE]: `Match` on `.code` → tagged domain fault + user-facing message; the 12-arm union includes `'ERROR_CEREMONY_ABORTED'` \| `'ERROR_INVALID_RP_ID'` \| `'ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED'` \| … .
 
 ## [03]-[ENTRYPOINTS]
 
@@ -44,20 +57,31 @@
 - rail: authn/webauthn
 - Each takes the server-issued options JSON and returns the response JSON. `useBrowserAutofill` opts into conditional-UI (passkey autofill on a login field); `useAutoRegister` silently upgrades a just-signed-in password to a passkey. Both auto-arm the abort service.
 
-| [INDEX] | [SURFACE]                                                                                                                     | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                     |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------- |
-|  [01]   | `startRegistration({ optionsJSON, useAutoRegister? }): Promise<RegistrationResponseJSON>`                                     | register       | attestation ceremony; options from server `generateRegistrationOptions` |
-|  [02]   | `startAuthentication({ optionsJSON, useBrowserAutofill?, verifyBrowserAutofillInput? }): Promise<AuthenticationResponseJSON>` | authenticate   | assertion ceremony; options from server `generateAuthenticationOptions` |
+| [INDEX] | [SURFACE]                                                                                 | [ENTRY_FAMILY] |
+| :-----: | :---------------------------------------------------------------------------------------- | :------------- |
+|  [01]   | `startRegistration({ optionsJSON, useAutoRegister? }): Promise<RegistrationResponseJSON>` | register       |
+|  [02]   | `startAuthentication({ optionsJSON, … }): Promise<AuthenticationResponseJSON>`            | authenticate   |
+
+[CONSUMER_BOUNDARY] per ceremony:
+- [01]-[REGISTER]: attestation ceremony; options from server `generateRegistrationOptions`.
+- [02]-[AUTHENTICATE]: assertion ceremony; options from server `generateAuthenticationOptions`; `useBrowserAutofill`/`verifyBrowserAutofillInput` opt into conditional-UI (full opts shape in the ceremony-options table).
 
 [ENTRYPOINT_SCOPE]: capability probes, codecs, and the ceremony abort guard
 - rail: authn/webauthn
 - The probes gate the ceremony at the `ui` edge (feature-detect before offering passkeys); the codecs bridge `ArrayBuffer`↔`Base64URLString`; the abort service enforces one live ceremony. The DOM-exception→`WebAuthnError` classification is internal to `startRegistration`/`startAuthentication` (the `identify*Error` mappers are not root-exported), so the rejected `Promise` already carries a coded `WebAuthnError`.
 
-| [INDEX] | [SURFACE]                                                                                                                                             | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                        |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------- | :--------------------------------------------------------- |
-|  [01]   | `browserSupportsWebAuthn(): boolean` / `platformAuthenticatorIsAvailable(): Promise<boolean>` / `browserSupportsWebAuthnAutofill(): Promise<boolean>` | capability probe | `ui` feature-gate before offering passkey / conditional-UI |
-|  [02]   | `base64URLStringToBuffer(s): ArrayBuffer` / `bufferToBase64URLString(buf): string`                                                                    | wire codec       | `ArrayBuffer`↔base64url for hand-built credential fields   |
-|  [03]   | `WebAuthnAbortService.createNewAbortSignal()` / `.cancelCeremony()`                                                                                   | ceremony guard   | single-live-ceremony law; cancel on client-route change    |
+| [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY]   |
+| :-----: | :--------------------------------------------------------------------------------- | :--------------- |
+|  [01]   | `browserSupportsWebAuthn(): boolean`                                               | capability probe |
+|  [02]   | `platformAuthenticatorIsAvailable(): Promise<boolean>`                             | capability probe |
+|  [03]   | `browserSupportsWebAuthnAutofill(): Promise<boolean>`                              | capability probe |
+|  [04]   | `base64URLStringToBuffer(s): ArrayBuffer` / `bufferToBase64URLString(buf): string` | wire codec       |
+|  [05]   | `WebAuthnAbortService.createNewAbortSignal()` / `.cancelCeremony()`                | ceremony guard   |
+
+[CONSUMER_BOUNDARY] per surface:
+- [01]-[PROBES]: `ui` feature-gate before offering passkey / conditional-UI (rows [01]-[03]).
+- [04]-[CODEC]: `ArrayBuffer`↔base64url for hand-built credential fields.
+- [05]-[GUARD]: single-live-ceremony law; cancel on client-route change.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

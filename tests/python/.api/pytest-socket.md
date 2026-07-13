@@ -11,16 +11,16 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                    | [KIND]    | [CAPABILITY]                                                                                                                        |
-| :-----: | :-------------------------- | :-------- | :---------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SocketBlockedError`        | exception | raised when `socket.socket`/`getaddrinfo`/`gethostbyname` runs under the block; subclasses `RuntimeError` and warns on construction |
-|  [02]   | `SocketConnectBlockedError` | exception | raised when `connect()` targets a host outside the `--allow-hosts` allow-list                                                       |
-|  [03]   | `disable_socket`            | function  | installs `GuardedSocket`; `allow_unix_socket=True` lets `AF_UNIX` families through                                                  |
-|  [04]   | `enable_socket`             | function  | restores the real `socket.socket`/`getaddrinfo`/`gethostbyname`                                                                     |
-|  [05]   | `socket_allow_hosts`        | function  | installs a `connect` guard admitting plain hosts and CIDR networks; resolves hostnames through a cache                              |
-|  [06]   | `normalize_allowed_hosts`   | function  | maps an allow-list to resolved IP sets via `resolve_hostnames`; `host_from_connect_args` extracts the target host                   |
+| [INDEX] | [SYMBOL]                    | [KIND]    | [CAPABILITY]                                                                       |
+| :-----: | :-------------------------- | :-------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `SocketBlockedError`        | exception | raised when a blocked `socket`/DNS call runs; warns on construction                |
+|  [02]   | `SocketConnectBlockedError` | exception | raised when `connect()` targets a host outside the `--allow-hosts` allow-list      |
+|  [03]   | `disable_socket`            | function  | installs `GuardedSocket`; `allow_unix_socket=True` lets `AF_UNIX` families through |
+|  [04]   | `enable_socket`             | function  | restores the real `socket.socket`/`getaddrinfo`/`gethostbyname`                    |
+|  [05]   | `socket_allow_hosts`        | function  | installs a `connect` guard for hosts and CIDR networks; caches resolutions         |
+|  [06]   | `normalize_allowed_hosts`   | function  | resolves an allow-list to IP sets; `host_from_connect_args` reads the target host  |
 
-```python contract
+```python signature
 class SocketBlockedError(RuntimeError): ...
 class SocketConnectBlockedError(RuntimeError): ...  # __init__(allowed: list[str], host: str | None)
 def disable_socket(allow_unix_socket: bool = False) -> None: ...
@@ -30,18 +30,18 @@ def socket_allow_hosts(allowed: str | list[str] | None = None, allow_unix_socket
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                      | [KIND]     | [CAPABILITY]                                                                         |
-| :-----: | :--------------------------------------------- | :--------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `--disable-socket`                             | CLI flag   | blocks `socket.socket` for the whole session; the suite pins it in `addopts`         |
-|  [02]   | `--allow-unix-socket`                          | CLI flag   | admits `AF_UNIX` sockets while INET stays blocked; keeps loopback UDS capsules alive |
-|  [03]   | `--allow-hosts`                                | CLI option | CSV of hosts or CIDR networks whose `connect()` targets pass the guard               |
-|  [04]   | `--force-enable-socket`                        | CLI flag   | session override that lifts the block ahead of every per-test rule                   |
-|  [05]   | `socket_enabled`                               | fixture    | lifts the block for one test; its presence drives the testkit `network` marker       |
-|  [06]   | `socket_disabled`                              | fixture    | forces the block for one test, honoring the session `allow_unix_socket`              |
-|  [07]   | `pytest.mark.enable_socket` / `disable_socket` | marker     | per-test override of the session default, resolved in `pytest_runtest_setup`         |
-|  [08]   | `pytest.mark.allow_hosts([hosts])`             | marker     | per-test host allow-list, taking precedence over `--allow-hosts`                     |
+| [INDEX] | [SURFACE]                                      | [KIND]     | [CAPABILITY]                                                            |
+| :-----: | :--------------------------------------------- | :--------- | :---------------------------------------------------------------------- |
+|  [01]   | `--disable-socket`                             | CLI flag   | blocks `socket.socket` all session; the suite pins it in `addopts`      |
+|  [02]   | `--allow-unix-socket`                          | CLI flag   | admits `AF_UNIX` while INET stays blocked; loopback UDS stays alive     |
+|  [03]   | `--allow-hosts`                                | CLI option | CSV of hosts or CIDR networks whose `connect()` targets pass the guard  |
+|  [04]   | `--force-enable-socket`                        | CLI flag   | session override that lifts the block ahead of every per-test rule      |
+|  [05]   | `socket_enabled`                               | fixture    | lifts the block for one test; drives the testkit `network` marker       |
+|  [06]   | `socket_disabled`                              | fixture    | forces the block for one test, honoring the session `allow_unix_socket` |
+|  [07]   | `pytest.mark.enable_socket` / `disable_socket` | marker     | per-test override of the default, resolved in `pytest_runtest_setup`    |
+|  [08]   | `pytest.mark.allow_hosts([hosts])`             | marker     | per-test host allow-list, taking precedence over `--allow-hosts`        |
 
-```python contract
+```python signature
 @pytest.fixture
 def socket_enabled(pytestconfig: pytest.Config) -> Iterator[None]: ...  # calls enable_socket()
 @pytest.fixture

@@ -10,17 +10,22 @@
 
 ## [01]-[SURFACE]
 
-| [INDEX] | [SURFACE]                                                                                                                     | [FAMILY]        | [CAPABILITY]                                                                                                               |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `scaleLinear` `scaleLog` `scaleSymlog` `scalePower` `scaleSqrt` `scaleRadial`                                                 | continuous      | quantitative; config `domain`/`range`/`nice`/`clamp`/`zero`/`round`/`interpolate` (+`base`/`constant`/`exponent` per type) |
-|  [02]   | `scaleTime` `scaleUtc`                                                                                                        | temporal        | date domains; `nice` accepts `NiceTime` interval values                                                                    |
-|  [03]   | `scaleBand` `scalePoint`                                                                                                      | ordinal-spatial | categorical position; padding/align/round config keys; `bandwidth()`/`step()` feed bar geometry                            |
-|  [04]   | `scaleOrdinal` `scaleQuantile` `scaleQuantize` `scaleThreshold`                                                               | discrete-map    | category→value, quantile/uniform/threshold bucketing                                                                       |
-|  [05]   | `createScale(config: ScaleConfig)` / `updateScale(scale, config)`                                                             | polymorphic     | type-discriminated construction; immutable copy-with-changes rederive                                                      |
-|  [06]   | `inferScaleType(scale)` `coerceNumber` `getTicks(scale, count?)` `scaleCanBeZeroed(config)` `toString`                        | utils           | reflection over a received scale, tick extraction, zero-eligibility                                                        |
-|  [07]   | `ScaleConfig` `ScaleType` `PickScaleConfig` `AnyD3Scale` `D3Scale` `PickD3Scale` `ScaleInput` `InferD3ScaleOutput` `NiceTime` | types           | the vocabulary generic chart components constrain against                                                                  |
+Per-family config keys, the reflection utils, and the type vocabulary carry to the keyed list below; every factory returns the real d3 scale object.
 
-```ts contract
+| [INDEX] | [SURFACE]                                                                     | [FAMILY]        | [CAPABILITY]                             |
+| :-----: | :---------------------------------------------------------------------------- | :-------------- | :--------------------------------------- |
+|  [01]   | `scaleLinear` `scaleLog` `scaleSymlog` `scalePower` `scaleSqrt` `scaleRadial` | continuous      | quantitative position/size               |
+|  [02]   | `scaleTime` `scaleUtc`                                                        | temporal        | date domains; `nice` takes `NiceTime`    |
+|  [03]   | `scaleBand` `scalePoint`                                                      | ordinal-spatial | categorical; `bandwidth()`/`step()`      |
+|  [04]   | `scaleOrdinal` `scaleQuantile` `scaleQuantize` `scaleThreshold`               | discrete-map    | quantile/uniform/threshold bucketing     |
+|  [05]   | `createScale(config: ScaleConfig)` / `updateScale(scale, config)`             | polymorphic     | discriminated build + rederive           |
+
+- [01]-[CONTINUOUS]: config `domain` `range` `nice` `clamp` `zero` `round` `interpolate`, plus `base`/`constant`/`exponent` per sub-type.
+- [03]-[BAND]: padding/align/round keys; `bandwidth()`/`step()` feed bar geometry.
+- [UTILS]: `inferScaleType(scale)` `coerceNumber` `getTicks(scale, count?)` `scaleCanBeZeroed(config)` `toString` — scale reflection, tick extraction, zero-eligibility.
+- [TYPES]: `ScaleConfig` `ScaleType` `PickScaleConfig` `AnyD3Scale` `D3Scale` `PickD3Scale` `ScaleInput` `InferD3ScaleOutput` `NiceTime` — the vocabulary generic chart components constrain against.
+
+```ts signature
 // Config-object form; the return IS the d3 scale. updateScale rederives without mutating the original — the fold-friendly shape.
 const y = scaleLinear<number>({ domain: [0, max], range: [innerHeight, 0], nice: true, zero: true })
 const x = scaleBand<string>({ domain: keys, range: [0, innerWidth], padding: 0.2 })

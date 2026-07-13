@@ -35,65 +35,76 @@
 [SERDE_POLICY_TYPES]: registration and tombstone behavior
 - rail: avro-registry-serde
 
-| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]      | [CAPABILITY]                                                                               |
-| :-----: | :------------------------------ | :------------------ | :----------------------------------------------------------------------------------------- |
-|  [01]   | `AutomaticRegistrationBehavior` | registration policy | `Never` (fail if unregistered) / `Always` (register the derived schema)                    |
-|  [02]   | `TombstoneBehavior`             | null-value policy   | `None` (serialize null as Avro) / `Strict` (null → Kafka tombstone, reject non-null-union) |
+| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]      | [CAPABILITY]       |
+| :-----: | :------------------------------ | :------------------ | :----------------- |
+|  [01]   | `AutomaticRegistrationBehavior` | registration policy | `Never` / `Always` |
+|  [02]   | `TombstoneBehavior`             | null-value policy   | `None` / `Strict`  |
 
 [CODEC_INTERNALS_TYPES]: the per-id codec adapters and wire-format rewriters (NOT public composition surface)
 - rail: avro-registry-serde
 
-| [INDEX] | [SYMBOL]                                           | [PACKAGE_ROLE]            | [CAPABILITY]                                                                                                                                                          |
-| :-----: | :------------------------------------------------- | :------------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `DelegateSerializer<T>` (`internal`)               | per-id `ISerializer<T>`   | wraps a `delegate void Implementation(T value, Stream stream)` + `int SchemaId` + `TombstoneBehavior` — what `Build<T>` returns behind the `ISerializer<T>` interface |
-|  [02]   | `DelegateDeserializer<T>` (`internal`)             | per-id `IDeserializer<T>` | wraps a `delegate T Implementation(ReadOnlySpan<byte> data)` + `int SchemaId` + `TombstoneBehavior`                                                                   |
-|  [03]   | `WireFormatBytesSerializerRewriter` (`internal`)   | wire-format-1 framer      | rewrites the body-codec output into the `0x00` + big-endian schema-id envelope                                                                                        |
-|  [04]   | `WireFormatBytesDeserializerRewriter` (`internal`) | wire-format-1 unframer    | strips/reads the `0x00` + schema-id prefix before the body decode                                                                                                     |
+| [INDEX] | [SYMBOL]                              | [PACKAGE_ROLE]            | [CAPABILITY]                                                  |
+| :-----: | :------------------------------------ | :------------------------ | :------------------------------------------------------------ |
+|  [01]   | `DelegateSerializer<T>`               | per-id `ISerializer<T>`   | wraps a write delegate + `int SchemaId` + `TombstoneBehavior` |
+|  [02]   | `DelegateDeserializer<T>`             | per-id `IDeserializer<T>` | wraps a read delegate + `int SchemaId` + `TombstoneBehavior`  |
+|  [03]   | `WireFormatBytesSerializerRewriter`   | wire-format-1 framer      | body-codec output → `0x00` + big-endian schema-id envelope    |
+|  [04]   | `WireFormatBytesDeserializerRewriter` | wire-format-1 unframer    | strips/reads the `0x00` + schema-id prefix before body decode |
 
-These four are `internal` to `Chr.Avro.Confluent` — a consumer never names them. `Build<T>` / the `SetAvro*` extensions hand back the `ISerializer<T>`/`IDeserializer<T>` / `IAsyncSerializer<T>`/`IAsyncDeserializer<T>` interface; the nested `DelegateSerializer<T>.Implementation`/`DelegateDeserializer<T>.Implementation` delegate signatures and the wire-format rewriters are documented only to show where the `Chr.Avro.Binary` body codec (`api-chr-avro-binary`) and the wire-format-1 prefix machinery actually live, not as a composition seam.
+These four are `internal` to `Chr.Avro.Confluent` — a consumer never names them. `Build<T>` / the `SetAvro*` extensions hand back the `ISerializer<T>`/`IDeserializer<T>` / `IAsyncSerializer<T>`/`IAsyncDeserializer<T>` interface; the nested `DelegateSerializer<T>.Implementation` (`delegate void (T value, Stream stream)`) and `DelegateDeserializer<T>.Implementation` (`delegate T (ReadOnlySpan<byte> data)`) signatures and the wire-format rewriters are documented only to show where the `Chr.Avro.Binary` body codec (`api-chr-avro-binary`) and the wire-format-1 prefix machinery actually live, not as a composition seam.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Kafka producer builder integration (`ProducerBuilderExtensions`)
 - rail: avro-registry-serde
+- Every `SetAvro{Key,Value}Serializer` overload extends `ProducerBuilder<TKey, TValue>` (and `DependentProducerBuilder`), takes `ISchemaRegistryClient` or raw `IEnumerable<KeyValuePair<string,string>>` config first, and carries `registerAutomatically`/`AutomaticRegistrationBehavior`, `subjectNameBuilder`, and `tombstoneBehavior`/`TombstoneBehavior` policy args; `await` marks a build-time registry round-trip.
 
-| [INDEX] | [SURFACE]                                                                                                                               | [CALL_SHAPE] | [CAPABILITY]                                                              |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------- | :----------- | :------------------------------------------------------------------------ |
-|  [01]   | `producerBuilder.SetAvroKeySerializer(ISchemaRegistryClient, registerAutomatically, subjectNameBuilder)`                                | sync ext     | wires a late-binding Avro key serializer (registers on first `Serialize`) |
-|  [02]   | `producerBuilder.SetAvroValueSerializer(ISchemaRegistryClient, registerAutomatically, subjectNameBuilder, tombstoneBehavior)`           | sync ext     | wires a late-binding Avro value serializer with tombstone policy          |
-|  [03]   | `await producerBuilder.SetAvroKeySerializer(ISchemaRegistryClient, int id)`                                                             | async ext    | binds the key serializer to a fixed schema id                             |
-|  [04]   | `await producerBuilder.SetAvroValueSerializer(ISchemaRegistryClient, string subject, AutomaticRegistrationBehavior, TombstoneBehavior)` | async ext    | binds the value serializer to a subject (latest, optionally registering)  |
-|  [05]   | `await producerBuilder.SetAvroValueSerializer(ISchemaRegistryClient, string subject, int version)`                                      | async ext    | binds to an exact subject+version                                         |
-|  [06]   | overloads taking `IEnumerable<KeyValuePair<string,string>> registryConfiguration`                                                       | ext          | every overload mirrored to take raw registry config instead of a client   |
-|  [07]   | overloads taking `ISchemaRegistrySerializerBuilder serializerBuilder`                                                                   | async ext    | binds against a pre-built/shared serializer-builder                       |
-|  [08]   | every overload also defined on `DependentProducerBuilder<TKey, TValue>`                                                                 | ext          | the `Confluent.Kafka` handle-sharing dependent-builder mirror             |
+| [INDEX] | [SURFACE]                                                          | [CALL_SHAPE] | [CAPABILITY]                                        |
+| :-----: | :----------------------------------------------------------------- | :----------- | :-------------------------------------------------- |
+|  [01]   | `SetAvroKeySerializer(…, subjectNameBuilder)`                      | sync ext     | late-binding key serializer, on `Serialize`         |
+|  [02]   | `SetAvroValueSerializer(…, subjectNameBuilder, tombstoneBehavior)` | sync ext     | late-binding value serializer, tombstone policy     |
+|  [03]   | `await SetAvroKeySerializer(…, int id)`                            | async ext    | binds the key serializer to a fixed schema id       |
+|  [04]   | `await SetAvroValueSerializer(…, string subject, …)`               | async ext    | binds the value to a subject (latest)               |
+|  [05]   | `await SetAvroValueSerializer(…, string subject, int version)`     | async ext    | binds to an exact subject+version                   |
+|  [06]   | overloads taking `IEnumerable<KeyValuePair<string,string>>`        | ext          | raw registry config instead of a client             |
+|  [07]   | overloads taking `ISchemaRegistrySerializerBuilder`                | async ext    | binds against a pre-built/shared serializer-builder |
+|  [08]   | also on `DependentProducerBuilder<TKey, TValue>`                   | ext          | the `Confluent.Kafka` handle-sharing mirror         |
 
 [ENTRYPOINT_SCOPE]: Kafka consumer builder integration (`ConsumerBuilderExtensions`)
 - rail: avro-registry-serde
+- Every `SetAvro{Key,Value}Deserializer` overload extends `ConsumerBuilder<TKey, TValue>`, takes `ISchemaRegistryClient` or raw `IEnumerable<KeyValuePair<string,string>>` config first, and carries a `tombstoneBehavior`/`TombstoneBehavior` arg; `await` marks a build-time registry round-trip.
 
-| [INDEX] | [SURFACE]                                                                                                               | [CALL_SHAPE] | [CAPABILITY]                                           |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------- | :----------- | :----------------------------------------------------- |
-|  [01]   | `consumerBuilder.SetAvroKeyDeserializer(ISchemaRegistryClient)`                                                         | sync ext     | wires a wire-prefix-resolving Avro key deserializer    |
-|  [02]   | `consumerBuilder.SetAvroValueDeserializer(ISchemaRegistryClient, tombstoneBehavior)`                                    | sync ext     | wires the value deserializer with tombstone policy     |
-|  [03]   | `await consumerBuilder.SetAvroKeyDeserializer(ISchemaRegistryClient, int id)`                                           | async ext    | binds the key deserializer to a fixed reader schema id |
-|  [04]   | `await consumerBuilder.SetAvroValueDeserializer(ISchemaRegistryClient, string subject, TombstoneBehavior)`              | async ext    | binds the reader schema to a subject (latest)          |
-|  [05]   | `await consumerBuilder.SetAvroValueDeserializer(ISchemaRegistryClient, string subject, int version, TombstoneBehavior)` | async ext    | binds the reader schema to an exact subject+version    |
-|  [06]   | overloads taking `IEnumerable<KeyValuePair<string,string>>` / `ISchemaRegistryDeserializerBuilder`                      | ext          | raw-config and shared-builder mirrors of each overload |
+| [INDEX] | [SURFACE]                                                        | [CALL_SHAPE] | [CAPABILITY]                                    |
+| :-----: | :--------------------------------------------------------------- | :----------- | :---------------------------------------------- |
+|  [01]   | `SetAvroKeyDeserializer(…)`                                      | sync ext     | wire-prefix-resolving Avro key deserializer     |
+|  [02]   | `SetAvroValueDeserializer(…, tombstoneBehavior)`                 | sync ext     | value deserializer with tombstone policy        |
+|  [03]   | `await SetAvroKeyDeserializer(…, int id)`                        | async ext    | binds the key deserializer to a fixed schema id |
+|  [04]   | `await SetAvroValueDeserializer(…, string subject)`              | async ext    | binds the reader schema to a subject (latest)   |
+|  [05]   | `await SetAvroValueDeserializer(…, string subject, int version)` | async ext    | binds to an exact subject+version               |
+|  [06]   | overloads taking `IEnumerable<KeyValuePair<string,string>>`      | ext          | raw-config mirror of each overload              |
+|  [07]   | overloads taking `ISchemaRegistryDeserializerBuilder`            | ext          | shared-builder mirror of each overload          |
 
-[ENTRYPOINT_SCOPE]: standalone serde construction
+[ENTRYPOINT_SCOPE]: standalone serializer construction (`SchemaRegistrySerializerBuilder`)
 - rail: avro-registry-serde
+- ctor composes `ISchemaRegistryClient` plus the optional sub-builders (`[SERDE_FACADE_TYPES]`); every `await Build<T>(…, TombstoneBehavior)` → `Task<ISerializer<T>>`.
 
-| [INDEX] | [SURFACE]                                                                                                                             | [CALL_SHAPE] | [CAPABILITY]                                                   |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------ | :----------- | :------------------------------------------------------------- |
-|  [01]   | `new SchemaRegistrySerializerBuilder(ISchemaRegistryClient, schemaBuilder?, schemaReader?, schemaWriter?, serializerBuilder?)`        | ctor         | composes the four sub-builders explicitly                      |
-|  [02]   | `await SchemaRegistrySerializerBuilder.Build<T>(string subject, AutomaticRegistrationBehavior, TombstoneBehavior)` → `ISerializer<T>` | build call   | derives `T`'s schema, registers, returns a bound serializer    |
-|  [03]   | `await SchemaRegistrySerializerBuilder.Build<T>(int id, TombstoneBehavior)` → `ISerializer<T>`                                        | build call   | binds to an existing registry schema id                        |
-|  [04]   | `await SchemaRegistrySerializerBuilder.Build<T>(string subject, int version, TombstoneBehavior)` → `ISerializer<T>`                   | build call   | binds to an exact subject+version                              |
-|  [05]   | `new SchemaRegistryDeserializerBuilder(ISchemaRegistryClient, deserializerBuilder?, schemaReader?)`                                   | ctor         | composes the deserializer sub-builders                         |
-|  [06]   | `await SchemaRegistryDeserializerBuilder.Build<T>(int id, TombstoneBehavior)` → `IDeserializer<T>`                                    | build call   | binds the reader schema to an existing registry id             |
-|  [07]   | `await SchemaRegistryDeserializerBuilder.Build<T>(string subject, TombstoneBehavior)` → `IDeserializer<T>`                            | build call   | binds the reader schema to a subject's latest version          |
-|  [08]   | `await SchemaRegistryDeserializerBuilder.Build<T>(string subject, int version, TombstoneBehavior)` → `IDeserializer<T>`               | build call   | binds the reader schema to an exact subject+version            |
-|  [09]   | `new AsyncSchemaRegistrySerializer<T>(...)` / `.AsSyncOverAsync()`                                                                    | adapter      | mount the async serde on Kafka's sync codec slot (`api-kafka`) |
+| [INDEX] | [SURFACE]                                                          | [CALL_SHAPE] | [CAPABILITY]                                      |
+| :-----: | :----------------------------------------------------------------- | :----------- | :------------------------------------------------ |
+|  [01]   | `new SchemaRegistrySerializerBuilder(ISchemaRegistryClient, …)`    | ctor         | composes the four sub-builders explicitly         |
+|  [02]   | `await Build<T>(string subject, AutomaticRegistrationBehavior)`    | build call   | derives `T`'s schema, registers, bound serializer |
+|  [03]   | `await Build<T>(int id)`                                           | build call   | binds to an existing registry schema id           |
+|  [04]   | `await Build<T>(string subject, int version)`                      | build call   | binds to an exact subject+version                 |
+|  [05]   | `new AsyncSchemaRegistrySerializer<T>(...)` / `.AsSyncOverAsync()` | adapter      | async serde on Kafka's sync slot (`api-kafka`)    |
+
+[ENTRYPOINT_SCOPE]: standalone deserializer construction (`SchemaRegistryDeserializerBuilder`)
+- rail: avro-registry-serde
+- ctor composes `ISchemaRegistryClient` plus the optional sub-builders (`[SERDE_FACADE_TYPES]`); every `await Build<T>(…, TombstoneBehavior)` → `Task<IDeserializer<T>>`.
+
+| [INDEX] | [SURFACE]                                                         | [CALL_SHAPE] | [CAPABILITY]                                          |
+| :-----: | :---------------------------------------------------------------- | :----------- | :---------------------------------------------------- |
+|  [01]   | `new SchemaRegistryDeserializerBuilder(ISchemaRegistryClient, …)` | ctor         | composes the deserializer sub-builders                |
+|  [02]   | `await Build<T>(int id)`                                          | build call   | binds the reader schema to an existing registry id    |
+|  [03]   | `await Build<T>(string subject)`                                  | build call   | binds the reader schema to a subject's latest version |
+|  [04]   | `await Build<T>(string subject, int version)`                     | build call   | binds the reader schema to an exact subject+version   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

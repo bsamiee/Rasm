@@ -51,73 +51,79 @@
 - rail: energy-modeling
 - Closed singleton-backed vocabularies. The geometry owner reads them through the module singletons (`face_types`, `boundary_conditions`), never by constructing the leaf classes, so a face type or boundary condition is a value-object lookup, not a string branch.
 
-| [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY]       | [CAPABILITY]                                                                                               |
-| :-----: | :--------------------------------------------------- | :------------------ | :--------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Wall` / `RoofCeiling` / `Floor` / `AirBoundary`     | face type           | the four face types; `face_types` singleton + `by_name`                                                    |
-|  [02]   | `Outdoors(sun_exposure, wind_exposure, view_factor)` | boundary condition  | exterior face exposed to weather                                                                           |
-|  [03]   | `Ground`                                             | boundary condition  | face in contact with ground                                                                                |
-|  [04]   | `Surface(boundary_condition_objects, sub_face)`      | boundary condition  | interior face adjacent to another face (adjacency pair)                                                    |
-|  [05]   | `Adiabatic` / `OtherSideTemperature`                 | boundary condition  | no-heat-flow / fixed other-side-temperature; `boundary_conditions` singleton + `by_name`                   |
-|  [06]   | `Autocalculate` / `NoLimit` / `Autosize`             | alt-number sentinel | singleton sentinel numerics (`autocalculate`/`no_limit`/`autosize`) replacing magic `None`/autosize fields |
+| [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY]       | [CAPABILITY]                                                |
+| :-----: | :--------------------------------------------------- | :------------------ | :---------------------------------------------------------- |
+|  [01]   | `Wall` / `RoofCeiling` / `Floor` / `AirBoundary`     | face type           | the four face types                                         |
+|  [02]   | `Outdoors(sun_exposure, wind_exposure, view_factor)` | boundary condition  | exterior face exposed to weather                            |
+|  [03]   | `Ground`                                             | boundary condition  | face in contact with ground                                 |
+|  [04]   | `Surface(boundary_condition_objects, sub_face)`      | boundary condition  | interior face adjacent to another (adjacency pair)          |
+|  [05]   | `Adiabatic` / `OtherSideTemperature`                 | boundary condition  | no-heat-flow / fixed other-side-temperature                 |
+|  [06]   | `Autocalculate` / `NoLimit` / `Autosize`             | alt-number sentinel | singleton sentinels (`autocalculate`/`no_limit`/`autosize`) |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: HBJSON serialization round-trip
 - rail: energy-modeling
-- The dict is the canonical wire shape; `included_prop`/`include` select which extension props serialize, so a geometry-only export drops energy/radiance. `dict_to_object` is the polymorphic deserializer dispatching on the dict `type` key (the owner's single decode entry, never a per-type `if`).
+- The dict is the canonical wire shape; `included_prop`/`include` select which extension props serialize, so a geometry-only export drops energy/radiance; `to_dict`/`to_hbjson` also accept `triangulate_sub_faces=False, include_plane=True`. `dict_to_object` is the polymorphic deserializer dispatching on the dict `type` key (the owner's single decode entry, never a per-type `if`).
 
-| [INDEX] | [SURFACE]                                                                            | [CALL_SHAPE]          | [CAPABILITY]                                                                 |
-| :-----: | :----------------------------------------------------------------------------------- | :-------------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `Model.to_dict(included_prop=None, triangulate_sub_faces=False, include_plane=True)` | extension-key list    | HBJSON dict; `included_prop=['energy']` serializes only the energy extension |
-|  [02]   | `Model.from_dict(data)`                                                              | HBJSON dict           | reconstruct a live `Model` (geometry + re-attached extension props)          |
-|  [03]   | `Model.to_hbjson(name=None, folder=None, indent=None, included_prop=None, ...)`      | name/folder           | write an `.hbjson` file (the durable graduation handle)                      |
-|  [04]   | `Model.from_hbjson(hbjson_file)`                                                     | file path             | read an `.hbjson` file                                                       |
-|  [05]   | `Model.to_hbpkl` / `Model.from_hbpkl` / `Model.from_file`                            | file path             | pickle round-trip; `from_file` auto-detects hbjson/hbpkl                     |
-|  [06]   | `honeybee.dictutil.dict_to_object(honeybee_dict, raise_exception=True)`              | any honeybee dict     | polymorphic deserialize dispatching on the dict `type` key                   |
-|  [07]   | `ModelProperties.to_dict(include=None)` / `apply_properties_from_dict(data)`         | extension keys / dict | extension-prop serialize / re-attach after a geometry load                   |
+| [INDEX] | [SURFACE]                                                 | [CALL_SHAPE]       | [CAPABILITY]                                       |
+| :-----: | :-------------------------------------------------------- | :----------------- | :------------------------------------------------- |
+|  [01]   | `Model.to_dict(included_prop=None, ...)`                  | extension-key list | HBJSON dict; `included_prop` selects extensions    |
+|  [02]   | `Model.from_dict(data)`                                   | HBJSON dict        | reconstruct a live `Model` + extension props       |
+|  [03]   | `Model.to_hbjson(name=None, folder=None, ...)`            | name/folder        | write an `.hbjson` file (graduation handle)        |
+|  [04]   | `Model.from_hbjson(hbjson_file)`                          | file path          | read an `.hbjson` file                             |
+|  [05]   | `Model.to_hbpkl` / `Model.from_hbpkl` / `Model.from_file` | file path          | pickle round-trip; `from_file` auto-detects format |
+|  [06]   | `honeybee.dictutil.dict_to_object(...)`                   | any honeybee dict  | polymorphic deserialize on the dict `type` key     |
+|  [07]   | `ModelProperties.to_dict` / `apply_properties_from_dict`  | keys / dict        | extension-prop serialize / re-attach               |
 
 [ENTRYPOINT_SCOPE]: model assembly, generators, and adjacency (`honeybee.model`, `.room`)
 - rail: energy-modeling
-- Construction routes through `from_*` classmethods; the `Room` static surface owns grouping, adjacency, and procedural plan generation — the geometry owner calls these instead of re-deriving topology.
+- Construction routes through `from_*` classmethods; the `Room` static surface owns grouping, adjacency, and procedural plan generation — the geometry owner calls these instead of re-deriving topology. The `Model` constructor defaults `units='Meters', tolerance=None, angle_tolerance=1.0`.
 
-| [INDEX] | [SURFACE]                                                                                                                                | [CALL_SHAPE]            | [CAPABILITY]                                                   |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------- | :---------------------- | :------------------------------------------------------------- |
-|  [01]   | `Model(identifier, rooms=None, ..., units='Meters', tolerance=None, angle_tolerance=1.0)`                                                | objects + units         | assemble a model from rooms/orphaned objects/shades            |
-|  [02]   | `Model.from_objects(identifier, objects, units, tolerance, ...)`                                                                         | mixed honeybee objects  | build a model from a flat object list                          |
-|  [03]   | `Model.from_shoe_box` / `from_rectangle_plan` / `from_l_shaped_plan`                                                                     | dimensions              | procedural test/parametric model generators                    |
-|  [04]   | `Room.from_box(identifier, width, depth, height, ...)` / `from_polyface3d` / `from_dict`                                                 | box dims / `Polyface3D` | build a room from a box or a closed solid                      |
-|  [05]   | `Room.solve_adjacency(rooms, tolerance)` (also `Model.solve_adjacency`)                                                                  | room list               | match coincident faces into `Surface` adjacency pairs          |
-|  [06]   | `Room.intersect_adjacency` / `group_by_adjacency` / `group_by_air_boundary_adjacency` / `group_by_floor_height` / `group_by_orientation` | room list               | split coincident faces; group rooms by topology/attribute      |
-|  [07]   | `Room.stories_by_floor_height` / `Room.story` / `Room.grouped_horizontal_boundary`                                                       | rooms                   | story assignment from floor height; merged horizontal boundary |
-|  [08]   | `Model.convert_to_units(units='Meters')` / `Model.conversion_factor_to_meters`                                                           | target units            | scale geometry into a unit system                              |
+| [INDEX] | [SURFACE]                                                            | [CALL_SHAPE]  | [CAPABILITY]                                  |
+| :-----: | :------------------------------------------------------------------- | :------------ | :-------------------------------------------- |
+|  [01]   | `Model(identifier, rooms=None, ..., units='Meters', ...)`            | objects+units | assemble from rooms/orphaned objects/shades   |
+|  [02]   | `Model.from_objects(identifier, objects, units, tolerance, ...)`     | object list   | build a model from a flat object list         |
+|  [03]   | `Model.from_shoe_box` / `from_rectangle_plan` / `from_l_shaped_plan` | dimensions    | procedural test/parametric generators         |
+|  [04]   | `Room.from_box(...)` / `from_polyface3d` / `from_dict`               | box / solid   | build a room from a box or a closed solid     |
+|  [05]   | `Room.solve_adjacency(rooms, tolerance)`                             | room list     | faces → `Surface` pairs (also `Model`)        |
+|  [06]   | `Room.intersect_adjacency`                                           | room list     | split coincident faces for shared segments    |
+|  [07]   | `Room.group_by_adjacency` / `group_by_air_boundary_adjacency`        | room list     | group by shared-wall / air-boundary adjacency |
+|  [08]   | `Room.group_by_floor_height` / `group_by_orientation`                | room list     | group by floor height / orientation           |
+|  [09]   | `Room.stories_by_floor_height` / `Room.story`                        | rooms         | story assignment from floor height            |
+|  [10]   | `Room.grouped_horizontal_boundary`                                   | rooms         | merged horizontal boundary                    |
+|  [11]   | `Model.convert_to_units` / `conversion_factor_to_meters`             | target units  | scale geometry into a unit system             |
 
 [ENTRYPOINT_SCOPE]: aperture and shading generation (`honeybee.face`, `.model`)
 - rail: energy-modeling
 - Window-to-wall ratio, gridded glazing, louvers, and overhangs are owned operations; the geometry owner composes them rather than hand-cutting `Face3D` openings.
 
-| [INDEX] | [SURFACE]                                                                                                   | [CALL_SHAPE]       | [CAPABILITY]                               |
-| :-----: | :---------------------------------------------------------------------------------------------------------- | :----------------- | :----------------------------------------- |
-|  [01]   | `Face.apertures_by_ratio(ratio, tolerance)` / `apertures_by_ratio_gridded` / `apertures_by_ratio_rectangle` | WWR ratio          | generate windows to a window-to-wall ratio |
-|  [02]   | `Face.aperture_by_width_height` / `apertures_by_width_height_rectangle`                                     | width/height       | place a fixed-size window                  |
-|  [03]   | `Model.wall_apertures_by_ratio` / `Model.skylight_apertures_by_ratio`                                       | WWR/skylight ratio | model-wide aperture generation             |
-|  [04]   | `Face.louvers_by_count` / `louvers_by_distance_between` / `overhang`                                        | count/spacing      | generate louver/overhang shades on a face  |
-|  [05]   | `Room.generate_grid` / `Model.generate_exterior_aperture_grid`                                              | grid size          | sensor grids for daylight/radiance handoff |
+| [INDEX] | [SURFACE]                                                               | [CALL_SHAPE]       | [CAPABILITY]                       |
+| :-----: | :---------------------------------------------------------------------- | :----------------- | :--------------------------------- |
+|  [01]   | `Face.apertures_by_ratio(ratio, tolerance)`                             | WWR ratio          | windows to a window-to-wall ratio  |
+|  [02]   | `Face.apertures_by_ratio_gridded` / `apertures_by_ratio_rectangle`      | WWR ratio          | gridded / rectangular WWR variants |
+|  [03]   | `Face.aperture_by_width_height` / `apertures_by_width_height_rectangle` | width/height       | place a fixed-size window          |
+|  [04]   | `Model.wall_apertures_by_ratio` / `Model.skylight_apertures_by_ratio`   | WWR/skylight ratio | model-wide aperture generation     |
+|  [05]   | `Face.louvers_by_count` / `louvers_by_distance_between` / `overhang`    | count/spacing      | louver/overhang shades on a face   |
+|  [06]   | `Room.generate_grid` / `Model.generate_exterior_aperture_grid`          | grid size          | sensor grids for daylight handoff  |
 
 [ENTRYPOINT_SCOPE]: validation, vocabularies, and search
 - rail: energy-modeling
-- `check_all(detailed=True)` returns a list of error dicts (the `Result`-foldable shape); `validate` is the static JSON-report entry. Vocabulary singletons and helpers resolve types/conditions from geometry.
+- `check_all(detailed=True)` returns a list of error dicts (the `Result`-foldable shape); `validate` is the static JSON-report entry (defaulting `check_function='check_for_extension', check_args=None, json_output=False`). `get_type_from_normal` defaults `roof_angle=60, floor_angle=130`. The vocabulary/search helpers live under `honeybee.{facetype, boundarycondition, units, orientation, search, checkdup}` (prefix elided below). Vocabulary singletons and helpers resolve types/conditions from geometry.
 
-| [INDEX] | [SURFACE]                                                                                                                  | [CALL_SHAPE]             | [CAPABILITY]                                                                                                                                                                  |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------- | :----------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Model.check_all(raise_exception=True, detailed=False)`                                                                    | flags                    | run every geometric-validity check (solid, planar, self-intersecting, adjacency, sub-face validity, duplicate ids) plus each registered extension's `check_all` automatically |
-|  [02]   | `Model.validate(check_function='check_for_extension', check_args=None, json_output=False)`                                 | check selector           | static validation entry; `json_output=True` returns a structured error report                                                                                                 |
-|  [03]   | `Model.check_missing_adjacencies` / `check_rooms_solid` / `check_planar` / `check_self_intersecting` / `check_duplicate_*` | per-check                | the individual checks `check_all` folds                                                                                                                                       |
-|  [04]   | `honeybee.facetype.get_type_from_normal(normal_vector, roof_angle=60, floor_angle=130)`                                    | a normal vector          | classify a face type from its normal                                                                                                                                          |
-|  [05]   | `honeybee.boundarycondition.get_bc_from_position(positions, ground_depth=0)`                                               | face positions           | classify ground/outdoors from elevation                                                                                                                                       |
-|  [06]   | `honeybee.units.conversion_factor_to_meters` / `parse_distance_string`                                                     | units / `'0.15m'` string | unit conversion + distance-string parsing                                                                                                                                     |
-|  [07]   | `honeybee.orientation.angles_from_num_orient` / `orient_index` / `face_orient_index`                                       | subdivision count        | orientation binning for per-orientation parametrics                                                                                                                           |
-|  [08]   | `honeybee.search.filter_array_by_keywords` / `get_attr_nested`                                                             | keywords / dotted attr   | keyword filtering and nested-attribute extraction (drives `Room.group_by_attribute`)                                                                                          |
-|  [09]   | `honeybee.checkdup.check_duplicate_identifiers` / `is_equivalent`                                                          | object list              | duplicate-id detection; deep geometric equivalence                                                                                                                            |
+| [INDEX] | [SURFACE]                                                        | [CALL_SHAPE]      | [CAPABILITY]                                   |
+| :-----: | :--------------------------------------------------------------- | :---------------- | :--------------------------------------------- |
+|  [01]   | `Model.check_all(raise_exception=True, detailed=False)`          | flags             | every geometry check + extensions' `check_all` |
+|  [02]   | `Model.validate(check_function=..., json_output=False)`          | check selector    | static validation; `json_output=True` report   |
+|  [03]   | `Model.check_missing_adjacencies` / `check_rooms_solid`          | per-check         | individual checks `check_all` folds            |
+|  [04]   | `check_planar` / `check_self_intersecting` / `check_duplicate_*` | per-check         | more individual checks `check_all` folds       |
+|  [05]   | `facetype.get_type_from_normal(normal_vector, ...)`              | a normal vector   | classify a face type from its normal           |
+|  [06]   | `boundarycondition.get_bc_from_position(positions, ...)`         | face positions    | classify ground/outdoors from elevation        |
+|  [07]   | `units.conversion_factor_to_meters` / `parse_distance_string`    | units / `'0.15m'` | unit conversion + distance-string parsing      |
+|  [08]   | `orientation.angles_from_num_orient` / `orient_index`            | subdivision count | orientation binning for parametrics            |
+|  [09]   | `orientation.face_orient_index`                                  | face              | per-face orientation index                     |
+|  [10]   | `search.filter_array_by_keywords` / `get_attr_nested`            | keywords / attr   | keyword + nested-attribute filtering           |
+|  [11]   | `checkdup.check_duplicate_identifiers` / `is_equivalent`         | object list       | duplicate-id detection; geometric equivalence  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

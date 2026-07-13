@@ -175,14 +175,14 @@ public static class RetentionCatalog {
 }
 ```
 
-| [INDEX] | [POLICY]          | [VALUE]                                                   | [BINDING]                                                                                 |
-| :-----: | :---------------- | :-------------------------------------------------------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | class membership  | one of six closed `RetentionClass` rows                   | unfit artifact rejects, never defaults                                                    |
-|  [02]   | storage lane      | `StorageLane` row per class                               | sweep + delete route by lane, never a key string compare                                  |
-|  [03]   | sensitivity rank  | seam-local `RetentionCeiling` frozen table                | `DataClassification` carries no ordinal; rank lives here                                  |
-|  [04]   | identity scheme   | content-keyed vs name-plus-epoch (`Scheme.Identity` mint) | dedup/race-disposal vs versioned-replacement; name+epoch keys via kernel `ContentHash.Of` |
-|  [05]   | ceiling vs budget | ceiling rejects, budget truncates                         | security never degrades; capture succeeds degraded                                        |
-|  [06]   | stream class      | append-only, never evicted                                | the event SoR; only snapshots and blobs reclaim                                           |
+| [INDEX] | [POLICY]          | [VALUE]                                             | [BINDING]                                                |
+| :-----: | :---------------- | :-------------------------------------------------- | :------------------------------------------------------- |
+|  [01]   | class membership  | one of six closed `RetentionClass` rows             | unfit artifact rejects, never defaults                   |
+|  [02]   | storage lane      | `StorageLane` row per class                         | sweep/delete route by lane, not a key string compare     |
+|  [03]   | sensitivity rank  | seam-local `RetentionCeiling` frozen table          | `DataClassification` carries no ordinal; rank lives here |
+|  [04]   | identity scheme   | content-keyed vs name-plus-epoch, `Scheme.Identity` | dedup/race-disposal vs versioned-replacement             |
+|  [05]   | ceiling vs budget | ceiling rejects, budget truncates                   | security never degrades; capture succeeds degraded       |
+|  [06]   | stream class      | append-only, never evicted                          | the event SoR; only snapshots and blobs reclaim          |
 
 ## [03]-[SWEEP_AND_GC]
 
@@ -335,12 +335,12 @@ public static class RetentionSweep {
 }
 ```
 
-| [INDEX] | [POLICY]        | [VALUE]                                                                                                                                                         | [BINDING]                                                                                      |
-| :-----: | :-------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | sweep fold      | one state-threaded newest-first fold                                                                                                                            | pure verdict list; resumes by re-fold, no journal                                              |
-|  [02]   | declared order  | holds/fence → (collecting: reachable held) → (expires: declared-age) → (never-evict: orphan-collect \| cool, durable-gated) → age → count → size, keep newest-N | every stage reachable; both `LossPolicy` columns + `Collects` shield + `Lane.Durable` consumed |
-|  [03]   | reachability GC | mark over EVERY AS-OF cut                                                                                                                                       | full-history, never head; historical refs survive (`H10`)                                      |
-|  [04]   | one executor    | `Execute` (`evict` + `demote`)                                                                                                                                  | every lane + operator purge + cold-tier demotion routes through; receipt ledger                |
-|  [05]   | cold-tiering    | `Cool` demotes a never-evict artifact; `EvictOrphan` collects only never-referenced debris                                                                      | `RetentionCeiling.Demote` ladder over `StorageTier`; `H10` GC-forbidden alternative made real  |
-|  [06]   | holds           | first-class, late-bound, union                                                                                                                                  | a hold today protects tomorrow's admissions                                                    |
-|  [07]   | conservation    | `inventory = kept + held + cooled + evicted`                                                                                                                    | the run summary proves the partition closes                                                    |
+| [INDEX] | [POLICY]        | [VALUE]                                                   | [BINDING]                                                 |
+| :-----: | :-------------- | :-------------------------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | sweep fold      | state-threaded newest-first fold                          | pure verdict list; re-fold resumes, no journal            |
+|  [02]   | declared order  | holds-first → expires → never-evict → age/count/size      | both `LossPolicy` columns + `Collects` + `Lane.Durable`   |
+|  [03]   | reachability GC | mark over EVERY AS-OF cut                                 | full-history, never head; historical refs survive (`H10`) |
+|  [04]   | one executor    | `Execute` (`evict` + `demote`)                            | every lane, operator purge, demotion routes through       |
+|  [05]   | cold-tiering    | `Cool` demotes never-evict; `EvictOrphan` collects debris | `RetentionCeiling.Demote` ladder; `H10` made real         |
+|  [06]   | holds           | first-class, late-bound, union                            | a hold today protects tomorrow's admissions               |
+|  [07]   | conservation    | `inventory = kept + held + cooled + evicted`              | the run summary proves the partition closes               |

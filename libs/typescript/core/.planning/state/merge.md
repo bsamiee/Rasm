@@ -4,13 +4,15 @@ The one lawful merge owner of the branch and its law surface in one module: ever
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                        | [PUBLIC]                                                                              |
-| :-----: | :------------------ | :---------------------------------------------------------------------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `INSTANCE_CONTRACT` | the `Merge.Instance<A>` shape, posture vocabulary, order-derived equivalence  | `Merge.Posture`, `Merge.Instance`, `Merge.instance`                                   |
-|  [02]   | `INSTANCE_ROSTER`   | scalar, bounded, keyed, set, optional, product, and re-landing constructors   | `Merge.max/min/lattice/first/counter/flag/union/hashSet/hashMap/imap/optional/struct` |
-|  [03]   | `FOLD_ENTRY`        | the absence-honest fold, the lawful `Monoid` projection, the convergence read | `Merge.fold`, `Merge.monoid`, `Merge.convergent`                                      |
-|  [04]   | `LAW_SURFACE`       | obligation selection, per-law witnesses, replay commutation, fixture rows     | `Converge`, `Breach`                                                                  |
-|  [05]   | `MERGE_CELLS`       | the keyed transactional merge table with batch-atomic absorb and settle waits | `Merge.cell`                                                                          |
+The `[PUBLIC]` column drops the shared `Merge.` prefix; `Converge` and `Breach` spell whole.
+
+| [INDEX] | [CLUSTER]           | [OWNS]                          | [PUBLIC]                                                                        |
+| :-----: | :------------------ | :------------------------------ | :------------------------------------------------------------------------------ |
+|  [01]   | `INSTANCE_CONTRACT` | combine, posture, alike, empty  | `Posture`, `Instance`, `instance`                                               |
+|  [02]   | `INSTANCE_ROSTER`   | scalar, keyed, set, product     | `max/min/lattice/first/counter/flag/union/hashSet/hashMap/imap/optional/struct` |
+|  [03]   | `FOLD_ENTRY`        | fold, `Monoid` projection, gate | `fold`, `monoid`, `convergent`                                                  |
+|  [04]   | `LAW_SURFACE`       | obligations, witnesses, replay  | `Converge`, `Breach`                                                            |
+|  [05]   | `MERGE_CELLS`       | keyed transactional cell table  | `cell`                                                                          |
 
 ## [02]-[INSTANCE_CONTRACT]
 

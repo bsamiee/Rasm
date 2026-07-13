@@ -18,16 +18,24 @@
 
 The container hierarchy is four nested shapes, each generic over a `TypeMap`/`DataType`: `Table` (batched columns) → `RecordBatch` (one aligned column set) → `Vector` (one logical column, possibly chunked) → `Data` (the raw buffer tuple). `Schema`/`Field` carry the column names + logical types + metadata. `Vector.toArray()` is the zero-copy escape to the backing `TypedArray` the GPU binds; `getChild` walks nested (`Struct`/`List`) columns. Construction is factory functions, not constructors, so the buffer layout stays an implementation detail.
 
-| [INDEX] | [SYMBOL]                                                                             | [KIND]        | [CAPABILITY]                                                                                     |
-| :-----: | :----------------------------------------------------------------------------------- | :------------ | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `Table<T extends TypeMap>`                                                           | class         | batched columns; `.schema`/`.numRows`/`.numCols`/`.getChild(name)`/`.select`/`.slice`/`.batches` |
-|  [02]   | `RecordBatch<T>`                                                                     | class         | one aligned column set — the IPC unit and the layer's `data` grain                               |
-|  [03]   | `Vector<T extends DataType>`                                                         | class         | one column; `.get(i)`/`.toArray()` (zero-copy `T['TArray']`)/`.getChild`/`.nullCount`/`.data`    |
-|  [04]   | `Data<T>` / `makeData<T>(props)`                                                     | class/factory | the raw buffer tuple (validity/offsets/values/children)                                          |
-|  [05]   | `Schema<T>` / `Field<T>(name, type, nullable?, metadata?)`                           | class         | column names + logical types + `Map` metadata + dictionary registry                              |
-|  [06]   | `makeVector` / `vectorFromArray` / `makeTable` / `tableFromArrays` / `tableFromJSON` | factory       | build a `Vector`/`Table` from typed arrays, JS arrays, or column maps                            |
+| [INDEX] | [SYMBOL]                                                                             | [KIND]        |
+| :-----: | :----------------------------------------------------------------------------------- | :------------ |
+|  [01]   | `Table<T extends TypeMap>`                                                           | class         |
+|  [02]   | `RecordBatch<T>`                                                                     | class         |
+|  [03]   | `Vector<T extends DataType>`                                                         | class         |
+|  [04]   | `Data<T>` / `makeData<T>(props)`                                                     | class/factory |
+|  [05]   | `Schema<T>` / `Field<T>(name, type, nullable?, metadata?)`                           | class         |
+|  [06]   | `makeVector` / `vectorFromArray` / `makeTable` / `tableFromArrays` / `tableFromJSON` | factory       |
 
-```ts contract
+[CAPABILITY] per member:
+- [01]-[TABLE]: batched columns; `.schema`/`.numRows`/`.numCols`/`.getChild(name)`/`.select`/`.slice`/`.batches`.
+- [02]-[RECORD_BATCH]: one aligned column set — the IPC unit and the layer's `data` grain.
+- [03]-[VECTOR]: one column; `.get(i)`/`.toArray()` (zero-copy `T['TArray']`)/`.getChild`/`.nullCount`/`.data`.
+- [04]-[DATA]: the raw buffer tuple (validity/offsets/values/children).
+- [05]-[SCHEMA]: column names + logical types + `Map` metadata + dictionary registry.
+- [06]-[FACTORIES]: build a `Vector`/`Table` from typed arrays, JS arrays, or column maps.
+
+```ts signature
 declare class Table<T extends TypeMap = any> {
   constructor(schema: Schema<T>, data?: RecordBatch<T> | RecordBatch<T>[])
   readonly schema: Schema<T>; readonly batches: RecordBatch<T>[]
@@ -49,16 +57,24 @@ declare class Field<T extends DataType = any> { constructor(name: string, type: 
 
 The APPROACH-collapse spine: not 40 unrelated type/builder classes but ONE `Type` enum discriminating ONE `DataType` ADT, dispatched by ONE `Visitor`. Every per-type behavior — value get/set, comparison, builder, IPC buffer load — is a `visit<Type>` arm, so the `DataType` rows below are SEED members of a generated family, not the mechanism. A new logical type is a `DataType` subclass + a `Type` enum member + a visit arm; consumer code branches on `type.typeId` (the `Type` enum) or lets the visitor route.
 
-| [INDEX] | [SYMBOL]                                                                                          | [KIND]       | [CAPABILITY]                                                                                                                                 |
-| :-----: | :------------------------------------------------------------------------------------------------ | :----------- | :------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Type` (enum)                                                                                     | discriminant | `Null=1`/`Int=2`/`Float=3`/`Utf8=5`/`Bool=6`/`List=12`/`Struct=13`/`FixedSizeList=16`/`Map=17`/`Dictionary=-1`/… — `type.typeId`             |
-|  [02]   | `DataType` + subclasses                                                                           | ADT          | `Null`/`Bool`/`Int(8..64)`/`Float(16/32/64)`/`Utf8`/`Binary`/`Decimal`/`Date_`/`Time`/`Timestamp`/`Interval`/`Duration` — leaf logical types |
-|  [03]   | `List`/`FixedSizeList`/`Struct`/`Union`/`Map_`/`Dictionary`                                       | nested type  | the composite types GeoArrow geometry columns are built from                                                                                 |
-|  [04]   | `Visitor`                                                                                         | dispatcher   | `visit(node)` routes by `typeId` — get/set/builder/comparator base                                                                           |
-|  [05]   | `Builder<T>` / `makeBuilder` / `builderThroughIterable` / `builderThroughAsyncIterable`           | factory      | streaming column construction; one `<Type>Builder` per DataType via the visitor                                                              |
-|  [06]   | enums `DateUnit`/`TimeUnit`/`Precision`/`IntervalUnit`/`UnionMode`/`MetadataVersion`/`BufferType` | axis         | the parameter axes on the parameterized types (never subclass-per-unit)                                                                      |
+| [INDEX] | [SYMBOL]                                                                                          | [KIND]       |
+| :-----: | :------------------------------------------------------------------------------------------------ | :----------- |
+|  [01]   | `Type` (enum)                                                                                     | discriminant |
+|  [02]   | `DataType` + subclasses                                                                           | ADT          |
+|  [03]   | `List`/`FixedSizeList`/`Struct`/`Union`/`Map_`/`Dictionary`                                       | nested type  |
+|  [04]   | `Visitor`                                                                                         | dispatcher   |
+|  [05]   | `Builder<T>` / `makeBuilder` / `builderThroughIterable` / `builderThroughAsyncIterable`           | factory      |
+|  [06]   | enums `DateUnit`/`TimeUnit`/`Precision`/`IntervalUnit`/`UnionMode`/`MetadataVersion`/`BufferType` | axis         |
 
-```ts contract
+[CAPABILITY] per member:
+- [01]-[TYPE_ENUM]: `Null=1`/`Int=2`/`Float=3`/`Utf8=5`/`Bool=6`/`List=12`/`Struct=13`/`FixedSizeList=16`/`Map=17`/`Dictionary=-1`/… — `type.typeId`.
+- [02]-[DATATYPE]: `Null`/`Bool`/`Int(8..64)`/`Float(16/32/64)`/`Utf8`/`Binary`/`Decimal`/`Date_`/`Time`/`Timestamp`/`Interval`/`Duration` — leaf logical types.
+- [03]-[NESTED]: the composite types GeoArrow geometry columns are built from.
+- [04]-[VISITOR]: `visit(node)` routes by `typeId` — get/set/builder/comparator base.
+- [05]-[BUILDER]: streaming column construction; one `<Type>Builder` per DataType via the visitor.
+- [06]-[AXES]: the parameter axes on the parameterized types (never subclass-per-unit).
+
+```ts signature
 declare enum Type { Null = 1, Int = 2, Float = 3, Binary = 4, Utf8 = 5, Bool = 6, Decimal = 7, Date = 8, Time = 9, Timestamp = 10, List = 12, Struct = 13, Union = 14, FixedSizeBinary = 15, FixedSizeList = 16, Map = 17, Dictionary = -1 /* + Duration/Interval/… */ }
 // GeoArrow geometry columns ARE Arrow nested types — a point is a fixed 2/3-wide coordinate, a line/ring a variable list of them:
 //   Point     : FixedSizeList<Float64>[2|3]
@@ -72,14 +88,22 @@ declare function makeBuilder<T extends DataType>(options: BuilderOptions<T>): Bu
 
 The decode/encode boundary: `tableFromIPC` reads an Arrow IPC frame (file or stream format) into a `Table`, `tableToIPC` serializes one back, and `RecordBatchReader.from` is the streaming lane for incremental batches. All are overloaded on source shape — bytes decode synchronously, a `ReadableStream`/`Promise`/`fetch` `Response` decode asynchronously — so the same call covers a `Uint8Array` frame and a streamed body. Compression is a pluggable `compressionRegistry` keyed by `CompressionType` (LZ4/ZSTD), not a fork.
 
-| [INDEX] | [SYMBOL]                                                                                                 | [KIND]      | [CAPABILITY]                                                                 |
-| :-----: | :------------------------------------------------------------------------------------------------------- | :---------- | :--------------------------------------------------------------------------- |
-|  [01]   | `tableFromIPC<T>(source): Table<T> \| Promise<Table<T>>`                                                 | decode      | bytes → sync `Table`; stream/promise/`Response` → `Promise<Table>`           |
-|  [02]   | `tableToIPC<T>(table, type?: 'file' \| 'stream', compressionType?: CompressionType \| null): Uint8Array` | encode      | serialize a `Table` to an IPC frame, optionally compressed                   |
-|  [03]   | `RecordBatchReader.from(source)` / `RecordBatchFileReader` / `RecordBatchStreamReader` / `Async*`        | reader      | incremental `RecordBatch` stream; the file-vs-stream format is auto-detected |
-|  [04]   | `RecordBatchWriter` / `RecordBatchFileWriter` / `RecordBatchStreamWriter` / `RecordBatchJSONWriter`      | writer      | streaming encode; `.writeAll(table)` / `.toUint8Array()`                     |
-|  [05]   | `ByteStream` / `AsyncByteStream` / `AsyncByteQueue`                                                      | byte source | the sync/async byte adapters IPC readers consume                             |
-|  [06]   | `compressionRegistry` / `CompressionType`                                                                | codec table | pluggable IPC body compression (LZ4_FRAME/ZSTD) — a registry row             |
+| [INDEX] | [SYMBOL]                                                                                                 | [KIND]      |
+| :-----: | :------------------------------------------------------------------------------------------------------- | :---------- |
+|  [01]   | `tableFromIPC<T>(source): Table<T> \| Promise<Table<T>>`                                                 | decode      |
+|  [02]   | `tableToIPC<T>(table, type?: 'file' \| 'stream', compressionType?: CompressionType \| null): Uint8Array` | encode      |
+|  [03]   | `RecordBatchReader.from(source)` / `RecordBatchFileReader` / `RecordBatchStreamReader` / `Async*`        | reader      |
+|  [04]   | `RecordBatchWriter` / `RecordBatchFileWriter` / `RecordBatchStreamWriter` / `RecordBatchJSONWriter`      | writer      |
+|  [05]   | `ByteStream` / `AsyncByteStream` / `AsyncByteQueue`                                                      | byte source |
+|  [06]   | `compressionRegistry` / `CompressionType`                                                                | codec table |
+
+[CAPABILITY] per member:
+- [01]-[DECODE]: bytes → sync `Table`; stream/promise/`Response` → `Promise<Table>`.
+- [02]-[ENCODE]: serialize a `Table` to an IPC frame, optionally compressed.
+- [03]-[READER]: incremental `RecordBatch` stream; the file-vs-stream format is auto-detected.
+- [04]-[WRITER]: streaming encode; `.writeAll(table)` / `.toUint8Array()`.
+- [05]-[BYTE_SOURCE]: the sync/async byte adapters IPC readers consume.
+- [06]-[COMPRESSION]: pluggable IPC body compression (LZ4_FRAME/ZSTD) — a registry row.
 
 ## [05]-[STACKING]
 

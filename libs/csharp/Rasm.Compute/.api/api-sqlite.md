@@ -16,17 +16,17 @@
 [PUBLIC_TYPE_SCOPE]: the consumed read-rail types (ADO.NET `Db*` subclasses; every handle-owning type is `IDisposable`)
 - rail: energy-results
 
-| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     | [CAPABILITY]                                                                                    |
-| :-----: | :------------------------------ | :----------------- | :---------------------------------------------------------------------------------------------- |
-|  [01]   | `SqliteConnection`              | `DbConnection`     | opens the results file; `SqliteConnection(string?)` binds the string, `Open()` does the IO      |
-|  [02]   | `SqliteConnectionStringBuilder` | connection builder | typed keyword surface — `DataSource`/`Mode`/`Cache`/`Pooling`/`DefaultTimeout`/`Vfs`            |
-|  [03]   | `SqliteOpenMode`                | open enum          | `ReadWriteCreate`, `ReadWrite`, `ReadOnly`, `Memory`; `ReadOnly` maps to `SQLITE_OPEN_READONLY` |
-|  [04]   | `SqliteCommand`                 | `DbCommand`        | the parameterized SELECT carrier; `Prepare`/`ExecuteScalar`/`ExecuteReader`                     |
-|  [05]   | `SqliteParameterCollection`     | parameter store    | `AddWithValue` + typed `Add(name, SqliteType)`; binds `@`/`$`/`:`-prefixed placeholders         |
-|  [06]   | `SqliteParameter`               | `DbParameter`      | one bind; `SqliteType` pins the storage class when inference must not decide                    |
-|  [07]   | `SqliteType`                    | type enum          | `Integer`/`Real`/`Text`/`Blob`; a string value binds `Text` deterministically                   |
-|  [08]   | `SqliteDataReader`              | `DbDataReader`     | row folds; `Read`/`GetOrdinal`/typed getters/`GetValue`/`IsDBNull`/`GetSchemaTable`             |
-|  [09]   | `SqliteException`               | `DbException`      | provider failure with `SqliteErrorCode` + `SqliteExtendedErrorCode`                             |
+| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     | [CAPABILITY]                                                             |
+| :-----: | :------------------------------ | :----------------- | :----------------------------------------------------------------------- |
+|  [01]   | `SqliteConnection`              | `DbConnection`     | opens the results file; ctor binds the string, `Open()` does the IO      |
+|  [02]   | `SqliteConnectionStringBuilder` | connection builder | keywords: `DataSource`/`Mode`/`Cache`/`Pooling`/`DefaultTimeout`/`Vfs`   |
+|  [03]   | `SqliteOpenMode`                | open enum          | `ReadWriteCreate`, `ReadWrite`, `ReadOnly`, `Memory`                     |
+|  [04]   | `SqliteCommand`                 | `DbCommand`        | parameterized SELECT carrier; `Prepare`/`ExecuteScalar`/`ExecuteReader`  |
+|  [05]   | `SqliteParameterCollection`     | parameter store    | `AddWithValue` + typed `Add(name, SqliteType)`; `@`/`$`/`:` placeholders |
+|  [06]   | `SqliteParameter`               | `DbParameter`      | one bind; `SqliteType` pins the storage class over inference             |
+|  [07]   | `SqliteType`                    | type enum          | `Integer`/`Real`/`Text`/`Blob`; a string binds `Text` deterministically  |
+|  [08]   | `SqliteDataReader`              | `DbDataReader`     | row folds; `Read`/`GetOrdinal`/typed getters/`GetValue`/`IsDBNull`       |
+|  [09]   | `SqliteException`               | `DbException`      | provider failure with `SqliteErrorCode` + `SqliteExtendedErrorCode`      |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -34,43 +34,63 @@
 - rail: energy-results
 - composition law: `Analysis/energy#SUBPROCESS_RESULTS`'s `TabularFacts(sqlPath)` opens `new SqliteConnection($"Data Source={sqlPath};Mode=ReadOnly;")` inside `using`, folds every tabular row over the one open handle, and disposes with the bracket — the solver's file takes no write lock and is never created or mutated
 
-| [INDEX] | [SURFACE]                                                    | [CALL_SHAPE]       | [CAPABILITY]                                                                                                                                                  |
-| :-----: | :----------------------------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `new SqliteConnection(string? connectionString)`             | ctor               | binds the string; zero IO until `Open()`                                                                                                                      |
-|  [02]   | `Open()` / `Close()` / `Dispose()`                           | lifecycle          | `sqlite3_open_v2` under the resolved flags; a missing file under `Mode=ReadOnly` throws `SqliteException` (error 14, `unable to open database file`)          |
-|  [03]   | `Mode=ReadOnly`                                              | keyword            | `SQLITE_OPEN_READONLY`; the default `ReadWriteCreate` would CREATE a missing path — a silent empty database where the fold expects a failure                  |
-|  [04]   | `Data Source=file:{path}?immutable=1`                        | keyword (URI)      | a `file:`-prefixed source arms `SQLITE_OPEN_URI`; `immutable=1` skips locking and change detection over a sealed post-run artifact                            |
-|  [05]   | `Pooling=False`                                              | keyword            | pooling defaults ON keyed by exact string; a scratch-artifact read disables it so the physical handle dies with the bracket                                   |
-|  [06]   | `SqliteConnection.ClearPool(connection)` / `ClearAllPools()` | static call        | evicts pooled physical handles before the data source is deleted — a pooled handle otherwise outlives the bracket until the prune timer's first pass at 4 min |
-|  [07]   | `Default Timeout` / `DefaultTimeout`                         | keyword / property | busy-timeout seconds (default 30) — irrelevant under `immutable=1`, load-bearing when the artifact is read while EnergyPlus still holds it                    |
+| [INDEX] | [SURFACE]                                                    | [CALL_SHAPE]       | [CAPABILITY]                                  |
+| :-----: | :----------------------------------------------------------- | :----------------- | :-------------------------------------------- |
+|  [01]   | `new SqliteConnection(string? connectionString)`             | ctor               | binds the string; zero IO until `Open()`      |
+|  [02]   | `Open()` / `Close()` / `Dispose()`                           | lifecycle          | `sqlite3_open_v2` under the resolved flags    |
+|  [03]   | `Mode=ReadOnly`                                              | keyword            | `SQLITE_OPEN_READONLY` — the loud-fail floor  |
+|  [04]   | `Data Source=file:{path}?immutable=1`                        | keyword (URI)      | `SQLITE_OPEN_URI` + `immutable=1` sealed read |
+|  [05]   | `Pooling=False`                                              | keyword            | disables default-ON pooling                   |
+|  [06]   | `SqliteConnection.ClearPool(connection)` / `ClearAllPools()` | static call        | evicts pooled physical handles                |
+|  [07]   | `Default Timeout` / `DefaultTimeout`                         | keyword / property | busy-timeout seconds (default 30)             |
+
+- [02]-[OPEN]: a missing file under `Mode=ReadOnly` throws `SqliteException` (error 14, `unable to open database file`).
+- [03]-[READONLY]: the default `ReadWriteCreate` creates a missing path instead of failing — a silent empty database where the fold expects a failure.
+- [04]-[IMMUTABLE]: a `file:`-prefixed source arms `SQLITE_OPEN_URI`; `immutable=1` skips locking and change detection over a sealed post-run artifact.
+- [05]-[POOLING]: pooling defaults ON keyed by exact string; a scratch-artifact read disables it so the physical handle dies with the bracket.
+- [06]-[CLEARPOOL]: a pooled handle otherwise outlives the bracket until the prune timer's first pass at 4 min, so eviction runs before the data source is deleted.
+- [07]-[TIMEOUT]: irrelevant under `immutable=1`, load-bearing when the artifact is read while EnergyPlus still holds it.
 
 [ENTRYPOINT_SCOPE]: the parameterized tabular query — `SqliteCommand` + binds
 - rail: energy-results
 - composition law: `Tabular(connection, report, table, row)` is the ONE query family — `SELECT Value FROM TabularDataWithStrings WHERE ReportName = $report AND TableName = $table AND RowName = $row LIMIT 1`, with `ColumnName` the fourth predicate when a table carries more than one column — never a per-metric method ladder
 
-| [INDEX] | [SURFACE]                                                     | [CALL_SHAPE]   | [CAPABILITY]                                                                                                                                     |
-| :-----: | :------------------------------------------------------------ | :------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `connection.CreateCommand()`                                  | factory call   | returns `SqliteCommand` pre-bound to the connection                                                                                              |
-|  [02]   | `command.CommandText`                                         | property       | the SQL; placeholders carry a `@`/`$`/`:` prefix                                                                                                 |
-|  [03]   | `command.Parameters.AddWithValue(string?, object?)`           | bind call      | infers the storage class from the CLR value — a `string` binds `SqliteType.Text`, exactly what the string-keyed report/table/row predicates need |
-|  [04]   | `command.Parameters.Add(string?, SqliteType)`                 | bind call      | pins the storage class explicitly; the route when the value type must not decide                                                                 |
-|  [05]   | `command.Prepare()`                                           | statement call | precompiles into the command's statement cache; pays off when one command re-executes across rebound parameters                                  |
-|  [06]   | `command.ExecuteScalar()`                                     | execute call   | first column of the first row, `null` when the result is empty — `Optional(...)` absorbs both absence shapes onto the `Option` rail              |
-|  [07]   | `command.ExecuteReader()` / `ExecuteReader(CommandBehavior)`  | execute call   | multi-row folds — the route when a whole table (per-zone rows) folds instead of one scalar                                                       |
-|  [08]   | `SqliteException.SqliteErrorCode` / `SqliteExtendedErrorCode` | failure read   | the numeric provider codes a `(Extraction, Foreign)` `ComputeFault.AnalysisFailed` row carries when the artifact is corrupt                      |
+| [INDEX] | [SURFACE]                                                     | [CALL_SHAPE]   | [CAPABILITY]                                    |
+| :-----: | :------------------------------------------------------------ | :------------- | :---------------------------------------------- |
+|  [01]   | `connection.CreateCommand()`                                  | factory call   | returns `SqliteCommand` bound to the connection |
+|  [02]   | `command.CommandText`                                         | property       | the SQL; `@`/`$`/`:`-prefixed placeholders      |
+|  [03]   | `command.Parameters.AddWithValue(string?, object?)`           | bind call      | infers the storage class from the CLR value     |
+|  [04]   | `command.Parameters.Add(string?, SqliteType)`                 | bind call      | pins the storage class explicitly               |
+|  [05]   | `command.Prepare()`                                           | statement call | precompiles into the statement cache            |
+|  [06]   | `command.ExecuteScalar()`                                     | execute call   | first cell, `null` on empty → `Option` rail     |
+|  [07]   | `command.ExecuteReader()` / `ExecuteReader(CommandBehavior)`  | execute call   | multi-row folds                                 |
+|  [08]   | `SqliteException.SqliteErrorCode` / `SqliteExtendedErrorCode` | failure read   | numeric provider codes for the fault row        |
+
+- [03]-[INFER]: a `string` binds `SqliteType.Text`, exactly what the string-keyed report/table/row predicates need.
+- [04]-[PIN]: the route when the value type must not decide.
+- [05]-[PREPARE]: pays off when one command re-executes across rebound parameters.
+- [06]-[SCALAR]: `Optional(...)` absorbs both absence shapes (empty result, SQL `null`) onto the `Option` rail.
+- [07]-[READER]: the route when a whole table (per-zone rows) folds instead of one scalar.
+- [08]-[ERRORCODE]: the codes a `(Extraction, Foreign)` `ComputeFault.AnalysisFailed` row carries when the artifact is corrupt.
 
 [ENTRYPOINT_SCOPE]: reader folds and schema probes — `SqliteDataReader`
 - rail: energy-results
 
-| [INDEX] | [SURFACE]                                                                                       | [CALL_SHAPE]   | [CAPABILITY]                                                                                                                                             |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `reader.Read()` / `NextResult()` / `HasRows`                                                    | row fold       | row advance over one result; statement advance across batched statements                                                                                 |
-|  [02]   | `reader.GetOrdinal(string)` / `GetName(int)`                                                    | column resolve | name→ordinal once per fold, ordinal reads thereafter                                                                                                     |
-|  [03]   | `reader.GetValue(int)` / `GetString(int)`                                                       | value read     | the storage-class-mapped object — `TabularDataWithStrings.Value` is TEXT, so the fold reads the string and parses invariant `double.TryParse`            |
-|  [04]   | `reader.GetDouble(int)` / `GetInt64(int)`                                                       | value read     | `sqlite3_column_double`/`_int64` COERCE — non-numeric TEXT reads as `0.0` silently, the fabricated-zero shape the invariant-parse route exists to reject |
-|  [05]   | `reader.GetFieldValue<T>(int)` / `IsDBNull(int)`                                                | value read     | generic typed read; null guard before any typed getter                                                                                                   |
-|  [06]   | `reader.GetSchemaTable()` / `GetDataTypeName(int)` / `GetFieldType(int)`                        | result schema  | declared-type metadata for the open result set                                                                                                           |
-|  [07]   | `SELECT name FROM sqlite_master WHERE type='table'` / `SELECT * FROM pragma_table_info($table)` | SQL probe      | database-level introspection — `GetSchema` surfaces only `MetaDataCollections` and `ReservedWords`, so table/column probes are SQL                       |
+| [INDEX] | [SURFACE]                                                                | [CALL_SHAPE]   | [CAPABILITY]                                |
+| :-----: | :----------------------------------------------------------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `reader.Read()` / `NextResult()` / `HasRows`                             | row fold       | row + statement advance                     |
+|  [02]   | `reader.GetOrdinal(string)` / `GetName(int)`                             | column resolve | name→ordinal once, ordinal reads after      |
+|  [03]   | `reader.GetValue(int)` / `GetString(int)`                                | value read     | reads the TEXT `Value` for invariant parse  |
+|  [04]   | `reader.GetDouble(int)` / `GetInt64(int)`                                | value read     | coercing getters — the fabricated-zero trap |
+|  [05]   | `reader.GetFieldValue<T>(int)` / `IsDBNull(int)`                         | value read     | generic typed read + null guard             |
+|  [06]   | `reader.GetSchemaTable()` / `GetDataTypeName(int)` / `GetFieldType(int)` | result schema  | declared-type result metadata               |
+|  [07]   | `SELECT name FROM sqlite_master WHERE type='table'`                      | SQL probe      | table listing                               |
+|  [08]   | `SELECT * FROM pragma_table_info($table)`                                | SQL probe      | column listing                              |
+
+- [01]-[ADVANCE]: `Read()` advances rows over one result; `NextResult()` advances across batched statements.
+- [03]-[TEXTVALUE]: `TabularDataWithStrings.Value` is TEXT, so the fold reads the string and parses invariant `double.TryParse`.
+- [04]-[COERCE]: `sqlite3_column_double`/`_int64` coerce non-numeric TEXT to `0.0` silently — the fabricated-zero shape the invariant-parse route rejects.
+- [07]-[INTROSPECT]: `GetSchema` surfaces only `MetaDataCollections` and `ReservedWords`, so table/column probes run as SQL.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

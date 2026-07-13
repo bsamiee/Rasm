@@ -37,80 +37,108 @@
 - rail: field-dataset
 - members carry across `DataArray` and `Dataset` except where noted
 
-| [INDEX] | [MEMBER_FAMILY] | [MEMBERS]                                                                                                                                                  |
-| :-----: | :-------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | selection       | `sel`, `isel`, `loc`, `drop_sel`, `drop_isel`, `drop_vars`, `head`, `tail`, `thin`, `where`, `query`                                                       |
-|  [02]   | structure       | `dims`, `coords`, `sizes`, `attrs`, `encoding`, `assign`, `assign_coords`, `assign_attrs`, `rename`, `swap_dims`, `set_index`, `reset_index`, `set_xindex` |
-|  [03]   | reshape         | `stack`, `unstack`, `to_stacked_array`, `transpose`, `expand_dims`, `squeeze`, `broadcast_like`, `pad`, `shift`, `roll`, `sortby`                          |
-|  [04]   | grouping        | `groupby`, `groupby_bins`, `resample`, `rolling`, `rolling_exp`, `coarsen`, `weighted`, `cumulative`                                                       |
-|  [05]   | reduction       | `mean`, `sum`, `std`, `var`, `min`, `max`, `median`, `quantile`, `count`, `prod`, `cumsum`, `cumprod`, `all`, `any`, `reduce`                              |
-|  [06]   | arg-reduction   | `idxmax`, `idxmin`, `argmax`, `argmin`, `argsort`, `rank`, `dot`, `cumulative_integrate`                                                                   |
-|  [07]   | alignment       | `reindex`, `reindex_like`, `interp`, `interp_like`, `interpolate_na`, `ffill`, `bfill`, `fillna`, `dropna`, `combine_first`                                |
-|  [08]   | fit/calculus    | `polyfit`, `polyval`, `curvefit`, `integrate`, `differentiate`, `diff`                                                                                     |
-|  [09]   | chunking        | `chunk`, `chunks`, `chunksizes`, `compute`, `persist`, `load`, `unify_chunks`, `map_blocks`, `as_numpy`                                                    |
-|  [10]   | egress          | `to_netcdf`, `to_zarr`, `to_pandas`, `to_dataframe`, `to_dask_dataframe`, `to_numpy`, `to_dict`, `to_dataset` (DataArray), `to_dataarray` (Dataset)        |
+| [INDEX] | [MEMBER_FAMILY] | [MEMBERS]                                                                                               |
+| :-----: | :-------------- | :------------------------------------------------------------------------------------------------------ |
+|  [01]   | selection       | `sel`, `isel`, `loc`, `drop_sel`, `drop_isel`, `drop_vars`, `head`, `tail`, `thin`, `where`, `query`    |
+|  [02]   | structure-a     | `dims`, `coords`, `sizes`, `attrs`, `encoding`, `assign`, `assign_coords`, `assign_attrs`               |
+|  [03]   | structure-b     | `rename`, `swap_dims`, `set_index`, `reset_index`, `set_xindex`                                         |
+|  [04]   | reshape-a       | `stack`, `unstack`, `to_stacked_array`, `transpose`, `expand_dims`, `squeeze`                           |
+|  [05]   | reshape-b       | `broadcast_like`, `pad`, `shift`, `roll`, `sortby`                                                      |
+|  [06]   | grouping        | `groupby`, `groupby_bins`, `resample`, `rolling`, `rolling_exp`, `coarsen`, `weighted`, `cumulative`    |
+|  [07]   | reduction-a     | `mean`, `sum`, `std`, `var`, `min`, `max`, `median`, `quantile`                                         |
+|  [08]   | reduction-b     | `count`, `prod`, `cumsum`, `cumprod`, `all`, `any`, `reduce`                                            |
+|  [09]   | arg-reduction   | `idxmax`, `idxmin`, `argmax`, `argmin`, `argsort`, `rank`, `dot`, `cumulative_integrate`                |
+|  [10]   | alignment-a     | `reindex`, `reindex_like`, `interp`, `interp_like`, `interpolate_na`                                    |
+|  [11]   | alignment-b     | `ffill`, `bfill`, `fillna`, `dropna`, `combine_first`                                                   |
+|  [12]   | fit/calculus    | `polyfit`, `polyval`, `curvefit`, `integrate`, `differentiate`, `diff`                                  |
+|  [13]   | chunking        | `chunk`, `chunks`, `chunksizes`, `compute`, `persist`, `load`, `unify_chunks`, `map_blocks`, `as_numpy` |
+|  [14]   | egress-a        | `to_netcdf`, `to_zarr`, `to_pandas`, `to_dataframe`, `to_dask_dataframe`, `to_numpy`                    |
+|  [15]   | egress-b        | `to_dict`, `to_dataset` (DataArray), `to_dataarray` (Dataset)                                           |
 
 [PUBLIC_TYPE_SCOPE]: computed accessors and registration
 - rail: field-dataset
 
 `obj.dt`/`obj.str` materialize only for the matching dtype; `register_dataarray_accessor`/`register_dataset_accessor`/`register_datatree_accessor` are the class decorators that bind a custom namespace (e.g. `ds.rio` from rioxarray). The grouped/rolling/etc. members in `[04]` return reduction *objects* (`DataArrayRolling`, `DatasetCoarsen`, `Weighted`, `DataArrayResample`, `GroupBy`) carrying their own `.mean`/`.sum`/`.reduce`/`.construct`/`.map` surface.
 
-| [INDEX] | [ACCESSOR]            | [MEMBERS]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| :-----: | :-------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `.dt` (datetime)      | `year`, `month`, `day`, `hour`, `minute`, `second`, `microsecond`, `nanosecond`, `dayofweek`/`weekday`, `dayofyear`, `weekofyear`/`week`, `quarter`, `season`, `days_in_month`/`daysinmonth`, `days_in_year`, `decimal_year`, `is_month_start`/`is_month_end`, `is_quarter_start`/`is_quarter_end`, `is_year_start`/`is_year_end`, `is_leap_year`, `calendar`, `time`, `date`, `isocalendar()`, `strftime()`, `floor()`, `ceil()`, `round()`                                                                                                                                 |
-|  [02]   | `.dt` (timedelta)     | `days`, `seconds`, `microseconds`, `nanoseconds`, `total_seconds()`, `floor()`, `ceil()`, `round()`                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-|  [03]   | `.str` (string)       | `len`, `get`, `slice`, `slice_replace`, `cat`, `join`, `contains`, `match`, `startswith`, `endswith`, `find`/`rfind`/`index`/`rindex`, `replace`, `count`, `extract`, `extractall`, `findall`, `split`/`rsplit`, `partition`/`rpartition`, `pad`/`center`/`ljust`/`rjust`/`zfill`, `wrap`, `strip`/`lstrip`/`rstrip`, `lower`/`upper`/`title`/`capitalize`/`swapcase`/`casefold`, `normalize`, `translate`, `repeat`, `get_dummies`, `decode`/`encode`, the `is*` predicates (`isalnum`/`isalpha`/`isdigit`/`isspace`/`isupper`/`islower`/`istitle`/`isnumeric`/`isdecimal`) |
-|  [04]   | `.plot` (matplotlib)  | `line`, `step`, `hist`, `pcolormesh`, `contour`, `contourf`, `imshow`, `surface`, `scatter`, `quiver`, `streamplot`, `facetgrid`                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-|  [05]   | `register_*_accessor` | `register_dataarray_accessor(name)`, `register_dataset_accessor(name)`, `register_datatree_accessor(name)` class decorators                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| [INDEX] | [ACCESSOR]            | [MEMBERS]                                                                                                 |
+| :-----: | :-------------------- | :-------------------------------------------------------------------------------------------------------- |
+|  [01]   | `.dt` (datetime)      | time-component reads and rounders — full roster in the `.dt` fence below                                  |
+|  [02]   | `.dt` (timedelta)     | `days`, `seconds`, `microseconds`, `nanoseconds`, `total_seconds()`, `floor()`, `ceil()`, `round()`       |
+|  [03]   | `.str` (string)       | vectorized string ops — full roster in the `.str` fence below                                             |
+|  [04]   | `.plot` (matplotlib)  | matplotlib chart methods — full roster in the `.plot` fence below                                         |
+|  [05]   | `register_*_accessor` | `register_dataarray_accessor`, `register_dataset_accessor`, `register_datatree_accessor` class decorators |
+
+```text
+.dt (datetime64) — time-component reads and rounders
+year month day hour minute second microsecond nanosecond dayofweek/weekday dayofyear
+weekofyear/week quarter season days_in_month/daysinmonth days_in_year decimal_year
+is_month_start/is_month_end is_quarter_start/is_quarter_end is_year_start/is_year_end
+is_leap_year calendar time date isocalendar() strftime() floor() ceil() round()
+
+.str (string) — vectorized string ops; the is* predicate tail is a closed set
+len get slice slice_replace cat join contains match startswith endswith
+find/rfind/index/rindex replace count extract extractall findall split/rsplit
+partition/rpartition pad/center/ljust/rjust/zfill wrap strip/lstrip/rstrip
+lower/upper/title/capitalize/swapcase/casefold normalize translate repeat get_dummies decode/encode
+isalnum isalpha isdigit isspace isupper islower istitle isnumeric isdecimal
+
+.plot (matplotlib)
+line step hist pcolormesh contour contourf imshow surface scatter quiver streamplot facetgrid
+```
 
 [PUBLIC_TYPE_SCOPE]: grouper objects (`xarray.groupers`)
 - rail: field-dataset
 - `groupby`/`resample` accept an explicit `Grouper` instance keyed by dimension (`ds.groupby(time=TimeResampler(freq="1D"))`, the `FieldSelection` resample arm constructing one) instead of a magic `freq=`/`bins=` string shorthand; bound function-local under `# noqa: PLC0415` like every other `xarray` import.
 
-| [INDEX] | [SYMBOL]                                                                                                    | [TYPE_FAMILY]    | [RAIL]                                                                                              |
-| :-----: | :---------------------------------------------------------------------------------------------------------- | :--------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `groupers.TimeResampler(freq, closed=None, label=None, origin='start_day', offset=None)`                    | time resampler   | calendar/offset resample grouper passed to `groupby`/`resample` (the `FieldSelection` resample arm) |
-|  [02]   | `groupers.UniqueGrouper(labels=None)`                                                                       | category grouper | group-by-unique-value grouper (the explicit `groupby(name)` lowering)                               |
-|  [03]   | `groupers.BinGrouper(bins, right=True, labels=None, precision=3, include_lowest=False, duplicates='raise')` | bin grouper      | histogram-bin grouper (the explicit `groupby_bins` form)                                            |
+| [INDEX] | [SYMBOL]                                                                                                    | [RAIL]                    |
+| :-----: | :---------------------------------------------------------------------------------------------------------- | :------------------------ |
+|  [01]   | `groupers.TimeResampler(freq, closed=None, label=None, origin='start_day', offset=None)`                    | calendar/offset resampler |
+|  [02]   | `groupers.UniqueGrouper(labels=None)`                                                                       | unique-value grouper      |
+|  [03]   | `groupers.BinGrouper(bins, right=True, labels=None, precision=3, include_lowest=False, duplicates='raise')` | histogram-bin grouper     |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: IO and construction
 - rail: field-dataset
 
-`open_dataset`/`open_dataarray` carry `engine`, `chunks`, `decode_cf`, `mask_and_scale`, `decode_times`, `drop_variables`, and `backend_kwargs`; `to_netcdf`/`to_zarr` carry per-variable `encoding` (compression, chunking, `_FillValue`, dtype) that the netcdf4/zarr engine applies.
+Every `open_*` read carries `engine`, `chunks`, `decode_cf`, `mask_and_scale`, `decode_times`, `drop_variables`, and `backend_kwargs`; `open_mfdataset` adds `concat_dim`/`combine`/`compat`/`preprocess`/`parallel`/`join`; `open_zarr` adds `group`/`consolidated`. `to_netcdf`/`to_zarr` carry per-variable `encoding` (compression, chunking, `_FillValue`, dtype) the netcdf4/zarr engine applies.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                | [FAMILY]     | [RETURNS]                         |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------- | :-------------------------------- |
-|  [01]   | `open_dataset(filename_or_obj, *, engine=None, chunks=None, decode_cf=True, mask_and_scale=None, decode_times=True, drop_variables=None, backend_kwargs=None, **kwargs)` | IO           | `Dataset`                         |
-|  [02]   | `open_dataarray(filename_or_obj, *, engine=None, chunks=None, ...)`                                                                                                      | IO           | `DataArray`                       |
-|  [03]   | `open_mfdataset(paths, *, chunks=None, concat_dim=None, combine='by_coords', compat='no_conflicts', preprocess=None, parallel=False, join='outer', engine=None)`         | IO           | `Dataset`                         |
-|  [04]   | `open_zarr(store, *, group=None, chunks='auto', decode_cf=True, consolidated=None, **kwargs)`                                                                            | IO           | `Dataset`                         |
-|  [05]   | `open_datatree(filename_or_obj, *, engine=None, **kwargs)` / `open_groups(filename_or_obj, *, engine=None, **kwargs)`                                                    | IO           | `DataTree` / `dict[str, Dataset]` |
-|  [06]   | `load_dataset(filename_or_obj)` / `load_dataarray(filename_or_obj)` / `load_datatree(filename_or_obj)`                                                                   | IO           | eager value                       |
-|  [07]   | `save_mfdataset(datasets, paths, mode='w', **kwargs)`                                                                                                                    | IO           | `None`                            |
-|  [08]   | `decode_cf(obj, *, decode_times=True, mask_and_scale=True, decode_coords=True)`                                                                                          | construction | `Dataset`                         |
-|  [09]   | `show_versions()` / `set_options(**kwargs)` / `get_options()`                                                                                                            | config       | versions / options                |
+| [INDEX] | [SURFACE]                                                                       | [FAMILY]     | [RETURNS]                         |
+| :-----: | :------------------------------------------------------------------------------ | :----------- | :-------------------------------- |
+|  [01]   | `open_dataset(filename_or_obj, *, engine, chunks, ...)`                         | IO           | `Dataset`                         |
+|  [02]   | `open_dataarray(filename_or_obj, *, engine, chunks, ...)`                       | IO           | `DataArray`                       |
+|  [03]   | `open_mfdataset(paths, *, combine='by_coords', ...)`                            | IO           | `Dataset`                         |
+|  [04]   | `open_zarr(store, *, group=None, consolidated=None, ...)`                       | IO           | `Dataset`                         |
+|  [05]   | `open_datatree(...)` / `open_groups(...)`                                       | IO           | `DataTree` / `dict[str, Dataset]` |
+|  [06]   | `load_dataset(...)` / `load_dataarray(...)` / `load_datatree(...)`              | IO           | eager value                       |
+|  [07]   | `save_mfdataset(datasets, paths, mode='w', **kwargs)`                           | IO           | `None`                            |
+|  [08]   | `decode_cf(obj, *, decode_times=True, mask_and_scale=True, decode_coords=True)` | construction | `Dataset`                         |
+|  [09]   | `show_versions()` / `set_options(**kwargs)` / `get_options()`                   | config       | versions / options                |
 
 [ENTRYPOINT_SCOPE]: combination, computation, and tree
 - rail: field-dataset
 
-| [INDEX] | [SURFACE]                                                                                                                                                                  | [FAMILY]     | [RETURNS]                 |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------- | :------------------------ |
-|  [01]   | `concat(objs, dim, *, data_vars='all', coords='different', compat='equals', join='outer')`                                                                                 | combine      | `Dataset`/`DataArray`     |
-|  [02]   | `merge(objects, *, compat='no_conflicts', join='outer', fill_value=<NA>, combine_attrs='drop')`                                                                            | combine      | `Dataset`                 |
-|  [03]   | `combine_by_coords(data_objects, *, compat=..., data_vars=..., coords=..., join=...)`                                                                                      | combine      | `Dataset`/`DataArray`     |
-|  [04]   | `combine_nested(datasets, concat_dim, *, compat=..., data_vars=..., coords=...)`                                                                                           | combine      | `Dataset`/`DataTree`      |
-|  [05]   | `align(*objects, join='inner', copy=True, fill_value=<NA>, exclude=...)` / `broadcast(*args, exclude=None)`                                                                | align        | aligned / broadcast tuple |
-|  [06]   | `apply_ufunc(func, *args, input_core_dims=None, output_core_dims=((),), exclude_dims=..., vectorize=False, dask='forbidden', output_dtypes=None, dask_gufunc_kwargs=None)` | compute      | wrapped result            |
-|  [07]   | `dot(*arrays, dim=None)` / `cross(a, b, *, dim)` / `polyval(coord, coeffs, *, degree_dim='degree')`                                                                        | compute      | `DataArray`/`Variable`    |
-|  [08]   | `corr(da_a, da_b, *, dim=None, weights=None)` / `cov(da_a, da_b, *, dim=None, ddof=1, weights=None)`                                                                       | compute      | `DataArray`               |
-|  [09]   | `where(cond, x, y, *, keep_attrs=None)`                                                                                                                                    | compute      | `Dataset`/`DataArray`     |
-|  [10]   | `map_blocks(func, obj, args=(), kwargs=None, template=None)` / `unify_chunks(*objects)`                                                                                    | dask/cubed   | `Dataset`/`DataArray`     |
-|  [11]   | `full_like(other, fill_value, ...)` / `ones_like(other, ...)` / `zeros_like(other, ...)`                                                                                   | construction | like-shaped array         |
-|  [12]   | `map_over_datasets(func, *args, kwargs=None)` / `group_subtrees(*trees)`                                                                                                   | tree         | `DataTree` / iterator     |
-|  [13]   | `date_range(start, end, periods, freq, calendar='standard', use_cftime=None)` / `date_range_like(source, calendar)` / `cftime_range(...)` / `infer_freq(index)`            | time         | index or freq             |
-|  [14]   | `as_variable(obj, name=None)`                                                                                                                                              | construction | `Variable`                |
+Every combine surface carries `compat`/`join` conflict-resolution knobs and the `data_vars`/`coords` selectors; the cells below keep only the distinguishing arguments.
+
+| [INDEX] | [SURFACE]                                                                                  | [FAMILY]     | [RETURNS]              |
+| :-----: | :----------------------------------------------------------------------------------------- | :----------- | :--------------------- |
+|  [01]   | `concat(objs, dim, *, data_vars='all', coords='different', compat='equals', join='outer')` | combine      | `Dataset`/`DataArray`  |
+|  [02]   | `merge(objects, *, fill_value=<NA>, combine_attrs='drop', ...)`                            | combine      | `Dataset`              |
+|  [03]   | `combine_by_coords(data_objects, *, ...)`                                                  | combine      | `Dataset`/`DataArray`  |
+|  [04]   | `combine_nested(datasets, concat_dim, *, ...)`                                             | combine      | `Dataset`/`DataTree`   |
+|  [05]   | `align(*objects, join='inner', fill_value=<NA>, ...)` / `broadcast(*args, exclude=None)`   | align        | aligned/broadcast      |
+|  [06]   | `apply_ufunc(func, *args, input_core_dims, output_core_dims, vectorize, dask='forbidden')` | compute      | wrapped result         |
+|  [07]   | `dot(*arrays, dim=None)` / `cross(a, b, *, dim)`                                           | compute      | `DataArray`/`Variable` |
+|  [08]   | `polyval(coord, coeffs, *, degree_dim='degree')`                                           | compute      | `DataArray`            |
+|  [09]   | `corr(da_a, da_b, *, dim=None, weights=None)`                                              | compute      | `DataArray`            |
+|  [10]   | `cov(da_a, da_b, *, dim=None, ddof=1, weights=None)`                                       | compute      | `DataArray`            |
+|  [11]   | `where(cond, x, y, *, keep_attrs=None)`                                                    | compute      | `Dataset`/`DataArray`  |
+|  [12]   | `map_blocks(func, obj, args=(), kwargs=None, template=None)` / `unify_chunks(*objects)`    | dask/cubed   | `Dataset`/`DataArray`  |
+|  [13]   | `full_like(other, fill_value, ...)` / `ones_like(other, ...)` / `zeros_like(other, ...)`   | construction | like-shaped array      |
+|  [14]   | `map_over_datasets(func, *args, kwargs=None)` / `group_subtrees(*trees)`                   | tree         | `DataTree` / iterator  |
+|  [15]   | `date_range(start, end, periods, freq, calendar='standard', use_cftime=None)`              | time         | index                  |
+|  [16]   | `date_range_like(source, calendar)` / `cftime_range(...)` / `infer_freq(index)`            | time         | index or freq          |
+|  [17]   | `as_variable(obj, name=None)`                                                              | construction | `Variable`             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

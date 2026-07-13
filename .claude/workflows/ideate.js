@@ -274,11 +274,10 @@ const makeSlots = (cap) => {
 const slot = makeSlots(CAP);
 const nameOf = (f) => f.split('/').pop() || f;
 
-// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content to the lane
-// report, and returns mechanical orchestration data. Lane law rides developer-instructions (role split — recon law
-// for read-only survey lanes, fix law for the in-place critique lane); the prompt carries only the task; the output
-// contract sits LAST. surveyPrompt/critiquePrompt feed codex-primary lanes and carry a neutral register (a hostile
-// stance makes codex over-probe); the native fable ideatePrompt/redteamPrompt keep the estate register — same substance.
+// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content to the lane report, and returns mechanical
+// orchestration data. Lane law rides developer-instructions (role split — recon law for read-only survey lanes, fix law for the in-place critique
+// lane); the prompt carries only the task; the output contract sits LAST. surveyPrompt/critiquePrompt feed codex-primary lanes and carry a neutral
+// register (a hostile stance makes codex over-probe); the native fable ideatePrompt/redteamPrompt keep the estate register — same substance.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const laneLaw = (schema, o) =>
     (o.fix
@@ -354,11 +353,10 @@ const codexPrompt = (label, task, schema, o) => {
             'ok=false, entries=0, report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every codex-dispatched lane routes here: terra by default, sol where o.model says so; CODEX=false restores a fully
-// native run. QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task
-// natively at the role's Claude twin (terra->opus, sol->fable, luna->sonnet) — the caller owns the re-dispatch; the
-// sonnet wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the lane's
-// self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
+// Every codex-dispatched lane routes here: terra by default, sol where o.model says so; CODEX=false restores a fully native run. QUOTA FALLBACK: a
+// codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->fable,
+// luna->sonnet) — the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the
+// ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
     agent(

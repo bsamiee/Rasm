@@ -20,27 +20,42 @@
 - rail: observability/export/metric
 - One exporter class over one base; the richness is the temporality/aggregation selection. Temporality is a `(InstrumentType) => AggregationTemporality` FUNCTION (`AggregationTemporalitySelector`), not a subclass per backend — the three named constants are seed rows of that one function space, and `temporalityPreference` accepts either a prebuilt `AggregationTemporalityPreference` or a raw `AggregationTemporality`. `aggregationPreference` is the parallel `(InstrumentType) => AggregationOption` selector for histogram-bucket/aggregation choice.
 
-| [INDEX] | [SYMBOL]                                                                                                                                                        | [TYPE_FAMILY]                                     | [CONSUMER_BOUNDARY]                                                           |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------ | :---------------------------------------------------------------------------- |
-|  [01]   | `OTLPMetricExporter` (`extends OTLPMetricExporterBase`)                                                                                                         | metric exporter                                   | the concrete exporter a `PeriodicExportingMetricReader` wraps                 |
-|  [02]   | `OTLPMetricExporterBase` (`extends OTLPExporterBase<ResourceMetrics> implements PushMetricExporter`)                                                            | base exporter                                     | `export`/`forceFlush`/`shutdown` + the two selector methods                   |
-|  [03]   | `selectAggregationTemporality(t: InstrumentType): AggregationTemporality` / `selectAggregation(t: InstrumentType): AggregationOption`                           | selector method                                   | per-instrument temporality + aggregation resolution the reader calls          |
-|  [04]   | `OTLPMetricExporterOptions { temporalityPreference?: AggregationTemporalityPreference \| AggregationTemporality; aggregationPreference?: AggregationSelector }` | options                                           | the temporality + aggregation policy on top of the base transport config      |
-|  [05]   | `AggregationTemporalityPreference { DELTA = 0, CUMULATIVE = 1, LOWMEMORY = 2 }`                                                                                 | temporality enum                                  | the prebuilt preference `temporalityPreference` accepts                       |
-|  [06]   | `CumulativeTemporalitySelector` / `DeltaTemporalitySelector` / `LowMemoryTemporalitySelector`                                                                   | selector const (`AggregationTemporalitySelector`) | the three seed rows of the `(InstrumentType) => AggregationTemporality` space |
+| [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                           |
+| :-----: | :--------------------------------------------------- | :--------------- | :------------------------------------------------------------ |
+|  [01]   | `OTLPMetricExporter`                                 | metric exporter  | the concrete exporter a `PeriodicExportingMetricReader` wraps |
+|  [02]   | `OTLPMetricExporterBase`                             | base exporter    | `export`/`forceFlush`/`shutdown` + the two selector methods   |
+|  [03]   | `selectAggregationTemporality` / `selectAggregation` | selector method  | per-instrument temporality + aggregation the reader calls     |
+|  [04]   | `OTLPMetricExporterOptions`                          | options          | temporality + aggregation policy (fence) atop base config     |
+|  [05]   | `AggregationTemporalityPreference`                   | temporality enum | `DELTA = 0` / `CUMULATIVE = 1` / `LOWMEMORY = 2`              |
+|  [06]   | `CumulativeTemporalitySelector`                      | selector const   | cumulative seed of the temporality function space             |
+|  [07]   | `DeltaTemporalitySelector`                           | selector const   | delta seed of the temporality function space                  |
+|  [08]   | `LowMemoryTemporalitySelector`                       | selector const   | low-memory seed of the temporality function space             |
+
+```ts signature
+class OTLPMetricExporter extends OTLPMetricExporterBase {}
+class OTLPMetricExporterBase extends OTLPExporterBase<ResourceMetrics> implements PushMetricExporter {
+  selectAggregationTemporality(t: InstrumentType): AggregationTemporality
+  selectAggregation(t: InstrumentType): AggregationOption
+}
+interface OTLPMetricExporterOptions {   // AggregationTemporalitySelector = (InstrumentType) => AggregationTemporality
+  temporalityPreference?: AggregationTemporalityPreference | AggregationTemporality
+  aggregationPreference?: AggregationSelector
+}
+```
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: SDK-bridge metric export composition
 - rail: observability/export/metric
 - Construct the exporter with a `temporalityPreference`, wrap it in a `PeriodicExportingMetricReader({ exporter, exportIntervalMillis })`, hand the reader to the facade's `NodeSdk`/`WebSdk` `Configuration.metricReader`. `url`/`headers`/`compression`/`timeoutMillis` come from the base config or `OTEL_EXPORTER_OTLP_METRICS_*` env (via core's readers); the export interval is a reader policy value, never a fork.
+- the node ctor config is `OTLPExporterNodeConfigBase & OTLPMetricExporterOptions`, the browser ctor `OTLPExporterConfigBase & OTLPMetricExporterOptions`.
 
-| [INDEX] | [SURFACE]                                                                                                                           | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                        |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------- |
-|  [01]   | `new OTLPMetricExporter(config?: OTLPExporterNodeConfigBase & OTLPMetricExporterOptions)`                                           | node ctor      | the node OTLP/HTTP metric exporter                         |
-|  [02]   | `new OTLPMetricExporter(config?: OTLPExporterConfigBase & OTLPMetricExporterOptions)`                                               | browser ctor   | the browser OTLP/HTTP metric exporter (RUM metric egress)  |
-|  [03]   | `new PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter(cfg), exportIntervalMillis })` → `Configuration.metricReader` | composition    | the standing stack: exporter → reader → `NodeSdk`/`WebSdk` |
-|  [04]   | `{ temporalityPreference: AggregationTemporalityPreference.DELTA }`                                                                 | policy value   | select DELTA/CUMULATIVE/LOWMEMORY without a subclass       |
+| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                  |
+| :-----: | :-------------------------------------------------------------- | :------------- | :--------------------------------------------------- |
+|  [01]   | `new OTLPMetricExporter(nodeCfg)`                               | node ctor      | the node OTLP/HTTP metric exporter                   |
+|  [02]   | `new OTLPMetricExporter(browserCfg)`                            | browser ctor   | the browser OTLP/HTTP metric exporter (RUM egress)   |
+|  [03]   | `new PeriodicExportingMetricReader({ exporter })`               | composition    | exporter → reader → facade `metricReader`            |
+|  [04]   | `temporalityPreference: AggregationTemporalityPreference.DELTA` | policy value   | select DELTA/CUMULATIVE/LOWMEMORY without a subclass |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

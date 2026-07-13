@@ -1,41 +1,52 @@
 # [PY_COMPUTE]
 
-`libs/python/compute` is the host-free numeric and scientific library of the monorepo. It owns array admission, JIT kernel acceleration, one route-discriminated solver surface, differentiation, validated numerics, signal processing, symbolics, unit-bearing uncertainty, design-of-experiments, model assets, and Bayesian inference. The graduation rail hands offline results across the wire into the C# managed owner system. `ARCHITECTURE.md` carries the domain map and boundaries, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
+`libs/python/compute` owns the monorepo's host-free offline scientific evidence: independent solver, optimization, experiment, numeric, and analysis sub-domains converge through one solve receipt, one study spine, and one graduation rail that hands every result across the wire to the C# managed owner. It imports no host runtime and re-owns no peer interior — geometry, columnar data, and tensor sessions cross only as receipt data at the `HandoffAxis`.
 
 ## [01]-[ROUTER]
 
-- [01]-[RECEIPT](.planning/solvers/receipt.md)
-- [02]-[LINEAR](.planning/solvers/linear.md)
-- [03]-[NONLINEAR](.planning/solvers/nonlinear.md)
-- [04]-[QUADRATURE](.planning/solvers/quadrature.md)
-- [05]-[DIFFERENTIAL](.planning/solvers/differential.md)
-- [06]-[SENSITIVITY](.planning/solvers/sensitivity.md)
-- [07]-[MESH](.planning/solvers/mesh.md)
-- [08]-[FIELD](.planning/solvers/field.md)
-- [09]-[DESIGN](.planning/optimization/design.md)
-- [10]-[PROGRAM](.planning/optimization/program.md)
-- [11]-[CONVEX](.planning/optimization/convex.md)
-- [12]-[STUDY](.planning/experiments/study.md)
-- [13]-[HISTORY](.planning/experiments/history.md)
-- [14]-[INFERENCE](.planning/experiments/inference.md)
-- [15]-[MODEL](.planning/experiments/model.md)
-- [16]-[ARRAY](.planning/numerics/array.md)
-- [17]-[JIT](.planning/numerics/jit.md)
-- [18]-[INTERVAL](.planning/numerics/interval.md)
-- [19]-[QUANTITY](.planning/numerics/quantity.md)
-- [20]-[STATISTICS](.planning/numerics/statistics.md)
-- [21]-[SIGNAL](.planning/analysis/signal.md)
-- [22]-[TRANSFORM](.planning/analysis/transform.md)
-- [23]-[SYMBOLIC](.planning/analysis/symbolic.md)
-- [24]-[SPATIAL](.planning/analysis/spatial.md)
-- [25]-[HANDOFF](.planning/graduation/handoff.md)
-- [26]-[CODEGEN](.planning/graduation/codegen.md)
+[SOLVERS]:
+- [01]-[RECEIPT](.planning/solvers/receipt.md): `SolverReceipt` every solve route folds its method-discriminated evidence onto.
+- [02]-[LINEAR](.planning/solvers/linear.md): `LinearIntent` route over dense, sparse, and eigen solves.
+- [03]-[NONLINEAR](.planning/solvers/nonlinear.md): `NonlinearIntent` route over root, minimise, fixed-point, and least-squares solves.
+- [04]-[QUADRATURE](.planning/solvers/quadrature.md): `QuadratureIntent` route over quadrature, interpolation, and the weak-form FEM fold.
+- [05]-[DIFFERENTIAL](.planning/solvers/differential.md): `DifferentialIntent` route over adjoint-differentiable ODE, SDE, and CDE integration.
+- [06]-[SENSITIVITY](.planning/solvers/sensitivity.md): `Differentiation` owner threading reverse-mode and implicit-adjoint sensitivity.
+- [07]-[MESH](.planning/solvers/mesh.md): `MeshField` owner of mesh topology, per-node and per-cell fields, and weak-form assembly.
+- [08]-[FIELD](.planning/solvers/field.md): `FieldQuery` readout interpolating, projecting, and resampling over a discrete field.
+
+[OPTIMIZATION]:
+- [09]-[DESIGN](.planning/optimization/design.md): `DesignProblem` driving differentiable design over the implicit-adjoint gradient.
+- [10]-[PROGRAM](.planning/optimization/program.md): `ProgramIntent` over constrained, integer, global, and assignment programs.
+- [11]-[CONVEX](.planning/optimization/convex.md): `ConvexProgram` returning a dual-certificate proof over disciplined-convex programs.
+
+[EXPERIMENTS]:
+- [12]-[STUDY](.planning/experiments/study.md): `Study` spine folding DOE sampling, sensitivity, surrogate fitting, and the benchmark discriminant.
+- [13]-[HISTORY](.planning/experiments/history.md): `RunHistory` owner of content-keyed run persistence, partial resume, and comparison.
+- [14]-[INFERENCE](.planning/experiments/inference.md): `Inference` owner of gradient-MCMC posteriors with convergence diagnostics.
+- [15]-[MODEL](.planning/experiments/model.md): `ModelAsset` owner of classical-estimator validation, smoke inference, and ONNX export.
+
+[NUMERICS]:
+- [16]-[ARRAY](.planning/numerics/array.md): `ArrayPayload` admitting any backend array through namespace dispatch.
+- [17]-[JIT](.planning/numerics/jit.md): `JitBackend` compiling the LLVM and XLA routes over one capture table.
+- [18]-[INTERVAL](.planning/numerics/interval.md): `IntervalNumerics` certified-interval floor ladder.
+- [19]-[QUANTITY](.planning/numerics/quantity.md): `UncertainQuantity` threading correlated uncertainty through unit algebra.
+- [20]-[STATISTICS](.planning/numerics/statistics.md): `Statistics` owner of in-memory hypothesis tests and MLE distribution fit.
+
+[ANALYSIS]:
+- [21]-[SIGNAL](.planning/analysis/signal.md): `SignalOp` folding IIR/FIR filtering, spectral estimation, resample, and the wavelet case.
+- [22]-[TRANSFORM](.planning/analysis/transform.md): `SpectralReadout` over in-memory DFT, trigonometric, and analytic-signal transforms.
+- [23]-[SYMBOLIC](.planning/analysis/symbolic.md): `SymbolicDerivation` lowering symbols to a numpy or C handoff artifact.
+- [24]-[SPATIAL](.planning/analysis/spatial.md): `SpatialQuery` folding neighbour, hull, Delaunay, Voronoi, and alpha-shape queries.
+
+[GRADUATION]:
+- [25]-[HANDOFF](.planning/graduation/handoff.md): `HandoffAxis` owning outward egress, geometry decode, and evidence weave.
+- [26]-[CODEGEN](.planning/graduation/codegen.md): `StubCodegen` emitting the C# evidence-bundle stub under the drift gate.
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Every scientific and solver library this folder uses, planned or implemented. Versions are centralized in the one root manifest; corroborating API evidence lives in the adjacent `.api/` folder.
+Scientific and solver libraries admitted by this folder; versions centralize in the root `pyproject.toml` and corroborate against this folder's `.api/`.
 
-[ARRAY_ADMISSION]:
+[ARRAY_AND_JIT]:
 - `array-api-compat`
 - `array-api-extra`
 - `numba`
@@ -43,7 +54,7 @@ Every scientific and solver library this folder uses, planned or implemented. Ve
 - `jaxtyping`
 - `sparse`
 
-[SOLVERS_DIFFERENTIAL]:
+[SOLVERS]:
 - `scipy`
 - `scikit-fem`
 - `lineax`
@@ -54,47 +65,27 @@ Every scientific and solver library this folder uses, planned or implemented. Ve
 - `quadax`
 - `interpax`
 
-[INVERSE_DESIGN]:
-- `optimistix`
-- `equinox`
-- `jax`
+[OPTIMIZATION]:
 - `optax`
-
-[CONSTRAINED_DISCRETE_OPTIMIZATION]:
-- `scipy`
-
-[CONVEX_OPTIMIZATION]:
 - `cvxpy`
 - `clarabel`
 
-[SPATIAL_MESH]:
-- `scipy`
-
-[SIGNAL_PROCESSING]:
-- `scipy`
-- `pywavelets`
-
-[SYMBOLICS]:
-- `sympy`
-
-[VALIDATED_NUMERICS]:
+[CERTIFIED_NUMERICS]:
 - `python-flint`
 - `mpmath`
-
-[METROLOGY]:
 - `pint`
 - `uncertainties`
 
-[EXPERIMENTS_SENSITIVITY]:
+[SIGNAL_SYMBOLIC]:
+- `pywavelets`
+- `sympy`
+
+[EXPERIMENTS]:
 - `SALib`
 - `scikit-learn`
-
-[MODEL_ASSETS]:
 - `onnx`
 - `onnxruntime`
 - `skl2onnx`
-
-[BAYESIAN_INFERENCE]:
 - `pymc`
 - `arviz`
 - `numpyro`
@@ -103,7 +94,7 @@ Every scientific and solver library this folder uses, planned or implemented. Ve
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Cross-cutting Python substrate libraries this folder consumes; canonical registry and charters live in `libs/python/.planning/README.md` and the adjacent `libs/python/.api/` folder.
+Shared substrate consumed from the `libs/python/.planning/README.md` registry; the registry and its charters own the full contracts, and `libs/python/.api/` holds the shared API evidence.
 
 [TYPING_RAILS]:
 - `expression`
@@ -113,12 +104,8 @@ Cross-cutting Python substrate libraries this folder consumes; canonical registr
 [NUMERIC_SUBSTRATE]:
 - `numpy`
 - `dask` (passive `array_namespace` backend only — the branch-tier catalog is the owner; compute imports no Dask runtime)
-
-[FIELD_DATA]:
 - `xarray`
 - `narwhals` (the study DOE-frame admission arm, consumed through the published `data/tabular` contract surfaces)
-
-[MESH_INTERCHANGE]:
 - `meshio`
 
 [OBSERVABILITY]:

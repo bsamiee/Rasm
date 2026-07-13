@@ -13,44 +13,51 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-[PUBLIC_TYPE_SCOPE]: the client, the admitted fetch/lease services, and their payloads
+[PUBLIC_TYPE_SCOPE]: the client, the admitted fetch/lease services, and their payloads — consumer is `secret/doppler`
 - rail: surfaces-and-dispatch
 
-| [INDEX] | [SYMBOL]                                                                                          | [TYPE_FAMILY]       | [CONSUMER]                                                                                                                                                                 |
-| :-----: | :------------------------------------------------------------------------------------------------ | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `DopplerSDK` (default export) — ctor `{ accessToken }: Config`; `.setBaseUrl` / `.setAccessToken` | client              | `secret/doppler` — the one client built once behind a `Context.Tag`; ~23 `.<service>` handles, of which only `secrets`/`dynamicSecrets`/`auth` are admitted                |
-|  [02]   | `SecretsService` (`sdk.secrets`)                                                                  | fetch service       | `secret/doppler` — the admitted axis: `list`/`download`/`get`/`names` reads; `update`/`delete` present but unused (secrets are provisioned in Doppler, not by the runtime) |
-|  [03]   | `DynamicSecretsService` (`sdk.dynamicSecrets`)                                                    | lease service       | `secret/doppler` — `issueLease`/`revokeLease` for the explicit dynamic-lease lifecycle when a fetch is not the leasing trigger                                             |
-|  [04]   | `SecretsListResponse` / `DownloadResponse` / `SecretsGetResponse` / `NamesResponse`               | fetch payload       | `secret/doppler` → `secret/material` — all-optional shapes decoded by `Schema` into `Redacted` values before crossing the seam                                             |
-|  [05]   | `Format` / `NameTransformer`                                                                      | download-shape enum | `secret/doppler` — `download` output format + key-case transform; pinned to the design's env-injection shape                                                               |
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]       | [CONSUMER]                                                      |
+| :-----: | :--------------------------------------------- | :------------------ | :-------------------------------------------------------------- |
+|  [01]   | `DopplerSDK` (default export)                  | client              | the one client behind a `Tag`; ctor + handles at [01] below     |
+|  [02]   | `SecretsService` (`sdk.secrets`)               | fetch service       | `list`/`download`/`get`/`names` reads; `update`/`delete` unused |
+|  [03]   | `DynamicSecretsService` (`sdk.dynamicSecrets`) | lease service       | `issueLease`/`revokeLease` — the dynamic-lease lifecycle        |
+|  [04]   | response payloads                              | fetch payload       | all-optional, `Schema`→`Redacted` before the seam; at [04]      |
+|  [05]   | `Format` / `NameTransformer`                   | download-shape enum | `download` output format + key-case transform                   |
 
-[PUBLIC_TYPE_SCOPE]: the collapsed HTTP fault carrier (39 status subclasses = seed data)
+- [01]-[CLIENT]: ctor `{ accessToken }: Config`; `.setBaseUrl` / `.setAccessToken`; ~23 `.<service>` handles, of which only `secrets`/`dynamicSecrets`/`auth` are admitted.
+- [04]-[PAYLOADS]: `SecretsListResponse`, `DownloadResponse`, `SecretsGetResponse`, `NamesResponse` — all-optional shapes decoded by `Schema` into `Redacted` values before crossing into `secret/material`.
+
+[PUBLIC_TYPE_SCOPE]: the collapsed HTTP fault carrier (39 status subclasses = seed data) — consumer `secret/doppler`
 - rail: rails-and-effects
 
-| [INDEX] | [SYMBOL]                                                                                             | [TYPE_FAMILY]          | [CONSUMER]                                                                                                                                            |
-| :-----: | :--------------------------------------------------------------------------------------------------- | :--------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `BaseHTTPError` (`type`/`title`/`detail`/`instance`/`statusCode`)                                    | problem-detail carrier | `secret/doppler` — the one RFC 9457 fault; the design folds on `statusCode`, mapping the whole family through `Match`                                 |
-|  [02]   | `Unauthorized` / `Forbidden` / `NotFound` / `TooManyRequests` / … (39 subclasses of `BaseHTTPError`) | status row             | `secret/doppler` — seed data over the carrier; `401/403` → credential-fault arm, `429` → backoff arm, `5xx` → retry arm — never 39 documented members |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]          | [CONSUMER]                                                  |
+| :-----: | :------------------------------------------ | :--------------------- | :---------------------------------------------------------- |
+|  [01]   | `BaseHTTPError`                             | problem-detail carrier | the one RFC 9457 fault; folds on `statusCode` via `Match`   |
+|  [02]   | `Unauthorized` / `Forbidden` / … (39 total) | status row             | seed data; `401/403` credential, `429` backoff, `5xx` retry |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: construct and authenticate the client
+[ENTRYPOINT_SCOPE]: construct and authenticate the client — consumer `secret/doppler`
 - rail: boundaries
 
-| [INDEX] | [SURFACE]                                                                         | [ENTRY_FAMILY] | [CONSUMER]                                                                                                                                |
-| :-----: | :-------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new DopplerSDK({ accessToken })` / `.setAccessToken(token)` / `.setBaseUrl(url)` | construct      | `secret/doppler` — built once at `Layer` construction; `accessToken` sourced from `Config.redacted`, `Redacted.value` unwrapped only here |
-|  [02]   | `sdk.auth.me()` / `sdk.auth.revoke(input)`                                        | token probe    | `secret/doppler` — startup liveness check that the service token is valid; `revoke` on credential rotation                                |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CONSUMER]                                                  |
+| :-----: | :-------------------------------------------- | :------------- | :---------------------------------------------------------- |
+|  [01]   | `new DopplerSDK({ accessToken })`             | construct      | built once at `Layer`; `accessToken` from `Config.redacted` |
+|  [02]   | `.setAccessToken(token)` / `.setBaseUrl(url)` | reconfigure    | post-construction token / base-URL override                 |
+|  [03]   | `sdk.auth.me()` / `sdk.auth.revoke(input)`    | token probe    | startup liveness of the service token; `revoke` on rotation |
 
-[ENTRYPOINT_SCOPE]: the leased-fetch axis — the one surface the design admits
+[ENTRYPOINT_SCOPE]: the leased-fetch axis — the one surface the design admits; every `secrets` read takes `(project, config, …)`; `issueLease`/`revokeLease` take `IssueLeaseRequest`/`RevokeLeaseRequest`; consumer `secret/doppler`
 - rail: system-apis
 
-| [INDEX] | [SURFACE]                                                                                                                                                | [ENTRY_FAMILY]  | [CONSUMER]                                                                                                                    |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `sdk.secrets.list(project, config, { includeDynamicSecrets, dynamicSecretsTtlSec, secrets, includeManagedSecrets })` → `Promise<SecretsListResponse>`    | leased fetch    | `secret/doppler` — the primary read; `includeDynamicSecrets` + `dynamicSecretsTtlSec` issue TTL leases inline (default 1800s) |
-|  [02]   | `sdk.secrets.download(project, config, { format, nameTransformer, includeDynamicSecrets, dynamicSecretsTtlSec, secrets })` → `Promise<DownloadResponse>` | bulk env dump   | `secret/doppler` — full config as a name→value map for env injection; also lease-issuing under the same TTL param             |
-|  [03]   | `sdk.secrets.get(project, config, name)` / `sdk.secrets.names(project, config, opts?)`                                                                   | single / names  | `secret/doppler` — targeted single-secret read and name enumeration for a partial refresh                                     |
-|  [04]   | `sdk.dynamicSecrets.issueLease(IssueLeaseRequest)` / `.revokeLease(RevokeLeaseRequest)`                                                                  | lease lifecycle | `secret/doppler` — explicit lease issue/revoke; `revokeLease` is the `Scope` finalizer that returns credentials on teardown   |
+| [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]  | [CONSUMER]                                                 |
+| :-----: | :------------------------------------------------- | :-------------- | :--------------------------------------------------------- |
+|  [01]   | `secrets.list(…, opts)` → `SecretsListResponse`    | leased fetch    | primary read; opts at [01]; TTL leases inline              |
+|  [02]   | `secrets.download(…, opts)` → `DownloadResponse`   | bulk env dump   | name→value env map; opts at [02]; lease-issuing            |
+|  [03]   | `secrets.get(…, name)` / `secrets.names(…, opts?)` | single / names  | targeted read + name enumeration for a refresh             |
+|  [04]   | `dynamicSecrets.issueLease` / `.revokeLease`       | lease lifecycle | explicit issue/revoke; `revokeLease` the `Scope` finalizer |
+
+- [01]-[LIST_OPTS]: `{ includeDynamicSecrets, dynamicSecretsTtlSec, secrets, includeManagedSecrets }` — `includeDynamicSecrets` + `dynamicSecretsTtlSec` issue TTL leases inline (default 1800s).
+- [02]-[DOWNLOAD_OPTS]: `{ format, nameTransformer, includeDynamicSecrets, dynamicSecretsTtlSec, secrets }` — full config as a name→value map for env injection, lease-issuing under the same TTL param.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

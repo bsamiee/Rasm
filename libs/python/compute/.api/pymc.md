@@ -16,14 +16,14 @@
 [PUBLIC_TYPE_SCOPE]: model and context types
 - rail: Bayesian-study
 
-| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]  | [CAPABILITY]                                                                                                         |
-| :-----: | :-------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Model`                     | model context   | context manager for declaring random variables, data, dims, and coords                                               |
-|  [02]   | `Data`                      | data container  | mutable shared data tensor inside a model (replaces removed `ConstantData`/`MutableData`); swapped via `pm.set_data` |
-|  [03]   | `Deterministic`             | deterministic   | records a named deterministic transformation in the trace                                                            |
-|  [04]   | `Potential`                 | log factor      | adds an arbitrary log factor (soft constraint / custom likelihood) to the joint                                      |
-|  [05]   | `Minibatch`                 | stochastic data | mini-batched data tensor for scalable stochastic VI                                                                  |
-|  [06]   | `modelcontext` / `set_data` | context access  | resolves the active model / mutates a `Data` container in place                                                      |
+| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]  | [CAPABILITY]                                                                    |
+| :-----: | :-------------------------- | :-------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `Model`                     | model context   | context manager for declaring random variables, data, dims, and coords          |
+|  [02]   | `Data`                      | data container  | mutable shared data tensor in a model; swapped via `pm.set_data`                |
+|  [03]   | `Deterministic`             | deterministic   | records a named deterministic transformation in the trace                       |
+|  [04]   | `Potential`                 | log factor      | adds an arbitrary log factor (soft constraint / custom likelihood) to the joint |
+|  [05]   | `Minibatch`                 | stochastic data | mini-batched data tensor for scalable stochastic VI                             |
+|  [06]   | `modelcontext` / `set_data` | context access  | resolves the active model / mutates a `Data` container in place                 |
 
 [PUBLIC_TYPE_SCOPE]: continuous distribution families
 - rail: Bayesian-study
@@ -47,34 +47,42 @@
 [PUBLIC_TYPE_SCOPE]: discrete, multivariate, mixture, and time-series families
 - rail: Bayesian-study
 
-| [INDEX] | [SYMBOL]                                                                                            | [SUPPORT]                      | [CANONICAL_PARAMS]                                  |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :----------------------------- | :-------------------------------------------------- |
-|  [01]   | `Bernoulli` / `Binomial` / `BetaBinomial`                                                           | {0,1} / integers               | `p` / `n`, `p` / `n`, `alpha`, `beta`               |
-|  [02]   | `Categorical` / `DiscreteUniform`                                                                   | finite set / integer range     | `p` / `lower`, `upper`                              |
-|  [03]   | `Poisson` / `NegativeBinomial` / `Geometric`                                                        | non-negative integers          | `mu` / `mu`, `alpha` / `p`                          |
-|  [04]   | `ZeroInflatedPoisson` / `ZeroInflatedBinomial` / `ZeroInflatedNegativeBinomial` / `DiscreteWeibull` | zero-inflated counts           | `psi`, ...                                          |
-|  [05]   | `MvNormal` / `MvStudentT`                                                                           | real vector space              | `mu`, `cov`/`chol` / `nu`, `mu`, `scale`            |
-|  [06]   | `Dirichlet` / `Multinomial` / `DirichletMultinomial`                                                | simplex / counts               | `a` / `n`, `p` / `n`, `a`                           |
-|  [07]   | `LKJCholeskyCov` / `LKJCorr` / `Wishart`                                                            | correlation / PD matrices      | `eta`, `n`, `sd_dist` / `eta`, `n` / `nu`, `V`      |
-|  [08]   | `MatrixNormal` / `KroneckerNormal`                                                                  | matrix-variate Gaussian        | `mu`, `rowcov`, `colcov` / `mu`, `covs`             |
-|  [09]   | `CAR` / `ICAR`                                                                                      | spatial lattice                | `mu`, `W`, `alpha`, `tau`                           |
-|  [10]   | `Mixture` / `NormalMixture`                                                                         | mixture of components          | `w`, `comp_dists` / `w`, `mu`, `sigma`              |
-|  [11]   | `Truncated` / `Censored`                                                                            | restricted-support wrapper     | `dist`, `lower`, `upper`                            |
-|  [12]   | `CustomDist` / `Simulator`                                                                          | user-defined / likelihood-free | `dist`/`logp`/`random` / `fn`, `params`, `distance` |
-|  [13]   | `GaussianRandomWalk` / `RandomWalk` / `AR` / `GARCH11` / `EulerMaruyama` / `MvGaussianRandomWalk`   | time-series                    | sequential-dependence processes                     |
-|  [14]   | `Flat` / `HalfFlat`                                                                                 | improper prior                 | (unnormalized) flat / half-flat                     |
+| [INDEX] | [SYMBOL]                                             | [SUPPORT]                  | [CANONICAL_PARAMS]                     |
+| :-----: | :--------------------------------------------------- | :------------------------- | :------------------------------------- |
+|  [01]   | `Bernoulli` / `Binomial` / `BetaBinomial`            | {0,1} / integers           | `p` / `n, p` / `n, alpha, beta`        |
+|  [02]   | `Categorical` / `DiscreteUniform`                    | finite set / integer range | `p` / `lower, upper`                   |
+|  [03]   | `Poisson` / `NegativeBinomial` / `Geometric`         | non-negative integers      | `mu` / `mu, alpha` / `p`               |
+|  [04]   | zero-inflated families (note [04])                   | zero-inflated counts       | `psi`, ...                             |
+|  [05]   | `MvNormal` / `MvStudentT`                            | real vector space          | `mu, cov`/`chol` / `nu, mu, scale`     |
+|  [06]   | `Dirichlet` / `Multinomial` / `DirichletMultinomial` | simplex / counts           | `a` / `n, p` / `n, a`                  |
+|  [07]   | `LKJCholeskyCov` / `LKJCorr` / `Wishart`             | correlation / PD matrices  | `eta, n, sd_dist` / `eta, n` / `nu, V` |
+|  [08]   | `MatrixNormal` / `KroneckerNormal`                   | matrix-variate Gaussian    | `mu, rowcov, colcov` / `mu, covs`      |
+|  [09]   | `CAR` / `ICAR`                                       | spatial lattice            | `mu, W, alpha, tau`                    |
+|  [10]   | `Mixture` / `NormalMixture`                          | mixture of components      | `w, comp_dists` / `w, mu, sigma`       |
+|  [11]   | `Truncated` / `Censored`                             | restricted-support wrapper | `dist, lower, upper`                   |
+|  [12]   | `CustomDist`                                         | user-defined               | `dist`/`logp`/`random`                 |
+|  [13]   | `Simulator`                                          | likelihood-free            | `fn, params, distance`                 |
+|  [14]   | time-series families (note [14])                     | time-series                | sequential-dependence processes        |
+|  [15]   | `Flat` / `HalfFlat`                                  | improper prior             | (unnormalized) flat / half-flat        |
+
+- [04]-[zero-inflated]: `ZeroInflatedPoisson`, `ZeroInflatedBinomial`, `ZeroInflatedNegativeBinomial`, `DiscreteWeibull`.
+- [14]-[time-series]: `GaussianRandomWalk`, `RandomWalk`, `AR`, `GARCH11`, `EulerMaruyama`, `MvGaussianRandomWalk`.
 
 [PUBLIC_TYPE_SCOPE]: step methods and samplers
 - rail: Bayesian-study
 
-| [INDEX] | [SYMBOL]                                                                    | [SAMPLER_FAMILY] | [CAPABILITY]                                                     |
-| :-----: | :-------------------------------------------------------------------------- | :--------------- | :--------------------------------------------------------------- |
-|  [01]   | `NUTS`                                                                      | gradient-based   | `(vars=None, max_treedepth=10, early_max_treedepth=8, **kwargs)` |
-|  [02]   | `HamiltonianMC`                                                             | gradient-based   | `(vars, path_length, max_steps)`                                 |
-|  [03]   | `Metropolis` / `DEMetropolis` / `DEMetropolisZ`                             | gradient-free    | random-walk / differential-evolution / DE-Z Metropolis           |
-|  [04]   | `BinaryMetropolis` / `BinaryGibbsMetropolis` / `CategoricalGibbsMetropolis` | gradient-free    | discrete-variable step methods                                   |
-|  [05]   | `Slice`                                                                     | gradient-free    | slice sampling step method                                       |
-|  [06]   | `step_methods.CompoundStep`                                                 | composite        | assigns distinct step methods per variable block                 |
+| [INDEX] | [SYMBOL]                     | [SAMPLER_FAMILY] | [CAPABILITY]                                                     |
+| :-----: | :--------------------------- | :--------------- | :--------------------------------------------------------------- |
+|  [01]   | `NUTS`                       | gradient-based   | `(vars=None, max_treedepth=10, early_max_treedepth=8, **kwargs)` |
+|  [02]   | `HamiltonianMC`              | gradient-based   | `(vars, path_length, max_steps)`                                 |
+|  [03]   | `Metropolis`                 | gradient-free    | random-walk Metropolis                                           |
+|  [04]   | `DEMetropolis`               | gradient-free    | differential-evolution Metropolis                                |
+|  [05]   | `DEMetropolisZ`              | gradient-free    | DE-Z Metropolis                                                  |
+|  [06]   | `BinaryMetropolis`           | gradient-free    | binary-variable Metropolis                                       |
+|  [07]   | `BinaryGibbsMetropolis`      | gradient-free    | binary Gibbs Metropolis                                          |
+|  [08]   | `CategoricalGibbsMetropolis` | gradient-free    | categorical Gibbs Metropolis                                     |
+|  [09]   | `Slice`                      | gradient-free    | slice sampling step method                                       |
+|  [10]   | `step_methods.CompoundStep`  | composite        | assigns distinct step methods per variable block                 |
 
 [PUBLIC_TYPE_SCOPE]: variational families
 - rail: Bayesian-study
@@ -90,38 +98,66 @@
 
 [ENTRYPOINT_SCOPE]: sampling and inference entrypoints
 - rail: Bayesian-study
+- Each entrypoint's full signature is in the keyed notes below.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                                                                              | [ENTRY_FAMILY] | [RAIL]                                                          |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------- |
-|  [01]   | `sample(draws=1000, *, tune=None, chains=None, cores=None, random_seed=None, step=None, nuts_sampler=Literal['pymc','nutpie','numpyro','blackjax'], initvals=None, init='auto', return_inferencedata=True, idata_kwargs=None, nuts_sampler_kwargs=None, model=None, **kwargs)` → `DataTree \| MultiTrace \| ZarrTrace` | MCMC           | primary MCMC entrypoint; dispatches NUTS to the chosen backend  |
-|  [02]   | `sample_posterior_predictive(trace, model=None, *, var_names=None, sample_dims=None, random_seed=None, return_inferencedata=True, extend_inferencedata=False, predictions=False)` → `DataTree \| dict`                                                                                                                 | posterior      | posterior predictive samples from a fitted model                |
-|  [03]   | `sample_prior_predictive(samples=500, model=None, *, var_names=None, random_seed=None, return_inferencedata=True)`                                                                                                                                                                                                     | prior          | prior predictive samples before conditioning                    |
-|  [04]   | `sample_smc(draws=2000, kernel=IMH, *, model=None, chains=None, cores=None, return_inferencedata=True, **kernel_kwargs)` → `DataTree \| MultiTrace`                                                                                                                                                                    | SMC            | sequential Monte Carlo (IMH/MH kernel)                          |
-|  [05]   | `fit(n=10000, method='advi', model=None, random_seed=None, start=None, start_sigma=None, inf_kwargs=None, *, backend=None, **kwargs)` → approximation                                                                                                                                                                  | VI             | variational inference fit                                       |
-|  [06]   | `find_MAP(start=None, vars=None, method='L-BFGS-B', maxeval=5000, model=None, *, seed=None)`                                                                                                                                                                                                                           | optimization   | MAP point estimate via gradient optimization                    |
-|  [07]   | `find_constrained_prior(distribution, lower, upper, init_guess, mass=0.95, fixed_params=None)` → `dict[str, float]`                                                                                                                                                                                                    | prior tuning   | solves prior hyperparameters so `mass` lies in `[lower, upper]` |
+| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [RAIL]                                                          |
+| :-----: | :--------------------------------- | :------------- | :-------------------------------------------------------------- |
+|  [01]   | `sample(...)`                      | MCMC           | primary MCMC entrypoint; dispatches NUTS to the chosen backend  |
+|  [02]   | `sample_posterior_predictive(...)` | posterior      | posterior predictive samples from a fitted model                |
+|  [03]   | `sample_prior_predictive(...)`     | prior          | prior predictive samples before conditioning                    |
+|  [04]   | `sample_smc(...)`                  | SMC            | sequential Monte Carlo (IMH/MH kernel)                          |
+|  [05]   | `fit(...)`                         | VI             | variational inference fit                                       |
+|  [06]   | `find_MAP(...)`                    | optimization   | MAP point estimate via gradient optimization                    |
+|  [07]   | `find_constrained_prior(...)`      | prior tuning   | solves prior hyperparameters so `mass` lies in `[lower, upper]` |
+
+- [01]-[SAMPLE]: `sample(draws=1000, *, tune=None, chains=None, cores=None, random_seed=None, step=None, nuts_sampler=Literal['pymc','nutpie','numpyro','blackjax'], initvals=None, init='auto', return_inferencedata=True, idata_kwargs=None, nuts_sampler_kwargs=None, model=None, **kwargs)` -> `DataTree | MultiTrace | ZarrTrace`.
+- [02]-[SAMPLE_POSTERIOR_PREDICTIVE]: `sample_posterior_predictive(trace, model=None, *, var_names=None, sample_dims=None, random_seed=None, return_inferencedata=True, extend_inferencedata=False, predictions=False)` -> `DataTree | dict`.
+- [03]-[SAMPLE_PRIOR_PREDICTIVE]: `sample_prior_predictive(samples=500, model=None, *, var_names=None, random_seed=None, return_inferencedata=True)`.
+- [04]-[SAMPLE_SMC]: `sample_smc(draws=2000, kernel=IMH, *, model=None, chains=None, cores=None, return_inferencedata=True, **kernel_kwargs)` -> `DataTree | MultiTrace`.
+- [05]-[FIT]: `fit(n=10000, method='advi', model=None, random_seed=None, start=None, start_sigma=None, inf_kwargs=None, *, backend=None, **kwargs)` -> approximation.
+- [06]-[FIND_MAP]: `find_MAP(start=None, vars=None, method='L-BFGS-B', maxeval=5000, model=None, *, seed=None)`.
+- [07]-[FIND_CONSTRAINED_PRIOR]: `find_constrained_prior(distribution, lower, upper, init_guess, mass=0.95, fixed_params=None)` -> `dict[str, float]`.
 
 [ENTRYPOINT_SCOPE]: causal surgery, diagnostics, log-probability, and graph
 - rail: Bayesian-study
+- Each entrypoint's full signature is in the keyed notes below.
 
-| [INDEX] | [SURFACE]                                                                                                               | [ENTRY_FAMILY]   | [RAIL]                                                                  |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------- | :--------------- | :---------------------------------------------------------------------- |
-|  [01]   | `do(model, vars_to_interventions, *, make_interventions_shared=True, prune_vars=False)` → `Model`                       | causal           | do-operator intervention (replaces a node with a fixed/exogenous value) |
-|  [02]   | `observe(model, vars_to_observations)` → `Model`                                                                        | causal           | converts an unobserved RV into an observed one                          |
-|  [03]   | `compute_log_likelihood(idata, *, var_names=None, extend_inferencedata=True, model=None, sample_dims=('chain','draw'))` | diagnostics      | per-observation log-likelihood (feeds `arviz.loo`/`waic`)               |
-|  [04]   | `to_inference_data(trace, model=None)` / `predictions_to_inference_data(pred, idata)`                                   | conversion       | trace → `xarray.DataTree`; attach predictions                           |
-|  [05]   | `logp(rv, value, warn_rvs=True)` / `logcdf(rv, value, warn_rvs=True)` → PyTensor graph                                  | log-prob         | symbolic log-density / log-CDF of a distribution                        |
-|  [06]   | `draw(vars, draws=1, random_seed=None)` → `ndarray \| list[ndarray]`                                                    | sampling utility | forward-samples model variables (no conditioning)                       |
-|  [07]   | `model_to_graphviz(model=None, *, var_names=None, formatting='plain', save=None)`                                       | inspection       | renders the model DAG via graphviz                                      |
+| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY]   | [RAIL]                                                    |
+| :-----: | :----------------------------------- | :--------------- | :-------------------------------------------------------- |
+|  [01]   | `do(...)`                            | causal           | do-operator: replace a node with a fixed/exogenous value  |
+|  [02]   | `observe(...)`                       | causal           | converts an unobserved RV into an observed one            |
+|  [03]   | `compute_log_likelihood(...)`        | diagnostics      | per-observation log-likelihood (feeds `arviz.loo`/`waic`) |
+|  [04]   | `to_inference_data(...)`             | conversion       | trace -> `xarray.DataTree`                                |
+|  [05]   | `predictions_to_inference_data(...)` | conversion       | attach predictions to `idata`                             |
+|  [06]   | `logp(...)` / `logcdf(...)`          | log-prob         | symbolic log-density / log-CDF of a distribution          |
+|  [07]   | `draw(...)`                          | sampling utility | forward-samples model variables (no conditioning)         |
+|  [08]   | `model_to_graphviz(...)`             | inspection       | renders the model DAG via graphviz                        |
+
+- [01]-[DO]: `do(model, vars_to_interventions, *, make_interventions_shared=True, prune_vars=False)` -> `Model`.
+- [02]-[OBSERVE]: `observe(model, vars_to_observations)` -> `Model`.
+- [03]-[COMPUTE_LOG_LIKELIHOOD]: `compute_log_likelihood(idata, *, var_names=None, extend_inferencedata=True, model=None, sample_dims=('chain','draw'))`.
+- [04]-[TO_INFERENCE_DATA]: `to_inference_data(trace, model=None)`.
+- [05]-[PREDICTIONS_TO_INFERENCE_DATA]: `predictions_to_inference_data(pred, idata)`.
+- [06]-[LOGP]: `logp(rv, value, warn_rvs=True)` / `logcdf(rv, value, warn_rvs=True)` -> PyTensor graph.
+- [07]-[DRAW]: `draw(vars, draws=1, random_seed=None)` -> `ndarray | list[ndarray]`.
+- [08]-[MODEL_TO_GRAPHVIZ]: `model_to_graphviz(model=None, *, var_names=None, formatting='plain', save=None)`.
 
 [ENTRYPOINT_SCOPE]: Gaussian-process and math submodules
 - rail: Bayesian-study
 
-| [INDEX] | [SURFACE]                                                                                                     | [ENTRY_FAMILY] | [RAIL]                                                                          |
-| :-----: | :------------------------------------------------------------------------------------------------------------ | :------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `gp.Latent` / `gp.Marginal` / `gp.MarginalApprox` / `gp.TP` / `gp.HSGP` / `gp.LatentKron` / `gp.MarginalKron` | GP prior       | latent / marginal / approximate / Student-T-process / Hilbert-space GP families |
-|  [02]   | `gp.cov.*` / `gp.mean.*`                                                                                      | GP kernel      | covariance (`ExpQuad`, `Matern52`, `Periodic`, ...) and mean functions          |
-|  [03]   | `math.*` (`logsumexp`, `invlogit`, `dot`, `stack`, `switch`, ...)                                             | tensor ops     | PyTensor tensor primitives for `Deterministic`/`Potential` expressions          |
+| [INDEX] | [SURFACE]                | [ENTRY_FAMILY] | [RAIL]                                                                 |
+| :-----: | :----------------------- | :------------- | :--------------------------------------------------------------------- |
+|  [01]   | `gp.Latent`              | GP prior       | latent GP                                                              |
+|  [02]   | `gp.Marginal`            | GP prior       | marginal-likelihood GP                                                 |
+|  [03]   | `gp.MarginalApprox`      | GP prior       | sparse/approximate marginal GP                                         |
+|  [04]   | `gp.TP`                  | GP prior       | Student-T process                                                      |
+|  [05]   | `gp.HSGP`                | GP prior       | Hilbert-space reduced-rank GP                                          |
+|  [06]   | `gp.LatentKron`          | GP prior       | Kronecker latent GP                                                    |
+|  [07]   | `gp.MarginalKron`        | GP prior       | Kronecker marginal GP                                                  |
+|  [08]   | `gp.cov.*` / `gp.mean.*` | GP kernel      | covariance (`ExpQuad`, `Matern52`, `Periodic`, ...) and mean functions |
+|  [09]   | `math.*`                 | tensor ops     | PyTensor tensor primitives for `Deterministic`/`Potential` expressions |
+
+- [09]-[MATH]: `logsumexp`, `invlogit`, `dot`, `stack`, `switch`, ... PyTensor tensor primitives.
 
 ## [04]-[LOCAL_ADMISSION]
 

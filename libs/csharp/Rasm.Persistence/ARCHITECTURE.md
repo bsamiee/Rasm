@@ -1,149 +1,261 @@
 # [RASM_PERSISTENCE_ARCHITECTURE]
 
-The domain map of `Rasm.Persistence` — the APP-PLATFORM durable-state spine that persists the `Rasm.Element` `ElementGraph` as its system of record. One sub-domain owner per concern with closed cases, Marten the append substrate beneath the preserved version-control engine, the read lanes split by consistency demand, and the geometry object store content-keyed.
-
-Each codemap node is the eventual source file its `.planning/` design page becomes, named in PascalCase `.cs`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map. The package depends UP on the `Rasm.Element` seam and the `Rasm` kernel content-hash; it references no sibling AEC-domain peer (`Rasm.Materials`/`Rasm.Bim`/`Rasm.Fabrication`) — alignment travels through the seam contracts and the content-keyed wire, never sibling coupling.
+`Rasm.Persistence` maps the APP-PLATFORM durable-state spine that persists the `Rasm.Element` `ElementGraph` as its system of record: one owner per sub-domain concern with closed cases, Marten the append substrate beneath the version-control engine that projects from its events, read lanes split by consistency demand, and the geometry object store content-keyed. Depends up on the `Rasm.Element` seam and the `Rasm` kernel content-hash, references no sibling AEC-domain peer — alignment travels through seam contracts and the content-keyed wire.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
-Rasm.Persistence/
-├── Element/              # The ElementGraph store-load roundtrip over Marten
-│   ├── Graph.cs # ElementStore: stream-per-model GraphDelta events, inline SingleStreamProjection, AggregateStreamAsync AS-OF, GraphStoreOp commit
-│   ├── Codec.cs # SnapshotCodec axis, ContentAddress over seed-zero XxHash128, canonical CBOR, sealed-header boundary + tier ladder, FastCDC chunker
-│   ├── Identity.cs # ElementIdentity one-txn tier, IdentityPolicy axis, EF ConverterRail, PostGIS Bounds, KMS DEK custody, IdentityDdl, SchemaVerdict
-│   └── Authority.cs # Grant/GrantSet/AclScope/AclEntry/ObjectAcl + Authority.Admit deny-over-allow object-ACL algebra
-├── Version/              # The version-control engine projecting FROM Marten events
-│   ├── Ledger.cs # OpLogEntry changefeed of Marten events, HLC, ColumnFamily merge-stance, Adjudicate/CRDT dispatch, sync transports, ReplayWindow
-│   ├── Commits.cs        # Content-addressed commit-DAG, the convergent op/delta-state CRDT algebra, CrdtOpWire, the ContentParityCorpus
-│   ├── TimeTravel.cs # AS-OF reconstruct/diff/blame/scrub/bisect/branch over the changefeed prefix + Marten snapshot checkpoints, Crdt.Apply
-│   ├── Merge.cs # StructuralMerge: ElementGraph forest projection, Merkle-pruned three-way merge, typed conflict classes, RFC 6902 patch egress
-│   ├── Provenance.cs     # W3C-PROV causal DAG + the attested (KMS-signed, hash-chained) tamper-evidence ledger
-│   ├── Retention.cs      # Classification/retention classes, the holds-first sweep fold, the full-history reachability GC
-│   ├── Recovery.cs # RecoveryRoute backup substrates PG-PITR/object-replica/snapshot-archive, verified PITR choreography, RPO/RTO RecoveryFact stream
-│   └── Egress.cs # CDC egress pump: ONE CloudEvents envelope over the EgressSink union, DeliveryAck fold, per-sink dedup, typed dead-letter + replay
-├── Query/                # The read lanes split by consistency demand + the reuse index
-│   ├── Lane.cs # ReadRouter synchronous authoritative vs async analytical, StalenessWatermark sequence-gap, ElementSet/SetExpr selection algebra
-│   ├── Retrieval.cs # Coupled ANN subsystem: FusionRank fusion over pgvector/pg_search branches, VectorCodebook PQ train/ADC scan, VectorBackend axis
-│   ├── Topology.cs # In-process QuikGraph view + frozen incidence index + traversal/path/components/topological-sort DEFAULT synchronous topology
-│   ├── Columnar.cs # DuckDB INSTALL/LOAD analytical lane + co-txn BimOpenSchemaProjection : FlatTableProjection + ParquetSharp + ADBC/Substrait edge
-│   ├── Cypher.cs         # OPTIONAL self-hosted Apache AGE openCypher + pgrouting (async, demoted beneath QuikGraph)
-│   ├── Cache.cs # Compute-result index: ArtifactIndexRow + ModelResultIndex + BenchmarkRow gate + CloudRun + scylla residency + Redis invalidation
-│   └── Federation.cs # Substrait federation router: SubstraitDeserializer ingress, RelationVisitor lowers onto SetExpr / ADBC lane, FederatedResult
-├── Ingest/               # The file-codec ingress axis
-│   ├── Tabular.cs # TabularSource over MiniExcel + Sep delimited lane
-│   ├── Schedule.cs # MPXJ.Net schedule-file codec .mpp/XER/PMXML + durable TaskRelation DAG rows
-│   └── Geospatial.cs # GeoSource over GeoPackage/GeoJSON/WKB-WKT rows
-└── Store/                # Durable-home + coordination substrate
-    ├── BlobStore.cs # Content-keyed object store with write-blob-first seal and ObjectStore union
-    ├── Provisioning.cs # Verification-first PostgreSQL 18 extension tier + embedded-SQLite floor + wire/EF provider-binding rows + 11-axis
-    └── Coordination.cs # Token-validating fenced-lease store: CoordinationOp union Budget/step-CAS/lease/membership/OutboxAdvance
+Rasm.Persistence/            # refs the Rasm.Element seam + Rasm kernel ONLY; no sibling AEC peer; RhinoCommon-free
+├── Element/                 # ElementGraph store-load roundtrip over Marten
+│   ├── Graph.cs             # Stream-per-model event store and inline authoritative projection
+│   ├── Codec.cs             # Content-address codec over canonical bytes and chunked snapshot tiers
+│   ├── Identity.cs          # Identity-row tier: tenancy, EF converters, PostGIS bounds, KMS custody
+│   └── Authority.cs         # Object-ACL algebra: deny-over-allow grant admission
+├── Version/                 # Version-control engine projecting FROM Marten events
+│   ├── Ledger.cs            # Op-log changefeed, HLC clock, CRDT merge dispatch, sync transports
+│   ├── Commits.cs           # Content-addressed commit-DAG and convergent CRDT algebra
+│   ├── TimeTravel.cs        # AS-OF reconstruct/diff/blame/bisect fold over the changefeed prefix
+│   ├── Merge.cs             # Three-way structural merge and RFC 6902 patch egress
+│   ├── Provenance.cs        # W3C-PROV causal DAG and attested tamper-evidence ledger
+│   ├── Retention.cs         # Retention-class sweep and full-history reachability GC
+│   ├── Recovery.cs          # Backup-substrate routes and verified PITR choreography
+│   └── Egress.cs            # CDC egress pump: one CloudEvents envelope with per-sink dedup and replay
+├── Query/                   # Read lanes split by consistency demand
+│   ├── Lane.cs              # Read router: authoritative vs analytical over the selection algebra
+│   ├── Retrieval.cs         # ANN subsystem: fusion rank over the vector and text branches
+│   ├── Topology.cs          # In-process QuikGraph view and default synchronous traversal
+│   ├── Columnar.cs          # DuckDB analytical lane and its flat-table projection
+│   ├── Cypher.cs            # Optional self-hosted openCypher and pgrouting lane
+│   ├── Cache.cs             # Compute-result reuse index with a benchmark gate and invalidation
+│   └── Federation.cs        # Substrait federation router lowering onto the selection algebra
+├── Ingest/                  # File-codec ingress axis
+│   ├── Tabular.cs           # Delimited and spreadsheet source lane
+│   ├── Schedule.cs          # Schedule-file codec and durable task-relation DAG
+│   └── Geospatial.cs        # Geospatial feature source lane
+└── Store/                   # Durable-home and coordination substrate
+    ├── BlobStore.cs         # Content-keyed object store with a write-blob-first seal
+    ├── Provisioning.cs      # Verification-first extension tier and provider-binding rows
+    └── Coordination.cs      # Token-fenced lease store: budget, CAS, lease, membership, outbox
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. The rail is named in the return type — `Validation<Fault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and wall clock, elapsed marks, correlation, and tenant ride the injected `Element/graph#STORE_RAIL` `ProjectionContext` frame — a `ClockPolicy`/`CorrelationId`/`TenantContext` parameter on any Persistence signature is the named strata inversion. Marten owns the durable append and the rebuildable views; the version-control engine projects from its events; provider variance is row data on the axes; public code selects profiles, lanes, operations, codecs, and policies, never provider packages.
+Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail identity rides the return type — `Validation<Fault,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and wall clock, elapsed marks, correlation, and tenant ride the injected `ProjectionContext` frame — a `ClockPolicy`/`CorrelationId`/`TenantContext` parameter on any Persistence signature is the named strata inversion. Marten owns the durable append and the rebuildable views; the version-control engine projects from its events; provider variance is row data on the axes; public code selects profiles, lanes, operations, codecs, and policies, never provider packages.
 
 ## [02]-[SEAMS]
 
-```text seams
-Element/graph        ←  csharp:Rasm.Element                   # [SHAPE]: ElementGraph/GraphDelta/Node/NodeId/Relationship/Header persisted as the SoR
-Element/codec        ←  csharp:Rasm # [CONTENT_KEY]: kernel seed-zero XxHash128 entry ContentAddress composes, no second hasher
-Element/codec        →  typescript:core/interchange/format    # [WIRE]: SnapshotHeader + canonical-CBOR content-stable bytes
-Version/commits      →  typescript:core/interchange/format    # [WIRE]: CrdtOpWire MessagePack union + Hlc 16-byte cell
-Version/commits      ⇄  python:runtime/transport              # [WIRE]: CrdtOp None-companion bytes + the one XxHash128 seed parity corpus
-Version/commits      →  typescript:core/state/causal + typescript:core/state/commit # [SHAPE]: commit/branch/version-vector/Merkle wire shapes
-Version/merge        →  typescript:core/interchange/format    # [SHAPE]: JsonPatchDocument RFC 6902 EntityEdit egress
-Version/merge        ←  csharp:Rasm/Spatial/reconciliation # [CONTENT_KEY]: reconciliation GeometryHash over frozen EncodeForm
-Version/ledger       ⇄  python:runtime/transport              # [WIRE]: OpLogEntry Payload CRDT delta over the one wire vocabulary
-Version/ledger       ⇄  csharp:Rasm.AppHost/Runtime           # [PORT]: HLC two-half + TenantContext causal frame; the W3C TraceSlot trace-id slot
-Version/ledger       ←  csharp:Rasm.AppUi/Collab/Editing + csharp:Rasm.AppHost/Runtime/determinism # [PROJECTION]: ReplayWindow read, one case both
-Version/ledger       ←  csharp:Rasm.AppHost/Wire/companion    # [TRANSPORT]: PeerRoster beats over the lossy DrainSurface awareness lane, not durable
-Version/ledger       →  typescript:core/interchange/codec     # [WIRE]: OpLogEntry envelope — Codec Family-derived, TraceSlot top-level
-Version/timetravel   ←  python:data/gridded/virtual           # [CONTENT_KEY]: icechunk as-of snapshot identity over the shared XxHash128 seed
-Version/provenance   ←  python:artifacts/exchange/credential # [CONTENT_KEY]: signed-artifact content-key binding
-Version/provenance   ←  PollinationSDK sidecar # [CONTENT_KEY]: cloud run as W3C-PROV CloudRunFact via CausalDag.Derive, fork never in-fence
-Version/retention    ←  csharp:Rasm.Compute # [CONTENT_KEY]: content-keyed Assessment.Result blobs registered in blob retention class
-Element/identity     ⇄  csharp:Rasm.AppHost/Runtime # [PORT]: TenantId RLS + KMS unwrap handle #KMS_CUSTODY, ONE_IDENTITY_STORE
-Element/authority    ⇄  csharp:Rasm.AppHost/Runtime # [PORT]: ObjectAcl identity store frozen vocabulary, subject-keyed, string-keyed Grant wire
-Element/authority    →  Version/commits # [BOUNDARY]: BranchRef movement gated by Authority.Admit
-Element/graph        ←  csharp:Rasm.AppHost/Runtime # [PORT]: StoreActor/ProjectionContext/ResolvedProfile VALUES AppHost fills, no type crosses down
-Query/columnar       ←  csharp:Rasm.Bim/Model # [PROJECTION]: BimOpenSchemaProjection : FlatTableProjection
-Query/lane           ⇄  python:data/tabular/query # [WIRE]: ElementSet receipt currency Substrait portable-plan half lives on Query/federation
-Query/federation     ←  python:data/tabular/query # [WIRE]: Substrait portable-plan half signature-locked
-Query/federation     →  Query/lane + Query/columnar # [PROJECTION]: SetExpr + tabular subtree over AdbcQuery.Plan/ColumnarExtension.Substrait
-Query/federation     ←  Version/provenance # [CONTENT_KEY]: SourceKind.SignedArtifact via attested ledger GATED on python:artifacts
-Query/retrieval      ⇄  csharp:Rasm.Compute/Model/embedding # [CONTENT_KEY]: VECTOR_CODEBOOK
-Query/cache          ←  csharp:Rasm.Compute # [PROJECTION]: ArtifactIndexRow + ModelResultIndex recency + BenchmarkRow gate, read by reference
-Query/cache          ⇄  csharp:Rasm.AppHost/Runtime # [PORT]: L2 IBufferDistributedCache partition + TenantId RLS
-Store/blobstore      ←  csharp:Rasm.Compute # [CONTENT_KEY]: authored GLB by Object.RepresentationContentHash GeometryHash, blob write-first
-Store/blobstore      →  csharp:Rasm.Compute GeometrySource # [CONTENT_KEY]: Placement egress row
-Store/blobstore      ←  csharp:Rasm.Bim/Exchange # [CONTENT_KEY]: imported IFC/BREP by Object IfcRepHash
-Store/blobstore      ←  csharp:Rasm.AppUi/Collab/sync # [CONTENT_KEY]: snapshot-accelerator rows
-Ingest/tabular       →  csharp:Rasm.Element                   # [WIRE]: row shape only; the per-app composition root maps tabular→ElementGraph node
-Ingest/schedule      ⇄  csharp:Rasm.Bim/schedule # [WIRE]: durable TaskRelation DAG + XER/PMXML codec HOME
-Ingest/geospatial    →  csharp:Rasm.Element # [WIRE]: feature row shape only mirrors tabular law
-Ingest/geospatial    ←  csharp:Rasm.Bim/Semantics/geospatial  # [WIRE]: Bim geospatial feature-ingress counterpart
-Query/columnar       ⇄  python:data/tabular                   # [WIRE]: Arrow record batch over the ADBC driver manager
-Store/provisioning   ←  csharp:Rasm.AppHost/Observability     # [RECEIPT]: Reachability + ProvisionVerdict into HealthContributorRow
-Store/coordination   ⇄  csharp:Rasm.AppHost/Agent/capability # [PORT]: fenced per-tenant Budget debit
-Store/coordination   ⇄  csharp:Rasm.AppHost/Runtime/orchestration # [PORT]: step-state CAS + StepStateInFlight READ (CrashResume)
-Store/coordination   ⇄  csharp:Rasm.AppHost/Wire/outbox # [PORT]: transactional outbox same-tx ONE_OUTBOX_EGRESS_SPINE
-Store/coordination   ⇄  csharp:Rasm.AppHost/Wire/coordination # [PORT]: CAS + lease + membership rows; MembershipView.Serving the in-process consumer
-Version/egress       ←  Store/coordination # [TRANSPORT]: drains per-sink outbox_cursorSinkKey, Sequence
-Version/egress       ←  Version/ledger                        # [TRANSPORT]: OpLogEntry durable-lane rows via ReplayWindow.DurableOps
-Version/egress       →  csharp:Rasm.AppHost/Wire/outbox       # [PORT]: keyed OutboundHop counterpart; sink reads AppHost hop delivery-honesty policy
-Version/recovery     ←  csharp:Rasm.AppHost/Runtime           # [PORT]: RecoveryObjective RPO/RTO on the ResolvedProfile (Element/graph#STORE_RAIL)
-```
-
-## [03]-[SPINE]
+Seams split into two fences by counterpart group. First fence binds the AEC-domain peers and the kernel — the shape, content-key, and projection contracts through which durable state aligns with `Rasm.Element`, `Rasm.Bim`, and `Rasm.Compute`. Second fence binds the platform host and the cross-runtime peers — the port, wire, and receipt contracts that reach `Rasm.AppHost`, `Rasm.AppUi`, and the Python and TypeScript runtimes. Each collapsed edge stands for every contract between that sub-domain and that partner at the load-bearing kind; the owning pages enumerate the rest.
 
 ```mermaid
 ---
 config:
-  layout: elk
-  look: neo
   theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: Persistence domain and kernel content seams
+    accDescr: Persistence sub-domain owners exchanging shapes, content keys, and projections with the kernel and the AEC peers Element, Bim, and Compute, edge rails colored by kind and nodes classed by seam direction.
+    subgraph persistence[RASM.PERSISTENCE]
+        Element[Element store]
+        Version[Version engine]
+        Query[Query lanes]
+        Ingest[Ingest codecs]
+        Store[Store substrate]
+    end
+    RasmElement{{Rasm.Element}}
+    Rasm([Rasm])
+    Bim{{Rasm.Bim}}
+    Compute{{Rasm.Compute}}
+    RasmElement e1@-->|"[SHAPE]: ElementGraph"| Element
+    Ingest e2@-->|"[WIRE]: ElementGraph"| RasmElement
+    Rasm e3@-->|"[CONTENT_KEY]: XxHash128"| Element
+    Rasm e4@-->|"[CONTENT_KEY]: GeometryHash"| Version
+    Bim e5@-->|"[PROJECTION]: BimOpenSchema"| Query
+    Bim e6@-->|"[CONTENT_KEY]: IfcRepHash"| Store
+    Ingest e7@<-->|"[WIRE]: TaskRelation"| Bim
+    Compute e8@-->|"[CONTENT_KEY]: Assessment"| Version
+    Compute e9@<-->|"[CONTENT_KEY]: VectorCodebook"| Query
+    Compute e10@-->|"[PROJECTION]: ArtifactIndexRow"| Query
+    Compute e11@<-->|"[CONTENT_KEY]: GeometryHash"| Store
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
+    class Element,Version,Query,Ingest,Store primary
+    class RasmElement,Bim,Compute external
+    class Rasm annotation
+    class e2,e3,e4,e6,e7,e8,e9,e11 edgeData
+    class e1 edgeControl
+    class e5,e10 edgeExternal
+```
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: Persistence platform and cross-runtime seams
+    accDescr: Persistence sub-domain owners exchanging ports, wires, projections, and receipts with the app host, the app UI, and the Python and TypeScript runtimes, edge rails colored by kind and nodes classed by seam direction.
+    subgraph persistence[RASM.PERSISTENCE]
+        Element[Element store]
+        Version[Version engine]
+        Query[Query lanes]
+        Store[Store substrate]
+    end
+    AppHost{{Rasm.AppHost}}
+    AppUi([Rasm.AppUi])
+    Core([typescript:core])
+    Runtime{{python:runtime}}
+    Data{{python:data}}
+    Artifacts([python:artifacts])
+    Element e1@-->|"[WIRE]: SnapshotHeader"| Core
+    Version e2@-->|"[WIRE]: CrdtOpWire"| Core
+    Version e3@<-->|"[WIRE]: OpLogEntry"| Runtime
+    Artifacts e4@-->|"[CONTENT_KEY]: SignedArtifact"| Version
+    Data e5@-->|"[CONTENT_KEY]: IcechunkKey"| Version
+    Query e6@<-->|"[WIRE]: SubstraitPlan"| Data
+    Element e7@<-->|"[PORT]: ProjectionContext"| AppHost
+    Version e8@<-->|"[PORT]: HlcFrame"| AppHost
+    AppHost e9@-->|"[PROJECTION]: ReplayWindow"| Version
+    AppHost e10@-->|"[TRANSPORT]: PeerRoster"| Version
+    Query e11@<-->|"[PORT]: CachePort"| AppHost
+    Store e12@<-->|"[PORT]: CoordinationPort"| AppHost
+    AppHost e13@-->|"[RECEIPT]: ProvisionVerdict"| Store
+    AppUi e14@-->|"[PROJECTION]: ReplayWindow"| Version
+    AppUi e15@-->|"[CONTENT_KEY]: SnapshotAccelerator"| Store
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
+    class Element,Version,Query,Store primary
+    class AppHost,Runtime,Data external
+    class AppUi,Core,Artifacts annotation
+    class e1,e2,e3,e4,e5,e6,e15 edgeData
+    class e7,e8,e11,e12 edgeControl
+    class e9,e10,e14 edgeExternal
+    class e13 edgeSuccess
+```
+
+## [03]-[INTERNAL]
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: ElementGraph persistence flow
-    accDescr: A GraphStoreOp commits a GraphDelta event plus the identity row in one Marten session; the inline projection materializes the authoritative graph read-your-writes; the changefeed subscription feeds the version engine and the analytical lanes; the geometry blob writes content-first.
-    GraphStoreOp["GraphStoreOp (apply GraphDelta)"] --> Session["IDocumentSession (event + identity, one txn)"]
-    Session --> Inline["inline GraphProjection (read-your-writes)"]
-    Session --> Changefeed["ChangefeedSubscription → OpLogEntry"]
-    Inline --> Topology["QuikGraph topology (synchronous)"]
-    Changefeed --> Engine["Version engine (commits/timetravel/merge/provenance)"]
-    Changefeed --> Async["async daemon: DuckDB/BimOpenSchema + AGE (watermarked)"]
-    Changefeed --> Pump["EgressPump: CloudEvents CDC past the per-sink outbox cursor"]
-    Cursor["Store/coordination outbox_cursor (fenced OutboxAdvance)"] --> Pump
-    GraphStoreOp -.write-blob-first.-> BlobStore["content-keyed geometry blob"]
-    BlobStore -.reference hash.-> Session
-    Engine --> Retention["retention + full-history GC"]
-    Retention --> BlobStore
+    accDescr: A GraphStoreOp commits a GraphDelta event plus the identity row in one Marten session; the inline projection materializes the authoritative graph read-your-writes; the changefeed feeds the version engine and the analytical lanes; the geometry blob writes content-first and is referenced after.
+    Op([GraphStoreOp]) --> Session[(IDocumentSession)]
+    Session --> Inline[[inline GraphProjection]]
+    Session --> Changefeed[[ChangefeedSubscription]]
+    Inline --> Topology[[QuikGraph topology]]
+    Changefeed --> Engine[[Version engine]]
+    Changefeed --> Async[[analytical daemon]]
+    Changefeed --> Pump[[EgressPump]]
+    Cursor[(outbox cursor)] --> Pump
+    Op -.write-blob-first.-> Blob[(geometry blob)]
+    Blob -.reference hash.-> Session
+    Engine --> Retention[[retention GC]]
+    Retention --> Blob
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    class Op boundary
+    class Inline,Changefeed,Topology,Engine,Async,Pump,Retention primary
+    class Session,Cursor,Blob data
 ```
 
-`GraphStoreOp.Run` appends the `GraphDelta` event and stores the `ElementIdentity` document in one `IDocumentSession`, so a single `SaveChangesAsync` commits identity plus event; the inline `GraphProjection` materializes the authoritative `ElementGraph` read-your-writes; the `ChangefeedSubscription` projects each committed event into an `OpLogEntry` the version engine and the analytical daemon both fold; the geometry blob writes content-first and the event references its immutable hash; the retention sweep's full-history GC governs both the snapshot spine and the geometry blobs; the `EgressPump` drains the durable changefeed lanes past the coordination-owned per-sink outbox cursor into the CloudEvents sink rows — the Marten stream IS the outbox, so a domain commit and its egress obligation are one transaction.
+One `IDocumentSession` commits the `GraphDelta` event and the identity row together, the inline projection materializes the authoritative `ElementGraph` read-your-writes, and the changefeed is the one fan-out the version engine, the analytical daemon, and the egress pump each fold. Geometry blob is write-first and reference-after, and retention's full-history GC governs snapshots and blobs as one reachability set. Marten stream is the outbox, so a domain commit and its egress obligation settle in one transaction — the exact wiring lives on the owning implementation pages.
 
 ## [04]-[BOUNDARIES]
 
 - Persistence is not a domain service layer, repository framework, ORM wrapper, provider wrapper, or host-boundary package; it is RhinoCommon-free, depends up on the `Rasm.Element` seam plus the `Rasm` kernel, and never references a sibling AEC-domain peer.
 - Marten owns the durable append and the rebuildable read views; the op-log/CRDT/time-travel/`StructuralMerge`/causal-DAG engine PROJECTS from its events — never a bespoke op-log store beneath Marten, never re-implementing event storage or stream folding.
-- The one transaction owner for identity plus event is the `IDocumentSession` (identity as a Marten document in the same session); the geometry blob is write-first and reference-after with no free two-ORM atomicity.
-- Authoritative topology/containment reads bind the synchronous inline projection and the in-process QuikGraph view; AGE and DuckDB are async analytical lanes with an explicit staleness watermark, and interactive-correctness reads block on `WaitForNonStaleProjectionDataAsync` and never route to an async projection.
+- One transaction owner for identity plus event is the `IDocumentSession` with identity a Marten document in the same session; the geometry blob is write-first and reference-after with no free two-ORM atomicity.
+- Authoritative topology/containment reads bind the synchronous inline projection and the in-process QuikGraph view; AGE and DuckDB are async analytical lanes with an explicit staleness watermark, and interactive-correctness reads block on `WaitForNonStaleProjectionDataAsync`.
 - Typed projection records and the seam `ElementGraph` are the only egress; entity types never cross the package boundary, and provider failure converts into a typed fault at exactly one site per rail.
-- AppHost owns scheduling, drain conduction, hop retry, correlation, classification taxonomy, and the cache port; Persistence contributes rows and never reverses the dependency. The database is excluded from the AppHost hop law — `EnableRetryOnFailure` on the pg row and busy-retry on the sqlite rows are the only database retry owners.
+- AppHost owns scheduling, drain conduction, hop retry, correlation, classification taxonomy, and the cache port; Persistence contributes rows and never reverses the dependency. Database is excluded from the AppHost hop law — `EnableRetryOnFailure` on the pg row and busy-retry on the sqlite rows are the only database retry owners.
 
 ## [05]-[PROHIBITIONS]
 
-The closed NEVER list — the deleted patterns the owner regions foreclose.
+Closed NEVER list — the deleted patterns the owner regions foreclose.
 
 - NEVER a public type outside a sub-domain owner region; a new capability is a row, case, or policy value on a budgeted owner.
 - NEVER a bespoke op-log/event store beneath Marten, a per-`NodeId` stream grain, or a whole-graph event body; the stream is per-model and the body is the `GraphDelta`.
-- NEVER route an interactive-correctness read (clash, void-resolution, live QTO) to an async projection without `WaitForNonStaleProjectionDataAsync`; strong-consistency reads go through the inline projection / the synchronous topology.
+- NEVER route an interactive-correctness read to an async projection without `WaitForNonStaleProjectionDataAsync`; strong-consistency reads go through the inline projection and the synchronous topology.
 - NEVER a second materializer beside `Crdt.Apply`/`GraphDelta.Apply`; the projection, the live merge, and the AS-OF reconstruction fold the one delta.
-- NEVER a second content-hash, identity, CRDT, selection-shape, or geometry-representation owner; the durable spine rides the one kernel `XxHash128` content address, the one `OpLogEntry` changefeed, the one `ElementSet`, and the one canonical wire geometry.
-- NEVER a head-only geometry GC; reachability runs over the full event history (every AS-OF cut), or geometry GC is forbidden (dedup + cold-tiering).
-- NEVER `DateTime.UtcNow`, `Stopwatch`, or direct timers; the injected `ProjectionContext` frame (`Mark`/`Elapsed`/`Now` delegate values AppHost fills at the port) is the only time seam, the HLC the only causal clock — an AppHost `ClockPolicy` parameter on a Persistence signature is the named strata inversion.
+- NEVER a second content-hash, identity, CRDT, selection-shape, or geometry-representation owner; the spine rides the one kernel `XxHash128` content address, the one `OpLogEntry` changefeed, the one `ElementSet`, and the one canonical wire geometry.
+- NEVER a head-only geometry GC; reachability runs over the full event history, or geometry GC is forbidden in favor of dedup and cold-tiering.
+- NEVER `DateTime.UtcNow`, `Stopwatch`, or direct timers; the injected `ProjectionContext` frame is the only time seam and the HLC the only causal clock — an AppHost `ClockPolicy` parameter on a Persistence signature is the named strata inversion.
 - NEVER hand-written converters/formatters/migration code beside the generated rails; Thinktecture converters, Marten/EF migrations, and the source-generated resolvers own those forms.
 - NEVER a generic receipt abstraction; `GraphReceipt`, `SyncApplyReceipt`, `ConflictReceipt`, `TimeTravelReceipt`, `SweepReceipt`, `RecoveryFact`, `BlobTransferReceipt`, and `RetentionFact` stay typed.
-- NEVER admit a new relational engine row — the sweep is closed (PostgreSQL + embedded SQLite only); PostgreSQL is never spawned or bundled by a Rasm process, and provisioning is verification-only (never runtime `ALTER SYSTEM`).
+- NEVER admit a new relational engine row — the sweep is closed to PostgreSQL and embedded SQLite only; PostgreSQL is never spawned or bundled by a Rasm process, and provisioning is verification-only.
 - NEVER reference a sibling AEC-domain peer or a host-SDK type; alignment travels through the `Rasm.Element` seam and the content-keyed wire.
 - CSP analyzer diagnostics are architecture pressure: fix the shape, refine the rule on a false positive, never suppress.

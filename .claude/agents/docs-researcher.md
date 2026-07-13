@@ -1,7 +1,6 @@
 ---
 name: docs-researcher
 description: Fetches library documentation and returns distilled answers without cluttering the main conversation context.
-model: sonnet
 ---
 
 # Docs Researcher

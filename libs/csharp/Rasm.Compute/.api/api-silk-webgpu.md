@@ -101,87 +101,87 @@ The whole surface is `unsafe`-pointer native methods generated from `webgpu.h`; 
 
 ## [03]-[ENTRYPOINTS]
 
-All entrypoints are `unsafe` instance methods on the `WebGPU.GetApi()` function-table root. Each descriptor-taking method ships two overloads — a raw `<Descriptor>*` form and a `ref readonly <Descriptor>` form — so a call site either pins a `Span<T>`/`stackalloc` descriptor and passes a pointer, or passes the `stackalloc` descriptor by `in` reference; both bind the same native call, neither is a managed convenience object wrapping the handle. The generic `<T0>(... ref T0 userdata)` overloads thread typed `unmanaged` userdata into the callback-bearing async entrypoints without a `void*` cast.
+All entrypoints are `unsafe` instance methods on the `WebGPU.GetApi()` function-table root; every `[SURFACE]` below is a `WebGPU` method except the wgpu-native extension scope, whose surfaces are `Wgpu` (`Wgpu.GetApi()`) methods. Each descriptor-taking method ships two overloads — a raw `<Descriptor>*` form and a `ref readonly <Descriptor>` form — so a call site either pins a `Span<T>`/`stackalloc` descriptor and passes a pointer, or passes the `stackalloc` descriptor by `in` reference; both bind the same native call, neither is a managed convenience object wrapping the handle. The generic `<T0>(... ref T0 userdata)` overloads thread typed `unmanaged` userdata into the callback-bearing async entrypoints without a `void*` cast.
 
 [ENTRYPOINT_SCOPE]: device and queue acquisition
 - rail: compute
 
-| [INDEX] | [SURFACE]                                                                       | [SURFACE_ROOT] | [RAIL]           |
-| :-----: | :------------------------------------------------------------------------------ | :------------- | :--------------- |
-|  [01]   | `WebGPU.GetApi()`                                                               | `WebGPU`       | API root load    |
-|  [02]   | `CreateInstance(InstanceDescriptor*)`                                           | `WebGPU`       | instance create  |
-|  [03]   | `InstanceRequestAdapter(Instance*, RequestAdapterOptions*, callback, userdata)` | `WebGPU`       | adapter request  |
-|  [04]   | `AdapterRequestDevice(Adapter*, DeviceDescriptor*, callback, userdata)`         | `WebGPU`       | device request   |
-|  [05]   | `DeviceGetQueue(Device*)`                                                       | `WebGPU`       | queue handle     |
-|  [06]   | `DeviceGetLimits(Device*, SupportedLimits*)`                                    | `WebGPU`       | workgroup limits |
+| [INDEX] | [SURFACE]                                                                       | [RAIL]           |
+| :-----: | :------------------------------------------------------------------------------ | :--------------- |
+|  [01]   | `WebGPU.GetApi()`                                                               | API root load    |
+|  [02]   | `CreateInstance(InstanceDescriptor*)`                                           | instance create  |
+|  [03]   | `InstanceRequestAdapter(Instance*, RequestAdapterOptions*, callback, userdata)` | adapter request  |
+|  [04]   | `AdapterRequestDevice(Adapter*, DeviceDescriptor*, callback, userdata)`         | device request   |
+|  [05]   | `DeviceGetQueue(Device*)`                                                       | queue handle     |
+|  [06]   | `DeviceGetLimits(Device*, SupportedLimits*)`                                    | workgroup limits |
 
 [ENTRYPOINT_SCOPE]: compute resource and pipeline creation
 - rail: compute
 
-| [INDEX] | [SURFACE]                                                              | [SURFACE_ROOT] | [RAIL]                 |
-| :-----: | :--------------------------------------------------------------------- | :------------- | :--------------------- |
-|  [01]   | `DeviceCreateBuffer(Device*, BufferDescriptor*)`                       | `WebGPU`       | storage/staging alloc  |
-|  [02]   | `DeviceCreateShaderModule(Device*, ShaderModuleDescriptor*)`           | `WebGPU`       | compute shader compile |
-|  [03]   | `DeviceCreateBindGroupLayout(Device*, BindGroupLayoutDescriptor*)`     | `WebGPU`       | binding layout         |
-|  [04]   | `DeviceCreateBindGroup(Device*, BindGroupDescriptor*)`                 | `WebGPU`       | bound resource group   |
-|  [05]   | `DeviceCreatePipelineLayout(Device*, PipelineLayoutDescriptor*)`       | `WebGPU`       | pipeline layout        |
-|  [06]   | `DeviceCreateComputePipeline(Device*, ComputePipelineDescriptor*)`     | `WebGPU`       | compute pipeline       |
-|  [07]   | `DeviceCreateComputePipelineAsync(Device*, ..., callback, userdata)`   | `WebGPU`       | async pipeline compile |
-|  [08]   | `ComputePipelineGetBindGroupLayout(ComputePipeline*, uint groupIndex)` | `WebGPU`       | auto-derive layout     |
-|  [09]   | `DeviceCreateCommandEncoder(Device*, CommandEncoderDescriptor*)`       | `WebGPU`       | encoder create         |
-|  [10]   | `DeviceCreateQuerySet(Device*, QuerySetDescriptor*)`                   | `WebGPU`       | timestamp query-set    |
+| [INDEX] | [SURFACE]                                                              | [RAIL]                 |
+| :-----: | :--------------------------------------------------------------------- | :--------------------- |
+|  [01]   | `DeviceCreateBuffer(Device*, BufferDescriptor*)`                       | storage/staging alloc  |
+|  [02]   | `DeviceCreateShaderModule(Device*, ShaderModuleDescriptor*)`           | compute shader compile |
+|  [03]   | `DeviceCreateBindGroupLayout(Device*, BindGroupLayoutDescriptor*)`     | binding layout         |
+|  [04]   | `DeviceCreateBindGroup(Device*, BindGroupDescriptor*)`                 | bound resource group   |
+|  [05]   | `DeviceCreatePipelineLayout(Device*, PipelineLayoutDescriptor*)`       | pipeline layout        |
+|  [06]   | `DeviceCreateComputePipeline(Device*, ComputePipelineDescriptor*)`     | compute pipeline       |
+|  [07]   | `DeviceCreateComputePipelineAsync(Device*, ..., callback, userdata)`   | async pipeline compile |
+|  [08]   | `ComputePipelineGetBindGroupLayout(ComputePipeline*, uint groupIndex)` | auto-derive layout     |
+|  [09]   | `DeviceCreateCommandEncoder(Device*, CommandEncoderDescriptor*)`       | encoder create         |
+|  [10]   | `DeviceCreateQuerySet(Device*, QuerySetDescriptor*)`                   | timestamp query-set    |
 
 [ENTRYPOINT_SCOPE]: compute pass recording and submission
 - rail: compute
 
-| [INDEX] | [SURFACE]                                                                                                | [SURFACE_ROOT] | [RAIL]                |
-| :-----: | :------------------------------------------------------------------------------------------------------- | :------------- | :-------------------- |
-|  [01]   | `CommandEncoderBeginComputePass(CommandEncoder*, ComputePassDescriptor*)`                                | `WebGPU`       | compute pass begin    |
-|  [02]   | `ComputePassEncoderSetPipeline(ComputePassEncoder*, ComputePipeline*)`                                   | `WebGPU`       | bind compute pipeline |
-|  [03]   | `ComputePassEncoderSetBindGroup(ComputePassEncoder*, groupIndex, BindGroup*, dynamicOffsetCount, uint*)` | `WebGPU`       | bind resource group   |
-|  [04]   | `ComputePassEncoderDispatchWorkgroups(ComputePassEncoder*, countX, countY, countZ)`                      | `WebGPU`       | workgroup dispatch    |
-|  [05]   | `ComputePassEncoderDispatchWorkgroupsIndirect(ComputePassEncoder*, Buffer*, offset)`                     | `WebGPU`       | indirect dispatch     |
-|  [06]   | `ComputePassEncoderEnd(ComputePassEncoder*)`                                                             | `WebGPU`       | close compute pass    |
-|  [07]   | `CommandEncoderFinish(CommandEncoder*, CommandBufferDescriptor*)`                                        | `WebGPU`       | finish command buffer |
-|  [08]   | `QueueSubmit(Queue*, nuint, CommandBuffer**)`                                                            | `WebGPU`       | submit to GPU         |
+| [INDEX] | [SURFACE]                                                                                                | [RAIL]                |
+| :-----: | :------------------------------------------------------------------------------------------------------- | :-------------------- |
+|  [01]   | `CommandEncoderBeginComputePass(CommandEncoder*, ComputePassDescriptor*)`                                | compute pass begin    |
+|  [02]   | `ComputePassEncoderSetPipeline(ComputePassEncoder*, ComputePipeline*)`                                   | bind compute pipeline |
+|  [03]   | `ComputePassEncoderSetBindGroup(ComputePassEncoder*, groupIndex, BindGroup*, dynamicOffsetCount, uint*)` | bind resource group   |
+|  [04]   | `ComputePassEncoderDispatchWorkgroups(ComputePassEncoder*, countX, countY, countZ)`                      | workgroup dispatch    |
+|  [05]   | `ComputePassEncoderDispatchWorkgroupsIndirect(ComputePassEncoder*, Buffer*, offset)`                     | indirect dispatch     |
+|  [06]   | `ComputePassEncoderEnd(ComputePassEncoder*)`                                                             | close compute pass    |
+|  [07]   | `CommandEncoderFinish(CommandEncoder*, CommandBufferDescriptor*)`                                        | finish command buffer |
+|  [08]   | `QueueSubmit(Queue*, nuint, CommandBuffer**)`                                                            | submit to GPU         |
 
 [ENTRYPOINT_SCOPE]: host transfer, readback, and timing
 - rail: compute
 
-| [INDEX] | [SURFACE]                                                                                  | [SURFACE_ROOT] | [RAIL]                  |
-| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :---------------------- |
-|  [01]   | `QueueWriteBuffer(Queue*, Buffer*, bufferOffset, void* data, nuint size)`                  | `WebGPU`       | host-to-GPU upload      |
-|  [02]   | `CommandEncoderCopyBufferToBuffer(CommandEncoder*, src, srcOffset, dst, dstOffset, size)`  | `WebGPU`       | device-side copy        |
-|  [03]   | `BufferMapAsync(Buffer*, MapMode, offset, size, PfnBufferMapCallback, void* userdata)`     | `WebGPU`       | request mapping         |
-|  [04]   | `BufferGetMappedRange(Buffer*, nuint offset, nuint size)`                                  | `WebGPU`       | mapped readback pointer |
-|  [05]   | `BufferGetMapState(Buffer*)`                                                               | `WebGPU`       | poll `BufferMapState`   |
-|  [06]   | `BufferUnmap(Buffer*)`                                                                     | `WebGPU`       | release mapping         |
-|  [07]   | `QueueOnSubmittedWorkDone(Queue*, PfnQueueWorkDoneCallback, void* userdata)`               | `WebGPU`       | submission completion   |
-|  [08]   | `CommandEncoderWriteTimestamp(CommandEncoder*, QuerySet*, queryIndex)`                     | `WebGPU`       | per-pass timestamp      |
-|  [09]   | `CommandEncoderResolveQuerySet(CommandEncoder*, QuerySet*, first, count, Buffer*, offset)` | `WebGPU`       | resolve to read buffer  |
-|  [10]   | `QuerySetGetCount(QuerySet*)` / `QuerySetGetType(QuerySet*)`                               | `WebGPU`       | query-set introspection |
+| [INDEX] | [SURFACE]                                                                                  | [RAIL]                  |
+| :-----: | :----------------------------------------------------------------------------------------- | :---------------------- |
+|  [01]   | `QueueWriteBuffer(Queue*, Buffer*, bufferOffset, void* data, nuint size)`                  | host-to-GPU upload      |
+|  [02]   | `CommandEncoderCopyBufferToBuffer(CommandEncoder*, src, srcOffset, dst, dstOffset, size)`  | device-side copy        |
+|  [03]   | `BufferMapAsync(Buffer*, MapMode, offset, size, PfnBufferMapCallback, void* userdata)`     | request mapping         |
+|  [04]   | `BufferGetMappedRange(Buffer*, nuint offset, nuint size)`                                  | mapped readback pointer |
+|  [05]   | `BufferGetMapState(Buffer*)`                                                               | poll `BufferMapState`   |
+|  [06]   | `BufferUnmap(Buffer*)`                                                                     | release mapping         |
+|  [07]   | `QueueOnSubmittedWorkDone(Queue*, PfnQueueWorkDoneCallback, void* userdata)`               | submission completion   |
+|  [08]   | `CommandEncoderWriteTimestamp(CommandEncoder*, QuerySet*, queryIndex)`                     | per-pass timestamp      |
+|  [09]   | `CommandEncoderResolveQuerySet(CommandEncoder*, QuerySet*, first, count, Buffer*, offset)` | resolve to read buffer  |
+|  [10]   | `QuerySetGetCount(QuerySet*)` / `QuerySetGetType(QuerySet*)`                               | query-set introspection |
 
 [ENTRYPOINT_SCOPE]: pass observability and debug grouping
 - rail: compute
 
-| [INDEX] | [SURFACE]                                                                     | [SURFACE_ROOT] | [RAIL]                 |
-| :-----: | :---------------------------------------------------------------------------- | :------------- | :--------------------- |
-|  [01]   | `ComputePassEncoderSetLabel(ComputePassEncoder*, byte* label)`                | `WebGPU`       | pass label for capture |
-|  [02]   | `ComputePassEncoderInsertDebugMarker(ComputePassEncoder*, byte* markerLabel)` | `WebGPU`       | inline debug marker    |
-|  [03]   | `ComputePassEncoderPushDebugGroup(ComputePassEncoder*, byte* groupLabel)`     | `WebGPU`       | open debug group       |
-|  [04]   | `ComputePassEncoderPopDebugGroup(ComputePassEncoder*)`                        | `WebGPU`       | close debug group      |
-|  [05]   | `ComputePipelineSetLabel(ComputePipeline*, byte* label)`                      | `WebGPU`       | pipeline label         |
+| [INDEX] | [SURFACE]                                                                     | [RAIL]                 |
+| :-----: | :---------------------------------------------------------------------------- | :--------------------- |
+|  [01]   | `ComputePassEncoderSetLabel(ComputePassEncoder*, byte* label)`                | pass label for capture |
+|  [02]   | `ComputePassEncoderInsertDebugMarker(ComputePassEncoder*, byte* markerLabel)` | inline debug marker    |
+|  [03]   | `ComputePassEncoderPushDebugGroup(ComputePassEncoder*, byte* groupLabel)`     | open debug group       |
+|  [04]   | `ComputePassEncoderPopDebugGroup(ComputePassEncoder*)`                        | close debug group      |
+|  [05]   | `ComputePipelineSetLabel(ComputePipeline*, byte* label)`                      | pipeline label         |
 
 [ENTRYPOINT_SCOPE]: wgpu-native extension calls (`Wgpu.GetApi()`)
 - rail: compute
 
-| [INDEX] | [SURFACE]                                                                                    | [SURFACE_ROOT] | [RAIL]                     |
-| :-----: | :------------------------------------------------------------------------------------------- | :------------- | :------------------------- |
-|  [01]   | `DevicePoll(Device*, Bool32 wait, WrappedSubmissionIndex* index)`                            | `Wgpu`         | non-blocking device-tick   |
-|  [02]   | `QueueSubmitForIndex(Queue*, nuint count, CommandBuffer** commands)` → `ulong`               | `Wgpu`         | submit + return wait index |
-|  [03]   | `ComputePassEncoderBeginPipelineStatisticsQuery(ComputePassEncoder*, QuerySet*, queryIndex)` | `Wgpu`         | begin pipeline-statistics  |
-|  [04]   | `ComputePassEncoderEndPipelineStatisticsQuery(ComputePassEncoder*)`                          | `Wgpu`         | end pipeline-statistics    |
-|  [05]   | `InstanceEnumerateAdapters(Instance*, InstanceEnumerateAdapterOptions*, Adapter** out)`      | `Wgpu`         | synchronous adapter list   |
+| [INDEX] | [SURFACE]                                                                                    | [RAIL]                     |
+| :-----: | :------------------------------------------------------------------------------------------- | :------------------------- |
+|  [01]   | `DevicePoll(Device*, Bool32 wait, WrappedSubmissionIndex* index)`                            | non-blocking device-tick   |
+|  [02]   | `QueueSubmitForIndex(Queue*, nuint count, CommandBuffer** commands)` → `ulong`               | submit + return wait index |
+|  [03]   | `ComputePassEncoderBeginPipelineStatisticsQuery(ComputePassEncoder*, QuerySet*, queryIndex)` | begin pipeline-statistics  |
+|  [04]   | `ComputePassEncoderEndPipelineStatisticsQuery(ComputePassEncoder*)`                          | end pipeline-statistics    |
+|  [05]   | `InstanceEnumerateAdapters(Instance*, InstanceEnumerateAdapterOptions*, Adapter** out)`      | synchronous adapter list   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

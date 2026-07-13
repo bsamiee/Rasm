@@ -21,16 +21,23 @@ The package fans out to exactly three RID sub-packages — `libtorch-cpu-linux-x
 
 [PACKAGE_ASSET_SCOPE]: per-RID native CPU payload matrix (the OWNING native floor for the whole TorchSharp/LibTorch stack)
 - rail: compute
-- note: this is the canonical per-RID native-payload owner; `api-torchsharp.md` `native-floor` restates NOTHING — it declares its managed pin and the `libLibTorchSharp` shim, then defers the LibTorch ABI facts HERE. The `TorchSharp` package ships only the thin P/Invoke shim (`libLibTorchSharp.{dylib,so,dll}`); the heavy ATen/c10 native runtime is THIS floor. A `torch.*` call resolves `libLibTorchSharp` (TorchSharp's shim) -> `libtorch_cpu` + `libtorch` + `libc10` (this floor) at native init; a missing RID payload faults the first native entry-point load, never silently degrading.
+- note: this is the canonical per-RID native-payload owner; `api-torchsharp.md` `native-floor` restates NOTHING — it declares its managed pin and the `libLibTorchSharp` shim, then defers the LibTorch ABI facts HERE. The `TorchSharp` package ships only the thin P/Invoke shim (`libLibTorchSharp.{dylib,so,dll}`; `LibTorchSharp.dll` on Windows); the heavy ATen/c10 native runtime is THIS floor. A `torch.*` call resolves the shim -> `libtorch_cpu` + `libtorch` + `libc10` (this floor) at native init; a missing RID payload faults the first native entry-point load, never silently degrading.
+- shipped RIDs: `osx-arm64` is the VERIFIED workspace host asset; `linux-x64`/`win-x64` are shipped sub-packages
 
-| [INDEX] | [RID]         | [NATIVE_CPU_PAYLOAD]                                                                                                 | [TORCHSHARP_SHIM]                | [STATUS]                                   |
-| :-----: | :------------ | :------------------------------------------------------------------------------------------------------------------- | :------------------------------- | :----------------------------------------- |
-|  [01]   | `osx-arm64`   | `libtorch.dylib`, `libtorch_cpu.dylib`, `libc10.dylib`, `libomp.dylib`, `libtorch_global_deps.dylib`, `libshm.dylib` | `libLibTorchSharp.dylib`         | the workspace target — VERIFIED host asset |
-|  [02]   | `linux-x64`   | `libtorch.so` + `libtorch_cpu.so` + `libc10.so` + OpenMP runtime (`libtorch-cpu-linux-x64`)                          | `libLibTorchSharp.so`            | shipped sub-package                        |
-|  [03]   | `win-x64`     | `torch.dll` + `torch_cpu.dll` + `c10.dll` (`libtorch-cpu-win-x64`)                                                   | `LibTorchSharp.dll`              | shipped sub-package                        |
-|  [04]   | `linux-arm64` | NONE — no CPU payload on this line                                                                                   | `libLibTorchSharp.so` (ships)    | NO native floor — `torch.*` faults at init |
-|  [05]   | `win-arm64`   | NONE — no CPU payload on this line                                                                                   | `LibTorchSharp.dll` (ships)      | NO native floor — `torch.*` faults at init |
-|  [06]   | `osx-x64`     | NONE — no CPU payload on this line                                                                                   | `libLibTorchSharp.dylib` (ships) | NO native floor — `torch.*` faults at init |
+| [INDEX] | [RID]       | [NATIVE_CPU_PAYLOAD]                                                                                                 |
+| :-----: | :---------- | :------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `osx-arm64` | `libtorch.dylib`, `libtorch_cpu.dylib`, `libc10.dylib`, `libomp.dylib`, `libtorch_global_deps.dylib`, `libshm.dylib` |
+|  [02]   | `linux-x64` | `libtorch.so` + `libtorch_cpu.so` + `libc10.so` + OpenMP runtime (`libtorch-cpu-linux-x64`)                          |
+|  [03]   | `win-x64`   | `torch.dll` + `torch_cpu.dll` + `c10.dll` (`libtorch-cpu-win-x64`)                                                   |
+
+[PACKAGE_ASSET_SCOPE]: RIDs with NO CPU payload on this line — the `libLibTorchSharp` shim ships, but every `torch.*` call faults at native init
+- rail: compute
+
+| [INDEX] | [RID]         | [TORCHSHARP_SHIM]                |
+| :-----: | :------------ | :------------------------------- |
+|  [01]   | `linux-arm64` | `libLibTorchSharp.so` (ships)    |
+|  [02]   | `win-arm64`   | `LibTorchSharp.dll` (ships)      |
+|  [03]   | `osx-x64`     | `libLibTorchSharp.dylib` (ships) |
 
 [OPENMP_THREADING_FLOOR]:
 - The osx-arm64 payload bundles `libomp.dylib` — the LLVM OpenMP runtime LibTorch's ATen ops parallelize over. ATen CPU intra-op parallelism rides this OpenMP pool, NOT the .NET thread pool, so the `Tensor/blas` lane's thread-count knob is `TorchSharp.torch.set_num_threads(int)` / `get_num_threads()` (the ATen/OMP intra-op count) and `set_num_interop_threads(int)`, each documented in `api-torchsharp.md`. The `OMP_NUM_THREADS` / `MKL_NUM_THREADS` environment variables read by `libomp` at native init are the only out-of-band override; the managed `set_num_threads` is the in-process rail the design uses.

@@ -32,26 +32,25 @@ projection) and reserves the Newtonsoft codec for the FlatGeobuf dependency.
 - namespace: `NetTopologySuite.IO.Converters`
 - rail: geospatial
 
-`GeoJsonObjectType` is `internal` (the codec's own type discriminant) — NOT a public surface.
-The per-kind converters (`StjGeometryConverter`, `StjFeatureConverter`,
-`StjFeatureCollectionConverter`, `StjAttributesTableConverter`) are `internal`, produced BY the
-factory; the only registration entry is `GeoJsonConverterFactory`.
+`GeoJsonObjectType` and the per-kind converters (`StjGeometryConverter`, `StjFeatureConverter`, `StjFeatureCollectionConverter`, `StjAttributesTableConverter`) are `internal`, produced BY the factory; the only registration entry is `GeoJsonConverterFactory`.
 
-| [INDEX] | [SYMBOL]                  | [RAIL]     | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                        |
-| :-----: | :------------------------ | :--------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `GeoJsonConverterFactory` | geospatial | `JsonConverterFactory` (override `CanConvert`/`CreateConverter`); the single object added to `JsonSerializerOptions.Converters`. It hands out the `Geometry`/`Feature`/`FeatureCollection`/`AttributesTable` converters. `static readonly DefaultIdPropertyName = "_NetTopologySuite_id"` is the attribute key the feature `id` round-trips through |
-|  [02]   | `RingOrientationOption`   | geospatial | enum: `DoNotModify` (pass polygon rings through unchanged), `EnforceRfc9746` (the default — enforce the GeoJSON right-hand rule: exterior ring CCW, holes CW), `NtsGeoJsonV2` (the NTS-v2 orientation). The literal member name is `EnforceRfc9746`                                                                                                 |
+| [INDEX] | [SYMBOL]                  | [CAPABILITY]                                                                                        |
+| :-----: | :------------------------ | :-------------------------------------------------------------------------------------------------- |
+|  [01]   | `GeoJsonConverterFactory` | the `JsonConverterFactory` on `JsonSerializerOptions.Converters`; hands out the per-kind converters |
+|  [02]   | `RingOrientationOption`   | enum `DoNotModify` / `EnforceRfc9746` (default, GeoJSON right-hand rule) / `NtsGeoJsonV2`           |
 
 [PUBLIC_TYPE_SCOPE]: lazy attribute-table read surface
 - package: `NetTopologySuite.IO.GeoJSON4STJ`
 - namespace: `NetTopologySuite.Features`
 - rail: geospatial
 
-| [INDEX] | [SYMBOL]                                                                                       | [RAIL]     | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                                                      |
-| :-----: | :--------------------------------------------------------------------------------------------- | :--------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `IPartiallyDeserializedAttributesTable`                                                        | geospatial | `IAttributesTable` whose values stay as raw JSON until pulled typed. `TryDeserializeJsonObject<T>(JsonSerializerOptions, out T)` deserializes the whole `properties` object to `T`; `TryGetJsonObjectPropertyValue<T>(string propertyName, JsonSerializerOptions, out T)` deserializes one nested property — the form to lift a `BimElement` property bag out of a feature without an `object`-boxed intermediate |
-|  [02]   | `JsonElementAttributesTable` / `JsonObjectAttributesTable`                                     | geospatial | the two concrete `IPartiallyDeserializedAttributesTable` instances a deserialized `Feature.Attributes` carries (`JsonElement`-backed vs `JsonObject`-backed depending on the read mode); cast `feature.Attributes` to the interface to reach the typed-pull methods                                                                                                                                               |
-|  [03]   | `StjAttributesTableExtensions` (declared in `NetTopologySuite.IO.Converters`, not `.Features`) | geospatial | `[Obsolete]` static `IAttributesTable` extension mirrors (`TryDeserializeJsonObject<T>`/`TryGetJsonObjectPropertyValue<T>`) of the two interface methods; the live path is a direct cast to `IPartiallyDeserializedAttributesTable` + the instance call — the extensions exist only for source-preserving API shape and must not be the documented call                                                           |
+`StjAttributesTableExtensions` is declared in `NetTopologySuite.IO.Converters`, not `.Features`. The typed-pull methods `TryDeserializeJsonObject<T>` / `TryGetJsonObjectPropertyValue<T>` are `[03]`'s and `[04]`'s.
+
+| [INDEX] | [SYMBOL]                                                   | [CAPABILITY]                                                             |
+| :-----: | :--------------------------------------------------------- | :----------------------------------------------------------------------- |
+|  [01]   | `IPartiallyDeserializedAttributesTable`                    | lazy read interface — `properties` as raw JSON, pulled typed on demand   |
+|  [02]   | `JsonElementAttributesTable` · `JsonObjectAttributesTable` | concrete backing tables — `JsonElement`- vs `JsonObject`-backed          |
+|  [03]   | `StjAttributesTableExtensions`                             | `[Obsolete]` `IAttributesTable` mirrors; live path is the interface cast |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -60,31 +59,28 @@ factory; the only registration entry is `GeoJsonConverterFactory`.
 - namespace: `NetTopologySuite.IO.Converters`
 - rail: geospatial
 
-The factory carries the overload ladder so the design fixes the `GeometryFactory` (SRID/
-precision), the BBox policy, the `id` property name, the ring orientation, and the attribute-
-mutation policy once at composition. Defaults (the no-arg ctor): factory =
-`NtsGeometryServices.Instance.CreateGeometryFactory(4326)` (EPSG:4326 lon/lat, the GeoJSON-
-mandated CRS), `writeGeometryBBox = false`, `idPropertyName = DefaultIdPropertyName`,
-`ringOrientationOption = EnforceRfc9746`, `allowModifyingAttributesTables = false`.
+The full ctor is `new GeoJsonConverterFactory(GeometryFactory factory, bool writeGeometryBBox, string idPropertyName, RingOrientationOption ringOrientationOption, bool allowModifyingAttributesTables)`. No-arg defaults: `factory` = `NtsGeometryServices.Instance.CreateGeometryFactory(4326)` (EPSG:4326 lon/lat), `writeGeometryBBox = false`, `idPropertyName = DefaultIdPropertyName` (`"_NetTopologySuite_id"`), `ringOrientationOption = EnforceRfc9746`, `allowModifyingAttributesTables = false`.
 
-| [INDEX] | [SURFACE]                         | [CALL_SHAPE]                                                                                                                                         | [CAPABILITY]                                                                                                                                                |
-| :-----: | :-------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new GeoJsonConverterFactory`     | `()`                                                                                                                                                 | the all-default factory (EPSG:4326, RFC orientation, no BBox)                                                                                               |
-|  [02]   | `new GeoJsonConverterFactory`     | `(GeometryFactory factory)`                                                                                                                          | pin the SRID/precision — seed from `NtsGeometryServices.Instance` so parsed geometry matches the rest of the algebra                                        |
-|  [03]   | `new GeoJsonConverterFactory`     | `(GeometryFactory, bool writeGeometryBBox, string idPropertyName, RingOrientationOption ringOrientationOption, bool allowModifyingAttributesTables)` | the full ctor: BBox emit on each geometry, the feature-`id` attribute key, ring policy, and whether deserialization may mutate the source `AttributesTable` |
-|  [04]   | `options.Converters.Add(factory)` | `JsonSerializerOptions.Converters.Add(new GeoJsonConverterFactory(...))`                                                                             | the registration that makes the NTS types serializable; all I/O after this is plain `JsonSerializer`                                                        |
+| [INDEX] | [ENTRYPOINT]                                   | [CAPABILITY]                                                           |
+| :-----: | :--------------------------------------------- | :--------------------------------------------------------------------- |
+|  [01]   | `new GeoJsonConverterFactory()`                | all-default factory: EPSG:4326, `EnforceRfc9746`, no BBox              |
+|  [02]   | `new GeoJsonConverterFactory(GeometryFactory)` | pin SRID/precision from `NtsGeometryServices.Instance`                 |
+|  [03]   | `new GeoJsonConverterFactory(…)` (full ctor)   | BBox emit, feature-`id` key, ring policy, source-table mutation toggle |
+|  [04]   | `options.Converters.Add(factory)`              | the registration that makes the NTS types serializable                 |
 
 [ENTRYPOINT_SCOPE]: serialize / deserialize through `System.Text.Json`
 - package: `NetTopologySuite.IO.GeoJSON4STJ` (+ `System.Text.Json`)
 - namespace: `System.Text.Json`, `NetTopologySuite.Features`
 - rail: geospatial
 
-| [INDEX] | [SURFACE]                                                                                      | [CALL_SHAPE]                                                              | [CAPABILITY]                                                                                                         |
-| :-----: | :--------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `JsonSerializer.Serialize`                                                                     | `(Geometry \| Feature \| FeatureCollection, options)` → `string`/`Utf8`   | emit RFC 7946 GeoJSON (geometry, feature, or feature collection) with the factory's BBox/orientation policy          |
-|  [02]   | `JsonSerializer.Deserialize<FeatureCollection>`                                                | `(string \| ReadOnlySpan<byte> \| Stream, options)` → `FeatureCollection` | parse a GeoJSON document into NTS `Feature[]`; each `Feature.Geometry` is built with the factory's `GeometryFactory` |
-|  [03]   | `JsonSerializer.DeserializeAsync<FeatureCollection>`                                           | `(Stream, options, CancellationToken)` → `ValueTask<FeatureCollection>`   | the async streaming mirror over a UTF-8 stream (the web/fsspec ingest)                                               |
-|  [04]   | `((IPartiallyDeserializedAttributesTable)feature.Attributes).TryGetJsonObjectPropertyValue<T>` | `(string propertyName, options, out T)` → `bool`                          | lazily pull one typed property from a deserialized feature without materializing every attribute                     |
+`Serialize` takes a `Geometry`/`Feature`/`FeatureCollection`; `Deserialize`/`DeserializeAsync` take a `string`/`ReadOnlySpan<byte>`/`Stream` source; the lazy pull casts `feature.Attributes` to `IPartiallyDeserializedAttributesTable` first.
+
+| [INDEX] | [CALL]                                                                                   | [CAPABILITY]                                |
+| :-----: | :--------------------------------------------------------------------------------------- | :------------------------------------------ |
+|  [01]   | `JsonSerializer.Serialize(value, options)` → `string`/`Utf8`                             | RFC 7946 emit with factory BBox/orientation |
+|  [02]   | `JsonSerializer.Deserialize<FeatureCollection>(source, options)`                         | parse a GeoJSON document to NTS `Feature[]` |
+|  [03]   | `JsonSerializer.DeserializeAsync<FeatureCollection>(Stream, options, CancellationToken)` | async UTF-8 ingest → `ValueTask`            |
+|  [04]   | `TryGetJsonObjectPropertyValue<T>(string propertyName, options, out T)` → `bool`         | pull one typed property lazily              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

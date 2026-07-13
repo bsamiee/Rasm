@@ -73,10 +73,12 @@
 [PUBLIC_TYPE_SCOPE]: curve fitting — `OCP.GeomAPI` / `OCP.TColgp`
 - rail: cad-kernel geometry construction
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                                                                                 |
-| :-----: | :------------------------ | :------------ | :--------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `TColgp_Array1OfPnt`      | point array   | one-based `(lower, upper)` ctor; `SetValue(i, gp_Pnt)` / `Value(i)` accessors                                                |
-|  [02]   | `GeomAPI_PointsToBSpline` | curve fitter  | `(points: TColgp_Array1OfPnt)` B-spline fit; `.Curve() -> Geom_BSplineCurve` feeding `BRepBuilderAPI_MakeEdge(curve).Edge()` |
+`GeomAPI_PointsToBSpline((points: TColgp_Array1OfPnt)).Curve()` yields a `Geom_BSplineCurve` fed to `BRepBuilderAPI_MakeEdge(curve).Edge()`; `TColgp_Array1OfPnt` is the one-based point array.
+
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                                  |
+| :-----: | :------------------------ | :------------ | :---------------------------------------------------------------------------- |
+|  [01]   | `TColgp_Array1OfPnt`      | point array   | one-based `(lower, upper)` ctor; `SetValue(i, gp_Pnt)` / `Value(i)` accessors |
+|  [02]   | `GeomAPI_PointsToBSpline` | curve fitter  | B-spline fit from a point array; `.Curve() -> Geom_BSplineCurve`              |
 
 [PUBLIC_TYPE_SCOPE]: shape builders — `OCP.BRepBuilderAPI`
 - rail: cad-kernel shape construction
@@ -97,27 +99,27 @@
 [PUBLIC_TYPE_SCOPE]: primitive and Boolean operations — `OCP.BRepPrimAPI` / `OCP.BRepAlgoAPI` / `OCP.BRepOffsetAPI`
 - rail: cad-kernel modeling
 
-| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]      | [CAPABILITY]                                                                                                      |
-| :-----: | :------------------------------------- | :----------------- | :---------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `BRepPrimAPI_MakeBox`                  | box                | aligned or oriented box                                                                                           |
-|  [02]   | `BRepPrimAPI_MakeSphere`               | sphere             | full or partial sphere                                                                                            |
-|  [03]   | `BRepPrimAPI_MakeCylinder`             | cylinder           | full or partial cylinder                                                                                          |
-|  [04]   | `BRepPrimAPI_MakeCone`                 | cone               | full or partial cone                                                                                              |
-|  [05]   | `BRepPrimAPI_MakeTorus`                | torus              | full or partial torus                                                                                             |
-|  [06]   | `BRepPrimAPI_MakePrism`                | extrusion          | linear extrusion along vector                                                                                     |
-|  [07]   | `BRepPrimAPI_MakeRevol`                | revolution         | revolution around an axis                                                                                         |
-|  [08]   | `BRepAlgoAPI_Fuse`                     | Boolean union      | unite two or more shapes                                                                                          |
-|  [09]   | `BRepAlgoAPI_Cut`                      | Boolean difference | subtract tool from object                                                                                         |
-|  [10]   | `BRepAlgoAPI_Common`                   | Boolean isect      | intersect two shapes                                                                                              |
-|  [11]   | `BRepAlgoAPI_Section`                  | Boolean section    | cross-section wire/edge result                                                                                    |
-|  [12]   | `BRepAlgoAPI_Splitter`                 | shape splitter     | split shape by tool shapes                                                                                        |
-|  [13]   | `BRepOffsetAPI_MakeThickSolid`         | shell              | hollow solid via `MakeThickSolidByJoin`/`MakeThickSolidBySimple` (no-arg ctor)                                    |
-|  [14]   | `BRepOffsetAPI_ThruSections`           | loft               | surface through cross-sections                                                                                    |
-|  [15]   | `BRepOffsetAPI_MakePipeShell`          | sweep              | evolving section along a spine                                                                                    |
-|  [16]   | `BRepFilletAPI_MakeFillet`             | fillet             | rolling-ball fillet on selected edges                                                                             |
-|  [17]   | `BRepFilletAPI_MakeChamfer`            | chamfer            | chamfer on selected edges                                                                                         |
-|  [18]   | `TopTools_ListOfShape`                 | shape collection   | the `Append`/`Prepend`/`Extent`/`First` list feeding Boolean `SetArguments`/`SetTools` and `MakeThickSolidByJoin` |
-|  [19]   | `BRepOffset_Mode` / `GeomAbs_JoinType` | enums              | offset-construction mode and join type for thick-solid/offset ops                                                 |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]      | [CAPABILITY]                                                           |
+| :-----: | :------------------------------------- | :----------------- | :--------------------------------------------------------------------- |
+|  [01]   | `BRepPrimAPI_MakeBox`                  | box                | aligned or oriented box                                                |
+|  [02]   | `BRepPrimAPI_MakeSphere`               | sphere             | full or partial sphere                                                 |
+|  [03]   | `BRepPrimAPI_MakeCylinder`             | cylinder           | full or partial cylinder                                               |
+|  [04]   | `BRepPrimAPI_MakeCone`                 | cone               | full or partial cone                                                   |
+|  [05]   | `BRepPrimAPI_MakeTorus`                | torus              | full or partial torus                                                  |
+|  [06]   | `BRepPrimAPI_MakePrism`                | extrusion          | linear extrusion along vector                                          |
+|  [07]   | `BRepPrimAPI_MakeRevol`                | revolution         | revolution around an axis                                              |
+|  [08]   | `BRepAlgoAPI_Fuse`                     | Boolean union      | unite two or more shapes                                               |
+|  [09]   | `BRepAlgoAPI_Cut`                      | Boolean difference | subtract tool from object                                              |
+|  [10]   | `BRepAlgoAPI_Common`                   | Boolean isect      | intersect two shapes                                                   |
+|  [11]   | `BRepAlgoAPI_Section`                  | Boolean section    | cross-section wire/edge result                                         |
+|  [12]   | `BRepAlgoAPI_Splitter`                 | shape splitter     | split shape by tool shapes                                             |
+|  [13]   | `BRepOffsetAPI_MakeThickSolid`         | shell              | hollow solid via `MakeThickSolidByJoin`/`BySimple` (no-arg ctor)       |
+|  [14]   | `BRepOffsetAPI_ThruSections`           | loft               | surface through cross-sections                                         |
+|  [15]   | `BRepOffsetAPI_MakePipeShell`          | sweep              | evolving section along a spine                                         |
+|  [16]   | `BRepFilletAPI_MakeFillet`             | fillet             | rolling-ball fillet on selected edges                                  |
+|  [17]   | `BRepFilletAPI_MakeChamfer`            | chamfer            | chamfer on selected edges                                              |
+|  [18]   | `TopTools_ListOfShape`                 | shape collection   | `Append`/`Prepend`/`Extent`/`First` list for `SetArguments`/`SetTools` |
+|  [19]   | `BRepOffset_Mode` / `GeomAbs_JoinType` | enums              | offset-construction mode and join type for thick-solid/offset ops      |
 
 [PUBLIC_TYPE_SCOPE]: exchange and XCAF document — `OCP.STEPControl` / `OCP.IGESControl` / `OCP.STEPCAFControl` / `OCP.XCAFDoc` / `OCP.TDocStd`
 - rail: cad-kernel data exchange
@@ -153,24 +155,24 @@
 
 After `BRepMesh_IncrementalMesh` stores a shape's triangulation, the per-face mesh reads back into arrays through `BRep_Tool.Triangulation_s` for the `numpy`/`trimesh` handoff; a face carrying no stored triangulation returns `None`.
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [CAPABILITY]                                                                                     |
-| :-----: | :------------------- | :-------------- | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `BRep_Tool`          | topology tool   | static `Triangulation_s(face, loc) -> Poly_Triangulation \| None` per-face stored-mesh read      |
-|  [02]   | `Poly_Triangulation` | mesh container  | `NbNodes()`/`NbTriangles()`, `Node(i) -> gp_Pnt`, `Triangle(i) -> Poly_Triangle` (one-based)     |
-|  [03]   | `Poly_Triangle`      | triangle record | `Value(i) -> int` one-based node index for `i` in 1..3                                           |
-|  [04]   | `TopLoc_Location`    | shape placement | default `TopLoc_Location()` is the `Triangulation_s` out-location; `Transformation() -> gp_Trsf` |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [CAPABILITY]                                                                   |
+| :-----: | :------------------- | :-------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `BRep_Tool`          | topology tool   | static `Triangulation_s(face, loc) -> Poly_Triangulation \| None`              |
+|  [02]   | `Poly_Triangulation` | mesh container  | one-based `NbNodes()`/`NbTriangles()`, `Node(i)`, `Triangle(i)`                |
+|  [03]   | `Poly_Triangle`      | triangle record | `Value(i) -> int` one-based node index for `i` in 1..3                         |
+|  [04]   | `TopLoc_Location`    | shape placement | default `TopLoc_Location()` is the out-location; `Transformation() -> gp_Trsf` |
 
 [PUBLIC_TYPE_SCOPE]: supporting types — `OCP.XCAFApp` / `OCP.TDF` / `OCP.TCollection` / `OCP.Message` / `OCP.TColStd`
 - rail: cad-kernel exchange and document scaffolding
 
-| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]    | [CAPABILITY]                                                                                                          |
-| :-----: | :------------------------------------- | :--------------- | :-------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `XCAFApp_Application`                  | OCAF application | static `GetApplication_s() -> XCAFApp_Application`, instance `InitDocument(CDM_Document)` scaffolds the XCAF document |
-|  [02]   | `TDF_LabelSequence`                    | label sequence   | one-based `Value(i) -> TDF_Label` / `Length() -> int`; the `GetFreeShapes` out-parameter carrier                      |
-|  [03]   | `TCollection_ExtendedString`           | UTF-16 string    | the REQUIRED `TDocStd_Document` ctor storage-format arg (`AsciiString` and bare `str` both raise)                     |
-|  [04]   | `TCollection_AsciiString`              | ASCII string     | the `RWGltf_CafWriter` file-path arg (a bare `str` also marshals)                                                     |
-|  [05]   | `Message_ProgressRange`                | progress range   | the writer/mesh progress argument                                                                                     |
-|  [06]   | `TColStd_IndexedDataMapOfStringString` | string map       | the `RWGltf_CafWriter.Perform` `fileInfo` glTF-metadata map (empty map = no metadata)                                 |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]    | [CAPABILITY]                                                                 |
+| :-----: | :------------------------------------- | :--------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `XCAFApp_Application`                  | OCAF application | static `GetApplication_s()`; `InitDocument(doc)` scaffolds the XCAF document |
+|  [02]   | `TDF_LabelSequence`                    | label sequence   | one-based `Value(i)` / `Length()`; the `GetFreeShapes` out-parameter carrier |
+|  [03]   | `TCollection_ExtendedString`           | UTF-16 string    | the required `TDocStd_Document` ctor storage-format arg                      |
+|  [04]   | `TCollection_AsciiString`              | ASCII string     | the `RWGltf_CafWriter` file-path arg (a bare `str` also marshals)            |
+|  [05]   | `Message_ProgressRange`                | progress range   | the writer/mesh progress argument                                            |
+|  [06]   | `TColStd_IndexedDataMapOfStringString` | string map       | the `RWGltf_CafWriter.Perform` `fileInfo` glTF-metadata map                  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -195,17 +197,18 @@ After `BRepMesh_IncrementalMesh` stores a shape's triangulation, the per-face me
 
 `STEPCAFControl_Reader` populates a `TDocStd_Document`; the label tree is read through `XCAFDoc_DocumentTool` static accessors. Mode toggles select which metadata transfers. The document itself is constructed with a `TCollection_ExtendedString` storage format — `TDocStd_Document(TCollection_ExtendedString("MDTV-XCAF"))` — and scaffolded by `XCAFApp_Application.GetApplication_s().InitDocument(doc)` before any transfer (an `AsciiString` or bare `str` ctor arg raises `TypeError`).
 
-| [INDEX] | [SURFACE]                                                                                                                                                                      | [ENTRY_FAMILY] | [CAPABILITY]                               |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------- |
-|  [01]   | `STEPCAFControl_Reader.ReadFile(path) -> IFSelect_ReturnStatus`                                                                                                                | reader         | load STEP into the CAF reader              |
-|  [02]   | `STEPCAFControl_Reader.SetColorMode(bool)` / `SetNameMode(bool)` / `SetLayerMode(bool)` / `SetGDTMode(bool)` / `SetMatMode(bool)` / `SetViewMode(bool)` / `SetPropsMode(bool)` | config         | select transferred metadata channels       |
-|  [03]   | `STEPCAFControl_Reader.Transfer(doc) -> bool`                                                                                                                                  | transfer       | populate the XCAF document                 |
-|  [04]   | `STEPCAFControl_Reader.Perform(path, doc) -> bool`                                                                                                                             | transfer       | read plus transfer in one call             |
-|  [05]   | `XCAFApp_Application.GetApplication_s().InitDocument(doc)`                                                                                                                     | document init  | scaffold the OCAF document before transfer |
-|  [06]   | `XCAFDoc_DocumentTool.ShapeTool_s(label) -> XCAFDoc_ShapeTool`                                                                                                                 | accessor       | assembly/instance label tree               |
-|  [07]   | `XCAFDoc_DocumentTool.ColorTool_s(label) -> XCAFDoc_ColorTool`                                                                                                                 | accessor       | per-shape color labels                     |
-|  [08]   | `STEPCAFControl_Writer.Transfer(doc, mode) -> bool`                                                                                                                            | writer         | stage XCAF document for write              |
-|  [09]   | `STEPCAFControl_Writer.Write(path) -> IFSelect_ReturnStatus`                                                                                                                   | writer         | write STEP with assembly metadata          |
+| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [CAPABILITY]                                      |
+| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------ |
+|  [01]   | `STEPCAFControl_Reader.ReadFile(path) -> IFSelect_ReturnStatus` | reader         | load STEP into the CAF reader                     |
+|  [02]   | `SetColorMode` / `SetNameMode` / `SetLayerMode` / `SetGDTMode`  | config         | color/name/layer/GD&T channels (`Set*Mode(bool)`) |
+|  [03]   | `SetMatMode` / `SetViewMode` / `SetPropsMode`                   | config         | material/view/validation-props channels           |
+|  [04]   | `STEPCAFControl_Reader.Transfer(doc) -> bool`                   | transfer       | populate the XCAF document                        |
+|  [05]   | `STEPCAFControl_Reader.Perform(path, doc) -> bool`              | transfer       | read plus transfer in one call                    |
+|  [06]   | `XCAFApp_Application.GetApplication_s().InitDocument(doc)`      | document init  | scaffold the OCAF document before transfer        |
+|  [07]   | `XCAFDoc_DocumentTool.ShapeTool_s(label) -> XCAFDoc_ShapeTool`  | accessor       | assembly/instance label tree                      |
+|  [08]   | `XCAFDoc_DocumentTool.ColorTool_s(label) -> XCAFDoc_ColorTool`  | accessor       | per-shape color labels                            |
+|  [09]   | `STEPCAFControl_Writer.Transfer(doc, mode) -> bool`             | writer         | stage XCAF document for write                     |
+|  [10]   | `STEPCAFControl_Writer.Write(path) -> IFSelect_ReturnStatus`    | writer         | write STEP with assembly metadata                 |
 
 [ENTRYPOINT_SCOPE]: shape construction and Boolean modeling
 - rail: cad-kernel modeling
@@ -229,31 +232,35 @@ Every `Make*` builder follows the OCCT command pattern: construct, optionally co
 
 The Boolean operators expose the full BOPAlgo surface beyond the binary `(S1, S2)` ctor: feed `TopTools_ListOfShape` collections to `SetArguments`/`SetTools` for n-ary operations, set `SetFuzzyValue`/`SetRunParallel`/`SetNonDestructive`/`SetGlue` before `Build()`, and read `SectionEdges()`/`History()`/`HasModified`/`HasGenerated`/`HasDeleted` after. `MakeThickSolid` is a no-arg-constructed builder driven by a method, not a 4-arg ctor; the faces-to-remove argument is a real `TopTools_ListOfShape` (an empty list yields a uniform offset shell). Fillet/chamfer add edges before `Build()`.
 
-| [INDEX] | [SURFACE]                                                                                                                                                          | [ENTRY_FAMILY] | [CAPABILITY]                                                       |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------- |
-|  [01]   | `op.SetArguments(TopTools_ListOfShape)` / `op.SetTools(TopTools_ListOfShape)` then `op.Build()` / `op.Shape()`                                                     | n-ary Boolean  | union/cut/common over shape lists                                  |
-|  [02]   | `op.SetFuzzyValue(tol)` / `SetRunParallel(flag)` / `SetNonDestructive(flag)` / `SetGlue(mode)`                                                                     | config         | tolerance, parallelism, non-destruct, glue                         |
-|  [03]   | `op.SectionEdges() -> TopTools_ListOfShape` / `op.History()` / `HasModified()` / `HasGenerated()`                                                                  | history        | section edges and modification history                             |
-|  [04]   | `mts = BRepOffsetAPI_MakeThickSolid(); mts.MakeThickSolidByJoin(S, ClosingFaces: TopTools_ListOfShape, Offset, Tol, Mode=BRepOffset_Skin, ...)` then `mts.Shape()` | shell          | hollow solid removing `ClosingFaces` (empty list -> uniform shell) |
-|  [05]   | `mts.MakeThickSolidBySimple(S, Offset)`                                                                                                                            | shell          | simple uniform-offset shell                                        |
-|  [06]   | `mf = BRepFilletAPI_MakeFillet(shape); mf.Add(radius, edge)` then `mf.Build()` / `mf.Shape()`                                                                      | fillet         | rolling-ball fillet on added edges                                 |
-|  [07]   | `mc = BRepFilletAPI_MakeChamfer(shape); mc.Add(dist, edge)` then `mc.Build()` / `mc.Shape()`                                                                       | chamfer        | chamfer on added edges                                             |
-|  [08]   | `ts = BRepOffsetAPI_ThruSections(isSolid); ts.AddWire(wire)` then `ts.Build()` / `ts.Shape()`                                                                      | loft           | lofted surface/solid through wires                                 |
+- call: n-ary Boolean — `op.SetArguments(TopTools_ListOfShape)` / `op.SetTools(...)` then `op.Build()` / `op.Shape()`; config via `op.SetFuzzyValue(tol)` / `SetRunParallel(flag)` / `SetNonDestructive(flag)` / `SetGlue(mode)`; history via `op.SectionEdges()` / `op.History()` / `HasModified()` / `HasGenerated()`
+- call: thick-solid — `mts = BRepOffsetAPI_MakeThickSolid(); mts.MakeThickSolidByJoin(S, ClosingFaces: TopTools_ListOfShape, Offset, Tol, Mode=BRepOffset_Skin, ...)` then `mts.Shape()`; `mts.MakeThickSolidBySimple(S, Offset)`
+- call: fillet/chamfer/loft — `BRepFilletAPI_MakeFillet(shape).Add(radius, edge)`; `BRepFilletAPI_MakeChamfer(shape).Add(dist, edge)`; `BRepOffsetAPI_ThruSections(isSolid).AddWire(wire)` then `.Build()` / `.Shape()`
+
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [CAPABILITY]                               |
+| :-----: | :------------------------------------------------------------------- | :------------- | :----------------------------------------- |
+|  [01]   | `BRepAlgoAPI_*.SetArguments` / `SetTools`                            | n-ary Boolean  | union/cut/common over shape lists          |
+|  [02]   | `SetFuzzyValue` / `SetRunParallel` / `SetNonDestructive` / `SetGlue` | config         | tolerance, parallelism, non-destruct, glue |
+|  [03]   | `SectionEdges` / `History` / `HasModified` / `HasGenerated`          | history        | section edges and modification history     |
+|  [04]   | `BRepOffsetAPI_MakeThickSolid.MakeThickSolidByJoin`                  | shell          | hollow solid; empty list = uniform shell   |
+|  [05]   | `MakeThickSolidBySimple`                                             | shell          | simple uniform-offset shell                |
+|  [06]   | `BRepFilletAPI_MakeFillet.Add`                                       | fillet         | rolling-ball fillet on added edges         |
+|  [07]   | `BRepFilletAPI_MakeChamfer.Add`                                      | chamfer        | chamfer on added edges                     |
+|  [08]   | `BRepOffsetAPI_ThruSections.AddWire`                                 | loft           | lofted surface/solid through wires         |
 
 [ENTRYPOINT_SCOPE]: traversal, triangulation, and properties
 - rail: cad-kernel topology and tessellation
 
 `TopExp_Explorer` is the polymorphic sub-shape iterator; `BRepMesh_IncrementalMesh` mutates a shape's triangulation in place before mesh export or glTF write. The mesher's load-bearing overload is the 5-arg `(shape, linDeflection, isRelative=False, angDeflection=0.5, isInParallel=False)`; the 2-arg `(shape, deflection)` is positional sugar over the same overload. `RWGltf_CafWriter.Perform` has NO `(doc, progress)` 2-arg overload — the minimal call is the 3-arg `Perform(doc, fileInfo, progress)` where `fileInfo` is a `TColStd_IndexedDataMapOfStringString` (an empty map returns `True`).
 
-| [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                                                                                             |
-| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `TopExp_Explorer(shape, TopAbs_ShapeEnum)` + `.More()`/`.Current()`/`.Next()`              | explorer       | iterate sub-shapes by kind                                                                                               |
-|  [02]   | `TopExp.MapShapes_s(shape, type, map)`                                                     | map builder    | index all sub-shapes of a type                                                                                           |
-|  [03]   | `TopoDS.Edge_s(shape) -> TopoDS_Edge`                                                      | downcast       | safe static downcast to edge                                                                                             |
-|  [04]   | `BRepMesh_IncrementalMesh(shape, deflection, isRelative=False, angle=0.5, parallel=False)` | mesher         | build the shape triangulation (5-arg overload; 2-arg is sugar)                                                           |
-|  [05]   | `StlAPI_Writer().Write(shape, path)`                                                       | export         | write triangulated shape to STL                                                                                          |
-|  [06]   | `RWGltf_CafWriter(path, binary).Perform(doc, fileInfo, progress)`                          | export         | write XCAF document to glTF/GLB (`fileInfo` an empty `TColStd_IndexedDataMapOfStringString` for none; no 2-arg overload) |
-|  [07]   | `BRepGProp.VolumeProperties_s(shape, gprops)`                                              | property       | accumulate mass, centroid, moments                                                                                       |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CAPABILITY]                                                    |
+| :-----: | :-------------------------------------------- | :------------- | :-------------------------------------------------------------- |
+|  [01]   | `TopExp_Explorer(shape, TopAbs_ShapeEnum)`    | explorer       | iterate sub-shapes by kind via `.More()`/`.Current()`/`.Next()` |
+|  [02]   | `TopExp.MapShapes_s(shape, type, map)`        | map builder    | index all sub-shapes of a type                                  |
+|  [03]   | `TopoDS.Edge_s(shape) -> TopoDS_Edge`         | downcast       | safe static downcast to edge                                    |
+|  [04]   | `BRepMesh_IncrementalMesh`                    | mesher         | build the shape triangulation (5-arg overload; 2-arg is sugar)  |
+|  [05]   | `StlAPI_Writer().Write(shape, path)`          | export         | write triangulated shape to STL                                 |
+|  [06]   | `RWGltf_CafWriter.Perform`                    | export         | write XCAF document to glTF/GLB                                 |
+|  [07]   | `BRepGProp.VolumeProperties_s(shape, gprops)` | property       | accumulate mass, centroid, moments                              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

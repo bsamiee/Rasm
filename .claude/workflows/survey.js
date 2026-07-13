@@ -418,8 +418,8 @@ const langOf = (t) =>
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-// Agent-level slot scheduler: CAP agents in flight across ALL target lanes, staggered launch,
-// work-conserving backfill the moment a slot frees. The single governor for every agent call.
+// Agent-level slot scheduler: CAP agents in flight across ALL target lanes, staggered launch, work-conserving backfill the moment a
+// slot frees. The single governor for every agent call.
 const makeSlots = (cap) => {
     let active = 0;
     let gate = Promise.resolve();
@@ -443,8 +443,8 @@ const makeSlots = (cap) => {
 };
 const slot = makeSlots(CAP);
 
-// Serial write chains — first lane to arrive goes first; the slot is acquired INSIDE the chained
-// thunk, so a queued lane never holds a slot while waiting its turn.
+// Serial write chains — first lane to arrive goes first; the slot is acquired INSIDE the chained thunk, so a
+// queued lane never holds a slot while waiting its turn.
 const makeChain = () => {
     let tail = Promise.resolve();
     return (fn) => {
@@ -575,11 +575,10 @@ const nativeLane = (task, o) =>
         { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT, stallMs: o.stallMs || STALL },
     );
 
-// Every heavy read/investigate lane routes here: gpt-5.6-terra wrapper when CODEX, native opus otherwise.
-// QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at
-// the role's Claude twin; the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The roster
-// row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's uncovered territory
-// is exact even when the lane died before writing anything.
+// Every heavy read/investigate lane routes here: gpt-5.6-terra wrapper when CODEX, native opus otherwise. QUOTA FALLBACK: a codex receipt whose
+// failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin; the caller owns the re-dispatch, the sonnet
+// wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's
+// uncovered territory is exact even when the lane died before writing anything.
 const recon = (task, o) =>
     (CODEX
         ? agent(codexPrompt(o.label, task, o.schema, o), {
@@ -600,9 +599,8 @@ const recon = (task, o) =>
         headline: (r && r.headline) || '',
         failure: (r && r.failure) || (r ? '' : 'lane died'),
     }));
-// Scout is the run's one inline codex lane: the wrapper relays the SCOUT_SCHEMA product verbatim (ok/failure carried
-// in-shape). Quota failure re-dispatches the same task at native opus; a non-quota codex failure is final (the wrapper
-// already retried its call once).
+// Scout is the run's one inline codex lane: the wrapper relays the SCOUT_SCHEMA product verbatim (ok/failure carried in-shape). Quota failure
+// re-dispatches the same task at native opus; a non-quota codex failure is final (the wrapper already retried its call once).
 const scoutLane = (task, o) => {
     const native = () => agent(task, { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: o.schema, stallMs: STALL });
     return CODEX
@@ -716,11 +714,9 @@ if (badLang.length) {
     return { targets: TARGETS, lanes: [] };
 }
 
-// All target lanes run CONCURRENTLY; the slot scheduler is the only concurrency governor. The six
-// phases are declared up front — concurrent lanes route every agent to its group via the per-call
-// phase option and never race the global phase(). Only Admit serializes across lanes (admitSerial);
-// shared-tier catalogs of one language serialize through sharedSerial so lanes never collide on
-// the language-root .api files.
+// All target lanes run CONCURRENTLY; the slot scheduler is the only concurrency governor. The six phases are declared up front — concurrent lanes
+// route every agent to its group via the per-call phase option and never race the global phase(). Only Admit serializes across lanes (admitSerial);
+// shared-tier catalogs of one language serialize through sharedSerial so lanes never collide on the language-root .api files.
 phase('Scout');
 phase('Research');
 phase('Admit');

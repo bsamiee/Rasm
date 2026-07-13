@@ -47,25 +47,29 @@
 
 [ENTRYPOINT_SCOPE]: registry construction, parsing, and definition
 - rail: units
+- Every surface is a `UnitRegistry` member; the constructor keywords are in note [01].
 
-| [INDEX] | [SURFACE]                                                                                                                                           | [ENTRY_FAMILY]    | [RESULT]                                                 |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------------- |
-|  [01]   | `UnitRegistry(filename=, force_ndarray=, force_ndarray_like=, autoconvert_offset_to_baseunit=, system=, auto_reduce_dimensions=, on_redefinition=)` | registry build    | a configured unit registry                               |
-|  [02]   | `UnitRegistry.__call__(input_string, case_sensitive=, **values)`                                                                                    | parse             | a `Quantity` from a string                               |
-|  [03]   | `UnitRegistry.parse_expression(input_string, case_sensitive=, **values)`                                                                            | parse             | a `Quantity` from a string (the `__call__` body)         |
-|  [04]   | `UnitRegistry.parse_units(input_string, as_delta=, case_sensitive=)`                                                                                | parse             | a bare `Unit` from a string                              |
-|  [05]   | `UnitRegistry.parse_pattern(input_string, pattern, many=)`                                                                                          | parse             | quantities extracted from a formatted-string pattern     |
-|  [06]   | `UnitRegistry.Quantity(value, units=)`                                                                                                              | construct         | a magnitude-plus-unit value bound to this registry       |
-|  [07]   | `UnitRegistry.Unit(units)`                                                                                                                          | construct         | a unit atom bound to this registry                       |
-|  [08]   | `UnitRegistry.Measurement(value, error, units=)`                                                                                                    | construct         | a value with a standard-error term                       |
-|  [09]   | `UnitRegistry.define(definition)`                                                                                                                   | mutate            | registers a new unit/prefix/dimension definition         |
-|  [10]   | `UnitRegistry.load_definitions(file)`                                                                                                               | mutate            | loads a unit-definition file into the registry           |
-|  [11]   | `UnitRegistry.convert(value, src, dst, inplace=False)`                                                                                              | convert           | scalar/array magnitude expressed in `dst` units          |
-|  [12]   | `UnitRegistry.get_base_units(input_units)`                                                                                                          | introspect        | `(scale, UnitsContainer)` reduction to base units        |
-|  [13]   | `UnitRegistry.get_dimensionality(input_units)`                                                                                                      | introspect        | a `UnitsContainer` of base dimensions                    |
-|  [14]   | `UnitRegistry.wraps(ret, args, strict=True)`                                                                                                        | decorator factory | enforces argument/return units at a function boundary    |
-|  [15]   | `UnitRegistry.check(*args)`                                                                                                                         | decorator factory | asserts argument dimensionalities at a function boundary |
-|  [16]   | `UnitRegistry.context(*names, **kwargs)` / `enable_contexts` / `disable_contexts` / `add_context`                                                   | context           | activates a `Context` for cross-dimension conversion     |
+| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY]    | [RESULT]                                             |
+| :-----: | :----------------------------------------------------------- | :---------------- | :--------------------------------------------------- |
+|  [01]   | `UnitRegistry(...)`                                          | registry build    | a configured unit registry                           |
+|  [02]   | `.__call__(input_string, case_sensitive=, **values)`         | parse             | a `Quantity` from a string                           |
+|  [03]   | `.parse_expression(input_string, case_sensitive=, **values)` | parse             | a `Quantity` from a string (the `__call__` body)     |
+|  [04]   | `.parse_units(input_string, as_delta=, case_sensitive=)`     | parse             | a bare `Unit` from a string                          |
+|  [05]   | `.parse_pattern(input_string, pattern, many=)`               | parse             | quantities from a formatted-string pattern           |
+|  [06]   | `.Quantity(value, units=)`                                   | construct         | magnitude-plus-unit bound to this registry           |
+|  [07]   | `.Unit(units)`                                               | construct         | a unit atom bound to this registry                   |
+|  [08]   | `.Measurement(value, error, units=)`                         | construct         | a value with a standard-error term                   |
+|  [09]   | `.define(definition)`                                        | mutate            | registers a new unit/prefix/dimension definition     |
+|  [10]   | `.load_definitions(file)`                                    | mutate            | loads a unit-definition file into the registry       |
+|  [11]   | `.convert(value, src, dst, inplace=False)`                   | convert           | scalar/array magnitude expressed in `dst` units      |
+|  [12]   | `.get_base_units(input_units)`                               | introspect        | `(scale, UnitsContainer)` reduction to base units    |
+|  [13]   | `.get_dimensionality(input_units)`                           | introspect        | a `UnitsContainer` of base dimensions                |
+|  [14]   | `.wraps(ret, args, strict=True)`                             | decorator factory | enforces argument/return units at a boundary         |
+|  [15]   | `.check(*args)`                                              | decorator factory | asserts argument dimensionalities at a boundary      |
+|  [16]   | `.context(*names, **kwargs)`                                 | context           | activates a `Context` for cross-dimension conversion |
+|  [17]   | `.enable_contexts` / `.disable_contexts` / `.add_context`    | context           | enable, disable, and register contexts               |
+
+- [01]-[UNITREGISTRY]: `filename=`, `force_ndarray=`, `force_ndarray_like=`, `autoconvert_offset_to_baseunit=`, `system=`, `auto_reduce_dimensions=`, `on_redefinition=`.
 
 [ENTRYPOINT_SCOPE]: quantity conversion, projection, and compatibility
 - rail: units

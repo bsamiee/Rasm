@@ -34,14 +34,14 @@
 
 [IMAGE_SCOPE]: `Image` — the buildx build+push resource
 - rail: selfhosted-docker
-- `Image` builds a Dockerfile through buildx and (with `push: true` or a `registry` export) pushes it, emitting `ref` (a `tag@digest` convenience) and `digest` (the stable sha256 downstream resources pin). `dockerfile`/`context` locate the build; `platforms` drives multi-arch; `secrets`/`ssh` inject build-time material by value; `cacheFrom`/`cacheTo`/`exports` are the pluggable backend families.
+- `Image` builds a Dockerfile through buildx and pushes it under `push: true` or a `registry` export, emitting `ref` (`tag@digest`), `digest` (the sha256 downstream resources pin), and `contextHash`. `dockerfile`/`context` locate the build; `buildArgs`/`target`/`labels`/`tags`/`network` shape it; `platforms` drives multi-arch; `secrets`/`ssh` inject build-time material by value; `noCache`/`pull`/`load`/`builder`/`buildOnPreview`/`exec` are the build-execution knobs; `cacheFrom`/`cacheTo`/`exports` are the pluggable backend families (below). The `types.input.*` rows carry the nested arg records.
 
-| [INDEX] | [SYMBOL]                       | [KEY_ARGS_OUTPUTS]                                                                                                                                                                                 |
-| :-----: | :----------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Image`                        | `{ push (required), tags, dockerfile, context, buildArgs, target, platforms, secrets, ssh, labels, network, noCache, pull, load, builder, buildOnPreview, exec }` → `ref`, `digest`, `contextHash` |
-|  [02]   | `types.input.DockerfileArgs`   | `location` (path) XOR `inline` (literal Dockerfile body)                                                                                                                                           |
-|  [03]   | `types.input.BuildContextArgs` | `location` (path/URL/git) + `named` (named build contexts)                                                                                                                                         |
-|  [04]   | `types.input.RegistryArgs`     | `address`/`username`/`password` (bind a `doppler` secret Output)                                                                                                                                   |
+| [INDEX] | [SYMBOL]                       | [SHAPE]                                                               |
+| :-----: | :----------------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `Image`                        | `push` required — no implicit push → `ref` / `digest` / `contextHash` |
+|  [02]   | `types.input.DockerfileArgs`   | `location` (path) XOR `inline` (literal Dockerfile body)              |
+|  [03]   | `types.input.BuildContextArgs` | `location` (path/URL/git) + `named` (named build contexts)            |
+|  [04]   | `types.input.RegistryArgs`     | `address`/`username`/`password` (bind a `doppler` secret Output)      |
 
 [BACKEND_SCOPE]: the parameterized cache + export backend families
 - rail: selfhosted-docker

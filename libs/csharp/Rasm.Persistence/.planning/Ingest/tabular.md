@@ -333,21 +333,21 @@ public static class TabularWire {
 }
 ```
 
-| [INDEX] | [POLICY]              | [VALUE]                                          | [BINDING]                                                                                           |
-| :-----: | :-------------------- | :----------------------------------------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | one tabular owner     | `TabularSource` over MiniExcel                   | `#DELIMITED_SOURCE` owns delimited text; both feed one record rail                                  |
-|  [02]   | modality discriminant | `TabularSpec` + `Origin` `[Union]`               | one value selects typed/dynamic/reader/probe; path or stream is a case                              |
-|  [03]   | typed read            | header-keyed `dynamic` `Query` → STJ `Bind<T>`   | unconstrained `T`; never the `class,new()` `Query<T>` POCO binder that bypasses the wire factory    |
-|  [04]   | windowed typed read   | `dynamic` `QueryRange` → the SAME `Bind<T>`      | `QueryRange` adds only `endCell`; windowed + non-windowed share one projection                      |
-|  [05]   | wire-cell projection  | `DynamicExcelColumn.CustomFormatter`             | REGISTERED by `spec.Policy()` on `DynamicColumns`; minted by the wire rail, never built-and-dropped |
-|  [06]   | row-boundary fault    | `Validation<TabularFault, …>` on both legs       | read AND write fold; `NotSerializable` is reachable                                                 |
-|  [07]   | bulk vs columnar      | typed `IEnumerable<T>` vs `IDataReader`          | bulk-copy is `IEnumerable<T>`-sourced; the reader feeds the columnar materializer                   |
-|  [08]   | redacted egress       | per-column `Redactor` before `SaveAs`            | streams column-redacted; no `DbDataReader` decorator                                                |
-|  [09]   | transcode             | frozen `(from,to)` table lookup                  | a no-op or unreachable pair is a typed fault, never a misroute                                      |
-|  [10]   | receipt               | one `TabularFact` stream under `store.tabular.*` | kind-discriminated; never parallel receipt records                                                  |
-|  [11]   | element projection    | per-app tabular→element map                      | the codec sees only the row shape; the app projects nodes                                           |
-|  [12]   | fault band            | `Code => FaultBand.Tabular + n`                  | re-banded 839x off the 837x collision; never a literal decade                                       |
-|  [13]   | report egress         | `Adorn` over `TabularAdornment` + spec `Style`   | merge/pictures/styling as policy DATA; never per-cell writes                                        |
+| [INDEX] | [POLICY]              | [VALUE]                                          | [BINDING]                                                  |
+| :-----: | :-------------------- | :----------------------------------------------- | :--------------------------------------------------------- |
+|  [01]   | one tabular owner     | `TabularSource` over MiniExcel                   | `#DELIMITED_SOURCE` owns delimited text; one record rail   |
+|  [02]   | modality discriminant | `TabularSpec` + `Origin` `[Union]`               | one value selects typed/dynamic/reader/probe               |
+|  [03]   | typed read            | header-keyed `dynamic` `Query` → STJ `Bind<T>`   | unconstrained `T`; not the `class,new()` `Query<T>` binder |
+|  [04]   | windowed typed read   | `dynamic` `QueryRange` → the SAME `Bind<T>`      | `QueryRange` adds only `endCell`; one shared projection    |
+|  [05]   | wire-cell projection  | `DynamicExcelColumn.CustomFormatter`             | `spec.Policy()` registers on `DynamicColumns`, wire-minted |
+|  [06]   | row-boundary fault    | `Validation<TabularFault, …>` on both legs       | read AND write fold; `NotSerializable` is reachable        |
+|  [07]   | bulk vs columnar      | typed `IEnumerable<T>` vs `IDataReader`          | bulk-copy from `IEnumerable<T>`; reader feeds columnar     |
+|  [08]   | redacted egress       | per-column `Redactor` before `SaveAs`            | streams column-redacted; no `DbDataReader` decorator       |
+|  [09]   | transcode             | frozen `(from,to)` table lookup                  | a no-op or unreachable pair is a typed fault               |
+|  [10]   | receipt               | one `TabularFact` stream under `store.tabular.*` | kind-discriminated; never parallel receipt records         |
+|  [11]   | element projection    | per-app tabular→element map                      | the codec sees only the row shape; the app projects nodes  |
+|  [12]   | fault band            | `Code => FaultBand.Tabular + n`                  | re-banded 839x off the 837x collision                      |
+|  [13]   | report egress         | `Adorn` over `TabularAdornment` + spec `Style`   | merge/pictures/styling as policy DATA                      |
 
 ## [03]-[DELIMITED_SOURCE]
 
@@ -438,13 +438,13 @@ public static class DelimitedSource {
 }
 ```
 
-| [INDEX] | [POLICY]         | [VALUE]                                              | [BINDING]                                                           |
-| :-----: | :--------------- | :--------------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | delimited owner  | Sep `ref struct` rows + `Enumerate`                  | SIMD parse; materialization is the one record-rail boundary         |
-|  [02]   | parse policy     | `DelimitedSpec` one declared value                   | separator/culture/trim/pool/parallelism; never inline literals      |
-|  [03]   | parallel reads   | `ParallelEnumerate` + thread-safe pool               | order-preserving; selected by `Parallelism`, never a flag beside it |
-|  [04]   | redaction egress | `NewRow` per-column re-emit, redact before `Col.Set` | unclassified columns copy span-to-span; zero materialization        |
-|  [05]   | bulk source      | `Stream<T>` `IAsyncEnumerable<T>`                    | feeds `#BULK_LANE` `BulkCopyAsync`; no file buffering               |
+| [INDEX] | [POLICY]         | [VALUE]                                              | [BINDING]                                               |
+| :-----: | :--------------- | :--------------------------------------------------- | :------------------------------------------------------ |
+|  [01]   | delimited owner  | Sep `ref struct` rows + `Enumerate`                  | SIMD parse; materialization is the record-rail boundary |
+|  [02]   | parse policy     | `DelimitedSpec` one declared value                   | separator/culture/trim/pool/parallelism                 |
+|  [03]   | parallel reads   | `ParallelEnumerate` + thread-safe pool               | order-preserving; `Parallelism` selects it              |
+|  [04]   | redaction egress | `NewRow` per-column re-emit, redact before `Col.Set` | unclassified columns copy span-to-span                  |
+|  [05]   | bulk source      | `Stream<T>` `IAsyncEnumerable<T>`                    | feeds `#BULK_LANE` `BulkCopyAsync`; no file buffering   |
 
 ## [04]-[BULK_LANE]
 

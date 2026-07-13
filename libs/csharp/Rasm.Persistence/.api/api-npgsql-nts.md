@@ -29,11 +29,11 @@
 
 Both overload families accept `CoordinateSequenceFactory?`, `PrecisionModel?`, `Ordinates handleOrdinates = Ordinates.None`, and `bool geographyAsDefault = false`.
 
-| [INDEX] | [SURFACE]                                                                                  | [CAPABILITY]                                        |
-| :-----: | :----------------------------------------------------------------------------------------- | :-------------------------------------------------- |
-|  [01]   | `UseNetTopologySuite(this INpgsqlTypeMapper mapper, ...)`                                  | admits geometry codecs on a mapper                  |
-|  [02]   | `UseNetTopologySuite<TMapper>(this TMapper mapper, ...) where TMapper : INpgsqlTypeMapper` | admits geometry codecs while preserving mapper type |
-|  [03]   | `NpgsqlDataSourceBuilder.UseNetTopologySuite(...)`                                         | registers codecs on the store profile data source   |
+| [INDEX] | [SURFACE]                                        | [CAPABILITY]                                                              |
+| :-----: | :----------------------------------------------- | :------------------------------------------------------------------------ |
+|  [01]   | `UseNetTopologySuite(this INpgsqlTypeMapper, …)` | admits geometry codecs on a mapper                                        |
+|  [02]   | `UseNetTopologySuite<TMapper>(this TMapper, …)`  | admits codecs, preserves mapper type; `where TMapper : INpgsqlTypeMapper` |
+|  [03]   | `NpgsqlDataSourceBuilder.UseNetTopologySuite(…)` | registers codecs on the store profile data source                         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

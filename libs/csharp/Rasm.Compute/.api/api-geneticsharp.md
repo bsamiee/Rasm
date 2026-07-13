@@ -18,21 +18,22 @@
 - rail: optimizer#ENGINE
 - note: the GA is assembled from these interfaces; each is a single-method (or near-single-method) contract, so the `OptimizerKind` row selects an operator set, never a subclassed engine.
 
-| [INDEX] | [SYMBOL]                                                                               | [TYPE_FAMILY]        | [RAIL]                                                          |
-| :-----: | :------------------------------------------------------------------------------------- | :------------------- | :-------------------------------------------------------------- |
-|  [01]   | `GeneticAlgorithm` / `IGeneticAlgorithm`                                               | engine root          | runs the evolve loop over the operator set                      |
-|  [02]   | `IChromosome` / `ChromosomeBase`                                                       | genome contract      | gene encoding + `Fitness` + `CreateNew`/`Clone`                 |
-|  [03]   | `IFitness`                                                                             | fitness contract     | `double Evaluate(IChromosome)` — the evaluate oracle seam       |
-|  [04]   | `ISelection` / `SelectionBase`                                                         | selection contract   | `SelectChromosomes(int, Generation)`                            |
-|  [05]   | `ICrossover` / `CrossoverBase`                                                         | crossover contract   | `Cross(IList<IChromosome>)` with parents/children arity         |
-|  [06]   | `IMutation` / `MutationBase`                                                           | mutation contract    | `Mutate(IChromosome, float probability)`                        |
-|  [07]   | `IReinsertion` / `ReinsertionBase`                                                     | reinsertion contract | merges offspring + parents into the next generation             |
-|  [08]   | `ITermination` / `TerminationBase`                                                     | termination contract | `bool HasReached(IGeneticAlgorithm)`                            |
-|  [09]   | `IPopulation` / `Population` / `TplPopulation`                                         | population           | the generation history and `BestChromosome`                     |
-|  [10]   | `Generation`                                                                           | generation value     | one evolved generation's chromosome set                         |
-|  [11]   | `Gene`                                                                                 | gene value           | one chromosome locus value                                      |
-|  [12]   | `IGenerationStrategy` / `PerformanceGenerationStrategy` / `TrackingGenerationStrategy` | generation policy    | how much generation history is retained                         |
-|  [13]   | `GeneticAlgorithmState`                                                                | state enum           | `NotStarted`/`Started`/`Stopped`/`Resumed`/`TerminationReached` |
+| [INDEX] | [SYMBOL]                                                | [CONTRACT]                                                                   |
+| :-----: | :------------------------------------------------------ | :--------------------------------------------------------------------------- |
+|  [01]   | `GeneticAlgorithm` / `IGeneticAlgorithm`                | engine root — runs the evolve loop over the operator set                     |
+|  [02]   | `IChromosome` / `ChromosomeBase`                        | genome — gene encoding + `Fitness` + `CreateNew`/`Clone`                     |
+|  [03]   | `IFitness`                                              | fitness — `double Evaluate(IChromosome)`, the oracle seam                    |
+|  [04]   | `ISelection` / `SelectionBase`                          | selection — `SelectChromosomes(int, Generation)`                             |
+|  [05]   | `ICrossover` / `CrossoverBase`                          | crossover — `Cross(IList<IChromosome>)` + parents/children arity             |
+|  [06]   | `IMutation` / `MutationBase`                            | mutation — `Mutate(IChromosome, float probability)`                          |
+|  [07]   | `IReinsertion` / `ReinsertionBase`                      | reinsertion — merges offspring + parents into next generation                |
+|  [08]   | `ITermination` / `TerminationBase`                      | termination — `bool HasReached(IGeneticAlgorithm)`                           |
+|  [09]   | `IPopulation` / `Population` / `TplPopulation`          | population — generation history + `BestChromosome`                           |
+|  [10]   | `Generation`                                            | one evolved generation's chromosome set                                      |
+|  [11]   | `Gene`                                                  | one chromosome locus value                                                   |
+|  [12]   | `IGenerationStrategy` / `PerformanceGenerationStrategy` | history policy — bounded generation-history retention                        |
+|  [13]   | `TrackingGenerationStrategy`                            | history policy — full generation-history retention                           |
+|  [14]   | `GeneticAlgorithmState`                                 | state enum — `NotStarted`/`Started`/`Stopped`/`Resumed`/`TerminationReached` |
 
 [PUBLIC_TYPE_SCOPE]: chromosome encodings
 - rail: optimizer#GENOME
@@ -51,34 +52,41 @@
 - rail: optimizer#OPERATORS
 - note: the crossover row choice depends on the genome — ordered/position/cycle/PMX for permutation genomes, one/two/uniform/cut-and-splice for binary/real; a row is data on the operator set, never a new engine.
 
-| [INDEX] | [SYMBOL]                                                                                                                   | [TYPE_FAMILY]   | [RAIL]                                             |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------- |
-|  [01]   | `OnePointCrossover` / `TwoPointCrossover` / `UniformCrossover`                                                             | crossover       | binary/real positional crossover                   |
-|  [02]   | `CutAndSpliceCrossover` / `ThreeParentCrossover` / `VotingRecombinationCrossover`                                          | crossover       | variable-length / multi-parent                     |
-|  [03]   | `OrderedCrossover` / `OrderBasedCrossover` / `PositionBasedCrossover`                                                      | crossover       | permutation-preserving crossover                   |
-|  [04]   | `CycleCrossover` / `PartiallyMappedCrossover` / `AlternatingPositionCrossover`                                             | crossover       | permutation cycle/PMX/AP                           |
-|  [05]   | `FlipBitMutation` / `UniformMutation`                                                                                      | mutation        | binary/real gene mutation                          |
-|  [06]   | `TworsMutation` / `ReverseSequenceMutation` / `InsertionMutation` / `DisplacementMutation` / `PartialShuffleMutation`      | mutation        | permutation mutation (`SequenceMutationBase`)      |
-|  [07]   | `EliteSelection` / `RouletteWheelSelection` / `StochasticUniversalSamplingSelection`                                       | selection       | fitness-proportionate selection                    |
-|  [08]   | `TournamentSelection` / `RankSelection` / `TruncationSelection`                                                            | selection       | tournament/rank/truncation                         |
-|  [09]   | `ElitistReinsertion` / `FitnessBasedReinsertion` / `PureReinsertion` / `UniformReinsertion`                                | reinsertion     | next-generation merge policy                       |
-|  [10]   | `GenerationNumberTermination` / `FitnessThresholdTermination` / `FitnessStagnationTermination` / `TimeEvolvingTermination` | termination     | convergence policy                                 |
-|  [11]   | `AndTermination` / `OrTermination` (`LogicalOperatorTerminationBase`)                                                      | termination     | composite convergence over `params ITermination[]` |
-|  [12]   | `FuncFitness`                                                                                                              | fitness adapter | wraps a `Func<IChromosome, double>` oracle         |
+| [INDEX] | [SYMBOL]                                                              | [KIND]      | [CAPABILITY]                         |
+| :-----: | :-------------------------------------------------------------------- | :---------- | :----------------------------------- |
+|  [01]   | `OnePointCrossover` / `TwoPointCrossover` / `UniformCrossover`        | crossover   | binary/real positional               |
+|  [02]   | `CutAndSpliceCrossover` / `ThreeParentCrossover`                      | crossover   | variable-length / multi-parent       |
+|  [03]   | `VotingRecombinationCrossover`                                        | crossover   | multi-parent voting recombination    |
+|  [04]   | `OrderedCrossover` / `OrderBasedCrossover` / `PositionBasedCrossover` | crossover   | permutation-preserving               |
+|  [05]   | `CycleCrossover` / `PartiallyMappedCrossover`                         | crossover   | permutation cycle / PMX              |
+|  [06]   | `AlternatingPositionCrossover`                                        | crossover   | permutation alternating-position     |
+|  [07]   | `FlipBitMutation` / `UniformMutation`                                 | mutation    | binary / real gene mutation          |
+|  [08]   | `TworsMutation` / `ReverseSequenceMutation` / `InsertionMutation`     | mutation    | permutation (`SequenceMutationBase`) |
+|  [09]   | `DisplacementMutation` / `PartialShuffleMutation`                     | mutation    | permutation (`SequenceMutationBase`) |
+|  [10]   | `EliteSelection` / `RouletteWheelSelection`                           | selection   | fitness-proportionate                |
+|  [11]   | `StochasticUniversalSamplingSelection`                                | selection   | stochastic universal sampling        |
+|  [12]   | `TournamentSelection` / `RankSelection` / `TruncationSelection`       | selection   | tournament / rank / truncation       |
+|  [13]   | `ElitistReinsertion` / `FitnessBasedReinsertion`                      | reinsertion | next-generation merge policy         |
+|  [14]   | `PureReinsertion` / `UniformReinsertion`                              | reinsertion | next-generation merge policy         |
+|  [15]   | `GenerationNumberTermination` / `FitnessThresholdTermination`         | termination | count / fitness convergence          |
+|  [16]   | `FitnessStagnationTermination` / `TimeEvolvingTermination`            | termination | stall / time convergence             |
+|  [17]   | `AndTermination` / `OrTermination`                                    | termination | composite (`params ITermination[]`)  |
+|  [18]   | `FuncFitness`                                                         | fitness     | wraps a `Func<IChromosome, double>`  |
 
 [PUBLIC_TYPE_SCOPE]: parallel execution and operator strategy
 - rail: optimizer#EXECUTOR
 - note: `ITaskExecutor` parallelizes fitness evaluation; `IOperatorsStrategy` parallelizes the crossover/mutation operator application — both are the seam to the bounded compute lanes.
 
-| [INDEX] | [SYMBOL]                                                                                      | [TYPE_FAMILY]     | [RAIL]                                            |
-| :-----: | :-------------------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------ |
-|  [01]   | `ITaskExecutor` / `TaskExecutorBase`                                                          | executor contract | `Add(Action)` / `Start` / `Stop` / `Timeout`      |
-|  [02]   | `LinearTaskExecutor`                                                                          | serial executor   | sequential fitness evaluation                     |
-|  [03]   | `ParallelTaskExecutor`                                                                        | thread executor   | thread-bounded parallel fitness evaluation        |
-|  [04]   | `TplTaskExecutor`                                                                             | TPL executor      | `Task`-parallel fitness evaluation                |
-|  [05]   | `IOperatorsStrategy` / `OperatorsStrategyBase`                                                | operator strategy | how crossover/mutation are applied across parents |
-|  [06]   | `DefaultOperatorsStrategy` / `TplOperatorsStrategy` / `TplPopulation`                         | operator strategy | serial vs TPL-parallel operator application       |
-|  [07]   | `IRandomization` / `BasicRandomization` / `FastRandomRandomization` / `RandomizationProvider` | RNG               | the seedable global randomization source          |
+| [INDEX] | [SYMBOL]                                                              | [KIND]            | [CAPABILITY]                                 |
+| :-----: | :-------------------------------------------------------------------- | :---------------- | :------------------------------------------- |
+|  [01]   | `ITaskExecutor` / `TaskExecutorBase`                                  | executor contract | `Add(Action)` / `Start` / `Stop` / `Timeout` |
+|  [02]   | `LinearTaskExecutor`                                                  | serial executor   | sequential fitness evaluation                |
+|  [03]   | `ParallelTaskExecutor`                                                | thread executor   | thread-bounded parallel fitness evaluation   |
+|  [04]   | `TplTaskExecutor`                                                     | TPL executor      | `Task`-parallel fitness evaluation           |
+|  [05]   | `IOperatorsStrategy` / `OperatorsStrategyBase`                        | operator strategy | how crossover/mutation apply across parents  |
+|  [06]   | `DefaultOperatorsStrategy` / `TplOperatorsStrategy` / `TplPopulation` | operator strategy | serial vs TPL-parallel operator application  |
+|  [07]   | `IRandomization` / `BasicRandomization`                               | RNG               | seedable randomization base                  |
+|  [08]   | `FastRandomRandomization` / `RandomizationProvider`                   | RNG               | fast RNG + global provider                   |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -86,58 +94,70 @@
 - rail: optimizer#ENGINE
 - note: the ctor binds the required operator quintet; the settable properties bind the optional operators and the executor; `Start`/`Stop`/`Resume` drive the loop and the events stream progress.
 
-| [INDEX] | [SURFACE]                                                                                                                        | [ENTRY_FAMILY] | [RAIL]                                             |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `new GeneticAlgorithm(IPopulation population, IFitness fitness, ISelection selection, ICrossover crossover, IMutation mutation)` | ctor           | assembles the engine over its operator set         |
-|  [02]   | `Reinsertion` / `Termination` / `TaskExecutor` / `OperatorsStrategy` { get; set; }                                               | operator bind  | optional reinsertion/termination/executor/strategy |
-|  [03]   | `CrossoverProbability` / `MutationProbability` { get; set; }                                                                     | rate           | per-operator probability (defaults `0.75`/`0.1`)   |
-|  [04]   | `void Start()` / `void Resume()` / `void Stop()`                                                                                 | control        | runs / continues / halts the evolve loop           |
-|  [05]   | `IChromosome BestChromosome` / `int GenerationsNumber` / `TimeSpan TimeEvolving`                                                 | result         | best genome, generation count, elapsed time        |
-|  [06]   | `event GenerationRan` / `TerminationReached` / `Stopped`                                                                         | progress       | per-generation, convergence, and stop hooks        |
-|  [07]   | `GeneticAlgorithmState State`                                                                                                    | state          | the engine lifecycle state                         |
+- call: the ctor binds the required `IPopulation`/`IFitness`/`ISelection`/`ICrossover`/`IMutation` quintet; the rest are settable.
+
+| [INDEX] | [SURFACE]                                                                    | [CAPABILITY]                                     |
+| :-----: | :--------------------------------------------------------------------------- | :----------------------------------------------- |
+|  [01]   | `new GeneticAlgorithm(population, fitness, selection, crossover, mutation)`  | assembles the engine over its operator set       |
+|  [02]   | `Reinsertion` / `Termination` / `TaskExecutor` / `OperatorsStrategy { set }` | optional operators + executor + strategy         |
+|  [03]   | `CrossoverProbability` / `MutationProbability { get; set; }`                 | per-operator probability (defaults `0.75`/`0.1`) |
+|  [04]   | `Start()` / `Resume()` / `Stop()`                                            | runs / continues / halts the evolve loop         |
+|  [05]   | `BestChromosome` / `GenerationsNumber` / `TimeEvolving`                      | best genome, generation count, elapsed time      |
+|  [06]   | `GenerationRan` / `TerminationReached` / `Stopped` (events)                  | per-generation, convergence, stop hooks          |
+|  [07]   | `GeneticAlgorithmState State`                                                | the engine lifecycle state                       |
 
 [ENTRYPOINT_SCOPE]: population, genome, and fitness construction
 - rail: optimizer#GENOME
 - note: `Population` seeds from an `adamChromosome` prototype (`CreateNew` clones it); the float genome decodes bit-encoded reals to `double[]` for the objective.
 
-| [INDEX] | [SURFACE]                                                                                                  | [ENTRY_FAMILY] | [RAIL]                                                                                                                                                 |
-| :-----: | :--------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new Population(int minSize, int maxSize, IChromosome adamChromosome)`                                     | ctor           | bounded population from a prototype genome                                                                                                             |
-|  [02]   | `new FloatingPointChromosome(double[] minValue, double[] maxValue, int[] totalBits, int[] fractionDigits)` | ctor           | per-variable real-coded genome (vector)                                                                                                                |
-|  [03]   | `new FloatingPointChromosome(double minValue, double maxValue, int fractionDigits)`                        | ctor           | scalar real-coded genome                                                                                                                               |
-|  [04]   | `FloatingPointChromosome.ToFloatingPoints()` / `ToFloatingPoint()`                                         | decode         | genome → `double[]` / `double` for the objective                                                                                                       |
-|  [05]   | `new IntegerChromosome(int minValue, int maxValue)`                                                        | ctor           | a `[min, max]` integer genome                                                                                                                          |
-|  [06]   | `new FuncFitness(Func<IChromosome, double> func)`                                                          | ctor           | adapts the `evaluate` oracle to `IFitness`                                                                                                             |
-|  [07]   | `IChromosome.GenerateGene(int)` / `ReplaceGene(int, Gene)` / `GetGenes()` / `CreateNew()` / `Clone()`      | genome ops     | the gene-level genome contract a custom encoding implements                                                                                            |
-|  [08]   | `Population.GenerationStrategy { get; set; }` (`IPopulation.GenerationStrategy`)                           | history policy | sets the generation-retention strategy (`PerformanceGenerationStrategy`/`TrackingGenerationStrategy`); defaults to `PerformanceGenerationStrategy(10)` |
+- call: chromosome ctors take `double`/`double[]` bounds and `int`/`int[]` bit/precision counts; `FuncFitness` wraps a `Func<IChromosome, double>`.
+
+| [INDEX] | [SURFACE]                                                                  | [CAPABILITY]                                            |
+| :-----: | :------------------------------------------------------------------------- | :------------------------------------------------------ |
+|  [01]   | `new Population(minSize, maxSize, adamChromosome)`                         | bounded population from a prototype genome              |
+|  [02]   | `new FloatingPointChromosome(min[], max[], totalBits[], fractionDigits[])` | per-variable real-coded genome (vector)                 |
+|  [03]   | `new FloatingPointChromosome(double min, double max, int fractionDigits)`  | scalar real-coded genome                                |
+|  [04]   | `FloatingPointChromosome.ToFloatingPoints()` / `ToFloatingPoint()`         | genome → `double[]` / `double`                          |
+|  [05]   | `new IntegerChromosome(int minValue, int maxValue)`                        | a `[min, max]` integer genome                           |
+|  [06]   | `new FuncFitness(Func<IChromosome, double> func)`                          | adapts the `evaluate` oracle to `IFitness`              |
+|  [07]   | `IChromosome.GenerateGene(int)` / `ReplaceGene(int, Gene)`                 | gene-level mutation/replacement contract                |
+|  [08]   | `IChromosome.GetGenes()` / `CreateNew()` / `Clone()`                       | genome enumerate/copy contract                          |
+|  [09]   | `Population.GenerationStrategy { get; set; }`                              | retention (default `PerformanceGenerationStrategy(10)`) |
 
 [ENTRYPOINT_SCOPE]: operator instances and termination composition
 - rail: optimizer#OPERATORS
 - note: the selection/crossover/mutation/termination instances are the operator set the engine ctor and properties take; logical terminations compose any set.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                      | [ENTRY_FAMILY] | [RAIL]                                                                                                                                                                                                                            |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new TournamentSelection(int size, bool allowWinnerCompeteNextTournament = …)`                                                                                                 | selection      | tournament selection of the given size                                                                                                                                                                                            |
-|  [02]   | `new EliteSelection()` / `new RouletteWheelSelection()` / `new RankSelection()`                                                                                                | selection      | the parameterless selection operators                                                                                                                                                                                             |
-|  [03]   | `ICrossover.Cross(IList<IChromosome> parents)` / `ParentsNumber` / `ChildrenNumber`                                                                                            | crossover      | applies a crossover row; arity is operator data                                                                                                                                                                                   |
-|  [04]   | `new UniformMutation(bool allGenesMutable)` / `new UniformMutation(params int[] mutableGenesIndexes)`                                                                          | mutation       | real-gene uniform mutation                                                                                                                                                                                                        |
-|  [05]   | `IMutation.Mutate(IChromosome chromosome, float probability)`                                                                                                                  | mutation       | applies a mutation row at a probability                                                                                                                                                                                           |
-|  [06]   | `new GenerationNumberTermination(int n)` / `new FitnessThresholdTermination(double f)` / `new FitnessStagnationTermination(int g)` / `new TimeEvolvingTermination(TimeSpan t)` | termination    | the leaf convergence policies                                                                                                                                                                                                     |
-|  [07]   | `new AndTermination(params ITermination[] terminations)` / `new OrTermination(params ITermination[])`                                                                          | termination    | composite convergence over a set                                                                                                                                                                                                  |
-|  [08]   | `IReinsertion.SelectChromosomes(IPopulation, IList<IChromosome> offspring, IList<IChromosome> parents)` / `CanCollapse` / `CanExpand`                                          | reinsertion    | next-generation merge with arity guards                                                                                                                                                                                           |
-|  [09]   | `new UniformCrossover(float mixProbability = 0.5f)` / `new TwoPointCrossover()`                                                                                                | crossover      | the crossover-operator constructors a row binds (`UniformCrossover.MixProbability` defaults `0.5`); the parameterless siblings (`OnePointCrossover`/`OrderedCrossover`/`CycleCrossover`/…) construct from the section-2 type rows |
+- call: the leaf termination ctors take one bound (`int`/`double`/`int`/`TimeSpan`); selection/crossover ctors are parameterless unless a size or probability is shown.
+
+| [INDEX] | [SURFACE]                                                                          | [CAPABILITY]                           |
+| :-----: | :--------------------------------------------------------------------------------- | :------------------------------------- |
+|  [01]   | `new TournamentSelection(int size, bool allowWinnerCompeteNextTournament = …)`     | tournament selection of the given size |
+|  [02]   | `new EliteSelection()` / `RouletteWheelSelection()` / `RankSelection()`            | parameterless selection operators      |
+|  [03]   | `ICrossover.Cross(IList<IChromosome> parents)`                                     | applies a crossover row                |
+|  [04]   | `new UniformMutation(bool)` / `new UniformMutation(params int[] indexes)`          | real-gene uniform mutation             |
+|  [05]   | `IMutation.Mutate(IChromosome, float probability)`                                 | applies a mutation at a probability    |
+|  [06]   | `new GenerationNumberTermination(int n)` / `FitnessThresholdTermination(double f)` | leaf convergence (count/fitness)       |
+|  [07]   | `new FitnessStagnationTermination(int g)` / `TimeEvolvingTermination(TimeSpan t)`  | leaf convergence (stall/time)          |
+|  [08]   | `new AndTermination(params ITermination[])` / `OrTermination(…)`                   | composite convergence over a set       |
+|  [09]   | `IReinsertion.SelectChromosomes(IPopulation, offspring, parents)`                  | next-generation merge                  |
+|  [10]   | `new UniformCrossover(float mixProbability = 0.5f)` / `new TwoPointCrossover()`    | crossover ctors a row binds            |
+
+- [10]-[UNIFORMCROSSOVER]: `UniformCrossover.MixProbability` defaults `0.5`; the parameterless siblings (`OnePointCrossover`/`OrderedCrossover`/`CycleCrossover`/…) construct from the section-2 type rows.
 
 [ENTRYPOINT_SCOPE]: parallel evaluation
 - rail: optimizer#EXECUTOR
 - note: the executor batches fitness evaluations; `Timeout` bounds a generation, `IsRunning`/`Start`/`Stop` drive the batch.
 
-| [INDEX] | [SURFACE]                                                                           | [ENTRY_FAMILY] | [RAIL]                                                                                                                                                      |
-| :-----: | :---------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new ParallelTaskExecutor()` / `new TplTaskExecutor()` / `new LinearTaskExecutor()` | ctor           | the parallel/TPL/serial fitness executor                                                                                                                    |
-|  [02]   | `ITaskExecutor.Add(Action task)` / `Start()` / `Stop()` / `Clear()`                 | executor ops   | enqueue, run, halt, and reset the batch                                                                                                                     |
-|  [03]   | `ITaskExecutor.Timeout { get; set; }` / `IsRunning { get; }`                        | bound          | per-generation deadline and running flag                                                                                                                    |
-|  [04]   | `RandomizationProvider.Current { get; set; }`                                       | RNG seed       | the global randomization source (seed for reproducibility)                                                                                                  |
-|  [05]   | `ParallelTaskExecutor.MinThreads` / `MaxThreads { get; set; }`                      | thread bound   | min/max worker threads on `ParallelTaskExecutor` (both default `200`); set `MaxThreads = Environment.ProcessorCount` to cap the fitness fan to the CPU lane |
+- call: executor ctors are parameterless; `Timeout` takes a `TimeSpan`, `MaxThreads`/`MinThreads` default `200` — set `MaxThreads = Environment.ProcessorCount` to cap the fan to the CPU lane.
+
+| [INDEX] | [SURFACE]                                                                   | [CAPABILITY]                                 |
+| :-----: | :-------------------------------------------------------------------------- | :------------------------------------------- |
+|  [01]   | `new ParallelTaskExecutor()` / `TplTaskExecutor()` / `LinearTaskExecutor()` | the parallel/TPL/serial fitness executor     |
+|  [02]   | `ITaskExecutor.Add(Action)` / `Start()` / `Stop()` / `Clear()`              | enqueue, run, halt, reset the batch          |
+|  [03]   | `ITaskExecutor.Timeout { get; set; }` / `IsRunning { get; }`                | per-generation deadline + running flag       |
+|  [04]   | `RandomizationProvider.Current { get; set; }`                               | global RNG source (seed for reproducibility) |
+|  [05]   | `ParallelTaskExecutor.MinThreads` / `MaxThreads { get; set; }`              | min/max worker threads (default `200`)       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

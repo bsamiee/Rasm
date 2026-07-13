@@ -37,18 +37,18 @@ export {                                    // typed resource groups (each with 
 
 Every typed resource is `class Kind extends pulumi.CustomResource` with literal-typed `apiVersion`/`kind` discriminants and `metadata`/`spec`/`status` as `Output`s of the group's `types.output` shapes. `KindArgs` mirrors them as `types.input`. Unlike the cloud SDKs, the typed-resource `.get` is 3-arg (`name`, `id`, `opts?`) — server state is the source of truth, so there is no client-side `State` bag. Learn it once; the group roster is data.
 
-| [INDEX] | [MEMBER]             | [SHAPE]                                                                                                              |
-| :-----: | :------------------- | :------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `class Kind`         | `extends pulumi.CustomResource`; `apiVersion: Output<"apps/v1">`, `kind: Output<"Deployment">` literal discriminants |
-|  [02]   | attributes           | `metadata: Output<meta.v1.ObjectMeta>`, `spec: Output<…Spec>`, `status: Output<…Status>`                             |
-|  [03]   | `constructor`        | `(name, args?: KindArgs, opts?: pulumi.CustomResourceOptions)`                                                       |
-|  [04]   | `Kind.get`           | `static get(name, id: pulumi.Input<pulumi.ID>, opts?): Kind` — 3-arg (no client State)                               |
-|  [05]   | `Kind.isInstance`    | `static isInstance(obj): obj is Kind`                                                                                |
-|  [06]   | `interface KindArgs` | `metadata?: Input<meta.v1.ObjectMeta>`, `spec?: Input<…Spec>`, literal `apiVersion?`/`kind?`                         |
-|  [07]   | `KindPatch` twin     | `<group>.<v>.<Kind>Patch` — Server-Side-Apply patch variant of every resource                                        |
-|  [08]   | `KindList` twin      | `<group>.<v>.<Kind>List` — the list-kind resource                                                                    |
+| [INDEX] | [MEMBER]             | [SHAPE]                                                                                      |
+| :-----: | :------------------- | :------------------------------------------------------------------------------------------- |
+|  [01]   | `class Kind`         | `extends pulumi.CustomResource`; literal-typed `apiVersion`/`kind` discriminants             |
+|  [02]   | attributes           | `metadata: Output<meta.v1.ObjectMeta>`, `spec: Output<…Spec>`, `status: Output<…Status>`     |
+|  [03]   | `constructor`        | `(name, args?: KindArgs, opts?: pulumi.CustomResourceOptions)`                               |
+|  [04]   | `Kind.get`           | `static get(name, id: pulumi.Input<pulumi.ID>, opts?): Kind` — 3-arg (no client State)       |
+|  [05]   | `Kind.isInstance`    | `static isInstance(obj): obj is Kind`                                                        |
+|  [06]   | `interface KindArgs` | `metadata?: Input<meta.v1.ObjectMeta>`, `spec?: Input<…Spec>`, literal `apiVersion?`/`kind?` |
+|  [07]   | `KindPatch` twin     | `<group>.<v>.<Kind>Patch` — Server-Side-Apply patch variant of every resource                |
+|  [08]   | `KindList` twin      | `<group>.<v>.<Kind>List` — the list-kind resource                                            |
 
-```ts contract
+```ts signature
 import * as pulumi from "@pulumi/pulumi"
 import * as inputs from "../../types/input"
 import * as outputs from "../../types/output"
@@ -78,18 +78,17 @@ interface DeploymentArgs {
 [PUBLIC_TYPE_SCOPE]: typed resource groups
 - rail: iac / kubernetes
 
-| [INDEX] | [GROUP]                                                                                                                                                                                         | [KEY_KINDS_THE_KUBE_ROWS_COMPOSE]                                                               |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------- |
-|  [01]   | `core.v1`                                                                                                                                                                                       | `Namespace`, `Service`, `Secret`, `ConfigMap`, `PersistentVolumeClaim`, `ServiceAccount`, `Pod` |
-|  [02]   | `apps.v1`                                                                                                                                                                                       | `Deployment`, `StatefulSet`, `DaemonSet`, `ReplicaSet`                                          |
-|  [03]   | `batch.v1`                                                                                                                                                                                      | `Job`, `CronJob`                                                                                |
-|  [04]   | `networking.v1`                                                                                                                                                                                 | `Ingress`, `IngressClass`, `NetworkPolicy` (the `kube/traffic` rows)                            |
-|  [05]   | `rbac.authorization.k8s.io/v1`                                                                                                                                                                  | `Role`, `ClusterRole`, `RoleBinding`, `ClusterRoleBinding`                                      |
-|  [06]   | `storage.k8s.io/v1`                                                                                                                                                                             | `StorageClass`, `VolumeAttachment`                                                              |
-|  [07]   | `apiextensions.k8s.io/v1`                                                                                                                                                                       | `CustomResourceDefinition` (`apiextensions.v1.CustomResourceDefinition`)                        |
-|  [08]   | `policy`, `autoscaling`, `coordination`, `scheduling`, `admissionregistration`, `certificates`, `discovery`, `events`, `flowcontrol`, `node`, `settings`, `apiregistration`, `storagemigration` | the remaining generated groups, same pattern                                                    |
+| [INDEX] | [GROUP]                        | [KEY_KINDS_THE_KUBE_ROWS_COMPOSE]                                                               |
+| :-----: | :----------------------------- | :---------------------------------------------------------------------------------------------- |
+|  [01]   | `core.v1`                      | `Namespace`, `Service`, `Secret`, `ConfigMap`, `PersistentVolumeClaim`, `ServiceAccount`, `Pod` |
+|  [02]   | `apps.v1`                      | `Deployment`, `StatefulSet`, `DaemonSet`, `ReplicaSet`                                          |
+|  [03]   | `batch.v1`                     | `Job`, `CronJob`                                                                                |
+|  [04]   | `networking.v1`                | `Ingress`, `IngressClass`, `NetworkPolicy` (the `kube/traffic` rows)                            |
+|  [05]   | `rbac.authorization.k8s.io/v1` | `Role`, `ClusterRole`, `RoleBinding`, `ClusterRoleBinding`                                      |
+|  [06]   | `storage.k8s.io/v1`            | `StorageClass`, `VolumeAttachment`                                                              |
+|  [07]   | `apiextensions.k8s.io/v1`      | `CustomResourceDefinition` (`apiextensions.v1.CustomResourceDefinition`)                        |
 
-Every group additionally exposes `*Patch` (SSA) and `*List` twins; `meta.v1.ObjectMeta` is the shared metadata input carrying `name`/`namespace`/`labels`/`annotations`.
+The remaining generated groups follow this exact pattern: `policy`, `autoscaling`, `coordination`, `scheduling`, `admissionregistration`, `certificates`, `discovery`, `events`, `flowcontrol`, `node`, `settings`, `apiregistration`, `storagemigration`. Every group additionally exposes `*Patch` (SSA) and `*List` twins; `meta.v1.ObjectMeta` is the shared metadata input carrying `name`/`namespace`/`labels`/`annotations`.
 
 ### [02.3]-[HELM_V4_CHART_UPSTREAM_CHARTS_AS_TYPED_VALUE_OBJECTS]
 
@@ -99,22 +98,28 @@ Every group additionally exposes `*Patch` (SSA) and `*List` twins; `meta.v1.Obje
 
 `Chart` is a `ComponentResource` equivalent to `helm template --dry-run=server` followed by Pulumi-managed apply of the rendered manifests — so Pulumi transformations and CrossGuard policies see every rendered resource, and there is no Tiller/Release state. `values` is a typed object map (literals, nested maps, `Output`s, and `pulumi.asset.Asset`s), which is HOW `iac` supplies the LGTM/CNPG/OTel configuration with zero authored YAML.
 
-| [INDEX] | [MEMBER]                                                                            | [SIGNATURE_FIELD]                                                                                                 |
-| :-----: | :---------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `class Chart`                                                                       | `extends pulumi.ComponentResource`; `constructor(name, args?: ChartArgs, opts?: pulumi.ComponentResourceOptions)` |
-|  [02]   | `Chart.isInstance`                                                                  | `static isInstance(obj): obj is Chart`                                                                            |
-|  [03]   | `chart.resources`                                                                   | `readonly resources: pulumi.Output<any[]>` — the rendered child resources                                         |
-|  [04]   | `chart` (arg)                                                                       | `Input<string>` — ref (`repo/name`), path, tgz, URL, or `oci://…`                                                 |
-|  [05]   | `values`                                                                            | `Input<{ [k: string]: any }>` — highest-precedence typed value map                                                |
-|  [06]   | `valueYamlFiles`                                                                    | `Input<Input<pulumi.asset.Asset \| pulumi.asset.Archive>[]>` — `values.yaml` assets                               |
-|  [07]   | `repositoryOpts`                                                                    | `Input<inputs.helm.v4.RepositoryOpts>` — `{ repo, username, password, caFile, certFile, keyFile }`                |
-|  [08]   | `version` / `devel`                                                                 | `Input<string>` pinned chart / pre-release admission                                                              |
-|  [09]   | `namespace`                                                                         | `Input<string>` — release namespace (bind to a `core.v1.Namespace.metadata.name`)                                 |
-|  [10]   | `skipCrds` / `skipAwait`                                                            | `Input<boolean>` — omit chart CRDs / do not block on readiness                                                    |
-|  [11]   | `postRenderer`                                                                      | `Input<inputs.helm.v4.PostRenderer>` — `{ command, args }` kustomize/post-render hook                             |
-|  [12]   | `dependencyUpdate` / `verify` / `keyring` / `plainHttp` / `resourcePrefix` / `name` | dep rebuild, provenance verify, keyring asset, insecure HTTP, name prefix, release name                           |
+| [INDEX] | [MEMBER]            | [SIGNATURE_FIELD]                                                                    |
+| :-----: | :------------------ | :----------------------------------------------------------------------------------- |
+|  [01]   | `class Chart`       | `extends pulumi.ComponentResource`; `(name, args?: ChartArgs, opts?)` constructor    |
+|  [02]   | `Chart.isInstance`  | `static isInstance(obj): obj is Chart`                                               |
+|  [03]   | `chart.resources`   | `readonly resources: pulumi.Output<any[]>` — the rendered child resources            |
+|  [04]   | `chart` (arg)       | `Input<string>` — ref (`repo/name`), path, tgz, URL, or `oci://…`                    |
+|  [05]   | `values`            | `Input<{ [k: string]: any }>` — highest-precedence typed value map                   |
+|  [06]   | `valueYamlFiles`    | `values.yaml` override files as typed assets                                         |
+|  [07]   | `repositoryOpts`    | chart-repo auth: `repo`/`username`/`password` + `caFile`/`certFile`/`keyFile` assets |
+|  [08]   | `version` / `devel` | `Input<string>` pinned chart / pre-release admission                                 |
+|  [09]   | `namespace`         | `Input<string>` — release namespace (bind to `core.v1.Namespace.metadata.name`)      |
+|  [10]   | `skipCrds`          | `Input<boolean>` — omit chart CRDs                                                   |
+|  [11]   | `skipAwait`         | `Input<boolean>` — do not block on readiness                                         |
+|  [12]   | `postRenderer`      | `{ command, args }` kustomize/post-render hook                                       |
+|  [13]   | `dependencyUpdate`  | `Input<boolean>` — chart dependency rebuild                                          |
+|  [14]   | `verify`            | `Input<boolean>` — provenance verification                                           |
+|  [15]   | `keyring`           | provenance keyring asset                                                             |
+|  [16]   | `plainHttp`         | `Input<boolean>` — insecure HTTP fetch                                               |
+|  [17]   | `resourcePrefix`    | `Input<string>` — rendered-resource name prefix                                      |
+|  [18]   | `name`              | `Input<string>` — release name override                                              |
 
-```ts contract
+```ts signature
 import * as pulumi from "@pulumi/pulumi"
 import * as inputs from "../../types/input"
 
@@ -162,17 +167,17 @@ interface PostRenderer { readonly command: pulumi.Input<string>; readonly args?:
 
 `CustomResource` instantiates any CRD instance (the CNPG `Cluster`, cert-manager `Certificate`, Grafana `GrafanaDashboard`) when no generated class exists. `CustomResourceArgs` is deliberately loose — only `apiVersion`/`kind` are required, with a `[field: string]: pulumi.Input<any>` catch-all for the operator's `spec`. Pair with `apiextensions.v1.CustomResourceDefinition` to install the CRD schema, and `CustomResourcePatch` for SSA into an operator-owned object.
 
-| [INDEX] | [MEMBER]                                    | [SIGNATURE_FIELD]                                                                                                   |
-| :-----: | :------------------------------------------ | :------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `class CustomResource`                      | `extends pulumi.CustomResource`; `constructor(name, args: CustomResourceArgs, opts?: pulumi.CustomResourceOptions)` |
-|  [02]   | `CustomResource.get`                        | `static get(name, opts: CustomResourceGetOptions): CustomResource` — id via `{ apiVersion, kind, id, namespace? }`  |
-|  [03]   | attributes                                  | `apiVersion: Output<string>`, `kind: Output<string>`, `metadata: Output<meta.v1.ObjectMeta>`                        |
-|  [04]   | `getInputs()`                               | `(): CustomResourceArgs` — recover the declared spec                                                                |
-|  [05]   | `interface CustomResourceArgs`              | `apiVersion: string; kind: string; metadata?: Input<meta.v1.ObjectMeta>; [field]: Input<any>`                       |
-|  [06]   | `class CustomResourcePatch`                 | SSA patch twin over an existing CRD instance                                                                        |
-|  [07]   | `apiextensions.v1.CustomResourceDefinition` | the typed CRD-install resource (`spec.group`/`names`/`versions`/`scope`)                                            |
+| [INDEX] | [MEMBER]                                    | [SIGNATURE_FIELD]                                                                          |
+| :-----: | :------------------------------------------ | :----------------------------------------------------------------------------------------- |
+|  [01]   | `class CustomResource`                      | `extends pulumi.CustomResource`; `(name, args: CustomResourceArgs, opts?)` constructor     |
+|  [02]   | `CustomResource.get`                        | `get(name, opts)` — id via `{ apiVersion, kind, id, namespace? }`                          |
+|  [03]   | attributes                                  | `apiVersion`/`kind`/`metadata` `Output`s (string-typed, not literal discriminants)         |
+|  [04]   | `getInputs()`                               | `(): CustomResourceArgs` — recover the declared spec                                       |
+|  [05]   | `interface CustomResourceArgs`              | required `apiVersion`/`kind` strings, optional `metadata`, `[field]: Input<any>` catch-all |
+|  [06]   | `class CustomResourcePatch`                 | SSA patch twin over an existing CRD instance                                               |
+|  [07]   | `apiextensions.v1.CustomResourceDefinition` | the typed CRD-install resource (`spec.group`/`names`/`versions`/`scope`)                   |
 
-```ts contract
+```ts signature
 import * as pulumi from "@pulumi/pulumi"
 import * as inputs from "../types/input"
 import * as outputs from "../types/output"
@@ -198,20 +203,23 @@ interface CustomResourceArgs {
 [PUBLIC_TYPE_SCOPE]: manifest components + provider
 - rail: iac / kubernetes
 
-| [INDEX] | [MEMBER]                                                                                                    | [SIGNATURE_FIELD]                                                                                               |
-| :-----: | :---------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `yaml.ConfigFile` / `ConfigGroup`                                                                           | `ComponentResource` rendering one file / a glob or literal set of manifests; `transformations`/`resourcePrefix` |
-|  [02]   | `yaml.v2.ConfigGroup`                                                                                       | the catalog-bound SSA-aware manifest component                                                                  |
-|  [03]   | `kustomize.Directory`                                                                                       | `ComponentResource` running `kustomize build` over a dir/URL; `kustomize.v2.Directory` twin                     |
-|  [04]   | `class Provider`                                                                                            | `extends pulumi.ProviderResource`; `constructor(name, args?: ProviderArgs, opts?: pulumi.ResourceOptions)`      |
-|  [05]   | `ProviderArgs.kubeconfig`                                                                                   | `Input<string>` — the cluster-bootstrap kubeconfig (`@pulumi/command` output)                                   |
-|  [06]   | `ProviderArgs.context`/`cluster`                                                                            | `Input<string>` — kubeconfig context / cluster selection                                                        |
-|  [07]   | `ProviderArgs.namespace`                                                                                    | `Input<string>` — default namespace for un-namespaced resources                                                 |
-|  [08]   | `ProviderArgs.enableServerSideApply`                                                                        | `Input<boolean>` — SSA field-manager mode                                                                       |
-|  [09]   | `ProviderArgs.renderYamlToDirectory`                                                                        | `Input<string>` — render-only (no apply) manifest emit                                                          |
-|  [10]   | `ProviderArgs.helmReleaseSettings` / `suppressHelmHookWarnings` / `deleteUnreachable` / `clusterIdentifier` | helm defaults, hook-warning suppression, unreachable-cluster GC, replace-identity                               |
+| [INDEX] | [MEMBER]                                | [SIGNATURE_FIELD]                                                                              |
+| :-----: | :-------------------------------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `yaml.ConfigFile` / `ConfigGroup`       | `ComponentResource` per file / glob / literal manifest set; `transformations`/`resourcePrefix` |
+|  [02]   | `yaml.v2.ConfigGroup`                   | the catalog-bound SSA-aware manifest component                                                 |
+|  [03]   | `kustomize.Directory`                   | `ComponentResource` running `kustomize build` over a dir/URL; `kustomize.v2.Directory` twin    |
+|  [04]   | `class Provider`                        | `extends pulumi.ProviderResource`; `(name, args?: ProviderArgs, opts?)` constructor            |
+|  [05]   | `ProviderArgs.kubeconfig`               | `Input<string>` — the cluster-bootstrap kubeconfig (`@pulumi/command` output)                  |
+|  [06]   | `ProviderArgs.context`/`cluster`        | `Input<string>` — kubeconfig context / cluster selection                                       |
+|  [07]   | `ProviderArgs.namespace`                | `Input<string>` — default namespace for un-namespaced resources                                |
+|  [08]   | `ProviderArgs.enableServerSideApply`    | `Input<boolean>` — SSA field-manager mode                                                      |
+|  [09]   | `ProviderArgs.renderYamlToDirectory`    | `Input<string>` — render-only (no apply) manifest emit                                         |
+|  [10]   | `ProviderArgs.helmReleaseSettings`      | `Input<inputs.HelmReleaseSettings>` — helm apply defaults                                      |
+|  [11]   | `ProviderArgs.suppressHelmHookWarnings` | hook-warning suppression                                                                       |
+|  [12]   | `ProviderArgs.deleteUnreachable`        | unreachable-cluster resource GC                                                                |
+|  [13]   | `ProviderArgs.clusterIdentifier`        | replace-identity for cluster reassociation                                                     |
 
-```ts contract
+```ts signature
 import * as pulumi from "@pulumi/pulumi"
 import * as inputs from "./types/input"
 

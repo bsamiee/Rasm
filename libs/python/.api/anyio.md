@@ -66,20 +66,20 @@
 [PUBLIC_TYPE_SCOPE]: streams and stream wrappers
 - rail: concurrency
 
-| [INDEX] | [SYMBOL]                                                              | [TYPE_FAMILY]      | [RAIL]                                       |
-| :-----: | :-------------------------------------------------------------------- | :----------------- | :------------------------------------------- |
-|  [01]   | `streams.memory.MemoryObjectSendStream` / `MemoryObjectReceiveStream` | object stream      | in-process fan-out/fan-in channel pair       |
-|  [02]   | `streams.memory.MemoryObjectStreamStatistics`                         | stats record       | buffered/waiting item snapshot               |
-|  [03]   | `streams.tls.TLSStream`                                               | byte stream        | TLS wrapper over any `ByteStream`            |
-|  [04]   | `streams.tls.TLSListener`                                             | listener           | TLS-terminating accept loop                  |
-|  [05]   | `streams.tls.TLSAttribute`                                            | typed-attr set     | peer cert / cipher / ALPN protocol lookups   |
-|  [06]   | `streams.buffered.BufferedByteReceiveStream`                          | byte stream        | `receive_exactly`/`receive_until` framing    |
-|  [07]   | `streams.text.TextReceiveStream` / `TextSendStream` / `TextStream`    | object stream      | codec-decoding stream wrapper                |
-|  [08]   | `streams.stapled.StapledByteStream` / `StapledObjectStream`           | byte/object stream | staple a send + receive half into one duplex |
-|  [09]   | `streams.stapled.MultiListener`                                       | listener           | fan multiple listeners into one accept loop  |
-|  [10]   | `streams.file.FileReadStream` / `FileWriteStream`                     | byte stream        | stream a file as a `ByteStream`              |
-|  [11]   | `abc.ObjectStream` / `ObjectReceiveStream` / `ObjectSendStream`       | interface          | typed object channel contracts               |
-|  [12]   | `abc.ByteStream` / `ByteReceiveStream` / `ByteSendStream`             | interface          | bidirectional/half byte stream contracts     |
+| [INDEX] | [SYMBOL]                                                              | [TYPE_FAMILY]      | [RAIL]                                      |
+| :-----: | :-------------------------------------------------------------------- | :----------------- | :------------------------------------------ |
+|  [01]   | `streams.memory.MemoryObjectSendStream` / `MemoryObjectReceiveStream` | object stream      | in-process fan-out/fan-in channel pair      |
+|  [02]   | `streams.memory.MemoryObjectStreamStatistics`                         | stats record       | buffered/waiting item snapshot              |
+|  [03]   | `streams.tls.TLSStream`                                               | byte stream        | TLS wrapper over any `ByteStream`           |
+|  [04]   | `streams.tls.TLSListener`                                             | listener           | TLS-terminating accept loop                 |
+|  [05]   | `streams.tls.TLSAttribute`                                            | typed-attr set     | peer cert / cipher / ALPN protocol lookups  |
+|  [06]   | `streams.buffered.BufferedByteReceiveStream`                          | byte stream        | `receive_exactly`/`receive_until` framing   |
+|  [07]   | `streams.text.TextReceiveStream` / `TextSendStream` / `TextStream`    | object stream      | codec-decoding stream wrapper               |
+|  [08]   | `streams.stapled.StapledByteStream` / `StapledObjectStream`           | byte/object stream | staple send + receive into one duplex       |
+|  [09]   | `streams.stapled.MultiListener`                                       | listener           | fan multiple listeners into one accept loop |
+|  [10]   | `streams.file.FileReadStream` / `FileWriteStream`                     | byte stream        | stream a file as a `ByteStream`             |
+|  [11]   | `abc.ObjectStream` / `ObjectReceiveStream` / `ObjectSendStream`       | interface          | typed object channel contracts              |
+|  [12]   | `abc.ByteStream` / `ByteReceiveStream` / `ByteSendStream`             | interface          | bidirectional/half byte stream contracts    |
 
 [PUBLIC_TYPE_SCOPE]: async filesystem and tempfiles
 - rail: concurrency
@@ -118,17 +118,17 @@
 [PUBLIC_TYPE_SCOPE]: error and stream-signal types
 - rail: concurrency
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]  | [RAIL]                                       |
-| :-----: | :-------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `EndOfStream`         | stream signal  | stream exhausted (raised by `receive`)       |
-|  [02]   | `ClosedResourceError` | resource error | operation on a closed resource               |
-|  [03]   | `BrokenResourceError` | resource error | unrecoverable stream/socket break            |
-|  [04]   | `BusyResourceError`   | resource error | concurrent operation in progress             |
-|  [05]   | `WouldBlock`          | sync signal    | non-blocking op would block (`send_nowait`)  |
-|  [06]   | `DelimiterNotFound`   | read error     | delimiter absent within max bytes            |
-|  [07]   | `IncompleteRead`      | read error     | EOF before expected byte count               |
-|  [08]   | `ConnectionFailed`    | net error      | connection could not be opened               |
-|  [09]   | `NoEventLoopError`    | thread error   | no running event loop for the captured token |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]  | [RAIL]                                         |
+| :-----: | :-------------------- | :------------- | :--------------------------------------------- |
+|  [01]   | `EndOfStream`         | stream signal  | stream exhausted (raised by `receive`)         |
+|  [02]   | `ClosedResourceError` | resource error | operation on a closed resource                 |
+|  [03]   | `BrokenResourceError` | resource error | unrecoverable stream/socket break              |
+|  [04]   | `BusyResourceError`   | resource error | concurrent operation in progress               |
+|  [05]   | `WouldBlock`          | sync signal    | non-blocking op cannot proceed (`send_nowait`) |
+|  [06]   | `DelimiterNotFound`   | read error     | delimiter absent within max bytes              |
+|  [07]   | `IncompleteRead`      | read error     | EOF before expected byte count                 |
+|  [08]   | `ConnectionFailed`    | net error      | connection open failed                         |
+|  [09]   | `NoEventLoopError`    | thread error   | no running event loop for the captured token   |
 
 [PUBLIC_TYPE_SCOPE]: backend and ABC contracts
 - rail: concurrency
@@ -172,54 +172,59 @@
 [ENTRYPOINT_SCOPE]: memory streams
 - rail: concurrency
 
-| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                                                   |
-| :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------------------------- |
-|  [01]   | `create_memory_object_stream[T](max_buffer_size=0, item_type=None)` | factory        | paired `(send, receive)` stream; subscript for item type |
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                                |
+| :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------ |
+|  [01]   | `create_memory_object_stream[T](max_buffer_size=0, item_type=None)` | factory        | paired `(send, receive)` channel pair |
 
 [ENTRYPOINT_SCOPE]: networking, TLS, and signals
 - rail: concurrency
+- Connect/listen/datagram factories carry a keyword-only tuning tail past `*`; the row shows the distinguishing head.
 
-| [INDEX] | [SURFACE]                                                                                                                      | [ENTRY_FAMILY] | [RAIL]                                                         |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------- |
-|  [01]   | `connect_tcp(host, port, *, tls=False, ssl_context=None, tls_hostname=None, happy_eyeballs_delay=0.25, local_host=None)`       | connect        | TCP `SocketStream`/`TLSStream`, RFC 6555 dual-stack            |
-|  [02]   | `connect_unix(path)`                                                                                                           | connect        | UNIX-domain `UNIXSocketStream`                                 |
-|  [03]   | `create_tcp_listener(*, local_host=None, local_port=0, family=AF_UNSPEC, backlog=65536, reuse_port=False)`                     | listen         | `MultiListener[SocketStream]`                                  |
-|  [04]   | `create_unix_listener(path, *, mode=None, backlog=65536)`                                                                      | listen         | UNIX `SocketListener`                                          |
-|  [05]   | `create_udp_socket(family=AF_UNSPEC, *, local_host=None, local_port=0, reuse_port=False)`                                      | datagram       | unconnected `UDPSocket`                                        |
-|  [06]   | `create_connected_udp_socket(remote_host, remote_port, *, family=AF_UNSPEC, ...)`                                              | datagram       | peer-bound `ConnectedUDPSocket`                                |
-|  [07]   | `create_unix_datagram_socket(*, local_path=None, local_mode=None)` / `create_connected_unix_datagram_socket(remote_path, ...)` | datagram       | UNIX datagram socket variants                                  |
-|  [08]   | `getaddrinfo(host, port, *, family=0, type=0, proto=0, flags=0)` / `getnameinfo(sockaddr, flags=0)`                            | resolve        | async DNS resolution                                           |
-|  [09]   | `as_connectable(obj)`                                                                                                          | connectable    | normalize host/path/connectable into a reusable connect target |
-|  [10]   | `open_signal_receiver(*signals)`                                                                                               | signals        | `async with` → async iterator of received signals              |
-|  [11]   | `wait_readable(obj)` / `wait_writable(obj)` / `wait_socket_readable(sock)` / `wait_socket_writable(sock)`                      | readiness      | await fd/socket readiness without owning the loop              |
-|  [12]   | `notify_closing(obj)`                                                                                                          | readiness      | wake pending readiness waiters before closing an fd            |
-|  [13]   | `aclose_forcefully(resource)`                                                                                                  | teardown       | best-effort `aclose` inside a shielded scope                   |
+| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [RAIL]                                              |
+| :-----: | :----------------------------------------------------------- | :------------- | :-------------------------------------------------- |
+|  [01]   | `connect_tcp(host, port, *, tls=False, ...)`                 | connect        | TCP `SocketStream`/`TLSStream`, RFC 6555 dual-stack |
+|  [02]   | `connect_unix(path)`                                         | connect        | UNIX-domain `UNIXSocketStream`                      |
+|  [03]   | `create_tcp_listener(*, local_port=0, backlog=65536, ...)`   | listen         | `MultiListener[SocketStream]`                       |
+|  [04]   | `create_unix_listener(path, *, mode=None, backlog=65536)`    | listen         | UNIX `SocketListener`                               |
+|  [05]   | `create_udp_socket(family=AF_UNSPEC, *, local_port=0, ...)`  | datagram       | unconnected `UDPSocket`                             |
+|  [06]   | `create_connected_udp_socket(remote_host, remote_port, ...)` | datagram       | peer-bound `ConnectedUDPSocket`                     |
+|  [07]   | `create_unix_datagram_socket(*, local_path=None, ...)`       | datagram       | unconnected UNIX datagram socket                    |
+|  [08]   | `create_connected_unix_datagram_socket(remote_path, ...)`    | datagram       | peer-bound UNIX datagram socket                     |
+|  [09]   | `getaddrinfo(host, port, *, family=0, type=0, ...)`          | resolve        | async DNS resolution                                |
+|  [10]   | `getnameinfo(sockaddr, flags=0)`                             | resolve        | async reverse DNS resolution                        |
+|  [11]   | `as_connectable(obj)`                                        | connectable    | normalize into a reusable connect target            |
+|  [12]   | `open_signal_receiver(*signals)`                             | signals        | `async with` → async iterator of received signals   |
+|  [13]   | `wait_readable(obj)` / `wait_writable(obj)`                  | readiness      | await fd readiness without owning the loop          |
+|  [14]   | `wait_socket_readable(sock)` / `wait_socket_writable(sock)`  | readiness      | await socket readiness without owning the loop      |
+|  [15]   | `notify_closing(obj)`                                        | readiness      | wake readiness waiters before closing an fd         |
+|  [16]   | `aclose_forcefully(resource)`                                | teardown       | best-effort `aclose` inside a shielded scope        |
 
 [ENTRYPOINT_SCOPE]: file and process I/O
 - rail: concurrency
 
-| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [RAIL]                                                  |
-| :-----: | :----------------------------------------------------------------- | :------------- | :------------------------------------------------------ |
-|  [01]   | `open_file(file, mode='r', ...)`                                   | file open      | async file handle (`AsyncFile`)                         |
-|  [02]   | `wrap_file(file)`                                                  | file wrap      | wrap an open sync file object as async                  |
-|  [03]   | `open_process(command, *, stdin, stdout, stderr, cwd, env, ...)`   | process open   | async `Process` with stream handles                     |
-|  [04]   | `run_process(command, *, input=None, check=True, ...)`             | process run    | run subprocess to completion, return `CompletedProcess` |
-|  [05]   | `mkstemp(...)` / `mkdtemp(...)` / `gettempdir()` / `gettempdirb()` | tempfile       | async `tempfile`-module mirrors                         |
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                    |
+| :-----: | :----------------------------------------------------- | :------------- | :---------------------------------------- |
+|  [01]   | `open_file(file, mode='r', ...)`                       | file open      | async file handle (`AsyncFile`)           |
+|  [02]   | `wrap_file(file)`                                      | file wrap      | wrap an open sync file object as async    |
+|  [03]   | `open_process(command, *, stdin, stdout, stderr, ...)` | process open   | async `Process` with stream handles       |
+|  [04]   | `run_process(command, *, input=None, check=True, ...)` | process run    | run subprocess, return `CompletedProcess` |
+|  [05]   | `mkstemp(...)` / `mkdtemp(...)`                        | tempfile       | async temp file/dir path mirrors          |
+|  [06]   | `gettempdir()` / `gettempdirb()`                       | tempfile       | async temp-dir path mirrors               |
 
 [ENTRYPOINT_SCOPE]: thread / process / interpreter offload
 - rail: concurrency
 
-| [INDEX] | [SURFACE]                                                                    | [ENTRY_FAMILY]   | [RAIL]                                                        |
-| :-----: | :--------------------------------------------------------------------------- | :--------------- | :------------------------------------------------------------ |
-|  [01]   | `to_thread.run_sync(func, *args, abandon_on_cancel=False, limiter=None)`     | thread dispatch  | run sync callable in a worker thread                          |
-|  [02]   | `to_thread.current_default_thread_limiter()`                                 | limiter query    | per-loop default thread limiter (40 tokens)                   |
-|  [03]   | `from_thread.run(func, *args)` / `from_thread.run_sync(func, *args)`         | bridge call      | call async/sync code from a worker thread                     |
-|  [04]   | `from_thread.start_blocking_portal(backend='asyncio', backend_options=None)` | portal factory   | spin up a loop thread + `BlockingPortal` CM                   |
-|  [05]   | `from_thread.check_cancelled()`                                              | bridge query     | raise if the portal task was cancelled                        |
-|  [06]   | `to_process.run_sync(func, *args, cancellable=False, limiter=None)`          | process dispatch | run sync callable in a worker subprocess (pickle hop)         |
-|  [07]   | `to_process.current_default_process_limiter()`                               | limiter query    | per-loop default process limiter (CPU count)                  |
-|  [08]   | `to_interpreter.run_sync(func, *args, limiter=None)`                         | interp dispatch  | run sync callable in a PEP-734 subinterpreter (no pickle hop) |
-|  [09]   | `to_interpreter.current_default_interpreter_limiter()`                       | limiter query    | per-loop default subinterpreter limiter                       |
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [RAIL]                                       |
+| :-----: | :------------------------------------------------------------------- | :------------- | :------------------------------------------- |
+|  [01]   | `to_thread.run_sync(func, *args, abandon_on_cancel=False, ...)`      | thread         | run sync callable in a worker thread         |
+|  [02]   | `to_thread.current_default_thread_limiter()`                         | limiter        | per-loop default thread limiter (40 tokens)  |
+|  [03]   | `from_thread.run(func, *args)` / `from_thread.run_sync(func, *args)` | bridge         | call async/sync code from a worker thread    |
+|  [04]   | `from_thread.start_blocking_portal(backend='asyncio', ...)`          | portal         | spin up a loop thread + `BlockingPortal` CM  |
+|  [05]   | `from_thread.check_cancelled()`                                      | bridge         | raise if the portal task was cancelled       |
+|  [06]   | `to_process.run_sync(func, *args, cancellable=False, ...)`           | process        | run sync in a worker subprocess (pickle hop) |
+|  [07]   | `to_process.current_default_process_limiter()`                       | limiter        | per-loop default process limiter (CPU count) |
+|  [08]   | `to_interpreter.run_sync(func, *args, limiter=None)`                 | interp         | run sync in a subinterpreter (no pickle)     |
+|  [09]   | `to_interpreter.current_default_interpreter_limiter()`               | limiter        | per-loop default subinterpreter limiter      |
 
 [ENTRYPOINT_SCOPE]: low-level checkpoints and run-locals
 - rail: concurrency

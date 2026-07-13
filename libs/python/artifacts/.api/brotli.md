@@ -22,13 +22,13 @@
 
 `Compressor` and `Decompressor` are the two incremental roots; all streaming modality is method state on them, never a per-profile codec subclass. `error` is the single fault type for every native call (subclasses `Exception`). The `MODE_*` constants are plain `int` (`0`/`1`/`2`) passed by value to the `mode=` knob — they are an axis on one codec, never three codec types. `version` is the binding/package version string (`'1.2.0'`, the same object as `__version__`), NOT a separately queryable native libbrotli build string — a consuming page must not treat it as a native-library version probe.
 
-| [INDEX] | [SYMBOL]                                   | [PACKAGE_ROLE]              | [CAPABILITY]                                                                  |
-| :-----: | :----------------------------------------- | :-------------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `Compressor`                               | incremental compressor      | streaming `process`/`flush`/`finish` compression holding native encoder state |
-|  [02]   | `Decompressor`                             | incremental decompressor    | streaming `process` with bounded output, plus completion/back-pressure probes |
-|  [03]   | `error`                                    | codec fault                 | a brotli call failed (invalid args or codec failure); `Exception` subclass    |
-|  [04]   | `MODE_GENERIC` / `MODE_TEXT` / `MODE_FONT` | mode axis (int `0`/`1`/`2`) | input-tuned compression mode (generic / UTF-8 text / WOFF 2.0 font)           |
-|  [05]   | `version`                                  | identity anchor             | binding version string (`== __version__`), not a native-library probe         |
+| [INDEX] | [SYMBOL]                                   | [PACKAGE_ROLE]              | [CAPABILITY]                                         |
+| :-----: | :----------------------------------------- | :-------------------------- | :--------------------------------------------------- |
+|  [01]   | `Compressor`                               | incremental compressor      | streaming `process`/`flush`/`finish` compression     |
+|  [02]   | `Decompressor`                             | incremental decompressor    | streaming `process`, bounded output + probes         |
+|  [03]   | `error`                                    | codec fault                 | brotli call failed; `Exception` subclass             |
+|  [04]   | `MODE_GENERIC` / `MODE_TEXT` / `MODE_FONT` | mode axis (int `0`/`1`/`2`) | input-tuned mode (generic / UTF-8 text / WOFF2 font) |
+|  [05]   | `version`                                  | identity anchor             | binding version string (`== __version__`)            |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -37,10 +37,10 @@
 
 `compress`/`decompress` are the one-shot rows. `quality` is the speed/density tradeoff (0..11, 11 default = densest/slowest), `lgwin` the sliding-window log (10..24, 22 default), `lgblock` the input-block log (0 or 16..24; `0` derives the block from `quality`). `decompress` is unbounded and self-describing — it takes only the compressed bytes; the bounded-memory path lives on `Decompressor.process`, so a hostile or bomb payload is decoded through the incremental root, never through one-shot `decompress` wrapped in a hand-rolled size guard.
 
-| [INDEX] | [SURFACE]    | [CALL_SHAPE]                                                                    | [CAPABILITY]                                     |
-| :-----: | :----------- | :------------------------------------------------------------------------------ | :----------------------------------------------- |
-|  [01]   | `compress`   | `compress(string, mode=MODE_GENERIC, quality=11, lgwin=22, lgblock=0) -> bytes` | one-shot compress with a transient native codec  |
-|  [02]   | `decompress` | `decompress(data) -> bytes`                                                     | one-shot decompress (unbounded, self-describing) |
+| [INDEX] | [SURFACE]    | [CALL_SHAPE]                                                                    | [CAPABILITY]                        |
+| :-----: | :----------- | :------------------------------------------------------------------------------ | :---------------------------------- |
+|  [01]   | `compress`   | `compress(string, mode=MODE_GENERIC, quality=11, lgwin=22, lgblock=0) -> bytes` | one-shot compress (transient codec) |
+|  [02]   | `decompress` | `decompress(data) -> bytes`                                                     | one-shot decompress (unbounded)     |
 
 [ENTRYPOINT_SCOPE]: `Compressor` incremental rows
 - rail: compression — `Compressor(mode=MODE_GENERIC, quality=11, lgwin=22, lgblock=0)`; same four knobs as `compress`, fixed at construction for the stream lifetime
@@ -58,11 +58,11 @@
 
 `process` feeds compressed bytes and decodes; passing `output_buffer_limit=cap` bounds a single call's output so a highly-compressible or hostile stream cannot exhaust memory in one call. When the limit is hit, the caller MUST drive further `process(b"")` empty-input calls until `can_accept_more_data()` returns `True` again before feeding new compressed input. `is_finished()` reports stream completion; `can_accept_more_data()` is the back-pressure gate (it returns `True` unconditionally if the stream was never driven with a limit). NOTE: the native docstring narrates the legacy `decompress(..., max_length=...)` spelling, but the live bound method is `process(data, output_buffer_limit=...)` — a consuming page binds `output_buffer_limit`, not a phantom `max_length` kwarg.
 
-| [INDEX] | [SURFACE]                           | [CALL_SHAPE]                                       | [CAPABILITY]                                                                   |
-| :-----: | :---------------------------------- | :------------------------------------------------- | :----------------------------------------------------------------------------- |
-|  [01]   | `Decompressor.process`              | `process(data, output_buffer_limit=None) -> bytes` | feed a compressed chunk; cap per-call output bytes against a bomb              |
-|  [02]   | `Decompressor.is_finished`          | `is_finished() -> bool`                            | completion probe (reached end of input, produced all output)                   |
-|  [03]   | `Decompressor.can_accept_more_data` | `can_accept_more_data() -> bool`                   | back-pressure gate; `False` means drain via `process(b"")` before feeding more |
+| [INDEX] | [SURFACE]                           | [CALL_SHAPE]                                       | [CAPABILITY]                                |
+| :-----: | :---------------------------------- | :------------------------------------------------- | :------------------------------------------ |
+|  [01]   | `Decompressor.process`              | `process(data, output_buffer_limit=None) -> bytes` | feed a chunk; cap per-call output vs a bomb |
+|  [02]   | `Decompressor.is_finished`          | `is_finished() -> bool`                            | completion probe                            |
+|  [03]   | `Decompressor.can_accept_more_data` | `can_accept_more_data() -> bool`                   | back-pressure drain gate                    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

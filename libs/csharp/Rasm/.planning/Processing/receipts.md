@@ -161,13 +161,17 @@ public sealed record HealSession(MeshSpace Input, MeshSpace Healed, Seq<RebuildR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case or column, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — pure carriers, the receipts are returned in the `Heal.Repair` rail (`repair.md`).
+One owner per axis; capability is a case or column, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — pure carriers, the receipts are returned in the `Heal.Repair` rail (`repair.md`); the per-axis kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]           | [OWNER]                    | [KIND]                                                                                                                             | [RAIL]                                      | [CASES] |
-| :-----: | :----------------------- | :------------------------- | :--------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------ | :-----: |
-|  [4c]   | Rebuild receipt          | `RebuildReceipt`           | `[Union]` 7 typed per-op cases + `Of` mint (policy-tolerances + dirty-bitset seeds) + `Affected` seed + per-case `IsValid` witness | carrier (returned in `Heal.Repair` rail)    |    7    |
-|  [4d]   | Topological status       | `ManifoldStatus`           | record projected from `Rasm.Meshing` `TopologyReceipt` via the Genus-tolerant six-field row + derived `GenusClosed` witness        | `ManifoldStatus.Of → ManifoldStatus` (pure) |    —    |
-|  [4e]   | Heal session + re-anchor | `HealSession`/`RebuildLog` | `IValidityEvidence` session carrier (`ValidityClaim.All` over the chain) + `ToLog` fold gated on `HealStage.RebuildsTopology`      | `HealSession.ToLog → RebuildLog` (pure)     |    —    |
+| [INDEX] | [AXIS_CONCERN]           | [OWNER]                    | [RAIL]                                      | [CASES] |
+| :-----: | :----------------------- | :------------------------- | :------------------------------------------ | :-----: |
+|  [01]   | Rebuild receipt          | `RebuildReceipt`           | carrier (returned in `Heal.Repair` rail)    |    7    |
+|  [02]   | Topological status       | `ManifoldStatus`           | `ManifoldStatus.Of → ManifoldStatus` (pure) |    —    |
+|  [03]   | Heal session + re-anchor | `HealSession`/`RebuildLog` | `HealSession.ToLog → RebuildLog` (pure)     |    —    |
+
+- [01]-[REBUILD_RECEIPT]: `[Union]` 7 typed per-op cases + `Of` mint (policy-tolerances + dirty-bitset seeds) + `Affected` seed + per-case `IsValid` witness.
+- [02]-[TOPOLOGICAL_STATUS]: record projected from `Rasm.Meshing` `TopologyReceipt` via the Genus-tolerant six-field row + derived `GenusClosed` witness.
+- [03]-[HEAL_SESSION]: `IValidityEvidence` session carrier (`ValidityClaim.All` over the chain) + `ToLog` fold gated on `HealStage.RebuildsTopology`.
 
 The typed `RebuildReceipt` family, the `ManifoldStatus` projection, and the `HealSession`/`RebuildLog` fold are transcription-complete pure-managed fences composing the `Rasm.Meshing` `TopologyReceipt` projection seam, the arrangement `BooleanReceipt` payload, and the arena dirty bitsets — none depending on a live-host member spelling beyond the stable native `Mesh` surface the topology sibling pins.
 

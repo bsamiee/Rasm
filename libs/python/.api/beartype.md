@@ -30,14 +30,14 @@
 - rail: type-enforcement
 - `TypeHint(hint)` wraps any PEP-compatible hint into an object-oriented, comparable, iterable façade; subscripted/union/callable/literal/etc. hints resolve to the concrete subclass.
 
-| [INDEX] | [SYMBOL]                                                  | [TYPE_FAMILY] | [RAIL]                                                             |
-| :-----: | :-------------------------------------------------------- | :------------ | :----------------------------------------------------------------- |
-|  [01]   | `TypeHint`                                                | hint wrapper  | OO façade; `.args`, `.is_subhint`, `.is_bearable`, `.is_ignorable` |
-|  [02]   | `UnionTypeHint` / `SubscriptedTypeHint`                   | hint wrapper  | union members / generic args iteration                             |
-|  [03]   | `CallableTypeHint` / `ClassTypeHint`                      | hint wrapper  | callable param/return, bare class                                  |
-|  [04]   | `LiteralTypeHint` / `AnnotatedTypeHint`                   | hint wrapper  | `Literal[...]` / `Annotated[...]` decomposition                    |
-|  [05]   | `TupleFixedTypeHint` / `TupleVariableTypeHint`            | hint wrapper  | fixed vs `tuple[T, ...]` variadic                                  |
-|  [06]   | `GenericTypeHint` / `TypeVarTypeHint` / `NewTypeTypeHint` | hint wrapper  | PEP 484/585 generic, typevar, newtype                              |
+| [INDEX] | [SYMBOL]                                                  | [RAIL]                                                             |
+| :-----: | :-------------------------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | `TypeHint`                                                | OO façade; `.args`, `.is_subhint`, `.is_bearable`, `.is_ignorable` |
+|  [02]   | `UnionTypeHint` / `SubscriptedTypeHint`                   | union members / generic args iteration                             |
+|  [03]   | `CallableTypeHint` / `ClassTypeHint`                      | callable param/return, bare class                                  |
+|  [04]   | `LiteralTypeHint` / `AnnotatedTypeHint`                   | `Literal[...]` / `Annotated[...]` decomposition                    |
+|  [05]   | `TupleFixedTypeHint` / `TupleVariableTypeHint`            | fixed vs `tuple[T, ...]` variadic                                  |
+|  [06]   | `GenericTypeHint` / `TypeVarTypeHint` / `NewTypeTypeHint` | PEP 484/585 generic, typevar, newtype                              |
 
 [PUBLIC_TYPE_SCOPE]: vale annotated validators (`beartype.vale`)
 - rail: type-enforcement
@@ -73,21 +73,31 @@
 [ENTRYPOINT_SCOPE]: decorator and configuration
 - rail: type-enforcement
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                                                                                  | [ENTRY_FAMILY] | [RAIL]                                        |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------- |
-|  [01]   | `beartype(obj=None, *, conf=BeartypeConf())`                                                                                                                                                                                                                                                                               | decorator      | type-check a callable or class (every method) |
-|  [02]   | `beartype(conf=BeartypeConf(...))`                                                                                                                                                                                                                                                                                         | config mode    | return a configured decorator factory         |
-|  [03]   | `BeartypeConf(*, strategy=O1, is_pep484_tower=False, is_pep557_fields=False, is_color=None, is_debug=False, is_random=True, violation_type=None, violation_param_type=None, violation_return_type=None, violation_door_type=None, violation_verbosity=DEFAULT, hint_overrides=FrozenDict({}), claw_skip_package_names=())` | config         | build the immutable, cached config object     |
+| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [RAIL]                                                  |
+| :-----: | :------------------------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `beartype(obj=None, *, conf=BeartypeConf())` | decorator      | type-check a callable or class (every method)           |
+|  [02]   | `beartype(conf=BeartypeConf(...))`           | config mode    | return a configured decorator factory                   |
+|  [03]   | `BeartypeConf(*, ...)`                       | config         | immutable cached config; ctor fields in the fence below |
+
+```python signature
+BeartypeConf(*, strategy=O1, is_pep484_tower=False, is_pep557_fields=False, is_color=None,
+             is_debug=False, is_random=True, violation_type=None, violation_param_type=None,
+             violation_return_type=None, violation_door_type=None, violation_verbosity=DEFAULT,
+             hint_overrides=FrozenDict({}), claw_skip_package_names=())
+```
 
 [ENTRYPOINT_SCOPE]: door procedural type checks (`beartype.door`)
 - rail: type-enforcement
+- `is_bearable`/`die_if_unbearable` also take `*, conf=BeartypeConf()`.
 
-| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY] | [RAIL]                                        |
-| :-----: | :----------------------------------------------------------------------------------- | :------------- | :-------------------------------------------- |
-|  [01]   | `is_bearable(obj, hint, *, conf=BeartypeConf()) -> TypeIs[T]`                        | type guard     | narrowing boolean isinstance-for-any-hint     |
-|  [02]   | `die_if_unbearable(obj, hint, *, conf=BeartypeConf()) -> None`                       | assertion      | raise `BeartypeDoorHintViolation` on mismatch |
-|  [03]   | `is_subhint(subhint, superhint) -> bool`                                             | subtype query  | decidable hint subtyping (variance-aware)     |
-|  [04]   | `TypeHint(hint).is_bearable(obj)` / `.die_if_unbearable(obj)` / `.is_subhint(other)` | OO check       | object-oriented mirror of the procedural API  |
+| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [RAIL]                                        |
+| :-----: | :--------------------------------------- | :------------- | :-------------------------------------------- |
+|  [01]   | `is_bearable(obj, hint) -> TypeIs[T]`    | type guard     | narrowing boolean isinstance-for-any-hint     |
+|  [02]   | `die_if_unbearable(obj, hint) -> None`   | assertion      | raise `BeartypeDoorHintViolation` on mismatch |
+|  [03]   | `is_subhint(subhint, superhint) -> bool` | subtype query  | decidable hint subtyping (variance-aware)     |
+|  [04]   | `TypeHint(hint).is_bearable(obj)`        | OO check       | OO mirror: narrowing check                    |
+|  [05]   | `TypeHint(hint).die_if_unbearable(obj)`  | OO check       | OO mirror: assertion                          |
+|  [06]   | `TypeHint(hint).is_subhint(other)`       | OO check       | OO mirror: subhint query                      |
 
 [ENTRYPOINT_SCOPE]: claw import hooks (`beartype.claw`)
 - rail: type-enforcement

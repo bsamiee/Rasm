@@ -18,13 +18,25 @@
 - rail: observability/export/logs
 - One exporter class, `OTLPExporterBase<ReadableLogRecord[]> implements LogRecordExporter` — endpoint, headers, compression, and timeout are CONFIG values on one class, never a subclass per backend. The two config types differ only by node-only transport fields.
 
-| [INDEX] | [SYMBOL]                                                                                                                     | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                            |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------- | :------------ | :----------------------------------------------------------------------------- |
-|  [01]   | `OTLPLogExporter` (`extends OTLPExporterBase<ReadableLogRecord[]> implements LogRecordExporter`)                             | log exporter  | the concrete exporter a `BatchLogRecordProcessor` wraps                        |
-|  [02]   | `export(items: ReadableLogRecord[], cb: (r: ExportResult) => void): void`                                                    | export method | called by the processor; reports through core's `ExportResult`                 |
-|  [03]   | `forceFlush(): Promise<void>` / `shutdown(): Promise<void>`                                                                  | lifecycle     | drain-on-exit and terminal release the provider invokes                        |
-|  [04]   | `OTLPExporterConfigBase { url?; headers?; concurrencyLimit?; timeoutMillis? }` (transitive)                                  | base config   | endpoint + header + concurrency + deadline (browser + base)                    |
-|  [05]   | `OTLPExporterNodeConfigBase` (extends base: `keepAlive?; compression?: CompressionAlgorithm; httpAgentOptions?; userAgent?`) | node config   | node transport tuning; `CompressionAlgorithm.NONE = "none"` / `.GZIP = "gzip"` |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                |
+| :-----: | :---------------------------- | :------------ | :----------------------------------------------------------------- |
+|  [01]   | `OTLPLogExporter`             | log exporter  | the concrete exporter a `BatchLogRecordProcessor` wraps            |
+|  [02]   | `export(items, cb)`           | export method | called by the processor; reports through core's `ExportResult`     |
+|  [03]   | `forceFlush()` / `shutdown()` | lifecycle     | drain-on-exit and terminal release the provider invokes            |
+|  [04]   | `OTLPExporterConfigBase`      | base config   | endpoint/headers/concurrency/deadline (fence; browser + base)      |
+|  [05]   | `OTLPExporterNodeConfigBase`  | node config   | node transport tuning (fence); `CompressionAlgorithm.NONE`/`.GZIP` |
+
+```ts signature
+class OTLPLogExporter extends OTLPExporterBase<ReadableLogRecord[]> implements LogRecordExporter {
+  export(items: ReadableLogRecord[], cb: (r: ExportResult) => void): void
+  forceFlush(): Promise<void>; shutdown(): Promise<void>
+}
+interface OTLPExporterConfigBase { url?: string; headers?: Record<string, string>; concurrencyLimit?: number; timeoutMillis?: number }
+interface OTLPExporterNodeConfigBase extends OTLPExporterConfigBase {   // node transport tuning
+  keepAlive?: boolean; compression?: CompressionAlgorithm; httpAgentOptions?: object; userAgent?: string
+}
+enum CompressionAlgorithm { NONE = "none", GZIP = "gzip" }
+```
 
 ## [03]-[ENTRYPOINTS]
 
@@ -32,11 +44,13 @@
 - rail: observability/export/logs
 - Construct the exporter, wrap it in a processor, hand the processor to the facade. `url`/`headers`/`compression`/`timeoutMillis` are policy values sourced from config or the `OTEL_EXPORTER_OTLP_LOGS_*` env family (endpoint, headers, timeout, compression, client cert/key — each falling back to the signal-neutral `OTEL_EXPORTER_OTLP_*` variant); the default endpoint resolves to `http://localhost:4318/v1/logs`.
 
-| [INDEX] | [SURFACE]                                                                                    | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                           |
-| :-----: | :------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------ |
-|  [01]   | `new OTLPLogExporter(config?: OTLPExporterNodeConfigBase)`                                   | node ctor      | the node OTLP/HTTP log exporter                               |
-|  [02]   | `new OTLPLogExporter(config?: OTLPExporterConfigBase)`                                       | browser ctor   | the browser OTLP/HTTP log exporter (RUM crash/log egress)     |
-|  [03]   | `new BatchLogRecordProcessor(new OTLPLogExporter(cfg))` → `Configuration.logRecordProcessor` | composition    | the standing stack: exporter → processor → `NodeSdk`/`WebSdk` |
+- the node ctor takes `OTLPExporterNodeConfigBase`, the browser ctor `OTLPExporterConfigBase`; the wrapped processor rides `Configuration.logRecordProcessor`.
+
+| [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                       |
+| :-----: | :-------------------------------------- | :------------- | :-------------------------------------------------------- |
+|  [01]   | `new OTLPLogExporter(nodeCfg)`          | node ctor      | the node OTLP/HTTP log exporter                           |
+|  [02]   | `new OTLPLogExporter(browserCfg)`       | browser ctor   | the browser OTLP/HTTP log exporter (RUM crash/log egress) |
+|  [03]   | `new BatchLogRecordProcessor(exporter)` | composition    | exporter → processor → `NodeSdk`/`WebSdk`                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -453,18 +453,34 @@ public static class StructuralMerge {
 }
 ```
 
-| [INDEX] | [POLICY]              | [VALUE]                                                                              | [BINDING]                                                                                                                                  |
-| :-----: | :-------------------- | :----------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | re-ingest align       | `Reconcile` on `Node.Object.ExternalId`                                              | freshly-minted rooted `NodeId` aligned to the durable id on the 1:1 GlobalId; never a `NodeId`-keyed re-ingest diff                        |
-|  [02]   | forest topology       | `Relationship.Compose` containment edges                                             | `Forest` derives `Parent`/`Ordinal`/`Children`; no second store                                                                            |
-|  [03]   | node role             | `(ObjectKind, containment-whole)` neutral signal                                     | never an IFC-class string scan of `Classification.Code`                                                                                    |
-|  [04]   | geometry axis         | the FULL `Representations.ByIdentifier` map                                          | `Body` + analytical `Axis`/`Box`/`FootPrint`, kernel digests read not re-minted                                                            |
-|  [05]   | content axis          | the non-`Object` nodes diffed off the node map                                       | a single-side content edit applies; never dropped by the `Object`-only forest                                                              |
-|  [06]   | content key           | seam `ContentAddress.Of` over `ToCanonicalBytes`                                     | the ONE seam hasher; never a raw second `XxHash128` instance                                                                               |
-|  [07]   | subtree prune         | `XxHash128.Append`, stable LE preimage                                               | linear in changed nodes, no `GetHashCode`                                                                                                  |
-|  [08]   | conflict accumulation | `MergeOutcome` carries merged + conflicts                                            | one-pass classify, both carried, never first-abort                                                                                         |
-|  [09]   | patch egress          | untyped `JsonPatchDocument` JSON pointers                                            | member-granular per the graph `Inequalities`; a CDE/inspector reads it; delete is a tombstone                                              |
-|  [10]   | conflict receipt      | `Version/ledger#MERGE_LAW` `ConflictReceipt`                                         | held/incoming `(Hlc, actor)` from the changefeed                                                                                           |
-|  [11]   | reconciliation seam   | kernel `Rasm/Spatial/reconciliation` `GeometryHash` over frozen `EncodeForm` layouts | `GraphNode.GeometryHash` is the RE-TARGETED consumer; the preimage pairs (form lane, digest) — a bare digest never crosses a form boundary |
-|  [12]   | type correlation      | `TypeKey` classification-excluded `Name`/`Tag` natural key                           | a re-keyed GlobalId-less `Type` diffs as RENAME; kernel V8a seed replaces the interim on landing                                           |
-|  [13]   | patch value codec     | `SerializeToElement` under `ElementJson.Options`                                     | every patched value rides the ONE codec converter graph; default-options serialization deleted                                             |
+| [INDEX] | [POLICY]              | [VALUE]                                                                       |
+| :-----: | :-------------------- | :---------------------------------------------------------------------------- |
+|  [01]   | re-ingest align       | `Reconcile` on `Node.Object.ExternalId`                                       |
+|  [02]   | forest topology       | `Relationship.Compose` containment edges                                      |
+|  [03]   | node role             | `(ObjectKind, containment-whole)` neutral signal                              |
+|  [04]   | geometry axis         | the FULL `Representations.ByIdentifier` map                                   |
+|  [05]   | content axis          | the non-`Object` nodes diffed off the node map                                |
+|  [06]   | content key           | seam `ContentAddress.Of` over `ToCanonicalBytes`                              |
+|  [07]   | subtree prune         | `XxHash128.Append`, stable LE preimage                                        |
+|  [08]   | conflict accumulation | `MergeOutcome` carries merged + conflicts                                     |
+|  [09]   | patch egress          | untyped `JsonPatchDocument` JSON pointers                                     |
+|  [10]   | conflict receipt      | `Version/ledger#MERGE_LAW` `ConflictReceipt`                                  |
+|  [11]   | reconciliation seam   | `Rasm/Spatial/reconciliation` `GeometryHash` over frozen `EncodeForm` layouts |
+|  [12]   | type correlation      | `TypeKey` classification-excluded `Name`/`Tag` natural key                    |
+|  [13]   | patch value codec     | `SerializeToElement` under `ElementJson.Options`                              |
+
+Each row's binding invariant, keyed to its policy:
+
+- [01]-[re-ingest align]: freshly-minted rooted `NodeId` aligned to the durable id on the 1:1 GlobalId; never a `NodeId`-keyed re-ingest diff.
+- [02]-[FOREST_TOPOLOGY]: `Forest` derives `Parent`/`Ordinal`/`Children`; no second store.
+- [03]-[NODE_ROLE]: never an IFC-class string scan of `Classification.Code`.
+- [04]-[GEOMETRY_AXIS]: `Body` + analytical `Axis`/`Box`/`FootPrint`, kernel digests read not re-minted.
+- [05]-[CONTENT_AXIS]: a single-side content edit applies; never dropped by the `Object`-only forest.
+- [06]-[CONTENT_KEY]: the ONE seam hasher; never a raw second `XxHash128` instance.
+- [07]-[SUBTREE_PRUNE]: linear in changed nodes, no `GetHashCode`.
+- [08]-[CONFLICT_ACCUMULATION]: one-pass classify, both carried, never first-abort.
+- [09]-[PATCH_EGRESS]: member-granular per the graph `Inequalities`; a CDE/inspector reads it; delete is a tombstone.
+- [10]-[CONFLICT_RECEIPT]: held/incoming `(Hlc, actor)` from the changefeed.
+- [11]-[RECONCILIATION_SEAM]: `GraphNode.GeometryHash` is the RE-TARGETED consumer; the preimage pairs (form lane, digest) — a bare digest never crosses a form boundary.
+- [12]-[TYPE_CORRELATION]: a re-keyed GlobalId-less `Type` diffs as RENAME; kernel V8a seed replaces the interim on landing.
+- [13]-[PATCH_VALUE_CODEC]: every patched value rides the ONE codec converter graph; default-options serialization deleted.

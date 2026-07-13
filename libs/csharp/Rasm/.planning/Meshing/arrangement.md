@@ -530,16 +530,23 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes; the per-axis collapse kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]     | [OWNER]          | [KIND]                                                                                                   | [RAIL]                                       | [CASES] |
-| :-----: | :----------------- | :--------------- | :------------------------------------------------------------------------------------------------------- | :------------------------------------------- | :-----: |
-|  [01]   | Arrangement        | `ArrangementOp`  | `[Union]` (`MeshBoolean`/`PlanarOverlay` rings/`CellComplex`) folded by ONE `Apply` with `Op?` threading | `Arrangement.Apply → Fin<ArrangementResult>` |    3    |
-|  [1a]   | Boolean vocabulary | `BooleanOp`      | `[SmartEnum<int>]` re-homed — ONE `Region` delegate column; `Keep`/`Flip` DERIVED; `Native` ordinal      | policy rows (repair delegates, W3)           |    3    |
-|  [1b]   | Route evidence     | `BooleanRoute`   | `[SmartEnum<string>]` managed/native                                                                     | receipt field                                |    2    |
-|  [1c]   | Boolean evidence   | `BooleanReceipt` | ONE typed record — classified · kept · welded · route (receipts composes it as payload)                  | carrier                                      |    —    |
-|  [1d]   | Patch arena        | `PatchStore`     | single-writer SoA arena + `Freeze → CellSet`                                                             | frozen projection                            |    —    |
-|  [1e]   | Scale companion    | `ManifoldGate`   | `file` capsule — RID probe · meshgl64 ingest · one boolean call · status-gated extraction · teardown     | `Fin` (2423 on missing asset)                |    —    |
+| [INDEX] | [AXIS_CONCERN]     | [OWNER]          | [RAIL]                                       | [CASES] |
+| :-----: | :----------------- | :--------------- | :------------------------------------------- | :-----: |
+|  [01]   | Arrangement        | `ArrangementOp`  | `Arrangement.Apply → Fin<ArrangementResult>` |    3    |
+|  [02]   | Boolean vocabulary | `BooleanOp`      | policy rows (repair delegates, W3)           |    3    |
+|  [03]   | Route evidence     | `BooleanRoute`   | receipt field                                |    2    |
+|  [04]   | Boolean evidence   | `BooleanReceipt` | carrier                                      |    —    |
+|  [05]   | Patch arena        | `PatchStore`     | frozen projection                            |    —    |
+|  [06]   | Scale companion    | `ManifoldGate`   | `Fin` (2423 on missing asset)                |    —    |
+
+- [01]-[ARRANGEMENT]: `[Union]` (`MeshBoolean`/`PlanarOverlay` rings/`CellComplex`) folded by ONE `Apply` with `Op?` threading.
+- [02]-[BOOLEAN_VOCABULARY]: `[SmartEnum<int>]` re-homed — ONE `Region` delegate column; `Keep`/`Flip` DERIVED; `Native` ordinal.
+- [03]-[ROUTE_EVIDENCE]: `[SmartEnum<string>]` managed/native.
+- [04]-[BOOLEAN_EVIDENCE]: ONE typed record — classified · kept · welded · route (receipts composes it as payload).
+- [05]-[PATCH_ARENA]: single-writer SoA arena + `Freeze → CellSet`.
+- [06]-[SCALE_COMPANION]: `file` capsule — RID probe · meshgl64 ingest · one boolean call · status-gated extraction · teardown.
 
 Every floor is COMPOSED from its single owner: crossings (`Intersection.Apply` + `CrossLattice`), substrate (`Tessellation.Build` constrained + `Constraint.Crossing` + `Triangles`), GWN (`Spatial.Apply` `Winding`, batched), soup + weld (`MeshEdit.Of` + `Kernels.WeldDuplicates`). The prior fence's local crossing kernels, drop/lift barycentric frame, bit-equality point interning, `ImplicitCrossing` carrier, endpoint-only coplanar truncation, and `int.MaxValue` dead gate are all deleted.
 

@@ -14,22 +14,24 @@
 
 [ENTRYPOINT_SCOPE]: the collector + assertion surface (re-exported from `@vitest/runner` + `@vitest/expect`) — specs reach all of it THROUGH `@effect/vitest`, never a raw import in an effect spec.
 
-| [INDEX] | [SYMBOL]                                            | [ENTRY_FAMILY] | [CAPABILITY]                                                                                        |
-| :-----: | :-------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `test` (`it`) · `TestAPI`                           | collector      | `.skip`/`.only`/`.each`/`.concurrent`/`.sequential`/`.fails`/`.skipIf`/`.runIf`/`.extend` modifiers |
-|  [02]   | `describe` (`suite`) · `SuiteAPI`                   | grouping       | same modifier set; nests; `TestContext`/`TestOptions` carry per-test config                         |
-|  [03]   | `beforeEach`/`afterEach`/`beforeAll`/`afterAll`     | lifecycle      | teardown returned from a `before*` hook; timeout arg per hook                                       |
-|  [04]   | `aroundEach`/`aroundAll`                            | v4 wrap hook   | one hook owning setup AND teardown around each test / the whole suite                               |
-|  [05]   | `onTestFailed`/`onTestFinished`                     | in-test hook   | register cleanup/diagnostics from inside a running test                                             |
-|  [06]   | `recordArtifact` · `TestArtifact`/`TestAnnotation`  | v4 annotation  | attach files/notes to a test — surfaces in reporters + the UI                                       |
-|  [07]   | `bench` · `BenchmarkAPI`/`BenchOptions`/`BenchTask` | tinybench      | micro-benchmark collector; `BenchmarkReporter` folds results                                        |
-|  [08]   | `expect`/`createExpect`/`assert`/`should`           | assertion      | chai+jest matchers; `expect.soft`/`expect.poll`; `Assertion`/`Matchers` extensible                  |
-|  [09]   | `assertType`/`expectTypeOf` (`expect-type`)         | type assertion | compile-time assertions the `typecheck` pool runs                                                   |
-|  [10]   | `inject<K extends keyof ProvidedContext>(key)`      | injection      | typed value from `globalSetup`/`provide` — the cross-worker channel                                 |
-|  [11]   | `Snapshots` · `SnapshotSerializer`                  | snapshot       | composable custom matchers incl. `toMatchDomainSnapshot` (v4)                                       |
-|  [12]   | `TestTags` · `TestTagDefinition`                    | v4 tagging     | declarative test tags for filtered runs / reporting                                                 |
+| [INDEX] | [SYMBOL]                                            | [ENTRY_FAMILY] | [CAPABILITY]                                              |
+| :-----: | :-------------------------------------------------- | :------------- | :-------------------------------------------------------- |
+|  [01]   | `test` (`it`) · `TestAPI`                           | collector      | chainable modifiers (roster [01])                         |
+|  [02]   | `describe` (`suite`) · `SuiteAPI`                   | grouping       | same modifiers; nests; `TestContext`/`TestOptions` config |
+|  [03]   | `beforeEach`/`afterEach`/`beforeAll`/`afterAll`     | lifecycle      | teardown returned from a `before*` hook; per-hook timeout |
+|  [04]   | `aroundEach`/`aroundAll`                            | v4 wrap hook   | one hook: setup AND teardown around a test / the suite    |
+|  [05]   | `onTestFailed`/`onTestFinished`                     | in-test hook   | register cleanup/diagnostics from a running test          |
+|  [06]   | `recordArtifact` · `TestArtifact`/`TestAnnotation`  | v4 annotation  | attach files/notes to a test — surfaces in reporters + UI |
+|  [07]   | `bench` · `BenchmarkAPI`/`BenchOptions`/`BenchTask` | tinybench      | micro-benchmark collector; `BenchmarkReporter` folds it   |
+|  [08]   | `expect`/`createExpect`/`assert`/`should`           | assertion      | chai+jest matchers; `expect.soft`/`expect.poll`           |
+|  [09]   | `assertType`/`expectTypeOf` (`expect-type`)         | type assertion | compile-time assertions the `typecheck` pool runs         |
+|  [10]   | `inject<K extends keyof ProvidedContext>(key)`      | injection      | typed value from `globalSetup`/`provide`, cross-worker    |
+|  [11]   | `Snapshots` · `SnapshotSerializer`                  | snapshot       | composable custom matchers incl. `toMatchDomainSnapshot`  |
+|  [12]   | `TestTags` · `TestTagDefinition`                    | v4 tagging     | declarative test tags for filtered runs / reporting       |
 
-```ts contract
+- [01]-[MODIFIERS]: `.skip`/`.only`/`.each`/`.concurrent`/`.sequential`/`.fails`/`.skipIf`/`.runIf`/`.extend`.
+
+```ts signature
 // Collectors + hooks re-exported from '@vitest/runner'; bench from tinybench; inject is the typed globalSetup channel.
 declare const test: TestAPI; declare const describe: SuiteAPI    // aliases: it, suite
 declare function aroundEach(fn: (test: TaskPopulated, use: () => Promise<void>) => Awaitable<void>): void  // v4 — setup+teardown in one
@@ -42,19 +44,19 @@ declare function inject<T extends keyof ProvidedContext & string>(key: T): Provi
 
 `vi` (`vitest`) is one `VitestUtils` object owning timers, module/object mocking, and global/env stubbing — a single surface, discriminated by method, never a helper family. Effect specs prefer `TestClock`/`TestRandom` (from `@effect/vitest`'s `TestServices`) over `vi`'s timers; `vi` owns module/global mocking, which `TestServices` does not.
 
-| [INDEX] | [SURFACE]                                                          | [FAMILY]       | [CAPABILITY]                                                                   |
-| :-----: | :----------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------- |
-|  [01]   | `useFakeTimers`/`advanceTimersByTime[Async]`/`runAllTimers[Async]` | fake timers    | virtual time; `setSystemTime`/`getMockedSystemTime` mock the clock             |
-|  [02]   | `setTimerTickMode("manual"\|"nextTimerAsync"\|"interval")`         | v4 tick mode   | auto-advance policy for fake timers                                            |
-|  [03]   | `fn`/`spyOn`/`mocked`/`isMockFunction` · `Mock`/`MockInstance`     | spy            | typed spies; `mocked<T>(item, deep?)` narrows a mocked module                  |
-|  [04]   | `mockObject(value, opts?)`                                         | v4 deep mock   | mock every method/nested prop of an object (`{ spy: true }` passthrough)       |
-|  [05]   | `mock`/`unmock`/`doMock`/`doUnmock`/`hoisted`                      | module mock    | `doMock` returns a `Disposable`; `hoisted` runs a factory pre-import           |
-|  [06]   | `importActual`/`importMock`                                        | partial mock   | unwrap the real module inside a `mock` factory                                 |
-|  [07]   | `stubGlobal`/`stubEnv`/`unstubAllGlobals`/`unstubAllEnvs`          | stub           | scoped global/`import.meta.env` overrides                                      |
-|  [08]   | `waitFor`/`waitUntil` · `defineHelper`                             | async wait     | poll a callback to a deadline; `defineHelper` re-anchors assertion stacks (v4) |
-|  [09]   | `setConfig`/`resetConfig`/`resetModules`                           | runtime config | mutate `RuntimeOptions` mid-run; reset the module registry                     |
+| [INDEX] | [SURFACE]                                                      | [FAMILY]       | [CAPABILITY]                                          |
+| :-----: | :------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `useFakeTimers`/`advanceTimersByTime`/`runAllTimers`(+`Async`) | fake timers    | virtual time; `setSystemTime`/`getMockedSystemTime`   |
+|  [02]   | `setTimerTickMode("manual"\|"nextTimerAsync"\|"interval")`     | v4 tick mode   | auto-advance policy for fake timers                   |
+|  [03]   | `fn`/`spyOn`/`mocked`/`isMockFunction` · `Mock`/`MockInstance` | spy            | typed spies; `mocked<T>` narrows a mocked module      |
+|  [04]   | `mockObject(value, opts?)`                                     | v4 deep mock   | deep-mock methods/props (`{ spy: true }` passthrough) |
+|  [05]   | `mock`/`unmock`/`doMock`/`doUnmock`/`hoisted`                  | module mock    | `doMock` → `Disposable`; `hoisted` pre-import factory |
+|  [06]   | `importActual`/`importMock`                                    | partial mock   | unwrap the real module inside a `mock` factory        |
+|  [07]   | `stubGlobal`/`stubEnv`/`unstubAllGlobals`/`unstubAllEnvs`      | stub           | scoped global/`import.meta.env` overrides             |
+|  [08]   | `waitFor`/`waitUntil` · `defineHelper`                         | async wait     | poll to a deadline; `defineHelper` re-anchors stacks  |
+|  [09]   | `setConfig`/`resetConfig`/`resetModules`                       | runtime config | mutate `RuntimeOptions` mid-run; `resetModules`       |
 
-```ts contract
+```ts signature
 interface VitestUtils {
   useFakeTimers(config?: FakeTimerInstallOpts): VitestUtils; advanceTimersByTime(ms: number): VitestUtils
   setSystemTime(time: number | string | Date): VitestUtils; setTimerTickMode(mode: "manual" | "nextTimerAsync"): VitestUtils
@@ -71,16 +73,18 @@ declare const vi: VitestUtils
 
 [ENTRYPOINT_SCOPE]: `vitest/config` — the config builders. The `test` key is module-augmented onto Vite's `UserConfig`, so ONE `defineConfig` owns Vite + Vitest; a monorepo lists sub-projects via `defineProject` (v4 — the retired `workspace` file).
 
-| [INDEX] | [SYMBOL]                                                                                                                                  | [FAMILY]        | [CAPABILITY]                                                                        |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `defineConfig(config)`                                                                                                                    | config builder  | 5 overloads (object/promise/env-fn); injects `test?: InlineConfig`                  |
-|  [02]   | `defineProject(config)`                                                                                                                   | project builder | v4 — one project in a `test.projects[]` matrix; `TestProjectConfiguration`          |
-|  [03]   | `mergeConfig` (from `vite`)                                                                                                               | config merge    | deep-merge a base config with an override                                           |
-|  [04]   | `configDefaults`/`coverageConfigDefaults`                                                                                                 | defaults        | spread-in baselines; `defaultInclude`/`defaultExclude`/`defaultBrowserPort` (63315) |
-|  [05]   | `configureVitest` (plugin hook)                                                                                                           | v4 plugin hook  | a Vite plugin mutates resolved Vitest config via `VitestPluginContext`              |
-|  [06]   | `InlineConfig` fields: `pool`/`environment`/`coverage`/`browser`/`typecheck`/`projects`/`setupFiles`/`globalSetup`/`sequence`/`reporters` | config surface  | the whole run policy; option types live on `./node`                                 |
+| [INDEX] | [SYMBOL]                                  | [FAMILY]        | [CAPABILITY]                                                               |
+| :-----: | :---------------------------------------- | :-------------- | :------------------------------------------------------------------------- |
+|  [01]   | `defineConfig(config)`                    | config builder  | 5 overloads (object/promise/env-fn); injects `test?: InlineConfig`         |
+|  [02]   | `defineProject(config)`                   | project builder | v4 — one project in a `test.projects[]` matrix; `TestProjectConfiguration` |
+|  [03]   | `mergeConfig` (from `vite`)               | config merge    | deep-merge a base config with an override                                  |
+|  [04]   | `configDefaults`/`coverageConfigDefaults` | defaults        | baselines; `defaultInclude`/`defaultExclude`/`defaultBrowserPort` (63315)  |
+|  [05]   | `configureVitest` (plugin hook)           | v4 plugin hook  | a Vite plugin mutates resolved Vitest config via `VitestPluginContext`     |
+|  [06]   | `InlineConfig` fields                     | config surface  | the whole run policy (roster [06]); option types live on `./node`          |
 
-```ts contract
+- [06]-[INLINE_CONFIG]: `pool`/`environment`/`coverage`/`browser`/`typecheck`/`projects`/`setupFiles`/`globalSetup`/`sequence`/`reporters`.
+
+```ts signature
 declare function defineConfig(config: UserConfig): UserConfig                              // + fn/promise overloads
 declare function defineProject(config: UserWorkspaceConfig): UserWorkspaceConfig           // v4 — replaces `workspace`
 declare const coverageConfigDefaults: Required<Pick<CoverageOptions, FieldsWithDefaultValues>>
@@ -92,18 +96,22 @@ declare module "vite" { interface UserConfig { test?: InlineConfig }; interface 
 
 [ENTRYPOINT_SCOPE]: `vitest/node` — the programmatic runner, the Reported-Tasks tree, the reporters, and every config-option TYPE the design's `defineConfig` binds. A CI gauge boots the runner here, reads the typed task tree, and folds a reporter — never scrapes stdout.
 
-| [INDEX] | [SYMBOL]                                                                                                               | [FAMILY]            | [CAPABILITY]                                                                                       |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------- | :------------------ | :------------------------------------------------------------------------------------------------- |
-|  [01]   | `startVitest`/`createVitest`/`parseCLI`/`resolveConfig`                                                                | boot                | programmatic run; `Vitest` is the live instance; `VitestRunMode`                                   |
-|  [02]   | `TestModule`/`TestSuite`/`TestCase`/`TestCollection`                                                                   | reported tasks      | v4 typed task tree read after a run — `TestResult`/`TestState`/`TestDiagnostic`                    |
-|  [03]   | `TestProject`/`TestSpecification`                                                                                      | project handle      | per-project config + the spec set; the `projects[]` runtime face                                   |
-|  [04]   | `Reporter`/`BuiltinReporters`/`ReportersMap`/`BaseReporter`                                                            | reporter contract   | the `reporters` config vocabulary + custom-reporter base                                           |
-|  [05]   | `Default`/`Dot`/`Verbose`/`JUnit`/`Json`/`Tap`/`TapFlat`/`GithubActions`/`HangingProcess`/`Minimal`/`Agent` `Reporter` | builtin reporters   | concrete classes; `AgentReporter` is v4's AI-agent stream (`html` ships in `@vitest/ui`)           |
-|  [06]   | `Forks`/`Threads`/`VmForks`/`VmThreads`/`Typecheck` `PoolWorker` · `BaseSequencer`                                     | pool (experimental) | `pool` execution model; `PoolOptions`; the sequencer shards/sorts specs                            |
-|  [07]   | `BuiltinEnvironment = "node"\|"jsdom"\|"happy-dom"\|"edge-runtime"`                                                    | environment         | the `environment` config axis; `EnvironmentOptions` per env                                        |
-|  [08]   | `CoverageOptions`/`BrowserConfigOptions`/`TypecheckConfig`/`ApiConfig`                                                 | config types        | the option shapes `InlineConfig` fields resolve to (owned here, catalogued in the provider `.api`) |
+| [INDEX] | [SYMBOL]                                                            | [FAMILY]          | [CAPABILITY]                                   |
+| :-----: | :------------------------------------------------------------------ | :---------------- | :--------------------------------------------- |
+|  [01]   | `startVitest`/`createVitest`/`parseCLI`/`resolveConfig`             | boot              | programmatic run; `Vitest` + `VitestRunMode`   |
+|  [02]   | `TestModule`/`TestSuite`/`TestCase`/`TestCollection`                | reported tasks    | `TestResult`/`TestState`/`TestDiagnostic` tree |
+|  [03]   | `TestProject`/`TestSpecification`                                   | project handle    | per-project config + `projects[]` face         |
+|  [04]   | `Reporter`/`BuiltinReporters`/`ReportersMap`/`BaseReporter`         | reporter contract | `reporters` vocabulary + custom-reporter base  |
+|  [05]   | builtin `*Reporter` classes                                         | builtin reporters | roster [05]; `AgentReporter` = AI-agent stream |
+|  [06]   | pool workers · `BaseSequencer`                                      | pool workers      | roster [06]; `PoolOptions`; shards specs       |
+|  [07]   | `BuiltinEnvironment = "node"\|"jsdom"\|"happy-dom"\|"edge-runtime"` | environment       | `environment` axis; `EnvironmentOptions`       |
+|  [08]   | config-option types (roster [08])                                   | config types      | shapes `InlineConfig` resolves to (`.api`)     |
 
-```ts contract
+- [05]-[REPORTERS]: `Default`/`Dot`/`Verbose`/`JUnit`/`Json`/`Tap`/`TapFlat`/`GithubActions`/`HangingProcess`/`Minimal`/`Agent` `Reporter` (`html` ships in `@vitest/ui`).
+- [06]-[POOL_WORKERS]: `Forks`/`Threads`/`VmForks`/`VmThreads`/`Typecheck` `PoolWorker` (`@experimental`).
+- [08]-[CONFIG_TYPES]: `CoverageOptions`/`BrowserConfigOptions`/`TypecheckConfig`/`ApiConfig`.
+
+```ts signature
 declare function startVitest(mode: VitestRunMode, cliFilters?: string[], options?: CliOptions, viteOverrides?: ViteUserConfig, vitestOptions?: VitestOptions): Promise<Vitest>
 declare function createVitest(mode: VitestRunMode, options: CliOptions, ...): Promise<Vitest>
 declare function parseCLI(argv: string | string[], config?: CliParseOptions): { filter: string[]; options: CliOptions }

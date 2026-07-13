@@ -58,89 +58,93 @@ status code (0 = ok). Stride/size are byte quantities. Pin managed arrays (`fixe
 
 [ENTRYPOINT_SCOPE]: remap, indexing, and topology generation
 - rail: geometry
+- call: index ops take the head `(dst, indices, index_count, …)` then a vertex source (`void* vertices`, `float* positions`, or `Stream* streams`); `…` in a row stands for that head. Delegate params take a `[UnmanagedCallersOnly]` static address.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                | [ENTRY_FAMILY] | [RAIL]                                |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------ |
-|  [01]   | `nuint GenerateVertexRemap(uint* dst, uint* indices, nuint index_count, void* vertices, nuint vertex_count, nuint vertex_size)`                                                          | remap          | dedup remap over interleaved vertices |
-|  [02]   | `nuint GenerateVertexRemapMulti(uint* dst, uint* indices, nuint index_count, nuint vertex_count, Stream* streams, nuint stream_count)`                                                   | remap          | multi-stream (de-interleaved) remap   |
-|  [03]   | `nuint GenerateVertexRemapCustom(uint* dst, uint* indices, nuint index_count, float* positions, nuint vertex_count, nuint stride, delegate* unmanaged<nint,uint,uint,int> cb, nint ctx)` | remap          | predicate-driven weld via callback    |
-|  [04]   | `void GeneratePositionRemap(uint* dst, float* positions, nuint vertex_count, nuint stride)`                                                                                              | remap          | position-only welding remap           |
-|  [05]   | `void RemapVertexBuffer(void* dst, void* vertices, nuint vertex_count, nuint vertex_size, uint* remap)`                                                                                  | apply          | apply remap to vertex buffer          |
-|  [06]   | `void RemapIndexBuffer(uint* dst, uint* indices, nuint index_count, uint* remap)`                                                                                                        | apply          | apply remap to index buffer           |
-|  [07]   | `void GenerateShadowIndexBuffer(uint* dst, uint* indices, nuint index_count, void* vertices, nuint vertex_count, nuint vertex_size, nuint vertex_stride)`                                | shadow         | position-equal shadow IB              |
-|  [08]   | `void GenerateShadowIndexBufferMulti(uint* dst, uint* indices, nuint index_count, nuint vertex_count, Stream* streams, nuint stream_count)`                                              | shadow         | multi-stream shadow IB                |
-|  [09]   | `void GenerateAdjacencyIndexBuffer(uint* dst, uint* indices, nuint index_count, float* positions, nuint vertex_count, nuint stride)`                                                     | topology       | triangle-adjacency IB for GS          |
-|  [10]   | `void GenerateTessellationIndexBuffer(uint* dst, uint* indices, nuint index_count, float* positions, nuint vertex_count, nuint stride)`                                                  | topology       | PN-tessellation IB                    |
-|  [11]   | `nuint GenerateProvokingIndexBuffer(uint* dst, uint* reorder, uint* indices, nuint index_count, nuint vertex_count)`                                                                     | provoking      | flat-shading provoking-vertex reindex |
+| [INDEX] | [SURFACE]                                                                               | [CAPABILITY]                          |
+| :-----: | :-------------------------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `nuint GenerateVertexRemap(…, vertices, vertex_count, vertex_size)`                     | dedup remap over interleaved vertices |
+|  [02]   | `nuint GenerateVertexRemapMulti(…, vertex_count, streams, stream_count)`                | multi-stream (de-interleaved) remap   |
+|  [03]   | `nuint GenerateVertexRemapCustom(…, positions, vertex_count, stride, cb, ctx)`          | predicate-driven weld via callback    |
+|  [04]   | `void GeneratePositionRemap(dst, positions, vertex_count, stride)`                      | position-only welding remap           |
+|  [05]   | `void RemapVertexBuffer(dst, vertices, vertex_count, vertex_size, remap)`               | apply remap to vertex buffer          |
+|  [06]   | `void RemapIndexBuffer(dst, indices, index_count, remap)`                               | apply remap to index buffer           |
+|  [07]   | `void GenerateShadowIndexBuffer(…, vertices, vertex_count, vertex_size, vertex_stride)` | position-equal shadow IB              |
+|  [08]   | `void GenerateShadowIndexBufferMulti(…, vertex_count, streams, stream_count)`           | multi-stream shadow IB                |
+|  [09]   | `void GenerateAdjacencyIndexBuffer(…, positions, vertex_count, stride)`                 | triangle-adjacency IB for GS          |
+|  [10]   | `void GenerateTessellationIndexBuffer(…, positions, vertex_count, stride)`              | PN-tessellation IB                    |
+|  [11]   | `nuint GenerateProvokingIndexBuffer(dst, reorder, indices, index_count, vertex_count)`  | flat-shading provoking-vertex reindex |
 
 [ENTRYPOINT_SCOPE]: cache, overdraw, fetch optimization, and strip generation
 - rail: geometry
+- call: cache/overdraw/fetch ops write reordered indices into `dst` from `(indices, index_count, …)`; strip ops take `(dst, indices, index_count, …)` with a `restart_index`.
 
-| [INDEX] | [SURFACE]                                                                                                                                 | [ENTRY_FAMILY] | [RAIL]                              |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------- |
-|  [01]   | `void OptimizeVertexCache(uint* dst, uint* indices, nuint index_count, nuint vertex_count)`                                               | cache optimize | tipsify cache optimization          |
-|  [02]   | `void OptimizeVertexCacheStrip(uint* dst, uint* indices, nuint index_count, nuint vertex_count)`                                          | cache optimize | strip-friendly cache optimization   |
-|  [03]   | `void OptimizeVertexCacheFifo(uint* dst, uint* indices, nuint index_count, nuint vertex_count, uint cache_size)`                          | cache optimize | FIFO cache (legacy HW) optimization |
-|  [04]   | `void OptimizeOverdraw(uint* dst, uint* indices, nuint index_count, float* positions, nuint vertex_count, nuint stride, float threshold)` | overdraw       | overdraw minimization (post-cache)  |
-|  [05]   | `nuint OptimizeVertexFetch(void* dst, uint* indices, nuint index_count, void* vertices, nuint vertex_count, nuint vertex_size)`           | fetch optimize | reorder vertices for fetch locality |
-|  [06]   | `nuint OptimizeVertexFetchRemap(uint* dst, uint* indices, nuint index_count, nuint vertex_count)`                                         | fetch remap    | fetch-remap table (apply via remap) |
-|  [07]   | `void OptimizeMeshlet(uint* meshlet_vertices, byte* meshlet_triangles, nuint triangle_count, nuint vertex_count)`                         | cache optimize | per-meshlet local cache optimize    |
-|  [08]   | `nuint Stripify(uint* dst, uint* indices, nuint index_count, nuint vertex_count, uint restart_index)`                                     | strip          | triangle strip with restart index   |
-|  [09]   | `nuint StripifyBound(nuint index_count)`                                                                                                  | bound          | max stripified index count          |
-|  [10]   | `nuint Unstripify(uint* dst, uint* indices, nuint index_count, uint restart_index)`                                                       | strip          | strip → triangle list expansion     |
-|  [11]   | `nuint UnstripifyBound(nuint index_count)`                                                                                                | bound          | max unstripified index count        |
+| [INDEX] | [SURFACE]                                                                                      | [CAPABILITY]                        |
+| :-----: | :--------------------------------------------------------------------------------------------- | :---------------------------------- |
+|  [01]   | `void OptimizeVertexCache(dst, indices, index_count, vertex_count)`                            | tipsify cache optimization          |
+|  [02]   | `void OptimizeVertexCacheStrip(dst, indices, index_count, vertex_count)`                       | strip-friendly cache optimization   |
+|  [03]   | `void OptimizeVertexCacheFifo(dst, indices, index_count, vertex_count, cache_size)`            | FIFO cache (legacy HW) optimization |
+|  [04]   | `void OptimizeOverdraw(dst, indices, index_count, positions, vertex_count, stride, threshold)` | overdraw minimization (post-cache)  |
+|  [05]   | `nuint OptimizeVertexFetch(dst, indices, index_count, vertices, vertex_count, vertex_size)`    | reorder vertices for fetch locality |
+|  [06]   | `nuint OptimizeVertexFetchRemap(dst, indices, index_count, vertex_count)`                      | fetch-remap table (apply via remap) |
+|  [07]   | `void OptimizeMeshlet(meshlet_vertices, meshlet_triangles, triangle_count, vertex_count)`      | per-meshlet local cache optimize    |
+|  [08]   | `nuint Stripify(dst, indices, index_count, vertex_count, restart_index)`                       | triangle strip with restart index   |
+|  [09]   | `nuint StripifyBound(index_count)`                                                             | max stripified index count          |
+|  [10]   | `nuint Unstripify(dst, indices, index_count, restart_index)`                                   | strip → triangle list expansion     |
+|  [11]   | `nuint UnstripifyBound(index_count)`                                                           | max unstripified index count        |
 
 [ENTRYPOINT_SCOPE]: index/vertex/sequence codec with format-version pinning
 - rail: geometry
+- call: encode ops write into `(byte* buffer, nuint buffer_size)` and return the written byte count; decode ops read that pair into `dst` and return an `int` status (0 = ok); `*Bound` ops size the destination; version ops are process-global.
 
-| [INDEX] | [SURFACE]                                                                                                                                       | [ENTRY_FAMILY] | [RAIL]                                   |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------- |
-|  [01]   | `nuint EncodeIndexBuffer(byte* buffer, nuint buffer_size, uint* indices, nuint index_count)`                                                    | encode         | compress index buffer (returns bytes)    |
-|  [02]   | `nuint EncodeIndexBufferBound(nuint index_count, nuint vertex_count)`                                                                           | bound          | encode dst sizing (allocate ≥ this)      |
-|  [03]   | `int DecodeIndexBuffer(void* dst, nuint index_count, nuint index_size, byte* buffer, nuint buffer_size)`                                        | decode         | decompress index buffer (status)         |
-|  [04]   | `void EncodeIndexVersion(int version)`                                                                                                          | codec config   | pin index codec format version (global)  |
-|  [05]   | `int DecodeIndexVersion(byte* buffer, nuint buffer_size)`                                                                                       | codec probe    | read encoded index format version        |
-|  [06]   | `nuint EncodeIndexSequence(byte* buffer, nuint buffer_size, uint* indices, nuint index_count)`                                                  | encode         | compress arbitrary index sequence        |
-|  [07]   | `nuint EncodeIndexSequenceBound(nuint index_count, nuint vertex_count)`                                                                         | bound          | sequence encode dst sizing               |
-|  [08]   | `int DecodeIndexSequence(void* dst, nuint index_count, nuint index_size, byte* buffer, nuint buffer_size)`                                      | decode         | decompress index sequence (status)       |
-|  [09]   | `nuint EncodeVertexBuffer(byte* buffer, nuint buffer_size, void* vertices, nuint vertex_count, nuint vertex_size)`                              | encode         | compress vertex buffer                   |
-|  [10]   | `nuint EncodeVertexBufferLevel(byte* buffer, nuint buffer_size, void* vertices, nuint vertex_count, nuint vertex_size, int level, int version)` | encode         | level+version-pinned vertex encode       |
-|  [11]   | `nuint EncodeVertexBufferBound(nuint vertex_count, nuint vertex_size)`                                                                          | bound          | vertex encode dst sizing                 |
-|  [12]   | `int DecodeVertexBuffer(void* dst, nuint vertex_count, nuint vertex_size, byte* buffer, nuint buffer_size)`                                     | decode         | decompress vertex buffer (status)        |
-|  [13]   | `void EncodeVertexVersion(int version)`                                                                                                         | codec config   | pin vertex codec format version (global) |
-|  [14]   | `int DecodeVertexVersion(byte* buffer, nuint buffer_size)`                                                                                      | codec probe    | read encoded vertex format version       |
+| [INDEX] | [SURFACE]                                                                                       | [CAPABILITY]                        |
+| :-----: | :---------------------------------------------------------------------------------------------- | :---------------------------------- |
+|  [01]   | `nuint EncodeIndexBuffer(…, indices, index_count)`                                              | compress index buffer               |
+|  [02]   | `nuint EncodeIndexBufferBound(index_count, vertex_count)`                                       | encode dst sizing (allocate ≥ this) |
+|  [03]   | `int DecodeIndexBuffer(dst, index_count, index_size, …)`                                        | decompress index buffer             |
+|  [04]   | `void EncodeIndexVersion(int version)`                                                          | pin index codec format version      |
+|  [05]   | `int DecodeIndexVersion(…)`                                                                     | read encoded index format version   |
+|  [06]   | `nuint EncodeIndexSequence(…, indices, index_count)`                                            | compress arbitrary index sequence   |
+|  [07]   | `nuint EncodeIndexSequenceBound(index_count, vertex_count)`                                     | sequence encode dst sizing          |
+|  [08]   | `int DecodeIndexSequence(dst, index_count, index_size, …)`                                      | decompress index sequence           |
+|  [09]   | `nuint EncodeVertexBuffer(…, vertices, vertex_count, vertex_size)`                              | compress vertex buffer              |
+|  [10]   | `nuint EncodeVertexBufferLevel(…, vertices, vertex_count, vertex_size, int level, int version)` | level+version-pinned vertex encode  |
+|  [11]   | `nuint EncodeVertexBufferBound(vertex_count, vertex_size)`                                      | vertex encode dst sizing            |
+|  [12]   | `int DecodeVertexBuffer(dst, vertex_count, vertex_size, …)`                                     | decompress vertex buffer            |
+|  [13]   | `void EncodeVertexVersion(int version)`                                                         | pin vertex codec format version     |
+|  [14]   | `int DecodeVertexVersion(…)`                                                                    | read encoded vertex format version  |
 
 [ENTRYPOINT_SCOPE]: attribute filters (octahedral / quaternion / exponent / color)
 - rail: geometry
 
-| [INDEX] | [SURFACE]                                                                                               | [ENTRY_FAMILY] | [RAIL]                                   |
-| :-----: | :------------------------------------------------------------------------------------------------------ | :------------- | :--------------------------------------- |
-|  [01]   | `void DecodeFilterOct(void* buffer, nuint count, nuint stride)`                                         | filter decode  | unpack octahedral normals/tangents       |
-|  [02]   | `void DecodeFilterQuat(void* buffer, nuint count, nuint stride)`                                        | filter decode  | unpack quaternion rotations              |
-|  [03]   | `void DecodeFilterExp(void* buffer, nuint count, nuint stride)`                                         | filter decode  | unpack shared-exponent floats            |
-|  [04]   | `void DecodeFilterColor(void* buffer, nuint count, nuint stride)`                                       | filter decode  | unpack quantized colors                  |
-|  [05]   | `void EncodeFilterOct(void* dst, nuint count, nuint stride, int bits, float* data)`                     | filter encode  | pack octahedral normals (4/8-byte)       |
-|  [06]   | `void EncodeFilterQuat(void* dst, nuint count, nuint stride, int bits, float* data)`                    | filter encode  | pack quaternions                         |
-|  [07]   | `void EncodeFilterExp(void* dst, nuint count, nuint stride, int bits, float* data, EncodeExpMode mode)` | filter encode  | pack floats with `EncodeExpMode` sharing |
-|  [08]   | `void EncodeFilterColor(void* dst, nuint count, nuint stride, int bits, float* data)`                   | filter encode  | pack colors                              |
+| [INDEX] | [SURFACE]                                                                             | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------------------------------------------ | :--------------------------------------- |
+|  [01]   | `void DecodeFilterOct(buffer, count, stride)`                                         | unpack octahedral normals/tangents       |
+|  [02]   | `void DecodeFilterQuat(buffer, count, stride)`                                        | unpack quaternion rotations              |
+|  [03]   | `void DecodeFilterExp(buffer, count, stride)`                                         | unpack shared-exponent floats            |
+|  [04]   | `void DecodeFilterColor(buffer, count, stride)`                                       | unpack quantized colors                  |
+|  [05]   | `void EncodeFilterOct(dst, count, stride, int bits, float* data)`                     | pack octahedral normals (4/8-byte)       |
+|  [06]   | `void EncodeFilterQuat(dst, count, stride, int bits, float* data)`                    | pack quaternions                         |
+|  [07]   | `void EncodeFilterExp(dst, count, stride, int bits, float* data, EncodeExpMode mode)` | pack floats with `EncodeExpMode` sharing |
+|  [08]   | `void EncodeFilterColor(dst, count, stride, int bits, float* data)`                   | pack colors                              |
 
 `EncodeExpMode`: `None`/`EncodeExpSeparate` (0, per-value), `EncodeExpSharedVector` (1, per-vector),
 `EncodeExpSharedComponent` (2, per-component column), `EncodeExpClamped` (3).
 
 [ENTRYPOINT_SCOPE]: LOD simplification and quantization
 - rail: geometry
+- call: the `Simplify*` ops take the head `(dst, indices, index_count, positions, vertex_count, stride, …)`, return the written index count, write `result_error`, and gate on `(target_index_count, target_error, options)`. The attribute simplifiers take `(attributes, attr_stride, attr_weights, attr_count, vertex_lock)`; point ops take `(dst, positions, vertex_count, stride, …)`. `vertex_lock` is an optional `byte*` mask (1 = pinned).
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                                                                                         | [ENTRY_FAMILY] | [RAIL]                                              |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------- |
-|  [01]   | `nuint Simplify(uint* dst, uint* indices, nuint index_count, float* positions, nuint vertex_count, nuint stride, nuint target_index_count, float target_error, SimplificationOptions options, float* result_error)`                                                                                                               | simplify       | quadric LOD; writes achieved error                  |
-|  [02]   | `nuint SimplifyWithAttributes(uint* dst, uint* indices, nuint index_count, float* positions, nuint vertex_count, nuint stride, float* attributes, nuint attr_stride, float* attr_weights, nuint attr_count, byte* vertex_lock, nuint target_index_count, float target_error, SimplificationOptions options, float* result_error)` | simplify       | attribute-aware quadric (the production simplifier) |
-|  [03]   | `nuint SimplifyWithUpdate(uint* indices, nuint index_count, float* positions, nuint vertex_count, nuint stride, float* attributes, nuint attr_stride, float* attr_weights, nuint attr_count, byte* vertex_lock, nuint target_index_count, float target_error, uint options, float* result_error)`                                 | simplify       | in-place simplify (mutates `indices`)               |
-|  [04]   | `nuint SimplifySloppy(uint* dst, uint* indices, nuint index_count, float* positions, nuint vertex_count, nuint stride, byte* vertex_lock, nuint target_index_count, float target_error, float* result_error)`                                                                                                                     | simplify       | topology-ignoring aggressive LOD                    |
-|  [05]   | `nuint SimplifyPoints(uint* dst, float* positions, nuint vertex_count, nuint stride, float* colors, nuint colors_stride, float color_weight, nuint target_vertex_count)`                                                                                                                                                          | simplify       | point-cloud decimation                              |
-|  [06]   | `nuint SimplifyPrune(uint* dst, uint* indices, nuint index_count, float* positions, nuint vertex_count, nuint stride, float target_error)`                                                                                                                                                                                        | simplify       | drop components under error threshold               |
-|  [07]   | `float SimplifyScale(float* positions, nuint vertex_count, nuint stride)`                                                                                                                                                                                                                                                         | scale          | absolute-error scale factor for the mesh            |
-|  [08]   | `ushort QuantizeHalf(float v)` / `float DequantizeHalf(ushort h)`                                                                                                                                                                                                                                                                 | quantize       | IEEE half round-trip                                |
-|  [09]   | `float QuantizeFloat(float v, int N)`                                                                                                                                                                                                                                                                                             | quantize       | reduce float to N-bit mantissa                      |
+| [INDEX] | [SURFACE]                                                                              | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `nuint Simplify(…, target_index_count, target_error, options, result_error)`           | quadric LOD; writes achieved error    |
+|  [02]   | `nuint SimplifyWithAttributes(…, attributes, attr_weights, vertex_lock, …)`            | attribute-aware quadric (production)  |
+|  [03]   | `nuint SimplifyWithUpdate(indices, …, attributes, attr_weights, vertex_lock, …)`       | in-place simplify (mutates `indices`) |
+|  [04]   | `nuint SimplifySloppy(…, vertex_lock, target_index_count, target_error, result_error)` | topology-ignoring aggressive LOD      |
+|  [05]   | `nuint SimplifyPoints(…, colors, colors_stride, color_weight, target_vertex_count)`    | point-cloud decimation                |
+|  [06]   | `nuint SimplifyPrune(…, target_error)`                                                 | drop components under error threshold |
+|  [07]   | `float SimplifyScale(positions, vertex_count, stride)`                                 | absolute-error scale factor           |
+|  [08]   | `ushort QuantizeHalf(float v)` / `float DequantizeHalf(ushort h)`                      | IEEE half round-trip                  |
+|  [09]   | `float QuantizeFloat(float v, int N)`                                                  | reduce float to N-bit mantissa        |
 
 `SimplificationOptions` `[Flags]`: `None` (0), `SimplifyLockBorder` (1, freeze open edges),
 `meshopt_SimplifySparse` (2, sparse attribute discontinuity reduction), `meshopt_SimplifyErrorAbsolute`
@@ -149,26 +153,27 @@ status code (0 = ok). Stride/size are byte quantities. Pin managed arrays (`fixe
 
 [ENTRYPOINT_SCOPE]: meshlet, cluster, spatial, and analysis
 - rail: geometry
+- call: meshlet builds take the output arrays `(meshlets, meshlet_vertices, meshlet_triangles)` then the source `(indices, index_count, positions, vertex_count, stride)` and `max_vertices`/`max_triangles` sizing; `Analyze*` take `(indices, index_count, …)` and return their stat struct by value. `PartitionClusters` takes `(dst, cluster_indices, cluster_index_counts, cluster_count, …, target_partition_size)`. The tail shown is the discriminator.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                   | [ENTRY_FAMILY] | [RAIL]                                |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :------------------------------------ |
-|  [01]   | `nuint BuildMeshlets(Meshlet* meshlets, uint* meshlet_vertices, byte* meshlet_triangles, uint* indices, nuint index_count, float* positions, nuint vertex_count, nuint stride, nuint max_vertices, nuint max_triangles, float cone_weight)` | meshlet        | cone-weighted meshlet build           |
-|  [02]   | `nuint BuildMeshletsFlex(… nuint max_vertices, nuint min_triangles, nuint max_triangles, float cone_weight, float split_factor)`                                                                                                            | meshlet        | variable-size meshlets (min..max)     |
-|  [03]   | `nuint BuildMeshletsSpatial(… nuint max_vertices, nuint min_triangles, nuint max_triangles, float fill_weight)`                                                                                                                             | meshlet        | spatial-locality meshlet build        |
-|  [04]   | `nuint BuildMeshletsScan(Meshlet* meshlets, uint* meshlet_vertices, byte* meshlet_triangles, uint* indices, nuint index_count, nuint vertex_count, nuint max_vertices, nuint max_triangles)`                                                | meshlet        | fast scan build (no positions)        |
-|  [05]   | `nuint BuildMeshletsBound(nuint index_count, nuint max_vertices, nuint max_triangles)`                                                                                                                                                      | bound          | meshlet/vertex/triangle buffer sizing |
-|  [06]   | `Bounds ComputeClusterBounds(uint* indices, nuint index_count, float* positions, nuint vertex_count, nuint stride)`                                                                                                                         | bounds         | cone + sphere bounds for index range  |
-|  [07]   | `Bounds ComputeMeshletBounds(uint* meshlet_vertices, byte* meshlet_triangles, nuint triangle_count, float* positions, nuint vertex_count, nuint stride)`                                                                                    | bounds         | per-meshlet cone/sphere bounds        |
-|  [08]   | `Bounds ComputeSphereBounds(float* positions, nuint count, nuint stride, float* radii, nuint radii_stride)`                                                                                                                                 | bounds         | bounding sphere over (optional) radii |
-|  [09]   | `nuint PartitionClusters(uint* dst, uint* cluster_indices, nuint total_index_count, uint* cluster_index_counts, nuint cluster_count, float* positions, nuint vertex_count, nuint stride, nuint target_partition_size)`                      | partition      | spatial cluster→group partitioning    |
-|  [10]   | `void SpatialSortRemap(uint* dst, float* positions, nuint vertex_count, nuint stride)`                                                                                                                                                      | sort           | Morton-order vertex remap             |
-|  [11]   | `void SpatialSortTriangles(uint* dst, uint* indices, nuint index_count, float* positions, nuint vertex_count, nuint stride)`                                                                                                                | sort           | spatially coherent triangle order     |
-|  [12]   | `void SpatialClusterPoints(uint* dst, float* positions, nuint vertex_count, nuint stride, nuint cluster_size)`                                                                                                                              | cluster        | spatial point clustering              |
-|  [13]   | `VertexCacheStatistics AnalyzeVertexCache(uint* indices, nuint index_count, nuint vertex_count, uint cache_size, uint warp_size, uint primgroup_size)`                                                                                      | analyze        | ACMR/ATVR cache stats                 |
-|  [14]   | `VertexFetchStatistics AnalyzeVertexFetch(uint* indices, nuint index_count, nuint vertex_count, nuint vertex_size)`                                                                                                                         | analyze        | overfetch stats                       |
-|  [15]   | `OverdrawStatistics AnalyzeOverdraw(uint* indices, nuint index_count, float* positions, nuint vertex_count, nuint stride)`                                                                                                                  | analyze        | overdraw ratio stats                  |
-|  [16]   | `CoverageStatistics AnalyzeCoverage(uint* indices, nuint index_count, float* positions, nuint vertex_count, nuint stride)`                                                                                                                  | analyze        | per-axis coverage stats               |
-|  [17]   | `void SetAllocator(delegate* unmanaged<nuint,void*> allocate, delegate* unmanaged<void*,void> deallocate)`                                                                                                                                  | allocator      | route native scratch through a pool   |
+| [INDEX] | [SURFACE]                                                                               | [CAPABILITY]                          |
+| :-----: | :-------------------------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `nuint BuildMeshlets(…, cone_weight)`                                                   | cone-weighted meshlet build           |
+|  [02]   | `nuint BuildMeshletsFlex(…, min_triangles, cone_weight, split_factor)`                  | variable-size meshlets (min..max)     |
+|  [03]   | `nuint BuildMeshletsSpatial(…, min_triangles, fill_weight)`                             | spatial-locality meshlet build        |
+|  [04]   | `nuint BuildMeshletsScan(…, vertex_count)`                                              | fast scan build (no positions)        |
+|  [05]   | `nuint BuildMeshletsBound(index_count, max_vertices, max_triangles)`                    | meshlet/vertex/triangle buffer sizing |
+|  [06]   | `Bounds ComputeClusterBounds(indices, index_count, positions, vertex_count, stride)`    | cone + sphere bounds for index range  |
+|  [07]   | `Bounds ComputeMeshletBounds(meshlet_vertices, meshlet_triangles, triangle_count, …)`   | per-meshlet cone/sphere bounds        |
+|  [08]   | `Bounds ComputeSphereBounds(positions, count, stride, radii, radii_stride)`             | bounding sphere over (optional) radii |
+|  [09]   | `nuint PartitionClusters(…)`                                                            | spatial cluster→group partitioning    |
+|  [10]   | `void SpatialSortRemap(dst, positions, vertex_count, stride)`                           | Morton-order vertex remap             |
+|  [11]   | `void SpatialSortTriangles(dst, indices, index_count, positions, vertex_count, stride)` | spatially coherent triangle order     |
+|  [12]   | `void SpatialClusterPoints(dst, positions, vertex_count, stride, cluster_size)`         | spatial point clustering              |
+|  [13]   | `VertexCacheStatistics AnalyzeVertexCache(…, cache_size, warp_size, primgroup_size)`    | ACMR/ATVR cache stats                 |
+|  [14]   | `VertexFetchStatistics AnalyzeVertexFetch(…, vertex_size)`                              | overfetch stats                       |
+|  [15]   | `OverdrawStatistics AnalyzeOverdraw(…, positions, vertex_count, stride)`                | overdraw ratio stats                  |
+|  [16]   | `CoverageStatistics AnalyzeCoverage(…, positions, vertex_count, stride)`                | per-axis coverage stats               |
+|  [17]   | `void SetAllocator(allocate, deallocate)`                                               | route native scratch through a pool   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

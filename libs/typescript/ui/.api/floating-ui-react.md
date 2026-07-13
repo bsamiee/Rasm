@@ -16,82 +16,112 @@
 
 [PUBLIC_TYPE_SCOPE]: context and open-state family — the single thread through interaction hooks
 - rail: interaction
+- `OpenChangeReason` = `'click' \| 'hover' \| 'focus' \| 'focus-out' \| 'escape-key' \| 'outside-press' \| 'reference-press' \| 'ancestor-scroll' \| 'list-navigation' \| 'safe-polygon'`.
 
-| [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY]     | [CONSUMER]                                                                                                                                                                                                            |
-| :-----: | :----------------------------------------------------------------- | :---------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `FloatingContext<RT>`                                              | context object    | `view/compose` — `UseFloatingReturn` extended with open/event state; the value every interaction hook takes                                                                                                           |
-|  [02]   | `FloatingRootContext<RT>`                                          | root context      | `view/compose` — decoupled reference/floating root when the trigger and float are owned by different components                                                                                                       |
-|  [03]   | `ContextData`                                                      | extra context bag | `openEvent`, `floatingContext`, and arbitrary interaction keys (typeahead buffer, list index)                                                                                                                         |
-|  [04]   | `OpenChangeReason`                                                 | reason union      | `view/compose` — `'click' \| 'hover' \| 'focus' \| 'focus-out' \| 'escape-key' \| 'outside-press' \| 'reference-press' \| 'ancestor-scroll' \| 'list-navigation' \| 'safe-polygon'`; branch dismiss behavior on cause |
-|  [05]   | `ElementProps` (`{ reference?, floating?, item? }`)                | interaction props | the per-element HTML-prop map an interaction hook returns; merged by `useInteractions`                                                                                                                                |
-|  [06]   | `FloatingTreeType<RT>` / `ReferenceType` / `Delay` / `HandleClose` | supporting types  | tree events; `Element \| VirtualElement`; `number \| { open?, close? }`; the `safePolygon` return                                                                                                                     |
+| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]     | [CONSUMER]                                                               |
+| :-----: | :--------------------------------------- | :---------------- | :----------------------------------------------------------------------- |
+|  [01]   | `FloatingContext<RT>`                    | context object    | `UseFloatingReturn` + open/event state; every hook takes it              |
+|  [02]   | `FloatingRootContext<RT>`                | root context      | decoupled ref/float root when trigger and float are separate             |
+|  [03]   | `ContextData`                            | extra context bag | `openEvent`, `floatingContext`, interaction keys (typeahead, list index) |
+|  [04]   | `OpenChangeReason`                       | reason union      | branch dismiss on the open/close cause (values in lead)                  |
+|  [05]   | `ElementProps`                           | interaction props | `{ reference?, floating?, item? }`; merged by `useInteractions`          |
+|  [06]   | `FloatingTreeType<RT>` / `ReferenceType` | supporting types  | tree events; `Element \| VirtualElement`                                 |
+|  [07]   | `Delay` / `HandleClose`                  | supporting types  | `number \| { open?, close? }`; the `safePolygon` return                  |
 
 [PUBLIC_TYPE_SCOPE]: refs, elements, and hook config/return family
 - rail: position + interaction
 
-| [INDEX] | [SYMBOL]                                                                                       | [TYPE_FAMILY]            | [CONSUMER]                                                                                                                                       |
-| :-----: | :--------------------------------------------------------------------------------------------- | :----------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ExtendedRefs<RT>` / `ExtendedElements<RT>` / `NarrowedElement<T>`                             | refs / elements          | `reference`/`floating`/`domReference` setters + resolved nodes; `domReference` differs from `reference` under virtual anchoring                  |
-|  [02]   | `UseFloatingOptions<RT>` / `UseFloatingReturn<RT>` / `UseFloatingData`                         | position config / result | extends the react-dom options with `rootContext`/`onOpenChange`/`nodeId`; return adds `context: FloatingContext`                                 |
-|  [03]   | `UseFloatingRootContextOptions` (`{ open?, onOpenChange?, elements }`)                         | root config              | `view/compose` — bind external open-state (an atom) to the floating root                                                                         |
-|  [04]   | `UseInteractionsReturn` (`getReferenceProps`/`getFloatingProps`/`getItemProps`)                | merged getters           | spread onto the three element roles; each getter chains all merged handlers                                                                      |
-|  [05]   | `UseClickProps` / `UseHoverProps` / `UseFocusProps` / `UseDismissProps` / `UseRoleProps`       | interaction config       | per-hook options: `event`/`toggle`; `delay`/`restMs`/`handleClose`; `visibleOnly`; `escapeKey`/`outsidePress`/`ancestorScroll`/`bubbles`; `role` |
-|  [06]   | `UseListNavigationProps` / `UseTypeaheadProps` / `UseClientPointProps` / `UseInnerOffsetProps` | collection config        | list arrow-nav (`listRef`/`activeIndex`/`virtual`/`loop`/`orientation`); character match; cursor-follow; scrollable-inner offset                 |
-|  [07]   | `UseTransitionStatusProps` / `UseTransitionStylesProps` / `TransitionStatus`                   | transition config        | enter/exit motion; `status` runs `unmounted → initial → open → close → unmounted`                                                                |
+| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]      | [CONSUMER]                                                |
+| :-----: | :-------------------------------------------------- | :----------------- | :-------------------------------------------------------- |
+|  [01]   | `ExtendedRefs<RT>` / `ExtendedElements<RT>`         | refs / elements    | `reference`/`floating`/`domReference` setters + nodes     |
+|  [02]   | `NarrowedElement<T>`                                | element narrow     | `domReference` ≠ `reference` under virtual anchoring      |
+|  [03]   | `UseFloatingOptions<RT>` / `UseFloatingReturn<RT>`  | config / result    | adds `rootContext`/`onOpenChange`/`nodeId`                |
+|  [04]   | `UseFloatingData`                                   | position snapshot  | the react-dom position data, re-exported                  |
+|  [05]   | `UseFloatingRootContextOptions`                     | root config        | `{ open?, onOpenChange?, elements }` binds open-state     |
+|  [06]   | `UseInteractionsReturn`                             | merged getters     | `getReferenceProps`/`getFloatingProps`/`getItemProps`     |
+|  [07]   | `UseClickProps` / `UseHoverProps` / `UseFocusProps` | interaction config | `event`/`toggle`; `delay`/`restMs`/`handleClose`          |
+|  [08]   | `UseDismissProps` / `UseRoleProps`                  | interaction config | `escapeKey`/`outsidePress`/`ancestorScroll`; `role`       |
+|  [09]   | `UseListNavigationProps` / `UseTypeaheadProps`      | collection config  | `listRef`/`activeIndex`/`virtual`/`loop`; typeahead match |
+|  [10]   | `UseClientPointProps` / `UseInnerOffsetProps`       | collection config  | cursor-follow; scrollable-inner offset                    |
+|  [11]   | `UseTransitionStatusProps`                          | transition config  | `{ isMounted, status }` mount phases                      |
+|  [12]   | `UseTransitionStylesProps`                          | transition config  | `{ isMounted, styles }` enter/exit motion                 |
+|  [13]   | `TransitionStatus`                                  | transition status  | `unmounted → initial → open → close → unmounted`          |
 
 [PUBLIC_TYPE_SCOPE]: component props and re-exported geometry
 - rail: render + position
 
-| [INDEX] | [SYMBOL]                                                                                                                             | [TYPE_FAMILY]          | [CONSUMER]                                                                                                                                                                         |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------- | :--------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `FloatingArrowProps` / `FloatingFocusManagerProps` / `FloatingPortalProps` / `FloatingOverlayProps`                                  | component props        | arrow geometry (`context`/`width`/`height`/`tipRadius`); focus (`modal`/`order`/`initialFocus`/`returnFocus`/`guards`); portal (`root`/`preserveTabOrder`); overlay (`lockScroll`) |
-|  [02]   | `FloatingListProps` / `FloatingDelayGroupProps` / `NextFloatingDelayGroupProps`                                                      | collection/group props | ordered-ref list provider; shared hover delay across siblings; the re-render-free next-gen delay group                                                                             |
-|  [03]   | `CompositeProps` / `CompositeItemProps` / `InnerProps`                                                                               | composite props        | single-tab-stop roving nav (`orientation`/`loop`/`cols`/`activeIndex`); scrollable-inner middleware config                                                                         |
-|  [04]   | `Placement` / `Side` / `Alignment` / `AlignedPlacement` / `Strategy`                                                                 | placement geometry     | re-exported from `@floating-ui/react-dom`; catalogued there — side+alignment vocabulary, `absolute \| fixed`                                                                       |
-|  [05]   | `Middleware` / `MiddlewareState` / `MiddlewareData` / `MiddlewareArguments` / `MiddlewareReturn`                                     | middleware shape       | re-exported; the pipeline contract each factory produces                                                                                                                           |
-|  [06]   | `VirtualElement` / `ReferenceElement` / `FloatingElement` / `Coords` / `Rect` / `SideObject` / `Dimensions` / `Padding` / `Boundary` | element/box geometry   | re-exported; `VirtualElement` anchors a float to a cursor/selection with no DOM node                                                                                               |
+| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]      | [CONSUMER]                                             |
+| :-----: | :----------------------------------------------------- | :----------------- | :----------------------------------------------------- |
+|  [01]   | `FloatingArrowProps`                                   | component props    | `context`/`width`/`height`/`tipRadius` — the arrow SVG |
+|  [02]   | `FloatingFocusManagerProps`                            | component props    | `modal`/`order`/`initialFocus`/`returnFocus`/`guards`  |
+|  [03]   | `FloatingPortalProps` / `FloatingOverlayProps`         | component props    | portal `root`/`preserveTabOrder`; overlay `lockScroll` |
+|  [04]   | `FloatingListProps` / `FloatingDelayGroupProps`        | collection props   | ordered-ref list; shared hover delay                   |
+|  [05]   | `NextFloatingDelayGroupProps`                          | group props        | the re-render-free next-gen delay group                |
+|  [06]   | `CompositeProps` / `CompositeItemProps` / `InnerProps` | composite props    | roving nav `orientation`/`loop`/`activeIndex`          |
+|  [07]   | `Placement` / `Side` / `Alignment`                     | placement geometry | re-exported; catalogued in `floating-ui-react-dom.md`  |
+|  [08]   | `AlignedPlacement` / `Strategy`                        | placement geometry | re-exported; `absolute \| fixed`                       |
+|  [09]   | `Middleware` / `MiddlewareState` / `MiddlewareData`    | middleware shape   | re-exported; the pipeline contract                     |
+|  [10]   | `MiddlewareArguments` / `MiddlewareReturn`             | middleware shape   | re-exported; the `fn` args and return                  |
+|  [11]   | `VirtualElement` / `ReferenceElement`                  | element geometry   | re-exported; `VirtualElement` anchors a cursor         |
+|  [12]   | `FloatingElement`                                      | element geometry   | re-exported; the floating node type                    |
+|  [13]   | `Coords` / `Rect` / `SideObject`                       | box geometry       | re-exported box types                                  |
+|  [14]   | `Dimensions` / `Padding` / `Boundary`                  | box geometry       | re-exported box types                                  |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: positioning + interaction hooks — `useFloating` → `context` → interaction hooks → `useInteractions`
 - rail: position + interaction
+- Every interaction hook takes `(ctx, props?)` where `ctx` is the `FloatingContext`.
 
-| [INDEX] | [SURFACE]                                                                                                                        | [ENTRY_FAMILY]   | [CONSUMER]                                                                                                                                               |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `useFloating<RT>(options?)` / `useFloatingRootContext(options)`                                                                  | position root    | `view/compose` — returns `UseFloatingReturn` with `context`; `useFloatingRootContext` splits reference/floating ownership and binds external open-state  |
-|  [02]   | `useInteractions(propsList)`                                                                                                     | prop merger      | `view/compose` — merges `ElementProps[]` into `getReferenceProps`/`getFloatingProps`/`getItemProps`; the collision-free composition boundary             |
-|  [03]   | `useClick(ctx, props?)` / `useHover(ctx, props?)` / `useFocus(ctx, props?)` / `useDismiss(ctx, props?)` / `useRole(ctx, props?)` | trigger hooks    | popover/tooltip/menu open+dismiss+ARIA-role behavior; `useHover` takes `safePolygon` as `handleClose`                                                    |
-|  [04]   | `useListNavigation(ctx, props)` / `useTypeahead(ctx, props)` / `useClientPoint(ctx, props?)` / `useInnerOffset(ctx, props)`      | collection hooks | `view/compose` — combobox/menu/palette arrow-key + character nav; cursor anchoring; `useInnerOffset` positions a tall scrollable list at the active item |
+| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY]   | [CONSUMER]                                                    |
+| :-----: | :----------------------------------- | :--------------- | :------------------------------------------------------------ |
+|  [01]   | `useFloating<RT>(options?)`          | position root    | returns `UseFloatingReturn` with `context`                    |
+|  [02]   | `useFloatingRootContext(options)`    | position root    | splits ref/float ownership; binds external open-state         |
+|  [03]   | `useInteractions(propsList)`         | prop merger      | merges `ElementProps[]` into three prop-getters               |
+|  [04]   | `useClick` / `useHover` / `useFocus` | trigger hooks    | open+dismiss; `useHover` takes `safePolygon` as `handleClose` |
+|  [05]   | `useDismiss` / `useRole`             | trigger hooks    | dismiss behavior; ARIA role wiring                            |
+|  [06]   | `useListNavigation` / `useTypeahead` | collection hooks | arrow-key + character nav over a `listRef`                    |
+|  [07]   | `useClientPoint` / `useInnerOffset`  | collection hooks | cursor anchoring; scrollable-inner offset                     |
 
 [ENTRYPOINT_SCOPE]: components — focus, portal, overlay, tree, composite
 - rail: render
 
-| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY]       | [CONSUMER]                                                                                                                              |
-| :-----: | :-------------------------------------------------------------------------------------------- | :------------------- | :-------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `FloatingFocusManager(props)` / `FloatingPortal(props)` / `FloatingOverlay`                   | focus/portal/overlay | `view/compose` — trap/guide focus (modal or non-modal), render outside the app root escaping overflow, dim + scroll-lock behind a modal |
-|  [02]   | `FloatingArrow` / `FloatingList(props)`                                                       | arrow / list         | the pointing-arrow SVG bound to `arrow` middleware data; the ordered-ref provider `useListItem` registers into                          |
-|  [03]   | `FloatingTree(props)` / `FloatingNode(props)`                                                 | nested overlays      | `view/compose` — coordinate nested menus/submenus: bubble dismiss, parent-child open-state                                              |
-|  [04]   | `FloatingDelayGroup(props)` / `NextFloatingDelayGroup(props)` / `Composite` / `CompositeItem` | group / roving nav   | shared tooltip hover-delay across siblings; single-tab-stop arrow-navigable container (toolbar, grid)                                   |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY]  | [CONSUMER]                                                |
+| :-----: | :-------------------------------------------- | :-------------- | :-------------------------------------------------------- |
+|  [01]   | `FloatingFocusManager(props)`                 | focus           | trap/guide focus (modal or non-modal)                     |
+|  [02]   | `FloatingPortal(props)` / `FloatingOverlay`   | portal/overlay  | render outside root; dim + scroll-lock                    |
+|  [03]   | `FloatingArrow` / `FloatingList(props)`       | arrow / list    | arrow SVG on `arrow` data; `useListItem` provider         |
+|  [04]   | `FloatingTree(props)` / `FloatingNode(props)` | nested overlays | nested menus: bubble dismiss + open-state                 |
+|  [05]   | `FloatingDelayGroup(props)`                   | group           | shared tooltip hover-delay across siblings                |
+|  [06]   | `NextFloatingDelayGroup(props)`               | group           | the re-render-free next-gen delay group                   |
+|  [07]   | `Composite` / `CompositeItem`                 | roving nav      | single-tab-stop arrow-navigable container (toolbar, grid) |
 
 [ENTRYPOINT_SCOPE]: tree, list, transition, and ref utility hooks
 - rail: interaction
 
-| [INDEX] | [SURFACE]                                                                                                            | [ENTRY_FAMILY]  | [CONSUMER]                                                                                                                 |
-| :-----: | :------------------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `useFloatingNodeId(parentId?)` / `useFloatingParentNodeId()` / `useFloatingTree()` / `useFloatingPortalNode(props?)` | tree/portal ids | register a node in `FloatingTree`, read the parent id, access the tree event bus, resolve the portal container             |
-|  [02]   | `useListItem(props?)`                                                                                                | list item       | `view/compose` — register an item's ref+index into `FloatingList` for `useListNavigation`                                  |
-|  [03]   | `useTransitionStatus(ctx, props?)` / `useTransitionStyles<RT>(ctx, props?)`                                          | transition      | `view/compose` — `{ isMounted, status }` and `{ isMounted, styles }`; drive enter/exit motion tokens                       |
-|  [04]   | `useDelayGroup(ctx, options?)` / `useDelayGroupContext()` / `useNextDelayGroup(ctx, options?)`                       | delay group     | participate in a shared hover-delay group; the `Next` variant avoids extra re-renders                                      |
-|  [05]   | `useMergeRefs<I>(refs)` / `useId()` / `safePolygon(options?)`                                                        | ref/id/polygon  | merge floating-ui + react-aria + local refs into one callback; SSR-stable id; the hover-intent safe-triangle `HandleClose` |
+| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [CONSUMER]                                              |
+| :-----: | :------------------------------------------------------------ | :------------- | :------------------------------------------------------ |
+|  [01]   | `useFloatingNodeId(parentId?)`                                | tree ids       | register a node in `FloatingTree`                       |
+|  [02]   | `useFloatingParentNodeId()`                                   | tree ids       | read the parent node id                                 |
+|  [03]   | `useFloatingTree()` / `useFloatingPortalNode(props?)`         | tree/portal    | access the tree event bus; resolve the portal container |
+|  [04]   | `useListItem(props?)`                                         | list item      | register a ref+index into `FloatingList`                |
+|  [05]   | `useTransitionStatus(ctx, props?)`                            | transition     | `{ isMounted, status }` — the mount phase               |
+|  [06]   | `useTransitionStyles<RT>(ctx, props?)`                        | transition     | `{ isMounted, styles }` — enter/exit motion styles      |
+|  [07]   | `useDelayGroup(ctx, options?)`                                | delay group    | join a shared hover-delay group                         |
+|  [08]   | `useNextDelayGroup(ctx, options?)`                            | delay group    | the `Next` group; avoids re-renders                     |
+|  [09]   | `useDelayGroupContext()`                                      | delay group    | read the active delay-group context                     |
+|  [10]   | `useMergeRefs<I>(refs)` / `useId()` / `safePolygon(options?)` | ref/id/polygon | merge refs; SSR-stable id; hover-intent safe-triangle   |
 
 [ENTRYPOINT_SCOPE]: re-exported positioning engine — middleware + utilities from `@floating-ui/dom`
 - rail: position
 
-| [INDEX] | [SURFACE]                                                                                           | [ENTRY_FAMILY]     | [CONSUMER]                                                                                                                   |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :----------------- | :--------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `offset` / `flip` / `shift` / `arrow` / `size` / `hide` / `inline` / `autoPlacement` / `limitShift` | middleware factory | re-exported; the canonical pipeline is `offset → flip → shift → arrow` (or `size`); catalogued in `floating-ui-react-dom.md` |
-|  [02]   | `inner(props)` / `useInnerOffset`                                                                   | inner middleware   | `view/compose` — anchor a tall scrollable list (combobox) to the active item, keeping it in view                             |
-|  [03]   | `autoUpdate` / `computePosition` / `detectOverflow` / `getOverflowAncestors` / `platform`           | positioning util   | `autoUpdate` is the required `whileElementsMounted` value; the rest are the imperative engine + overflow probes              |
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]     | [CONSUMER]                                                  |
+| :-----: | :-------------------------------------------------- | :----------------- | :---------------------------------------------------------- |
+|  [01]   | `offset` / `flip` / `shift` / `arrow` / `size`      | middleware factory | re-exported; catalogued in `floating-ui-react-dom.md`       |
+|  [02]   | `hide` / `inline` / `autoPlacement` / `limitShift`  | middleware factory | re-exported; canonical `offset → flip → shift → arrow`      |
+|  [03]   | `inner(props)` / `useInnerOffset`                   | inner middleware   | anchor a tall scrollable list (combobox) to the active item |
+|  [04]   | `autoUpdate` / `computePosition` / `detectOverflow` | positioning util   | `autoUpdate` is the required `whileElementsMounted`         |
+|  [05]   | `getOverflowAncestors` / `platform`                 | positioning util   | the imperative overflow probes + default platform           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

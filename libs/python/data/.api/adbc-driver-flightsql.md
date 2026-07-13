@@ -47,59 +47,67 @@
 
 Each member value is the canonical setting string passed in `db_kwargs`. Timeouts are floating-point seconds; `RPC_CALL_HEADER_PREFIX` is a key prefix suffixed with the header name; OAuth keys configure the flow selected by `OAUTH_FLOW`.
 
-| [INDEX] | [MEMBER]                              | [VALUE]                                               | [CAPABILITY]                                |
-| :-----: | :------------------------------------ | :---------------------------------------------------- | :------------------------------------------ |
-|  [01]   | `AUTHORIZATION_HEADER`                | `adbc.flight.sql.authorization_header`                | authorization header for requests           |
-|  [02]   | `AUTHORITY`                           | `adbc.flight.sql.client_option.authority`             | handshake server name                       |
-|  [03]   | `MTLS_CERT_CHAIN`                     | `adbc.flight.sql.client_option.mtls_cert_chain`       | enable mTLS, PEM certificate chain          |
-|  [04]   | `MTLS_PRIVATE_KEY`                    | `adbc.flight.sql.client_option.mtls_private_key`      | enable mTLS, PEM private key                |
-|  [05]   | `RPC_CALL_HEADER_PREFIX`              | `adbc.flight.sql.rpc.call_header.`                    | per-header key prefix for outgoing requests |
-|  [06]   | `TIMEOUT_FETCH`                       | `adbc.flight.sql.rpc.timeout_seconds.fetch`           | DoGet fetch timeout (seconds)               |
-|  [07]   | `TIMEOUT_QUERY`                       | `adbc.flight.sql.rpc.timeout_seconds.query`           | GetFlightInfo query timeout (seconds)       |
-|  [08]   | `TIMEOUT_UPDATE`                      | `adbc.flight.sql.rpc.timeout_seconds.update`          | upload/update timeout (seconds)             |
-|  [09]   | `TLS_OVERRIDE_HOSTNAME`               | `adbc.flight.sql.client_option.tls_override_hostname` | TLS hostname override                       |
-|  [10]   | `TLS_ROOT_CERTS`                      | `adbc.flight.sql.client_option.tls_root_certs`        | PEM root certificates for TLS               |
-|  [11]   | `TLS_SKIP_VERIFY`                     | `adbc.flight.sql.client_option.tls_skip_verify`       | disable server TLS verification             |
-|  [12]   | `WITH_BLOCK`                          | `adbc.flight.sql.client_option.with_block`            | block until connection established          |
-|  [13]   | `WITH_COOKIE_MIDDLEWARE`              | `adbc.flight.sql.rpc.with_cookie_middleware`          | enable cookie middleware                    |
-|  [14]   | `WITH_MAX_MSG_SIZE`                   | `adbc.flight.sql.client_option.with_max_msg_size`     | max gRPC message size in bytes              |
-|  [15]   | `OAUTH_FLOW`                          | `adbc.flight.sql.oauth.flow`                          | OAuth flow selector (`OAuthFlowType`)       |
-|  [16]   | `OAUTH_AUTH_URI`                      | `adbc.flight.sql.oauth.auth_uri`                      | OAuth authorization endpoint URL            |
-|  [17]   | `OAUTH_TOKEN_URI`                     | `adbc.flight.sql.oauth.token_uri`                     | OAuth token endpoint URL                    |
-|  [18]   | `OAUTH_REDIRECT_URI`                  | `adbc.flight.sql.oauth.redirect_uri`                  | OAuth redirect URI                          |
-|  [19]   | `OAUTH_SCOPE`                         | `adbc.flight.sql.oauth.scope`                         | OAuth scope                                 |
-|  [20]   | `OAUTH_CLIENT_ID`                     | `adbc.flight.sql.oauth.client_id`                     | OAuth client identifier                     |
-|  [21]   | `OAUTH_CLIENT_SECRET`                 | `adbc.flight.sql.oauth.client_secret`                 | OAuth client secret                         |
-|  [22]   | `OAUTH_EXCHANGE_SUBJECT_TOKEN`        | `adbc.flight.sql.oauth.exchange.subject_token`        | token-exchange subject token                |
-|  [23]   | `OAUTH_EXCHANGE_SUBJECT_TOKEN_TYPE`   | `adbc.flight.sql.oauth.exchange.subject_token_type`   | subject token type (`OAuthTokenType`)       |
-|  [24]   | `OAUTH_EXCHANGE_ACTOR_TOKEN`          | `adbc.flight.sql.oauth.exchange.actor_token`          | token-exchange actor token                  |
-|  [25]   | `OAUTH_EXCHANGE_ACTOR_TOKEN_TYPE`     | `adbc.flight.sql.oauth.exchange.actor_token_type`     | actor token type (`OAuthTokenType`)         |
-|  [26]   | `OAUTH_EXCHANGE_REQUESTED_TOKEN_TYPE` | `adbc.flight.sql.oauth.exchange.requested_token_type` | requested token type (`OAuthTokenType`)     |
-|  [27]   | `OAUTH_EXCHANGE_SCOPE`                | `adbc.flight.sql.oauth.exchange.scope`                | token-exchange scope                        |
-|  [28]   | `OAUTH_EXCHANGE_AUD`                  | `adbc.flight.sql.oauth.exchange.aud`                  | token-exchange audience                     |
-|  [29]   | `OAUTH_EXCHANGE_RESOURCE`             | `adbc.flight.sql.oauth.exchange.resource`             | token-exchange resource                     |
+| [INDEX] | [MEMBER]                              | [VALUE]                                               | [CAPABILITY]                            |
+| :-----: | :------------------------------------ | :---------------------------------------------------- | :-------------------------------------- |
+|  [01]   | `AUTHORIZATION_HEADER`                | `adbc.flight.sql.authorization_header`                | authorization header for requests       |
+|  [02]   | `AUTHORITY`                           | `adbc.flight.sql.client_option.authority`             | handshake server name                   |
+|  [03]   | `MTLS_CERT_CHAIN`                     | `adbc.flight.sql.client_option.mtls_cert_chain`       | enable mTLS, PEM certificate chain      |
+|  [04]   | `MTLS_PRIVATE_KEY`                    | `adbc.flight.sql.client_option.mtls_private_key`      | enable mTLS, PEM private key            |
+|  [05]   | `RPC_CALL_HEADER_PREFIX`              | `adbc.flight.sql.rpc.call_header.`                    | per-request header key prefix           |
+|  [06]   | `TIMEOUT_FETCH`                       | `adbc.flight.sql.rpc.timeout_seconds.fetch`           | DoGet fetch timeout (seconds)           |
+|  [07]   | `TIMEOUT_QUERY`                       | `adbc.flight.sql.rpc.timeout_seconds.query`           | GetFlightInfo query timeout (seconds)   |
+|  [08]   | `TIMEOUT_UPDATE`                      | `adbc.flight.sql.rpc.timeout_seconds.update`          | upload/update timeout (seconds)         |
+|  [09]   | `TLS_OVERRIDE_HOSTNAME`               | `adbc.flight.sql.client_option.tls_override_hostname` | TLS hostname override                   |
+|  [10]   | `TLS_ROOT_CERTS`                      | `adbc.flight.sql.client_option.tls_root_certs`        | PEM root certificates for TLS           |
+|  [11]   | `TLS_SKIP_VERIFY`                     | `adbc.flight.sql.client_option.tls_skip_verify`       | disable server TLS verification         |
+|  [12]   | `WITH_BLOCK`                          | `adbc.flight.sql.client_option.with_block`            | block until connection established      |
+|  [13]   | `WITH_COOKIE_MIDDLEWARE`              | `adbc.flight.sql.rpc.with_cookie_middleware`          | enable cookie middleware                |
+|  [14]   | `WITH_MAX_MSG_SIZE`                   | `adbc.flight.sql.client_option.with_max_msg_size`     | max gRPC message size in bytes          |
+|  [15]   | `OAUTH_FLOW`                          | `adbc.flight.sql.oauth.flow`                          | OAuth flow selector (`OAuthFlowType`)   |
+|  [16]   | `OAUTH_AUTH_URI`                      | `adbc.flight.sql.oauth.auth_uri`                      | OAuth authorization endpoint URL        |
+|  [17]   | `OAUTH_TOKEN_URI`                     | `adbc.flight.sql.oauth.token_uri`                     | OAuth token endpoint URL                |
+|  [18]   | `OAUTH_REDIRECT_URI`                  | `adbc.flight.sql.oauth.redirect_uri`                  | OAuth redirect URI                      |
+|  [19]   | `OAUTH_SCOPE`                         | `adbc.flight.sql.oauth.scope`                         | OAuth scope                             |
+|  [20]   | `OAUTH_CLIENT_ID`                     | `adbc.flight.sql.oauth.client_id`                     | OAuth client identifier                 |
+|  [21]   | `OAUTH_CLIENT_SECRET`                 | `adbc.flight.sql.oauth.client_secret`                 | OAuth client secret                     |
+|  [22]   | `OAUTH_EXCHANGE_SUBJECT_TOKEN`        | `adbc.flight.sql.oauth.exchange.subject_token`        | token-exchange subject token            |
+|  [23]   | `OAUTH_EXCHANGE_SUBJECT_TOKEN_TYPE`   | `adbc.flight.sql.oauth.exchange.subject_token_type`   | subject token type (`OAuthTokenType`)   |
+|  [24]   | `OAUTH_EXCHANGE_ACTOR_TOKEN`          | `adbc.flight.sql.oauth.exchange.actor_token`          | token-exchange actor token              |
+|  [25]   | `OAUTH_EXCHANGE_ACTOR_TOKEN_TYPE`     | `adbc.flight.sql.oauth.exchange.actor_token_type`     | actor token type (`OAuthTokenType`)     |
+|  [26]   | `OAUTH_EXCHANGE_REQUESTED_TOKEN_TYPE` | `adbc.flight.sql.oauth.exchange.requested_token_type` | requested token type (`OAuthTokenType`) |
+|  [27]   | `OAUTH_EXCHANGE_SCOPE`                | `adbc.flight.sql.oauth.exchange.scope`                | token-exchange scope                    |
+|  [28]   | `OAUTH_EXCHANGE_AUD`                  | `adbc.flight.sql.oauth.exchange.aud`                  | token-exchange audience                 |
+|  [29]   | `OAUTH_EXCHANGE_RESOURCE`             | `adbc.flight.sql.oauth.exchange.resource`             | token-exchange resource                 |
 
-[ENTRYPOINT_SCOPE]: `ConnectionOptions` and `StatementOptions` keys
+[ENTRYPOINT_SCOPE]: `ConnectionOptions` keys
 - rail: partition
+- Every key is prefixed `ConnectionOptions.` and applies at connection scope; session-option rows get and set through the `adbc.flight.sql.session.*` prefixes, and `RPC_CALL_HEADER_PREFIX`/`TIMEOUT_*` alias the same `DatabaseOptions` value, overriding database-scoped headers.
 
-Connection options own session-option get/set and override database-scoped headers; statement options own the partition read-ahead queue, Substrait version, and per-statement timeout/header overrides. `RPC_CALL_HEADER_PREFIX`, `TIMEOUT_FETCH`, `TIMEOUT_QUERY`, and `TIMEOUT_UPDATE` alias the same `DatabaseOptions` value at narrower scope.
+| [INDEX] | [MEMBER]                                   | [VALUE]                                      | [CAPABILITY]                            |
+| :-----: | :----------------------------------------- | :------------------------------------------- | :-------------------------------------- |
+|  [01]   | `OPTION_SESSION_OPTIONS`                   | `adbc.flight.sql.session.options`            | all session options as a JSON blob      |
+|  [02]   | `OPTION_SESSION_OPTION_PREFIX`             | `adbc.flight.sql.session.option.`            | one session option (key prefix)         |
+|  [03]   | `OPTION_ERASE_SESSION_OPTION_PREFIX`       | `adbc.flight.sql.session.optionerase.`       | erase a session option (key prefix)     |
+|  [04]   | `OPTION_BOOL_SESSION_OPTION_PREFIX`        | `adbc.flight.sql.session.optionbool.`        | boolean session option (key prefix)     |
+|  [05]   | `OPTION_STRING_LIST_SESSION_OPTION_PREFIX` | `adbc.flight.sql.session.optionstringlist.`  | string-list session option (key prefix) |
+|  [06]   | `RPC_CALL_HEADER_PREFIX`                   | `adbc.flight.sql.rpc.call_header.`           | header prefix, overrides db scope       |
+|  [07]   | `TIMEOUT_FETCH`                            | `adbc.flight.sql.rpc.timeout_seconds.fetch`  | fetch timeout (seconds)                 |
+|  [08]   | `TIMEOUT_QUERY`                            | `adbc.flight.sql.rpc.timeout_seconds.query`  | query timeout (seconds)                 |
+|  [09]   | `TIMEOUT_UPDATE`                           | `adbc.flight.sql.rpc.timeout_seconds.update` | update timeout (seconds)                |
 
-| [INDEX] | [MEMBER]                                                           | [VALUE]                                                    | [CAPABILITY]                                       |
-| :-----: | :----------------------------------------------------------------- | :--------------------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `ConnectionOptions.OPTION_SESSION_OPTIONS`                         | `adbc.flight.sql.session.options`                          | all session options as a JSON blob                 |
-|  [02]   | `ConnectionOptions.OPTION_SESSION_OPTION_PREFIX`                   | `adbc.flight.sql.session.option.`                          | get/set one session option (key prefix)            |
-|  [03]   | `ConnectionOptions.OPTION_ERASE_SESSION_OPTION_PREFIX`             | `adbc.flight.sql.session.optionerase.`                     | erase a session option (key prefix)                |
-|  [04]   | `ConnectionOptions.OPTION_BOOL_SESSION_OPTION_PREFIX`              | `adbc.flight.sql.session.optionbool.`                      | get/set a boolean session option (key prefix)      |
-|  [05]   | `ConnectionOptions.OPTION_STRING_LIST_SESSION_OPTION_PREFIX`       | `adbc.flight.sql.session.optionstringlist.`                | get/set a string-list session option (key prefix)  |
-|  [06]   | `ConnectionOptions.RPC_CALL_HEADER_PREFIX`                         | `adbc.flight.sql.rpc.call_header.`                         | connection-scoped header prefix (overrides db)     |
-|  [07]   | `ConnectionOptions.TIMEOUT_FETCH`/`TIMEOUT_QUERY`/`TIMEOUT_UPDATE` | `adbc.flight.sql.rpc.timeout_seconds.{fetch,query,update}` | connection-scoped timeout overrides (seconds)      |
-|  [08]   | `StatementOptions.LAST_FLIGHT_INFO`                                | `adbc.flight.sql.statement.exec.last_flight_info`          | latest `FlightInfo` (incremental execution)        |
-|  [09]   | `StatementOptions.QUEUE_SIZE`                                      | `adbc.rpc.result_queue_size`                               | batches queued per partition (default 5)           |
-|  [10]   | `StatementOptions.RPC_CALL_HEADER_PREFIX`                          | `adbc.flight.sql.rpc.call_header.`                         | statement-scoped header prefix (overrides db/conn) |
-|  [11]   | `StatementOptions.SUBSTRAIT_VERSION`                               | `adbc.flight.sql.substrait.version`                        | Substrait version on the Flight SQL request        |
-|  [12]   | `StatementOptions.TIMEOUT_FETCH`                                   | `adbc.flight.sql.rpc.timeout_seconds.fetch`                | statement-scoped DoGet fetch timeout (seconds)     |
-|  [13]   | `StatementOptions.TIMEOUT_QUERY`                                   | `adbc.flight.sql.rpc.timeout_seconds.query`                | statement-scoped query timeout (seconds)           |
-|  [14]   | `StatementOptions.TIMEOUT_UPDATE`                                  | `adbc.flight.sql.rpc.timeout_seconds.update`               | statement-scoped update timeout (seconds)          |
+[ENTRYPOINT_SCOPE]: `StatementOptions` keys
+- rail: partition
+- Every key is prefixed `StatementOptions.` and owns the partition read-ahead queue, Substrait version, and per-statement timeout/header overrides; `RPC_CALL_HEADER_PREFIX`/`TIMEOUT_*` alias `DatabaseOptions` at statement scope, overriding db and conn.
+
+| [INDEX] | [MEMBER]                 | [VALUE]                                           | [CAPABILITY]                                       |
+| :-----: | :----------------------- | :------------------------------------------------ | :------------------------------------------------- |
+|  [01]   | `LAST_FLIGHT_INFO`       | `adbc.flight.sql.statement.exec.last_flight_info` | latest `FlightInfo` (incremental execution)        |
+|  [02]   | `QUEUE_SIZE`             | `adbc.rpc.result_queue_size`                      | batches queued per partition (default 5)           |
+|  [03]   | `RPC_CALL_HEADER_PREFIX` | `adbc.flight.sql.rpc.call_header.`                | statement-scoped header prefix (overrides db/conn) |
+|  [04]   | `SUBSTRAIT_VERSION`      | `adbc.flight.sql.substrait.version`               | Substrait version on the Flight SQL request        |
+|  [05]   | `TIMEOUT_FETCH`          | `adbc.flight.sql.rpc.timeout_seconds.fetch`       | statement-scoped DoGet fetch timeout (seconds)     |
+|  [06]   | `TIMEOUT_QUERY`          | `adbc.flight.sql.rpc.timeout_seconds.query`       | statement-scoped query timeout (seconds)           |
+|  [07]   | `TIMEOUT_UPDATE`         | `adbc.flight.sql.rpc.timeout_seconds.update`      | statement-scoped update timeout (seconds)          |
 
 [ENTRYPOINT_SCOPE]: OAuth value enums
 - rail: partition

@@ -35,14 +35,21 @@
 
 [ENTRYPOINT_SCOPE]: code generation
 - rail: transport
+- flag and `run_main` mechanics carried by [CODEGEN_TOPOLOGY].
 
-| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY] | [RAIL]                                                                                                                                          |
-| :-----: | :------------------------------------------------------------------------ | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `protoc.main(command_arguments) -> int`                                   | codegen        | run `protoc` in-process; arg list UTF-8 encoded then handed to native `run_main`; returns 0 on success                                          |
-|  [02]   | `protoc.entrypoint() -> None`                                             | console script | the `grpc_tools.protoc` CLI shim; prepends the bundled `_proto` include automatically                                                           |
-|  [03]   | `command.build_package_protos(package_root, strict_mode=False)`           | build          | walk `package_root`, compile every `.proto` with `--python_out`/`--pyi_out`/`--grpc_python_out`; warn (or raise under `strict_mode`) on failure |
-|  [04]   | `ProtoFinder(suffix, codegen_fn)`                                         | construction   | meta-path finder for `_pb2`/`_pb2_grpc` suffixed module names                                                                                   |
-|  [05]   | `ProtoLoader(suffix, codegen_fn, module_name, protobuf_path, proto_root)` | construction   | proto-module loader; `exec_module` compiles + caches generated code                                                                             |
+| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [RAIL]                                          |
+| :-----: | :-------------------------------------------------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `protoc.main(command_arguments) -> int`                         | codegen        | nonzero return is a compile failure             |
+|  [02]   | `protoc.entrypoint() -> None`                                   | console script | CLI shim; prepends the bundled `_proto` include |
+|  [03]   | `command.build_package_protos(package_root, strict_mode=False)` | build          | compile every `.proto` under root               |
+
+[ENTRYPOINT_SCOPE]: dynamic-stub construction
+- rail: transport
+
+| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY] | [RAIL]                                   |
+| :-----: | :------------------------------------------------------------------------ | :------------- | :--------------------------------------- |
+|  [01]   | `ProtoFinder(suffix, codegen_fn)`                                         | construction   | resolves `_pb2`/`_pb2_grpc` module names |
+|  [02]   | `ProtoLoader(suffix, codegen_fn, module_name, protobuf_path, proto_root)` | construction   | loader; `exec_module` compiles + caches  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

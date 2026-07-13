@@ -1,52 +1,49 @@
 # [TS_SECURITY]
 
-`libs/typescript/security` is the identity-and-custody wave of the branch: authentication ceremonies (session rotation, OAuth, passkeys, digest-at-rest credentials), authorization (claims, tenancy contract), and the crypto authority (signing, token minting, crypto-shredding, leased-secret custody, inbound-signature verification) — all as Effect-owned Layers over stateless primitives. State lives behind ports the data wave satisfies at app composition; this folder holds keys and verdicts, never rows. `ARCHITECTURE.md` carries the domain map and seams, `IDEAS.md` the forward pool, and `TASKLOG.md` the open work.
+`libs/typescript/security` owns the branch identity-and-custody authority — authentication ceremonies, authorization decisions, and the crypto authority — as Effect Layers over stateless primitives. State lives behind ports the data wave satisfies at app composition; this folder holds keys and verdicts, never rows.
 
 ## [01]-[ROUTER]
 
-- [01]-[SIGN](.planning/crypt/sign.md)
-- [02]-[VERIFY](.planning/crypt/verify.md)
-- [03]-[SECRET](.planning/crypt/secret.md)
-- [04]-[SESSION](.planning/authn/session.md)
-- [05]-[CREDENTIAL](.planning/authn/credential.md)
-- [06]-[OAUTH](.planning/authn/oauth.md)
-- [07]-[WEBAUTHN](.planning/authn/webauthn.md)
-- [08]-[CLAIM](.planning/access/claim.md)
-- [09]-[TENANT](.planning/access/tenant.md)
+[CRYPT]:
+- [01]-[SIGN](.planning/crypt/sign.md): Crypto authority minting every digest, signature, token, and envelope.
+- [02]-[VERIFY](.planning/crypt/verify.md): Inbound-signature dialect table folding one constant-time verify over held request octets.
+- [03]-[SECRET](.planning/crypt/secret.md): Leased-secret custody scoping `DopplerSDK` to the surfaces the folder admits.
+
+[AUTHN]:
+- [04]-[SESSION](.planning/authn/session.md): Identity spine owning `Session` rotation, ports, and CSRF egress the ceremonies feed.
+- [05]-[CREDENTIAL](.planning/authn/credential.md): One mint-and-resolve idiom over OTP, recovery codes, and machine API keys.
+- [06]-[OAUTH](.planning/authn/oauth.md): Issuer-row authorization-code ceremony over `arctic` — url, exchange, refresh, revoke per row.
+- [07]-[WEBAUTHN](.planning/authn/webauthn.md): Passkey ceremony split by runtime subpath so the browser bundle drops the RP verifier.
+
+[ACCESS]:
+- [08]-[CLAIM](.planning/access/claim.md): Entitlement fold evaluating the RBAC-union-ReBAC decision once per request.
+- [09]-[TENANT](.planning/access/tenant.md): Tenancy contract projecting the `app.current_tenant` RLS shape the data wave enforces.
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Every folder-specific external library, planned or implemented. Versions are centralized in `pnpm-workspace.yaml`; corroborating API evidence lives in the adjacent `.api/` folder.
+Folder-specific libraries admitted here; versions centralize in `pnpm-workspace.yaml` and corroborate against this folder's `.api/`.
 
-[TOKEN_AUTHORITY]:
+[CRYPTO_TOKEN]:
 - `jose`
-
-[DIGEST_PRIMITIVES]:
 - `@node-rs/argon2`
 - `@oslojs/crypto`
 - `@oslojs/encoding`
-- `@otplib/core` — the OTP substrate under `otplib`: `OTPHooks` variant hooks, plugin factories, guardrail caps, the typed OTP error taxonomy
-- `otplib`
 
-[OAUTH_CEREMONY]:
+[CEREMONY]:
 - `arctic`
-
-[PASSKEYS]:
 - `@simplewebauthn/server`
 - `@simplewebauthn/browser`
+- `@otplib/core` — OTP substrate `otplib` composes.
+- `otplib`
 
-[SECRET_CUSTODY]:
+[CUSTODY]:
 - `@dopplerhq/node-sdk`
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Cross-cutting TypeScript substrate this folder consumes; canonical registry and charters live in `libs/typescript/.planning/README.md` and the adjacent `libs/typescript/.api/` folder.
+Shared TypeScript substrate consumed from the branch registry; `libs/typescript/.planning/README.md` and `libs/typescript/.api/` own the contracts and evidence.
 
-[TYPING_RAILS]:
+[EFFECT_RUNTIME]:
 - `effect`
-
-[PLATFORM]:
 - `@effect/platform`
-
-[RESILIENCE_OVERLAYS]:
 - `@effect/experimental`

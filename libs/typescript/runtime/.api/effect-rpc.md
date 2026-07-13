@@ -21,13 +21,14 @@
 - rail: rpc
 - `Rpc<Tag, Payload, Success, Error, Middleware>` is one Schema-typed procedure. The `Rpc.*` type projections (`Payload`/`Success`/`Error`/`Exit`/`Context`/`Middleware`) recover each axis for handler and client typing without re-declaration. `Rpc.Wrapper` marks a handler response `fork`ed (concurrent) or `uninterruptible`.
 
-| [INDEX] | [SYMBOL]                                                         | [TYPE_FAMILY]   | [RAIL]                                                            |
-| :-----: | :--------------------------------------------------------------- | :-------------- | :---------------------------------------------------------------- |
-|  [01]   | `Rpc.Rpc<Tag, Payload, Success, Error, Middleware>`              | branded record  | one Schema-typed procedure                                        |
-|  [02]   | `Rpc.Handler<Tag>`                                               | interface       | the handler function type derived from a procedure                |
-|  [03]   | `Rpc.Any` / `Rpc.AnyWithProps`                                   | interface       | existential procedure for group/collection typing                 |
-|  [04]   | `Rpc.Payload`/`Success`/`Error`/`Exit`/`Context`/`Middleware<R>` | type projection | recover one axis of a procedure                                   |
-|  [05]   | `Rpc.Wrapper` / `Rpc.From<S>`                                    | interface       | `fork`/`uninterruptible` response marker / `TaggedRequest` bridge |
+| [INDEX] | [SYMBOL]                                                         | [TYPE_FAMILY]   | [RAIL]                                             |
+| :-----: | :--------------------------------------------------------------- | :-------------- | :------------------------------------------------- |
+|  [01]   | `Rpc.Rpc<Tag, Payload, Success, Error, Middleware>`              | branded record  | one Schema-typed procedure                         |
+|  [02]   | `Rpc.Handler<Tag>`                                               | interface       | the handler function type derived from a procedure |
+|  [03]   | `Rpc.Any` / `Rpc.AnyWithProps`                                   | interface       | existential procedure for group/collection typing  |
+|  [04]   | `Rpc.Payload`/`Success`/`Error`/`Exit`/`Context`/`Middleware<R>` | type projection | recover one axis of a procedure                    |
+|  [05]   | `Rpc.Wrapper`                                                    | interface       | `fork`/`uninterruptible` response marker           |
+|  [06]   | `Rpc.From<S>`                                                    | interface       | `Schema.TaggedRequest` → `Rpc` bridge              |
 
 [PUBLIC_TYPE_SCOPE]: group contribution family (`RpcGroup`)
 - rail: rpc
@@ -44,27 +45,28 @@
 - rail: rpc
 - The server is a `Layer` demanding a `Protocol`; the client is derived from the group so it shares every Schema. `RpcSchema.Stream<A, E>` types a streaming response as an `effect/Stream`. `RpcMiddleware.TagClass` is a schema-typed middleware definition usable on both ends.
 
-| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]       | [RAIL]                                                            |
-| :-----: | :------------------------------------------------------ | :------------------ | :---------------------------------------------------------------- |
-|  [01]   | `RpcServer.RpcServer<Rpcs>`                             | service             | the served handler set demanding a `Protocol` Layer               |
-|  [02]   | `RpcClient.RpcClient<Rpcs>` / `RpcClient.Flat<Rpcs>`    | service             | group-derived typed caller (nested / flattened)                   |
-|  [03]   | `RpcSchema.Stream<A, E>`                                | schema              | streaming response schema (`Stream<A, E>`)                        |
-|  [04]   | `RpcMiddleware.TagClass<Self, Name, Options>`           | Context.Tag         | schema-typed middleware definition (`failure`/`provides`)         |
-|  [05]   | `RpcSerialization.Parser` / `RpcSerialization`          | service             | wire-codec parser contract / the serialization Tag                |
-|  [06]   | `RpcClientError` / `RpcMessage.FromClient`/`FromServer` | error class + union | client transport `TaggedError` / the wire protocol message unions |
+| [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY] | [RAIL]                                                    |
+| :-----: | :--------------------------------------------------- | :------------ | :-------------------------------------------------------- |
+|  [01]   | `RpcServer.RpcServer<Rpcs>`                          | service       | the served handler set demanding a `Protocol` Layer       |
+|  [02]   | `RpcClient.RpcClient<Rpcs>` / `RpcClient.Flat<Rpcs>` | service       | group-derived typed caller (nested / flattened)           |
+|  [03]   | `RpcSchema.Stream<A, E>`                             | schema        | streaming response schema (`Stream<A, E>`)                |
+|  [04]   | `RpcMiddleware.TagClass<Self, Name, Options>`        | Context.Tag   | schema-typed middleware definition (`failure`/`provides`) |
+|  [05]   | `RpcSerialization.Parser` / `RpcSerialization`       | service       | wire-codec parser contract / the serialization Tag        |
+|  [06]   | `RpcClientError`                                     | error class   | client transport `TaggedError`                            |
+|  [07]   | `RpcMessage.FromClient`/`FromServer`                 | wire union    | the wire protocol message unions                          |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: procedure definition (`Rpc`)
 - rail: rpc
-- `Rpc.make(tag, options)` is the one procedure constructor: `payload`/`success`/`error` are `Schema`s (or `Struct.Fields`), `stream: true` lifts `success` to `RpcSchema.Stream`, `primaryKey` enables request dedup. `fromTaggedRequest` bridges an existing `Schema.TaggedRequest`. Handler responses wrap in `fork`/`uninterruptible`.
+- `Rpc.make(tag, options)` is the one procedure constructor: `payload`/`success`/`error` are `Schema`s (or `Struct.Fields`), `stream: true` lifts `success` to `RpcSchema.Stream`, `primaryKey` enables request dedup, `defect` schemas an uncaught failure. `fromTaggedRequest` bridges an existing `Schema.TaggedRequest`. Handler responses wrap in `fork`/`uninterruptible`.
 
-| [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY] | [RAIL]                                               |
-| :-----: | :----------------------------------------------------------------------------- | :------------- | :--------------------------------------------------- |
-|  [01]   | `Rpc.make(tag, { payload?, success?, error?, stream?, defect?, primaryKey? })` | constructor    | define one Schema-typed procedure                    |
-|  [02]   | `Rpc.fromTaggedRequest(schema)`                                                | bridge         | lift a `Schema.TaggedRequest` class to an `Rpc`      |
-|  [03]   | `Rpc.exitSchema(rpc)`                                                          | schema         | the `Schema<Exit>` for a procedure's result          |
-|  [04]   | `Rpc.fork(value)` / `Rpc.uninterruptible(value)`                               | wrapper        | mark a handler response concurrent / uninterruptible |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                                               |
+| :-----: | :----------------------------------------------- | :------------- | :--------------------------------------------------- |
+|  [01]   | `Rpc.make(tag, options)`                         | constructor    | define one Schema-typed procedure                    |
+|  [02]   | `Rpc.fromTaggedRequest(schema)`                  | bridge         | lift a `Schema.TaggedRequest` class to an `Rpc`      |
+|  [03]   | `Rpc.exitSchema(rpc)`                            | schema         | the `Schema<Exit>` for a procedure's result          |
+|  [04]   | `Rpc.fork(value)` / `Rpc.uninterruptible(value)` | wrapper        | mark a handler response concurrent / uninterruptible |
 
 [ENTRYPOINT_SCOPE]: group assembly + handlers (`RpcGroup`)
 - rail: rpc
@@ -80,45 +82,65 @@
 
 [ENTRYPOINT_SCOPE]: server protocol rows (http | websocket | worker | stdio)
 - rail: rpc
-- `RpcServer.layer(group, options?)` is the served handler set; it demands a `Protocol` provided by one `layerProtocol*` row (the transport axis) plus one `RpcSerialization` layer (the codec axis) — orthogonal and swappable. `layerHttpRouter` fuses handler+protocol+mount for the common HTTP/WS case; `toWebHandler` yields a `fetch` handler for edge runtimes.
+- `RpcServer.layer(group, options?)` is the served handler set; it demands a `Protocol` provided by one `layerProtocol*` row (the transport axis) plus one `RpcSerialization` layer (the codec axis) — orthogonal and swappable. `layerHttpRouter` fuses handler+protocol+mount for the common HTTP/WS case; `toWebHandler` yields a `fetch` handler for edge runtimes. Every surface is an `RpcServer.*` member, and each `layerProtocol*` row pairs its unlayered `makeProtocol*` twin.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                          | [ENTRY_FAMILY] | [RAIL]                                                                       |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `RpcServer.layer(group, { concurrency?, spanPrefix?, disableTracing? })`                                                                                                                                                                                           | serve          | the handler-set Layer (demands `Protocol` + handlers)                        |
-|  [02]   | `RpcServer.layerProtocolHttp({ path, … })` / `layerProtocolHttpRouter`                                                                                                                                                                                             | protocol       | HTTP transport over `HttpRouter`                                             |
-|  [03]   | `RpcServer.layerProtocolWebsocket({ path, … })` / `layerProtocolWebsocketRouter`                                                                                                                                                                                   | protocol       | WebSocket transport (the `live` socket row)                                  |
-|  [04]   | `RpcServer.layerProtocolWorkerRunner`                                                                                                                                                                                                                              | protocol       | `WorkerRunner` transport (the `worker` row)                                  |
-|  [05]   | `RpcServer.layerProtocolStdio({ stdin, stdout })`                                                                                                                                                                                                                  | protocol       | stdio transport (`stdin` Stream / `stdout` Sink; MCP/child-process/CLI rows) |
-|  [06]   | `RpcServer.layerProtocolSocketServer`                                                                                                                                                                                                                              | protocol       | raw socket transport over a platform `SocketServer`                          |
-|  [07]   | `RpcServer.makeProtocolHttp` / `makeProtocolHttpRouter` / `makeProtocolWebsocket` / `makeProtocolWebsocketRouter` / `makeProtocolWithHttpApp` / `makeProtocolWithHttpAppWebsocket` / `makeProtocolSocketServer` / `makeProtocolWorkerRunner` / `makeProtocolStdio` | protocol (raw) | the unlayered `Protocol` constructors behind each `layerProtocol*` row       |
-|  [08]   | `RpcServer.layerHttpRouter({ group, path, protocol? })`                                                                                                                                                                                                            | serve+mount    | fused handler+protocol mount on an `HttpRouter` path                         |
-|  [09]   | `RpcServer.toHttpApp(group, options?)` / `RpcServer.toWebHandler(group, { middleware?, memoMap? })`                                                                                                                                                                | serve          | `HttpApp` value / `fetch` `{ handler, dispose }`                             |
+| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [RAIL]                                                |
+| :-----: | :------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `layer(group, { concurrency?, spanPrefix?, disableTracing? })` | serve          | the handler-set Layer (demands `Protocol` + handlers) |
+|  [02]   | `layerProtocolHttp({ path, … })` / `makeProtocolHttp`          | protocol       | HTTP transport over `HttpRouter`                      |
+|  [03]   | `layerProtocolHttpRouter` / `makeProtocolHttpRouter`           | protocol       | HTTP transport on an existing `HttpRouter`            |
+|  [04]   | `layerProtocolWebsocket` / `makeProtocolWebsocket`             | protocol       | WebSocket transport (the `live` socket row)           |
+|  [05]   | `layerProtocolWebsocketRouter` / `makeProtocolWebsocketRouter` | protocol       | WebSocket transport on an existing router             |
+|  [06]   | `layerProtocolWorkerRunner` / `makeProtocolWorkerRunner`       | protocol       | `WorkerRunner` transport (the `worker` row)           |
+|  [07]   | `layerProtocolStdio({ stdin, stdout })` / `makeProtocolStdio`  | protocol       | stdio transport (`stdin` Stream / `stdout` Sink)      |
+|  [08]   | `layerProtocolSocketServer` / `makeProtocolSocketServer`       | protocol       | raw socket transport over a `SocketServer`            |
+|  [09]   | `makeProtocolWithHttpApp` / `makeProtocolWithHttpAppWebsocket` | protocol (raw) | `Protocol` from an existing `HttpApp` (unary / +WS)   |
+|  [10]   | `layerHttpRouter({ group, path, protocol? })`                  | serve+mount    | fused handler+protocol mount on an `HttpRouter` path  |
+|  [11]   | `toHttpApp(group, options?)`                                   | serve          | `HttpApp` value from a group                          |
+|  [12]   | `toWebHandler(group, { middleware?, memoMap? })`               | serve          | `fetch` `{ handler, dispose }` for edge runtimes      |
 
 [ENTRYPOINT_SCOPE]: client protocol rows + per-request headers (`RpcClient`)
 - rail: rpc
-- `RpcClient.make(group, options?)` derives a fully-typed caller from the *same* group. The client protocol rows mirror the server; `currentHeaders` is a `FiberRef<Headers>` and `withHeaders` scopes per-call headers (auth token, trace context) without threading them through every call.
+- `RpcClient.make(group, options?)` derives a fully-typed caller from the *same* group. The client protocol rows mirror the server; `currentHeaders` is a `FiberRef<Headers>` and `withHeaders` scopes per-call headers (auth token, trace context) without threading them through every call. Every surface is an `RpcClient.*` member.
 
-| [INDEX] | [SURFACE]                                                                                                  | [ENTRY_FAMILY] | [RAIL]                                                      |
-| :-----: | :--------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------- |
-|  [01]   | `RpcClient.make(group, { spanPrefix?, flatten?, generateRequestId? })`                                     | derive         | build the group-typed caller (`Effect` yielding the client) |
-|  [02]   | `RpcClient.layerProtocolHttp({ url, transformClient?, retryTransientErrors? })`                            | protocol       | HTTP client transport over `HttpClient`                     |
-|  [03]   | `RpcClient.layerProtocolSocket({ retryTransientErrors? })` / `layerProtocolWorker({ size, concurrency? })` | protocol       | socket / worker-pool transport                              |
-|  [04]   | `RpcClient.makeProtocolHttp(client)` / `makeProtocolSocket(options?)` / `makeProtocolWorker(options)`      | protocol (raw) | the unlayered client `Protocol` constructors                |
-|  [05]   | `RpcClient.withHeaders(effect, headers)` / `RpcClient.currentHeaders`                                      | headers        | scope per-request headers / the `FiberRef<Headers>`         |
+| [INDEX] | [SURFACE]                                                             | [ENTRY_FAMILY] | [RAIL]                                     |
+| :-----: | :-------------------------------------------------------------------- | :------------- | :----------------------------------------- |
+|  [01]   | `make(group, { spanPrefix?, flatten?, generateRequestId? })`          | derive         | build the group-typed caller (an `Effect`) |
+|  [02]   | `layerProtocolHttp({ url, transformClient?, retryTransientErrors? })` | protocol       | HTTP client transport over `HttpClient`    |
+|  [03]   | `layerProtocolSocket({ retryTransientErrors? })`                      | protocol       | socket client transport                    |
+|  [04]   | `layerProtocolWorker({ size, concurrency? })`                         | protocol       | worker-pool client transport               |
+|  [05]   | `makeProtocolHttp(client)`                                            | protocol (raw) | unlayered HTTP client `Protocol`           |
+|  [06]   | `makeProtocolSocket(options?)`                                        | protocol (raw) | unlayered socket client `Protocol`         |
+|  [07]   | `makeProtocolWorker(options)`                                         | protocol (raw) | unlayered worker client `Protocol`         |
+|  [08]   | `withHeaders(effect, headers)` / `currentHeaders`                     | headers        | per-call headers / the `FiberRef<Headers>` |
 
-[ENTRYPOINT_SCOPE]: serialization rows, middleware, streaming, worker, test
+[ENTRYPOINT_SCOPE]: serialization codec rows (`RpcSerialization`)
 - rail: rpc
-- Serialization is the second orthogonal axis (a bare `RpcSerialization` Layer). `RpcMiddleware.Tag` defines a schema-typed middleware once for both ends. `RpcWorker.layerInitialMessage` sends a typed handshake payload; `RpcTest.makeClient` calls handlers directly with no transport.
+- Serialization is the second orthogonal axis: a bare `RpcSerialization` Layer crossed with any protocol. The `layer*` rows are the wire codecs, `makeMsgPack` tunes `msgpackr`, and the bare `json`/`ndjson`/`msgPack` values back the layers.
 
-| [INDEX] | [SURFACE]                                                                                                     | [ENTRY_FAMILY] | [RAIL]                                                     |
-| :-----: | :------------------------------------------------------------------------------------------------------------ | :------------- | :--------------------------------------------------------- |
-|  [01]   | `RpcSerialization.layerJson`/`layerNdjson`/`layerJsonRpc(options?)`/`layerNdJsonRpc(options?)`/`layerMsgPack` | codec          | the wire-serialization Layer rows (orthogonal to protocol) |
-|  [02]   | `RpcSerialization.makeMsgPack(msgpackrOptions?)` / `json`/`ndjson`/`msgPack`                                  | codec          | tuned msgpack layer / the bare codec values                |
-|  [03]   | `RpcMiddleware.Tag<Self>()(id, { failure?, provides?, wrap?, requiredForClient? })`                           | middleware     | define a schema-typed middleware `TagClass`                |
-|  [04]   | `RpcMiddleware.layerClient(tag, service)`                                                                     | middleware     | provide the client-side arm of a middleware                |
-|  [05]   | `RpcSchema.Stream({ success, failure })` / `RpcSchema.isStreamSchema(u)`                                      | streaming      | streaming-response schema constructor / guard              |
-|  [06]   | `RpcWorker.layerInitialMessage(schema, build)` / `RpcWorker.initialMessage(schema)`                           | worker         | send / receive the typed worker handshake                  |
-|  [07]   | `RpcTest.makeClient(group, { flatten? })`                                                                     | test           | in-memory client calling handlers with no transport        |
+| [INDEX] | [SURFACE]                                        | [CODEC_FAMILY] | [RAIL]                                      |
+| :-----: | :----------------------------------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `RpcSerialization.layerJson`                     | layer          | JSON serialization Layer                    |
+|  [02]   | `RpcSerialization.layerNdjson`                   | layer          | NDJSON serialization Layer                  |
+|  [03]   | `RpcSerialization.layerJsonRpc(options?)`        | layer          | JSON-RPC serialization Layer                |
+|  [04]   | `RpcSerialization.layerNdJsonRpc(options?)`      | layer          | NDJSON-RPC serialization Layer              |
+|  [05]   | `RpcSerialization.layerMsgPack`                  | layer          | MessagePack serialization Layer             |
+|  [06]   | `RpcSerialization.makeMsgPack(msgpackrOptions?)` | tuned          | msgpack Layer with tuned `msgpackr` options |
+|  [07]   | `RpcSerialization.json` / `ndjson` / `msgPack`   | bare           | the bare codec values behind the layers     |
+
+[ENTRYPOINT_SCOPE]: middleware, streaming, worker, test
+- rail: rpc
+- `RpcMiddleware.Tag` defines a schema-typed middleware once for both ends. `RpcSchema.Stream` constructs a streaming-response schema; `RpcWorker.layerInitialMessage` sends a typed handshake payload; `RpcTest.makeClient` calls handlers directly with no transport.
+
+| [INDEX] | [SURFACE]                                                                           | [ENTRY_FAMILY] | [RAIL]                           |
+| :-----: | :---------------------------------------------------------------------------------- | :------------- | :------------------------------- |
+|  [01]   | `RpcMiddleware.Tag<Self>()(id, { failure?, provides?, wrap?, requiredForClient? })` | middleware     | define the middleware `TagClass` |
+|  [02]   | `RpcMiddleware.layerClient(tag, service)`                                           | middleware     | client-side arm of a middleware  |
+|  [03]   | `RpcSchema.Stream({ success, failure })`                                            | streaming      | streaming-response schema        |
+|  [04]   | `RpcSchema.isStreamSchema(u)`                                                       | streaming      | stream-schema guard              |
+|  [05]   | `RpcWorker.layerInitialMessage(schema, build)`                                      | worker         | send the worker handshake        |
+|  [06]   | `RpcWorker.initialMessage(schema)`                                                  | worker         | receive the worker handshake     |
+|  [07]   | `RpcTest.makeClient(group, { flatten? })`                                           | test           | in-memory client, no transport   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

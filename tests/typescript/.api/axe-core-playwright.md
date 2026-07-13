@@ -14,18 +14,19 @@
 
 [ENTRYPOINT_SCOPE]: one class, fluent rows, one terminal verb.
 
-| [INDEX] | [SYMBOL]                                   | [TYPE]                          | [CAPABILITY]                                                          |
-| :-----: | :----------------------------------------- | :------------------------------ | :-------------------------------------------------------------------- |
-|  [01]   | `new AxeBuilder({ page })`                 | `(params: AxePlaywrightParams)` | binds one live `Page`; `axeSource` swaps the injected engine build    |
-|  [02]   | `include(selector)`                        | `(SerialFrameSelector) => this` | scope IN: repeatable; frame-piercing via selector arrays              |
-|  [03]   | `exclude(selector)`                        | `(SerialFrameSelector) => this` | scope OUT: subtracts subtrees from the audit                          |
-|  [04]   | `withTags(tags)`                           | `(string \| string[]) => this`  | rule selection by tag — `wcag2a`/`wcag2aa`/`wcag21aa`/`best-practice` |
-|  [05]   | `withRules(rules)` / `disableRules(rules)` | `(string \| string[]) => this`  | rule selection by id; disable wins over any selection                 |
-|  [06]   | `options(options)`                         | `(RunOptions) => this`          | raw engine pass-through; `withTags`/`withRules` are its typed face    |
-|  [07]   | `setLegacyMode(on?)`                       | `(boolean?) => this`            | pre-4.3 frame injection; never used — modern frame audit is default   |
-|  [08]   | `analyze()`                                | `() => Promise<AxeResults>`     | inject, run, fold every frame; the one receipt                        |
+| [INDEX] | [SYMBOL]                   | [TYPE]                          | [CAPABILITY]                                                          |
+| :-----: | :------------------------- | :------------------------------ | :-------------------------------------------------------------------- |
+|  [01]   | `new AxeBuilder({ page })` | `(params: AxePlaywrightParams)` | binds one live `Page`; `axeSource` swaps the injected engine build    |
+|  [02]   | `include(selector)`        | `(SerialFrameSelector) => this` | scope IN: repeatable; frame-piercing via selector arrays              |
+|  [03]   | `exclude(selector)`        | `(SerialFrameSelector) => this` | scope OUT: subtracts subtrees from the audit                          |
+|  [04]   | `withTags(tags)`           | `(string \| string[]) => this`  | rule selection by tag — `wcag2a`/`wcag2aa`/`wcag21aa`/`best-practice` |
+|  [05]   | `withRules(rules)`         | `(string \| string[]) => this`  | rule selection by id — additive                                       |
+|  [06]   | `disableRules(rules)`      | `(string \| string[]) => this`  | rule id removal; wins over any selection                              |
+|  [07]   | `options(options)`         | `(RunOptions) => this`          | raw engine pass-through; `withTags`/`withRules` are its typed face    |
+|  [08]   | `setLegacyMode(on?)`       | `(boolean?) => this`            | pre-4.3 frame injection; never used — modern frame audit is default   |
+|  [09]   | `analyze()`                | `() => Promise<AxeResults>`     | inject, run, fold every frame; the one receipt                        |
 
-```ts contract
+```ts signature
 // dist/index.d.mts — the whole public surface; AxeBuilder is also the default export.
 interface AxePlaywrightParams { page: Page; axeSource?: string }
 declare class AxeBuilder {
@@ -46,7 +47,7 @@ export { AxeBuilder, AxeBuilder as default }
 
 `AxeResults` is the audit as data: four disjoint result groups over one `Result` row shape. The gauge verdict is `violations` — an empty array is conformance, and each violation row carries the rule id, impact, wcag tags, and the offending nodes with their selector ancestry.
 
-```ts contract
+```ts signature
 // axe-core axe.d.ts — the receipt the builder resolves.
 interface AxeResults extends EnvironmentData { toolOptions: RunOptions; passes: Result[]; violations: Result[]; incomplete: IncompleteResult[]; inapplicable: Result[] }
 interface Result { description: string; help: string; helpUrl: string; id: string; impact?: ImpactValue; tags: TagValue[]; nodes: NodeResult[] }

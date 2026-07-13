@@ -579,15 +579,21 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or column, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
+One owner per axis; capability is a case, row, or column, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes, and the per-owner kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]   | [OWNER]         | [KIND]                                                                                                                                                                                                                               | [RAIL]                                          | [CASES] |
-| :-----: | :--------------- | :-------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------- | :-----: |
-|  [01]   | Healing rail     | `Heal`/`HealOp` | static surface (public `Repair` + `Standard`, internal kernels) + `HealOp` `[Union]` (6 stateless + 1 payload)                                                                                                                       | `Heal.Repair(HealPlan, Op?) → Fin<HealSession>` |    7    |
-|  [4a]   | Heal modality    | `HealStage`     | `[SmartEnum<string>]` — fault payload 2408 + receipt discriminant + `RebuildsTopology`/`Mint` columns (`Standard` derives)                                                                                                           | discriminant (pure)                             |    7    |
-|  [4b]   | Policy row       | `RepairPolicy`  | `sealed record` + `IValidityEvidence` — 3 admitted scalars + 4 composed sibling policies, `Of` admission                                                                                                                             | `RepairPolicy.Of → Fin<RepairPolicy>`           |    —    |
-|  [4c]   | Request carrier  | `HealPlan`      | `sealed record` + `IValidityEvidence` — input + op order + policy, `Of` admission (empty ops refused, defaults derived)                                                                                                              | `HealPlan.Of → Fin<HealPlan>`                   |    —    |
-|  [4d]   | Shared incidence | `Incidence`     | one fold per ARENA STATE — boundary half-edges, non-manifold rows, face-dual graph project off ONE build; the `HealStep.Carry` threads a still-current instance to the next kernel (gap→manifold→orient), a mutating kernel drops it | interior (arena-tier scratch)                   |    3    |
+| [INDEX] | [AXIS_CONCERN]   | [OWNER]         | [RAIL]                                          | [CASES] |
+| :-----: | :--------------- | :-------------- | :---------------------------------------------- | :-----: |
+|  [01]   | Healing rail     | `Heal`/`HealOp` | `Heal.Repair(HealPlan, Op?) → Fin<HealSession>` |    7    |
+|  [02]   | Heal modality    | `HealStage`     | discriminant (pure)                             |    7    |
+|  [03]   | Policy row       | `RepairPolicy`  | `RepairPolicy.Of → Fin<RepairPolicy>`           |    —    |
+|  [04]   | Request carrier  | `HealPlan`      | `HealPlan.Of → Fin<HealPlan>`                   |    —    |
+|  [05]   | Shared incidence | `Incidence`     | interior (arena-tier scratch)                   |    3    |
+
+- [01]-[HEALING_RAIL]: static surface (public `Repair` + `Standard`, internal kernels) + `HealOp` `[Union]` (6 stateless + 1 payload).
+- [02]-[HEAL_MODALITY]: `[SmartEnum<string>]` — fault payload 2408 + receipt discriminant + `RebuildsTopology`/`Mint` columns (`Standard` derives).
+- [03]-[POLICY_ROW]: `sealed record` + `IValidityEvidence` — 3 admitted scalars + 4 composed sibling policies, `Of` admission.
+- [04]-[REQUEST_CARRIER]: `sealed record` + `IValidityEvidence` — input + op order + policy, `Of` admission (empty ops refused, defaults derived).
+- [05]-[SHARED_INCIDENCE]: one fold per ARENA STATE — boundary half-edges, non-manifold rows, face-dual graph project off ONE build; the `HealStep.Carry` threads a still-current instance to the next kernel (gap→manifold→orient), a mutating kernel drops it.
 
 The six author-kernel ops are pure-managed folds over the arena composing the `Predicate` exact-sign floor, the `neighbors.md` proximity lane, QuikGraph traversal, and the `Intersection`/`Tessellation` substrate; the `Boolean` row is a thin `Arrangement.Apply` delegation whose exactness, regularized keep-rule, and tier-3 native scale gate (`NativeAssetMissing` 2423, `ScaleCeiling`) are entirely the arrangement owner's — this page carries no second gate, no second CSG kernel, and no second broad-phase.
 

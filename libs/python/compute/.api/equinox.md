@@ -15,105 +15,120 @@
 
 [PUBLIC_TYPE_SCOPE]: module and configuration types
 - rail: model
+- call: `field(*, converter, static, default, ...)` / `static_field(**kwargs)` declare fields; `nn.StateIndex(init)` keys a `State` bundle (`state.get(index)` / `state.set(index, v)`); `Partial(fun, *args, **kwargs)` is the pytree `functools.partial`
 
-| [INDEX] | [SYMBOL]                                    | [PACKAGE_ROLE]       | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| :-----: | :------------------------------------------ | :------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Module`                                    | pytree base class    | dataclass base for all JAX-native parametric model classes; auto-registered pytree                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-|  [02]   | `field(*, converter, static, default, ...)` | field declaration    | declares a `Module` field; `static=True` folds it into the `PyTreeDef` (not a leaf)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-|  [03]   | `static_field(**kwargs)`                    | field declaration    | shorthand for `field(static=True)` — non-array config carried statically                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-|  [04]   | `AbstractVar[T]`                            | abstract field       | declares a required instance field on an abstract `Module` subclass                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-|  [05]   | `AbstractClassVar[T]`                       | abstract class field | declares a required class-level field                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-|  [06]   | `nn.State`                                  | mutable state bundle | functional state object threaded through stateful layers (`BatchNorm`, etc.)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-|  [07]   | `nn.StateIndex(init)`                       | state handle         | typed key into a `State` bundle; `state.get(index)` / `state.set(index, v)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-|  [08]   | `Enumeration`                               | enum base            | equinox-native traceable enumeration type; members are `EnumerationItem` carriers exposing ONLY `_value` (the int code) and `_enumeration` (the class) with NO `.name`/`.value` member-name attribute (`Cls[item]` returns the human message, the member-name recovered by inverting the class `_name_to_item` map); `Enumeration.promote(item)` widens a member from a parent `Enumeration` to a subclass and raises `ValueError` on a same-class member (inheritance-widening, NOT a vmap reduction), `Enumeration.where(pred, a, b)` is the branchless `jnp.where` 2-way select — the base type the `optimistix.RESULTS`/`diffrax.RESULTS`/`lineax.RESULTS` termination enums inherit, so a batched-`vmap` worst-case aggregation is `jnp.max` over the `_value` codes plus the `_name_to_item` inversion |
-|  [09]   | `Partial(fun, *args, **kwargs)`             | partial application  | pytree-compatible `functools.partial` (closure carried as a pytree)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-|  [10]   | `EquinoxRuntimeError`                       | error type           | runtime error raised inside filtered transforms (paired with `error_if`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-|  [11]   | `EquinoxTracetimeError`                     | error type           | trace-time error for invalid traced operations                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+`Enumeration` is the traceable enum base the `optimistix.RESULTS`/`diffrax.RESULTS`/`lineax.RESULTS` termination enums inherit: a member is an `EnumerationItem` exposing ONLY `_value` (the int code) and `_enumeration` (the class), never `.name`/`.value` — `Cls[item]` returns the human message and the member name inverts the class `_name_to_item` map. `Enumeration.promote(item)` widens a member from a parent to a subclass (`ValueError` on a same-class member, inheritance-widening, NOT a vmap reduction); `Enumeration.where(pred, a, b)` is the branchless `jnp.where` 2-way select; a batched-`vmap` worst-case aggregation is `jnp.max` over the `_value` codes plus the `_name_to_item` inversion.
+
+| [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]       | [CAPABILITY]                                                                       |
+| :-----: | :---------------------- | :------------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `Module`                | pytree base class    | dataclass base for all JAX-native parametric model classes; auto-registered pytree |
+|  [02]   | `field`                 | field declaration    | declares a `Module` field; `static=True` folds it into the `PyTreeDef`             |
+|  [03]   | `static_field`          | field declaration    | shorthand for `field(static=True)` — non-array config carried statically           |
+|  [04]   | `AbstractVar[T]`        | abstract field       | declares a required instance field on an abstract `Module` subclass                |
+|  [05]   | `AbstractClassVar[T]`   | abstract class field | declares a required class-level field                                              |
+|  [06]   | `nn.State`              | mutable state bundle | functional state threaded through stateful layers (`BatchNorm`, etc.)              |
+|  [07]   | `nn.StateIndex`         | state handle         | typed key into a `State` bundle                                                    |
+|  [08]   | `Enumeration`           | enum base            | traceable enum base the sibling `RESULTS` enums inherit (above)                    |
+|  [09]   | `Partial`               | partial application  | pytree-compatible `functools.partial` (closure carried as a pytree)                |
+|  [10]   | `EquinoxRuntimeError`   | error type           | runtime error raised inside filtered transforms (paired with `error_if`)           |
+|  [11]   | `EquinoxTracetimeError` | error type           | trace-time error for invalid traced operations                                     |
 
 [PUBLIC_TYPE_SCOPE]: filter transforms
 - rail: model
 - The filter transforms generalize the `jax` transforms over a single `arg_filter`: by default they partition on `is_array` (differentiate/trace only array leaves), so a `Module` mixing arrays + Python config needs no manual `static_argnums`. The autodiff mirrors carry the SAME `argnums`/`has_aux` semantics as their `jax` counterparts — confirming the residual question: yes, `filter_value_and_grad`/`filter_jacfwd`/`filter_jacrev`/`filter_hessian` all accept `has_aux`, and the autodiff family differentiates by the `arg`-position `filter_spec` rather than integer `argnums` (the first argument's array leaves are the differentiands). `filter_grad`/`filter_value_and_grad` are restricted to scalar output; `filter_jacfwd`/`filter_jacrev` are the vector-output Jacobian forms; `filter_hessian = filter_jacfwd(filter_jacrev(...))`.
 
-| [INDEX] | [SYMBOL]                                                                               | [PACKAGE_ROLE]         | [CAPABILITY]                                                             |
-| :-----: | :------------------------------------------------------------------------------------- | :--------------------- | :----------------------------------------------------------------------- |
-|  [01]   | `filter_jit(fun=None, *, donate='none')`                                               | JIT compile            | JIT-compiles `Module`; non-array leaves auto-static, no `static_argnums` |
-|  [02]   | `filter_grad(fun, *, has_aux=False)`                                                   | reverse-mode autodiff  | gradient w.r.t. inexact-array leaves of the first arg (scalar out)       |
-|  [03]   | `filter_value_and_grad(fun, *, has_aux=False)`                                         | combined grad          | `(value, grad)` pair; `has_aux` returns `((value, aux), grad)`           |
-|  [04]   | `filter_vmap(fun, *, in_axes=if_array(0), out_axes=if_array(0), axis_name, axis_size)` | vectorizing map        | vmaps array leaves per `in_axes` filter; static leaves broadcast         |
-|  [05]   | `filter_jvp(fn, primals, tangents, **kwargs)`                                          | forward-mode autodiff  | JVP through filtered array leaves                                        |
-|  [06]   | `filter_vjp(fn, *primals, has_aux=False)`                                              | reverse-mode autodiff  | `(out, vjp_fn)` (or `(out, vjp_fn, aux)`) through filtered leaves        |
-|  [07]   | `filter_jacfwd(fun, *, has_aux=False)`                                                 | Jacobian fwd           | forward-mode Jacobian of array leaves (vector output)                    |
-|  [08]   | `filter_jacrev(fun, *, has_aux=False)`                                                 | Jacobian rev           | reverse-mode Jacobian of array leaves (vector output)                    |
-|  [09]   | `filter_hessian(fun, *, has_aux=False)`                                                | Hessian                | `filter_jacfwd(filter_jacrev(fun))` over filtered leaves                 |
-|  [10]   | `filter_pmap(fun, *, in_axes, out_axes, axis_name, devices, donate)`                   | parallel map           | pmaps array leaves across devices                                        |
-|  [11]   | `filter_checkpoint(fun, *, prevent_cse=True, policy)`                                  | gradient checkpointing | rematerialize forward in backward to save memory                         |
-|  [12]   | `filter_eval_shape(fun, *args, **kwargs)`                                              | shape inference        | output `ShapeDtypeStruct` tree without executing                         |
-|  [13]   | `filter_closure_convert(fn, *args, **kwargs)`                                          | closure conversion     | converts captured closure constants to explicit pytree args              |
-|  [14]   | `filter_custom_jvp(fn)` + `@fn.def_jvp(...)`                                           | custom JVP             | attaches a custom JVP rule on a filtered function                        |
-|  [15]   | `filter_custom_vjp(fn)` + `@fn.def_fwd/def_bwd(...)`                                   | custom VJP             | attaches a custom VJP rule on a filtered function                        |
+- call: `filter_jit(fun=None, *, donate='none')`, `filter_grad(fun, *, has_aux=False)`, `filter_value_and_grad(fun, *, has_aux=False)`, `filter_vmap(fun, *, in_axes=if_array(0), out_axes=if_array(0), axis_name, axis_size)`, `filter_pmap(fun, *, in_axes, out_axes, axis_name, devices, donate)`
+- call: `filter_jvp(fn, primals, tangents, **kwargs)`, `filter_vjp(fn, *primals, has_aux=False)`, `filter_jacfwd/filter_jacrev/filter_hessian(fun, *, has_aux=False)`, `filter_checkpoint(fun, *, prevent_cse=True, policy)`, `filter_eval_shape(fun, *args, **kwargs)`, `filter_closure_convert(fn, *args, **kwargs)`, `filter_custom_jvp(fn)` + `@fn.def_jvp(...)`, `filter_custom_vjp(fn)` + `@fn.def_fwd/def_bwd(...)`
+
+| [INDEX] | [SYMBOL]                 | [PACKAGE_ROLE]         | [CAPABILITY]                                                             |
+| :-----: | :----------------------- | :--------------------- | :----------------------------------------------------------------------- |
+|  [01]   | `filter_jit`             | JIT compile            | JIT-compiles `Module`; non-array leaves auto-static, no `static_argnums` |
+|  [02]   | `filter_grad`            | reverse-mode autodiff  | gradient w.r.t. inexact-array leaves of the first arg (scalar out)       |
+|  [03]   | `filter_value_and_grad`  | combined grad          | `(value, grad)` pair; `has_aux` returns `((value, aux), grad)`           |
+|  [04]   | `filter_vmap`            | vectorizing map        | vmaps array leaves per `in_axes` filter; static leaves broadcast         |
+|  [05]   | `filter_jvp`             | forward-mode autodiff  | JVP through filtered array leaves                                        |
+|  [06]   | `filter_vjp`             | reverse-mode autodiff  | `(out, vjp_fn)` (or `(out, vjp_fn, aux)`) through filtered leaves        |
+|  [07]   | `filter_jacfwd`          | Jacobian fwd           | forward-mode Jacobian of array leaves (vector output)                    |
+|  [08]   | `filter_jacrev`          | Jacobian rev           | reverse-mode Jacobian of array leaves (vector output)                    |
+|  [09]   | `filter_hessian`         | Hessian                | `filter_jacfwd(filter_jacrev(fun))` over filtered leaves                 |
+|  [10]   | `filter_pmap`            | parallel map           | pmaps array leaves across devices                                        |
+|  [11]   | `filter_checkpoint`      | gradient checkpointing | rematerialize forward in backward to save memory                         |
+|  [12]   | `filter_eval_shape`      | shape inference        | output `ShapeDtypeStruct` tree without executing                         |
+|  [13]   | `filter_closure_convert` | closure conversion     | converts captured closure constants to explicit pytree args              |
+|  [14]   | `filter_custom_jvp`      | custom JVP             | attaches a custom JVP rule on a filtered function                        |
+|  [15]   | `filter_custom_vjp`      | custom VJP             | attaches a custom VJP rule on a filtered function                        |
 
 [PUBLIC_TYPE_SCOPE]: pytree manipulation
 - rail: model
 
-| [INDEX] | [SYMBOL]                                                     | [PACKAGE_ROLE]    | [CAPABILITY]                                                             |
-| :-----: | :----------------------------------------------------------- | :---------------- | :----------------------------------------------------------------------- |
-|  [01]   | `partition(pytree, filter_spec, replace=None, is_leaf=None)` | pytree split      | splits a pytree into `(matching, rest)` by a filter spec                 |
-|  [02]   | `combine(*pytrees, is_leaf=None)`                            | pytree merge      | merges partitioned pytrees back into one (inverse of `partition`)        |
-|  [03]   | `filter(pytree, filter_spec, inverse=False, replace=None)`   | pytree filter     | keeps leaves matching the spec, replacing the rest with `None`           |
-|  [04]   | `tree_at(where, pytree, replace=, replace_fn=, is_leaf=)`    | pytree update     | immutable leaf replacement selected by a `where` lambda                  |
-|  [05]   | `tree_equal(*pytrees, typematch=False)`                      | pytree equality   | structural + leaf equality of pytrees (returns a traced bool)            |
-|  [06]   | `tree_check(pytree)`                                         | pytree validation | validates pytree structure (no duplicate leaves)                         |
-|  [07]   | `tree_inference(pytree, value)`                              | inference mode    | sets `inference` flag on all `Dropout`/`BatchNorm` submodules            |
-|  [08]   | `tree_serialise_leaves(path_or_file, pytree)`                | serialization     | serializes array leaves to a file in tree order                          |
-|  [09]   | `tree_deserialise_leaves(path_or_file, like)`                | deserialization   | restores leaves into the structure of `like`                             |
-|  [10]   | `apply_updates(model, updates)`                              | gradient apply    | applies `optax`-style update tree to a model (`is_inexact_array` leaves) |
-|  [11]   | `is_array(x)` / `is_array_like(x)`                           | predicate         | leaf is a JAX `Array` (or array-like scalar)                             |
-|  [12]   | `is_inexact_array(x)` / `is_inexact_array_like(x)`           | predicate         | leaf is a floating/complex JAX array (the default differentiand)         |
-|  [13]   | `error_if(pred, x, msg)` / `branched_error_if(...)`          | runtime guard     | raises `EquinoxRuntimeError` inside a transform when `pred` holds        |
-|  [14]   | `nn.make_with_state(make_module)`                            | state factory     | splits a stateful `Module` into `(model, State)` at construction         |
-|  [15]   | `field(...)` converters / `nn.inference_mode(m)`             | config            | per-field converters and an inference-mode context for serving           |
+- call: `partition(pytree, filter_spec, replace=None, is_leaf=None)`, `combine(*pytrees, is_leaf=None)`, `filter(pytree, filter_spec, inverse=False, replace=None)`, `tree_at(where, pytree, replace=, replace_fn=, is_leaf=)`, `tree_equal(*pytrees, typematch=False)`
+- call: `tree_serialise_leaves(path_or_file, pytree)` / `tree_deserialise_leaves(path_or_file, like)` persist leaves; `apply_updates(model, updates)`, `nn.make_with_state(make_module)`, and the `is_array`/`is_inexact_array`/`error_if`/`branched_error_if` predicates and guards take their bare-name forms
+
+| [INDEX] | [SYMBOL]                                     | [PACKAGE_ROLE]    | [CAPABILITY]                                                      |
+| :-----: | :------------------------------------------- | :---------------- | :---------------------------------------------------------------- |
+|  [01]   | `partition`                                  | pytree split      | splits a pytree into `(matching, rest)` by a filter spec          |
+|  [02]   | `combine`                                    | pytree merge      | merges partitioned pytrees back into one (inverse of `partition`) |
+|  [03]   | `filter`                                     | pytree filter     | keeps leaves matching the spec, replacing the rest with `None`    |
+|  [04]   | `tree_at`                                    | pytree update     | immutable leaf replacement selected by a `where` lambda           |
+|  [05]   | `tree_equal`                                 | pytree equality   | structural + leaf equality of pytrees (returns a traced bool)     |
+|  [06]   | `tree_check`                                 | pytree validation | validates pytree structure (no duplicate leaves)                  |
+|  [07]   | `tree_inference`                             | inference mode    | sets `inference` flag on all `Dropout`/`BatchNorm` submodules     |
+|  [08]   | `tree_serialise_leaves`                      | serialization     | serializes array leaves to a file in tree order                   |
+|  [09]   | `tree_deserialise_leaves`                    | deserialization   | restores leaves into the structure of `like`                      |
+|  [10]   | `apply_updates`                              | gradient apply    | applies an `optax` update tree (`is_inexact_array` leaves)        |
+|  [11]   | `is_array` / `is_array_like`                 | predicate         | leaf is a JAX `Array` (or array-like scalar)                      |
+|  [12]   | `is_inexact_array` / `is_inexact_array_like` | predicate         | leaf is a floating/complex JAX array (the default differentiand)  |
+|  [13]   | `error_if` / `branched_error_if`             | runtime guard     | raises `EquinoxRuntimeError` inside a transform when `pred` holds |
+|  [14]   | `nn.make_with_state`                         | state factory     | splits a stateful `Module` into `(model, State)` at construction  |
+|  [15]   | `field(...)` / `nn.inference_mode`           | config            | per-field converters and an inference-mode context for serving    |
 
 [PUBLIC_TYPE_SCOPE]: equinox.nn layer library
 - rail: model
 
-| [INDEX] | [SYMBOL]                                                                             | [PACKAGE_ROLE]                | [CAPABILITY]                                                                 |
-| :-----: | :----------------------------------------------------------------------------------- | :---------------------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `nn.Linear(in_features, out_features, use_bias=True, *, key)`                        | dense layer                   | affine map; `key` is required for parameter init                             |
-|  [02]   | `nn.MLP(in_size, out_size, width_size, depth, activation, final_activation, *, key)` | multi-layer perceptron        | fully-connected stack with per-layer activation                              |
-|  [03]   | `nn.Conv1d/2d/3d` and generic `nn.Conv(num_spatial_dims, ...)`                       | convolution layers            | N-D convolution; `nn.Conv` is the dimension-parametric owner                 |
-|  [04]   | `nn.ConvTranspose1d/2d/3d` / `nn.ConvTranspose(...)`                                 | transposed conv               | transposed (fractionally-strided) convolutions                               |
-|  [05]   | `nn.Sequential(layers)` / `nn.Lambda(fn)` / `nn.Identity()`                          | composition                   | sequential chain; pytree-wrapped pure fn; identity passthrough               |
-|  [06]   | `nn.BatchNorm(input_size, axis_name, eps, momentum)`                                 | normalization (stateful)      | threads running stats through `State` — needs `make_with_state`              |
-|  [07]   | `nn.LayerNorm(shape, eps, use_weight, use_bias)`                                     | normalization                 | per-sample layer normalization                                               |
-|  [08]   | `nn.GroupNorm(groups, channels, eps)`                                                | normalization                 | grouped-channel normalization                                                |
-|  [09]   | `nn.RMSNorm(shape, eps, use_weight, use_bias)`                                       | normalization                 | RMS normalization                                                            |
-|  [10]   | `nn.MultiheadAttention(num_heads, query_size, ...)`                                  | attention                     | scaled dot-product multi-head attention                                      |
-|  [11]   | `nn.Dropout(p, inference=False)`                                                     | regularization (stateful key) | inference flag flips via `tree_inference`/`nn.inference_mode`                |
-|  [12]   | `nn.Embedding(num_embeddings, embedding_size, *, key)`                               | embedding                     | lookup-table embedding                                                       |
-|  [13]   | `nn.LSTMCell` / `nn.GRUCell`                                                         | recurrent cells               | single-step cells; scan over time with `jax.lax.scan`                        |
-|  [14]   | `nn.MaxPool1d/2d/3d` / `nn.AvgPool1d/2d/3d` / `nn.Pool(...)`                         | pooling                       | spatial pooling; `nn.Pool` is the operator-parametric owner                  |
-|  [15]   | `nn.AdaptiveMaxPool1d/2d/3d` / `nn.AdaptiveAvgPool*`                                 | pooling                       | output-size-targeted adaptive pooling                                        |
-|  [16]   | `nn.RotaryPositionalEmbedding` / `nn.PositionalEmbedding`                            | positional encoding           | RoPE / learned positional embedding                                          |
-|  [17]   | `nn.PReLU` / `nn.WeightNorm(layer)` / `nn.SpectralNorm(layer, *, key)`               | param transform/act           | parametric ReLU; weight-/spectral-norm reparameterizations (latter stateful) |
-|  [18]   | `nn.Shared(pytree, where, get)` / `nn.StateIndex`                                    | weight tying / state          | tie parameters across submodules; typed handles into `State`                 |
+The dimension families ship `1d`/`2d`/`3d` variants over a dimension-parametric owner: `nn.Conv`/`nn.ConvTranspose` for convolution, `nn.MaxPool`/`nn.AvgPool`/`nn.Pool` and `nn.AdaptiveMaxPool`/`nn.AdaptiveAvgPool` for pooling. A layer taking array parameters requires a PRNG `key` at construction.
+
+| [INDEX] | [SYMBOL]                                      | [PACKAGE_ROLE]         | [CAPABILITY]                                                    |
+| :-----: | :-------------------------------------------- | :--------------------- | :-------------------------------------------------------------- |
+|  [01]   | `nn.Linear`                                   | dense layer            | affine map; `key` required for parameter init                   |
+|  [02]   | `nn.MLP`                                      | multi-layer perceptron | fully-connected stack with per-layer activation                 |
+|  [03]   | `nn.Conv`                                     | convolution layers     | N-D convolution; `1d/2d/3d` + dimension-parametric owner        |
+|  [04]   | `nn.ConvTranspose`                            | transposed conv        | transposed (fractionally-strided) convolutions                  |
+|  [05]   | `nn.Sequential` / `nn.Lambda` / `nn.Identity` | composition            | sequential chain; pytree-wrapped pure fn; identity passthrough  |
+|  [06]   | `nn.BatchNorm`                                | normalization          | threads running stats through `State` — needs `make_with_state` |
+|  [07]   | `nn.LayerNorm`                                | normalization          | per-sample layer normalization                                  |
+|  [08]   | `nn.GroupNorm`                                | normalization          | grouped-channel normalization                                   |
+|  [09]   | `nn.RMSNorm`                                  | normalization          | RMS normalization                                               |
+|  [10]   | `nn.MultiheadAttention`                       | attention              | scaled dot-product multi-head attention                         |
+|  [11]   | `nn.Dropout`                                  | regularization         | keyed; inference flips via `tree_inference`/`nn.inference_mode` |
+|  [12]   | `nn.Embedding`                                | embedding              | lookup-table embedding                                          |
+|  [13]   | `nn.LSTMCell` / `nn.GRUCell`                  | recurrent cells        | single-step cells; scan over time with `jax.lax.scan`           |
+|  [14]   | `nn.MaxPool` / `nn.AvgPool` / `nn.Pool`       | pooling                | spatial pooling; `nn.Pool` is the operator-parametric owner     |
+|  [15]   | `nn.AdaptiveMaxPool` / `nn.AdaptiveAvgPool`   | pooling                | output-size-targeted adaptive pooling                           |
+|  [16]   | `nn.RotaryPositionalEmbedding`                | positional encoding    | RoPE positional embedding                                       |
+|  [17]   | `nn.PositionalEmbedding`                      | positional encoding    | learned positional embedding                                    |
+|  [18]   | `nn.PReLU`                                    | param transform        | parametric ReLU activation                                      |
+|  [19]   | `nn.WeightNorm`                               | param transform        | weight-norm reparameterization                                  |
+|  [20]   | `nn.SpectralNorm`                             | param transform        | spectral-norm reparameterization (stateful)                     |
+|  [21]   | `nn.Shared` / `nn.StateIndex`                 | weight tying / state   | tie parameters across submodules; typed handles into `State`    |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: model definition and transform entrypoints
 - rail: model
+- call: `partition(pytree, eqx.is_inexact_array) -> (params, static)`, `combine(params, static) -> model`, and `tree_at(lambda m: m.layer.weight, model, new_weight)` are the canonical split/merge/surgery; `nn.make_with_state(Model)(*args, *, key) -> (model, state)` inits a stateful model
 
-| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [RAIL]                                                  |
-| :-----: | :--------------------------------------------------------------- | :------------- | :------------------------------------------------------ |
-|  [01]   | `filter_jit(fun, *, donate='none')`                              | compile        | JIT-compiles function with auto static-leaf bypass      |
-|  [02]   | `filter_value_and_grad(fun, *, has_aux=False)`                   | autodiff       | `(loss, grad)` over inexact-array leaves of arg 0       |
-|  [03]   | `filter_vmap(fun, *, in_axes=if_array(0), out_axes=if_array(0))` | vectorize      | per-leaf vmap with array-only axis spec                 |
-|  [04]   | `partition(pytree, eqx.is_inexact_array)` -> `(params, static)`  | split          | the canonical model split: trainable leaves vs static   |
-|  [05]   | `combine(params, static)` -> `model`                             | merge          | rebuild the model inside the loss for `filter` parity   |
-|  [06]   | `tree_at(lambda m: m.layer.weight, model, new_weight)`           | update         | immutable single-leaf surgery on a `Module`             |
-|  [07]   | `tree_serialise_leaves(path, model)`                             | persistence    | checkpoint array leaves to disk                         |
-|  [08]   | `tree_deserialise_leaves(path, model_template)`                  | persistence    | restore leaves into a fresh-constructed template        |
-|  [09]   | `apply_updates(model, updates)`                                  | gradient apply | apply an `optax` update tree to the model               |
-|  [10]   | `nn.make_with_state(Model)(*args, *, key)` -> `(model, state)`   | state init     | split a stateful model from its `State` at construction |
+| [INDEX] | [SURFACE]                 | [ENTRY_FAMILY] | [CAPABILITY]                                            |
+| :-----: | :------------------------ | :------------- | :------------------------------------------------------ |
+|  [01]   | `filter_jit`              | compile        | JIT-compiles function with auto static-leaf bypass      |
+|  [02]   | `filter_value_and_grad`   | autodiff       | `(loss, grad)` over inexact-array leaves of arg 0       |
+|  [03]   | `filter_vmap`             | vectorize      | per-leaf vmap with array-only axis spec                 |
+|  [04]   | `partition`               | split          | the canonical model split: trainable leaves vs static   |
+|  [05]   | `combine`                 | merge          | rebuild the model inside the loss for `filter` parity   |
+|  [06]   | `tree_at`                 | update         | immutable single-leaf surgery on a `Module`             |
+|  [07]   | `tree_serialise_leaves`   | persistence    | checkpoint array leaves to disk                         |
+|  [08]   | `tree_deserialise_leaves` | persistence    | restore leaves into a fresh-constructed template        |
+|  [09]   | `apply_updates`           | gradient apply | apply an `optax` update tree to the model               |
+|  [10]   | `nn.make_with_state`      | state init     | split a stateful model from its `State` at construction |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -1,146 +1,251 @@
 # [RASM_APPHOST_ARCHITECTURE]
 
-The domain map of `Rasm.AppHost` — the APP-PLATFORM runtime spine. One domain-folder owner per concern with closed cases, every entrypoint a typed rail, and every cross-package fact crossing the inward port records across the Runtime, Agent, Wire, Sandbox, and Observability folders.
-
-Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, lowercase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
+`Rasm.AppHost` maps the APP-PLATFORM runtime spine `Compute`, `Persistence`, and `AppUi` adapt to and never reverse. One domain-folder owner per concern folds its axis with closed cases on a typed rail, cross-package facts cross only the inward port records, and the package holds no AEC-domain reference — alignment travels through the port seam, never a peer reference.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
 Rasm.AppHost/
-├── Runtime/             # Runtime spine: profiles, lifecycle, clocks, resources, config, ports, determinism, orchestration, lane-guard
+├── Runtime/             # Runtime spine — lifecycle, clocks, config, ports, determinism, orchestration
 │   ├── Profiles.cs      # Host-variance profile axis, lifetime adapters, power/thermal fidelity
-│   ├── Lifecycle.cs     # Total lifecycle/phase/drain/cancellation spine; fault-to-capture SupportTrigger.FaultTransition
+│   ├── Lifecycle.cs     # Total lifecycle/phase/drain/cancellation spine with fault-to-capture trigger
 │   ├── Time.cs          # Injected clock pair, deadline taxonomy, and one scheduler
 │   ├── Resources.cs     # Bounded resource lanes: hybrid cache, object pools, drainable queues
-│   ├── Modules.cs       # One composition root folding and freezing service graph
+│   ├── Modules.cs       # One composition root folding and freezing the service graph
 │   ├── Config.cs        # Ranked config-source chain with fail-closed source-gen binding
-│   ├── Secrets.cs       # Credential-material lifecycle: SecretLease acquire/renew/zeroize + RFC-7468 CredentialPem wire + KMS-unwrap port
-│   ├── Ports.cs         # Seven inward port records — only cross-package seam
-│   ├── Determinism.cs   # Reproducibility kernel: pinned RNG/float-mode + hash-chained command log
-│   ├── Orchestration.cs # Crash-durable workflow + persistent-job owner over CommandDispatch/EventLog/SchedulePort
-│   ├── LaneGuard.cs     # In-process WorkLane resilience governor: bulkhead/adaptive-concurrency/load-shed/hedge/Simmy
-│   └── Features.cs      # Config-backed OpenFeature targeting/rollout/experimentation; XxHash3 sticky bucketing; one FlagVerdict seam
-├── Agent/               # Bidirectional agent surface over capability registry
-│   ├── Mcp.cs           # MCP-server projection of descriptor-to-AIFunction tools/resources/prompts
-│   ├── Reasoning.cs     # In-process agent loop over IChatClient function-calling; model-selection + content-filter governance
+│   ├── Secrets.cs       # Credential-material lifecycle: lease acquire/renew/zeroize, PEM wire, KMS-unwrap port
+│   ├── Ports.cs         # Inward port records — the cross-package seam
+│   ├── Determinism.cs   # Reproducibility kernel: pinned RNG/float-mode and hash-chained command log
+│   ├── Orchestration.cs # Crash-durable workflow and persistent-job owner over the command/event/schedule ports
+│   ├── LaneGuard.cs     # In-process WorkLane resilience governor: bulkhead, adaptive concurrency, load-shed, hedge
+│   └── Features.cs      # Config-backed OpenFeature targeting and rollout with sticky bucketing; one FlagVerdict seam
+├── Agent/               # Bidirectional agent surface over the capability registry
+│   ├── Mcp.cs           # MCP-server projection of descriptors to tools, resources, and prompts
+│   ├── Reasoning.cs     # In-process agent loop with model-selection and content-filter governance
 │   ├── Federation.cs    # Folds external MCP servers into one registry as brokered descriptors
-│   ├── Capability.cs    # Self-describing CapabilityDescriptor op catalog, command algebra, fenced distributed quota
-│   ├── Identity.cs # Authentication boundary: OIDC issuer-trust + JWKS-rotating token validation, OpenIddict credential flows, claims-policy gate
-│   └── Runtime.cs       # One command-dispatch front door consolidating CommandAlgebra/CommandAIFunction/CommandReceipt
+│   ├── Capability.cs    # Self-describing op catalog, command algebra, and fenced distributed quota
+│   ├── Identity.cs      # Authentication boundary: OIDC issuer-trust, rotating token validation, claims-policy gate
+│   └── Runtime.cs       # One command-dispatch front door over the command algebra, tool adoption, and receipt
 ├── Wire/                # Outbound and external-binding seam
 │   ├── Outbound.cs      # Single outbound boundary with per-seam retry/cache and delivery fan-out
-│   ├── LiveWire.cs      # Reactive bidirectional external-binding studio over industrial-transport axis
+│   ├── LiveWire.cs      # Reactive bidirectional external-binding studio over the industrial-transport axis
 │   ├── Companion.cs     # Multi-process modality axis and gRPC-over-UDS control-service host
-│   ├── Topics.cs        # In-process event-bus topology over Dataflow fan-out/join/coalesce DrainSurface builders
-│   ├── Outbox.cs        # Transactional outbox + dead-letter relay over the watermark-advancing dispatch sweep
-│   └── Coordination.cs  # Cluster membership/election/distributed-lock over the fenced lease; ServiceEndpointResolver role resolution
-├── Sandbox/             # Capability-brokered plugin isolation, one supply-chain admission gate, and solver-plugin contract
-│   ├── Admission.cs # The ONE supply-chain admission gate: offline Sigstore + SLSA provenance + NuGet.Versioning contract over one AdmissionSubject
-│   ├── Isolation.cs     # Capability-brokered WASM core-module/process plugin isolation; unified BrokeredCall caller-modality mediation
-│   ├── Solver.cs        # Seven-kind solver-plugin contract with canonical-representation negotiation
-│   └── Provisioning.cs  # Post-fetch self-update state machine with the canary/blue-green/linear-wave RollStrategy axis
+│   ├── Topics.cs        # In-process event-bus topology with fan-out, join, and coalesce builders
+│   ├── Outbox.cs        # Transactional outbox and dead-letter relay over the watermark dispatch sweep
+│   └── Coordination.cs  # Cluster membership, election, and distributed-lock over the fenced lease
+├── Sandbox/             # Capability-brokered plugin isolation, one admission gate, and the solver contract
+│   ├── Admission.cs     # One supply-chain admission gate: offline Sigstore, SLSA provenance, SemVer contract
+│   ├── Isolation.cs     # Capability-brokered WASM and process plugin isolation with unified call mediation
+│   ├── Solver.cs        # Solver-plugin contract with canonical-representation negotiation
+│   └── Provisioning.cs  # Post-fetch self-update state machine over the canary, blue-green, and linear-wave roll axis
 └── Observability/       # Four-signal telemetry, health, and redacted support capture
     ├── Telemetry.cs     # Unified four-signal telemetry through minted identities and egress redaction
-    ├── Health.cs        # Resource-pressure health fold and degradation/alert rails; one atomic DegradationReading cell
+    ├── Health.cs        # Resource-pressure health fold and degradation/alert rails over one atomic reading cell
     └── Bundles.cs       # Bounded redacted support capture
 ```
 
-Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. The rail is named in the return type — `Validation<E,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and `TimeProvider` owns elapsed measurement.
+Implementation collapses to one owner per axis and one entrypoint family per rail: a new feature is a row or case on a budgeted owner, and a public type outside an owner region is the named defect. Rail choice is named in the return type — `Validation<E,T>` accumulates, `Fin<T>` aborts, `IO<T>` carries effects; receipts stamp NodaTime `Instant`/`Duration`, and `TimeProvider` owns elapsed measurement.
 
 ## [02]-[SEAMS]
 
-```text seams
-Agent/Capability.cs         →  typescript:core/interchange/invoke          # [CONTENT_KEY]: CapabilityDescriptor command-shape
-Runtime/Ports.cs            →  typescript:core/value/clock                 # [WIRE]: Hlc two-half bigint compose-order parity
-*                           →  typescript:core/interchange/codec           # [WIRE]: CredentialPemWire redacted carrier
-Agent/Capability.cs         ⇄  python:runtime/transport                    # [WIRE]: DiscoveryResult capability invoke + CommandReceipt
-Observability/Health.cs     →  typescript:core/state/evidence              # [WIRE]: DegradationLevel / CommandAvailabilityWire
-Observability/Telemetry.cs  ←  python:runtime/observability                # [WIRE]: W3C trace-context inbound extraction
-Runtime/Determinism.cs      →  typescript:core/interchange/codec # [WIRE]: HostFingerprintWire identity gate EnvFingerprint digest mints here
-Observability/Telemetry.cs  →  typescript:core/interchange/codec           # [WIRE]: BenchmarkClaimWire identity gate
-Runtime/Secrets.cs          →  python:runtime/execution                    # [WIRE]: CredentialPem
-Runtime/Ports.cs            ⇄  python:runtime/transport                    # [WIRE]: HLC two-half stamp + Tenant partition
-Runtime/Ports.cs            →  typescript:core/state/evidence              # [WIRE]: ReceiptEnvelopeWire / HlcStampWire / TenantContextWire
-Runtime/Ports.cs            →  python:runtime/clock                        # [PORT]: Hlc two-half NodaTime stamp single mint + Tenant
-Wire/Livewire.cs            →  typescript:core/interchange/codec           # [WIRE]: BindingStatusWire / CoercedValueWire / WriteReceiptWire
-Wire/Livewire.cs            →  typescript:ui/viewer # [WIRE]: BindingStatus/CoercedValue/WriteReceipt triple at viewer panel plane
-Observability/Telemetry.cs  →  typescript:runtime/otel                     # [TRANSPORT]: OtelExport OTLP egress aligned at the shared collector
-Sandbox/solver              ←  csharp:Rasm/Drawing/pack # [WIRE]: EncodedGeometry channel discriminant via GeometryPacking capsule
-Runtime/determinism         →  csharp:Rasm.AppUi/Document/notebook # [PORT]: DeterminismContext / RecomputeGraph caller-keyed granularity-neutral
-Runtime                     →  csharp:Rasm.Persistence/Query/cache         # [PORT]: TenantId RLS + cache L2 partition
-Runtime                     →  csharp:Rasm.Persistence/Version/recovery    # [PORT]: ResolvedProfile DR-objective inputs
-Runtime/secrets             →  csharp:Rasm.Persistence/Element/identity    # [PORT]: KMS-unwrap port (#KEY_ENVELOPE EnvelopeKeyring)
-Runtime/secrets             →  csharp:Rasm.AppUi/Document/export # [PORT]: IDigitalSigner credential-material ingress through SecretLease
-Wire/outbox                 →  csharp:Rasm.Persistence/Version/egress # [PORT]: keyed OutboundHop egress one CloudEvents envelope, three consumers
-Runtime/Ports.cs            ⇄  csharp:Rasm.Persistence                     # [PORT]: HLC two-half + TenantContext causal frame
-Agent/identity              ⇄  csharp:Rasm.Persistence                     # [PORT]: identity store (TenantId RLS)
-Agent/capability            ⇄  csharp:Rasm.Persistence                     # [PORT]: fenced per-tenant Budget debit (ONE_FENCED_LEASE_STORE)
-Runtime/orchestration       ⇄  csharp:Rasm.Persistence                     # [PORT]: workflow step-state CAS (ONE_FENCED_LEASE_STORE)
-Wire/outbox                 ⇄  csharp:Rasm.Persistence                     # [PORT]: transactional outbox same-tx (ONE_OUTBOX_EGRESS_SPINE)
-Wire/Coordination.cs        ⇄  csharp:Rasm.Persistence # [PORT]: CAS + fenced-lease + membership backing store ONE_FENCED_LEASE_STORE
-Runtime/Features.cs         →  typescript:core/interchange/codec # [WIRE]: FlagVerdictWire over OpenFeature contract at runtime/proc flag
-Runtime/laneguard           →  csharp:Rasm.Compute/Runtime/admission       # [PORT]: WorkLane shed verdict (ONE_DEGRADATION_SHED_VERDICT)
-Observability/Health.cs     →  csharp:Rasm.Persistence/Store # [PORT]: HealthContributorRow fold over shared pooled Npgsql data source, L2
-Agent/reasoning             →  csharp:Rasm.Compute/Model # [WIRE_VOCABULARY]: AppHost owns M.E.AI GoverningChatClient fold
-Runtime/lifecycle           ←  csharp:Rasm.Compute/Runtime # [PORT]: LaneDrain DrainParticipantPort per lane DrainBand.Compute band-200
-Wire/livewire               ←  csharp:Rasm.Compute/Solver # [RECEIPT]: DigitalTwin clash suggestion as receipted ExternalValue HopReceipt ack
-Sandbox/solver              ⇄  csharp:Rasm.Compute/Tensor/residency        # [SHAPE]: EncodingKind rows align onto the PackKind axis
-Agent/capability            →  csharp:Rasm.Compute/Runtime/admission # [WIRE_VOCABULARY]: ComputeIntent/IntentAdmission/SelectionReceipt command rail
-Runtime/determinism         →  csharp:Rasm.Persistence/Version/ledger # [PORT]: neutral determinism-log projection over changefeed #CHANGEFEED
-Runtime/determinism         →  csharp:Rasm/Domain/identity                 # [WIRE_VOCABULARY]: content digests compose ContentHash.Of (#CONTENT_KEY)
-Wire/coordination           →  csharp:Rasm.Persistence/Store/coordination # [PORT]: MembershipView + RoleElection + DistributedLock over fenced lease
-Sandbox/provisioning        ⇄  csharp:Wire/coordination # [WIRE_VOCABULARY]: FleetRoll reads MembershipView.Serving cluster liveness
-Wire/companion              →  csharp:Rasm.Persistence/Version/ledger # [WIRE]: presence beat as ephemeral Awareness PresenceRow #PRESENCE
-Wire/companion              ⇄  csharp:Sandbox/provisioning # [WIRE_VOCABULARY]: PeerRoster local attach contributes into MembershipView
-Observability/telemetry     →  csharp:Rasm.Persistence/Element # [WIRE_VOCABULARY]: DataClassification crosses as value fields codec/identity rows
-Runtime/profiles            →  csharp:Rasm.Compute/Runtime/scheduling # [WIRE_VOCABULARY]: FidelityScale export declaration
-Wire/topics                 ←  csharp:Rasm.AppUi/Collab/sync # [WIRE]: session-ephemeral Loro live-delta as opaque payload rows on one topics law
-Observability/Telemetry.cs  ⇄  python:runtime/observability                # [TRANSPORT]: trace-context + OTLP egress aligned at the shared collector
-Runtime                     ⇄  python:runtime/transport                    # [TRANSPORT]: TransportResource HTTP/SSH remote-artifact acquisition
-Runtime                     →  python:runtime/transport                    # [TRANSPORT]: gRPC ServerHost
-Runtime                     →  csharp:Rasm.Element/Projection              # [PORT]: ProjectionContext neutral primitives
-```
-
-## [03]-[SPINE]
+Cross-boundary seams split by counterpart group — cross-runtime wires to the TypeScript and Python peers, and same-branch ports to the C# platform packages. Each edge collapses one sub-domain-to-partner contract family onto its load-bearing kind, and the owning implementation pages carry the full family each edge stands for.
 
 ```mermaid
 ---
 config:
-  layout: elk
-  look: neo
   theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: AppHost cross-runtime wire seams
+    accDescr: AppHost sub-domain owners exchanging kinded wires, content keys, and transport with the TypeScript core, ui, and runtime packages and the Python runtime, edge rails colored by kind and nodes classed by seam direction.
+    subgraph apphost[RASM.APPHOST]
+        Agent[Agent surface]
+        Runtime[Runtime spine]
+        Wire[Wire seam]
+        Observability[Observability signals]
+    end
+    Core([typescript:core])
+    Ui([typescript:ui])
+    TsRuntime([typescript:runtime])
+    PyRuntime{{python:runtime}}
+    Agent e1@-->|"[CONTENT_KEY]: CapabilityDescriptor"| Core
+    Runtime e2@-->|"[WIRE]: ReceiptEnvelopeWire"| Core
+    Observability e3@-->|"[WIRE]: DegradationLevel"| Core
+    Wire e4@-->|"[WIRE]: BindingStatusWire"| Core
+    Wire e5@-->|"[WIRE]: BindingStatus"| Ui
+    Observability e6@-->|"[TRANSPORT]: OtelExport"| TsRuntime
+    Agent e7@<-->|"[WIRE]: DiscoveryResult"| PyRuntime
+    Observability e8@<-->|"[TRANSPORT]: TraceContext"| PyRuntime
+    Runtime e9@<-->|"[WIRE]: HlcStamp"| PyRuntime
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
+    class Agent,Runtime,Wire,Observability primary
+    class PyRuntime external
+    class Core,Ui,TsRuntime annotation
+    class e1,e2,e3,e4,e5,e7,e9 edgeData
+    class e6,e8 edgeExternal
+```
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: AppHost C# platform seams
+    accDescr: AppHost sub-domain owners exchanging ports, shapes, wires, and receipts with the kernel, Element, AppUi, Persistence, and Compute packages, edge rails colored by kind and nodes classed by seam direction.
+    subgraph apphost[RASM.APPHOST]
+        Runtime[Runtime spine]
+        Agent[Agent surface]
+        Wire[Wire seam]
+        Sandbox[Sandbox broker]
+        Observability[Observability signals]
+    end
+    Kernel{{Rasm}}
+    Element([Rasm.Element])
+    AppUi{{Rasm.AppUi}}
+    Compute{{Rasm.Compute}}
+    Persistence[(Rasm.Persistence)]
+    Kernel e1@-->|"[WIRE]: EncodedGeometry"| Sandbox
+    Runtime e2@-->|"[CONTENT_KEY]: ContentHash"| Kernel
+    Runtime e3@-->|"[PORT]: ProjectionContext"| Element
+    Runtime e4@-->|"[PORT]: DeterminismContext"| AppUi
+    AppUi e5@-->|"[WIRE]: LiveDelta"| Wire
+    Runtime e6@<-->|"[PORT]: TenantContext"| Persistence
+    Agent e7@<-->|"[PORT]: IdentityStore"| Persistence
+    Wire e8@<-->|"[PORT]: OutboxEgress"| Persistence
+    Observability e9@-->|"[PORT]: HealthContributorRow"| Persistence
+    Runtime e10@-->|"[PORT]: ShedVerdict"| Compute
+    Agent e11@-->|"[PORT]: GoverningChatClient"| Compute
+    Compute e12@-->|"[RECEIPT]: HopReceipt"| Wire
+    Sandbox e13@<-->|"[SHAPE]: EncodingKind"| Compute
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    class Runtime,Agent,Wire,Sandbox,Observability primary
+    class Kernel,AppUi,Compute external
+    class Persistence data
+    class Element annotation
+    class e1,e2,e5 edgeData
+    class e12 edgeSuccess
+    class e3,e4,e6,e7,e8,e9,e10,e11,e13 edgeControl
+```
+
+## [03]-[INTERNAL]
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
     accTitle: AppHost boot-to-drain spine
-    accDescr: Profile resolution feeds host boot, configuration, composition, and the lifecycle cell; runtime rails surround Running; the drain conductor folds participants into one unload receipt.
-    Resolve["ProfileSurface.Resolve"] --> Boot["ProfileBoot.Boot"]
+    accDescr: Profile resolution feeds host boot, configuration, composition, and the lifecycle cell; runtime rails surround Running and surface through the seven ports; the drain conductor folds participants into one unload receipt.
+    Resolve(["ProfileSurface.Resolve"]) --> Boot["ProfileBoot.Boot"]
     Boot --> Compose["ConfigSource.Compose"]
     Compose --> Admit["PolicyBinding + OptionsAdmission"]
     Admit --> Fold["CompositionSurface.Compose"]
     Fold --> Ready["Lifecycle: Boot to Ready"]
     Ready --> Running["Running"]
     Running --> Rails["SignalGovernance / HealthSurface / SupportCapture / OutboundSurface"]
-    Rails --> Ports["Seven runtime ports"]
+    Rails --> Ports[("Seven runtime ports")]
     Running --> Drain["DrainConductor.Drain"]
-    Drain --> Unloaded["DrainReceipt: Unloaded"]
+    Drain --> Unloaded(["DrainReceipt: Unloaded"])
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    class Resolve,Unloaded boundary
+    class Boot,Compose,Admit,Fold,Ready,Running,Rails,Drain primary
+    class Ports data
 ```
 
-`ProfileSurface.Resolve` materializes the one `ResolvedProfile` record, `ProfileBoot.Boot` configures the Generic Host builder, `ConfigSource.Compose` mounts the ranked source chain, `PolicyBinding` and `OptionsAdmission` publish validated frozen policy, `CompositionSurface.Compose` folds the module table and freezes the graph, and the `Lifecycle` cell transitions to Ready then Running. Telemetry, health, support, and outbound rails run beside the cell and surface through the seven port records; `DrainConductor.Drain` folds ranked participants into one `DrainReceipt` ending at Unloaded.
+Boot resolves the one `ResolvedProfile`, folds and freezes the module graph behind validated frozen policy, and transitions the `Lifecycle` cell to Running; the telemetry, health, support, and outbound rails surround it and surface through the port records, and `DrainConductor.Drain` folds ranked participants into one `DrainReceipt`. Exact per-stage wiring lives on the owning implementation pages.
 
 ## [04]-[BOUNDARIES]
 
 - AppHost is not a domain service layer, job framework, DI wrapper, telemetry wrapper, UI package, persistence package, compute implementation, or host-boundary package.
-- AppHost owns runtime state and policy; app roots own process attachment, host events, and the composition-root-only pins — the OTLP exporter, the Serilog host bridge and sinks, `Grpc.AspNetCore.Web` middleware, and Kestrel public binding; the protocol runtimes whose types AppHost fences carry (`Wasmtime` Engine/Linker, `MQTTnet`/`OPCFoundation`/`FluentModbus`/`System.IO.Ports` in the LiveClient union, `Grpc.AspNetCore` in the companion ServiceHost, `ModelContextProtocol.AspNetCore` in the mcp HTTP transport, `BACnet`/`MTConnect.NET-Common` in the LiveClient union) STAY lib references.
+- AppHost owns runtime state and policy; app roots own process attachment, host events, and the composition-root-only pins — the OTLP exporter, the Serilog host bridge and sinks, `Grpc.AspNetCore.Web` middleware, and Kestrel public binding.
+- Protocol runtimes whose types the fences carry — `Wasmtime`, `MQTTnet`, OPC-UA, `FluentModbus`, `System.IO.Ports`, `Grpc.AspNetCore`, `ModelContextProtocol.AspNetCore`, BACnet, MTConnect — stay lib references, never app-root pins.
 - Statement carve-outs are named per fence: `Lifecycle`, `FaultSpine`, `ConfigLayer`, `Applied`, `Bundle`, `Evict`, `Publish`, `Connect`, `Execute`, `EventLog.Append`, `SandboxRows.Load`, `SupplyChainGate.Admit`, `AppRootVerbs.Mount`, `GeometryPacking.Pack`, and `PowerProbe.Read` are the boundary capsules; every other member stays expression-shaped on typed rails.
-- AppHost owns the self-describing op catalog, command transaction, grant/cost broker, MCP projection, plugin sandbox, solver contract, reactive external binding, and reproducibility kernel as runtime-policy axes; op execution stays Compute, durability stays Persistence, the MCP protocol routes to the official SDK, and the WASM core-module and industrial-protocol runtimes are lib references whose types the fences carry, app roots pinning only the exporter/sink/Kestrel-public-binding surfaces. The grant broker owns permission-shape evaluation as its own typed `PermissionShape` × `GrantScope` value-object predicate.
+- AppHost owns the op catalog, command transaction, grant/cost broker, MCP projection, plugin sandbox, solver contract, reactive external binding, and reproducibility kernel as runtime-policy axes; op execution stays Compute, durability stays Persistence, and the MCP protocol routes to the official SDK.
+- Grant broker owns permission-shape evaluation as its own typed `PermissionShape` × `GrantScope` value-object predicate.
 - Sentinels stop at the admission seam: `ClockPolicy.Admit` projects platform defaults to `Option<Instant>`; interiors never see nulls, sentinels, or provider shapes.
 - AppHost owns support trigger and correlation; contributing packages own artifact classification and payload projection through `SupportContributorPort` rows.
 - Lib level emits `ILogger` and minted `ActivitySource`/`Meter` pairs only; exporter projection belongs to composition roots.
 
 ## [05]-[PROHIBITIONS]
 
-The closed NEVER list — the deleted patterns the owner regions foreclose.
+Closed NEVER list — the deleted patterns the owner regions foreclose.
 
 - NEVER a public type outside a sub-domain owner region; an eighth port record is the named defect.
 - NEVER wrappers, rename adapters, helper or utility files, or thin forwarding surfaces over admitted packages.
@@ -154,13 +259,15 @@ The closed NEVER list — the deleted patterns the owner regions foreclose.
 - NEVER a process-static `Meter` or `ActivitySource` outliving its provider; never Serilog types below composition roots; never OTLP exporter pins below service app roots.
 - NEVER a hand-written STJ converter beside the generated Thinktecture and NodaTime converters; never an unredacted classified value at an exporter or bundle seam.
 - NEVER posix traps or single-instance enforcement on plugin rows; host-attach injection drives phases there.
-- NEVER a hand-rolled MCP JSON-RPC transport beside the official SDK, or a hand-rolled OPC-UA/MQTT/Modbus/serial/WASM client beside the certified stack (OPC-UA + MQTTnet + FluentModbus + System.IO.Ports + Wasmtime core-module); a federated external MCP server's tools, resources, and prompts enter only as brokered `CapabilityDescriptor` rows through the one registry, never as an unbrokered side channel or a second tool catalog, and the in-process reasoning loop reuses the one brokered `CommandAIFunction` tool-adoption seam, never a second tool projection.
-- NEVER an opaque model call: every `IChatClient` invocation (the in-process reasoning loop and the MCP server-sampling leg) composes the one `Microsoft.Extensions.AI` middleware pipeline — a model call is metered in `CostUnit.ModelTokens` through the `GrantBroker`, content-cached over the resources-lane `HybridCache`, traced through the GenAI span, and content-addressed into the `EventLog`; a second model cache, a per-call OTel span beside the decorators, or an unmetered un-ledgered model draw is the deleted form.
+- NEVER a hand-rolled MCP JSON-RPC transport beside the official SDK, or a hand-rolled OPC-UA/MQTT/Modbus/serial/WASM client beside the certified stack (OPC-UA, `MQTTnet`, `FluentModbus`, `System.IO.Ports`, `Wasmtime` core-module).
+- NEVER an unbrokered external-MCP side channel or a second tool catalog: a federated server's tools, resources, and prompts enter only as brokered `CapabilityDescriptor` rows through the one registry, and the in-process reasoning loop reuses the one brokered `CommandAIFunction` tool-adoption seam.
+- NEVER an opaque model call: every `IChatClient` invocation composes the one `Microsoft.Extensions.AI` middleware pipeline — metered in `CostUnit.ModelTokens` through the `GrantBroker`, content-cached over the resources-lane `HybridCache`, traced through the GenAI span, and content-addressed into the `EventLog`; a second model cache, a per-call span beside the decorators, or an unmetered draw is the deleted form.
 - NEVER a second op-metadata owner beside `CapabilityDescriptor`, a second permission-and-cost owner beside `GrantBroker`, an in-process third-party plugin outside the WASM/process isolation boundary, or a plugin-private geometry representation; a plugin speaks the Compute canonical `EncodedTensor` and dispatches through the command algebra.
 - NEVER a second RNG or non-chained event log: `DeterminismContext` owns the seed and float mode, `EventLog` is the single hash-chained content-addressed command log riding the durable `OpLog`.
 - NEVER a second notification sender, external-binding poller, alerting owner, or power monitor: `DeliveryFanout`, `ExternalTransport`/`LiveWire`, `AlertEngine`, and `FidelityScale` are read consumers of the existing hop/health/power signals, never parallel state machines.
-- NEVER a second token-validation owner beside `Agent/identity` `TokenValidation`, a hand-rolled JWKS fetch or `.well-known` parse beside `IssuerTrust`, a pinned rotating-provider key, a per-flow OAuth service beside `OpenIddictClientService`, `JwtSecurityTokenHandler`, or a claims/role check outside `PolicyGate`; authentication produces one `Principal` consumed by `GrantBroker`.
-- NEVER an unverified release or plugin install: the `Sandbox/provisioning` `SupplyChainGate.Admit` proves the downloaded artifact's Sigstore signature and SLSA provenance against a pinned offline trust root AND its SemVer-contract through `NuGet.Versioning` `VersionRange.Satisfies` before `UpdateRail.Stage` commits; a `System.Version` semver check, a hand-split `lower-upper` range string, a network-bound verify on an air-gapped node, or a skipped admit is the deleted form.
-- NEVER a backing-service health probe outside the one `Observability/health` `DriverProbe`/`Driver` adapter or on a second connection: a `Store`/`Remote`/`Pressure` driver row binds the shared pooled driver instance and routes onto an existing degradation rule, never a parallel `Add*` registration or an out-of-pool probe connection.
-- NEVER an AEC-domain reference (`Rasm.Element`, `Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`) or a GeometryGym/IFC type on AppHost: it stays reference-light, contributing only the `ProjectionContext` primitive ingredients (`ClockPolicy` clock instant / `CorrelationId` / `TenantContext`) the app composition root assembles, never an AppHost type crossing the seam; an ArchUnitNET fitness rule asserts no GeometryGym dependency edge points below or at the element seam (the kernel `Rasm`, the `Rasm.Element` seam, and AppHost stay GeometryGym-free — GeometryGym is the sole `Rasm.Bim` owner above the seam).
+- NEVER a second token-validation owner beside `Agent/identity` `TokenValidation`, a hand-rolled JWKS fetch or `.well-known` parse beside `IssuerTrust`, a per-flow OAuth service beside `OpenIddictClientService`, or a claims/role check outside `PolicyGate`; authentication produces one `Principal` consumed by `GrantBroker`.
+- NEVER an unverified release or plugin install: `SupplyChainGate.Admit` proves the artifact's Sigstore signature and SLSA provenance against a pinned offline trust root and its SemVer contract through `VersionRange.Satisfies` before `UpdateRail.Stage` commits; a `System.Version` check, a hand-split range string, a network-bound verify on an air-gapped node, or a skipped admit is the deleted form.
+- NEVER a backing-service health probe outside the one `Observability/health` `DriverProbe` adapter or on a second connection: a `Store`/`Remote`/`Pressure` driver row binds the shared pooled driver and routes onto an existing degradation rule, never a parallel registration or an out-of-pool probe.
+- NEVER an AEC-domain reference (`Rasm.Element`, `Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`) or a GeometryGym/IFC type on AppHost: it stays reference-light, contributing only the `ProjectionContext` primitive ingredients — `ClockPolicy` instant, `CorrelationId`, `TenantContext` — the app composition root assembles, never an AppHost type crossing the seam.
+- An ArchUnitNET fitness rule asserts no GeometryGym dependency edge points at or below the element seam; the kernel `Rasm`, `Rasm.Element`, and AppHost stay GeometryGym-free, `Rasm.Bim` the sole owner above the seam.
 - CSP analyzer diagnostics are architecture pressure: fix the shape, refine the rule on a false positive, never suppress.

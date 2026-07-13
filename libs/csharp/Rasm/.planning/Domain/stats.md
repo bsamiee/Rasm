@@ -19,7 +19,7 @@ The statistics substrate — the one place scalar samples become typed statistic
 - Growth: skewness/kurtosis are TWO more Welford slots (M3/M4 in the same fold state) + two `Stat` fields + two `IsValid` conjuncts — no second pass, no sibling receipt; a weighted `Stat` is one `Option<Seq<double>>` weights parameter on the SAME fold (the `SampleMoment` admission pattern); a new scalar metric is ONE `ScalarMetric` row breaking both `Switch` projections loudly at compile time; a new provenance is ONE `StatContext` case; a streaming quantile sketch (P²/t-digest) is a policy row beside `Distribution.Of`, never a replacement for the exact small-sample quantile.
 - Boundary: `SampleMoment` lives HERE — the cloud-PCA vocabulary (`Spatial/cloud`), the point-spread principal frame (`Analysis/select`), and the settled `Solving/fit` normal-field seeding all COMPOSE this one moment owner, and a domain-local covariance accumulation beside it is the named double-owner defect; `Stat.Extrema` is the ONE extremum fold — the analysis families' curvature extrema, face ranking, and residual maxima all thread it, and a per-family best-so-far loop is the deleted re-derivation; the `IsMagnitude`/`IsSurface` key-comparison predicates are the named killed form — row dispatch is the generated total `Switch`, so a new row cannot silently fall through a boolean; the `StatContext?` nullable-with-coalescing parameter is the named killed form — absence is `Option` with the canonical `None` derived once; the admission guard is the `Domain/rails` `ValidityClaim.Finite`/`Positive` claim rows — their decided predicate (`RhinoMath.IsValidDouble`) screens the host `UnsetValue` sentinel that a bare `double.IsFinite` admits, so re-spelling the host predicate beside the rows or swapping the row to bare finiteness is the same silent capability regression; sample admission happens IN the fold exactly once — a pre-validation pass over the stream is the rejected second traversal, and re-validation downstream of the receipt is the rejected re-check (the receipt's `IsValid` is the evidence).
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Collections.Generic;
@@ -220,17 +220,25 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; a new statistic is a fold slot, row, or case — never a sibling receipt or a second traversal.
+One owner per axis; a new statistic is a fold slot, row, or case — never a sibling receipt or a second traversal; the per-axis collapse kind rides the indexed notes below.
 
-| [INDEX] | [CONCERN]          | [OWNER]               | [KIND]                                                            | [RAIL]                   | [CASES] |
-| :-----: | :----------------- | :-------------------- | :---------------------------------------------------------------- | :----------------------- | :-----: |
-|  [01]   | Scalar provenance  | `ScalarMetric`        | `[SmartEnum<int>]` + total `Switch` projections per payload shape | `Of → Fin<double>`       |    3    |
-|  [02]   | Extremum axis      | `ExtremumDirection`   | `[SmartEnum<int>]`, key = fold sign                               | discriminant (pure)      |    2    |
-|  [03]   | Summary provenance | `StatContext`         | `[Union]` `None`/`Metric`/`Tolerance`                             | carried case (pure)      |    3    |
-|  [04]   | Sample summary     | `Stat`                | `readonly record struct` Welford receipt + `IValidityEvidence`    | `Of → Fin<Stat>`         |   6f    |
-|  [05]   | Extremum query     | `Stat.Extrema<TItem>` | generic tolerance-banded fold + terminal band re-proof            | `Seq<TItem>` (pure)      |    1    |
-|  [06]   | Order statistics   | `Distribution`        | `readonly record struct` + linear-interp `Quantile`               | `Of → Fin<Distribution>` |   4f    |
-|  [07]   | Weighted moments   | `SampleMoment`        | internal packed-triangle receipt + symmetric indexer              | `Of → Fin<SampleMoment>` |   3f    |
+| [INDEX] | [CONCERN]          | [OWNER]               | [RAIL]                   | [CASES] |
+| :-----: | :----------------- | :-------------------- | :----------------------- | :-----: |
+|  [01]   | Scalar provenance  | `ScalarMetric`        | `Of → Fin<double>`       |    3    |
+|  [02]   | Extremum axis      | `ExtremumDirection`   | discriminant (pure)      |    2    |
+|  [03]   | Summary provenance | `StatContext`         | carried case (pure)      |    3    |
+|  [04]   | Sample summary     | `Stat`                | `Of → Fin<Stat>`         |   6f    |
+|  [05]   | Extremum query     | `Stat.Extrema<TItem>` | `Seq<TItem>` (pure)      |    1    |
+|  [06]   | Order statistics   | `Distribution`        | `Of → Fin<Distribution>` |   4f    |
+|  [07]   | Weighted moments   | `SampleMoment`        | `Of → Fin<SampleMoment>` |   3f    |
+
+- [01]-[SCALAR_PROVENANCE]: `[SmartEnum<int>]` + total `Switch` projections per payload shape.
+- [02]-[EXTREMUM_AXIS]: `[SmartEnum<int>]`, key = fold sign.
+- [03]-[SUMMARY_PROVENANCE]: `[Union]` `None`/`Metric`/`Tolerance`.
+- [04]-[SAMPLE_SUMMARY]: `readonly record struct` Welford receipt + `IValidityEvidence`.
+- [05]-[EXTREMUM_QUERY]: generic tolerance-banded fold + terminal band re-proof.
+- [06]-[ORDER_STATISTICS]: `readonly record struct` + linear-interp `Quantile`.
+- [07]-[WEIGHTED_MOMENTS]: internal packed-triangle receipt + symmetric indexer.
 
 Every fence composes the `Domain/rails` `Op`/`Fault`/`ValidityClaim` vocabulary as settled material; construction re-enters the `Domain/validation` oracle through `Op.AcceptValue`, and the three receipts' `IValidityEvidence` conformances retire the oracle's hand-enumerated statistical arms. No member reaches past `RhinoMath.ZeroTolerance`, the rails claim rows, and the two projection payload structs — the fold algebra itself is host-independent by inspection.
 

@@ -39,76 +39,76 @@
 [ENTRYPOINT_SCOPE]: `LazVlr` descriptor
 - rail: point-cloud
 
-`LazVlr(record_data)` parses an existing LASzip VLR; `new_for_compression` mints one for a target point format. `record_data` round-trips the serialized VLR bytes that the writer stores back into the LAS header.
+`LazVlr(record_data)` parses an existing LASzip VLR; `LazVlr.new_for_compression(point_format_id, num_extra_bytes, use_variable_size_chunks=False)` mints one for a target point format. `record_data` round-trips the serialized VLR bytes that the writer stores back into the LAS header; every surface below is a `LazVlr` member.
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                                                                   | [CAPABILITY]                               |
-| :-----: | :--------------------------------- | :--------------------------------------------------------------------------------------------- | :----------------------------------------- |
-|  [01]   | `LazVlr`                           | `LazVlr(record_data)`                                                                          | parse an existing LASzip VLR record buffer |
-|  [02]   | `LazVlr.new_for_compression`       | `LazVlr.new_for_compression(point_format_id, num_extra_bytes, use_variable_size_chunks=False)` | mint a compression VLR for a point format  |
-|  [03]   | `LazVlr.uses_variable_size_chunks` | `uses_variable_size_chunks() -> bool`                                                          | variable-size-chunk mode flag              |
-|  [04]   | `LazVlr.chunk_size`                | `chunk_size() -> int`                                                                          | fixed chunk point count                    |
-|  [05]   | `LazVlr.item_size`                 | `item_size() -> int`                                                                           | uncompressed bytes per point               |
-|  [06]   | `LazVlr.record_data`               | `record_data() -> bytes`                                                                       | serialized VLR record bytes for the header |
+| [INDEX] | [SURFACE]                   | [ARGS]          | [CAPABILITY]                               |
+| :-----: | :-------------------------- | :-------------- | :----------------------------------------- |
+|  [01]   | `LazVlr`                    | `(record_data)` | parse an existing LASzip VLR record buffer |
+|  [02]   | `new_for_compression`       | `(…)`           | mint a compression VLR for a point format  |
+|  [03]   | `uses_variable_size_chunks` | `() -> bool`    | variable-size-chunk mode flag              |
+|  [04]   | `chunk_size`                | `() -> int`     | fixed chunk point count                    |
+|  [05]   | `item_size`                 | `() -> int`     | uncompressed bytes per point               |
+|  [06]   | `record_data`               | `() -> bytes`   | serialized VLR record bytes for the header |
 
 [ENTRYPOINT_SCOPE]: decompressors
 - rail: point-cloud
 
 `source` is a binary file-like object positioned at the first compressed point; `selection` is an optional `DecompressionSelection` restricting decoded fields. `decompress_many` fills a caller-supplied writable buffer (a `bytes`-like / NumPy array) sized to a point-count multiple of `item_size`.
 
-| [INDEX] | [SURFACE]                                   | [CALL_SHAPE]                                                     | [CAPABILITY]                                 |
-| :-----: | :------------------------------------------ | :--------------------------------------------------------------- | :------------------------------------------- |
-|  [01]   | `LasZipDecompressor`                        | `LasZipDecompressor(source, record_data, selection=None)`        | construct a sequential decompressor          |
-|  [02]   | `LasZipDecompressor.decompress_many`        | `decompress_many(dest)`                                          | decode points into a writable buffer         |
-|  [03]   | `LasZipDecompressor.seek`                   | `seek(point_idx)`                                                | seek to a point index                        |
-|  [04]   | `LasZipDecompressor.vlr`                    | `vlr() -> LazVlr`                                                | the active VLR descriptor                    |
-|  [05]   | `LasZipDecompressor.read_chunk_table_only`  | `read_chunk_table_only() -> list`                                | read the chunk table without decoding points |
-|  [06]   | `LasZipDecompressor.read_raw_bytes_into`    | `read_raw_bytes_into(bytes)`                                     | copy raw compressed bytes into a buffer      |
-|  [07]   | `ParLasZipDecompressor`                     | `ParLasZipDecompressor(source, vlr_record_data, selection=None)` | construct a parallel decompressor            |
-|  [08]   | `ParLasZipDecompressor.decompress_many`     | `decompress_many(points)`                                        | decode points in parallel into a buffer      |
-|  [09]   | `ParLasZipDecompressor.seek`                | `seek(point_idx)`                                                | seek to a point index                        |
-|  [10]   | `ParLasZipDecompressor.read_raw_bytes_into` | `read_raw_bytes_into(bytes)`                                     | copy raw compressed bytes into a buffer      |
+| [INDEX] | [SURFACE]                                   | [ARGS]                                      | [CAPABILITY]                                 |
+| :-----: | :------------------------------------------ | :------------------------------------------ | :------------------------------------------- |
+|  [01]   | `LasZipDecompressor`                        | `(source, record_data, selection=None)`     | construct a sequential decompressor          |
+|  [02]   | `LasZipDecompressor.decompress_many`        | `(dest)`                                    | decode points into a writable buffer         |
+|  [03]   | `LasZipDecompressor.seek`                   | `(point_idx)`                               | seek to a point index                        |
+|  [04]   | `LasZipDecompressor.vlr`                    | `() -> LazVlr`                              | the active VLR descriptor                    |
+|  [05]   | `LasZipDecompressor.read_chunk_table_only`  | `() -> list`                                | read the chunk table without decoding points |
+|  [06]   | `LasZipDecompressor.read_raw_bytes_into`    | `(bytes)`                                   | copy raw compressed bytes into a buffer      |
+|  [07]   | `ParLasZipDecompressor`                     | `(source, vlr_record_data, selection=None)` | construct a parallel decompressor            |
+|  [08]   | `ParLasZipDecompressor.decompress_many`     | `(points)`                                  | decode points in parallel into a buffer      |
+|  [09]   | `ParLasZipDecompressor.seek`                | `(point_idx)`                               | seek to a point index                        |
+|  [10]   | `ParLasZipDecompressor.read_raw_bytes_into` | `(bytes)`                                   | copy raw compressed bytes into a buffer      |
 
 [ENTRYPOINT_SCOPE]: compressors and appenders
 - rail: point-cloud
 
-`dest` is a binary writable file-like object; `vlr` keys the codec. `reserve_offset_to_chunk_table` writes the placeholder offset before the first chunk; `done` flushes the final chunk and backpatches the chunk table. Appenders open an existing compressed stream and continue at `point_count`.
+`dest` is a binary writable file-like object; `vlr` keys the codec. `reserve_offset_to_chunk_table` writes the placeholder offset before the first chunk; `done` flushes the final chunk and backpatches the chunk table. Both appenders construct `(dest, laz_vlr_record_data, point_count)`, opening an existing compressed stream and continuing at `point_count`.
 
-| [INDEX] | [SURFACE]                                           | [CALL_SHAPE]                                                | [CAPABILITY]                               |
-| :-----: | :-------------------------------------------------- | :---------------------------------------------------------- | :----------------------------------------- |
-|  [01]   | `LasZipCompressor`                                  | `LasZipCompressor(dest, vlr)`                               | construct a sequential compressor          |
-|  [02]   | `LasZipCompressor.reserve_offset_to_chunk_table`    | `reserve_offset_to_chunk_table()`                           | reserve the chunk-table offset placeholder |
-|  [03]   | `LasZipCompressor.compress_many`                    | `compress_many(points)`                                     | encode a points buffer                     |
-|  [04]   | `LasZipCompressor.compress_chunks`                  | `compress_chunks(chunks)`                                   | encode a list of pre-formed chunks         |
-|  [05]   | `LasZipCompressor.finish_current_chunk`             | `finish_current_chunk()`                                    | close the in-progress chunk                |
-|  [06]   | `LasZipCompressor.done`                             | `done()`                                                    | flush and backpatch the chunk table        |
-|  [07]   | `ParLasZipCompressor`                               | `ParLasZipCompressor(dest, vlr)`                            | construct a parallel compressor            |
-|  [08]   | `ParLasZipCompressor.reserve_offset_to_chunk_table` | `reserve_offset_to_chunk_table()`                           | reserve the chunk-table offset placeholder |
-|  [09]   | `ParLasZipCompressor.compress_many`                 | `compress_many(points)`                                     | encode a points buffer in parallel         |
-|  [10]   | `ParLasZipCompressor.compress_chunks`               | `compress_chunks(chunks)`                                   | encode a list of pre-formed chunks         |
-|  [11]   | `ParLasZipCompressor.done`                          | `done()`                                                    | flush and backpatch the chunk table        |
-|  [12]   | `LasZipAppender`                                    | `LasZipAppender(dest, laz_vlr_record_data, point_count)`    | construct a sequential appender            |
-|  [13]   | `LasZipAppender.compress_many`                      | `compress_many(points)`                                     | append-encode a points buffer              |
-|  [14]   | `LasZipAppender.compress_chunks`                    | `compress_chunks(chunks)`                                   | append-encode pre-formed chunks            |
-|  [15]   | `LasZipAppender.done`                               | `done()`                                                    | flush and backpatch the chunk table        |
-|  [16]   | `ParLasZipAppender`                                 | `ParLasZipAppender(dest, laz_vlr_record_data, point_count)` | construct a parallel appender              |
-|  [17]   | `ParLasZipAppender.compress_many`                   | `compress_many(points)`                                     | append-encode a points buffer in parallel  |
-|  [18]   | `ParLasZipAppender.compress_chunks`                 | `compress_chunks(chunks)`                                   | append-encode pre-formed chunks            |
-|  [19]   | `ParLasZipAppender.done`                            | `done()`                                                    | flush and backpatch the chunk table        |
+| [INDEX] | [SURFACE]                                           | [ARGS]        | [CAPABILITY]                           |
+| :-----: | :-------------------------------------------------- | :------------ | :------------------------------------- |
+|  [01]   | `LasZipCompressor`                                  | `(dest, vlr)` | construct a sequential compressor      |
+|  [02]   | `LasZipCompressor.reserve_offset_to_chunk_table`    | `()`          | reserve chunk-table offset placeholder |
+|  [03]   | `LasZipCompressor.compress_many`                    | `(points)`    | encode a points buffer                 |
+|  [04]   | `LasZipCompressor.compress_chunks`                  | `(chunks)`    | encode a list of pre-formed chunks     |
+|  [05]   | `LasZipCompressor.finish_current_chunk`             | `()`          | close the in-progress chunk            |
+|  [06]   | `LasZipCompressor.done`                             | `()`          | flush and backpatch the chunk table    |
+|  [07]   | `ParLasZipCompressor`                               | `(dest, vlr)` | construct a parallel compressor        |
+|  [08]   | `ParLasZipCompressor.reserve_offset_to_chunk_table` | `()`          | reserve chunk-table offset placeholder |
+|  [09]   | `ParLasZipCompressor.compress_many`                 | `(points)`    | encode a points buffer in parallel     |
+|  [10]   | `ParLasZipCompressor.compress_chunks`               | `(chunks)`    | encode a list of pre-formed chunks     |
+|  [11]   | `ParLasZipCompressor.done`                          | `()`          | flush and backpatch the chunk table    |
+|  [12]   | `LasZipAppender`                                    | `(…)`         | construct a sequential appender        |
+|  [13]   | `LasZipAppender.compress_many`                      | `(points)`    | append-encode a points buffer          |
+|  [14]   | `LasZipAppender.compress_chunks`                    | `(chunks)`    | append-encode pre-formed chunks        |
+|  [15]   | `LasZipAppender.done`                               | `()`          | flush and backpatch the chunk table    |
+|  [16]   | `ParLasZipAppender`                                 | `(…)`         | construct a parallel appender          |
+|  [17]   | `ParLasZipAppender.compress_many`                   | `(points)`    | append-encode points buffer, parallel  |
+|  [18]   | `ParLasZipAppender.compress_chunks`                 | `(chunks)`    | append-encode pre-formed chunks        |
+|  [19]   | `ParLasZipAppender.done`                            | `()`          | flush and backpatch the chunk table    |
 
 [ENTRYPOINT_SCOPE]: block functions and selection
 - rail: point-cloud
 
-`decompress_points`/`compress_points` are one-shot block codecs over raw buffers keyed by VLR record data, with a `parallel` flag selecting the sequential or Rayon path. `DecompressionSelection(value)` wraps a bitmask composed from the module `SELECTIVE_DECOMPRESS_*` constants. The chunk-table functions read or write the chunk-offset table directly against a stream.
+`decompress_points`/`compress_points` are one-shot block codecs over raw buffers keyed by VLR record data with a `parallel` flag selecting the sequential or Rayon path; every block decompressor opens `(compressed_points_data, laszip_vlr_record_data, decompression_output, …)` and `compress_points(laszip_vlr, uncompressed_points, parallel)` returns `bytes`. `DecompressionSelection(value)` wraps a bitmask composed from the module `SELECTIVE_DECOMPRESS_*` constants. The chunk-table functions read or write the chunk-offset table directly against a stream.
 
-| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                                                                                                               | [CAPABILITY]                                  |
-| :-----: | :----------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------- |
-|  [01]   | `decompress_points`                  | `decompress_points(compressed_points_data, laszip_vlr_record_data, decompression_output, parallel)`                                        | one-shot block decompress into a buffer       |
-|  [02]   | `compress_points`                    | `compress_points(laszip_vlr, uncompressed_points, parallel) -> bytes`                                                                      | one-shot block compress to bytes              |
-|  [03]   | `decompress_points_with_chunk_table` | `decompress_points_with_chunk_table(compressed_points_data, laszip_vlr_record_data, decompression_output, py_chunk_table, selection=None)` | block decompress using a supplied chunk table |
-|  [04]   | `read_chunk_table`                   | `read_chunk_table(source, vlr) -> list`                                                                                                    | read and decode the chunk table               |
-|  [05]   | `read_chunk_table_only`              | `read_chunk_table_only(source, vlr) -> list`                                                                                               | read the chunk table without decoding points  |
-|  [06]   | `write_chunk_table`                  | `write_chunk_table(dest, py_chunk_table, vlr)`                                                                                             | write a chunk table to a stream               |
-|  [07]   | `DecompressionSelection`             | `DecompressionSelection(value)`                                                                                                            | wrap a `SELECTIVE_DECOMPRESS_*` bitmask       |
+| [INDEX] | [SURFACE]                            | [ARGS]                                | [CAPABILITY]                                  |
+| :-----: | :----------------------------------- | :------------------------------------ | :-------------------------------------------- |
+|  [01]   | `decompress_points`                  | `(…, parallel)`                       | one-shot block decompress into a buffer       |
+|  [02]   | `compress_points`                    | `(…) -> bytes`                        | one-shot block compress to bytes              |
+|  [03]   | `decompress_points_with_chunk_table` | `(…, py_chunk_table, selection=None)` | block decompress using a supplied chunk table |
+|  [04]   | `read_chunk_table`                   | `(source, vlr) -> list`               | read and decode the chunk table               |
+|  [05]   | `read_chunk_table_only`              | `(source, vlr) -> list`               | read the chunk table without decoding points  |
+|  [06]   | `write_chunk_table`                  | `(dest, py_chunk_table, vlr)`         | write a chunk table to a stream               |
+|  [07]   | `DecompressionSelection`             | `(value)`                             | wrap a `SELECTIVE_DECOMPRESS_*` bitmask       |
 
 [ENTRYPOINT_SCOPE]: selective-decompression bitmask constants
 - rail: point-cloud

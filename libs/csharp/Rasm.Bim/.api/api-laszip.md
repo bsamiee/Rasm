@@ -38,25 +38,50 @@ ILMerged into a Rasm assembly.
 - rail: reconstruct
 - note: `laszip` is the one codec object — created through the static `create()`, then opened for read or write; it holds a single `header` and a single `point` the read cursor fills in place (no per-point allocation). One object decodes EVERY point format by the header's `point_data_format`, never a per-format reader family.
 
-| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]       | [RAIL]                                                                                                                                                                                                                      |
-| :-----: | :---------------------------- | :------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `laszip`                      | LAS/LAZ codec       | the C-API codec object (`create()`/`open_reader`/`read_point`/`open_writer`/`write_point`/`close_*`); holds `header` + `point`                                                                                              |
-|  [02]   | `LASZIP_DECOMPRESS_SELECTIVE` | channel-select enum | `enum: uint` flags — `CHANNEL_RETURNS_XY`/`Z`/`CLASSIFICATION`/`FLAGS`/`INTENSITY`/`SCAN_ANGLE`/`USER_DATA`/`POINT_SOURCE`/`GPS_TIME`/`RGB`/`NIR`/`WAVEPACKET`/`BYTE0..7`/`EXTRA_BYTES`/`ALL` — the per-channel decode mask |
-|  [03]   | `U64I64F64`                   | reinterpret union   | the `[StructLayout(Explicit)]` 8-byte u64/i64/f64 the arithmetic coder reinterprets through                                                                                                                                 |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]       | [RAIL]                                                                             |
+| :-----: | :---------------------------- | :------------------ | :--------------------------------------------------------------------------------- |
+|  [01]   | `laszip`                      | LAS/LAZ codec       | the one C-API codec object; holds a single `header` + `point` (methods in [03])    |
+|  [02]   | `LASZIP_DECOMPRESS_SELECTIVE` | channel-select enum | `[Flags] uint` per-channel decode mask (values in the fence below)                 |
+|  [03]   | `U64I64F64`                   | reinterpret union   | the 8-byte u64/i64/f64 `[StructLayout(Explicit)]` reinterpret union the coder uses |
+
+```csharp signature
+[Flags] enum LASZIP_DECOMPRESS_SELECTIVE : uint =         // OR the channels a fit reads; set before the read loop
+    CHANNEL_RETURNS_XY | Z | CLASSIFICATION | FLAGS | INTENSITY | SCAN_ANGLE | USER_DATA
+    | POINT_SOURCE | GPS_TIME | RGB | NIR | WAVEPACKET | BYTE0..7 | EXTRA_BYTES | ALL;
+```
 
 [PUBLIC_TYPE_SCOPE]: header, point, and record model
 - namespace: `LASzip.Net`
 - rail: reconstruct
 - note: the `laszip_point` is the decoded point the cursor fills; the `laszip_header` is the public header carrying scale/offset/extrema, the standard + extended point counts, and the VLR/EVLR list where the CRS WKT lives. These are the raw ASPRS field carriers — the `Themis.Las` `LasPoint`/`ILasHeader` facet model is the canonical wrapper the kernel reads.
 
-| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY]         | [RAIL]                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| :-----: | :------------------------------------------------- | :-------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `laszip_point`                                     | point record          | `X`/`Y`/`Z` (raw ints), `intensity`, `classification` (the FORMAT_0_5 5-bit getter — masks `& 0x1F`, TRUNCATING a format-6-10 record) / `extended_classification` (the full class byte; `extended_point_type` is set on reader open for formats 6-10, so the format-correct read is `extended_point_type != 0 ? extended_classification: classification`), `gps_time`, `rgb[4]` (RGB + NIR), `wave_packet[29]`, `extra_bytes`, the return/scan/flag bit-fields |
-|  [02]   | `laszip_header`                                    | public header         | `version_*`, `point_data_format`, `x/y/z_scale_factor`/`offset`, `min/max_*`, `number_of_point_records` + `extended_number_of_point_records`, `number_of_points_by_return`, the VLR/EVLR offsets, `vlrs` (`List<laszip_vlr>`)                                                                                                                                                                                                                                  |
-|  [03]   | `laszip_vlr`                                       | VLR record            | `user_id[16]`/`record_id`/`record_length_after_header`/`description[32]`/`data` — the CRS WKT (record_id 2112) / GeoTIFF keys / classification lookup                                                                                                                                                                                                                                                                                                          |
-|  [04]   | `laszip_evlr`                                      | extended VLR          | the 64-bit-length EVLR (`record_length_after_header` is `ulong`) — large CRS / waveform records past the header                                                                                                                                                                                                                                                                                                                                                |
-|  [05]   | `laszip_geokey`                                    | GeoTIFF geokey        | one GeoTIFF CRS geokey entry (`key_id`/`tiff_tag_location`/`count`/`value_offset`) the geokey VLR carries                                                                                                                                                                                                                                                                                                                                                      |
-|  [06]   | `LASattribute` / `LASattributer` / `LAS_ATTRIBUTE` | extra-bytes attribute | the "extra bytes" (ASPRS attribute) descriptor + the typed-attribute reader for per-point custom dimensions                                                                                                                                                                                                                                                                                                                                                    |
+| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY]         | [RAIL]                                                  |
+| :-----: | :------------------------------------------------- | :-------------------- | :------------------------------------------------------ |
+|  [01]   | `laszip_point`                                     | point record          | the decoded point the cursor fills in place             |
+|  [02]   | `laszip_header`                                    | public header         | scale/offset/extrema, point counts, the VLR/EVLR list   |
+|  [03]   | `laszip_vlr`                                       | VLR record            | CRS WKT (record_id 2112) / GeoTIFF keys / class lookup  |
+|  [04]   | `laszip_evlr`                                      | extended VLR          | 64-bit-length EVLR — large CRS/waveform records         |
+|  [05]   | `laszip_geokey`                                    | GeoTIFF geokey        | one GeoTIFF CRS geokey entry the geokey VLR carries     |
+|  [06]   | `LASattribute` / `LASattributer` / `LAS_ATTRIBUTE` | extra-bytes attribute | extra-bytes (ASPRS) descriptor + typed per-point reader |
+
+```csharp signature
+struct laszip_point {                          // decoded in place; X*scale+offset → real-world XYZ
+    int X, Y, Z;  ushort intensity;
+    byte classification;                       // format-0-5 getter masks & 0x1F, truncates a format-6-10 record
+    byte extended_classification;              // full class byte; extended_point_type != 0 selects it for formats 6-10
+    double gps_time;  ushort[] rgb;            // rgb[4] = RGB + NIR
+    byte[] wave_packet;                        // wave_packet[29]
+    byte[] extra_bytes;                        // + return/scan/flag bit-fields
+}
+struct laszip_header {
+    version_*, point_data_format;
+    x/y/z_scale_factor, x/y/z_offset, min/max_*;
+    number_of_point_records, extended_number_of_point_records, number_of_points_by_return;
+    ulong vlr/evlr offsets;  List<laszip_vlr> vlrs;
+}
+struct laszip_vlr    { char[16] user_id; record_id; record_length_after_header; char[32] description; byte[] data; }
+struct laszip_geokey { key_id; tiff_tag_location; count; value_offset; }
+```
 
 ## [03]-[ENTRYPOINTS]
 
@@ -65,48 +90,54 @@ ILMerged into a Rasm assembly.
 - rail: reconstruct
 - note: `create()` mints the codec, `open_reader`/`open_reader_stream` opens a file/stream and reports `is_compressed` (one reader handles `.las` AND `.laz`), the forward loop calls `read_point()` filling `point`, and `get_coordinates` extracts the real-world XYZ (`X * scale + offset`). The `Stream` overload is the in-memory `ReadOnlyMemory<byte>`-backed read the object-store transport supplies. Every method returns an `int` status (0 = success); `get_error()`/`get_warning()` carry the message — the boundary traps these onto `Fin<T>`.
 
-| [INDEX] | [SURFACE]                                                                             | [CALL_SHAPE]                 | [RAIL]                                                           |
-| :-----: | :------------------------------------------------------------------------------------ | :--------------------------- | :--------------------------------------------------------------- |
-|  [01]   | `laszip.create()`                                                                     | static → `laszip`            | mint the codec object                                            |
-|  [02]   | `open_reader(string file_name, out bool is_compressed)`                               | → `int`                      | open a `.las`/`.laz` file (reports compression)                  |
-|  [03]   | `open_reader_stream(Stream streamin, out bool is_compressed, bool leaveOpen = false)` | → `int`                      | open from a caller stream (the in-memory transport read)         |
-|  [04]   | `get_header_pointer()` / `header`                                                     | → `laszip_header`            | the public header (scale/offset/extrema, VLRs)                   |
-|  [05]   | `get_point_count(out long count)` / `get_number_of_point(out long npoints)`           | → `int`                      | the total point count (standard or extended)                     |
-|  [06]   | `read_point()`                                                                        | → `int`                      | decode the next point into `point` (no allocation)               |
-|  [07]   | `get_point_pointer()` / `point`                                                       | → `laszip_point`             | the decoded point the cursor filled                              |
-|  [08]   | `get_coordinates(double[] coordinates)`                                               | → `int`                      | the real-world XYZ of the current point (`raw * scale + offset`) |
-|  [09]   | `seek_point(long index)`                                                              | → `int`                      | random-access seek to a point index                              |
-|  [10]   | `read_evlrs()` / `header.vlrs`                                                        | → `int` / `List<laszip_vlr>` | the VLR/EVLR set carrying the CRS WKT (record_id 2112)           |
-|  [11]   | `close_reader()`                                                                      | → `int`                      | release the reader and the stream                                |
-|  [12]   | `get_error()` / `get_warning()`                                                       | → `string`                   | the last error / warning message (the rail traps onto `Fin<T>`)  |
+| [INDEX] | [SURFACE]                                                                             | [CAPABILITY]                                   |
+| :-----: | :------------------------------------------------------------------------------------ | :--------------------------------------------- |
+|  [01]   | `laszip.create()` → `laszip`                                                          | mint the codec object (static)                 |
+|  [02]   | `open_reader(string file_name, out bool is_compressed)`                               | open a `.las`/`.laz` file                      |
+|  [03]   | `open_reader_stream(Stream streamin, out bool is_compressed, bool leaveOpen = false)` | open from a caller stream                      |
+|  [04]   | `get_header_pointer()` / `header` → `laszip_header`                                   | the public header (scale/offset/extrema, VLRs) |
+|  [05]   | `get_point_count(out long count)` / `get_number_of_point(out long npoints)`           | total point count (standard or extended)       |
+|  [06]   | `read_point()`                                                                        | decode the next point into `point`             |
+|  [07]   | `get_point_pointer()` / `point` → `laszip_point`                                      | the decoded point the cursor filled            |
+|  [08]   | `get_coordinates(double[] coordinates)`                                               | real-world XYZ of the current point            |
+|  [09]   | `seek_point(long index)`                                                              | random-access seek to a point index            |
+|  [10]   | `read_evlrs()` / `header.vlrs` → `List<laszip_vlr>`                                   | the VLR/EVLR set (CRS WKT record_id 2112)      |
+|  [11]   | `close_reader()`                                                                      | release the reader and the stream              |
+|  [12]   | `get_error()` / `get_warning()` → `string`                                            | the last error/warning message                 |
 
 [ENTRYPOINT_SCOPE]: selective decompression and `.lax` spatial-index query
 - namespace: `LASzip.Net`
 - rail: reconstruct
 - note: `decompress_selective` (set BEFORE the read loop) skips the channels a fit does not need — a plane/cylinder fit reading only `CHANNEL_RETURNS_XY \| Z \| CLASSIFICATION` skips RGB/waveform/extra-bytes decode entirely; the `.lax` spatial-index path (`has_spatial_index` → `inside_rectangle` → `exploit_spatial_index` → `read_inside_point`) reads only points inside a bbox window over a built index — the LAZ counterpart of the FGB Packed-R-tree bbox filter.
 
-| [INDEX] | [SURFACE]                                                                                     | [CALL_SHAPE] | [RAIL]                                                                    |
-| :-----: | :-------------------------------------------------------------------------------------------- | :----------- | :------------------------------------------------------------------------ |
-|  [01]   | `decompress_selective(LASZIP_DECOMPRESS_SELECTIVE decompress_selective)`                      | → `int`      | mask the per-channel decode (skip RGB/waveform/extra-bytes a fit ignores) |
-|  [02]   | `has_spatial_index(out bool is_indexed, out bool is_appended)`                                | → `int`      | test for a `.lax` spatial index                                           |
-|  [03]   | `inside_rectangle(double min_x, double min_y, double max_x, double max_y, out bool is_empty)` | → `int`      | set the bbox query window                                                 |
-|  [04]   | `exploit_spatial_index(bool exploit)`                                                         | → `int`      | enable index-accelerated windowed reads                                   |
-|  [05]   | `read_inside_point(out bool is_done)`                                                         | → `int`      | read the next point inside the bbox window (`is_done` = exhausted)        |
-|  [06]   | `create_spatial_index(bool create, bool append)`                                              | → `int`      | build/append a `.lax` index on the writer leg                             |
+| [INDEX] | [SURFACE]                                                                                     | [CAPABILITY]                     |
+| :-----: | :-------------------------------------------------------------------------------------------- | :------------------------------- |
+|  [01]   | `decompress_selective(LASZIP_DECOMPRESS_SELECTIVE decompress_selective)`                      | mask the per-channel decode      |
+|  [02]   | `has_spatial_index(out bool is_indexed, out bool is_appended)`                                | test for a `.lax` spatial index  |
+|  [03]   | `inside_rectangle(double min_x, double min_y, double max_x, double max_y, out bool is_empty)` | set the bbox query window        |
+|  [04]   | `exploit_spatial_index(bool exploit)`                                                         | index-accelerated windowed reads |
+|  [05]   | `read_inside_point(out bool is_done)`                                                         | next point in the bbox window    |
+|  [06]   | `create_spatial_index(bool create, bool append)`                                              | build/append a `.lax` index      |
 
 [ENTRYPOINT_SCOPE]: write a LAS/LAZ file (symmetric egress)
 - namespace: `LASzip.Net`
 - rail: reconstruct
 - note: the writer leg authors a `.las`/`.laz` — `set_header` + `set_point_type_and_size` configure, `open_writer(file, compress)` opens (the `compress` flag selects LAZ), the loop fills `point` and calls `write_point`, and `set_geokeys`/`add_vlr` author the CRS. Distinct from the `Themis.Las` writer — admitted here for the LAZ-compressed emit Themis cannot produce.
 
-| [INDEX] | [SURFACE]                                                                                                                                                | [CALL_SHAPE] | [RAIL]                                                  |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------- | :------------------------------------------------------ |
-|  [01]   | `set_header(laszip_header header)` / `set_point_type_and_size(byte point_type, ushort point_size)`                                                       | → `int`      | configure the output header and point format            |
-|  [02]   | `open_writer(string file_name, bool compress)` / `open_writer_stream(Stream streamout, bool compress, bool do_not_write_header, bool leaveOpen = false)` | → `int`      | open the writer (`compress` = LAZ)                      |
-|  [03]   | `set_point(laszip_point point)` / `point` + `set_coordinates(double[] coordinates)`                                                                      | → `int`      | set the next point's fields / real-world XYZ            |
-|  [04]   | `write_point()` / `write_indexed_point()`                                                                                                                | → `int`      | encode the current point (indexed variant feeds `.lax`) |
-|  [05]   | `set_geokeys(ushort number, laszip_geokey[] key_entries)` / `add_vlr(laszip_vlr vlr)`                                                                    | → `int`      | author the GeoTIFF CRS geokeys / a VLR                  |
-|  [06]   | `update_inventory()` / `close_writer()`                                                                                                                  | → `int`      | finalize the header counts/extrema and close            |
+| [INDEX] | [SURFACE]                                                                                               | [CAPABILITY]                   |
+| :-----: | :------------------------------------------------------------------------------------------------------ | :----------------------------- |
+|  [01]   | `set_header(laszip_header header)`                                                                      | configure the output header    |
+|  [02]   | `set_point_type_and_size(byte point_type, ushort point_size)`                                           | set the output point format    |
+|  [03]   | `open_writer(string file_name, bool compress)`                                                          | open the file writer           |
+|  [04]   | `open_writer_stream(Stream streamout, bool compress, bool do_not_write_header, bool leaveOpen = false)` | open a stream writer           |
+|  [05]   | `set_point(laszip_point point)` / `point`                                                               | set the next point's fields    |
+|  [06]   | `set_coordinates(double[] coordinates)`                                                                 | set the real-world XYZ         |
+|  [07]   | `write_point()`                                                                                         | encode the current point       |
+|  [08]   | `write_indexed_point()`                                                                                 | encode + feed the `.lax` index |
+|  [09]   | `set_geokeys(ushort number, laszip_geokey[] key_entries)`                                               | author the GeoTIFF CRS geokeys |
+|  [10]   | `add_vlr(laszip_vlr vlr)`                                                                               | author a VLR                   |
+|  [11]   | `update_inventory()`                                                                                    | finalize header counts/extrema |
+|  [12]   | `close_writer()`                                                                                        | flush and close                |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

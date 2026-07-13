@@ -17,66 +17,98 @@
 [PUBLIC_TYPE_SCOPE]: the column model — one discriminated `ColumnDef` union
 - rail: view
 
-| [INDEX] | [SYMBOL]                                                               | [TYPE_FAMILY]              | [CONSUMER]                                                                                                                                                                   |
-| :-----: | :--------------------------------------------------------------------- | :------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ColumnDef<TData, TValue>`                                             | column def union           | `view/compose` — the one column-definition type; the accessor/display/group variants below are its members, discriminated by which keys are present                          |
-|  [02]   | `AccessorKeyColumnDef` / `AccessorFnColumnDef` / `IdentifiedColumnDef` | value column               | `view/compose` — a column reading a row key or accessor fn; `createColumnHelper` picks the variant from the accessor shape                                                   |
-|  [03]   | `DisplayColumnDef` / `GroupColumnDef`                                  | structural column          | `view/compose` — a value-less display column (selection checkbox, row actions) and a header-grouping parent column                                                           |
-|  [04]   | `ColumnHelper<TData>` / `CellContext` / `HeaderContext`                | typed builder / render ctx | `view/compose` — `createColumnHelper<Schema.Type>()` yields fully-typed columns; the contexts carry `{ table, column, row, cell, getValue }` into a `flexRender` cell/header |
-|  [05]   | `ColumnMeta<TData, TValue>` / `TableMeta<TData>` (augmentable)         | typed metadata             | `view/compose` — declaration-merged interfaces carrying app-typed column/table metadata (alignment, `GlobalId` accessor, edit policy) end-to-end                             |
+| [INDEX] | [SYMBOL]                                                               | [TYPE_FAMILY]              |
+| :-----: | :--------------------------------------------------------------------- | :------------------------- |
+|  [01]   | `ColumnDef<TData, TValue>`                                             | column def union           |
+|  [02]   | `AccessorKeyColumnDef` / `AccessorFnColumnDef` / `IdentifiedColumnDef` | value column               |
+|  [03]   | `DisplayColumnDef` / `GroupColumnDef`                                  | structural column          |
+|  [04]   | `ColumnHelper<TData>` / `CellContext` / `HeaderContext`                | typed builder / render ctx |
+|  [05]   | `ColumnMeta<TData, TValue>` / `TableMeta<TData>` (augmentable)         | typed metadata             |
+
+- [01]-[COLUMN_DEF_UNION]: the one column-definition type; the accessor/display/group variants below are its members, discriminated by which keys are present.
+- [02]-[VALUE_COLUMN]: a column reading a row key or accessor fn; `createColumnHelper` picks the variant from the accessor shape.
+- [03]-[STRUCTURAL_COLUMN]: a value-less display column (selection checkbox, row actions) and a header-grouping parent column.
+- [04]-[TYPED_BUILDER_CTX]: `createColumnHelper<Schema.Type>()` yields fully-typed columns; the contexts carry `{ table, column, row, cell, getValue }` into a `flexRender` cell/header.
+- [05]-[TYPED_METADATA]: declaration-merged interfaces carrying app-typed column/table metadata (alignment, `GlobalId` accessor, edit policy) end-to-end.
 
 [PUBLIC_TYPE_SCOPE]: table instance, rows, and the derived row model
 - rail: view
 
-| [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY]   | [CONSUMER]                                                                                                                             |
-| :-----: | :----------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Table<TData>`                                                     | table instance  | `view/compose` — the returned engine; every derivation (`getRowModel`, `getHeaderGroups`, `getState`, `set*`) hangs off it             |
-|  [02]   | `Row<TData>` / `Cell<TData, TValue>`                               | row / cell      | `view/compose` — `row.getVisibleCells()`, `row.getIsSelected()`, `row.subRows`; the unit react-virtual windows                         |
-|  [03]   | `Header<TData, TValue>` / `HeaderGroup<TData>` / `Column<TData>`   | header / column | `view/compose` — `header.getContext()` feeds `flexRender`; `column.getToggleSortingHandler()`/`getCanSort()` drive the header controls |
-|  [04]   | `RowModel<TData>` / `TableOptions<TData>` / `TableOptionsResolved` | model / options | `view/compose` — the `{ rows, flatRows, rowsById }` derivation output and the options bag `useReactTable` consumes                     |
+| [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY]   |
+| :-----: | :----------------------------------------------------------------- | :-------------- |
+|  [01]   | `Table<TData>`                                                     | table instance  |
+|  [02]   | `Row<TData>` / `Cell<TData, TValue>`                               | row / cell      |
+|  [03]   | `Header<TData, TValue>` / `HeaderGroup<TData>` / `Column<TData>`   | header / column |
+|  [04]   | `RowModel<TData>` / `TableOptions<TData>` / `TableOptionsResolved` | model / options |
+
+- [01]-[TABLE_INSTANCE]: the returned engine; every derivation (`getRowModel`, `getHeaderGroups`, `getState`, `set*`) hangs off it.
+- [02]-[ROW_CELL]: `row.getVisibleCells()`, `row.getIsSelected()`, `row.subRows`; the unit react-virtual windows.
+- [03]-[HEADER_COLUMN]: `header.getContext()` feeds `flexRender`; `column.getToggleSortingHandler()`/`getCanSort()` drive the header controls.
+- [04]-[MODEL_OPTIONS]: the `{ rows, flatRows, rowsById }` derivation output and the options bag `useReactTable` consumes.
 
 [PUBLIC_TYPE_SCOPE]: controlled state slices and their update rail
 - rail: view
 
-| [INDEX] | [SYMBOL]                                                                                            | [TYPE_FAMILY]       | [CONSUMER]                                                                                                                                                 |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SortingState` / `ColumnFiltersState` / `GlobalFilterTableState` (`globalFilter`) / `GroupingState` | filter/sort state   | `view/compose` — the per-feature state slices lifted into `@effect-atom` folds when the row order/filter must survive remount                              |
-|  [02]   | `PaginationState` / `ExpandedState` / `RowSelectionState` / `VisibilityState`                       | nav/selection state | `view/compose` — `RowSelectionState` keyed by `GlobalId` bridges the table selection to `viewer/mark/selection`                                            |
-|  [03]   | `ColumnOrderState` / `ColumnPinningState` / `ColumnSizingState` / `RowPinningState`                 | layout state        | `view/compose` — column reorder/pin/resize and sticky-row state, all controllable and atom-persistable                                                     |
-|  [04]   | `Updater<T>` / `OnChangeFn<T>`                                                                      | update rail         | `view/compose` — every `on*Change` is `(updater: T \| ((old: T) => T)) => void`; `functionalUpdate` resolves it, `makeStateUpdater` builds the atom writer |
-|  [05]   | `FilterFns` / `SortingFns` / `AggregationFns` (augmentable) / `FilterMeta`                          | fn registry types   | `view/compose` — declaration-merged registries naming custom fuzzy/rank/domain functions referenced by string id in a column def                           |
+| [INDEX] | [SYMBOL]                                                                                            | [TYPE_FAMILY]       |
+| :-----: | :-------------------------------------------------------------------------------------------------- | :------------------ |
+|  [01]   | `SortingState` / `ColumnFiltersState` / `GlobalFilterTableState` (`globalFilter`) / `GroupingState` | filter/sort state   |
+|  [02]   | `PaginationState` / `ExpandedState` / `RowSelectionState` / `VisibilityState`                       | nav/selection state |
+|  [03]   | `ColumnOrderState` / `ColumnPinningState` / `ColumnSizingState` / `RowPinningState`                 | layout state        |
+|  [04]   | `Updater<T>` / `OnChangeFn<T>`                                                                      | update rail         |
+|  [05]   | `FilterFns` / `SortingFns` / `AggregationFns` (augmentable) / `FilterMeta`                          | fn registry types   |
+
+- [01]-[FILTER_SORT_STATE]: the per-feature state slices lifted into `@effect-atom` folds when the row order/filter must survive remount.
+- [02]-[NAV_SELECTION_STATE]: `RowSelectionState` keyed by `GlobalId` bridges the table selection to `viewer/mark/selection`.
+- [03]-[LAYOUT_STATE]: column reorder/pin/resize and sticky-row state, all controllable and atom-persistable.
+- [04]-[UPDATE_RAIL]: every `on*Change` is `(updater: T \| ((old: T) => T)) => void`; `functionalUpdate` resolves it, `makeStateUpdater` builds the atom writer.
+- [05]-[FN_REGISTRY_TYPES]: declaration-merged registries naming custom fuzzy/rank/domain functions referenced by string id in a column def.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing and rendering a table
 - rail: view
 
-| [INDEX] | [SURFACE]                                                                                         | [ENTRY_FAMILY] | [CONSUMER]                                                                                                                                                 |
-| :-----: | :------------------------------------------------------------------------------------------------ | :------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `useReactTable<T>({ data, columns, getCoreRowModel, state, onStateChange, ... })`                 | build table    | `view/compose` — the one entry hook; returns the `Table<T>` instance rebuilt on state/data change                                                          |
-|  [02]   | `createColumnHelper<Schema.Type>()` → `.accessor(key\|fn, def)` / `.display(def)` / `.group(def)` | typed columns  | `view/compose` — columns typed against the decoded `wire` Schema type; the accessor variant is inferred from the argument                                  |
-|  [03]   | `flexRender(cellOrHeader.column.columnDef.cell, cell.getContext())`                               | render slot    | `view/compose` — resolves a column's cell/header (component, fn, or primitive) against its context; the only bridge from headless def to react-aria markup |
-|  [04]   | `table.getHeaderGroups()` / `table.getRowModel().rows` / `table.getFooterGroups()`                | derive markup  | `view/compose` — the header/body/footer derivation; `getRowModel().rows` is the array react-virtual windows                                                |
+| [INDEX] | [SURFACE]                                                                                         | [ENTRY_FAMILY] |
+| :-----: | :------------------------------------------------------------------------------------------------ | :------------- |
+|  [01]   | `useReactTable<T>({ data, columns, getCoreRowModel, state, onStateChange, ... })`                 | build table    |
+|  [02]   | `createColumnHelper<Schema.Type>()` → `.accessor(key\|fn, def)` / `.display(def)` / `.group(def)` | typed columns  |
+|  [03]   | `flexRender(cellOrHeader.column.columnDef.cell, cell.getContext())`                               | render slot    |
+|  [04]   | `table.getHeaderGroups()` / `table.getRowModel().rows` / `table.getFooterGroups()`                | derive markup  |
+
+- [01]-[BUILD_TABLE]: the one entry hook; returns the `Table<T>` instance rebuilt on state/data change.
+- [02]-[TYPED_COLUMNS]: columns typed against the decoded `wire` Schema type; the accessor variant is inferred from the argument.
+- [03]-[RENDER_SLOT]: resolves a column's cell/header (component, fn, or primitive) against its context; the only bridge from headless def to react-aria markup.
+- [04]-[DERIVE_MARKUP]: the header/body/footer derivation; `getRowModel().rows` is the array react-virtual windows.
 
 [ENTRYPOINT_SCOPE]: opt-in feature composition — tree-shakeable row models
 - rail: view
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                        | [ENTRY_FAMILY]     | [CONSUMER]                                                                                                                             |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `getCoreRowModel()` (required) — `getFilteredRowModel()` / `getSortedRowModel()` / `getGroupedRowModel()`                                                                                                                                        | row-model opt-in   | `view/compose` — each imported builder enables its feature; unused builders tree-shake out, so a plain table ships no sort/filter code |
-|  [02]   | `getExpandedRowModel()` / `getPaginationRowModel()` / `getFacetedRowModel()`                                                                                                                                                                     | row-model opt-in   | `view/compose` — sub-row expansion, client pagination, and the faceted (distinct-value) pipeline                                       |
-|  [03]   | `getFacetedUniqueValues()` / `getFacetedMinMaxValues()`                                                                                                                                                                                          | facet derivation   | `view/compose` — the distinct-value map and numeric range feeding a filter UI's option list / slider bounds                            |
-|  [04]   | `_features: [RowSelection, ColumnPinning, RowExpanding, ...]` (from `ColumnFiltering`, `RowSorting`, `GlobalFiltering`, `ColumnGrouping`, `ColumnOrdering`, `ColumnSizing`, `ColumnVisibility`, `GlobalFaceting`, `RowPagination`, `RowPinning`) | custom feature set | `view/compose` — the feature modules composed explicitly when a table needs a bespoke subset or a custom feature beside the built-ins  |
+| [INDEX] | [SURFACE]                                                                                                 | [ENTRY_FAMILY]     |
+| :-----: | :-------------------------------------------------------------------------------------------------------- | :----------------- |
+|  [01]   | `getCoreRowModel()` (required) — `getFilteredRowModel()` / `getSortedRowModel()` / `getGroupedRowModel()` | row-model opt-in   |
+|  [02]   | `getExpandedRowModel()` / `getPaginationRowModel()` / `getFacetedRowModel()`                              | row-model opt-in   |
+|  [03]   | `getFacetedUniqueValues()` / `getFacetedMinMaxValues()`                                                   | facet derivation   |
+|  [04]   | `_features: [RowSelection, ColumnPinning, RowExpanding, ...]`                                             | custom feature set |
+
+- [01]-[CORE_MODELS]: each imported builder enables its feature; unused builders tree-shake out, so a plain table ships no sort/filter code.
+- [02]-[EXTRA_MODELS]: sub-row expansion, client pagination, and the faceted (distinct-value) pipeline.
+- [03]-[FACET_DERIVATION]: the distinct-value map and numeric range feeding a filter UI's option list / slider bounds.
+- [04]-[CUSTOM_FEATURE_SET]: the feature modules composed explicitly when a table needs a bespoke subset or a custom feature beside the built-ins — the roster is `ColumnFiltering`/`RowSorting`/`GlobalFiltering`/`ColumnGrouping`/`ColumnOrdering`/`ColumnSizing`/`ColumnVisibility`/`GlobalFaceting`/`RowPagination`/`RowPinning`.
 
 [ENTRYPOINT_SCOPE]: the pluggable function registries
 - rail: view
 
-| [INDEX] | [SURFACE]                                                                                                    | [ENTRY_FAMILY]  | [CONSUMER]                                                                                                                                                             |
-| :-----: | :----------------------------------------------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `sortingFns` (`alphanumeric`/`text`/`datetime`/`basic`/...) — `column.sortingFn: 'alphanumeric' \| MySortFn` | sort registry   | `view/compose` — reference a built-in by id or supply a custom `SortingFn`; the registry is the parameterization, not a per-column branch                              |
-|  [02]   | `filterFns` (`includesString`/`equals`/`inNumberRange`/`arrIncludes`/...) — `column.filterFn`                | filter registry | `view/compose` — built-in or custom `FilterFn`; a fuzzy-rank fn registered here powers the command-palette-style column filter                                         |
-|  [03]   | `aggregationFns` (`sum`/`mean`/`min`/`max`/`count`/`extent`/`unique`/...) — `column.aggregationFn`           | agg registry    | `view/compose` — grouped-row aggregation by id or custom `AggregationFn`; the roster is seed data feeding one lookup, extended by declaration-merging `AggregationFns` |
-|  [04]   | `functionalUpdate(updater, old)` / `makeStateUpdater(key, instance)` / `memo(deps, fn, opts)`                | state util      | `view/compose` — resolve an `Updater` against prior state, build a keyed state-setter for the atom binding, and memoize a derivation                                   |
+| [INDEX] | [SURFACE]                                                                                                    | [ENTRY_FAMILY]  |
+| :-----: | :----------------------------------------------------------------------------------------------------------- | :-------------- |
+|  [01]   | `sortingFns` (`alphanumeric`/`text`/`datetime`/`basic`/...) — `column.sortingFn: 'alphanumeric' \| MySortFn` | sort registry   |
+|  [02]   | `filterFns` (`includesString`/`equals`/`inNumberRange`/`arrIncludes`/...) — `column.filterFn`                | filter registry |
+|  [03]   | `aggregationFns` (`sum`/`mean`/`min`/`max`/`count`/`extent`/`unique`/...) — `column.aggregationFn`           | agg registry    |
+|  [04]   | `functionalUpdate(updater, old)` / `makeStateUpdater(key, instance)` / `memo(deps, fn, opts)`                | state util      |
+
+- [01]-[SORT_REGISTRY]: reference a built-in by id or supply a custom `SortingFn`; the registry is the parameterization, not a per-column branch.
+- [02]-[FILTER_REGISTRY]: built-in or custom `FilterFn`; a fuzzy-rank fn registered here powers the command-palette-style column filter.
+- [03]-[AGG_REGISTRY]: grouped-row aggregation by id or custom `AggregationFn`; the roster is seed data feeding one lookup, extended by declaration-merging `AggregationFns`.
+- [04]-[STATE_UTIL]: resolve an `Updater` against prior state, build a keyed state-setter for the atom binding, and memoize a derivation.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -6,25 +6,25 @@ The Anthropic binding onto `@effect/ai`: it resolves the provider-agnostic `Lang
 
 ## [01]-[ASYMMETRY]
 
-| [INDEX] | [COLUMN]               | [ANTHROPIC]                                                   | [OPENAI]             | [GOOGLE]         | [BEDROCK]        |
-| :-----: | :--------------------- | :------------------------------------------------------------ | :------------------- | :--------------- | :--------------- |
-|  [01]   | provider id            | `"anthropic"`                                                 | openai               | google           | amazon-bedrock   |
-|  [02]   | language model         | `AnthropicLanguageModel` (Messages beta)                      | Responses            | generateContent  | Converse         |
-|  [03]   | embedding model        | —                                                             | batched+DL           | raw client       | —                |
-|  [04]   | tokenizer              | `AnthropicTokenizer.make` (bare value)                        | `make({model})`      | —                | —                |
-|  [05]   | provider-defined tools | 5 families / 11 date-suffixed ctors                           | 4                    | 4                | 8 (via this pkg) |
-|  [06]   | telemetry module       | —                                                             | `OpenAiTelemetry`    | —                | —                |
-|  [07]   | model-id kind          | `Generated.Model.Encoded` (21 claude ids)                     | enum                 | free `string`    | 91-id enum       |
-|  [08]   | auth                   | `Redacted` apiKey + version + org/project                     | apiKey + org/project | apiKey           | SigV4 keys       |
-|  [09]   | per-request Config     | `AnthropicLanguageModel/Config` (+`disableParallelToolCalls`) | `strict`/`verbosity` | `toolConfig`     | Converse fields  |
-|  [10]   | streaming fold         | `MessageStreamEvent` (8-member union)                         | 49-member            | response re-emit | 11-member        |
-|  [11]   | cross-provider export  | `prepareTools` → Amazon Bedrock                               | —                    | —                | consumes it      |
+| [INDEX] | [COLUMN]               | [ANTHROPIC]                               | [OPENAI]             | [GOOGLE]         | [BEDROCK]        |
+| :-----: | :--------------------- | :---------------------------------------- | :------------------- | :--------------- | :--------------- |
+|  [01]   | provider id            | `"anthropic"`                             | openai               | google           | amazon-bedrock   |
+|  [02]   | language model         | `AnthropicLanguageModel` (Messages beta)  | Responses            | generateContent  | Converse         |
+|  [03]   | embedding model        | —                                         | batched+DL           | raw client       | —                |
+|  [04]   | tokenizer              | `AnthropicTokenizer.make` (bare value)    | `make({model})`      | —                | —                |
+|  [05]   | provider-defined tools | 5 families / 11 date-suffixed ctors       | 4                    | 4                | 8 (via this pkg) |
+|  [06]   | telemetry module       | —                                         | `OpenAiTelemetry`    | —                | —                |
+|  [07]   | model-id kind          | `Generated.Model.Encoded` (21 claude ids) | enum                 | free `string`    | 91-id enum       |
+|  [08]   | auth                   | `Redacted` apiKey + version + org/project | apiKey + org/project | apiKey           | SigV4 keys       |
+|  [09]   | per-request Config     | `Config` + `disableParallelToolCalls`     | `strict`/`verbosity` | `toolConfig`     | Converse fields  |
+|  [10]   | streaming fold         | `MessageStreamEvent` (8-member union)     | 49-member            | response re-emit | 11-member        |
+|  [11]   | cross-provider export  | `prepareTools` → Amazon Bedrock           | —                    | —                | consumes it      |
 
 ## [02]-[CLIENT]
 
 `AnthropicClient` is a `Context.TagClass` (id `@effect/ai-anthropic/AnthropicClient`) wrapping the generated `Client` plus curated beta-message entrypoints. `createMessage`/`createMessageStream` target the `Beta*` request/response owners (the high-level surface is beta-only); `streamRequest` decodes an arbitrary SSE response against a `Schema`; `apiKey` rides the `x-api-key` header.
 
-```ts contract
+```ts signature
 export interface Service {
   readonly client: Generated.Client
   readonly streamRequest: <A, I, R>(request: HttpClientRequest.HttpClientRequest, schema: Schema.Schema<A, I, R>) => Stream.Stream<A, AiError.AiError, R>
@@ -41,7 +41,7 @@ export interface Service {
 
 ONE constructor pattern, three arities. `make` alone carries `organizationId`/`projectId`; `layer`/`layerConfig` drop them. `anthropicVersion` defaults `"2023-06-01"`, `apiUrl` defaults `"https://api.anthropic.com"`. `make` requires `HttpClient | Scope`; the layers require `HttpClient`; `layerConfig` adds `ConfigError` with each option wrapped in `Config.Config<… | undefined>`.
 
-```ts contract
+```ts signature
 declare const make: (options: {
   readonly apiKey?: Redacted.Redacted | undefined
   readonly apiUrl?: string | undefined              // default "https://api.anthropic.com"
@@ -56,7 +56,7 @@ declare const layerConfig: (options: { each field Config.Config<… | undefined>
 
 `MessageStreamEvent` is the ONE streaming-fold surface — an 8-member `Schema.Union` discriminated on `type`. Lifecycle members (`ping`, `error`, `message_start` carrying `BetaMessage`, `message_delta`, `message_stop`) bracket the content-block members (`content_block_start` carrying `BetaContentBlock`, `content_block_delta`, `content_block_stop`); the `content_block_delta.delta` is itself a 5-arm union folded by `type`.
 
-```ts contract
+```ts signature
 declare const MessageStreamEvent: Schema.Union<[typeof PingEvent, typeof ErrorEvent, typeof MessageStartEvent, typeof MessageDeltaEvent,
   typeof MessageStopEvent, typeof ContentBlockStartEvent, typeof ContentBlockDeltaEvent, typeof ContentBlockStopEvent]>
 type MessageStreamEvent = typeof MessageStreamEvent.Type
@@ -71,7 +71,7 @@ type MessageStreamEvent = typeof MessageStreamEvent.Type
 
 `AnthropicLanguageModel` binds Messages onto the core `LanguageModel`/`Model` contracts; the model argument is the widened `(string & {}) | Model` over the 21 Claude ids. ONE model/layer family with the tokenizer fold, plus `prepareTools` — exposed for downstream integrations (Amazon Bedrock) that run Claude models and need the prepared tool/tool-choice/beta triple.
 
-```ts contract
+```ts signature
 export type Model = typeof Generated.Model.Encoded
 // claude-{3-7,3-5,3}-{sonnet,haiku,opus}-{latest,dated} + claude-{sonnet,opus,haiku}-4[-{0,1,5}][-dated] + claude-4-{sonnet,opus}-dated  (21 ids)
 declare const model:              (model: (string & {}) | Model, config?: Omit<Config.Service, "model">) => AiModel.Model<"anthropic", LanguageModel.LanguageModel, AnthropicClient>
@@ -90,27 +90,28 @@ export type AnthropicReasoningInfo =
 
 `Config` (tag `@effect/ai-anthropic/AnthropicLanguageModel/Config`, `static getOrUndefined`) is the `CreateMessageParams` minus SDK-owned keys (`messages`/`tools`/`tool_choice`/`stream`) made partial, plus `disableParallelToolCalls` — the tier-routing seam `ai/model.ts` writes per call.
 
-```ts contract
+```ts signature
 namespace Config { interface Service extends Simplify<Partial<Omit<typeof Generated.CreateMessageParams.Encoded, "messages"|"tools"|"tool_choice"|"stream">>> { readonly disableParallelToolCalls?: boolean } }
 ```
 
 The `declare module` augmentations attach an optional `anthropic` key — ONE boundary-hook pattern. Prompt caching is the dominant one: every message/part options interface gains `cacheControl?: CacheControlEphemeral.Encoded`.
 
-| [INDEX] | [AUGMENTS] | [INTERFACES]                                                                        | [ANTHROPIC_SLOT]                                                    |
-| :-----: | :--------- | :---------------------------------------------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | `Prompt`   | `System/User/Assistant/Tool MessageOptions`, `Text/ToolCall/ToolResult PartOptions` | `cacheControl?`                                                     |
-|  [02]   | `Prompt`   | `ReasoningPartOptions`                                                              | `AnthropicReasoningInfo & { cacheControl? }`                        |
-|  [03]   | `Prompt`   | `FilePartOptions`                                                                   | `cacheControl?`, `citations?`, `documentTitle?`, `documentContext?` |
-|  [04]   | `Response` | `Reasoning{,Start,Delta}PartMetadata`                                               | `AnthropicReasoningInfo`                                            |
-|  [05]   | `Response` | `FinishPartMetadata`                                                                | `{ usage?: BetaUsage; stopSequence? }`                              |
-|  [06]   | `Response` | `DocumentSourcePartMetadata`                                                        | `char_location` \| `page_location` citation                         |
-|  [07]   | `Response` | `UrlSourcePartMetadata`                                                             | `{ source:"url"; citedText; encryptedIndex }`                       |
+| [INDEX] | [AUGMENTS] | [INTERFACES]                                | [ANTHROPIC_SLOT]                                   |
+| :-----: | :--------- | :------------------------------------------ | :------------------------------------------------- |
+|  [01]   | `Prompt`   | `System/User/Assistant/Tool MessageOptions` | `cacheControl?`                                    |
+|  [02]   | `Prompt`   | `Text/ToolCall/ToolResult PartOptions`      | `cacheControl?`                                    |
+|  [03]   | `Prompt`   | `ReasoningPartOptions`                      | `AnthropicReasoningInfo & { cacheControl? }`       |
+|  [04]   | `Prompt`   | `FilePartOptions`                           | `citations?`, `documentTitle?`, `documentContext?` |
+|  [05]   | `Response` | `Reasoning{,Start,Delta}PartMetadata`       | `AnthropicReasoningInfo`                           |
+|  [06]   | `Response` | `FinishPartMetadata`                        | `{ usage?: BetaUsage; stopSequence? }`             |
+|  [07]   | `Response` | `DocumentSourcePartMetadata`                | `char_location` \| `page_location` citation        |
+|  [08]   | `Response` | `UrlSourcePartMetadata`                     | `{ source:"url"; citedText; encryptedIndex }`      |
 
 ## [04]-[TOKENIZER]
 
 `AnthropicTokenizer.make` is a bare `Tokenizer.Service` value (not a factory function — distinct from `OpenAiTokenizer.make`, which takes `{ model }`); `layer` provides the `Tokenizer.Tokenizer` tag dependency-free, and `AnthropicLanguageModel.layerWithTokenizer`/`modelWithTokenizer` fold it in. This is the canonical tokenizer `ai/model.ts` names as its primary budget owner.
 
-```ts contract
+```ts signature
 declare const make: Tokenizer.Service
 declare const layer: Layer.Layer<Tokenizer.Tokenizer>
 ```
@@ -119,15 +120,15 @@ declare const layer: Layer.Layer<Tokenizer.Tokenizer>
 
 `AnthropicTool` exports the closed-form `ProviderDefinedTools` union schema plus date-suffixed constructors, each ONE instance of `<Mode extends Tool.FailureMode | undefined>(args) => Tool.ProviderDefined<"Anthropic<Name>", { …; failureMode: Mode extends undefined ? "error" : Mode }, requiresHandler>`. The `requiresHandler` flag is the intra-family asymmetry: locally-executed tools (`Bash`/`ComputerUse`/`TextEditor`) are `true` and need an app handler; provider-executed tools (`CodeExecution`/`WebSearch`) are `false`. Versioning is by date suffix — the same tag with an evolving `parameters` literal.
 
-| [INDEX] | [TAG]                    | [CTORS]                                                   | [REQUIRESHANDLER] | [PARAMETERS_AXIS_SUCCESS]                                     |
-| :-----: | :----------------------- | :-------------------------------------------------------- | :---------------- | :------------------------------------------------------------ |
-|  [01]   | `AnthropicBash`          | `Bash_20241022`, `Bash_20250124`                          | `true`            | `{ command; restart? }` / `String`                            |
-|  [02]   | `AnthropicComputerUse`   | `ComputerUse_20241022`, `ComputerUse_20250124`            | `true`            | `action` literal (5 → 15 verbs) + coordinates / `String`      |
-|  [03]   | `AnthropicTextEditor`    | `TextEditor_20241022`/`_20250124`/`_20250429`/`_20250728` | `true`            | `command` literal (5 → 4 verbs) / `Void`                      |
-|  [04]   | `AnthropicCodeExecution` | `CodeExecution_20250522`, `CodeExecution_20250825`        | `false`           | `EmptyParams` / Beta code-exec result block(s), typed failure |
-|  [05]   | `AnthropicWebSearch`     | `WebSearch_20250305`                                      | `false`           | `EmptyParams` / `Array<RequestWebSearchResultBlock>`          |
+| [INDEX] | [TAG]                    | [CTORS]                                            | [PARAMETERS_AXIS_SUCCESS]                                |
+| :-----: | :----------------------- | :------------------------------------------------- | :------------------------------------------------------- |
+|  [01]   | `AnthropicBash`          | `Bash_{20241022,20250124}`                         | `{ command; restart? }` / `String`                       |
+|  [02]   | `AnthropicComputerUse`   | `ComputerUse_{20241022,20250124}`                  | `action` literal (5 → 15 verbs) + coordinates / `String` |
+|  [03]   | `AnthropicTextEditor`    | `TextEditor_{20241022,20250124,20250429,20250728}` | `command` literal (5 → 4 verbs) / `Void`                 |
+|  [04]   | `AnthropicCodeExecution` | `CodeExecution_{20250522,20250825}`                | `EmptyParams` / code-exec result blocks, typed failure   |
+|  [05]   | `AnthropicWebSearch`     | `WebSearch_20250305`                               | `EmptyParams` / `Array<RequestWebSearchResultBlock>`     |
 
-```ts contract
+```ts signature
 declare const ProviderDefinedTools: Schema.Union<[/* 10 Beta*Tool schemas: bash×2, code-execution, computer-use×2, text-editor×4, web-search */]>
 declare const Coordinate: Schema.Tuple2<typeof Schema.Number, typeof Schema.Number>
 declare const getProviderDefinedToolName: (name: string) => string | undefined   // wire name ("web_search") → toolkit id ("AnthropicWebSearch")
@@ -137,7 +138,7 @@ declare const getProviderDefinedToolName: (name: string) => string | undefined  
 
 `AnthropicConfig` (`Context.TagClass`, id `@effect/ai-anthropic/AnthropicConfig`, `static getOrUndefined`) is the request-scoped client transform — a per-request `HttpClient` mutation without rebuilding transport, dual data-first/data-last. Distinct from the layer-construction `transformClient`.
 
-```ts contract
+```ts signature
 namespace AnthropicConfig { interface Service { readonly transformClient?: (client: HttpClient) => HttpClient } }
 declare const withClientTransform: { (t: (c: HttpClient) => HttpClient): <A,E,R>(self) => …; <A,E,R>(self, t): … }
 ```

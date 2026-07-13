@@ -780,14 +780,20 @@ public static class Spatial {
 
 ## [04]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes, and the per-axis kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN] | [OWNER]               | [KIND]                                                                                                                           | [RAIL]                                             | [CASES] |
-| :-----: | :------------- | :-------------------- | :------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------- | :-----: |
-|  [01]   | Entry          | `Spatial`/`SpatialOp` | `[Union]` (`Build`/`Refit`/`Query`/`Wire`) folded by ONE `Apply` with `Op? key` threading                                        | `Spatial.Apply → Fin<SpatialAnswer>`               |    4    |
-|  [02]   | Builder rows   | `SpatialKind`         | `[SmartEnum<string>]` (`bvh`/`octree`/`agglomerative`) + `[UseDelegateFromConstructor]` `Build` behavior column                  | row delegate → `SpatialIndex` (interior)           |    3    |
-|  [03]   | Spatial index  | `SpatialIndex`        | `[Union]` (`Bvh`/`LinearOctree`) over one frozen `NodeStore`, `IValidityEvidence` registered, persistent degradation-keyed refit | via `Apply` (`Build`/`Refit` arms, validity-gated) |    2    |
-|  [04]   | Spatial query  | `SpatialQuery`        | `[Union]` (`Range`/`Ray`/`Nearest`/`Overlap`/`Winding`) + `QueryKind` discriminant, folded by one `Query`                        | via `Apply` (`Query` arm) → `QueryResult`          |    5    |
-|  [05]   | Answer         | `SpatialAnswer`       | `[Union]` (`Index`/`Result`/`Wire`) — the wire case carries the frozen `(float[], long[])` node arrays                           | carrier (returned in the `Apply` rail)             |    3    |
+| [INDEX] | [AXIS_CONCERN] | [OWNER]               | [RAIL]                                             | [CASES] |
+| :-----: | :------------- | :-------------------- | :------------------------------------------------- | :-----: |
+|  [01]   | Entry          | `Spatial`/`SpatialOp` | `Spatial.Apply → Fin<SpatialAnswer>`               |    4    |
+|  [02]   | Builder rows   | `SpatialKind`         | row delegate → `SpatialIndex` (interior)           |    3    |
+|  [03]   | Spatial index  | `SpatialIndex`        | via `Apply` (`Build`/`Refit` arms, validity-gated) |    2    |
+|  [04]   | Spatial query  | `SpatialQuery`        | via `Apply` (`Query` arm) → `QueryResult`          |    5    |
+|  [05]   | Answer         | `SpatialAnswer`       | carrier (returned in the `Apply` rail)             |    3    |
+
+- [01]-[ENTRY]: `[Union]` (`Build`/`Refit`/`Query`/`Wire`) folded by ONE `Apply` with `Op? key` threading.
+- [02]-[BUILDER_ROWS]: `[SmartEnum<string>]` (`bvh`/`octree`/`agglomerative`) + `[UseDelegateFromConstructor]` `Build` behavior column.
+- [03]-[SPATIAL_INDEX]: `[Union]` (`Bvh`/`LinearOctree`) over one frozen `NodeStore`, `IValidityEvidence` registered, persistent degradation-keyed refit.
+- [04]-[SPATIAL_QUERY]: `[Union]` (`Range`/`Ray`/`Nearest`/`Overlap`/`Winding`) + `QueryKind` discriminant, folded by one `Query`.
+- [05]-[ANSWER]: `[Union]` (`Index`/`Result`/`Wire`) — the wire case carries the frozen `(float[], long[])` node arrays.
 
 The three build kernels (SAH-BVH top-down, Morton linear octree, agglomerative PLOC with BFS compaction), the five query bodies (range descent, front-to-back ray slab, best-first k-NN, tandem overlap, hierarchical GWN), and the persistent degradation-keyed refit are transcription-complete pure-managed fences over one frozen `NodeStore` SoA layout with a contiguous parent-before-child `[FirstChild, FirstChild+ChildCount)` child range that loses no octree octant and rides every agglomerative-merged node unchanged. Bounds narrow OUTWARD once at the arena write seam, the wire copies those floats verbatim, and every failure — degenerate admission, count mismatch, kind mismatch, malformed scalar — routes the ONE `Fin<SpatialAnswer>` rail through the band-2400 `GeometryFault` cases or the `Op` admission vocabulary. The `[CLASH_SEAM]` layout is settled; the `[CLASH_GOLDEN]` fixture is pinned in topology, descriptor block, and pair set, with the byte stream DERIVATION-PROVEN under the outward-rounding law from the two transcription-complete fences — the recorded derivation on the citing Compute page is its one-time reproof.

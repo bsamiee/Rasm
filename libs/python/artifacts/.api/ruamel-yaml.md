@@ -19,36 +19,42 @@
 [PUBLIC_TYPE_SCOPE]: engine and container roots
 - rail: structured documents
 
-| [INDEX] | [SYMBOL]                                        | [PACKAGE_ROLE]     | [CAPABILITY]                                                                                                                                            |
-| :-----: | :---------------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `YAML`                                          | engine root        | typ-selected load/dump engine; carries `indent`/`width`/`version`/styling config                                                                        |
-|  [02]   | `CommentedMap`                                  | mapping container  | dict preserving comments, key order, merge keys, anchors; `.ca`/`.lc`/`.fa` access                                                                      |
-|  [03]   | `CommentedSeq`                                  | sequence container | list preserving comments, styling, anchors                                                                                                              |
-|  [04]   | `CommentedKeyMap` / `CommentedKeySeq`           | hashable container | round-trip map/seq usable as a mapping key                                                                                                              |
-|  [05]   | `TaggedScalar`                                  | tagged node        | a scalar carrying an explicit `!tag`                                                                                                                    |
-|  [06]   | `CommentToken`                                  | comment node       | a parsed comment attached to a node via `.ca`                                                                                                           |
-|  [07]   | `anchor.Anchor`                                 | anchor handle      | the `&name` anchor bound to a node (`.anchor` / `yaml_set_anchor`); NOT re-exported top-level — import from `ruamel.yaml.anchor`                        |
-|  [08]   | `RoundTripConstructor` / `RoundTripRepresenter` | round-trip codec   | the load/dump halves preserving fidelity (the `rt` typ)                                                                                                 |
-|  [09]   | `SafeConstructor` / `SafeRepresenter`           | safe codec         | the safe typ load/dump halves; `add_representer`/`add_constructor` extend either                                                                        |
-|  [10]   | `Version` / `DocInfo`                           | doc metadata       | `Version(major, minor)` (`ruamel.yaml.docinfo.Version`, carried by `YAML.version`); `DocInfo` carries directives/tags/version read from a parsed stream |
-|  [11]   | `Tag`                                           | tag handle         | a resolved `!tag`/`!!type` on a node (set on `CommentedMap`/`TaggedScalar`)                                                                             |
-|  [12]   | `YAMLObject` / `yaml_object`                    | class registration | base class / `@yaml_object(yaml)` decorator binding a custom class to a tag for round-trip                                                              |
+| [INDEX] | [SYMBOL]               | [PACKAGE_ROLE]     | [CAPABILITY]                                                                          |
+| :-----: | :--------------------- | :----------------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `YAML`                 | engine root        | typ-selected load/dump engine; carries `indent`/`width`/`version`/styling config      |
+|  [02]   | `CommentedMap`         | mapping container  | dict preserving comments, key order, merge keys, anchors; `.ca`/`.lc`/`.fa` access    |
+|  [03]   | `CommentedSeq`         | sequence container | list preserving comments, styling, anchors                                            |
+|  [04]   | `CommentedKeyMap`      | hashable container | round-trip map usable as a mapping key                                                |
+|  [05]   | `CommentedKeySeq`      | hashable container | round-trip seq usable as a mapping key                                                |
+|  [06]   | `TaggedScalar`         | tagged node        | a scalar carrying an explicit `!tag`                                                  |
+|  [07]   | `CommentToken`         | comment node       | a parsed comment attached to a node via `.ca`                                         |
+|  [08]   | `anchor.Anchor`        | anchor handle      | the `&name` anchor on a node (`.anchor`/`yaml_set_anchor`); from `ruamel.yaml.anchor` |
+|  [09]   | `RoundTripConstructor` | round-trip codec   | the round-trip load half preserving fidelity (the `rt` typ)                           |
+|  [10]   | `RoundTripRepresenter` | round-trip codec   | the round-trip dump half preserving fidelity (the `rt` typ)                           |
+|  [11]   | `SafeConstructor`      | safe codec         | the safe typ load half; `add_constructor` extends it                                  |
+|  [12]   | `SafeRepresenter`      | safe codec         | the safe typ dump half; `add_representer` extends it                                  |
+|  [13]   | `Version`              | doc metadata       | `Version(major, minor)` (`ruamel.yaml.docinfo.Version`), carried by `YAML.version`    |
+|  [14]   | `DocInfo`              | doc metadata       | directives/tags/version read from a parsed stream (`parsed.docinfo`)                  |
+|  [15]   | `Tag`                  | tag handle         | a resolved `!tag`/`!!type` on a node (set on `CommentedMap`/`TaggedScalar`)           |
+|  [16]   | `YAMLObject`           | class registration | base class binding a custom class to a tag for round-trip                             |
+|  [17]   | `yaml_object`          | class registration | `@yaml_object(yaml)` decorator binding a class to a tag for round-trip                |
 
 [PUBLIC_TYPE_SCOPE]: styled-scalar family
 - rail: structured documents — `ruamel.yaml.scalarstring`, `scalarint`, `scalarfloat`, `scalarbool`, `timestamp`
 
 Construct these in place of plain `str`/`int` to force emission style on dump; on round-trip load the engine reconstructs them so the style survives.
 
-| [INDEX] | [SYMBOL]                                                | [PACKAGE_ROLE] | [CAPABILITY]                                                         |
-| :-----: | :------------------------------------------------------ | :------------- | :------------------------------------------------------------------- |
-|  [01]   | `LiteralScalarString`                                   | block scalar   | force `\|` literal block (preserve newlines, e.g. embedded code/SQL) |
-|  [02]   | `FoldedScalarString`                                    | block scalar   | force `>` folded block (wrap long prose)                             |
-|  [03]   | `SingleQuotedScalarString` / `DoubleQuotedScalarString` | quoted scalar  | force `'...'` / `"..."` quoting                                      |
-|  [04]   | `PlainScalarString`                                     | plain scalar   | force unquoted plain style                                           |
-|  [05]   | `ScalarInt` / `BinaryInt` / `OctalInt` / `HexInt`       | based int      | preserve/force `0b`/`0o`/`0x` integer representation                 |
-|  [06]   | `ScalarFloat`                                           | styled float   | preserve width/precision/exponent of a float literal                 |
-|  [07]   | `ScalarBoolean`                                         | styled bool    | preserve the exact `true`/`yes`/`on` boolean token                   |
-|  [08]   | `TimeStamp`                                             | timestamp      | a round-trip-preserving `datetime` subtype                           |
+| [INDEX] | [SYMBOL]                                          | [PACKAGE_ROLE] | [CAPABILITY]                                                    |
+| :-----: | :------------------------------------------------ | :------------- | :-------------------------------------------------------------- |
+|  [01]   | `LiteralScalarString`                             | block scalar   | force `\|` literal block (preserve newlines, embedded code/SQL) |
+|  [02]   | `FoldedScalarString`                              | block scalar   | force `>` folded block (wrap long prose)                        |
+|  [03]   | `SingleQuotedScalarString`                        | quoted scalar  | force `'...'` quoting                                           |
+|  [04]   | `DoubleQuotedScalarString`                        | quoted scalar  | force `"..."` quoting                                           |
+|  [05]   | `PlainScalarString`                               | plain scalar   | force unquoted plain style                                      |
+|  [06]   | `ScalarInt` / `BinaryInt` / `OctalInt` / `HexInt` | based int      | preserve/force `0b`/`0o`/`0x` integer representation            |
+|  [07]   | `ScalarFloat`                                     | styled float   | preserve width/precision/exponent of a float literal            |
+|  [08]   | `ScalarBoolean`                                   | styled bool    | preserve the exact `true`/`yes`/`on` boolean token              |
+|  [09]   | `TimeStamp`                                       | timestamp      | a round-trip-preserving `datetime` subtype                      |
 
 [PUBLIC_TYPE_SCOPE]: faults
 - rail: structured documents
@@ -67,63 +73,63 @@ Construct these in place of plain `str`/`int` to force emission style on dump; o
 
 `YAML.__init__` is keyword-only; one instance is configured once and reused for both load and dump. Output style is set through the attributes/`indent` call below, not a per-call argument — the engine carries the policy.
 
-| [INDEX] | [SURFACE]                                             | [CALL_SHAPE]                                                | [CAPABILITY]                                                          |
-| :-----: | :---------------------------------------------------- | :---------------------------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `YAML`                                                | `YAML(*, typ='rt', pure=False, output=None, plug_ins=None)` | engine; `typ` in `'rt'`/`'safe'`/`'unsafe'`/`'base'`, list to compose |
-|  [02]   | `YAML.indent`                                         | `indent(mapping=None, sequence=None, offset=None)`          | block indent widths and sequence-dash offset                          |
-|  [03]   | `YAML.width`                                          | attribute (`int`)                                           | line-wrap column for folded/flow output                               |
-|  [04]   | `YAML.version`                                        | attribute (`(1,1)`/`(1,2)` or `str`)                        | force the `%YAML` directive and resolver version                      |
-|  [05]   | `YAML.preserve_quotes`                                | attribute (`bool`)                                          | keep original scalar quoting on round-trip                            |
-|  [06]   | `YAML.default_flow_style`                             | attribute (`bool`/`None`)                                   | block vs flow collection style (`False` = block)                      |
-|  [07]   | `YAML.allow_duplicate_keys`                           | attribute (`bool`, default `False`)                         | accept duplicate mapping keys instead of `DuplicateKeyError`          |
-|  [08]   | `YAML.explicit_start` / `explicit_end`                | attribute (`bool`)                                          | emit `---` / `...` document markers                                   |
-|  [09]   | `YAML.sequence_dash_offset` / `top_level_colon_align` | attribute                                                   | dash indentation and key-colon alignment                              |
-|  [10]   | `YAML.tags`                                           | attribute (`dict \| None`)                                  | custom `!handle!` -> tag-prefix directive map for emit                |
-|  [11]   | `YAML.compact` / `block_seq_indent`                   | method / attribute                                          | compact flow-collection seq/map emission; block-sequence indent width |
+| [INDEX] | [SURFACE]                                                   | [CAPABILITY]                                                          |
+| :-----: | :---------------------------------------------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `YAML(*, typ='rt', pure=False, output=None, plug_ins=None)` | engine; `typ` in `'rt'`/`'safe'`/`'unsafe'`/`'base'`, list to compose |
+|  [02]   | `YAML.indent(mapping=None, sequence=None, offset=None)`     | block indent widths and sequence-dash offset                          |
+|  [03]   | `YAML.width` (`int`)                                        | line-wrap column for folded/flow output                               |
+|  [04]   | `YAML.version` (`(1,1)`/`(1,2)` or `str`)                   | force the `%YAML` directive and resolver version                      |
+|  [05]   | `YAML.preserve_quotes` (`bool`)                             | keep original scalar quoting on round-trip                            |
+|  [06]   | `YAML.default_flow_style` (`bool`/`None`)                   | block vs flow collection style (`False` = block)                      |
+|  [07]   | `YAML.allow_duplicate_keys` (`bool`, default `False`)       | accept duplicate mapping keys instead of `DuplicateKeyError`          |
+|  [08]   | `YAML.explicit_start` / `explicit_end` (`bool`)             | emit `---` / `...` document markers                                   |
+|  [09]   | `YAML.sequence_dash_offset` / `top_level_colon_align`       | dash indentation and key-colon alignment                              |
+|  [10]   | `YAML.tags` (`dict \| None`)                                | custom `!handle!` -> tag-prefix directive map for emit                |
+|  [11]   | `YAML.compact` / `block_seq_indent`                         | compact flow-collection emission; block-sequence indent width         |
 
 [ENTRYPOINT_SCOPE]: load / dump and node builders
 - rail: structured documents
 
 `load`/`dump` accept a `pathlib.Path` directly (the engine opens/closes it) or a text/byte stream; `dump(data, stream=None)` with no stream and a `transform` callback is the in-memory-string idiom (or dump into a `StringIO`).
 
-| [INDEX] | [SURFACE]             | [CALL_SHAPE]                                               | [CAPABILITY]                                                          |
-| :-----: | :-------------------- | :--------------------------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `YAML.load`           | `load(stream: Path \| str \| IO) -> Any`                   | parse one document to commented containers                            |
-|  [02]   | `YAML.load_all`       | `load_all(stream) -> Iterator[Any]`                        | iterate a multi-document (`---`-separated) stream                     |
-|  [03]   | `YAML.dump`           | `dump(data, stream: Path \| IO = None, *, transform=None)` | emit one document; `transform(str)->str` post-processes the text      |
-|  [04]   | `YAML.dump_all`       | `dump_all(documents: Iterable, stream, *, transform=None)` | emit a multi-document stream                                          |
-|  [05]   | `YAML.map`            | `map(**kw) -> CommentedMap`                                | build an engine-bound `CommentedMap` (correct typ wiring)             |
-|  [06]   | `YAML.seq`            | `seq(*args) -> CommentedSeq`                               | build an engine-bound `CommentedSeq`                                  |
-|  [07]   | `YAML.register_class` | `register_class(cls) -> cls`                               | register a `@yaml_object`-style class for round-trip (decorator/call) |
+| [INDEX] | [SURFACE]                                                       | [CAPABILITY]                                                          |
+| :-----: | :-------------------------------------------------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `YAML.load(stream: Path \| str \| IO) -> Any`                   | parse one document to commented containers                            |
+|  [02]   | `YAML.load_all(stream) -> Iterator[Any]`                        | iterate a multi-document (`---`-separated) stream                     |
+|  [03]   | `YAML.dump(data, stream: Path \| IO = None, *, transform=None)` | emit one document; `transform(str)->str` post-processes the text      |
+|  [04]   | `YAML.dump_all(documents: Iterable, stream, *, transform=None)` | emit a multi-document stream                                          |
+|  [05]   | `YAML.map(**kw) -> CommentedMap`                                | build an engine-bound `CommentedMap` (correct typ wiring)             |
+|  [06]   | `YAML.seq(*args) -> CommentedSeq`                               | build an engine-bound `CommentedSeq`                                  |
+|  [07]   | `YAML.register_class(cls) -> cls`                               | register a `@yaml_object`-style class for round-trip (decorator/call) |
 
 [ENTRYPOINT_SCOPE]: tag / codec / resolver extension hooks
 - rail: structured documents — module-level `ruamel.yaml` functions plus the `@yaml_object` decorator
 
-For a custom domain type that is not a plain mapping/sequence, register a tag<->object codec instead of pre/post-walking the tree. `register_class`/`@yaml_object(yaml)` is the high-level binding (declares `yaml_tag` + `to_yaml`/`from_yaml` on the class); the `add_*` functions are the low-level resolver/representer hooks when the class form does not fit. These extend the engine's own constructor/representer, never a parallel serializer.
+For a custom domain type that is not a plain mapping/sequence, register a tag<->object codec instead of pre/post-walking the tree. `register_class`/`@yaml_object(yaml)` is the high-level binding (declares `yaml_tag` + `to_yaml`/`from_yaml` on the class); the `add_*` functions are the low-level resolver/representer hooks when the class form does not fit, taking `add_representer(data_type, fn, Dumper=None)` / `add_constructor(tag, fn, Loader=None)`, the `add_multi_*(tag_prefix, fn, ...)` prefix-family variants, `add_implicit_resolver(tag, regexp, first=None)`, and `add_path_resolver(tag, path, kind=None)`. These extend the engine's own constructor/representer, never a parallel serializer.
 
-| [INDEX] | [SURFACE]                                         | [CALL_SHAPE]                                                 | [CAPABILITY]                                                              |
-| :-----: | :------------------------------------------------ | :----------------------------------------------------------- | :------------------------------------------------------------------------ |
-|  [01]   | `yaml_object`                                     | `@yaml_object(yaml)` (class decorator)                       | bind a class to its `yaml_tag` for round-trip (uses the instance's typ)   |
-|  [02]   | `add_representer` / `add_constructor`             | `add_representer(data_type, fn, Dumper=None) -> None`        | tag<->object codec for one exact type                                     |
-|  [03]   | `add_multi_representer` / `add_multi_constructor` | `add_multi_constructor(tag_prefix, fn, Loader=None) -> None` | codec for a tag-prefix family / subclass hierarchy                        |
-|  [04]   | `add_implicit_resolver`                           | `add_implicit_resolver(tag, regexp, first=None) -> None`     | auto-resolve a plain scalar pattern to a tag (no explicit `!tag`)         |
-|  [05]   | `add_path_resolver`                               | `add_path_resolver(tag, path, kind=None) -> None`            | resolve a tag by its position in the document path                        |
-|  [06]   | `DocInfo` / `Tag`                                 | read `parsed.docinfo` / node `.tag`                          | inspect directives/version/tags of a parsed stream; the resolved node tag |
+| [INDEX] | [SURFACE]                                         | [CAPABILITY]                                                                    |
+| :-----: | :------------------------------------------------ | :------------------------------------------------------------------------------ |
+|  [01]   | `yaml_object`                                     | `@yaml_object(yaml)` decorator binding a class to its `yaml_tag` for round-trip |
+|  [02]   | `add_representer` / `add_constructor`             | tag<->object codec for one exact type (dump half / load half)                   |
+|  [03]   | `add_multi_representer` / `add_multi_constructor` | codec for a tag-prefix family / subclass hierarchy                              |
+|  [04]   | `add_implicit_resolver`                           | auto-resolve a plain scalar pattern to a tag (no explicit `!tag`)               |
+|  [05]   | `add_path_resolver`                               | resolve a tag by its position in the document path                              |
+|  [06]   | `DocInfo` / `Tag`                                 | inspect directives/version/tags via `parsed.docinfo`; the resolved node `.tag`  |
 
 [ENTRYPOINT_SCOPE]: comment, anchor, and position attach
 - rail: structured documents — `CommentedMap` / `CommentedSeq` methods
 
 Programmatic fidelity edits: attach comments and anchors to an in-memory tree before dump, or read source positions after load. `.ca` is the comment attribute, `.lc` the line/column, `.fa` the flow/block-style attribute.
 
-| [INDEX] | [SURFACE]                           | [CALL_SHAPE]                                                                     | [CAPABILITY]                                                      |
-| :-----: | :---------------------------------- | :------------------------------------------------------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | `yaml_set_start_comment`            | `yaml_set_start_comment(comment, indent=0)`                                      | leading block comment above the collection                        |
-|  [02]   | `yaml_set_comment_before_after_key` | `yaml_set_comment_before_after_key(key, before=None, indent=0, after=None, ...)` | comment lines before/after a specific key                         |
-|  [03]   | `yaml_add_eol_comment`              | `yaml_add_eol_comment(comment, key=NotNone, column=None)`                        | end-of-line `# ...` comment on a key/index                        |
-|  [04]   | `insert`                            | `insert(pos, key, value, comment=None)`                                          | ordered insert at position with optional eol comment              |
-|  [05]   | `yaml_set_anchor` / `yaml_anchor`   | `yaml_set_anchor(value, always_dump=False)` / `yaml_anchor()`                    | set/get the `&anchor` so later `*alias` references survive        |
-|  [06]   | `add_yaml_merge` / `merge`          | `add_yaml_merge([(idx, CommentedMap)])`                                          | inject a `<<:` merge key referencing another mapping              |
-|  [07]   | `.ca` / `.lc` / `.fa`               | attribute access                                                                 | comment association / source line-col / flow-vs-block style flags |
+| [INDEX] | [SURFACE]                                                              | [CAPABILITY]                                              |
+| :-----: | :--------------------------------------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | `yaml_set_start_comment(comment, indent=0)`                            | leading block comment above the collection                |
+|  [02]   | `yaml_set_comment_before_after_key(key, before=None, after=None, ...)` | comment lines before/after a specific key                 |
+|  [03]   | `yaml_add_eol_comment(comment, key=NotNone, column=None)`              | end-of-line `# ...` comment on a key/index                |
+|  [04]   | `insert(pos, key, value, comment=None)`                                | ordered insert at position with optional eol comment      |
+|  [05]   | `yaml_set_anchor(value, always_dump=False)` / `yaml_anchor()`          | set/get the `&anchor` so later `*alias` refs survive      |
+|  [06]   | `add_yaml_merge([(idx, CommentedMap)])` / `merge`                      | inject a `<<:` merge key referencing another mapping      |
+|  [07]   | `.ca` / `.lc` / `.fa` (attribute access)                               | comment map / source line-col / flow-vs-block style flags |
 
 [ENTRYPOINT_SCOPE]: low-level event and node rails
 - rail: structured documents

@@ -21,7 +21,7 @@
 |  [06]   | `HasRepr`     | wrapper       | asserts an object's `repr` inside a snapshot without an equality-comparable value          |
 |  [07]   | `UsageError`  | exception     | raised on a malformed snapshot call or an unmanaged-value misuse                           |
 
-```python contract
+```python signature
 def snapshot(obj: T = ...) -> T: ...                                    # empty snapshot() records on the create flag
 def external(name: str | None = None) -> Snapshot[object]: ...          # value stored in an external file, not inline
 def external_file(path: Path | str, *, format: str | None = None) -> Snapshot[object]: ...  # bind an explicit external asset path
@@ -32,17 +32,17 @@ def get_snapshot_value(snapshot: Snapshot[T]) -> T: ...                 # read t
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                              | [KIND]          | [CAPABILITY]                                                                                            |
-| :-----: | :------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------ |
-|  [01]   | `snapshot(obj=...)`                    | recorder        | the assertion placeholder; `== snapshot(...)`, `in snapshot([...])`, and `<= snapshot(...)` all compare |
-|  [02]   | `external(name=None)`                  | recorder        | routes the recorded value to an external file under the storage directory                               |
-|  [03]   | `outsource(data, suffix=None)`         | recorder        | stores a large payload by content hash, keeping the source literal a short reference                    |
-|  [04]   | `Is(value)`                            | wrapper         | injects a live runtime value into a snapshot so a nondeterministic field remains comparable             |
-|  [05]   | `extra.raises(snapshot(...))`          | context manager | asserts a raised exception's rendering against a snapshot                                               |
-|  [06]   | `extra.prints(stdout=..., stderr=...)` | context manager | asserts captured stdout/stderr against snapshots                                                        |
-|  [07]   | `extra.warns(snapshot([...]))`         | context manager | asserts emitted warnings against a snapshot list                                                        |
+| [INDEX] | [SURFACE]                              | [KIND]          | [CAPABILITY]                                                                |
+| :-----: | :------------------------------------- | :-------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `snapshot(obj=...)`                    | recorder        | placeholder; `==`/`in`/`<=` against a `snapshot(...)` all compare           |
+|  [02]   | `external(name=None)`                  | recorder        | routes the recorded value to an external file under the storage directory   |
+|  [03]   | `outsource(data, suffix=None)`         | recorder        | stores a large payload by content hash; the literal stays a short reference |
+|  [04]   | `Is(value)`                            | wrapper         | injects a live value so a nondeterministic field stays comparable           |
+|  [05]   | `extra.raises(snapshot(...))`          | context manager | asserts a raised exception's rendering against a snapshot                   |
+|  [06]   | `extra.prints(stdout=..., stderr=...)` | context manager | asserts captured stdout/stderr against snapshots                            |
+|  [07]   | `extra.warns(snapshot([...]))`         | context manager | asserts emitted warnings against a snapshot list                            |
 
-```python contract
+```python signature
 from inline_snapshot import snapshot, external, outsource, Is
 from inline_snapshot.extra import raises, prints, warns
 def test_wire_golden(produce: Callable[[], bytes]) -> None:

@@ -20,7 +20,7 @@ Face metrics are ngon-aware by construction: `MeshMetric` `[SmartEnum<int>]` (Ed
 - Growth: a new topology scalar (a shell count, a cavity count) is one `TopologyScalar` row — key, output, extract delegate over the SAME `OnGeometry` fold; a new structural interrogation is one `Topologies` case; a new geometry family entering the gate is one `OnGeometry` arm serving every row at once.
 - Boundary: brep/mesh polymorphism lives in ONE gate — per-operation `is Mesh`/`is Brep` switches beside `OnGeometry` are the deleted repetition; the genus/hole/Euler family is DERIVED from three primitive rows and a stored or re-enumerated genus beside the formula is the killed form; `Capability.EvaluateTopology` is the single admission row — its solid-topology twin was byte-identical and exists no longer, containment escalating through `Requirement.SolidTopology` instead; `SolidOrientationOf` maps the mesh int onto `BrepSolidOrientation` so BOTH families answer in one enum — a mesh-specific orientation enum is the rejected parallel vocabulary; component extraction OWNS its disposal — pieces that fail the typed projection are disposed before the fault leaves, never leaked.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Globalization;
@@ -224,7 +224,7 @@ public static partial class Analyze {
 - Growth: a new mesh sample is one `MeshSampleKind` row in its band — the census, the banded factories, and the receipt machinery are untouched; a new face metric is one `MeshMetric` row binding a measure delegate over the SAME polygon resolution; a new polygon-level extraction is one `Meshes` case lifted through `MeshLift`.
 - Boundary: the census bands derive from row membership — a hand-maintained per-band kind list beside the enum is the deleted drift form; defect rows read the ONE threaded `MeshCheckParameters` capture and a per-row re-run of `Mesh.Check` is the killed N-fold host cost; face metrics measure VISIBLE polygons through the canonical `ComponentIndex` addressing — a triangle-level metric family beside the ngon-aware one is the rejected split vocabulary; ring measurement routes through the `Spatial/cloud` metric surface exclusively — a local perimeter/skewness/area loop beside `VectorCloudMetric` is the killed parallel rail; `AtVisiblePolygon` re-emits the `Domain/normalization` `TopologyProjection` carrier (mesh-component band) so downstream face extraction shares the corpus-wide transfer/disposal protocol.
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Linq;
@@ -555,14 +555,14 @@ flowchart LR
 
 One owner per axis; a new scalar, sample, or metric is a row, never a sibling surface.
 
-| [INDEX] | [CONCERN]          | [OWNER]                                             | [KIND]                                                              | [RAIL]                                    | [CASES] |
-| :-----: | :----------------- | :-------------------------------------------------- | :------------------------------------------------------------------ | :---------------------------------------- | :-----: |
-|  [01]   | Structural queries | `Topologies`                                        | `[Union]` — kind/domain/orientation/components/containment/scalar   | `Operation → Eff<Env, Seq<TOut>>`         |    6    |
-|  [02]   | Topology scalars   | `TopologyScalar`                                    | `[SmartEnum<int>]` + `[UseDelegateFromConstructor]` extract rows    | `Fin<object>` typed at the operation gate |    8    |
-|  [03]   | Mesh queries       | `Meshes`                                            | `[Union]` — census/metric/shape/polygon/naked-edge/outline          | `Operation → Eff<Env, Seq<TOut>>`         |    7    |
-|  [04]   | Sample census      | `MeshSampleKind`                                    | `[SmartEnum<int>]` — 5 bands via `MeshSampleGroup`, delegate rows   | `Fin<int>` per row                        |   32    |
-|  [05]   | Face metrics       | `MeshMetric`                                        | `[SmartEnum<int>]` — ngon-aware measure delegates over ring metrics | `Fin<MeshMetricSample>`                   |    6    |
-|  [06]   | Receipts           | `MeshSample` / `MeshMetricSample` / `MeshFaceShape` | evidence-carrying `readonly record struct` family                   | `IValidityEvidence` carriers              |    —    |
+| [INDEX] | [CONCERN]          | [OWNER]               | [KIND]                                      | [RAIL]                            | [CASES] |
+| :-----: | :----------------- | :-------------------- | :------------------------------------------ | :-------------------------------- | :-----: |
+|  [01]   | Structural queries | `Topologies`          | `[Union]` structural-query algebra          | `Operation → Eff<Env, Seq<TOut>>` |    6    |
+|  [02]   | Topology scalars   | `TopologyScalar`      | `[SmartEnum<int>]` delegate extract rows    | `Fin<object>` at op gate          |    8    |
+|  [03]   | Mesh queries       | `Meshes`              | `[Union]` mesh-inspection algebra           | `Operation → Eff<Env, Seq<TOut>>` |    7    |
+|  [04]   | Sample census      | `MeshSampleKind`      | `[SmartEnum<int>]` — 5 bands, delegate rows | `Fin<int>` per row                |   32    |
+|  [05]   | Face metrics       | `MeshMetric`          | `[SmartEnum<int>]` ngon measure delegates   | `Fin<MeshMetricSample>`           |    6    |
+|  [06]   | Receipts           | `MeshSample` receipts | evidence `readonly record struct`           | `IValidityEvidence` carrier       |    —    |
 
 Both fences are transcription-complete host captures: the full scalar/orientation/containment/component fold family over the one `OnGeometry` gate, and the complete sample census, metric measurement, and polygon-extraction machinery. The ring-metric mathematics is `Spatial/cloud` law; the `Stat` fold is `Domain/stats` law; the `TopologyProjection` carrier and the `Kind` capability web are `Domain/normalization` law — composed here, legislated there.
 

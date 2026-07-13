@@ -18,18 +18,30 @@
 [TYPE_SCOPE]: the `LayerExtension` capability rows — one class per GPU capability, each constructed with static option toggles and reading its runtime props off the host layer; add instances to any layer's `extensions: LayerExtension[]`.
 - `LayerExtension<OptionsT>` (the core base) exposes `getShaders`/`initializeState`/`updateState`/`draw`/`finalizeState` the layer calls at each lifecycle phase; a subclass injects a `ShaderModule` + attributes + props. Options recompile the GPU path; props toggle at runtime.
 
-| [INDEX] | [SYMBOL]                   | [CONSTRUCTOR_OPTIONS]                                      | [INJECTED_PROPS]                                                                                                                                                                         | [CONSUMER_BOUNDARY]                                                                                 |
-| :-----: | :------------------------- | :--------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `DataFilterExtension`      | `{filterSize?:0-4, categorySize?:0-4, fp64?, countItems?}` | `getFilterValue`/`getFilterCategory` accessors, `filterRange`/`filterSoftRange`/`filterEnabled`/`filterCategories`/`filterTransformSize`/`filterTransformColor`, `onFilteredItemsChange` | GPU show/hide by numeric range or category on any layer; time-window slider                         |
-|  [02]   | `BrushingExtension`        | `{}`                                                       | `brushingEnabled`, `brushingRadius` (m), `brushingTarget:'source'\|'target'\|'source_target'\|'custom'`, `getBrushingTarget`                                                             | reveal objects within a radius of the pointer                                                       |
-|  [03]   | `PathStyleExtension`       | `{dash?, offset?, highPrecisionDash?}`                     | `getDashArray`/`getOffset` accessors, `dashJustified`, `dashGapPickable`                                                                                                                 | dashed/offset lines on `PathLayer`/`ScatterplotLayer`/composites                                    |
-|  [04]   | `FillStyleExtension`       | `{pattern?}`                                               | `fillPatternAtlas`/`fillPatternMapping`/`fillPatternEnabled`/`fillPatternMask`, `getFillPattern`/`getFillPatternScale`/`getFillPatternOffset`                                            | pattern-fill on `PolygonLayer`/`ScatterplotLayer`                                                   |
-|  [05]   | `CollisionFilterExtension` | `{}`                                                       | `collisionEnabled`, `collisionGroup`, `getCollisionPriority`, `collisionTestProps`                                                                                                       | hide overlapping objects (label/icon declutter)                                                     |
-|  [06]   | `MaskExtension`            | `{}`                                                       | `maskId`, `maskByInstance`, `maskInverted`                                                                                                                                               | geofence show/hide keyed to a mask layer (`operation:'mask'`)                                       |
-|  [07]   | `ClipExtension`            | `{}`                                                       | `clipBounds:[left,bottom,right,top]`, `clipByInstance`                                                                                                                                   | rectangular clip of a layer's rendered region                                                       |
-|  [08]   | `Fp64Extension`            | `{}` `@deprecated`                                         | —                                                                                                                                                                                        | retired 64-bit projection precision (superseded by default precision + `DataFilterExtension{fp64}`) |
-|  [09]   | `_TerrainExtension`        | `{}` overlay                                               | `terrainDrawMode:'offset'\|'drape'`                                                                                                                                                      | drape/offset a layer onto the `TerrainLayer` surface                                                |
-|  [10]   | `project64`                | — (`ShaderModule<{viewport}>`)                             | —                                                                                                                                                                                        | the fp64 projection shader module `Fp64Extension` injects; not instantiated directly                |
+| [INDEX] | [SYMBOL]                   | [CONSTRUCTOR_OPTIONS]                                   | [CONSUMER_BOUNDARY]                               |
+| :-----: | :------------------------- | :------------------------------------------------------ | :------------------------------------------------ |
+|  [01]   | `DataFilterExtension`      | `{filterSize?:0-4,categorySize?:0-4,fp64?,countItems?}` | GPU show/hide by range or category                |
+|  [02]   | `BrushingExtension`        | `{}`                                                    | reveal objects within a radius of the pointer     |
+|  [03]   | `PathStyleExtension`       | `{dash?, offset?, highPrecisionDash?}`                  | dashed/offset lines on path/scatterplot layers    |
+|  [04]   | `FillStyleExtension`       | `{pattern?}`                                            | pattern-fill on `PolygonLayer`/`ScatterplotLayer` |
+|  [05]   | `CollisionFilterExtension` | `{}`                                                    | hide overlapping objects (label/icon declutter)   |
+|  [06]   | `MaskExtension`            | `{}`                                                    | geofence via a mask layer (`operation:'mask'`)    |
+|  [07]   | `ClipExtension`            | `{}`                                                    | rectangular clip of a layer's rendered region     |
+|  [08]   | `Fp64Extension`            | `{}` `@deprecated`                                      | superseded by `DataFilterExtension{fp64}`         |
+|  [09]   | `_TerrainExtension`        | `{}` overlay                                            | drape/offset onto the `TerrainLayer` surface      |
+|  [10]   | `project64`                | — (`ShaderModule<{viewport}>`)                          | fp64 shader `Fp64Extension` injects; internal     |
+
+[INJECTED_PROPS] by row (runtime props + core `Accessor`s read off the host layer):
+- [01]-[DATAFILTEREXTENSION]: `getFilterValue`/`getFilterCategory` accessors, `filterRange`/`filterSoftRange`/`filterEnabled`/`filterCategories`/`filterTransformSize`/`filterTransformColor`, `onFilteredItemsChange`.
+- [02]-[BRUSHINGEXTENSION]: `brushingEnabled`, `brushingRadius` (m), `brushingTarget:'source'|'target'|'source_target'|'custom'`, `getBrushingTarget`.
+- [03]-[PATHSTYLEEXTENSION]: `getDashArray`/`getOffset` accessors, `dashJustified`, `dashGapPickable`.
+- [04]-[FILLSTYLEEXTENSION]: `fillPatternAtlas`/`fillPatternMapping`/`fillPatternEnabled`/`fillPatternMask`, `getFillPattern`/`getFillPatternScale`/`getFillPatternOffset`.
+- [05]-[COLLISIONFILTEREXTENSION]: `collisionEnabled`, `collisionGroup`, `getCollisionPriority`, `collisionTestProps`.
+- [06]-[MASKEXTENSION]: `maskId`, `maskByInstance`, `maskInverted`.
+- [07]-[CLIPEXTENSION]: `clipBounds:[left,bottom,right,top]`, `clipByInstance`.
+- [08]-[FP64EXTENSION]: none (deprecated).
+- [09]-[_TerrainExtension]: `terrainDrawMode:'offset'|'drape'`.
+- [10]-[PROJECT64]: none — the `ShaderModule<{viewport}>` `Fp64Extension` injects, not instantiated directly.
 
 ## [03]-[IMPLEMENTATION_LAW]
 

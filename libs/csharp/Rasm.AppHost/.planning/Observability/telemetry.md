@@ -320,29 +320,29 @@ public static class SignalGovernance {
 
 [GOVERNANCE_VALUES]:
 
-| [INDEX] | [POLICY]                                       | [VALUE]                            | [BINDING]                                                |
-| :-----: | :--------------------------------------------- | :--------------------------------- | :------------------------------------------------------- |
-|  [01]   | trace admission ratio, serilog-projection rows | 1.0                                | `Ratio` column, parent-based trace-id-ratio sampler      |
-|  [02]   | trace admission ratio, otel-export rows        | 0.1                                | `Ratio` column, parent-based trace-id-ratio sampler      |
-|  [03]   | log sampling, trace-coupled floor              | trace-coupled                      | `AddTraceBasedSampler`                                   |
-|  [04]   | log sampling, service-root chatty floor        | `Log` `Ratio` column               | `AddRandomProbabilisticSampler`                          |
-|  [05]   | buffered-event selection                       | Warning and below                  | `LogBufferingFilterRule` row                             |
-|  [06]   | metric exemplar policy                         | trace-based                        | `SetExemplarFilter` at service app roots                 |
-|  [07]   | metric reader cadence                          | 60 s                               | `PeriodicExportingMetricReader` at service app roots     |
-|  [08]   | global buffer admission                        | Warning and below                  | `AddGlobalBuffer`                                        |
-|  [09]   | buffer flush window                            | support-window deadline row        | `GlobalLogBuffer.Flush` on the fault transition          |
-|  [10]   | destructuring depth cap                        | 4                                  | `Destructure.ToMaximumDepth`                             |
-|  [11]   | desktop level floor                            | Information                        | `LoggingLevelSwitch` under `MinimumLevel.ControlledBy`   |
-|  [12]   | spine event-id band                            | 1000-1099                          | `LoggerMessage` `EventId` values                         |
-|  [13]   | latency checkpoint vocabulary                  | drain, hop, capture                | `LatencyCheckpoint` rows, `RegisterCheckpointNames`      |
-|  [14]   | latency span export                            | drain-band flush                   | `ILatencyDataExporter` on `LatencySpine.Seal`            |
-|  [15]   | serilog wire-sink batch square                 | 500/2 s/10 000                     | `BatchingOptions` on the `FallbackChain` wire sink       |
-|  [16]   | otlp span batch square                         | package defaults                   | `BatchExportProcessorOptions<Activity>` at service roots |
-|  [17]   | http route-parameter redaction                 | erase                              | `HttpRouteParameterRedactionMode` on `RequestMetadata`   |
-|  [18]   | otel processor admission                       | test-row `BaseProcessor<Activity>` | `AddProcessor` over `CompositeProcessor<Activity>`       |
-|  [19]   | tenant meter-tag cardinality cap               | 256                                | `*` `AddView` row over `TenantContext.TenantSlot`        |
-|  [20]   | profile signal admission                       | service-root profiler endpoint     | `SpanProfileProcessor` over `AddProcessor`               |
-|  [21]   | GenAI span/metric conventions                  | `gen_ai.*` attributes, token usage | MCP-served tool spans on the minted `Rasm.AppHost` meter |
+| [INDEX] | [POLICY]                                | [VALUE]                            | [BINDING]                                           |
+| :-----: | :-------------------------------------- | :--------------------------------- | :-------------------------------------------------- |
+|  [01]   | trace ratio, serilog-projection rows    | 1.0                                | `Ratio` row, parent-based sampler                   |
+|  [02]   | trace ratio, otel-export rows           | 0.1                                | `Ratio` row, parent-based sampler                   |
+|  [03]   | log sampling, trace-coupled floor       | trace-coupled                      | `AddTraceBasedSampler`                              |
+|  [04]   | log sampling, service-root chatty floor | `Log` `Ratio` column               | `AddRandomProbabilisticSampler`                     |
+|  [05]   | buffered-event selection                | Warning and below                  | `LogBufferingFilterRule` row                        |
+|  [06]   | metric exemplar policy                  | trace-based                        | `SetExemplarFilter` at service app roots            |
+|  [07]   | metric reader cadence                   | 60 s                               | `PeriodicExportingMetricReader`                     |
+|  [08]   | global buffer admission                 | Warning and below                  | `AddGlobalBuffer`                                   |
+|  [09]   | buffer flush window                     | support-window deadline row        | `GlobalLogBuffer.Flush` on the fault transition     |
+|  [10]   | destructuring depth cap                 | 4                                  | `Destructure.ToMaximumDepth`                        |
+|  [11]   | desktop level floor                     | Information                        | `LoggingLevelSwitch`/`MinimumLevel.ControlledBy`    |
+|  [12]   | spine event-id band                     | 1000-1099                          | `LoggerMessage` `EventId` values                    |
+|  [13]   | latency checkpoint vocabulary           | drain, hop, capture                | `LatencyCheckpoint`/`RegisterCheckpointNames`       |
+|  [14]   | latency span export                     | drain-band flush                   | `ILatencyDataExporter` on `LatencySpine.Seal`       |
+|  [15]   | serilog wire-sink batch square          | 500/2 s/10 000                     | `BatchingOptions` on `FallbackChain` sink           |
+|  [16]   | otlp span batch square                  | package defaults                   | `BatchExportProcessorOptions<Activity>`             |
+|  [17]   | http route-parameter redaction          | erase                              | `HttpRouteParameterRedactionMode`/`RequestMetadata` |
+|  [18]   | otel processor admission                | test-row `BaseProcessor<Activity>` | `AddProcessor` over `CompositeProcessor<Activity>`  |
+|  [19]   | tenant meter-tag cardinality cap        | 256                                | `*` `AddView` row over `TenantContext.TenantSlot`   |
+|  [20]   | profile signal admission                | service-root profiler endpoint     | `SpanProfileProcessor` over `AddProcessor`          |
+|  [21]   | GenAI span/metric conventions           | `gen_ai.*` attributes, token usage | MCP spans on the `Rasm.AppHost` meter               |
 
 ## [06]-[REDACTION_TAXONOMY]
 

@@ -63,15 +63,15 @@ over the in-memory pipeline.
 [ENTRYPOINT_SCOPE]: server policy properties
 - rail: in-process-transport
 
-| [INDEX] | [SURFACE]                             | [CALL_SHAPE]    | [CAPABILITY]                                                                                              |
-| :-----: | :------------------------------------ | :-------------- | :-------------------------------------------------------------------------------------------------------- |
-|  [01]   | `TestServer.BaseAddress`              | option property | sets the request base `Uri`                                                                               |
-|  [02]   | `TestServer.Services`                 | accessor        | reads the server `IServiceProvider`                                                                       |
-|  [03]   | `TestServer.Features`                 | accessor        | reads the server `IFeatureCollection`                                                                     |
-|  [04]   | `TestServer.Host`                     | accessor        | reads the backing `IWebHost` (throws if constructed over an `IServiceProvider`, not an `IWebHostBuilder`) |
-|  [05]   | `TestServer.AllowSynchronousIO`       | option property | permits synchronous body access                                                                           |
-|  [06]   | `TestServer.PreserveExecutionContext` | option property | flows the ambient execution context                                                                       |
-|  [07]   | `TestServerOptions.BaseAddress`       | option property | seeds the server base `Uri`                                                                               |
+| [INDEX] | [SURFACE]                             | [CALL_SHAPE]    | [CAPABILITY]                                                             |
+| :-----: | :------------------------------------ | :-------------- | :----------------------------------------------------------------------- |
+|  [01]   | `TestServer.BaseAddress`              | option property | sets the request base `Uri`                                              |
+|  [02]   | `TestServer.Services`                 | accessor        | reads the server `IServiceProvider`                                      |
+|  [03]   | `TestServer.Features`                 | accessor        | reads the server `IFeatureCollection`                                    |
+|  [04]   | `TestServer.Host`                     | accessor        | reads the backing `IWebHost`; throws unless built over `IWebHostBuilder` |
+|  [05]   | `TestServer.AllowSynchronousIO`       | option property | permits synchronous body access                                          |
+|  [06]   | `TestServer.PreserveExecutionContext` | option property | flows the ambient execution context                                      |
+|  [07]   | `TestServerOptions.BaseAddress`       | option property | seeds the server base `Uri`                                              |
 
 [ENTRYPOINT_SCOPE]: builder and host registration operations
 - rail: in-process-transport

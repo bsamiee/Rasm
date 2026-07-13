@@ -19,54 +19,60 @@
 [PUBLIC_TYPE_SCOPE]: client, search, and collection roots
 - rail: STAC catalog
 
-`Client` extends `pystac.Catalog`; `CollectionClient` extends `pystac.Collection`. `ItemSearch`/`CollectionSearch` are lazy result iterators that page the API on demand. `StacApiIO` is the `pystac.StacIO` subclass that owns HTTP + paging + the `request_modifier` hook.
+`Client` extends `pystac.Catalog`; `CollectionClient` extends `pystac.Collection`. `ItemSearch`/`CollectionSearch` are lazy result iterators that page the API on demand. `StacApiIO` is the `pystac.StacIO` subclass that owns HTTP + paging + the `request_modifier` hook. `PystacClientWarning` leaves — `DoesNotConformTo`/`MissingLink`/`NoConformsTo`/`FallbackToPystac` — fire when the API under-declares conformance.
 
-| [INDEX] | [SYMBOL]                                                                                   | [TYPE_FAMILY]       | [CAPABILITY]                                                                                |
-| :-----: | :----------------------------------------------------------------------------------------- | :------------------ | :------------------------------------------------------------------------------------------ |
-|  [01]   | `Client`                                                                                   | API catalog root    | a `pystac.Catalog` bound to a STAC API; owns `search`/collection access                     |
-|  [02]   | `ItemSearch`                                                                               | item result page    | lazy paging of `/search` into `pystac.Item`; match counts                                   |
-|  [03]   | `CollectionClient`                                                                         | live collection     | a `pystac.Collection` with live `get_items`/`get_item`/`get_queryables`                     |
-|  [04]   | `CollectionSearch`                                                                         | collection result   | lazy paging of `/collections` with free-text and filter parameters                          |
-|  [05]   | `StacApiIO`                                                                                | HTTP/paging I/O     | `pystac.StacIO` over `requests`; `get_pages`, `request_modifier`, retry                     |
-|  [06]   | `ConformanceClasses`                                                                       | conformance enum    | `CORE`/`ITEM_SEARCH`/`FILTER`/`QUERY`/`SORT`/`FIELDS`/`COLLECTION_SEARCH`/… capability gate |
-|  [07]   | `Modifiable`                                                                               | modifier signature  | union the `modifier` callback receives (Item/Collection/ItemCollection/dict)                |
-|  [08]   | `APIError` / `ParametersError`                                                             | error rail          | HTTP/response failure; invalid-parameter failure (`pystac_client.exceptions`)               |
-|  [09]   | `PystacClientWarning` (`DoesNotConformTo`/`MissingLink`/`NoConformsTo`/`FallbackToPystac`) | conformance warning | emitted when the API under-declares conformance and the client degrades                     |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]       | [CAPABILITY]                                                                     |
+| :-----: | :----------------------------- | :------------------ | :------------------------------------------------------------------------------- |
+|  [01]   | `Client`                       | API catalog root    | a `pystac.Catalog` bound to a STAC API; owns `search`/collection access          |
+|  [02]   | `ItemSearch`                   | item result page    | lazy paging of `/search` into `pystac.Item`; match counts                        |
+|  [03]   | `CollectionClient`             | live collection     | a `pystac.Collection` with live `get_items`/`get_item`/`get_queryables`          |
+|  [04]   | `CollectionSearch`             | collection result   | lazy paging of `/collections` with free-text and filter parameters               |
+|  [05]   | `StacApiIO`                    | HTTP/paging I/O     | `pystac.StacIO` over `requests`; `get_pages`, `request_modifier`, retry          |
+|  [06]   | `ConformanceClasses`           | conformance enum    | `CORE`/`ITEM_SEARCH`/`FILTER`/`QUERY`/`SORT`/`FIELDS`/`COLLECTION_SEARCH`/… gate |
+|  [07]   | `Modifiable`                   | modifier signature  | union the `modifier` callback receives (Item/Collection/ItemCollection/dict)     |
+|  [08]   | `APIError` / `ParametersError` | error rail          | HTTP/response failure; invalid-parameter failure (`pystac_client.exceptions`)    |
+|  [09]   | `PystacClientWarning`          | conformance warning | fires when the API under-declares conformance and the client degrades            |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client open and search
 - rail: STAC catalog
+- call: `Client.open(url, headers=None, parameters=None, ignore_conformance=None, modifier=None, request_modifier=None, stac_io=None, timeout=None) -> Client`
+- call: `Client.search(*, method='POST', max_items=None, limit=None, ids=None, collections=None, bbox=None, intersects=None, datetime=None, query=None, filter=None, filter_lang=None, sortby=None, fields=None) -> ItemSearch`
+- call: `Client.get_collections() -> Iterator[Collection]`; `Client.get_collection(collection_id) -> Collection | CollectionClient`
+- call: `Client.collection_search(*, max_collections=None, limit=None, bbox=None, datetime=None, q=None, query=None, filter=None, filter_lang=None, sortby=None, fields=None) -> CollectionSearch`
+- call: `Client.get_queryables() -> dict`; `Client.get_merged_queryables(collections: list[str]) -> dict`
+- call: `Client.conforms_to(conformance_class: ConformanceClasses | str) -> bool`; `set_conforms_to([...])`; `add_conforms_to(name)`
 
 `search` is keyword-only; `max_items` caps the total result count across pages while `limit` is the per-page request size. The same `search` call discriminates by which parameters are supplied — bbox vs intersects vs CQL2 `filter` are rows, not parallel methods.
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                                                                                                                                                       | [CAPABILITY]                        |
-| :-----: | :------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------- |
-|  [01]   | `Client.open`              | `open(url, headers=None, parameters=None, ignore_conformance=None, modifier=None, request_modifier=None, stac_io=None, timeout=None)` -> `Client`                                                                  | open a STAC API root                |
-|  [02]   | `Client.search`            | `search(*, method='POST', max_items=None, limit=None, ids=None, collections=None, bbox=None, intersects=None, datetime=None, query=None, filter=None, filter_lang=None, sortby=None, fields=None)` -> `ItemSearch` | item search                         |
-|  [03]   | `Client.get_collections`   | `get_collections()` -> `Iterator[Collection]`                                                                                                                                                                      | iterate the API's collections       |
-|  [04]   | `Client.get_collection`    | `get_collection(collection_id)` -> `Collection \| CollectionClient`                                                                                                                                                | fetch one collection (cached)       |
-|  [05]   | `Client.collection_search` | `collection_search(*, max_collections=None, limit=None, bbox=None, datetime=None, q=None, query=None, filter=None, filter_lang=None, sortby=None, fields=None)` -> `CollectionSearch`                              | free-text collection search         |
-|  [06]   | `Client.get_queryables`    | `get_queryables() -> dict` / `get_merged_queryables(collections: list[str]) -> dict`                                                                                                                               | discover CQL2-filterable properties |
-|  [07]   | `Client.conforms_to`       | `conforms_to(conformance_class: ConformanceClasses \| str) -> bool` / `set_conforms_to([...])` / `add_conforms_to(name)`                                                                                           | conformance negotiation gate        |
+| [INDEX] | [SURFACE]                  | [CAPABILITY]                                                                      |
+| :-----: | :------------------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `Client.open`              | open a STAC API root; `modifier`/`request_modifier` thread signing/auth           |
+|  [02]   | `Client.search`            | item search; params discriminate bbox/intersects/CQL2 `filter`/`sortby`/`fields`  |
+|  [03]   | `Client.get_collections`   | iterate the API's collections                                                     |
+|  [04]   | `Client.get_collection`    | fetch one collection (cached; a live `CollectionClient` when the API supports it) |
+|  [05]   | `Client.collection_search` | free-text (`q`) plus filter collection search                                     |
+|  [06]   | `Client.get_queryables`    | discover CQL2-filterable properties, merged across collections                    |
+|  [07]   | `Client.conforms_to`       | conformance negotiation gate                                                      |
 
 [ENTRYPOINT_SCOPE]: `ItemSearch` result paging
 - rail: STAC catalog
 
-`item_collection()` (and `item_collection_as_dict()`) is the canonical materialization; `items()`/`items_as_dicts()` stream lazily; `pages()` yields whole `ItemCollection` pages. `get_all_items` is deprecated (emits `FutureWarning`) — use `item_collection()`.
+`item_collection()` (and `item_collection_as_dict()`) is the canonical materialization; `items()`/`items_as_dicts()` stream lazily; `pages()` yields whole `ItemCollection` pages. `get_all_items` is deprecated (emits `FutureWarning`) — use `item_collection()`. `CollectionSearch` mirrors this surface — `collections`/`collections_as_dicts`/`pages`/`pages_as_dicts`/`matched` beside `collection_list()`.
 
-| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                                                                                        | [CAPABILITY]                                 |
-| :-----: | :----------------------------------- | :------------------------------------------------------------------------------------------------------------------ | :------------------------------------------- |
-|  [01]   | `ItemSearch.item_collection`         | `item_collection()` -> `ItemCollection`                                                                             | materialize all results (canonical)          |
-|  [02]   | `ItemSearch.items`                   | `items()` -> `Iterator[Item]`                                                                                       | lazily stream items across pages             |
-|  [03]   | `ItemSearch.items_as_dicts`          | `items_as_dicts()` -> `Iterator[dict]`                                                                              | lazily stream raw item dicts                 |
-|  [04]   | `ItemSearch.item_collection_as_dict` | `item_collection_as_dict()` -> `dict`                                                                               | materialize as a GeoJSON FeatureCollection   |
-|  [05]   | `ItemSearch.pages`                   | `pages()` -> `Iterator[ItemCollection]`                                                                             | iterate whole result pages                   |
-|  [06]   | `ItemSearch.pages_as_dicts`          | `pages_as_dicts()` -> `Iterator[dict]`                                                                              | iterate raw page dicts                       |
-|  [07]   | `ItemSearch.matched`                 | `matched()` -> `int \| None`                                                                                        | total matching item count (if reported)      |
-|  [08]   | `ItemSearch.url_with_parameters`     | `url_with_parameters()` -> `str`                                                                                    | the resolved GET request URL (receipt)       |
-|  [09]   | `CollectionSearch.collection_list`   | `collection_list()` -> `list[Collection]`                                                                           | materialize all matching collections         |
-|  [10]   | `CollectionSearch.collections`       | `collections()` -> `Iterator[Collection]` / `collections_as_dicts()` / `pages()` / `pages_as_dicts()` / `matched()` | lazy collection paging, mirrors `ItemSearch` |
+| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                            | [CAPABILITY]                               |
+| :-----: | :----------------------------------- | :-------------------------------------- | :----------------------------------------- |
+|  [01]   | `ItemSearch.item_collection`         | `item_collection() -> ItemCollection`   | materialize all results (canonical)        |
+|  [02]   | `ItemSearch.items`                   | `items() -> Iterator[Item]`             | lazily stream items across pages           |
+|  [03]   | `ItemSearch.items_as_dicts`          | `items_as_dicts() -> Iterator[dict]`    | lazily stream raw item dicts               |
+|  [04]   | `ItemSearch.item_collection_as_dict` | `item_collection_as_dict() -> dict`     | materialize as a GeoJSON FeatureCollection |
+|  [05]   | `ItemSearch.pages`                   | `pages() -> Iterator[ItemCollection]`   | iterate whole result pages                 |
+|  [06]   | `ItemSearch.pages_as_dicts`          | `pages_as_dicts() -> Iterator[dict]`    | iterate raw page dicts                     |
+|  [07]   | `ItemSearch.matched`                 | `matched() -> int \| None`              | total matching item count (if reported)    |
+|  [08]   | `ItemSearch.url_with_parameters`     | `url_with_parameters() -> str`          | the resolved GET request URL (receipt)     |
+|  [09]   | `CollectionSearch.collection_list`   | `collection_list() -> list[Collection]` | materialize all matching collections       |
+|  [10]   | `CollectionSearch.collections`       | `collections() -> Iterator[Collection]` | lazily stream matching collections         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

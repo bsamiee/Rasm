@@ -21,34 +21,42 @@
 - rail: cert
 - `Registration` self-mints its account key when given `accountKeyAlgorithm`/`accountKeyEcdsaCurve`/`accountKeyRsaBits`, or adopts one through `accountKeyPem` (a `tls.PrivateKey.privateKeyPem` output, keeping key mint in the one entropy owner). `externalAccountBinding` (`keyId` + `hmacBase64`) is the EAB row for CAs that require it. `registrationUrl` and the resolved `accountKeyPem` are the outputs every `Certificate` consumes.
 
-| [INDEX] | [SYMBOL]                                                             | [SHAPE_BOUNDARY]                                                                                                |
-| :-----: | :------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Registration`                                                       | `new Registration(name, RegistrationArgs, opts?)`; outputs `accountKeyPem` (state-encrypted), `registrationUrl` |
-|  [02]   | `RegistrationArgs.emailAddress`                                      | `Input<string>` — the account contact                                                                           |
-|  [03]   | `accountKeyAlgorithm` / `accountKeyEcdsaCurve` / `accountKeyRsaBits` | self-mint policy; ECDSA floor mirrors the `Certs` profile law                                                   |
-|  [04]   | `accountKeyPem`                                                      | adopt an upstream `tls.PrivateKey.privateKeyPem` instead of self-minting                                        |
-|  [05]   | `externalAccountBinding`                                             | `{ keyId, hmacBase64 }` — EAB credentials from the Doppler fan-in, never literals                               |
-|  [06]   | `ProviderArgs.serverUrl`                                             | the sole provider field — the ACME directory URL; staging/production is provider data                           |
-|  [07]   | `getServerUrl` / `getServerUrlOutput`                                | invoke mirror pair reading the configured directory URL                                                         |
+| [INDEX] | [SYMBOL]                                                             | [SHAPE_BOUNDARY]                                     |
+| :-----: | :------------------------------------------------------------------- | :--------------------------------------------------- |
+|  [01]   | `Registration`                                                       | `new Registration(name, args, opts?)`                |
+|  [02]   | `RegistrationArgs.emailAddress`                                      | `Input<string>` — account contact                    |
+|  [03]   | `accountKeyAlgorithm` / `accountKeyEcdsaCurve` / `accountKeyRsaBits` | self-mint policy; ECDSA floor per `Certs`            |
+|  [04]   | `accountKeyPem`                                                      | adopt `tls.PrivateKey.privateKeyPem`, else self-mint |
+|  [05]   | `externalAccountBinding`                                             | `{ keyId, hmacBase64 }` — EAB, Doppler-fed           |
+|  [06]   | `ProviderArgs.serverUrl`                                             | sole provider field — the ACME directory URL         |
+|  [07]   | `getServerUrl` / `getServerUrlOutput`                                | invoke mirror reading the directory URL              |
 
 [CERTIFICATE_SCOPE]: the one lifecycle resource
 - rail: cert
-- Two key postures on one resource: provider-minted (`commonName` + `subjectAlternativeNames` + `keyType`, the key lands in `privateKeyPem`) or CSR mode (`certificateRequestPem` from a `tls.CertRequest`, the key never leaves the `tls` owner). `accountKeyPem` is the required account bind; exactly one challenge family activates per certificate.
+- Two key postures on one resource: provider-minted (`commonName` + `subjectAlternativeNames` + `keyType`, the key lands in `privateKeyPem`) or CSR mode (`certificateRequestPem` from a `tls.CertRequest`, the key never leaves the `tls` owner), mutually exclusive. `accountKeyPem` is the required account bind; exactly one challenge family activates per certificate. The DNS-01 rows are `dnsChallenges: Input<Input<CertificateDnsChallenge>[]>`, each element `{ provider: Input<string>, config?: Input<{[k]: Input<string>}> }` — the lego provider slug plus its credential map. The non-DNS rows carry `httpChallenge` `{port?, proxyHeader?}`, `httpWebrootChallenge` `{directory}`, `httpMemcachedChallenge` `{hosts}`, `httpS3Challenge` `{s3Bucket}`, `tlsChallenge` `{port?}`.
 
-| [INDEX] | [MEMBER]                                                                                                                                | [SHAPE_MEANING]                                                                                                                                                 |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `accountKeyPem`                                                                                                                         | `Input<string>` (required) — `registration.accountKeyPem`                                                                                                       |
-|  [02]   | `commonName` / `subjectAlternativeNames` / `keyType`                                                                                    | provider-minted posture; SANs carry the extra hostnames                                                                                                         |
-|  [03]   | `certificateRequestPem`                                                                                                                 | CSR posture — `tls.CertRequest.certRequestPem`; mutually exclusive with the minted posture                                                                      |
-|  [04]   | `dnsChallenges`                                                                                                                         | `Input<Input<CertificateDnsChallenge>[]>` — `{ provider: Input<string>, config?: Input<{[k]: Input<string>}> }`; the lego provider slug plus its credential map |
-|  [05]   | `httpChallenge` / `httpWebrootChallenge` / `httpMemcachedChallenge` / `httpS3Challenge` / `tlsChallenge`                                | the non-DNS challenge rows (`{port?, proxyHeader?}` / `{directory}` / `{hosts}` / `{s3Bucket}` / `{port?}`)                                                     |
-|  [06]   | `recursiveNameservers` / `disableCompletePropagation` / `preCheckDelay` / `propagationWait`                                             | DNS-01 propagation controls                                                                                                                                     |
-|  [07]   | `minDaysRemaining` / `useRenewalInfo` / `renewalInfoMaxSleep` / `renewalInfoIgnoreRetryAfter`                                           | the renewal window: threshold days plus ARI adoption                                                                                                            |
-|  [08]   | `revokeCertificateOnDestroy` / `revokeCertificateReason` / `deactivateAuthorizations`                                                   | teardown hygiene                                                                                                                                                |
-|  [09]   | `preferredChain` / `profile` / `mustStaple` / `validityDays` / `certTimeout`                                                            | chain selection, CA profile, OCSP must-staple, requested validity, order timeout                                                                                |
-|  [10]   | `certificatePem` / `issuerPem` / `privateKeyPem` / `certificateP12` (+`certificateP12Password`)                                         | issued outputs; `privateKeyPem` only in the minted posture                                                                                                      |
-|  [11]   | `certificateDomain` / `certificateNotAfter` / `certificateNotBefore` / `certificateSerial` / `certificateUrl`                           | issued identity evidence                                                                                                                                        |
-|  [12]   | `renewalInfoWindowStart` / `renewalInfoWindowEnd` / `renewalInfoWindowSelected` / `renewalInfoRetryAfter` / `renewalInfoExplanationUrl` | the ARI window outputs the drift fold reads                                                                                                                     |
+| [INDEX] | [MEMBER]                                                                     | [SHAPE_MEANING]                                           |
+| :-----: | :--------------------------------------------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | `accountKeyPem`                                                              | `Input<string>` (required); the `registration` bind       |
+|  [02]   | `commonName` / `subjectAlternativeNames` / `keyType`                         | provider-minted posture; SANs add hostnames               |
+|  [03]   | `certificateRequestPem`                                                      | CSR posture; `tls.CertRequest.certRequestPem`             |
+|  [04]   | `dnsChallenges`                                                              | DNS-01 rows, one per lego provider (element type in lead) |
+|  [05]   | `httpChallenge` / `httpWebrootChallenge` / `httpMemcachedChallenge`          | HTTP-01 challenge rows (shapes in lead)                   |
+|  [06]   | `httpS3Challenge` / `tlsChallenge`                                           | S3-served + TLS-ALPN rows (shapes in lead)                |
+|  [07]   | `recursiveNameservers` / `disableCompletePropagation`                        | DNS-01 propagation: resolver + skip-check                 |
+|  [08]   | `preCheckDelay` / `propagationWait`                                          | DNS-01 propagation timing                                 |
+|  [09]   | `minDaysRemaining` / `useRenewalInfo`                                        | renewal threshold days + ARI toggle                       |
+|  [10]   | `renewalInfoMaxSleep` / `renewalInfoIgnoreRetryAfter`                        | ARI max-sleep + retry-after override                      |
+|  [11]   | `revokeCertificateOnDestroy` / `revokeCertificateReason`                     | revoke on teardown + reason                               |
+|  [12]   | `deactivateAuthorizations`                                                   | deactivate pending authz on teardown                      |
+|  [13]   | `preferredChain` / `profile` / `mustStaple` / `validityDays` / `certTimeout` | chain, CA profile, must-staple, validity, timeout         |
+|  [14]   | `certificatePem` / `issuerPem` / `privateKeyPem`                             | issued material; `privateKeyPem` minted-only              |
+|  [15]   | `certificateP12` (+`certificateP12Password`)                                 | PKCS#12 bundle + password                                 |
+|  [16]   | `certificateDomain` / `certificateNotAfter` / `certificateNotBefore`         | issued identity: domain + validity bounds                 |
+|  [17]   | `certificateSerial` / `certificateUrl`                                       | issued serial + order URL                                 |
+|  [18]   | `renewalInfoWindowStart` / `renewalInfoWindowEnd`                            | ARI window bounds                                         |
+|  [19]   | `renewalInfoWindowSelected`                                                  | ARI selected window                                       |
+|  [20]   | `renewalInfoRetryAfter` / `renewalInfoExplanationUrl`                        | ARI retry-after + explanation URL                         |
 
 ## [03]-[IMPLEMENTATION_LAW]
 

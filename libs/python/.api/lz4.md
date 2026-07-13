@@ -30,12 +30,16 @@
 [PUBLIC_TYPE_SCOPE]: frame constants and identity probes
 - rail: compression
 
-| [INDEX] | [SYMBOL]                                                                                                   | [TYPE_FAMILY] | [RAIL]                         |
-| :-----: | :--------------------------------------------------------------------------------------------------------- | :------------ | :----------------------------- |
-|  [01]   | `BLOCKSIZE_DEFAULT` / `BLOCKSIZE_MAX64KB` / `BLOCKSIZE_MAX256KB` / `BLOCKSIZE_MAX1MB` / `BLOCKSIZE_MAX4MB` | block size    | frame max block-size policy    |
-|  [02]   | `COMPRESSIONLEVEL_MIN` / `COMPRESSIONLEVEL_MINHC` / `COMPRESSIONLEVEL_MAX`                                 | level         | frame compression level bounds |
-|  [03]   | `lz4.library_version_number` / `lz4.library_version_string`                                                | native id     | bundled native LZ4 version     |
-|  [04]   | `lz4.VERSION` / `lz4.__version__`                                                                          | binding id    | Python binding version         |
+| [INDEX] | [SYMBOL]                                                                   | [TYPE_FAMILY] | [RAIL]                         |
+| :-----: | :------------------------------------------------------------------------- | :------------ | :----------------------------- |
+|  [01]   | `BLOCKSIZE_DEFAULT`                                                        | block size    | default frame max block size   |
+|  [02]   | `BLOCKSIZE_MAX64KB`                                                        | block size    | 64 KB frame max block          |
+|  [03]   | `BLOCKSIZE_MAX256KB`                                                       | block size    | 256 KB frame max block         |
+|  [04]   | `BLOCKSIZE_MAX1MB`                                                         | block size    | 1 MB frame max block           |
+|  [05]   | `BLOCKSIZE_MAX4MB`                                                         | block size    | 4 MB frame max block           |
+|  [06]   | `COMPRESSIONLEVEL_MIN` / `COMPRESSIONLEVEL_MINHC` / `COMPRESSIONLEVEL_MAX` | level         | frame compression level bounds |
+|  [07]   | `lz4.library_version_number` / `lz4.library_version_string`                | native id     | bundled native LZ4 version     |
+|  [08]   | `lz4.VERSION` / `lz4.__version__`                                          | binding id    | Python binding version         |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -54,11 +58,15 @@
 [ENTRYPOINT_SCOPE]: raw block codec
 - rail: compression and wire
 
-| [INDEX] | [SURFACE]                                                                                                                       | [ENTRY_FAMILY] | [RAIL]                      |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------ | :------------- | :-------------------------- |
-|  [01]   | `lz4.block.compress(source, mode='default', acceleration=1, compression=0, store_size=True, return_bytearray=False, dict=None)` | encode         | raw block compression       |
-|  [02]   | `lz4.block.decompress(source, uncompressed_size=-1, return_bytearray=False, dict=None)`                                         | decode         | raw block decompression     |
-|  [03]   | `lz4.block.LZ4BlockError`                                                                                                       | fault          | corrupt or mismatched block |
+| [INDEX] | [SURFACE]                           | [ENTRY_FAMILY] | [RAIL]                      |
+| :-----: | :---------------------------------- | :------------- | :-------------------------- |
+|  [01]   | `lz4.block.compress(source, ...)`   | encode         | raw block compression       |
+|  [02]   | `lz4.block.decompress(source, ...)` | decode         | raw block decompression     |
+|  [03]   | `lz4.block.LZ4BlockError`           | fault          | corrupt or mismatched block |
+
+Full signatures for the `...`-abbreviated block codecs:
+- [01]-[COMPRESS]: `lz4.block.compress(source, mode='default', acceleration=1, compression=0, store_size=True, return_bytearray=False, dict=None)`
+- [02]-[DECOMPRESS]: `lz4.block.decompress(source, uncompressed_size=-1, return_bytearray=False, dict=None)`
 
 ## [04]-[IMPLEMENTATION_LAW]
 

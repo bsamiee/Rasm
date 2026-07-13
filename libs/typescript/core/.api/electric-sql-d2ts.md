@@ -15,19 +15,20 @@
 
 The graph is constructed once, wired with `pipe`, then driven; time is a partial order so multi-dimensional versions (per-replica logical clocks) fold under one engine.
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]            | [CAPABILITY_BOUNDARY]                                                                                         |
-| :-----: | :------------------------------ | :----------------------- | :------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `D2` (`D2Options`)              | class                    | the dataflow graph; `newInput()` mints a `RootStreamBuilder`, `run`/`step` drive it                           |
-|  [02]   | `RootStreamBuilder<T>`          | class                    | input handle — `sendData(version, collection)` + `sendFrontier(frontier)`                                     |
-|  [03]   | `StreamBuilder<T>`              | class (`IStreamBuilder`) | pipeline node; the 1..20-arity `pipe(...)` composes `PipedOperator`s                                          |
-|  [04]   | `Version` (`v()` factory)       | class                    | partially-ordered logical time — `join`/`meet`/`lessThan`/`advanceBy`/`extend`                                |
-|  [05]   | `Antichain` / `Frontier`        | class                    | minimal incomparable version set — `meet`, `lessEqualVersion`; the frontier bound                             |
-|  [06]   | `MultiSet<T>` (`MultiSetArray`) | class                    | signed multiset (`[value, multiplicity][]`) — the delta unit; negative = retraction                           |
-|  [07]   | `Message<T>` / `MessageType`    | tagged union             | `DATA` (`data.version` + `data.collection`) \| `FRONTIER` (`data`: version\|antichain) — the `output` payload |
-|  [08]   | `KeyValue<K, V>` = `[K, V]`     | tuple alias              | the keyed-record shape every keyed operator (`join`/`reduce`/`groupBy`) requires                              |
-|  [09]   | `PipedOperator<I, O>`           | function alias           | `(stream: IStreamBuilder<I>) => IStreamBuilder<O>` — the ONE operator shape                                   |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]  | [CAPABILITY_BOUNDARY]                                                               |
+| :-----: | :------------------------------ | :------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `D2` (`D2Options`)              | class          | dataflow graph; `newInput()` mints a `RootStreamBuilder`, `run`/`step` drive it     |
+|  [02]   | `RootStreamBuilder<T>`          | class          | input handle — `sendData(version, collection)` + `sendFrontier(frontier)`           |
+|  [03]   | `StreamBuilder<T>`              | class          | pipeline node (`IStreamBuilder`); 1..20-arity `pipe(...)` composes `PipedOperator`s |
+|  [04]   | `Version` (`v()` factory)       | class          | partially-ordered logical time — `join`/`meet`/`lessThan`/`advanceBy`/`extend`      |
+|  [05]   | `Antichain` / `Frontier`        | class          | minimal incomparable version set — `meet`/`lessEqualVersion`; the frontier bound    |
+|  [06]   | `MultiSet<T>` (`MultiSetArray`) | class          | signed multiset `[value, multiplicity][]` — delta unit; negative = retraction       |
+|  [07]   | `Message<T>` `DATA` arm         | tagged union   | `data.version` + `data.collection` — the delta payload of `output`                  |
+|  [08]   | `MessageType` `FRONTIER` arm    | tagged union   | `data`: version\|antichain — the frontier-close payload of `output`                 |
+|  [09]   | `KeyValue<K, V>` = `[K, V]`     | tuple alias    | keyed-record shape every keyed operator (`join`/`reduce`/`groupBy`) requires        |
+|  [10]   | `PipedOperator<I, O>`           | function alias | `(stream: IStreamBuilder<I>) => IStreamBuilder<O>` — the ONE operator shape         |
 
-```ts contract
+```ts signature
 // One graph, wired declaratively, driven synchronously. sendData carries a signed delta AT a version; the frontier closes a version.
 declare class D2 implements ID2 {
   constructor(opts: { initialFrontier: Antichain | Version | number | number[] })
@@ -55,7 +56,7 @@ declare class Antichain {
 }
 ```
 
-```ts contract
+```ts signature
 // The signed multiset is the delta algebra: map/filter/negate/concat/consolidate are pure, the keyed folds (join/reduce/count/min/max/distinct/iterate) exploit KeyValue structure.
 declare class MultiSet<T> {
   constructor(data?: MultiSetArray<T>)               // [value, multiplicity][]
@@ -75,15 +76,21 @@ declare class MultiSet<T> {
 
 The operator library is ONE parameterized shape — `PipedOperator<I, O>` composed left-to-right by `pipe` — not a fixed method wall. The roster below is SEED DATA on that shape: a new dataflow verb is a new `PipedOperator`, never a new graph type. Four families vary by what structure they exploit — element-wise, keyed-fold, ordered, and recursive.
 
-| [INDEX] | [FAMILY]     | [OPERATORS]                                                                                    | [SHAPE_BOUNDARY]                                                        |
-| :-----: | :----------- | :--------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------- |
-|  [01]   | element-wise | `map` `filter` `negate` `concat` `consolidate` `buffer` `debug` `output`                       | `PipedOperator<T, …>` — no key structure; `output` sees `Message`       |
-|  [02]   | keying       | `keyBy(fn)` `unkey()` `rekey(fn)`                                                              | `T ⇄ KeyValue<K, T>` — the adapter into/out of the keyed family         |
-|  [03]   | keyed fold   | `join`(+`inner`/`left`/`right`/`full`/`anti`) `reduce` `count` `distinct` `groupBy`            | `KeyValue<K, V>` in; the incremental fold — a Semigroup applied per key |
-|  [04]   | ordered      | `topK` `topKWithIndex` `topKWithFractionalIndex` `orderBy`(+`WithIndex`/`WithFractionalIndex`) | keyed; fractional index maintains order WITHOUT a full re-sort          |
-|  [05]   | recursive    | `iterate(f)` (`IngressOperator`/`EgressOperator`/`FeedbackOperator`)                           | fixpoint scope — loops the sub-graph to convergence                     |
+| [INDEX] | [FAMILY]     | [OPERATORS]                                                                                    |
+| :-----: | :----------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | element-wise | `map` `filter` `negate` `concat` `consolidate` `buffer` `debug` `output`                       |
+|  [02]   | keying       | `keyBy(fn)` `unkey()` `rekey(fn)`                                                              |
+|  [03]   | keyed fold   | `join`(+`inner`/`left`/`right`/`full`/`anti`) `reduce` `count` `distinct` `groupBy`            |
+|  [04]   | ordered      | `topK` `topKWithIndex` `topKWithFractionalIndex` `orderBy`(+`WithIndex`/`WithFractionalIndex`) |
+|  [05]   | recursive    | `iterate(f)` (`IngressOperator`/`EgressOperator`/`FeedbackOperator`)                           |
 
-```ts contract
+- [01]-[ELEMENT_WISE]: `PipedOperator<T, …>` — no key structure; `output` sees `Message`.
+- [02]-[KEYING]: `T ⇄ KeyValue<K, T>` — the adapter into and out of the keyed family.
+- [03]-[KEYED_FOLD]: `KeyValue<K, V>` in; the incremental fold — a Semigroup applied per key.
+- [04]-[ORDERED]: keyed; the fractional index maintains order WITHOUT a full re-sort.
+- [05]-[RECURSIVE]: fixpoint scope — loops the sub-graph to convergence.
+
+```ts signature
 // pipe is variadic (1..20 typed arities + a rest fallback); every stage is a PipedOperator. This is the whole composition mechanism.
 input.pipe(
   map((row) => row.payload),
@@ -95,7 +102,7 @@ input.pipe(
 )
 ```
 
-```ts contract
+```ts signature
 // join is ONE operator parameterized by JoinType; inner/anti/left/right/full are convenience rows on it, not five hand-rolled joins.
 type JoinType = 'inner' | 'left' | 'right' | 'full' | 'anti'
 declare function join<K, V1, V2, T>(other: IStreamBuilder<KeyValue<K, V2>>, type?: JoinType): PipedOperator<T, KeyValue<K, [V1 | null, V2 | null]>>
@@ -107,7 +114,7 @@ declare function groupBy<T, K, A extends Record<string, AggregateFunction<T, any
 declare const groupByOperators: { sum; count; avg; min; max; median; mode }   // AggregateFunction rows; `avg` carries {sum,count} state
 ```
 
-```ts contract
+```ts signature
 // The named-defect deletion: orderBy re-sorts on every change; topKWithFractionalIndex assigns a fractional string index so an insert is one key, not a re-sort.
 declare function orderByWithFractionalIndex<T, Ve>(valueExtractor: (v: V) => Ve, opts?: { comparator?; limit?; offset? }): (s: IStreamBuilder<T>) => IStreamBuilder<KeyValue<K, [V, string]>>
 declare function topKWithFractionalIndex<K, V1, T>(cmp: (a: V1, b: V1) => number, opts?: { limit?; offset? }): PipedOperator<T, KeyValue<K, [V1, string]>>
@@ -117,20 +124,29 @@ declare function iterate<T>(f: (s: IStreamBuilder<T>) => IStreamBuilder<T>): (s:
 
 ## [03]-[INDEX_AND_PERSISTENCE]
 
-`Index<K, V>` is the versioned trace the keyed operators keep — a key → versions → signed values map that `reconstructAt` reads at any requested version and `compact` collapses below a stability frontier. It is the mechanism `reconstructAt` gives `state/fold` AsOf reads and `state/causal` retention-frontier handoff.
+`Index<K, V>` is the versioned trace the keyed operators keep — a key → versions → signed values map that `reconstructAt` reads at any requested version and `compact` collapses below a stability frontier. It is the mechanism `reconstructAt` gives `state/fold` AsOf reads and `state/causal` retention-frontier handoff. Rows [02]-[05] are `Index<K, V>.` receiver methods; the `./sqlite`/`./electric` subpath rows carry the peers named in the surface lead.
 
-| [INDEX] | [SURFACE]                                                               | [PRODUCES]                             | [CAPABILITY]                                                                                |
-| :-----: | :---------------------------------------------------------------------- | :------------------------------------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `new Index<K, V>()`                                                     | empty versioned trace                  | default-constructible — an owned trace an `output` sink appends                             |
-|  [02]   | `Index<K, V>.addValue(key, version, [value, multiplicity])`             | — (in-place)                           | the trace append — one signed row at a partial-order version                                |
-|  [03]   | `Index<K, V>.reconstructAt(key, version)`                               | `[V, number][]`                        | time-travel read — the AsOf materialization at a partial-order version                      |
-|  [04]   | `Index<K, V>.compact(compactionFrontier: Antichain, keys?)`             | — (in-place)                           | collapse trace below the stability frontier — the retention handoff                         |
-|  [05]   | `Index<K, V>.keys()` / `.entries()` / `.versions(key)` / `.join(other)` | `K[]` / rows / `Version[]` / diff rows | key census, entry walk, per-key version set, incremental join                               |
-|  [06]   | `./sqlite` `SQLiteDb` / `BetterSQLite catalogWrapper`                   | durable operator state                 | the persistent trace — a node fold survives restart (peer: `better-sqlite catalog`)         |
-|  [07]   | `./electric` `electricStreamToD2Input(opts)`                            | `RootStreamBuilder`                    | binds a Postgres `ShapeStream` as graph input, `lsnToVersion` maps LSN → `Version`          |
-|  [08]   | `./electric` `outputElectricMessages(fn)`                               | `PipedOperator`                        | emits `ChangeMessage<Row>[]` — the replication-shaped egress (peer: `@electric-sql/client`) |
+| [INDEX] | [SURFACE]                                              | [PRODUCES]                   |
+| :-----: | :----------------------------------------------------- | :--------------------------- |
+|  [01]   | `new Index<K, V>()`                                    | empty versioned trace        |
+|  [02]   | `.addValue(key, version, [value, multiplicity])`       | in-place                     |
+|  [03]   | `.reconstructAt(key, version)`                         | `[V, number][]`              |
+|  [04]   | `.compact(compactionFrontier: Antichain, keys?)`       | in-place                     |
+|  [05]   | `.keys()`/`.entries()`/`.versions(key)`/`.join(other)` | `K[]`/rows/`Version[]`/diffs |
+|  [06]   | `./sqlite` `SQLiteDb`/`BetterSQLite catalogWrapper`    | durable operator state       |
+|  [07]   | `./electric` `electricStreamToD2Input(opts)`           | `RootStreamBuilder`          |
+|  [08]   | `./electric` `outputElectricMessages(fn)`              | `PipedOperator`              |
 
-```ts contract
+- [01]-[NEW]: default-constructible — an owned trace an `output` sink appends.
+- [02]-[ADD_VALUE]: the trace append — one signed row at a partial-order version.
+- [03]-[RECONSTRUCT_AT]: time-travel read — the AsOf materialization at a partial-order version.
+- [04]-[COMPACT]: collapse the trace below the stability frontier — the retention handoff.
+- [05]-[WALK]: key census, entry walk, per-key version set, and incremental join.
+- [06]-[SQLITE]: the persistent trace — a node fold survives restart.
+- [07]-[ELECTRIC_IN]: binds a Postgres `ShapeStream` as graph input; `lsnToVersion` maps LSN→`Version`.
+- [08]-[ELECTRIC_OUT]: emits `ChangeMessage<Row>[]` — the replication-shaped egress.
+
+```ts signature
 // The ./sqlite subpath mirrors the core operator set (join/reduce/distinct/groupBy/orderBy/topK/consolidate/buffer) over a SQLite-backed version index — the durable node altitude.
 interface SQLiteDb { exec(sql: string): void; prepare<P, R>(sql: string): SQLiteStatement<P, R> }
 declare class BetterSQLite3Wrapper implements SQLiteDb { constructor(db: import('better-sqlite3').Database); close(): void }

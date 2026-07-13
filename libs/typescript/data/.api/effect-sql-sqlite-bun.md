@@ -18,63 +18,66 @@
 - rail: store/lane
 - `SqliteClient extends SqlClient` — the `layer` provides both the `SqliteClient` Tag and the `SqlClient` Tag, so `lane/sqlite` rows compose the neutral `SqlClient` and only `export`/`loadExtension` rows reach the `SqliteClient` Tag (this lane has no `backup` member — that is the node lane's better-sqlite3 addition). `updateValues: never` is the degradation seam, not an omission.
 
-| [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                                              |
-| :-----: | :----------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------- |
-|  [01]   | `SqliteClient.SqliteClient` (Tag) / `interface SqliteClient`       | service Tag     | `lane/sqlite` journal/projection rows; `SqliteClient \| SqlClient` in one layer  |
-|  [02]   | `SqliteClient.export: Effect<Uint8Array, SqlError>`                | serialize       | `journal/retain`/`lane` whole-db backup/ship; content-addressable snapshot bytes |
-|  [03]   | `SqliteClient.loadExtension(path: string): Effect<void, SqlError>` | extension       | `retrieve` `sqlite-vec`/FTS load; the sqlite analogue of a `capability/row`      |
-|  [04]   | `SqliteClient.updateValues: never`                                 | degradation     | the anchor of the `lane/sqlite` capability-degradation table                     |
-|  [05]   | `SqliteClient.config: SqliteClientConfig`                          | resolved config | `filename`/WAL introspection                                                     |
+| [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                              |
+| :-----: | :----------------------------------------------------------------- | :-------------- | :----------------------------------------------- |
+|  [01]   | `SqliteClient.SqliteClient` (Tag) / `interface SqliteClient`       | service Tag     | `lane/sqlite` journal/projection rows            |
+|  [02]   | `SqliteClient.export: Effect<Uint8Array, SqlError>`                | serialize       | `journal/retain` whole-db backup; snapshot bytes |
+|  [03]   | `SqliteClient.loadExtension(path: string): Effect<void, SqlError>` | extension       | `retrieve` `sqlite-vec`/FTS; `capability/row`    |
+|  [04]   | `SqliteClient.updateValues: never`                                 | degradation     | anchor of the `lane/sqlite` degradation table    |
+|  [05]   | `SqliteClient.config: SqliteClientConfig`                          | resolved config | `filename`/WAL introspection                     |
 
 [PUBLIC_TYPE_SCOPE]: configuration
 - rail: store/lane
 - `SqliteClientConfig` is a single-connection file config — no pool, no TLS, no timeouts. `filename` keys the file-per-app tenancy; `disableWAL` toggles the concurrency mode; the transforms match the spine so canonical camelCase rows survive a dialect swap.
 
-| [INDEX] | [SYMBOL]                                                        | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                                        |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------- |
-|  [01]   | `SqliteClientConfig.filename` (`string`)                        | file           | `scope` file-per-app tenancy key; `":memory:"` for specs                   |
-|  [02]   | `SqliteClientConfig.readonly`/`create`/`readwrite`              | open mode      | read-replica lane vs. writer; `create` gates first-open ensure             |
-|  [03]   | `SqliteClientConfig.disableWAL` (`boolean`)                     | journal mode   | WAL default for reader/writer concurrency; disable for single-writer boxes |
-|  [04]   | `SqliteClientConfig.transformResultNames`/`transformQueryNames` | name transform | snake_case ⇄ camelCase — must match the PG spine so `onDialect` rows agree |
-|  [05]   | `SqliteClientConfig.spanAttributes`                             | telemetry      | per-query OTel span attributes                                             |
+| [INDEX] | [SYMBOL]                                     | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                      |
+| :-----: | :------------------------------------------- | :------------- | :------------------------------------------------------- |
+|  [01]   | `filename` (`string`)                        | file           | `scope` file-per-app tenancy key; `":memory:"` for specs |
+|  [02]   | `readonly`/`create`/`readwrite`              | open mode      | read-replica lane vs. writer; `create` gates first-open  |
+|  [03]   | `disableWAL` (`boolean`)                     | journal mode   | WAL default for concurrency; disable for single-writer   |
+|  [04]   | `transformResultNames`/`transformQueryNames` | name transform | snake_case ⇄ camelCase; match PG spine for `onDialect`   |
+|  [05]   | `spanAttributes`                             | telemetry      | per-query OTel span attributes                           |
 
 [PUBLIC_TYPE_SCOPE]: the inherited `SqlClient` core the sqlite lane composes
 - rail: store/lane
-- The lane runs the same `@effect/sql` contracts (`.api/effect-sql.md`) as the spine; `sql.onDialect` selects the sqlite fragment where syntax diverges. `updateValues` is `never`, so `onDialect` routes bulk updates to a chunked-insert path on this lane.
+- The lane runs the same `@effect/sql` contracts (`.api/effect-sql.md`) as the spine; `sql.onDialect` selects the sqlite fragment where syntax diverges. `updateValues` is `never`, so `onDialect` routes bulk updates to a chunked-insert path on this lane. The `sql` `Constructor` exposes `in`/`unsafe`/`literal`/`insert`/`update`/`and`/`or`/`csv`/`join` (`updateValues` excluded here); `sqlite` is an `onDialect` arm-KEY, not a `sql.sqlite` method.
 
-| [INDEX] | [SYMBOL]                                                                                                                       | [TYPE_FAMILY]      | [CONSUMER_BOUNDARY]                                                                                             |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------- | :----------------- | :-------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SqlClient.withTransaction(effect)`                                                                                            | transaction        | `journal/append` OCC + outbox atomic commit on the lane                                                         |
-|  [02]   | `SqlClient.reserve: Effect<Connection, SqlError, Scope>`                                                                       | dedicated conn     | pinned-connection work; sqlite is single-connection, so `reserve` serializes                                    |
-|  [03]   | `SqlClient.reactive(keys, effect): Stream` / `reactiveMailbox`                                                                 | reactive read      | `lane` read-your-writes via in-process `Reactivity` (no LISTEN/NOTIFY)                                          |
-|  [04]   | `Statement` `sql` `Constructor` (`in`/`unsafe`/`literal`/`insert`/`update`/`and`/`or`/`csv`/`join`)                            | statement          | the shared journal/projection statements; `updateValues` excluded here                                          |
-|  [05]   | `sql.onDialect({ sqlite, pg, mysql, mssql, clickhouse })` (the `sqlite` arm here) / `sql.onDialectOrElse({ orElse, sqlite? })` | dialect switch     | select the sqlite fragment; the cross-lane portability seam — `sqlite` is an arm-KEY, not a `sql.sqlite` method |
-|  [06]   | `SqlSchema.findAll`/`findOne`/`single` · `SqlResolver.ordered`/`grouped`/`findById`                                            | decode/batch       | typed row decode + N+1-free batched reads, identical to the spine                                               |
-|  [07]   | `Model.makeRepository`/`makeDataLoaders` · `SqlStream.asyncPauseResume` · `SqlError`                                           | model/stream/fault | typed tables, streamed cursors, the one tagged SQL error rail                                                   |
+| [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                   |
+| :-----: | :------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `SqlClient.withTransaction(effect)`                            | transaction    | `journal/append` OCC + outbox atomic commit           |
+|  [02]   | `SqlClient.reserve: Effect<Connection, SqlError, Scope>`       | dedicated conn | pinned-connection work; single-connection, serializes |
+|  [03]   | `SqlClient.reactive(keys, effect): Stream` / `reactiveMailbox` | reactive read  | `lane` read-your-writes via in-process `Reactivity`   |
+|  [04]   | `Statement` `sql` `Constructor`                                | statement      | shared journal/projection statements                  |
+|  [05]   | `sql.onDialect({ sqlite, pg, mysql, mssql, clickhouse })`      | dialect switch | select sqlite fragment; cross-lane portability        |
+|  [06]   | `sql.onDialectOrElse({ orElse, sqlite? })`                     | dialect switch | default arm plus an optional `sqlite` override        |
+|  [07]   | `SqlSchema.findAll`/`findOne`/`single`                         | result decode  | typed row decode, identical to the spine              |
+|  [08]   | `SqlResolver.ordered`/`grouped`/`findById`                     | batch resolver | N+1-free batched reads, identical to the spine        |
+|  [09]   | `Model.makeRepository`/`makeDataLoaders`                       | table model    | typed tables over a lane table                        |
+|  [10]   | `SqlStream.asyncPauseResume` / `SqlError`                      | stream/fault   | streamed cursors; the one tagged SQL error rail       |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing the lane Layer
 - rail: store/lane
-- `layer` provides both Tags from a fixed config; `layerConfig` resolves `filename`/mode from `Config`. `make` returns an `Effect` with error channel `never` (open failures surface later as `SqlError` at query time), scoped to close the database on release.
+- `layer` provides both Tags from a fixed config; `layerConfig` resolves `filename`/mode from `Config`. All provide `SqliteClient \| SqlClient` in one Layer (error `ConfigError`); `make` returns `Effect<SqliteClient, never, Scope \| Reactivity>` (open failures surface later as `SqlError` at query time), scoped to close the database on release.
 
-| [INDEX] | [SURFACE]                                                                                                          | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                        |
-| :-----: | :----------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------- |
-|  [01]   | `SqliteClient.layer(config: SqliteClientConfig): Layer<SqliteClient \| SqlClient, ConfigError>`                    | lane layer     | `lane/sqlite` app-root row (fixed `filename`)              |
-|  [02]   | `SqliteClient.layerConfig(config: Config.Wrap<SqliteClientConfig>): Layer<SqliteClient \| SqlClient, ConfigError>` | lane layer     | `host/config` file/mode resolution — the standing lane row |
-|  [03]   | `SqliteClient.make(config): Effect<SqliteClient, never, Scope \| Reactivity>`                                      | scoped make    | scoped construction inside a larger acquire graph          |
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                               |
+| :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------------------ |
+|  [01]   | `SqliteClient.layer(config: SqliteClientConfig)`                    | lane layer     | `lane/sqlite` app-root row (fixed `filename`)     |
+|  [02]   | `SqliteClient.layerConfig(config: Config.Wrap<SqliteClientConfig>)` | lane layer     | `host/config` file/mode resolution; standing row  |
+|  [03]   | `SqliteClient.make(config)`                                         | scoped make    | scoped construction inside a larger acquire graph |
 
 [ENTRYPOINT_SCOPE]: the sqlite lane patterns — same contracts, degraded capabilities
 - rail: store/lane
 - Every journal/projection statement is the spine's, routed through `onDialect` where SQLite syntax differs. Snapshot `export` and `loadExtension` are the two lane-native operations.
 
-| [INDEX] | [SURFACE]                                                                                                                  | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                    |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------- |
-|  [01]   | `sql.onDialect({ pg: `\``… ON CONFLICT … RETURNING (xmax = 0)`\``, sqlite: `\``… ON CONFLICT … RETURNING changes()`\`` })` | idempotency    | one outbox claim across dialects                       |
-|  [02]   | `sql.onDialect({ pg: bulkUpdateValues, sqlite: chunkedInsert })`                                                           | updateValues   | route the `never` member to a chunked-insert path      |
-|  [03]   | `client.export` → `Uint8Array` → content-addressed snapshot                                                                | backup         | `journal/retain` ship/restore; `":memory:"` spec dump  |
-|  [04]   | `client.loadExtension(vecPath)` then `sql`\``CREATE VIRTUAL TABLE … USING vec0`\`                                          | vector index   | `retrieve/index` sqlite vector lane                    |
-|  [05]   | `client.reactive(keys, query): Stream` ← in-process `Reactivity.invalidate(keys)`                                          | reactive read  | `lane` read-your-writes (no NOTIFY; in-process signal) |
+| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                 |
+| :-----: | :--------------------------------------------------------------- | :------------- | :-------------------------------------------------- |
+|  [01]   | `sql.onDialect({ pg, sqlite })`                                  | idempotency    | pg `(xmax = 0)` vs sqlite `changes()`; outbox claim |
+|  [02]   | `sql.onDialect({ pg: bulkUpdateValues, sqlite: chunkedInsert })` | updateValues   | route the `never` member to chunked-insert          |
+|  [03]   | `client.export` → `Uint8Array` → content-addressed snapshot      | backup         | `journal/retain` ship/restore; `":memory:"` dump    |
+|  [04]   | `client.loadExtension(vecPath)`                                  | vector index   | `retrieve/index` `vec0` virtual table               |
+|  [05]   | `client.reactive(keys, query): Stream`                           | reactive read  | `lane` read-your-writes; in-process `Reactivity`    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

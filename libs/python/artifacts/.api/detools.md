@@ -36,24 +36,40 @@ The patch surface is function-centric; the one public type is `Error` (`class Er
 
 `create_patch` is the single diff surface; `patch_type` (`sequential`/`in-place`/`bsdiff`/`hdiffpatch`), `algorithm` (`bsdiff` default / `hdiffpatch` / `match-blocks`), `suffix_array_algorithm`, and `compression` are call rows whose `(algorithm, patch_type)` combination selects the create kernel, never per-mode builder types. The valid combinations are exactly `bsdiff`×`sequential`, `bsdiff`×`in-place`, `bsdiff`×`bsdiff`, `hdiffpatch`×`hdiffpatch`, and `match-blocks`×`sequential`/`hdiffpatch`; every other pair raises `Error("Bad algorithm and patch type combination …")`. The `_filenames` row opens the named files and forwards the identical keyword axis. `ffrom`/`fto`/`fpatch` are file-like objects — and `use_mmap` is a BOUNDARY fact, not a knob: a `BytesIO` ingress exposes no `fileno()`, the `bsdiff`/`sequential` kernel falls back mmap->heap on `io.UnsupportedOperation`, but the `hdiffpatch`/`match-blocks` kernels mmap their input with NO heap fallback, so an in-memory-buffer caller pins `use_mmap=False` to read every diff path through the heap reader.
 
-| [INDEX] | [SURFACE]                | [CALL_SHAPE]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | [CAPABILITY]                                             |
-| :-----: | :----------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------- |
-|  [01]   | `create_patch`           | `create_patch(ffrom, fto, fpatch, compression='lzma', patch_type='sequential', algorithm='bsdiff', suffix_array_algorithm='divsufsort', memory_size=None, segment_size=None, minimum_shift_size=None, data_format=None, from_data_offset_begin=0, from_data_offset_end=0, from_data_begin=0, from_data_end=0, from_code_begin=0, from_code_end=0, to_data_offset_begin=0, to_data_offset_end=0, to_data_begin=0, to_data_end=0, to_code_begin=0, to_code_end=0, match_score=6, match_block_size=64, use_mmap=True, heatshrink_window_sz2=8, heatshrink_lookahead_sz2=7)` | diff `ffrom`->`fto`, write patch to `fpatch`             |
-|  [02]   | `create_patch_filenames` | `create_patch_filenames(fromfile, tofile, patchfile, compression='lzma', patch_type='sequential', algorithm='bsdiff', suffix_array_algorithm='divsufsort', memory_size=None, segment_size=None, minimum_shift_size=None, data_format=None, from_data_offset_begin=0, …, to_code_end=0, match_score=6, match_block_size=64, use_mmap=True, heatshrink_window_sz2=8, heatshrink_lookahead_sz2=7)`                                                                                                                                                                          | named-file form of `create_patch` (identical kwarg axis) |
+```python signature
+create_patch(
+    ffrom, fto, fpatch,
+    compression='lzma', patch_type='sequential', algorithm='bsdiff',
+    suffix_array_algorithm='divsufsort',
+    memory_size=None, segment_size=None, minimum_shift_size=None, data_format=None,
+    from_data_offset_begin=0, from_data_offset_end=0, from_data_begin=0, from_data_end=0,
+    from_code_begin=0, from_code_end=0,
+    to_data_offset_begin=0, to_data_offset_end=0, to_data_begin=0, to_data_end=0,
+    to_code_begin=0, to_code_end=0,
+    match_score=6, match_block_size=64, use_mmap=True,
+    heatshrink_window_sz2=8, heatshrink_lookahead_sz2=7,
+)
+# create_patch_filenames(fromfile, tofile, patchfile, …) forwards the identical keyword axis
+```
+
+| [INDEX] | [SURFACE]                | [CAPABILITY]                                             |
+| :-----: | :----------------------- | :------------------------------------------------------- |
+|  [01]   | `create_patch`           | diff `ffrom`->`fto`, write patch to `fpatch`             |
+|  [02]   | `create_patch_filenames` | named-file form of `create_patch` (identical kwarg axis) |
 
 [ENTRYPOINT_SCOPE]: patch application
 - rail: delta
 
 `apply_patch` peeks the patch header type (`peek_header_type`) and dispatches to the sequential or hdiffpatch reconstructor — so it is the ONE entry the DELTA_BUNDLE apply routes through for the self-describing `sequential`/`hdiffpatch` headers, never an algorithm-specific reconstructor; `apply_patch_bsdiff` applies a raw headerless `BSDIFF40` patch; `apply_patch_in_place` mutates the memory image in place. Each `_filenames` row opens the named files and forwards to the file-like form, propagating its return. `apply_patch`/`apply_patch_bsdiff`/`apply_patch_in_place` each return the `int` size of the created to-data — the sequential/bsdiff sinks receive the bytes via the `fto` writer, while the in-place call writes INTO `fmem`: the recovered to-image is the `to_size`-prefix of the mutated `fmem` buffer (`fmem.getvalue()[:to_size]`), never the full `memory_size`-padded buffer, and `to_size` MUST be bound before reading `getvalue()` because the call mutates in place.
 
-| [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                                | [CAPABILITY]                                       |
-| :-----: | :------------------------------- | :---------------------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `apply_patch`                    | `apply_patch(ffrom, fpatch, fto)` -> `int`                  | reconstruct `fto` (sequential/hdiffpatch dispatch) |
-|  [02]   | `apply_patch_filenames`          | `apply_patch_filenames(fromfile, patchfile, tofile)`        | named-file form of `apply_patch`                   |
-|  [03]   | `apply_patch_bsdiff`             | `apply_patch_bsdiff(ffrom, fpatch, fto)` -> `int`           | apply a raw bsdiff patch                           |
-|  [04]   | `apply_patch_bsdiff_filenames`   | `apply_patch_bsdiff_filenames(fromfile, patchfile, tofile)` | named-file form of `apply_patch_bsdiff`            |
-|  [05]   | `apply_patch_in_place`           | `apply_patch_in_place(fmem, fpatch)` -> `int`               | apply an in-place patch, mutating the memory image |
-|  [06]   | `apply_patch_in_place_filenames` | `apply_patch_in_place_filenames(memfile, patchfile)`        | named-file form of `apply_patch_in_place`          |
+| [INDEX] | [CALL_SHAPE]                                                | [CAPABILITY]                                       |
+| :-----: | :---------------------------------------------------------- | :------------------------------------------------- |
+|  [01]   | `apply_patch(ffrom, fpatch, fto)` -> `int`                  | reconstruct `fto` (sequential/hdiffpatch dispatch) |
+|  [02]   | `apply_patch_filenames(fromfile, patchfile, tofile)`        | named-file form of `apply_patch`                   |
+|  [03]   | `apply_patch_bsdiff(ffrom, fpatch, fto)` -> `int`           | apply a raw bsdiff patch                           |
+|  [04]   | `apply_patch_bsdiff_filenames(fromfile, patchfile, tofile)` | named-file form of `apply_patch_bsdiff`            |
+|  [05]   | `apply_patch_in_place(fmem, fpatch)` -> `int`               | apply an in-place patch, mutating `fmem`           |
+|  [06]   | `apply_patch_in_place_filenames(memfile, patchfile)`        | named-file form of `apply_patch_in_place`          |
 
 [ENTRYPOINT_SCOPE]: patch inspection
 - rail: delta
@@ -67,11 +83,17 @@ The patch surface is function-centric; the one public type is `Error` (`class Er
 
 Per-kind info tuple (`detools.info`, source-verified) — the second element of the `(kind, info)` return:
 
-| [INDEX] | [KIND]       | [INFO_TUPLE]                                                                                                                                          | [RECEIPT_USE]                                                                                                                      |
-| :-----: | :----------- | :---------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `sequential` | `(patch_size, compression, compression_info, dfpatch_size, data_format, dfpatch_info, *(to_size, diff_sizes, extra_sizes, …, number_of_size_bytes))`  | `to_size` -> `frame_size`; `compression` names the codec; `data_format`/`dfpatch_info` prove firmware segmentation rode the header |
-|  [02]   | `in-place`   | `(patch_size, compression, compression_info, memory_size, segment_size, shift_size, from_size, to_size, segments[(dfpatch_size, data_format, info)])` | the in-place segmentation band echoed back from the header (`memory_size`/`segment_size`/`shift_size`) for round-trip audit        |
-|  [03]   | `hdiffpatch` | `(patch_size, compression, compression_info, to_size)`                                                                                                | the minimal hdiffpatch record; `to_size` -> `frame_size`                                                                           |
+| [INDEX] | [KIND]       | [RECEIPT_USE]                                                                                      |
+| :-----: | :----------- | :------------------------------------------------------------------------------------------------- |
+|  [01]   | `sequential` | `to_size`->`frame_size`; `compression` names the codec; `data_format` proves firmware segmentation |
+|  [02]   | `in-place`   | the segmentation band echoed back (`memory_size`/`segment_size`/`shift_size`) for round-trip audit |
+|  [03]   | `hdiffpatch` | the minimal hdiffpatch record; `to_size`->`frame_size`                                             |
+
+Info tuple (`detools.info`, source-verified) — the second element of the `(kind, info)` return:
+
+- [01]-[SEQUENTIAL]: `(patch_size, compression, compression_info, dfpatch_size, data_format, dfpatch_info, *(to_size, diff_sizes, extra_sizes, …, number_of_size_bytes))`
+- [02]-[in-place]: `(patch_size, compression, compression_info, memory_size, segment_size, shift_size, from_size, to_size, segments[(dfpatch_size, data_format, info)])`
+- [03]-[HDIFFPATCH]: `(patch_size, compression, compression_info, to_size)`
 
 ## [04]-[IMPLEMENTATION_LAW]
 

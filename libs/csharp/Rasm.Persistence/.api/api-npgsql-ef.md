@@ -69,49 +69,49 @@ The compact rows below preserve these provider member sets:
 
 This folder ships no standalone base-EF catalog, so the provider catalog carries the base `DbContext` runtime surface a design page composes WITH `UseNpgsql` (the sibling `api-ef-sqlite` shares the same base surface). These are provider-agnostic EF Core base members owned at the `DbContext`/interception/migration seam, NOT `Npgsql*` types.
 
-| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]       | [CAPABILITY]                                                                                |
-| :-----: | :-------------------------------------- | :------------------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `DbContext`                             | context root         | `Database` facade, `SaveChangesAsync`, `ConfigureConventions` hook                          |
-|  [02]   | `DbContextOptionsBuilder`               | options builder      | `UseModel`, `AddInterceptors`; the `UseNpgsql` callback target                              |
-|  [03]   | `IDbContextFactory<TContext>`           | context factory      | `CreateDbContext()` / `CreateDbContextAsync(CancellationToken)`                             |
-|  [04]   | `PooledDbContextFactory<TContext>`      | pooled factory       | `Infrastructure`; the pooled `IDbContextFactory<TContext>` impl                             |
-|  [05]   | `DatabaseFacade`                        | database facade      | `Infrastructure`; `context.Database` — strategy, transaction, raw query                     |
-|  [06]   | `IExecutionStrategy`                    | resiliency strategy  | `Storage`; `RetriesOnFailure`, `ExecuteAsync` retry rail                                    |
-|  [07]   | `ExecutionStrategyExtensions`           | strategy extensions  | `ExecuteAsync` no-context convenience overloads                                             |
-|  [08]   | `IDbContextTransaction`                 | transaction handle   | `Storage`; commit/rollback plus the savepoint family                                        |
-|  [09]   | `ModelConfigurationBuilder`             | convention builder   | `Properties`/`DefaultTypeMapping`/`IgnoreAny`/`Conventions` pre-model config                |
-|  [10]   | `IInterceptor`                          | interceptor marker   | `Diagnostics`; base contract for every interception slot                                    |
-|  [11]   | `ISaveChangesInterceptor`               | save interceptor     | `Diagnostics`; `SavingChanges(Async)`/`SavedChanges(Async)`/`SaveChangesFailed`             |
-|  [12]   | `IDbCommandInterceptor`                 | command interceptor  | `Relational` `Diagnostics`; command-execution interception                                  |
-|  [13]   | `IDbConnectionInterceptor`              | connection intercept | `Relational` `Diagnostics`; connection open/close interception                              |
-|  [14]   | `IDbTransactionInterceptor`             | txn interceptor      | `Relational` `Diagnostics`; transaction-lifecycle interception                              |
-|  [15]   | `IMigrator`                             | migration runtime    | `Relational` `Migrations`; `Migrate`/`GenerateScript` deploy emission                       |
-|  [16]   | `MigrationsSqlGenerationOptions`        | script options enum  | `Relational`; `Default`/`Script`/`Idempotent`/`NoTransactions` flags                        |
-|  [17]   | `TableBuilder`                          | table builder        | `Relational` `Metadata.Builders`; `HasCheckConstraint`/`HasTrigger`/`ExcludeFromMigrations` |
-|  [18]   | `EntityFrameworkQueryableExtensions`    | query extensions     | base `IQueryable` async materialization plus query tagging                                  |
-|  [19]   | `RelationalDatabaseFacadeExtensions`    | facade extensions    | `Relational`; raw `SqlQuery`/`SqlQueryRaw`, `UseTransactionAsync`, isolation-level begin    |
-|  [20]   | `RelationalPropertyBuilderExtensions`   | property extensions  | `Relational`; `HasComputedColumnSql` relational column config                               |
-|  [21]   | `RelationalEntityTypeBuilderExtensions` | entity extensions    | `Relational`; `ToTable(Action<TableBuilder>)` table mapping                                 |
+| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]       | [CAPABILITY]                                                            |
+| :-----: | :-------------------------------------- | :------------------- | :---------------------------------------------------------------------- |
+|  [01]   | `DbContext`                             | context root         | `Database` facade, `SaveChangesAsync`, `ConfigureConventions` hook      |
+|  [02]   | `DbContextOptionsBuilder`               | options builder      | `UseModel`, `AddInterceptors`; the `UseNpgsql` callback target          |
+|  [03]   | `IDbContextFactory<TContext>`           | context factory      | `CreateDbContext()` / `CreateDbContextAsync(CancellationToken)`         |
+|  [04]   | `PooledDbContextFactory<TContext>`      | pooled factory       | `Infrastructure`; the pooled `IDbContextFactory<TContext>` impl         |
+|  [05]   | `DatabaseFacade`                        | database facade      | `Infrastructure`; `context.Database` — strategy, transaction, raw query |
+|  [06]   | `IExecutionStrategy`                    | resiliency strategy  | `Storage`; `RetriesOnFailure`, `ExecuteAsync` retry rail                |
+|  [07]   | `ExecutionStrategyExtensions`           | strategy extensions  | `ExecuteAsync` no-context convenience overloads                         |
+|  [08]   | `IDbContextTransaction`                 | transaction handle   | `Storage`; commit/rollback plus the savepoint family                    |
+|  [09]   | `ModelConfigurationBuilder`             | convention builder   | `Properties`/`DefaultTypeMapping`/`IgnoreAny`/`Conventions` config      |
+|  [10]   | `IInterceptor`                          | interceptor marker   | `Diagnostics`; base contract for every interception slot                |
+|  [11]   | `ISaveChangesInterceptor`               | save interceptor     | `Diagnostics`; `SavingChanges`/`SavedChanges`/`SaveChangesFailed`       |
+|  [12]   | `IDbCommandInterceptor`                 | command interceptor  | `Relational` `Diagnostics`; command-execution interception              |
+|  [13]   | `IDbConnectionInterceptor`              | connection intercept | `Relational` `Diagnostics`; connection open/close interception          |
+|  [14]   | `IDbTransactionInterceptor`             | txn interceptor      | `Relational` `Diagnostics`; transaction-lifecycle interception          |
+|  [15]   | `IMigrator`                             | migration runtime    | `Relational` `Migrations`; `Migrate`/`GenerateScript` deploy emission   |
+|  [16]   | `MigrationsSqlGenerationOptions`        | script options enum  | `Relational`; `Default`/`Script`/`Idempotent`/`NoTransactions` flags    |
+|  [17]   | `TableBuilder`                          | table builder        | `Relational`; `HasCheckConstraint`/`HasTrigger`/`ExcludeFromMigrations` |
+|  [18]   | `EntityFrameworkQueryableExtensions`    | query extensions     | base `IQueryable` async materialization plus query tagging              |
+|  [19]   | `RelationalDatabaseFacadeExtensions`    | facade extensions    | `Relational`; raw `SqlQuery`/`SqlQueryRaw`, `UseTransactionAsync`       |
+|  [20]   | `RelationalPropertyBuilderExtensions`   | property extensions  | `Relational`; `HasComputedColumnSql` relational column config           |
+|  [21]   | `RelationalEntityTypeBuilderExtensions` | entity extensions    | `Relational`; `ToTable(Action<TableBuilder>)` table mapping             |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider admission
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                      | [CALL_SHAPE]       | [CAPABILITY]                                                                        |
-| :-----: | :----------------------------- | :----------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `UseNpgsql`                    | builder extension  | applies provider policy; overloads: no-arg, string, `DbConnection`, `DbDataSource`  |
-|  [02]   | `AddNpgsql<TContext>`          | service extension  | registers `DbContext` via DI with connection string and optional provider action    |
-|  [03]   | `AddEntityFrameworkNpgsql`     | service extension  | registers EF services without `DbContext`                                           |
-|  [04]   | `IsNpgsql`                     | database extension | identifies provider                                                                 |
-|  [05]   | `SetPostgresVersion`           | provider option    | declares engine floor; mandatory — undeclared silently withholds newer translations |
-|  [06]   | `EnableRetryOnFailure`         | provider option    | activates transient retry strategy; overloads for count, delay, and SQLSTATE codes  |
-|  [07]   | `ConfigureDataSource`          | provider option    | runs `Action<NpgsqlDataSourceBuilder>` on the provider-owned source                 |
-|  [08]   | `MapEnum<T>` / `MapEnum(Type)` | provider option    | maps CLR enum to PostgreSQL enum type                                               |
-|  [09]   | `MapRange`                     | provider option    | maps custom range type by subtype CLR type or name                                  |
-|  [10]   | `MigrationsAssembly`           | provider option    | selects migration owner assembly                                                    |
-|  [11]   | `CommandTimeout`               | provider option    | sets command timeout                                                                |
-|  [12]   | `UseNodaTime`                  | plugin option      | maps NodaTime values (via `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`)         |
+| [INDEX] | [SURFACE]                      | [CALL_SHAPE]       | [CAPABILITY]                                                                       |
+| :-----: | :----------------------------- | :----------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `UseNpgsql`                    | builder extension  | applies provider policy; overloads: no-arg, string, `DbConnection`, `DbDataSource` |
+|  [02]   | `AddNpgsql<TContext>`          | service extension  | registers `DbContext` via DI with connection string and optional provider action   |
+|  [03]   | `AddEntityFrameworkNpgsql`     | service extension  | registers EF services without `DbContext`                                          |
+|  [04]   | `IsNpgsql`                     | database extension | identifies provider                                                                |
+|  [05]   | `SetPostgresVersion`           | provider option    | declares engine floor; mandatory — undeclared withholds newer translations         |
+|  [06]   | `EnableRetryOnFailure`         | provider option    | activates transient retry; overloads for count, delay, SQLSTATE codes              |
+|  [07]   | `ConfigureDataSource`          | provider option    | runs `Action<NpgsqlDataSourceBuilder>` on the provider-owned source                |
+|  [08]   | `MapEnum<T>` / `MapEnum(Type)` | provider option    | maps CLR enum to PostgreSQL enum type                                              |
+|  [09]   | `MapRange`                     | provider option    | maps custom range type by subtype CLR type or name                                 |
+|  [10]   | `MigrationsAssembly`           | provider option    | selects migration owner assembly                                                   |
+|  [11]   | `CommandTimeout`               | provider option    | sets command timeout                                                               |
+|  [12]   | `UseNodaTime`                  | plugin option      | maps NodaTime values (via `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`)        |
 
 [ENTRYPOINT_SCOPE]: model builder extensions
 - rail: store-provider
@@ -173,15 +173,17 @@ This folder ships no standalone base-EF catalog, so the provider catalog carries
 [ENTRYPOINT_SCOPE]: query DB-function extensions
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                                | [CALL_SHAPE]            | [CAPABILITY]                                                         |
-| :-----: | :--------------------------------------- | :---------------------- | :------------------------------------------------------------------- |
-|  [01]   | `ILike`                                  | `DbFunctions` extension | case-insensitive pattern match; optional escape character            |
-|  [02]   | `StringToArray`                          | `DbFunctions` extension | splits string to array with delimiter; optional null-string          |
-|  [03]   | `Reverse`                                | `DbFunctions` extension | reverses a string                                                    |
-|  [04]   | `Distance(DateOnly, DateOnly)`           | `DbFunctions` extension | integer day distance between dates                                   |
-|  [05]   | `Distance(DateTime, DateTime)`           | `DbFunctions` extension | `TimeSpan` distance between datetimes                                |
-|  [06]   | `GreaterThan` / `LessThan` / `>=` / `<=` | `DbFunctions` extension | `ITuple` row-value comparisons mapping to PostgreSQL row expressions |
-|  [07]   | `ToDate` / `ToTimestamp`                 | `DbFunctions` extension | format-string conversion to date/timestamp                           |
+All are `public static` extensions on `DbFunctions`, translated to PostgreSQL SQL inside a LINQ query.
+
+| [INDEX] | [SURFACE]                                | [CAPABILITY]                                                         |
+| :-----: | :--------------------------------------- | :------------------------------------------------------------------- |
+|  [01]   | `ILike`                                  | case-insensitive pattern match; optional escape character            |
+|  [02]   | `StringToArray`                          | splits string to array with delimiter; optional null-string          |
+|  [03]   | `Reverse`                                | reverses a string                                                    |
+|  [04]   | `Distance(DateOnly, DateOnly)`           | integer day distance between dates                                   |
+|  [05]   | `Distance(DateTime, DateTime)`           | `TimeSpan` distance between datetimes                                |
+|  [06]   | `GreaterThan` / `LessThan` / `>=` / `<=` | `ITuple` row-value comparisons mapping to PostgreSQL row expressions |
+|  [07]   | `ToDate` / `ToTimestamp`                 | format-string conversion to date/timestamp                           |
 
 [ENTRYPOINT_SCOPE]: full-text search extensions
 - rail: store-provider
@@ -234,32 +236,55 @@ The compact rows below preserve these operator and range member sets:
 [ENTRYPOINT_SCOPE]: base EF Core runtime — context factory, execution strategy, transaction and savepoints
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                                                                                                                              | [CALL_SHAPE]  | [CAPABILITY]                                                                       |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------- | :------------ | :--------------------------------------------------------------------------------- |
-|  [01]   | `PooledDbContextFactory<TContext>.CreateDbContextAsync(CancellationToken)` / `CreateDbContext()`                                       | factory call  | leases a pooled `DbContext`; the `Bracket`/`using` open-ceremony root              |
-|  [02]   | `DbContext.SaveChangesAsync(CancellationToken)` / `DbContext.Database`                                                                 | context call  | persists the unit of work; `Database` is the `DatabaseFacade` root                 |
-|  [03]   | `DatabaseFacade.CreateExecutionStrategy()`                                                                                             | facade call   | mints the provider retry strategy (the `EnableRetryOnFailure` policy)              |
-|  [04]   | `IExecutionStrategy.ExecuteAsync<TState,TResult>(state, Func<DbContext,TState,CancellationToken,Task<TResult>>, verifySucceeded?, ct)` | strategy call | retry-wrapped operation; the leased `DbContext` threads as the first arg           |
-|  [05]   | `ExecutionStrategyExtensions.ExecuteAsync<TState,TResult>(state, Func<TState,CancellationToken,Task<TResult>>, ct)`                    | strategy ext  | the no-context convenience overload family (state/no-state, with/without result)   |
-|  [06]   | `DatabaseFacade.BeginTransactionAsync(ct)` / `CurrentTransaction`                                                                      | facade call   | opens / reads the ambient `IDbContextTransaction`                                  |
-|  [07]   | `RelationalDatabaseFacadeExtensions.BeginTransactionAsync(IsolationLevel, ct)` / `UseTransactionAsync(DbTransaction?, ct)`             | facade ext    | isolation-level begin; enroll an already-open ADO transaction into the context     |
-|  [08]   | `IDbContextTransaction.CreateSavepointAsync(name, ct)` / `RollbackToSavepointAsync(name, ct)` / `ReleaseSavepointAsync(name, ct)`      | txn call      | savepoint mark/rollback/release on the transaction handle, NOT on `DatabaseFacade` |
-|  [09]   | `IDbContextTransaction.SupportsSavepoints` / `CommitAsync(ct)` / `RollbackAsync(ct)`                                                   | txn call      | savepoint-capability probe and async commit/rollback                               |
+Every async member takes a trailing `CancellationToken ct`, elided below; the `[06]`/`[07]` delegate shapes are keyed under the table.
+
+| [INDEX] | [SURFACE]                                                                  | [CAPABILITY]                                               |
+| :-----: | :------------------------------------------------------------------------- | :--------------------------------------------------------- |
+|  [01]   | `PooledDbContextFactory<TContext>.CreateDbContextAsync()`                  | leases a pooled `DbContext`; the `Bracket`/`using` root    |
+|  [02]   | `PooledDbContextFactory<TContext>.CreateDbContext()`                       | synchronous pooled lease                                   |
+|  [03]   | `DbContext.SaveChangesAsync()`                                             | persists the unit of work                                  |
+|  [04]   | `DbContext.Database`                                                       | the `DatabaseFacade` root off the context                  |
+|  [05]   | `DatabaseFacade.CreateExecutionStrategy()`                                 | mints the provider retry strategy (`EnableRetryOnFailure`) |
+|  [06]   | `IExecutionStrategy.ExecuteAsync<TState,TResult>(…)`                       | retry-wrapped op; leased `DbContext` threads as first arg  |
+|  [07]   | `ExecutionStrategyExtensions.ExecuteAsync<TState,TResult>(…)`              | no-context convenience overload family                     |
+|  [08]   | `DatabaseFacade.BeginTransactionAsync()`                                   | opens the ambient `IDbContextTransaction`                  |
+|  [09]   | `DatabaseFacade.CurrentTransaction`                                        | reads the ambient transaction                              |
+|  [10]   | `RelationalDatabaseFacadeExtensions.BeginTransactionAsync(IsolationLevel)` | isolation-level transaction begin                          |
+|  [11]   | `RelationalDatabaseFacadeExtensions.UseTransactionAsync(DbTransaction?)`   | enrolls an open ADO transaction into the context           |
+|  [12]   | `IDbContextTransaction.CreateSavepointAsync(name)`                         | savepoint mark on the handle                               |
+|  [13]   | `IDbContextTransaction.RollbackToSavepointAsync(name)`                     | savepoint rollback on the handle                           |
+|  [14]   | `IDbContextTransaction.ReleaseSavepointAsync(name)`                        | savepoint release on the handle                            |
+|  [15]   | `IDbContextTransaction.SupportsSavepoints`                                 | savepoint-capability probe                                 |
+|  [16]   | `IDbContextTransaction.CommitAsync()` / `RollbackAsync()`                  | async commit / rollback                                    |
+
+- [06]: `operation` is `Func<DbContext,TState,CancellationToken,Task<TResult>>`; `verifySucceeded?` is the optional idempotency re-check predicate.
+- [07]: the no-context `operation` is `Func<TState,CancellationToken,Task<TResult>>`; overloads drop `TState` and/or `TResult`.
 
 [ENTRYPOINT_SCOPE]: base EF Core model, query, migration, and interception
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                                                                                                                                      | [CALL_SHAPE]      | [CAPABILITY]                                                                                                                       |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------- | :---------------- | :--------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `DbContext.ConfigureConventions(ModelConfigurationBuilder)` → `Properties<T>()` / `DefaultTypeMapping<T>()` / `IgnoreAny<T>()` / `Conventions` | convention config | pre-model type and convention binding (the provider-blind text-converter fold)                                                     |
-|  [02]   | `DbContextOptionsBuilder.UseModel(IModel)`                                                                                                     | options call      | mounts a compiled/frozen model (the `Optimize` output) on the context                                                              |
-|  [03]   | `RelationalPropertyBuilderExtensions.HasComputedColumnSql(string? sql, bool? stored)`                                                          | property ext      | declares a store-computed column (`stored: true` = persisted generated)                                                            |
-|  [04]   | `RelationalEntityTypeBuilderExtensions.ToTable(Action<TableBuilder>)`                                                                          | entity ext        | table-scoped mapping; the host for `HasCheckConstraint`                                                                            |
-|  [05]   | `TableBuilder.HasCheckConstraint(string name, string? sql)`                                                                                    | table call        | named CHECK constraint (the non-obsolete form vs the `[Obsolete]` `RelationalEntityTypeBuilderExtensions.HasCheckConstraint`)      |
-|  [06]   | `IMigrator.GenerateScript(string? from = null, string? to = null, MigrationsSqlGenerationOptions = Default)`                                   | migration call    | emits deploy SQL between two migrations (`Idempotent` for re-runnable scripts)                                                     |
-|  [07]   | `EntityFrameworkQueryableExtensions.ToListAsync<T>(ct)` / `TagWith<T>(string)`                                                                 | query ext         | async materialization and query tagging on any `IQueryable<T>`                                                                     |
-|  [08]   | `RelationalDatabaseFacadeExtensions.SqlQuery<T>(FormattableString)` / `SqlQueryRaw<T>(string, params object[])`                                | facade ext        | composable raw-SQL `IQueryable<T>` off `context.Database`                                                                          |
-|  [09]   | `DbContextOptionsBuilder.AddInterceptors(...)`                                                                                                 | options call      | registers `IDbCommandInterceptor`/`ISaveChangesInterceptor`/`IDbConnectionInterceptor`/`IDbTransactionInterceptor` implementations |
+Long parameter signatures and the interceptor roster are keyed under the table.
+
+| [INDEX] | [SURFACE]                                                             | [CAPABILITY]                                                 |
+| :-----: | :-------------------------------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `DbContext.ConfigureConventions(ModelConfigurationBuilder)`           | pre-model type and convention binding                        |
+|  [02]   | `DbContextOptionsBuilder.UseModel(IModel)`                            | mounts a compiled/frozen model (the `Optimize` output)       |
+|  [03]   | `RelationalPropertyBuilderExtensions.HasComputedColumnSql(…)`         | store-computed column (`stored: true` = persisted generated) |
+|  [04]   | `RelationalEntityTypeBuilderExtensions.ToTable(Action<TableBuilder>)` | table-scoped mapping; the host for `HasCheckConstraint`      |
+|  [05]   | `TableBuilder.HasCheckConstraint(…)`                                  | named CHECK constraint (non-obsolete form)                   |
+|  [06]   | `IMigrator.GenerateScript(…)`                                         | deploy SQL between migrations; `Idempotent` = re-runnable    |
+|  [07]   | `EntityFrameworkQueryableExtensions.ToListAsync<T>()`                 | async materialization on `IQueryable<T>`                     |
+|  [08]   | `EntityFrameworkQueryableExtensions.TagWith<T>(…)`                    | query tagging on `IQueryable<T>`                             |
+|  [09]   | `RelationalDatabaseFacadeExtensions.SqlQuery<T>(FormattableString)`   | composable raw-SQL `IQueryable<T>` off `context.Database`    |
+|  [10]   | `RelationalDatabaseFacadeExtensions.SqlQueryRaw<T>(…)`                | raw-string composable `IQueryable<T>` variant                |
+|  [11]   | `DbContextOptionsBuilder.AddInterceptors(…)`                          | registers the four `I*Interceptor` implementations           |
+
+- [01]: `ConfigureConventions` yields a `ModelConfigurationBuilder` with `Properties<T>()` / `DefaultTypeMapping<T>()` / `IgnoreAny<T>()` / `Conventions`.
+- [03]: signature `(string? sql, bool? stored)`; `stored: true` is a persisted generated column.
+- [05]: non-obsolete `TableBuilder.HasCheckConstraint(string name, string? sql)`, vs the `[Obsolete]` `RelationalEntityTypeBuilderExtensions.HasCheckConstraint`.
+- [06]: signature `(string? from = null, string? to = null, MigrationsSqlGenerationOptions = Default)`.
+- [10]: signature `SqlQueryRaw<T>(string, params object[])`.
+- [11]: the four are `IDbCommandInterceptor`/`ISaveChangesInterceptor`/`IDbConnectionInterceptor`/`IDbTransactionInterceptor`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

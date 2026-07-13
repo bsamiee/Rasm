@@ -18,23 +18,25 @@
 [PUBLIC_TYPE_SCOPE]: sparse eigensolvers
 - namespace: `CSparse.Interop.ARPACK`, `CSparse.Interop.Spectra`
 - rail: sparse-solver
+- note: every driver operates over a `CSparse` `SparseMatrix`; the `Spectrum` selector is `SmallestMagnitude`/`LargestMagnitude`/`SmallestAlgebraic`/`LargestAlgebraic`/`BothEnds`.
 
-| [INDEX] | [SYMBOL]             | [RAIL]        | [CAPABILITY]                                                                                                                                                                                                                                     |
-| :-----: | :------------------- | :------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Arpack`             | sparse-solver | the ARPACK shift-invert Lanczos/Arnoldi driver over a `CSparse` `SparseMatrix`; standard `A·x = λ·x` and generalized `A·x = λ·B·x` eigenproblems with a shift for interior/smallest eigenvalues — the `fea-modal`/`fea-buckling` `(φ, λ)` engine |
-|  [02]   | `IEigenSolverResult` | sparse-solver | the eigen-result carrier — `EigenValues` (`Complex[]`), `EigenVectors` (a dense matrix, when requested), converged count, iterations, and an error/convergence code                                                                              |
-|  [03]   | `Spectra`            | sparse-solver | the modern C++ Spectra eigensolver alternative to ARPACK over the same `SparseMatrix` — the fallback/comparison engine on the one eigen rail                                                                                                     |
-|  [04]   | `Job` / `Spectrum`   | sparse-solver | the which-eigenvalues selector (`SmallestMagnitude`/`LargestMagnitude`/`SmallestAlgebraic`/`LargestAlgebraic`/`BothEnds`) driving the shift-invert mode                                                                                          |
+| [INDEX] | [SYMBOL]             | [CAPABILITY]                                                                                             |
+| :-----: | :------------------- | :------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Arpack`             | ARPACK shift-invert Lanczos/Arnoldi; standard + generalized, shift selects interior/smallest eigenvalues |
+|  [02]   | `IEigenSolverResult` | eigen-result — `EigenValues`, `EigenVectors` (dense, optional), converged count, iterations, error code  |
+|  [03]   | `Spectra`            | modern C++ Spectra eigensolver alternative to ARPACK — the fallback/comparison engine                    |
+|  [04]   | `Job` / `Spectrum`   | which-eigenvalues `Spectrum` selector driving the shift-invert mode                                      |
 
 [PUBLIC_TYPE_SCOPE]: native direct factorizations
 - namespace: `CSparse.Interop.SuiteSparse.Cholmod`, `CSparse.Interop.SuperLU`, `CSparse.Interop.SuiteSparse.Umfpack`
 - rail: sparse-solver
+- note: each native factor is `Factorize()` then `Solve(b)`, `IDisposable` over a native handle.
 
-| [INDEX] | [SYMBOL]  | [RAIL]        | [CAPABILITY]                                                                                                                                                                                                                      |
-| :-----: | :-------- | :------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Cholmod` | sparse-solver | the SuiteSparse supernodal Cholesky native factor over an SPD `SparseMatrix` — `Factorize()` then `Solve(b)`, `IDisposable` native factor; the native counterpart of the managed `SparseCholesky` for large SPD stiffness systems |
-|  [02]   | `SuperLU` | sparse-solver | the SuperLU native LU factor for general (unsymmetric) sparse systems — `Factorize()`/`Solve(b)`, `IDisposable`; the native counterpart of the managed `SparseLU`                                                                 |
-|  [03]   | `Umfpack` | sparse-solver | the UMFPACK native multifrontal LU for general sparse systems — an alternate native-direct factor on the same `FactorKind` axis                                                                                                   |
+| [INDEX] | [SYMBOL]  | [CAPABILITY]                                                                                                                |
+| :-----: | :-------- | :-------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Cholmod` | SuiteSparse supernodal Cholesky over an SPD `SparseMatrix` — native counterpart of managed `SparseCholesky`                 |
+|  [02]   | `SuperLU` | SuperLU native LU for general (unsymmetric) sparse systems — native counterpart of managed `SparseLU`                       |
+|  [03]   | `Umfpack` | UMFPACK native multifrontal LU for general sparse systems — an alternate native-direct factor on the same `FactorKind` axis |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -42,24 +44,26 @@
 - namespace: `CSparse.Interop.ARPACK`
 - rail: sparse-solver
 - composition law: the `Solver/contract` FE lane assembles `K` and `M` as `CSparse` `SparseMatrix` (`B^T·D·B` and the lumped/consistent mass), constructs the `Arpack` driver over `(K, M)`, requests `k` eigenpairs with a shift near the frequency band of interest, and projects `(φ, λ)` onto the typed modal receipt; the 90% modal-mass-participation floor is a typed `(Solve, Numeric)` shortfall naming the achieved fraction.
+- call: ctors take `SparseMatrix` args; the solve methods take `(int k, [double shift,] Spectrum which)` and return `IEigenSolverResult`.
 
-| [INDEX] | [SURFACE]                                                                             | [CALL_SHAPE]                                                              | [CAPABILITY]                                                                                      |
-| :-----: | :------------------------------------------------------------------------------------ | :------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------ |
-|  [01]   | `new Arpack(K, M)` / `new Arpack(A)`                                                  | `(SparseMatrix K, SparseMatrix M[, bool symmetric])` / `(SparseMatrix A)` | the generalized `K·φ = λ·M·φ` / standard eigen driver                                             |
-|  [02]   | `arpack.Tolerance` / `ArnoldiCount` / `ComputeEigenVectors` / `ShiftInvert` / `Shift` | properties                                                                | convergence tolerance, Krylov subspace size, eigenvector request, shift-invert mode + shift value |
-|  [03]   | `arpack.SolveGeneralized` / `SolveStandard`                                           | `(int k, [double shift,] Spectrum which)` → `IEigenSolverResult`          | compute the `k` eigenpairs nearest the shift / at the spectrum end                                |
-|  [04]   | `result.EigenValues` / `EigenVectors` / `ConvergedEigenValues` / `IterationsTaken`    | reads                                                                     | the eigenvalue vector, eigenvector matrix, converged count, iteration count                       |
+| [INDEX] | [SURFACE]                                                                           | [CAPABILITY]                                       |
+| :-----: | :---------------------------------------------------------------------------------- | :------------------------------------------------- |
+|  [01]   | `new Arpack(K, M[, symmetric])` / `new Arpack(A)`                                   | generalized / standard eigen driver                |
+|  [02]   | `.Tolerance` / `.ArnoldiCount` / `.ComputeEigenVectors` / `.ShiftInvert` / `.Shift` | tolerance, Krylov, eigenvector, shift-invert knobs |
+|  [03]   | `.SolveGeneralized` / `.SolveStandard`                                              | `k` eigenpairs nearest shift / spectrum end        |
+|  [04]   | `.EigenValues` / `.EigenVectors` / `.ConvergedEigenValues` / `.IterationsTaken`     | eigenvalues, eigenvectors, converged, iterations   |
 
 [ENTRYPOINT_SCOPE]: native direct factor — `Cholmod` / `SuperLU` / `Umfpack`
 - namespace: `CSparse.Interop.SuiteSparse.Cholmod`, `CSparse.Interop.SuperLU`
 - rail: sparse-solver
+- call: ctors take one `SparseMatrix A`; `Solve` takes `(double[] b, double[] x)` or `(DenseMatrix B, DenseMatrix X)`.
 
-| [INDEX] | [SURFACE]                           | [CALL_SHAPE]                                                  | [CAPABILITY]                                                                       |
-| :-----: | :---------------------------------- | :------------------------------------------------------------ | :--------------------------------------------------------------------------------- |
-|  [01]   | `new Cholmod(A)` / `new SuperLU(A)` | `(SparseMatrix A)`                                            | bind the native factor to an assembled sparse system                               |
-|  [02]   | `factor.Factorize`                  | `()`                                                          | perform the native symbolic+numeric factorization once                             |
-|  [03]   | `factor.Solve`                      | `(double[] b, double[] x)` / `(DenseMatrix B, DenseMatrix X)` | back/forward-substitute for one or many right-hand sides against the cached factor |
-|  [04]   | `factor.Dispose`                    | `()`                                                          | release the native factor handle                                                   |
+| [INDEX] | [SURFACE]                                              | [CAPABILITY]                                                      |
+| :-----: | :----------------------------------------------------- | :---------------------------------------------------------------- |
+|  [01]   | `new Cholmod(A)` / `new SuperLU(A)` / `new Umfpack(A)` | bind the native factor to an assembled `SparseMatrix`             |
+|  [02]   | `factor.Factorize()`                                   | native symbolic+numeric factorization, once                       |
+|  [03]   | `factor.Solve(b, x)` / `Solve(B, X)`                   | back/forward-substitute one or many RHS against the cached factor |
+|  [04]   | `factor.Dispose()`                                     | release the native factor handle                                  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

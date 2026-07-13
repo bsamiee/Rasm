@@ -40,18 +40,19 @@ A `Schema` subclass declares columns by assignment; a `Collection` subclass decl
 
 Every column is a `Column` subclass mapping to a Polars dtype; constructor rows carry the inline validation policy. `Integer`/`Int8`..`UInt64` add `min`/`min_exclusive`/`max`/`max_exclusive`/`is_in`; `Float`/`Float32`/`Float64` add the float bounds; `String` adds `min_length`/`max_length`/`regex`; `Decimal` adds `precision`/`scale` plus bounds; `Enum`/`Categorical` carry their category set; `Datetime`/`Date`/`Time`/`Duration` carry temporal bounds; `List`/`Array`/`Struct` carry nested inner column specifications.
 
-| [INDEX] | [SYMBOL]                                                                            | [POLARS_DTYPE]               | [RAIL]                                          |
-| :-----: | :---------------------------------------------------------------------------------- | :--------------------------- | :---------------------------------------------- |
-|  [01]   | `Integer`, `Int8`, `Int16`, `Int32`, `Int64`, `UInt8`, `UInt16`, `UInt32`, `UInt64` | integer dtypes               | numeric column with bounds / `is_in`            |
-|  [02]   | `Float`, `Float32`, `Float64`                                                       | float dtypes                 | floating column with bounds                     |
-|  [03]   | `Decimal`                                                                           | `pl.Decimal`                 | fixed-precision column (`precision`/`scale`)    |
-|  [04]   | `String`                                                                            | `pl.String`                  | text column (`min_length`/`max_length`/`regex`) |
-|  [05]   | `Bool`                                                                              | `pl.Boolean`                 | boolean column                                  |
-|  [06]   | `Enum`, `Categorical`                                                               | `pl.Enum` / `pl.Categorical` | bounded category column                         |
-|  [07]   | `Date`, `Time`, `Datetime`, `Duration`                                              | temporal dtypes              | temporal column with bounds                     |
-|  [08]   | `List`, `Array`, `Struct`                                                           | nested dtypes                | nested column over an inner column spec         |
-|  [09]   | `Binary`                                                                            | `pl.Binary`                  | raw byte column                                 |
-|  [10]   | `Object`, `Any`                                                                     | `pl.Object` / dtype-agnostic | escape-hatch column                             |
+| [INDEX] | [SYMBOL]                                     | [POLARS_DTYPE]               | [RAIL]                                          |
+| :-----: | :------------------------------------------- | :--------------------------- | :---------------------------------------------- |
+|  [01]   | `Integer`, `Int8`, `Int16`, `Int32`, `Int64` | integer dtypes               | numeric column with bounds / `is_in`            |
+|  [02]   | `UInt8`, `UInt16`, `UInt32`, `UInt64`        | integer dtypes               | unsigned integer column with bounds             |
+|  [03]   | `Float`, `Float32`, `Float64`                | float dtypes                 | floating column with bounds                     |
+|  [04]   | `Decimal`                                    | `pl.Decimal`                 | fixed-precision column (`precision`/`scale`)    |
+|  [05]   | `String`                                     | `pl.String`                  | text column (`min_length`/`max_length`/`regex`) |
+|  [06]   | `Bool`                                       | `pl.Boolean`                 | boolean column                                  |
+|  [07]   | `Enum`, `Categorical`                        | `pl.Enum` / `pl.Categorical` | bounded category column                         |
+|  [08]   | `Date`, `Time`, `Datetime`, `Duration`       | temporal dtypes              | temporal column with bounds                     |
+|  [09]   | `List`, `Array`, `Struct`                    | nested dtypes                | nested column over an inner column spec         |
+|  [10]   | `Binary`                                     | `pl.Binary`                  | raw byte column                                 |
+|  [11]   | `Object`, `Any`                              | `pl.Object` / dtype-agnostic | escape-hatch column                             |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -60,83 +61,145 @@ Every column is a `Column` subclass mapping to a Polars dtype; constructor rows 
 
 `validate`/`is_valid`/`filter`/`cast` accept a positional `pl.DataFrame | pl.LazyFrame`; `cast=True` coerces wrong dtypes before rule evaluation, `eager` selects `DataFrame[Self]` versus `LazyFrame[Self]`. `filter` returns `(valid, failures)` with `failures: FailureInfo`. `sample` generates schema-conformant rows; `serialize`/`deserialize_schema` round-trip the contract; the `to_*` projections export the contract to Polars/SQLAlchemy/PyArrow/Pydantic.
 
-| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                                                               | [CAPABILITY]                                          |
-| :-----: | :----------------------------- | :----------------------------------------------------------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `Schema.validate`              | `validate(df, /, *, cast=False, eager=True) -> DataFrame[Self] \| LazyFrame[Self]`         | enforce schema; raise on violation                    |
-|  [02]   | `Schema.is_valid`              | `is_valid(df, /, *, cast=False) -> bool`                                                   | boolean conformance (collects eagerly, never raises)  |
-|  [03]   | `Schema.filter`                | `filter(df, /, *, cast=False, eager=True) -> FilterResult[Self] \| LazyFilterResult[Self]` | split into `(valid, failures)`                        |
-|  [04]   | `Schema.cast`                  | `cast(df, /) -> DataFrame[Self] \| LazyFrame[Self]`                                        | drop extra columns + coerce dtypes (no content check) |
-|  [05]   | `Schema.create_empty`          | `create_empty(*, lazy=False) -> DataFrame[Self] \| LazyFrame[Self]`                        | empty schema-typed frame                              |
-|  [06]   | `Schema.create_empty_if_none`  | `create_empty_if_none(df, *, lazy=False) -> DataFrame[Self] \| LazyFrame[Self]`            | impute `None` with empty schema frame                 |
-|  [07]   | `Schema.sample`                | `sample(num_rows=None, *, overrides=None, generator=None) -> DataFrame[Self]`              | random schema-conformant rows (testing)               |
-|  [08]   | `Schema.matches`               | `matches(other) -> bool`                                                                   | structural schema equality                            |
-|  [09]   | `Schema.serialize`             | `serialize() -> str`                                                                       | serialize the contract to a string                    |
-|  [10]   | `Schema.read_parquet`          | `read_parquet(source, *, validation="warn", **kwargs) -> DataFrame[Self]`                  | read parquet, validate embedded schema                |
-|  [11]   | `Schema.scan_parquet`          | `scan_parquet(source, *, validation="warn", **kwargs) -> LazyFrame[Self]`                  | lazily scan parquet with schema check                 |
-|  [12]   | `Schema.write_parquet`         | `write_parquet(df, ...) -> None`                                                           | write parquet with embedded serialized schema         |
-|  [13]   | `Schema.sink_parquet`          | `sink_parquet(lf, ...) -> None`                                                            | streaming-sink lazy frame to parquet                  |
-|  [14]   | `Schema.read_delta`            | `read_delta(...) -> DataFrame[Self]`                                                       | read delta table with schema check                    |
-|  [15]   | `Schema.scan_delta`            | `scan_delta(...) -> LazyFrame[Self]`                                                       | lazily scan delta with schema check                   |
-|  [16]   | `Schema.write_delta`           | `write_delta(df, ...) -> None`                                                             | write delta with embedded serialized schema           |
-|  [17]   | `Schema.to_polars_schema`      | `to_polars_schema() -> pl.Schema`                                                          | project to a Polars schema                            |
-|  [18]   | `Schema.to_sqlalchemy_columns` | `to_sqlalchemy_columns(dialect) -> list[sa.Column]`                                        | project to SQLAlchemy columns                         |
-|  [19]   | `Schema.to_pyarrow_schema`     | `to_pyarrow_schema() -> pa.Schema`                                                         | project to a PyArrow schema                           |
-|  [20]   | `Schema.to_pydantic_model`     | `to_pydantic_model(name=None) -> type[pydantic.BaseModel]`                                 | project to a Pydantic model                           |
-|  [21]   | `Schema.columns`               | `columns() -> dict[str, Column]`                                                           | the declared column map                               |
-|  [22]   | `Schema.primary_key`           | `primary_key() -> list[str]`                                                               | primary-key column names                              |
+| [INDEX] | [SURFACE]                      | [CAPABILITY]                                          |
+| :-----: | :----------------------------- | :---------------------------------------------------- |
+|  [01]   | `Schema.validate`              | enforce schema; raise on violation                    |
+|  [02]   | `Schema.is_valid`              | boolean conformance (collects eagerly, never raises)  |
+|  [03]   | `Schema.filter`                | split into `(valid, failures)`                        |
+|  [04]   | `Schema.cast`                  | drop extra columns + coerce dtypes (no content check) |
+|  [05]   | `Schema.create_empty`          | empty schema-typed frame                              |
+|  [06]   | `Schema.create_empty_if_none`  | impute `None` with empty schema frame                 |
+|  [07]   | `Schema.sample`                | random schema-conformant rows (testing)               |
+|  [08]   | `Schema.matches`               | structural schema equality                            |
+|  [09]   | `Schema.serialize`             | serialize the contract to a string                    |
+|  [10]   | `Schema.read_parquet`          | read parquet, validate embedded schema                |
+|  [11]   | `Schema.scan_parquet`          | lazily scan parquet with schema check                 |
+|  [12]   | `Schema.write_parquet`         | write parquet with embedded serialized schema         |
+|  [13]   | `Schema.sink_parquet`          | streaming-sink lazy frame to parquet                  |
+|  [14]   | `Schema.read_delta`            | read delta table with schema check                    |
+|  [15]   | `Schema.scan_delta`            | lazily scan delta with schema check                   |
+|  [16]   | `Schema.write_delta`           | write delta with embedded serialized schema           |
+|  [17]   | `Schema.to_polars_schema`      | project to a Polars schema                            |
+|  [18]   | `Schema.to_sqlalchemy_columns` | project to SQLAlchemy columns                         |
+|  [19]   | `Schema.to_pyarrow_schema`     | project to a PyArrow schema                           |
+|  [20]   | `Schema.to_pydantic_model`     | project to a Pydantic model                           |
+|  [21]   | `Schema.columns`               | the declared column map                               |
+|  [22]   | `Schema.primary_key`           | primary-key column names                              |
+
+- [01]-[VALIDATE]: `validate(df, /, *, cast=False, eager=True) -> DataFrame[Self] \| LazyFrame[Self]`
+- [02]-[IS_VALID]: `is_valid(df, /, *, cast=False) -> bool`
+- [03]-[FILTER]: `filter(df, /, *, cast=False, eager=True) -> FilterResult[Self] \| LazyFilterResult[Self]`
+- [04]-[CAST]: `cast(df, /) -> DataFrame[Self] \| LazyFrame[Self]`
+- [05]-[CREATE_EMPTY]: `create_empty(*, lazy=False) -> DataFrame[Self] \| LazyFrame[Self]`
+- [06]-[CREATE_EMPTY_IF_NONE]: `create_empty_if_none(df, *, lazy=False) -> DataFrame[Self] \| LazyFrame[Self]`
+- [07]-[SAMPLE]: `sample(num_rows=None, *, overrides=None, generator=None) -> DataFrame[Self]`
+- [08]-[MATCHES]: `matches(other) -> bool`
+- [09]-[SERIALIZE]: `serialize() -> str`
+- [10]-[READ_PARQUET]: `read_parquet(source, *, validation="warn", **kwargs) -> DataFrame[Self]`
+- [11]-[SCAN_PARQUET]: `scan_parquet(source, *, validation="warn", **kwargs) -> LazyFrame[Self]`
+- [12]-[WRITE_PARQUET]: `write_parquet(df, ...) -> None`
+- [13]-[SINK_PARQUET]: `sink_parquet(lf, ...) -> None`
+- [14]-[READ_DELTA]: `read_delta(...) -> DataFrame[Self]`
+- [15]-[SCAN_DELTA]: `scan_delta(...) -> LazyFrame[Self]`
+- [16]-[WRITE_DELTA]: `write_delta(df, ...) -> None`
+- [17]-[TO_POLARS_SCHEMA]: `to_polars_schema() -> pl.Schema`
+- [18]-[TO_SQLALCHEMY_COLUMNS]: `to_sqlalchemy_columns(dialect) -> list[sa.Column]`
+- [19]-[TO_PYARROW_SCHEMA]: `to_pyarrow_schema() -> pa.Schema`
+- [20]-[TO_PYDANTIC_MODEL]: `to_pydantic_model(name=None) -> type[pydantic.BaseModel]`
+- [21]-[COLUMNS]: `columns() -> dict[str, Column]`
+- [22]-[PRIMARY_KEY]: `primary_key() -> list[str]`
 
 [ENTRYPOINT_SCOPE]: `Collection` cross-frame integrity
 - rail: contract
 
 `Collection` methods accept `data: Mapping[str, FrameType]` keyed by member name. `validate`/`filter`/`cast` enforce each member schema plus the collection `@filter` invariants; `filter` returns a `CollectionFilterResult` carrying per-member `FailureInfo`. `join` filters every member by a shared-primary-key frame; `collect_all` collects all lazy members. The relationship functions build the `pl.LazyFrame` a `@filter` returns to express referential integrity.
 
-| [INDEX] | [SURFACE]                                              | [CALL_SHAPE]                                                                                                    | [CAPABILITY]                                                                                                                                                                                                                                                                                   |
-| :-----: | :----------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Collection.validate`                                  | `validate(data, /, *, cast=False, eager=True) -> Self`                                                          | enforce all member schemas + collection filters                                                                                                                                                                                                                                                |
-|  [02]   | `Collection.is_valid`                                  | `is_valid(data, /, *, cast=False) -> bool`                                                                      | boolean collection conformance                                                                                                                                                                                                                                                                 |
-|  [03]   | `Collection.filter`                                    | `filter(data, /, *, cast=False, eager=True) -> CollectionFilterResult[Self]`                                    | split members into valid + per-member failures                                                                                                                                                                                                                                                 |
-|  [04]   | `CollectionFilterResult.failure`                       | `NamedTuple` field `-> dict[str, FailureInfo]`                                                                  | per-member `FailureInfo` map (singular `failure`, keyed by member name). `CollectionFilterResult` is a 2-field `NamedTuple` (`result: C` valid collection, `failure: dict[str, FailureInfo]`) with a `collect_all()` method; `count`/`index` are inherited `tuple` methods, not result members |
-|  [05]   | `Collection.cast`                                      | `cast(data, /) -> Self`                                                                                         | cast every member to its schema (no invariant check)                                                                                                                                                                                                                                           |
-|  [06]   | `Collection.join`                                      | `join(primary_keys, how: Literal["semi","anti"]="semi", maintain_order: Literal["none","left"]="none") -> Self` | filter all members by a shared-key frame                                                                                                                                                                                                                                                       |
-|  [07]   | `Collection.collect_all`                               | `collect_all() -> Self`                                                                                         | collect all lazy members                                                                                                                                                                                                                                                                       |
-|  [08]   | `Collection.sample`                                    | `sample(num_rows=None, *, overrides=None, generator=None) -> Self`                                              | random collection-conformant members (testing)                                                                                                                                                                                                                                                 |
-|  [09]   | `Collection.create_empty`                              | `create_empty() -> Self`                                                                                        | empty collection-typed members                                                                                                                                                                                                                                                                 |
-|  [10]   | `Collection.matches`                                   | `matches(other) -> bool`                                                                                        | structural collection equality                                                                                                                                                                                                                                                                 |
-|  [11]   | `Collection.serialize`                                 | `serialize() -> str`                                                                                            | serialize the collection contract                                                                                                                                                                                                                                                              |
-|  [12]   | `Collection.read_parquet`                              | `read_parquet(directory, *, validation="warn", **kwargs) -> Self`                                               | read `<member>.parquet` files with schema check                                                                                                                                                                                                                                                |
-|  [13]   | `Collection.scan_parquet`                              | `scan_parquet(directory, *, validation="warn", **kwargs) -> Self`                                               | lazily scan member parquet files                                                                                                                                                                                                                                                               |
-|  [14]   | `Collection.write_parquet`                             | `write_parquet(directory, **kwargs) -> None`                                                                    | write each member to `<member>.parquet`                                                                                                                                                                                                                                                        |
-|  [15]   | `Collection.sink_parquet`                              | `sink_parquet(directory, **kwargs) -> None`                                                                     | streaming-sink each lazy member to parquet                                                                                                                                                                                                                                                     |
-|  [16]   | `Collection.read_delta` / `scan_delta` / `write_delta` | `read_delta(...) -> Self` / `scan_delta(...) -> Self` / `write_delta(...) -> None`                              | per-member delta IO with embedded schema check                                                                                                                                                                                                                                                 |
-|  [17]   | `Collection.member_schemas`                            | `member_schemas() -> dict[str, type[Schema]]`                                                                   | the member-name-to-schema map                                                                                                                                                                                                                                                                  |
-|  [18]   | `Collection.common_primary_key`                        | `common_primary_key() -> list[str]`                                                                             | primary key shared across members                                                                                                                                                                                                                                                              |
-|  [19]   | `require_relationship_one_to_one`                      | `require_relationship_one_to_one(lhs, rhs, /, on, *, drop_duplicates=True) -> pl.LazyFrame`                     | 1:1 referential-integrity filter expression                                                                                                                                                                                                                                                    |
-|  [20]   | `require_relationship_one_to_at_least_one`             | `require_relationship_one_to_at_least_one(lhs, rhs, /, on, *, drop_duplicates=True) -> pl.LazyFrame`            | 1:{1,N} referential-integrity filter expression                                                                                                                                                                                                                                                |
-|  [21]   | `concat_collection_members`                            | `concat_collection_members(collections, /) -> dict[str, pl.LazyFrame]`                                          | concatenate same-typed collections member-wise                                                                                                                                                                                                                                                 |
+| [INDEX] | [SURFACE]                                              | [CAPABILITY]                                         |
+| :-----: | :----------------------------------------------------- | :--------------------------------------------------- |
+|  [01]   | `Collection.validate`                                  | enforce all member schemas + collection filters      |
+|  [02]   | `Collection.is_valid`                                  | boolean collection conformance                       |
+|  [03]   | `Collection.filter`                                    | split members into valid + per-member failures       |
+|  [04]   | `CollectionFilterResult.failure`                       | per-member `FailureInfo` map, keyed by member name   |
+|  [05]   | `Collection.cast`                                      | cast every member to its schema (no invariant check) |
+|  [06]   | `Collection.join`                                      | filter all members by a shared-key frame             |
+|  [07]   | `Collection.collect_all`                               | collect all lazy members                             |
+|  [08]   | `Collection.sample`                                    | random collection-conformant members (testing)       |
+|  [09]   | `Collection.create_empty`                              | empty collection-typed members                       |
+|  [10]   | `Collection.matches`                                   | structural collection equality                       |
+|  [11]   | `Collection.serialize`                                 | serialize the collection contract                    |
+|  [12]   | `Collection.read_parquet`                              | read `<member>.parquet` files with schema check      |
+|  [13]   | `Collection.scan_parquet`                              | lazily scan member parquet files                     |
+|  [14]   | `Collection.write_parquet`                             | write each member to `<member>.parquet`              |
+|  [15]   | `Collection.sink_parquet`                              | streaming-sink each lazy member to parquet           |
+|  [16]   | `Collection.read_delta` / `scan_delta` / `write_delta` | per-member delta IO with embedded schema check       |
+|  [17]   | `Collection.member_schemas`                            | the member-name-to-schema map                        |
+|  [18]   | `Collection.common_primary_key`                        | primary key shared across members                    |
+|  [19]   | `require_relationship_one_to_one`                      | 1:1 referential-integrity filter expression          |
+|  [20]   | `require_relationship_one_to_at_least_one`             | 1:{1,N} referential-integrity filter expression      |
+|  [21]   | `concat_collection_members`                            | concatenate same-typed collections member-wise       |
+
+- [01]-[VALIDATE]: `validate(data, /, *, cast=False, eager=True) -> Self`
+- [02]-[IS_VALID]: `is_valid(data, /, *, cast=False) -> bool`
+- [03]-[FILTER]: `filter(data, /, *, cast=False, eager=True) -> CollectionFilterResult[Self]`
+- [04]-[FAILURE]: `CollectionFilterResult` is a 2-field `NamedTuple` (`result: C` valid collection, `failure: dict[str, FailureInfo]`) with a `collect_all()` method; `count`/`index` are inherited `tuple` methods, not result members.
+- [05]-[CAST]: `cast(data, /) -> Self`
+- [06]-[JOIN]: `join(primary_keys, how: Literal["semi","anti"]="semi", maintain_order: Literal["none","left"]="none") -> Self`
+- [07]-[COLLECT_ALL]: `collect_all() -> Self`
+- [08]-[SAMPLE]: `sample(num_rows=None, *, overrides=None, generator=None) -> Self`
+- [09]-[CREATE_EMPTY]: `create_empty() -> Self`
+- [10]-[MATCHES]: `matches(other) -> bool`
+- [11]-[SERIALIZE]: `serialize() -> str`
+- [12]-[READ_PARQUET]: `read_parquet(directory, *, validation="warn", **kwargs) -> Self`
+- [13]-[SCAN_PARQUET]: `scan_parquet(directory, *, validation="warn", **kwargs) -> Self`
+- [14]-[WRITE_PARQUET]: `write_parquet(directory, **kwargs) -> None`
+- [15]-[SINK_PARQUET]: `sink_parquet(directory, **kwargs) -> None`
+- [16]-[READ_DELTA]: `read_delta(...) -> Self` / `scan_delta(...) -> Self` / `write_delta(...) -> None`
+- [17]-[MEMBER_SCHEMAS]: `member_schemas() -> dict[str, type[Schema]]`
+- [18]-[COMMON_PRIMARY_KEY]: `common_primary_key() -> list[str]`
+- [19]-[REQUIRE_RELATIONSHIP_ONE_TO_ONE]: `require_relationship_one_to_one(lhs, rhs, /, on, *, drop_duplicates=True) -> pl.LazyFrame`
+- [20]-[REQUIRE_RELATIONSHIP_ONE_TO_AT_LEAST_ONE]: `require_relationship_one_to_at_least_one(lhs, rhs, /, on, *, drop_duplicates=True) -> pl.LazyFrame`
+- [21]-[CONCAT_COLLECTION_MEMBERS]: `concat_collection_members(collections, /) -> dict[str, pl.LazyFrame]`
 
 [ENTRYPOINT_SCOPE]: rule declaration, failure introspection, and config
 - rail: contract
 
 `rule` decorates a `Schema` method returning a boolean `pl.Expr`; `group_by` resolves grouped rules (`"primary_key"` binds to the schema key at class creation). `filter` decorates a `Collection` method returning the keep-set `pl.LazyFrame`. `FailureInfo` exposes the invalid rows and rule diagnostics; `Config` overrides sampling and failure-example caps as a context manager.
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                                                                                                            | [CAPABILITY]                                                                                                |
-| :-----: | :--------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------- |
-|  [01]   | `rule`                             | `rule(*, group_by=None) -> Callable[[ValidationFunction], RuleFactory]`                                                                 | mark a cross-column / grouped validation predicate                                                          |
-|  [02]   | `filter`                           | `filter() -> Callable[[Callable[[C], pl.LazyFrame]], Filter[C]]`                                                                        | mark a collection cross-member filter                                                                       |
-|  [03]   | `Column.init`                      | `Column(*, nullable=False, primary_key=False, unique=False, check=None, alias=None, metadata=None, description=None)`                   | base inline column policy                                                                                   |
-|  [04]   | `Integer.init`                     | `Integer(nullable=False, primary_key=False, unique=False, min=None, min_exclusive=None, max=None, max_exclusive=None, is_in=None, ...)` | numeric column with bounds                                                                                  |
-|  [05]   | `String.init`                      | `String(nullable=False, primary_key=False, unique=False, min_length=None, max_length=None, regex=None, ...)`                            | text column policy                                                                                          |
-|  [06]   | `Decimal.init`                     | `Decimal(precision=None, scale=0, nullable=False, primary_key=False, unique=False, min=None, max=None, ...)`                            | fixed-precision column policy                                                                               |
-|  [07]   | `FailureInfo.invalid`              | `invalid() -> pl.DataFrame`                                                                                                             | the invalid rows of the input frame (a method, not a property)                                              |
-|  [08]   | `FailureInfo.details`              | `details() -> pl.DataFrame`                                                                                                             | invalid rows + per-rule `Enum["valid","invalid","unknown"]` column per rule name (a method, not a property) |
-|  [09]   | `FailureInfo.counts`               | `counts() -> dict[str, int]`                                                                                                            | rule-name to failure-count map                                                                              |
-|  [10]   | `FailureInfo.cooccurrence_counts`  | `cooccurrence_counts() -> dict[frozenset[str], int]`                                                                                    | co-failing rule-set counts                                                                                  |
-|  [11]   | `Config`                           | `Config(**options)` / `Config.set_max_sampling_iterations(n)` / `Config.set_max_failure_examples(n)` / `Config.restore_defaults()`      | sampling + failure-example caps (context manager)                                                           |
-|  [12]   | `deserialize_schema`               | `deserialize_schema(data, strict=True) -> type[Schema] \| None`                                                                         | restore a serialized schema                                                                                 |
-|  [13]   | `deserialize_collection`           | `deserialize_collection(data, ...) -> type[Collection]`                                                                                 | restore a serialized collection                                                                             |
-|  [14]   | `read_parquet_metadata_schema`     | `read_parquet_metadata_schema(source, **kwargs) -> type[Schema]`                                                                        | restore the embedded `Schema` from parquet metadata without reading rows                                    |
-|  [15]   | `read_parquet_metadata_collection` | `read_parquet_metadata_collection(directory, **kwargs) -> type[Collection]`                                                             | restore the embedded `Collection` from member parquet metadata                                              |
-|  [16]   | `dy.random`                        | module: `random.generator(seed=None)` / sampler entries consumed by `Schema.sample`/`Collection.sample`                                 | deterministic RNG source for conformant-row generation                                                      |
+| [INDEX] | [SURFACE]                          | [CAPABILITY]                                                             |
+| :-----: | :--------------------------------- | :----------------------------------------------------------------------- |
+|  [01]   | `rule`                             | mark a cross-column / grouped validation predicate                       |
+|  [02]   | `filter`                           | mark a collection cross-member filter                                    |
+|  [03]   | `Column.init`                      | base inline column policy                                                |
+|  [04]   | `Integer.init`                     | numeric column with bounds                                               |
+|  [05]   | `String.init`                      | text column policy                                                       |
+|  [06]   | `Decimal.init`                     | fixed-precision column policy                                            |
+|  [07]   | `FailureInfo.invalid`              | the invalid rows of the input frame (a method, not a property)           |
+|  [08]   | `FailureInfo.details`              | invalid rows + a per-rule status `Enum` column (method)                  |
+|  [09]   | `FailureInfo.counts`               | rule-name to failure-count map                                           |
+|  [10]   | `FailureInfo.cooccurrence_counts`  | co-failing rule-set counts                                               |
+|  [11]   | `Config`                           | sampling + failure-example caps (context manager)                        |
+|  [12]   | `deserialize_schema`               | restore a serialized schema                                              |
+|  [13]   | `deserialize_collection`           | restore a serialized collection                                          |
+|  [14]   | `read_parquet_metadata_schema`     | restore the embedded `Schema` from parquet metadata without reading rows |
+|  [15]   | `read_parquet_metadata_collection` | restore the embedded `Collection` from member parquet metadata           |
+|  [16]   | `dy.random`                        | deterministic RNG source for conformant-row generation                   |
+
+- [01]-[RULE]: `rule(*, group_by=None) -> Callable[[ValidationFunction], RuleFactory]`
+- [02]-[FILTER]: `filter() -> Callable[[Callable[[C], pl.LazyFrame]], Filter[C]]`
+- [03]-[INIT]: `Column(*, nullable=False, primary_key=False, unique=False, check=None, alias=None, metadata=None, description=None)`
+- [04]-[INIT]: `Integer(nullable=False, primary_key=False, unique=False, min=None, min_exclusive=None, max=None, max_exclusive=None, is_in=None, ...)`
+- [05]-[INIT]: `String(nullable=False, primary_key=False, unique=False, min_length=None, max_length=None, regex=None, ...)`
+- [06]-[INIT]: `Decimal(precision=None, scale=0, nullable=False, primary_key=False, unique=False, min=None, max=None, ...)`
+- [07]-[INVALID]: `invalid() -> pl.DataFrame`
+- [08]-[DETAILS]: `details() -> pl.DataFrame` — invalid rows plus one `Enum["valid","invalid","unknown"]` column per rule name.
+- [09]-[COUNTS]: `counts() -> dict[str, int]`
+- [10]-[COOCCURRENCE_COUNTS]: `cooccurrence_counts() -> dict[frozenset[str], int]`
+- [11]-[CONFIG]: `Config(**options)` / `Config.set_max_sampling_iterations(n)` / `Config.set_max_failure_examples(n)` / `Config.restore_defaults()`
+- [12]-[DESERIALIZE_SCHEMA]: `deserialize_schema(data, strict=True) -> type[Schema] \| None`
+- [13]-[DESERIALIZE_COLLECTION]: `deserialize_collection(data, ...) -> type[Collection]`
+- [14]-[READ_PARQUET_METADATA_SCHEMA]: `read_parquet_metadata_schema(source, **kwargs) -> type[Schema]`
+- [15]-[READ_PARQUET_METADATA_COLLECTION]: `read_parquet_metadata_collection(directory, **kwargs) -> type[Collection]`
+- [16]-[RANDOM]: module: `random.generator(seed=None)` / sampler entries consumed by `Schema.sample`/`Collection.sample`
 
 ## [04]-[IMPLEMENTATION_LAW]
 

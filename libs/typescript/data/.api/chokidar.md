@@ -14,30 +14,34 @@
 
 [PUBLIC_TYPE_SCOPE]: the watcher, its event map, and the matcher algebra
 - rail: boundaries
+- `FSWatcher extends EventEmitter<FSWatcherEventMap>` carries `add`/`unwatch`/`close`/`getWatched`; the events fire `(path, stats?)`, and the `ignored` matcher algebra is `string` (exact path) / `RegExp` / predicate / `{ path, recursive? }`.
 
-| [INDEX] | [SYMBOL]                                                                                                   | [TYPE_FAMILY]   | [CONSUMER]                                                            |
-| :-----: | :--------------------------------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------------------- |
-|  [01]   | `FSWatcher extends EventEmitter<FSWatcherEventMap>` (`add`, `unwatch`, `close`, `getWatched`)              | watcher         | the scoped resource; `add`/`unwatch` are chainable roster mutations   |
-|  [02]   | events `add` / `addDir` / `change` / `unlink` / `unlinkDir` — `(path: string, stats?: Stats)`              | event rows      | the admission stream vocabulary; `stats` present under `alwaysStat`   |
-|  [03]   | event `all` — `(event, path, stats?)`                                                                      | aggregate       | the one-listener fold the lift consumes instead of five registrations |
-|  [04]   | events `ready` / `error` / `raw`                                                                           | lifecycle       | initial-census barrier, fault row, opaque backend tap                 |
-|  [05]   | `ignored: Matcher \| Matcher[]` — `string` (exact path) \| `RegExp` \| predicate \| `{ path, recursive? }` | matcher algebra | selection as predicate rows; string is equality, NOT a glob           |
-|  [06]   | `getWatched(): Record<string, string[]>`                                                                   | census          | the dir → entries snapshot for reconciliation                         |
+| [INDEX] | [SYMBOL]                                                    | [TYPE_FAMILY]   | [CONSUMER]                                               |
+| :-----: | :---------------------------------------------------------- | :-------------- | :------------------------------------------------------- |
+|  [01]   | `FSWatcher`                                                 | watcher         | scoped resource; `add`/`unwatch` chainable mutations     |
+|  [02]   | events `add` / `addDir` / `change` / `unlink` / `unlinkDir` | event rows      | admission vocabulary; `stats` present under `alwaysStat` |
+|  [03]   | event `all` — `(event, path, stats?)`                       | aggregate       | the one-listener fold, not five registrations            |
+|  [04]   | events `ready` / `error` / `raw`                            | lifecycle       | census barrier, fault row, opaque backend tap            |
+|  [05]   | `ignored: Matcher \| Matcher[]`                             | matcher algebra | predicate rows; a string is equality, NOT a glob         |
+|  [06]   | `getWatched(): Record<string, string[]>`                    | census          | the dir → entries snapshot for reconciliation            |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: watch lifecycle and the option levers
 - rail: boundaries
+- `watch(paths, options?)` acquires and `watcher.close()` releases; the rows below `[03]`+ are `options` levers, each carrying its default.
 
-| [INDEX] | [SURFACE]                                                                                                                     | [ENTRY_FAMILY] | [CONSUMER]                                                                                                                 |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `watch(paths: string \| string[], options?): FSWatcher`                                                                       | acquire        | literal paths only; the acquireRelease acquire arm                                                                         |
-|  [02]   | `watcher.close(): Promise<void>`                                                                                              | release        | awaited release arm; listeners strip synchronously at call                                                                 |
-|  [03]   | `ignoreInitial` (default `false`) + `ready`                                                                                   | census policy  | `false` replays the existing tree as `add` rows before `ready`; `ready` fires once either way — the initial-census barrier |
-|  [04]   | `awaitWriteFinish: true \| { stabilityThreshold, pollInterval }` (defaults `2000`/`100`)                                      | settle guard   | hold `add`/`change` until size stabilizes — the half-written-file guard on intake                                          |
-|  [05]   | `atomic: boolean \| number` (default on when not polling; delay `100`)                                                        | rename guard   | absorbs editor write-via-rename artifacts into one `change`                                                                |
-|  [06]   | `usePolling` / `interval` (default `100`) / `binaryInterval` (default `300`)                                                  | degrade row    | the network-FS/container row where native events lie                                                                       |
-|  [07]   | `depth` / `cwd` / `followSymlinks` (default `true`) / `alwaysStat` / `ignorePermissionErrors` / `persistent` (default `true`) | scope levers   | recursion bound, relative emission, link policy, stat guarantee                                                            |
+| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CONSUMER]                                               |
+| :-----: | :------------------------------------------------------ | :------------- | :------------------------------------------------------- |
+|  [01]   | `watch(paths: string \| string[], options?): FSWatcher` | acquire        | literal paths only; the acquireRelease acquire arm       |
+|  [02]   | `watcher.close(): Promise<void>`                        | release        | awaited release; listeners strip synchronously           |
+|  [03]   | `ignoreInitial`                                         | census policy  | default `false` replays the tree as `add` before `ready` |
+|  [04]   | `awaitWriteFinish`                                      | settle guard   | `{ stabilityThreshold: 2000, pollInterval: 100 }`        |
+|  [05]   | `atomic`                                                | rename guard   | on off-polling, delay `100`; absorbs editor rename-swap  |
+|  [06]   | `usePolling` / `interval` / `binaryInterval`            | degrade row    | `100`/`300`; network-FS row where native events lie      |
+|  [07]   | `depth` / `cwd`                                         | scope levers   | recursion bound; cwd-relative path emission              |
+|  [08]   | `followSymlinks` (`true`) / `alwaysStat`                | scope levers   | link-follow policy; force `stats` on every event         |
+|  [09]   | `ignorePermissionErrors` / `persistent` (`true`)        | scope levers   | skip EACCES entries; keep the process alive              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

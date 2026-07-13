@@ -386,17 +386,17 @@ public abstract partial record AdbcQuery {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                       | [BINDING]                                                                                                   |
-| :-----: | :------------------ | :-------------------------------------------- | :---------------------------------------------------------------------------------------------------------- |
-|  [01]   | engine session      | one refcounted posture anchor + `Duplicate()` | never open-per-query, never command interleaving (`SESSION_POSTURE`)                                        |
-|  [02]   | extension bootstrap | ordered repo-derived `INSTALL`/`LOAD` SQL     | `Linked`/`Core`/`Community` tri-state; fail-closed `duckdb_extensions()` probe                              |
-|  [03]   | consistency stance  | async, `StalenessWatermark`                   | never read by interactive correctness without the wait (`C2`)                                               |
-|  [04]   | index ownership     | DuckDB spatial/vss are aggregators            | GiST/pgvector own the transactional index (`L2`)                                                            |
-|  [05]   | credential rail     | `CREATE SECRET` over `SecretScope`            | quote-doubled literal config (DDL takes no parameters); never an inline path key                            |
-|  [06]   | Arrow bridge        | ADBC driver manager → `IArrowArrayStream`     | no managed DuckDB Arrow member; params via `AdbcStatement.Bind`; the drain runs inside the statement window |
-|  [07]   | fault rail          | `DuckDBException` → `ColumnarFault`           | discriminated on `DuckDBErrorType`, never a raw ADO throw                                                   |
-|  [08]   | trust gate          | `Identifier`/`StorePath`/`SecretName`         | every dynamic SQL token admitted once; raw interpolation dead by signature                                  |
-|  [09]   | plan execution      | `AdbcQuery.Plan` → `SubstraitPlan`            | the federation intra-leg edge on the one ADBC statement seam                                                |
+| [INDEX] | [POLICY]            | [VALUE]                                   | [BINDING]                                                          |
+| :-----: | :------------------ | :---------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | engine session      | one refcounted anchor + `Duplicate()`     | never open-per-query or command interleaving (`SESSION_POSTURE`)   |
+|  [02]   | extension bootstrap | ordered repo-derived `INSTALL`/`LOAD` SQL | tri-state `ExtensionRepo`; fail-closed `duckdb_extensions()` probe |
+|  [03]   | consistency stance  | async, `StalenessWatermark`               | never read by interactive correctness without the wait (`C2`)      |
+|  [04]   | index ownership     | DuckDB spatial/vss are aggregators        | GiST/pgvector own the transactional index (`L2`)                   |
+|  [05]   | credential rail     | `CREATE SECRET` over `SecretScope`        | quote-doubled config literals; never an inline path key            |
+|  [06]   | Arrow bridge        | ADBC driver manager → `IArrowArrayStream` | no managed Arrow member; params via `AdbcStatement.Bind`           |
+|  [07]   | fault rail          | `DuckDBException` → `ColumnarFault`       | discriminated on `DuckDBErrorType`, never a raw ADO throw          |
+|  [08]   | trust gate          | `Identifier`/`StorePath`/`SecretName`     | every dynamic SQL token admitted once; raw interpolation dead      |
+|  [09]   | plan execution      | `AdbcQuery.Plan` → `SubstraitPlan`        | the federation intra-leg edge on the one ADBC statement seam       |
 
 ## [03]-[ARTIFACT_EGRESS]
 
@@ -506,14 +506,14 @@ public static class ArtifactEgress {
 }
 ```
 
-| [INDEX] | [POLICY]          | [VALUE]                                            | [BINDING]                                                                                            |
-| :-----: | :---------------- | :------------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | engine egress     | one `COPY (SELECT) TO` rail                        | `.Key` IS the COPY token; a second export path is deleted                                            |
-|  [02]   | artifact identity | footer `KV_METADATA` stamp                         | rides the file, never a filename convention                                                          |
-|  [03]   | partitioning      | `PARTITION_BY` hive directories                    | a pruning instrument, never a uniqueness scheme                                                      |
-|  [04]   | generation read   | `read_parquet` glob + `union_by_name`              | generations immutable; additive columns compatible by construction                                   |
-|  [05]   | non-SQL egress    | sibling ADBC / `ParquetSharp.Arrow` lane           | never a `FORMAT` token stretched to name a transport                                                 |
-|  [06]   | projection        | composed `Projection` over trust-gated identifiers | never raw caller SQL in the COPY body; filtered egress stages through the parameterized `Query` rail |
+| [INDEX] | [POLICY]          | [VALUE]                                        | [BINDING]                                                         |
+| :-----: | :---------------- | :--------------------------------------------- | :---------------------------------------------------------------- |
+|  [01]   | engine egress     | one `COPY (SELECT) TO` rail                    | `.Key` IS the COPY token; a second export path is deleted         |
+|  [02]   | artifact identity | footer `KV_METADATA` stamp                     | rides the file, never a filename convention                       |
+|  [03]   | partitioning      | `PARTITION_BY` hive directories                | a pruning instrument, never a uniqueness scheme                   |
+|  [04]   | generation read   | `read_parquet` glob + `union_by_name`          | generations immutable; additive columns compatible                |
+|  [05]   | non-SQL egress    | sibling ADBC / `ParquetSharp.Arrow` lane       | never a `FORMAT` token stretched to name a transport              |
+|  [06]   | projection        | composed `Projection`, trust-gated identifiers | never raw caller SQL; filtered egress stages via the `Query` rail |
 
 ## [04]-[FLAT_TABLE_EGRESS]
 
@@ -662,11 +662,11 @@ public static class FlatTableEgress {
 }
 ```
 
-| [INDEX] | [POLICY]             | [VALUE]                                                      | [BINDING]                                                                                                         |
-| :-----: | :------------------- | :----------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------- |
-|  [01]   | BimOpenSchema egress | co-transactional `FlatTableProjection`                       | read-your-writes, never daemon-lagged (`M4`)                                                                      |
-|  [02]   | column value         | smart-enum `.Key` / `GraphDelta` count                       | `StatementMap.Map` writes a primitive, never the object                                                           |
-|  [03]   | BIM tables           | eleven suffixed columnar tables                              | written in-corpus (`ToDataSet()` data + this lane's appender); the DEBUG-IL upstream writer never on the hot path |
-|  [04]   | Parquet codec        | native `ParquetSharp.Arrow` ↔ `RecordBatch`, both directions | distinct from the DuckDB SQL parquet path; meet at the file                                                       |
-|  [05]   | encrypted extract    | PME `Option` policy on `WriteParquetFrames`                  | `CryptoFactory` × the admitted KMS trio; never a sibling writer                                                   |
-|  [06]   | lakehouse            | `delta`/`iceberg` scan                                       | DuckDB reads, `DeltaLake.Net` writes; meet at the table                                                           |
+| [INDEX] | [POLICY]             | [VALUE]                                     | [BINDING]                                                       |
+| :-----: | :------------------- | :------------------------------------------ | :-------------------------------------------------------------- |
+|  [01]   | BimOpenSchema egress | co-transactional `FlatTableProjection`      | read-your-writes, never daemon-lagged (`M4`)                    |
+|  [02]   | column value         | smart-enum `.Key` / `GraphDelta` count      | `StatementMap.Map` writes a primitive, never the object         |
+|  [03]   | BIM tables           | eleven suffixed columnar tables             | written in-corpus; the DEBUG-IL writer stays off the hot path   |
+|  [04]   | Parquet codec        | `ParquetSharp.Arrow` ↔ `RecordBatch` codec  | distinct from the DuckDB SQL parquet path; meet at the file     |
+|  [05]   | encrypted extract    | PME `Option` policy on `WriteParquetFrames` | `CryptoFactory` × the admitted KMS trio; never a sibling writer |
+|  [06]   | lakehouse            | `delta`/`iceberg` scan                      | DuckDB reads, `DeltaLake.Net` writes; meet at the table         |

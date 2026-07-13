@@ -17,17 +17,17 @@
 [PUBLIC_TYPE_SCOPE]: reduction, scan, and reindex value types
 - rail: field-dataset
 
-`flox.__all__` is `('Aggregation', 'Scan', 'groupby_reduce', 'groupby_scan', 'rechunk_for_blockwise', 'rechunk_for_cohorts', 'set_options', 'ReindexStrategy', 'ReindexArrayType', 'is_supported_aggregation')`. `Aggregation`/`Scan` are the two custom-reduction escapes (reduce vs. cumulative); `ReindexStrategy`/`ReindexArrayType` parameterize the combine-step reindex (dense NumPy vs. sparse COO), replacing the old bare-`bool` `reindex` argument.
+`flox.__all__` is `('Aggregation', 'Scan', 'groupby_reduce', 'groupby_scan', 'rechunk_for_blockwise', 'rechunk_for_cohorts', 'set_options', 'ReindexStrategy', 'ReindexArrayType', 'is_supported_aggregation')`. `Aggregation`/`Scan` are the two custom-reduction escapes (reduce vs. cumulative), full constructors in `AGGREGATION_TOPOLOGY`; `ReindexStrategy`/`ReindexArrayType` parameterize the combine-step reindex (dense NumPy vs. sparse COO), replacing the old bare-`bool` `reindex` argument. Symbols are `flox.*`; `factorize_` is `flox.core.factorize_`.
 
-| [INDEX] | [SYMBOL]                                                                                                                                                                                                                           | [PACKAGE_ROLE]   | [CAPABILITY]                                                                                                                                                                        |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `flox.Aggregation(name, *, numpy=None, chunk, combine, preprocess=None, finalize=None, fill_value=None, final_fill_value=<NA>, dtypes=None, final_dtype=None, reduction_type='reduce', new_dims_func=None, preserves_dtype=False)` | custom reduction | user-defined tree reduction passed as the `func` argument; `reduction_type='argreduce'` for argmax/argmin-like ops; `new_dims_func` for quantile-style new output dims              |
-|  [02]   | `flox.Scan(name, binary_op, scan, reduction, identity, dtype=None, preserves_dtype=False, mode='apply_binary_op', preprocess=None, finalize=None)`                                                                                 | custom scan      | user-defined grouped cumulative scan passed as the `func` argument to `groupby_scan`                                                                                                |
-|  [03]   | `flox.ReindexStrategy(blockwise, array_type=ReindexArrayType.AUTO)`                                                                                                                                                                | reindex policy   | the combine-step reindex policy: `blockwise` toggles per-block reindex, `array_type` selects the intermediate carrier; accepted by the `reindex` parameter alongside a plain `bool` |
-|  [04]   | `flox.ReindexArrayType`                                                                                                                                                                                                            | reindex carrier  | `Enum`: `AUTO`, `NUMPY`, `SPARSE_COO` — dense NumPy vs. sparse-COO intermediates for high-cardinality groups                                                                        |
-|  [05]   | `flox.is_supported_aggregation(array, func: str, **kwargs) -> bool`                                                                                                                                                                | engine predicate | whether `func` is supported for `array` under the resolved engine/method                                                                                                            |
-|  [06]   | `flox.set_options(**kwargs)`                                                                                                                                                                                                       | global options   | context manager / setter for global flox options (e.g. `expected_groups_validation`)                                                                                                |
-|  [07]   | `flox.core.factorize_(by, axes, *, expected_groups=None, reindex=False, sort=True, fastpath=False) -> tuple`                                                                                                                       | group factorizer | factorize one or more `by` arrays into integer group codes, expected `pd.Index` labels, and group counts                                                                            |
+| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]   | [CAPABILITY]                                                                             |
+| :-----: | :------------------------- | :--------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `Aggregation`              | custom reduction | tree reduction passed as the `func` argument (ctor in `AGGREGATION_TOPOLOGY`)            |
+|  [02]   | `Scan`                     | custom scan      | user-defined grouped cumulative scan passed as the `func` argument to `groupby_scan`     |
+|  [03]   | `ReindexStrategy`          | reindex policy   | `ReindexStrategy(blockwise, array_type=AUTO)`, accepted by `reindex` beside a `bool`     |
+|  [04]   | `ReindexArrayType`         | reindex carrier  | `Enum`: `AUTO`, `NUMPY`, `SPARSE_COO` — dense vs. sparse-COO for high-cardinality groups |
+|  [05]   | `is_supported_aggregation` | engine predicate | `(array, func, **kwargs) -> bool`: `func` admissible under resolved engine/method        |
+|  [06]   | `set_options`              | global options   | `set_options(**kwargs)` context manager/setter (e.g. `expected_groups_validation`)       |
+|  [07]   | `core.factorize_`          | group factorizer | `(by, axes, *, expected_groups=None, ...) -> tuple`: codes, `pd.Index` labels, counts    |
 
 [PUBLIC_TYPE_SCOPE]: grouper value types
 - rail: field-dataset
@@ -39,32 +39,32 @@ The resampling/binning groupers used on the `field-dataset` resample/bin arms ar
 [ENTRYPOINT_SCOPE]: xarray-aware grouped reduction
 - rail: field-dataset
 
-`xarray_reduce` is the one xarray-aware entrypoint; `obj` is a `Dataset` or `DataArray`, each `*by` is a coordinate-name `Hashable`, a `DataArray`, or an `xarray.groupers` grouper. `isbin` may be a `bool` or a per-`by` `Sequence[bool]`; `reindex` accepts a `ReindexStrategy` or a plain `bool`.
+`flox.xarray.xarray_reduce` is the one xarray-aware entrypoint; `obj` is a `Dataset` or `DataArray`, each `*by` is a coordinate-name `Hashable`, a `DataArray`, or an `xarray.groupers` grouper. Every reduction row elides the shared kwargs — `func: str \| Aggregation`, `expected_groups=None`, `sort=True`, `fill_value=None`, `dtype=None`, `method=None`, `engine=None`, `reindex: ReindexStrategy \| bool \| None=None`, `min_count=None` (all in `REDUCTION_TOPOLOGY`) — and carries only the surface-unique parameters; `isbin` may be a `bool` or a per-`by` `Sequence[bool]`.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                                                                                                            | [ENTRY_FAMILY] | [RAIL]                          |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------ |
-|  [01]   | `flox.xarray.xarray_reduce(obj, *by, func: str \| Aggregation, expected_groups=None, isbin: bool \| Sequence[bool]=False, sort=True, dim=None, fill_value=None, dtype=None, method=None, engine=None, keep_attrs=True, skipna=None, min_count=None, reindex: ReindexStrategy \| bool \| None=None, **finalize_kwargs) -> xr.Dataset \| xr.DataArray` | reduce         | xarray grouped/binned/resampled |
+| [INDEX] | [SURFACE]       | [CALL_SHAPE]                                                                                                       |
+| :-----: | :-------------- | :----------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `xarray_reduce` | `(obj, *by, isbin=False, dim=None, keep_attrs=True, skipna=None, **finalize_kwargs) -> xr.Dataset \| xr.DataArray` |
 
 [ENTRYPOINT_SCOPE]: core array reduction and scan
 - rail: field-dataset
 
-`groupby_reduce` is the raw-array tree-reduction kernel (returns `(reduced, *group_labels)`); `groupby_scan` is the raw-array grouped cumulative-scan kernel (returns a single array of input shape). The scan path takes no `min_count`/`reindex`/`fill_value`/`sort` since it does not aggregate to one row per group.
+`flox.groupby_reduce` is the raw-array tree-reduction kernel (returns `(reduced, *group_labels)`) sharing the reduction kwargs elided above; `flox.groupby_scan` is the raw-array grouped cumulative-scan kernel (returns a single array of input shape) whose `func` is `str \| Scan` and which takes no `min_count`/`reindex`/`fill_value`/`sort` since it does not aggregate to one row per group.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                                                                                       | [ENTRY_FAMILY] | [RAIL]                   |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :----------------------- |
-|  [01]   | `flox.groupby_reduce(array, *by, func: str \| Aggregation, expected_groups=None, sort=True, isbin=False, axis=None, fill_value=None, dtype=None, min_count: int \| None=None, method=None, engine=None, reindex: ReindexStrategy \| bool \| None=None, finalize_kwargs: dict \| None=None) -> tuple[Array, *tuple[Array, ...]]` | reduce         | raw-array grouped reduce |
-|  [02]   | `flox.groupby_scan(array, *by, func: str \| Scan, expected_groups=None, axis: int \| tuple[int]=-1, dtype=None, method=None, engine=None) -> np.ndarray \| DaskArray`                                                                                                                                                           | scan           | raw-array grouped scan   |
+| [INDEX] | [SURFACE]        | [CALL_SHAPE]                                                                                     | [ENTRY_FAMILY] |
+| :-----: | :--------------- | :----------------------------------------------------------------------------------------------- | :------------- |
+|  [01]   | `groupby_reduce` | `(array, *by, isbin=False, axis=None, finalize_kwargs=None) -> tuple[Array, *tuple[Array, ...]]` | reduce         |
+|  [02]   | `groupby_scan`   | `(array, *by, axis: int \| tuple[int]=-1) -> np.ndarray \| DaskArray`                            | scan           |
 
 [ENTRYPOINT_SCOPE]: dask rechunk helpers and global options
 - rail: field-dataset
 
-`rechunk_for_blockwise`/`rechunk_for_cohorts` precondition a dask array's chunking so the `blockwise`/`cohorts` `method` strategies stay single-pass; `set_options` is the global options context. These are dask-tuning and policy surfaces composed around the reduction, not separate reduction entrypoints.
+`flox.rechunk_for_blockwise`/`flox.rechunk_for_cohorts` precondition a dask array's chunking so the `blockwise`/`cohorts` `method` strategies stay single-pass; `flox.set_options` is the global options context. These are dask-tuning and policy surfaces composed around the reduction, not separate reduction entrypoints. `rechunk_for_cohorts` also takes optional `chunksize: int \| None=None`, `ignore_old_chunks=False`, and `debug=False` tuning flags.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                            | [ENTRY_FAMILY] | [RAIL]                 |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------- |
-|  [01]   | `flox.rechunk_for_blockwise(array: DaskArray, axis, labels: np.ndarray, *, force=True) -> tuple[method, DaskArray]`                                                                  | rechunk        | dask blockwise prep    |
-|  [02]   | `flox.rechunk_for_cohorts(array: DaskArray, axis, labels: np.ndarray, force_new_chunk_at: Sequence, chunksize: int \| None=None, ignore_old_chunks=False, debug=False) -> DaskArray` | rechunk        | dask cohorts prep      |
-|  [03]   | `flox.set_options(**kwargs)`                                                                                                                                                         | options        | global flox option ctx |
+| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                                                                   |
+| :-----: | :---------------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `rechunk_for_blockwise` | `(array: DaskArray, axis, labels: np.ndarray, *, force=True) -> tuple[method, DaskArray]`      |
+|  [02]   | `rechunk_for_cohorts`   | `(array: DaskArray, axis, labels: np.ndarray, force_new_chunk_at: Sequence, ...) -> DaskArray` |
+|  [03]   | `set_options`           | `(**kwargs)` global-options context manager/setter                                             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

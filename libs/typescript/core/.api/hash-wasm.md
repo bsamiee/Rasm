@@ -20,7 +20,7 @@ Two exported types are the entire substrate; every algorithm composes them. One-
 |  [01]   | `IDataType` | type alias    | `string \| Buffer \| Uint8Array \| Uint16Array \| Uint32Array` — the input union |
 |  [02]   | `IHasher`   | type          | reusable streaming state: `init`/`update`/`digest` + `save`/`load` + sizes       |
 
-```ts contract
+```ts signature
 type ITypedArray = Uint8Array | Uint16Array | Uint32Array
 type IDataType = string | Buffer | ITypedArray            // string is UTF-8 encoded before hashing
 type IHasher = {
@@ -36,22 +36,22 @@ type IHasher = {
 
 ## [02]-[ALGORITHM_FAMILY]
 
-The digest surface is ONE parameterized pattern — `{ name(data, …seed?): Promise<string>; createName(…seed?): Promise<IHasher> }` per algorithm — not a fixed API per hash. The roster below is SEED DATA on that pattern; the columns that vary are the seed/config parameters. A new digest is a new row, never a new shape.
+The digest surface is ONE parameterized pattern — `{ name(data, …seed?): Promise<string>; createName(…seed?): Promise<IHasher> }` per algorithm — not a fixed API per hash. Every one-shot `name(...)` has a `create<Name>(...)` streaming factory (PascalCase of the name, e.g. `xxhash128`→`createXXHash128`, `blake2b`→`createBLAKE2b`, `md5`→`createMD5`). The roster below is SEED DATA on that pattern; the columns that vary are the seed/config parameters. A new digest is a new row, never a new shape.
 
-| [INDEX] | [ONE_SHOT]                                           | [FACTORY]                                | [CONFIG_AXIS_OUTPUT]                                         |
-| :-----: | :--------------------------------------------------- | :--------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | `xxhash128(data, seedLow?, seedHigh?)`               | `createXXHash128`                        | 64-bit seed split into two 32-bit halves; 128-bit → 32 hex   |
-|  [02]   | `xxhash3(data, seedLow?, seedHigh?)`                 | `createXXHash3`                          | two-half seed; 64-bit → 16 hex                               |
-|  [03]   | `xxhash64(data, seedLow?, seedHigh?)`                | `createXXHash64`                         | two-half seed; 64-bit → 16 hex                               |
-|  [04]   | `xxhash32(data, seed?)`                              | `createXXHash32`                         | single 32-bit seed; 32-bit → 8 hex                           |
-|  [05]   | `blake3(data, bits?, key?)`                          | `createBLAKE3`                           | variable output `bits` (÷8, default 256) + optional 32-B key |
-|  [06]   | `blake2b(data, bits?, key?)` / `blake2s`             | `createBLAKE2b`/`…2s`                    | variable-length keyed digest                                 |
-|  [07]   | `sha256` / `sha224` / `sha384` / `sha512`            | `createSHA256`…                          | SHA-2 family; no config                                      |
-|  [08]   | `sha1` / `sha3(data, bits?)` / `keccak(data, bits?)` | `createSHA1`/`createSHA3`/`createKeccak` | SHA-1, SHA-3, Keccak; `bits` selects width                   |
-|  [09]   | `md4` / `md5` / `ripemd160` / `whirlpool` / `sm3`    | `createMD5`…                             | retired + regional digests                                   |
-|  [10]   | `crc32` / `crc64` / `adler32`                        | `createCRC32`…                           | checksums                                                    |
+| [INDEX] | [ONE_SHOT]                                           | [CONFIG_AXIS_OUTPUT]                                         |
+| :-----: | :--------------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `xxhash128(data, seedLow?, seedHigh?)`               | 64-bit seed split into two 32-bit halves; 128-bit → 32 hex   |
+|  [02]   | `xxhash3(data, seedLow?, seedHigh?)`                 | two-half seed; 64-bit → 16 hex                               |
+|  [03]   | `xxhash64(data, seedLow?, seedHigh?)`                | two-half seed; 64-bit → 16 hex                               |
+|  [04]   | `xxhash32(data, seed?)`                              | single 32-bit seed; 32-bit → 8 hex                           |
+|  [05]   | `blake3(data, bits?, key?)`                          | variable output `bits` (÷8, default 256) + optional 32-B key |
+|  [06]   | `blake2b(data, bits?, key?)` / `blake2s`             | variable-length keyed digest                                 |
+|  [07]   | `sha256` / `sha224` / `sha384` / `sha512`            | SHA-2 family; no config                                      |
+|  [08]   | `sha1` / `sha3(data, bits?)` / `keccak(data, bits?)` | SHA-1, SHA-3, Keccak; `bits` selects width                   |
+|  [09]   | `md4` / `md5` / `ripemd160` / `whirlpool` / `sm3`    | retired + regional digests                                   |
+|  [10]   | `crc32` / `crc64` / `adler32`                        | checksums                                                    |
 
-```ts contract
+```ts signature
 // The consumed row — both seed halves omitted ⇒ the seed-zero mint. Return is lowercase hex in canonical big-endian digest order.
 declare function xxhash128(data: IDataType, seedLow?: number, seedHigh?: number): Promise<string>
 declare function createXXHash128(seedLow?: number, seedHigh?: number): Promise<IHasher>
@@ -72,7 +72,7 @@ Password/derivation functions break the digest pattern: they take an options obj
 |  [05]   | `scrypt` / `pbkdf2`                | options object        | derived-key hex / binary                            |
 |  [06]   | `createHMAC(hash, key)`            | combinator            | takes another algorithm's `Promise<IHasher>`        |
 
-```ts contract
+```ts signature
 // Conditional return type: the binary variant narrows to Uint8Array, everything else to string.
 interface IArgon2Options {
   password: IDataType; salt: IDataType; secret?: IDataType

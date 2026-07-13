@@ -30,50 +30,60 @@ retains the direct sparse-solver catalog.
 
 `Fourier` transforms in place over `Complex[]`/`Complex32[]` (the signal lane marshals the real `Tensor<float>` into `Complex[]` once); `FourierOptions.Default` is symmetric `1/√n` scaling, `NoScaling` is the FFT-then-IFFT round-trip, `AsymmetricScaling`/`Matlab` matches MATLAB. `Window` factories return a `double[]` taper of the requested width; only `Hann`/`Hamming`/`Cosine`/`Lanczos` carry a `*Periodic` twin (symmetric for filter design, periodic for FFT framing) — every other taper, `Bartlett` and `BartlettHann` included, ships one form only.
 
-| [INDEX] | [SURFACE]                                                                                     | [CALL_SHAPE]      | [CAPABILITY]                                      |
-| :-----: | :-------------------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------ |
-|  [01]   | `Fourier.Forward(Complex[], FourierOptions)`                                                  | static `void`     | in-place forward DFT, scaling-governed            |
-|  [02]   | `Fourier.Inverse(Complex[], FourierOptions)`                                                  | static `void`     | in-place inverse DFT, scaling-governed            |
-|  [03]   | `Fourier.ForwardReal(double[], int, FourierOptions)`                                          | static `void`     | real-packed forward (half-spectrum `rfft`)        |
-|  [04]   | `Fourier.InverseReal(double[], int, FourierOptions)`                                          | static `void`     | real-packed inverse                               |
-|  [05]   | `Fourier.Forward2D` / `Inverse2D` / `ForwardMultiDim` / `InverseMultiDim`                     | static `void`     | 2-D / N-D forward + inverse transform             |
-|  [06]   | `Fourier.FrequencyScale(int length, double sampleRate)`                                       | static `double[]` | the FFT-bin frequency axis                        |
-|  [07]   | `Window.Hann` / `HannPeriodic`                                                                | static `double[]` | Hann symmetric / FFT-periodic taper               |
-|  [08]   | `Window.Hamming` / `HammingPeriodic`                                                          | static `double[]` | Hamming symmetric / FFT-periodic taper            |
-|  [09]   | `Window.Cosine` / `CosinePeriodic` ; `Window.Lanczos` / `LanczosPeriodic`                     | static `double[]` | Cosine / Lanczos symmetric + FFT-periodic taper   |
-|  [10]   | `Window.Blackman` / `BlackmanHarris` / `BlackmanNuttall`                                      | static `double[]` | Blackman family taper (no periodic split)         |
-|  [11]   | `Window.Dirichlet`                                                                            | static `double[]` | rectangular all-ones taper (use over hand-rolled) |
-|  [12]   | `Window.Bartlett` / `BartlettHann` / `Tukey` / `FlatTop` / `Gauss` / `Nuttall` / `Triangular` | static `double[]` | the remaining single-form taper family            |
+| [INDEX] | [SURFACE]                                                                 | [CAPABILITY]                                   |
+| :-----: | :------------------------------------------------------------------------ | :--------------------------------------------- |
+|  [01]   | `Fourier.Forward(Complex[], FourierOptions)`                              | in-place forward DFT, scaling-governed         |
+|  [02]   | `Fourier.Inverse(Complex[], FourierOptions)`                              | in-place inverse DFT, scaling-governed         |
+|  [03]   | `Fourier.ForwardReal(double[], int, FourierOptions)`                      | real-packed forward (half-spectrum `rfft`)     |
+|  [04]   | `Fourier.InverseReal(double[], int, FourierOptions)`                      | real-packed inverse                            |
+|  [05]   | `Fourier.Forward2D` / `Inverse2D` / `ForwardMultiDim` / `InverseMultiDim` | 2-D / N-D forward + inverse transform          |
+|  [06]   | `Fourier.FrequencyScale(int length, double sampleRate)`                   | the FFT-bin frequency axis (`static double[]`) |
 
-[ENTRYPOINT_SCOPE]: probability distributions + descriptive statistics
+[ENTRYPOINT_SCOPE]: window tapers — `Window.*` factories return a `double[]`; only `Hann`/`Hamming`/`Cosine`/`Lanczos` carry a `*Periodic` twin
+- rail: numeric
+
+| [INDEX] | [SURFACE]                                                                              | [CAPABILITY]                                  |
+| :-----: | :------------------------------------------------------------------------------------- | :-------------------------------------------- |
+|  [01]   | `Hann` / `HannPeriodic`                                                                | Hann symmetric + FFT-periodic pair            |
+|  [02]   | `Hamming` / `HammingPeriodic`                                                          | Hamming symmetric + FFT-periodic pair         |
+|  [03]   | `Cosine` / `CosinePeriodic` ; `Lanczos` / `LanczosPeriodic`                            | Cosine + Lanczos symmetric + periodic pairs   |
+|  [04]   | `Blackman` / `BlackmanHarris` / `BlackmanNuttall`                                      | Blackman family, no periodic split            |
+|  [05]   | `Dirichlet`                                                                            | rectangular all-ones taper (over hand-rolled) |
+|  [06]   | `Bartlett` / `BartlettHann` / `Tukey` / `FlatTop` / `Gauss` / `Nuttall` / `Triangular` | single-form taper family                      |
+
+[ENTRYPOINT_SCOPE]: probability distributions — namespace `MathNet.Numerics.Distributions`
 - rail: numeric
 
 The `Distributions` and `Statistics` surfaces ship inside the admitted `MathNet.Numerics` assembly (no separate package); the uncertainty lane samples the forward-UQ continuous distributions, the estimator lane fits per-class moments and reads the IRLS variance function, and the hypothesis-test lane reads the test-statistic CDF from the inference distributions. Each `IContinuousDistribution` carries a `RandomSource` `System.Random` for seeded draws; each distribution also exposes the static `CDF`/`InvCDF`/`Sample` form (parameters + value) beside the instance `CumulativeDistribution`/`InverseCumulativeDistribution`/`Sample`.
 
-| [INDEX] | [SYMBOL]                                                           | [NAMESPACE]                      | [CAPABILITY]                                                     |
-| :-----: | :----------------------------------------------------------------- | :------------------------------- | :--------------------------------------------------------------- |
-|  [01]   | `Normal(mean, stddev)`                                             | `MathNet.Numerics.Distributions` | Gaussian continuous distribution                                 |
-|  [02]   | `LogNormal(mu, sigma)`                                             | `MathNet.Numerics.Distributions` | log-normal continuous distribution                               |
-|  [03]   | `ContinuousUniform(lower, upper)`                                  | `MathNet.Numerics.Distributions` | uniform continuous distribution                                  |
-|  [04]   | `Weibull(shape, scale)`                                            | `MathNet.Numerics.Distributions` | Weibull reliability distribution                                 |
-|  [05]   | `Beta(a, b)`                                                       | `MathNet.Numerics.Distributions` | Beta continuous distribution                                     |
-|  [06]   | `IContinuousDistribution.Sample()`                                 | `MathNet.Numerics.Distributions` | one draw; `Samples()` is the lazy `IEnumerable<double>` stream   |
-|  [07]   | `IContinuousDistribution.InverseCumulativeDistribution(p)`         | `MathNet.Numerics.Distributions` | quantile / PPF for inverse-transform sampling                    |
-|  [08]   | `IContinuousDistribution.CumulativeDistribution(x)`                | `MathNet.Numerics.Distributions` | CDF for reliability / failure-probability scoring                |
-|  [09]   | `{Mean, Variance, StdDev, Median}`                                 | `MathNet.Numerics.Distributions` | closed-form distribution moments                                 |
-|  [10]   | `Statistics.Mean` / `Variance` / `StandardDeviation`               | `MathNet.Numerics.Statistics`    | sample moments over an `IEnumerable<double>`                     |
-|  [11]   | `Statistics.Quantile(data, tau)` / `QuantileCustom` / `Percentile` | `MathNet.Numerics.Statistics`    | sample quantile / percentile estimate                            |
-|  [12]   | `Statistics.Covariance` / `Correlation.Pearson` / `Spearman`       | `MathNet.Numerics.Statistics`    | pairwise covariance / Pearson + Spearman correlation             |
-|  [13]   | `DescriptiveStatistics(data)`                                      | `MathNet.Numerics.Statistics`    | one-pass mean/variance/skewness/kurtosis carrier                 |
-|  [14]   | `StudentT(location, scale, freedom)` `.CDF`/`.InvCDF`              | `MathNet.Numerics.Distributions` | t-test p-value CDF (the `t`/`welch-t` test statistic)            |
-|  [15]   | `FisherSnedecor(d1, d2)` `.CDF`/`.InvCDF`                          | `MathNet.Numerics.Distributions` | F-distribution CDF (the `anova` test statistic)                  |
-|  [16]   | `ChiSquared(freedom)` `.CDF`/`.InvCDF`                             | `MathNet.Numerics.Distributions` | χ² CDF (the `chi-square` test statistic)                         |
-|  [17]   | `Gamma(shape, rate)` `.CDF`/`.Density`                             | `MathNet.Numerics.Distributions` | Gamma CDF/PDF (GLM-Gamma deviance + `glm-gamma` IRLS variance)   |
-|  [18]   | `Poisson(lambda)` `.CumulativeDistribution`/`.Probability`         | `MathNet.Numerics.Distributions` | discrete Poisson CDF/PMF (GLM-Poisson + `naive-bayes` per-class) |
+| [INDEX] | [SYMBOL]                                                   | [CAPABILITY]                                                     |
+| :-----: | :--------------------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | `Normal(mean, stddev)`                                     | Gaussian continuous distribution                                 |
+|  [02]   | `LogNormal(mu, sigma)`                                     | log-normal continuous distribution                               |
+|  [03]   | `ContinuousUniform(lower, upper)`                          | uniform continuous distribution                                  |
+|  [04]   | `Weibull(shape, scale)`                                    | Weibull reliability distribution                                 |
+|  [05]   | `Beta(a, b)`                                               | Beta continuous distribution                                     |
+|  [06]   | `IContinuousDistribution.Sample()`                         | one draw; `Samples()` is the lazy `IEnumerable<double>` stream   |
+|  [07]   | `IContinuousDistribution.InverseCumulativeDistribution(p)` | quantile / PPF for inverse-transform sampling                    |
+|  [08]   | `IContinuousDistribution.CumulativeDistribution(x)`        | CDF for reliability / failure-probability scoring                |
+|  [09]   | `{Mean, Variance, StdDev, Median}`                         | closed-form distribution moments                                 |
+|  [10]   | `StudentT(location, scale, freedom)` `.CDF`/`.InvCDF`      | t-test p-value CDF (the `t`/`welch-t` test statistic)            |
+|  [11]   | `FisherSnedecor(d1, d2)` `.CDF`/`.InvCDF`                  | F-distribution CDF (the `anova` test statistic)                  |
+|  [12]   | `ChiSquared(freedom)` `.CDF`/`.InvCDF`                     | χ² CDF (the `chi-square` test statistic)                         |
+|  [13]   | `Gamma(shape, rate)` `.CDF`/`.Density`                     | Gamma CDF/PDF (GLM-Gamma deviance + `glm-gamma` IRLS variance)   |
+|  [14]   | `Poisson(lambda)` `.CumulativeDistribution`/`.Probability` | discrete Poisson CDF/PMF (GLM-Poisson + `naive-bayes` per-class) |
+
+[ENTRYPOINT_SCOPE]: descriptive statistics — namespace `MathNet.Numerics.Statistics`
+- rail: numeric
+
+| [INDEX] | [SYMBOL]                                                           | [CAPABILITY]                                         |
+| :-----: | :----------------------------------------------------------------- | :--------------------------------------------------- |
+|  [01]   | `Statistics.Mean` / `Variance` / `StandardDeviation`               | sample moments over an `IEnumerable<double>`         |
+|  [02]   | `Statistics.Quantile(data, tau)` / `QuantileCustom` / `Percentile` | sample quantile / percentile estimate                |
+|  [03]   | `Statistics.Covariance` / `Correlation.Pearson` / `Spearman`       | pairwise covariance / Pearson + Spearman correlation |
+|  [04]   | `DescriptiveStatistics(data)`                                      | one-pass mean/variance/skewness/kurtosis carrier     |
 
 ## [03]-[IMPLEMENTATION_LAW]
-
-
 
 [SHARED_PROVIDER_SURFACE]:
 - source: `MathNet.Numerics`, `MathNet.Numerics.Providers.MKL`, `MathNet.Numerics.Providers.OpenBLAS`, `CSparse`

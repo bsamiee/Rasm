@@ -1,125 +1,120 @@
 # [COMPUTE]
 
-`Rasm.Compute` is the APP-PLATFORM measured-execution package. It admits every execution request once, routes it over a substrate axis, carries it on bounded lanes, and records every outcome on one typed receipt union. The Tensor folder owns the CPU tensor vocabulary, GPU residency, staging memory, and the dense-BLAS/sparse-factor/quadrature/sampling numeric core. The Symbolic folder owns the CAS expression tree, dimensional proof, lowering cache, and units boundary. The Model folder owns `ONNX` identity, sessions, providers, inference, embedding retrieval, the generative token-streaming run, and custom-op extension. The Solver folder owns the discretization, contract, optimizer, sweep, clash, and uncertainty lanes. The Stats folder owns the classical-statistics/statistical-learning estimator axis and the DSP signal axis. The Runtime folder owns the admission rail, scheduling, monotonic progress, receipt union, the wire CONTRACT (proto vocabulary, contract evolution, fault projection) and the TRANSPORT mechanics (channels, call policy, artifact frames) as two pages, and the field/result/geometry-delta codecs with the GPU-ready residency payload. The Solver folder additionally owns the per-Gauss-point constitutive axis and the Z3 rule-satisfaction owner. The Analysis folder owns the C#-first discipline-assessment rail: one `AssessmentRequest` routed over the seam `Discipline` to a structural, physics, energy, lifecycle, circulation, or daylight runner, reconciled by the lifecycle-aware `Sweep` over the `JobGraph`. `Rasm.Compute` consumes the `Rasm` geometry kernel, the `Rasm.Element` element seam (the shared lower stratum it reads upward, never the AEC-domain peers `Rasm.Materials`/`Rasm.Bim`), AppHost ports, and Persistence stores as settled vocabulary and never reverses the dependency. The folder map and domain law live in `ARCHITECTURE.md`, the forward concept pool in `IDEAS.md`, and the work log in `TASKLOG.md`.
+`Rasm.Compute` owns APP-PLATFORM measured execution: one intent rail admits every execution request once, a substrate axis routes it over row data, bounded lanes carry it, and the one `ComputeReceipt` union records every outcome. It reads the `Rasm` kernel, the `Rasm.Element` seam, AppHost ports, and Persistence stores as settled lower-stratum vocabulary and never reverses the dependency onto the AEC-domain peers.
 
 ## [01]-[ROUTER]
 
-- [01]-[VOCABULARY](.planning/Tensor/vocabulary.md)
-- [02]-[LAYOUT](.planning/Tensor/layout.md)
-- [03]-[DISPATCH](.planning/Tensor/dispatch.md)
-- [04]-[RESIDENCY](.planning/Tensor/residency.md)
-- [05]-[MEMORY](.planning/Tensor/memory.md)
-- [06]-[BLAS](.planning/Tensor/blas.md)
-- [07]-[FACTOR](.planning/Tensor/factor.md)
-- [08]-[QUADRATURE](.planning/Tensor/quadrature.md)
-- [09]-[SAMPLING](.planning/Tensor/sampling.md)
-- [10]-[EXPRESSION](.planning/Symbolic/expression.md)
-- [11]-[DIMENSIONAL](.planning/Symbolic/dimensional.md)
-- [12]-[LOWERING](.planning/Symbolic/lowering.md)
-- [13]-[UNITS](.planning/Symbolic/units.md)
-- [14]-[IDENTITY](.planning/Model/identity.md)
-- [15]-[SESSIONS](.planning/Model/sessions.md)
-- [16]-[PROVIDERS](.planning/Model/providers.md)
-- [17]-[INFERENCE](.planning/Model/inference.md)
-- [18]-[EMBEDDING](.planning/Model/embedding.md)
-- [19]-[GENERATIVE](.planning/Model/generative.md)
-- [20]-[EXTENSION](.planning/Model/extension.md)
-- [21]-[DISCRETIZATION](.planning/Solver/discretization.md)
-- [22]-[CONTRACT](.planning/Solver/contract.md)
-- [23]-[CONSTITUTIVE](.planning/Solver/constitutive.md)
-- [24]-[OPTIMIZER](.planning/Solver/optimizer.md)
-- [25]-[SWEEP](.planning/Solver/sweep.md)
-- [26]-[CLASH](.planning/Solver/clash.md)
-- [27]-[UNCERTAINTY](.planning/Solver/uncertainty.md)
-- [28]-[SATISFY](.planning/Solver/satisfy.md)
-- [29]-[ESTIMATOR](.planning/Stats/estimator.md)
-- [30]-[SIGNAL](.planning/Stats/signal.md)
-- [31]-[ADMISSION](.planning/Runtime/admission.md)
-- [32]-[SCHEDULING](.planning/Runtime/scheduling.md)
-- [33]-[PROGRESS](.planning/Runtime/progress.md)
-- [34]-[RECEIPTS](.planning/Runtime/receipts.md)
-- [35]-[WIRE](.planning/Runtime/wire.md)
-- [36]-[TRANSPORT](.planning/Runtime/transport.md)
-- [37]-[CODECS](.planning/Runtime/codecs.md)
-- [38]-[PAYLOAD](.planning/Runtime/payload.md)
-- [39]-[ASSESSMENT](.planning/Analysis/assessment.md)
-- [40]-[AGGREGATOR](.planning/Analysis/aggregator.md)
-- [41]-[STRUCTURAL](.planning/Analysis/structural.md)
-- [42]-[PHYSICS](.planning/Analysis/physics.md)
-- [43]-[ENERGY](.planning/Analysis/energy.md)
-- [44]-[LIFECYCLE](.planning/Analysis/lifecycle.md)
-- [45]-[CIRCULATION](.planning/Analysis/circulation.md)
-- [46]-[DAYLIGHT](.planning/Analysis/daylight.md)
+[TENSOR]:
+- [01]-[VOCABULARY](.planning/Tensor/vocabulary.md): CPU tensor vocabulary — shape, factory, dtype, and op-family axes every numeric lane reads.
+- [02]-[LAYOUT](.planning/Tensor/layout.md): Layout forms and the one shape-edit request union.
+- [03]-[DISPATCH](.planning/Tensor/dispatch.md): Arity-keyed kernel dispatch and the differentiable-adjoint law.
+- [04]-[RESIDENCY](.planning/Tensor/residency.md): GPU residency lattice and the geometry-to-tensor encoding boundary.
+- [05]-[MEMORY](.planning/Tensor/memory.md): Bounded staging memory and the zero-copy stream pool.
+- [06]-[BLAS](.planning/Tensor/blas.md): Dense-BLAS, factorization, and spectral core.
+- [07]-[FACTOR](.planning/Tensor/factor.md): Sparse ingestion and the criterion-stack iterative solve.
+- [08]-[QUADRATURE](.planning/Tensor/quadrature.md): Accuracy-routed adaptive quadrature and the spectral operator.
+- [09]-[SAMPLING](.planning/Tensor/sampling.md): Sobol/Halton sampling and radial-basis scatter reconstruction.
+
+[SYMBOLIC]:
+- [10]-[EXPRESSION](.planning/Symbolic/expression.md): CAS expression algebra over the `Entity` tree.
+- [11]-[DIMENSIONAL](.planning/Symbolic/dimensional.md): ℚ⁷ SI base-dimension proof.
+- [12]-[LOWERING](.planning/Symbolic/lowering.md): Content-keyed compiled-expression cache and the analytic-Jacobian arm.
+- [13]-[UNITS](.planning/Symbolic/units.md): Units boundary admitting every unit-bearing input.
+
+[MODEL]:
+- [14]-[IDENTITY](.planning/Model/identity.md): Checksum model identity, the acquisition union, and the schema snapshot.
+- [15]-[SESSIONS](.planning/Model/sessions.md): One shared session per checksum with warm-start.
+- [16]-[PROVIDERS](.planning/Model/providers.md): Execution-provider axis with discovery and quantization posture.
+- [17]-[INFERENCE](.planning/Model/inference.md): Run-mode inference fold and result cache.
+- [18]-[EMBEDDING](.planning/Model/embedding.md): Embedding-and-retrieval owner.
+- [19]-[GENERATIVE](.planning/Model/generative.md): Token-streaming generation with the tool-call arm.
+- [20]-[EXTENSION](.planning/Model/extension.md): Custom-op registration at the string-tensor boundary.
+
+[SOLVER]:
+- [21]-[DISCRETIZATION](.planning/Solver/discretization.md): Volumetric meshing with adaptive refinement and exact-predicate gates.
+- [22]-[CONTRACT](.planning/Solver/contract.md): Physics-by-boundary-condition solve fold with adaptive recovery.
+- [23]-[CONSTITUTIVE](.planning/Solver/constitutive.md): Per-Gauss-point stress-update axis and contact enforcement.
+- [24]-[OPTIMIZER](.planning/Solver/optimizer.md): Design-space search axis with surrogate duality.
+- [25]-[SWEEP](.planning/Solver/sweep.md): N-dim DOE sweep grid and sensitivity analysis.
+- [26]-[CLASH](.planning/Solver/clash.md): Collision compute, occlusion rays, and the digital-twin loop.
+- [27]-[UNCERTAINTY](.planning/Solver/uncertainty.md): Forward-UQ and reliability over the shared evaluate oracle.
+- [28]-[SATISFY](.planning/Solver/satisfy.md): SMT rule satisfaction with witness and unsat-core explanation.
+
+[STATS]:
+- [29]-[ESTIMATOR](.planning/Stats/estimator.md): One Fit/Predict estimator axis across the statistical families.
+- [30]-[SIGNAL](.planning/Stats/signal.md): Spectral-transform axis and filter design.
+
+[RUNTIME]:
+- [31]-[ADMISSION](.planning/Runtime/admission.md): Typed intent admission with the substrate axis and total dispatch.
+- [32]-[SCHEDULING](.planning/Runtime/scheduling.md): Bounded work-lanes and the dependency job-graph scheduler.
+- [33]-[PROGRESS](.planning/Runtime/progress.md): Monotonic phase family and the progress capsule.
+- [34]-[RECEIPTS](.planning/Runtime/receipts.md): One `ComputeReceipt` fact union and benchmark-claim table.
+- [35]-[WIRE](.planning/Runtime/wire.md): Wire contract — proto vocabulary, evolution, and fault projection.
+- [36]-[TRANSPORT](.planning/Runtime/transport.md): Channel mechanics — transport rows, tuning, and the artifact-frame law.
+- [37]-[CODECS](.planning/Runtime/codecs.md): Field, result, and geometry-delta codecs and the tessellation bridge.
+- [38]-[PAYLOAD](.planning/Runtime/payload.md): Residency-payload codec and the cluster-LOD chain.
+
+[ANALYSIS]:
+- [39]-[ASSESSMENT](.planning/Analysis/assessment.md): Lifecycle-aware assessment spine and reconciler.
+- [40]-[AGGREGATOR](.planning/Analysis/aggregator.md): Multi-ply assembly aggregator over U, STC, GWP, and cost.
+- [41]-[STRUCTURAL](.planning/Analysis/structural.md): Frame solve and the design-code capacity table.
+- [42]-[PHYSICS](.planning/Analysis/physics.md): Closed-form thermal, acoustic, and fire folds.
+- [43]-[ENERGY](.planning/Analysis/energy.md): Energy-route axis over the simulation toolchain.
+- [44]-[LIFECYCLE](.planning/Analysis/lifecycle.md): Embodied-carbon and cost rollup over the EPD boundary.
+- [45]-[CIRCULATION](.planning/Analysis/circulation.md): Egress and life-safety runner.
+- [46]-[DAYLIGHT](.planning/Analysis/daylight.md): Solar-position kernel and sky-model daylight rows.
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Every Compute-domain library the folder uses, planned or implemented. Versions are centralized in the one C# manifest and never pinned here; API evidence lives in the adjacent `.api/` folder. `GeneticSharp` carries the evolutionary/genetic-algorithm tier of the Solver `OptimizerKind` rows that the exact `Google.OrTools` CP-SAT/MILP lane does not reach — the chromosome encodings, selection/crossover/mutation/termination operator catalog, and multithreaded executor behind the metaheuristic optimizer cases. `TorchSharp` (with its `libtorch-cpu` meta-backend selecting the `libtorch-cpu-osx-arm64` native dylib) is the dual-leg `[CLASSICAL_ML_BLAS]` owner: it backs the iterative `Stats/estimator` `EstimatorKind` rows (Lasso, GLM/IRLS, kernel-SVM, GMM/EM, NMF, clustering, ARMA-MLE) via `torch.linalg` + autograd + `torch.optim`, and it supplies the native osx-arm64 dense linear-algebra substrate (native ATen GEMM/factorization) for the `Tensor/blas` lane, retaining the managed MathNet terminal as the cold-start path.
+Compute-domain libraries admitted by this folder; versions centralize in the C# manifest and corroborate against the adjacent `.api/`. Source-vendored solvers compile from pinned upstreams outside NuGet restore, their natives Forge-provisioned.
 
-[TENSOR_NUMERIC]:
-- `MathNet.Numerics.Providers.MKL`
-- `MathNet.Numerics.Providers.OpenBLAS`
-- `CSparse`
+[NUMERIC_ACCELERATION]:
+- `MathNet.Numerics.Providers.MKL` — MKL native `LinearProvider` backend.
+- `MathNet.Numerics.Providers.OpenBLAS` — OpenBLAS native `LinearProvider` backend.
+- `CSparse` — managed sparse direct-factor terminal.
+- `csparse-interop` — source-vendored (wo80, BSD-3): ARPACK shift-invert eigensolver and native CHOLMOD/SuperLU/UMFPACK direct rows, fault-at-init.
+- `cslsqp` — source-vendored (oberbichler, ISC): span-based SLSQP the `OptimizerKind.slsqp` row binds.
+- `HyperJet` — hyper-dual scalar AD backing exact gradient and Hessian across the `Sensitivity` family.
+- `TorchSharp` — native ATen dense linear algebra and the iterative `EstimatorKind` autograd fits.
+- `libtorch-cpu` — osx-arm64 native backend behind TorchSharp.
+- `Silk.NET.WebGPU` — WebGPU compute-shader device substrate.
+- `Silk.NET.WebGPU.Extensions.WGPU` — wgpu-native extension surface.
 
-[SYMBOLIC]:
-- `AngouriMath` — the categorical-best managed CAS: `Entity` parse/simplify/solve/integrate/differentiate/limit/LaTeX/`Compile<>` in one owner; replaced the four-dependency MathNet.Symbolics F# stack.
-- `PeterO.Numbers` — the exact-rational `ERational` carrier the `Symbolic/dimensional` Q⁷ exponent vector stores (the AngouriMath number tower's own arithmetic).
+[SYMBOLIC_CAS]:
+- `AngouriMath` — managed CAS: `Entity` parse, simplify, solve, integrate, differentiate, and `Compile<>` in one owner.
+- `PeterO.Numbers` — exact-rational `ERational` carrier the ℚ⁷ dimension exponent vector stores.
 
 [OPTIMIZATION]:
-- `Google.OrTools`
-- `GeneticSharp`
+- `Google.OrTools` — CP-SAT and MILP exact optimization lane.
+- `GeneticSharp` — evolutionary and metaheuristic `OptimizerKind` tier OR-Tools does not reach.
+- `Microsoft.Z3` — SMT rule satisfaction returning SAT/UNSAT and unsat-core, where CP-SAT optimizes.
 
-[AUTODIFF]:
-- `HyperJet` — the hyper-dual scalar-AD THIRD leg of the one `Sensitivity` family: exact gradient/Hessian for the estimator temporal fits, FORM/SORM, the Levenberg-Marquardt canonical Jacobian arm, and the slsqp `Smooth` objective — the finite-difference fall is deleted.
+[MODEL_RUNTIME]:
+- `Microsoft.ML.OnnxRuntime` — ONNX inference session core.
+- `Microsoft.ML.OnnxRuntime.Extensions` — custom-op and string-tensor extension surface.
+- `Microsoft.ML.OnnxRuntimeGenAI` — token-streaming generative run.
+- `Microsoft.Extensions.AI.Abstractions` — `IChatClient` abstraction the AppHost provider binds.
+- `Microsoft.Extensions.Caching.Hybrid` — one `HybridCache` per lane.
 
-[SATISFACTION]:
-- `Microsoft.Z3` — SMT rule-satisfaction: `SymbolicExpr` lowered to NRA/NIA assertions returning SAT/UNSAT + unsat-core; verifies where CP-SAT optimizes
+[SIMULATION_CARBON]:
+- `Microsoft.Data.Sqlite` — read-only eplusout.sql tabular reader.
+- `NREL.OpenStudio.macOS-arm64` — in-process SWIG SDK lowering `ElementGraph` to OSM and IDF and reading `SqlFile`.
+- `PollinationSDK` — `EnergyRoute.Cloud` transport onto the same `SqlFile` fold.
+- `EC3` — openEPD REST consumed hand-thin over `HttpClient` for the EN 15978 carbon lane.
 
-[STRUCTURAL_SOLVERS]:
-- `csparse-interop` — SOURCE-VENDORED (wo80, BSD-3; not on NuGet): the ARPACK shift-invert sparse eigensolver (`fea-modal`/`fea-buckling`/seismic at building DOF) and the native CHOLMOD/SuperLU/UMFPACK direct rows beside the managed CSparse terminals; natives Forge-provisioned, fault-at-init. The BFE/FEALiTE frame backends are RETIRED — the owned beam/frame `ElementClass` rows on the `Solver/contract` spine replaced them.
-- `cslsqp` — SOURCE-VENDORED (oberbichler, ISC; feed-verified absent from NuGet): the span-based SLSQP the `OptimizerKind.slsqp` smooth constrained-NLP row binds.
-
-[ENERGY_SIMULATION]:
-- `Microsoft.Data.Sqlite` — the read-only eplusout.sql TABULAR reader (the `TabularDataWithStrings` setpoint-not-met rows the SWIG `SqlFile` exposes no accessor for).
-- `NREL.OpenStudio.macOS-arm64` — in-process SWIG SDK: `ElementGraph` → OSM → IDF, reads `SqlFile`; EnergyPlus runs as the `EnergyToolchain` subprocess.
-- `PollinationSDK` — `EnergyRoute.Cloud` transport, `Wrapper` orchestration onto the same `SqlFile` fold; sidecar-isolated, durable half Persistence-owned.
-
-[EMBODIED_CARBON]:
-- `EC3` — openEPD REST consumed hand-thin over `HttpClient`, no pin; the EN 15978 lane reads per-EPD `gwp` and writes content-keyed `Node.Assessment` rows.
-
-[CLASSICAL_ML_BLAS]:
-- `TorchSharp`
-- `libtorch-cpu`
-
-[GPU_COMPUTE]:
-- `Silk.NET.WebGPU`
-- `Silk.NET.WebGPU.Extensions.WGPU`
-
-[ML_RUNTIME]:
-- `Microsoft.ML.OnnxRuntime`
-- `Microsoft.ML.OnnxRuntime.Extensions`
-- `Microsoft.ML.OnnxRuntimeGenAI`
-
-[INTERCHANGE]:
-- `SharpGLTF.Core`
-- `SharpGLTF.Ext.3DTiles`
-- `SharpGLTF.Toolkit`
-- `Alimer.Bindings.MeshOptimizer`
-
-[PERF]:
-- `Microsoft.IO.RecyclableMemoryStream`
-
-[CACHE_AI]:
-- `Microsoft.Extensions.Caching.Hybrid`
-- `Microsoft.Extensions.AI.Abstractions`
-
-[WIRE_CLIENT]:
-- `Grpc.Net.Client.Web` — the gRPC-Web message handler translating client calls to `application/grpc-web`/`application/grpc-web-text` for HTTP/1.1 and browser-constrained paths.
-- `Grpc.Net.Common` — the shared compression-provider contracts and connectivity vocabulary beneath the `Grpc.Net.Client`/`Grpc.AspNetCore` rails.
-- `Microsoft.AspNetCore.TestHost` — test-only: the in-memory server whose `CreateHandler` handler the `RemoteTransport.InProcess` row injects into `GrpcChannelOptions.HttpHandler`; binds in the transport test harness, never this csproj.
+[INTERCHANGE_TRANSPORT]:
+- `SharpGLTF.Core` — glTF core read and write.
+- `SharpGLTF.Ext.3DTiles` — 3D Tiles egress extension.
+- `SharpGLTF.Toolkit` — mesh-building toolkit.
+- `Alimer.Bindings.MeshOptimizer` — meshoptimizer simplification and cluster-LOD bindings.
+- `Microsoft.IO.RecyclableMemoryStream` — pooled-buffer stream behind the artifact frames.
+- `Grpc.Net.Client.Web` — gRPC-Web handler for HTTP/1.1 and browser-constrained paths.
+- `Grpc.Net.Common` — shared compression and connectivity vocabulary beneath the gRPC rails.
+- `Microsoft.AspNetCore.TestHost` — test-only: in-memory server the `RemoteTransport.InProcess` row injects, binding in the transport test harness.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
-Cross-cutting C# substrate libraries Compute consumes; package charters live in `libs/csharp/.planning/README.md` and shared API evidence lives in `libs/csharp/.api/`.
+Shared substrate Compute consumes from the C# registry; the registry and its charters own the full contracts, and `libs/csharp/.api/` holds the shared API evidence.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -127,34 +122,30 @@ Cross-cutting C# substrate libraries Compute consumes; package charters live in 
 - `Thinktecture.Runtime.Extensions.Json`
 - `JetBrains.Annotations`
 
-[TIME_IDENTITY]:
-- `NodaTime`
-- `System.IO.Hashing`
-
-[NUMERIC_SUBSTRATE]:
+[NUMERIC]:
 - `CommunityToolkit.HighPerformance`
-- `MathNet.Numerics` — solver quadrature, distributions, and the MKL/OpenBLAS provider hooks admitted as folder additions
+- `MathNet.Numerics` — quadrature, distributions, and the MKL/OpenBLAS provider hooks.
 - `System.Numerics.Tensors`
 - `UnitsNet`
 
-[GRAPH_ALGORITHM]:
-- `QuikGraph` — the `Analysis/circulation` path/topology algebra (Dijkstra/A*, SCC) over the per-request space-adjacency view.
+[IDENTITY_TIME]:
+- `NodaTime`
+- `System.IO.Hashing`
 
-[PLANAR_GEOMETRY]:
-- `NetTopologySuite` — isovist/visibility polygons and occupant areas at the circulation planar boundary (float production-plane, never a second exact rail).
-- `Clipper2` — the corridor-clearance offset algebra (`InflatePaths` collapse test) at the same boundary.
+[GRAPH_GEOMETRY]:
+- `QuikGraph` — `Analysis/circulation` path and topology algebra over the space-adjacency view.
+- `NetTopologySuite` — isovist and visibility polygons at the circulation planar boundary.
+- `Clipper2` — corridor-clearance offset algebra at the same boundary.
 
-[BOUNDARY_GENERATORS]:
-- `Riok.Mapperly` — the per-case proto↔domain field transcription at the `Runtime/wire` oneof boundary.
-- `Generator.Equals` — `[Equatable]` structural equality where a class-root wire shape surrenders record-root equality.
-
-[WIRE_CODEGEN]:
+[MAPPING_WIRE]:
+- `Riok.Mapperly` — per-case proto↔domain transcription at the `Runtime/wire` boundary.
+- `Generator.Equals` — `[Equatable]` structural equality where a class-root wire shape surrenders record equality.
 - `Google.Protobuf`
 - `Grpc.Net.Client`
 - `Grpc.AspNetCore`
 - `Grpc.Tools`
 - `NodaTime.Serialization.Protobuf`
 
-[TEST_SUBSTRATE]:
+[TEST]:
 Rows bind in the branch benchmark project, never the package csproj.
 - `BenchmarkDotNet`

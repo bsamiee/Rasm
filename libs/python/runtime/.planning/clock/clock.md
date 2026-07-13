@@ -4,12 +4,12 @@ The single logical-time owner the whole branch consumes. The runtime mints no wa
 
 Four shapes carry the concern:
 
-| [INDEX] | [SHAPE]       | [ROLE]                                                                                                                                                                                         |
-| :-----: | :------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Hlc`         | the two-64-bit-half cell packing the NodaTime physical instant high and the per-node logical counter low, bit-identical to the C# `Hlc` stamp                                                  |
-|  [02]   | `Ordering`    | the behavior-bearing three-case causal verdict carrying the C# `Hlc.CompareTo` sign as its case payload, with `fold[T]` so a consumer dispatches on the owner instead of re-`match`ing the tag |
-|  [03]   | `ElementId`   | the causal/content-stable peer-local identity the CRDT RGA and OR-set address by                                                                                                               |
-|  [04]   | `CausalFrame` | the `(Hlc, Tenant)` inbound frame owning the railed `decode` and the dual-shape `attributes` projection, both keyed off the one `SLOTS` table                                                  |
+| [INDEX] | [SHAPE]       | [ROLE]                                                                                                            |
+| :-----: | :------------ | :---------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Hlc`         | the two-64-bit-half cell: NodaTime physical instant high, per-node logical counter low, bit-identical to C# `Hlc` |
+|  [02]   | `Ordering`    | the three-case causal verdict carrying the C# `Hlc.CompareTo` sign as case payload, with `fold[T]` owner dispatch |
+|  [03]   | `ElementId`   | the causal/content-stable peer-local identity the CRDT RGA and OR-set address by                                  |
+|  [04]   | `CausalFrame` | the `(Hlc, Tenant)` inbound frame owning the railed `decode` and dual-shape `attributes`, both keyed off `SLOTS`  |
 
 `SLOTS` pairs each slot's inbound gRPC-metadata header name with its outbound attribute key, so the slot spelling and the `(tenant, hlc)` attribute map derive from one table rather than scattered literals.
 

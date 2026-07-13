@@ -13,24 +13,28 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY]  | [CONSUMER]                                                          |
-| :-----: | :---------------------------------------------------- | :------------- | :------------------------------------------------------------------ |
-|  [01]   | `DuckDBInstance`                                      | engine handle  | one per database file (or `:memory:`); single-writer ACID WAL       |
-|  [02]   | `DuckDBConnection`                                    | session handle | per-fiber-tree leased session; runs statements                      |
-|  [03]   | result reader (from `runAndReadAll`/`streamAndRead*`) | result surface | `getRows()` / `getColumns()` — row-major or column-major projection |
-|  [04]   | prepared statement (from `connection.prepare`)        | bind surface   | `bind(values, types?)` then `run`/`stream` mirrors                  |
+| [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY]  | [CONSUMER]                                                    |
+| :-----: | :---------------------------------------------------- | :------------- | :------------------------------------------------------------ |
+|  [01]   | `DuckDBInstance`                                      | engine handle  | one per database file (or `:memory:`); single-writer ACID WAL |
+|  [02]   | `DuckDBConnection`                                    | session handle | per-fiber-tree leased session; runs statements                |
+|  [03]   | result reader (from `runAndReadAll`/`streamAndRead*`) | result surface | `getRows()` / `getColumns()` — row/column-major projection    |
+|  [04]   | prepared statement (from `connection.prepare`)        | bind surface   | `bind(values, types?)` then `run`/`stream` mirrors            |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                                                                                  | [ENTRY_FAMILY] | [CONSUMER]                                                                                                            |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `DuckDBInstance.create(path, config?)` (`":memory:"` or a file path; config e.g. `{ threads }`)                            | engine acquire | the lane's `acquireRelease` acquire arm; `instance.closeSync()` is the release arm                                    |
-|  [02]   | `instance.connect()` → `DuckDBConnection`                                                                                  | session lease  | scoped connection per analytical unit of work; `connection.disconnectSync()` (alias `closeSync()`) is the release arm |
-|  [03]   | `connection.run(sql, values?, types?)`                                                                                     | execute        | DDL/DML to completion                                                                                                 |
-|  [04]   | `connection.runAndReadAll(sql, values?, types?)` → reader → `getRows()`/`getColumns()`                                     | materialize    | bounded result sets                                                                                                   |
-|  [05]   | `connection.streamAndReadUntil(sql, targetRowCount)` / `streamAndReadAll` / `runAndReadUntil`                              | stream read    | incremental readers for large results — the lane's `Stream` lift                                                      |
-|  [06]   | `connection.prepare(sql)` → `prepared.bind(values, types?)` → `prepared.run()`/`.stream()`                                 | prepared       | repeated parameterized analytics                                                                                      |
-|  [07]   | `ATTACH`/`INSTALL`/`LOAD` as SQL (`httpfs`, `postgres`, `sqlite`, `ducklake`, `iceberg`, `delta`, `spatial`, `vss`, `fts`) | extension SQL  | capability admission is a statement, never an API                                                                     |
+[ENTRYPOINT_SCOPE]: scoped acquire, execute, stream, and extension SQL
+- rail: lane/olap
+- Every execute/read is a `connection` member; `instance.closeSync()` and `connection.disconnectSync()` (alias `closeSync()`) are the release arms. Extension SQL admits `httpfs`/`postgres`/`sqlite`/`ducklake`/`iceberg`/`delta`/`spatial`/`vss`/`fts`.
+
+| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [CONSUMER]                                             |
+| :-----: | :------------------------------------------------------------ | :------------- | :----------------------------------------------------- |
+|  [01]   | `DuckDBInstance.create(path, config?)`                        | engine acquire | `":memory:"` or file path, `{ threads }`; acquire arm  |
+|  [02]   | `instance.connect()` → `DuckDBConnection`                     | session lease  | scoped connection per analytical unit of work          |
+|  [03]   | `run(sql, values?, types?)`                                   | execute        | DDL/DML to completion                                  |
+|  [04]   | `runAndReadAll(sql, values?, types?)`                         | materialize    | bounded result sets → reader                           |
+|  [05]   | `streamAndReadUntil` / `streamAndReadAll` / `runAndReadUntil` | stream read    | incremental readers to `targetRowCount`; `Stream` lift |
+|  [06]   | `prepare(sql)` → `prepared.bind(values, types?)`              | prepared       | repeated parameterized analytics; `.run()`/`.stream()` |
+|  [07]   | `ATTACH` / `INSTALL` / `LOAD` as SQL                          | extension SQL  | capability admission is a statement, never an API      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

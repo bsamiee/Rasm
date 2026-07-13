@@ -90,22 +90,22 @@ from C# domain to `timestamptz` and back.
 All projections are `public static` extensions on `DbFunctions` (the `this DbFunctions _` receiver),
 usable only inside an EF query tree; `Sum`/`Average` return nullable (`Period?`/`Duration?`).
 
-| [INDEX] | [SURFACE]                                        | [CALL_SHAPE]            | [CAPABILITY]                                                        |
-| :-----: | :----------------------------------------------- | :---------------------- | :------------------------------------------------------------------ |
-|  [01]   | `Period? Sum(IEnumerable<Period>)`               | `DbFunctions` extension | sums `Period` values                                                |
-|  [02]   | `Duration? Sum(IEnumerable<Duration>)`           | `DbFunctions` extension | sums `Duration` values                                              |
-|  [03]   | `Period? Average(IEnumerable<Period>)`           | `DbFunctions` extension | averages `Period` values                                            |
-|  [04]   | `Duration? Average(IEnumerable<Duration>)`       | `DbFunctions` extension | averages `Duration` values                                          |
-|  [05]   | `Distance(Instant, Instant)`                     | `DbFunctions` extension | integer distance between instants                                   |
-|  [06]   | `Distance(ZonedDateTime, ZonedDateTime)`         | `DbFunctions` extension | integer distance between zoned datetimes                            |
-|  [07]   | `Distance(LocalDateTime, LocalDateTime)`         | `DbFunctions` extension | integer distance between local datetimes                            |
-|  [08]   | `Distance(LocalDate, LocalDate)`                 | `DbFunctions` extension | integer distance between dates                                      |
-|  [09]   | `RangeAgg(IEnumerable<Interval>)`                | `DbFunctions` extension | aggregates `Interval` values to `Interval[]`                        |
-|  [10]   | `RangeAgg(IEnumerable<DateInterval>)`            | `DbFunctions` extension | aggregates `DateInterval` values to `DateInterval[]`                |
-|  [11]   | `RangeIntersectAgg(IEnumerable<Interval>)`       | `DbFunctions` extension | intersects `Interval` sequence to scalar `Interval`                 |
-|  [12]   | `RangeIntersectAgg(IEnumerable<DateInterval>)`   | `DbFunctions` extension | intersects `DateInterval` sequence to scalar `DateInterval`         |
-|  [13]   | `RangeIntersectAgg(IEnumerable<Interval[]>)`     | `DbFunctions` extension | intersects multirange `Interval[]` sequence to `Interval[]`         |
-|  [14]   | `RangeIntersectAgg(IEnumerable<DateInterval[]>)` | `DbFunctions` extension | intersects multirange `DateInterval[]` sequence to `DateInterval[]` |
+| [INDEX] | [SURFACE]                                        | [CAPABILITY]                                                        |
+| :-----: | :----------------------------------------------- | :------------------------------------------------------------------ |
+|  [01]   | `Period? Sum(IEnumerable<Period>)`               | sums `Period` values                                                |
+|  [02]   | `Duration? Sum(IEnumerable<Duration>)`           | sums `Duration` values                                              |
+|  [03]   | `Period? Average(IEnumerable<Period>)`           | averages `Period` values                                            |
+|  [04]   | `Duration? Average(IEnumerable<Duration>)`       | averages `Duration` values                                          |
+|  [05]   | `Distance(Instant, Instant)`                     | integer distance between instants                                   |
+|  [06]   | `Distance(ZonedDateTime, ZonedDateTime)`         | integer distance between zoned datetimes                            |
+|  [07]   | `Distance(LocalDateTime, LocalDateTime)`         | integer distance between local datetimes                            |
+|  [08]   | `Distance(LocalDate, LocalDate)`                 | integer distance between dates                                      |
+|  [09]   | `RangeAgg(IEnumerable<Interval>)`                | aggregates `Interval` values to `Interval[]`                        |
+|  [10]   | `RangeAgg(IEnumerable<DateInterval>)`            | aggregates `DateInterval` values to `DateInterval[]`                |
+|  [11]   | `RangeIntersectAgg(IEnumerable<Interval>)`       | intersects `Interval` sequence to scalar `Interval`                 |
+|  [12]   | `RangeIntersectAgg(IEnumerable<DateInterval>)`   | intersects `DateInterval` sequence to scalar `DateInterval`         |
+|  [13]   | `RangeIntersectAgg(IEnumerable<Interval[]>)`     | intersects multirange `Interval[]` sequence to `Interval[]`         |
+|  [14]   | `RangeIntersectAgg(IEnumerable<DateInterval[]>)` | intersects multirange `DateInterval[]` sequence to `DateInterval[]` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

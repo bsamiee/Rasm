@@ -37,7 +37,7 @@ toolkit (`ExtractError`/`ExtractContext`). The `ai/model.ts` guardrail gate wrap
 |  [10]   | `LanguageModel.ConstructorParams`           | interface        | provider implementation seam             |
 |  [11]   | `LanguageModel.ExtractError/ExtractContext` | conditional type | toolkit error/context inference          |
 
-```ts contract
+```ts signature
 // One options shape drives all three modalities; Tools is inferred from the toolkit.
 interface GenerateTextOptions<Tools extends Record<string, Tool.Any>> {
   readonly prompt: Prompt.RawInput
@@ -98,7 +98,7 @@ so the guardrail/tier-routing folds read the active provider by yielding one Tag
 provider (anthropic/openai/google/bedrock/openrouter) onto this one constructor — asymmetry lives in the row's
 config, never in a parallel API.
 
-```ts contract
+```ts signature
 const TypeId = "~@effect/ai/Model"
 interface Model<in out Provider, in out Provides, in out Requires>
   extends Layer.Layer<Provides | ProviderName, never, Requires>,
@@ -114,16 +114,16 @@ declare const make: <const Provider extends string, Provides, Requires>(
 [PROVIDER_ROWS]: the five sibling catalogs this table owner folds — each resolves `model(...)`/`layer(...)` into the core
 `LanguageModel.LanguageModel` (plus `EmbeddingModel`/`Tokenizer` where the asymmetry column is populated), so provider
 choice is a single composition-root layer swap. The row grammar (Client `make`/`layer`/`layerConfig` with `Redacted` key +
-`HttpClient` requirement, per-request `Config` + `withConfigOverride`, `model()`/`layer()` returning `AiModel.Model<provider,…>`)
+`HttpClient` requirement, per-request `Config` + `withConfigOverride`, the `<Provider>LanguageModel.model`/`.layer` entry — `.modelWithTokenizer` where the row carries a Tokenizer — returning `AiModel.Model<provider,…>`)
 is uniform across all five; the asymmetry lives in the row config, catalogued per page.
 
-| [INDEX] | [PROVIDER]      | [CATALOG]                     | [MODEL_ENTRY]                                                                   | [EXTRA_ASYMMETRY]                                                      |
-| :-----: | :-------------- | :---------------------------- | :------------------------------------------------------------------------------ | :--------------------------------------------------------------------- |
-|  [01]   | OpenAI          | `effect-ai-openai.md`         | `OpenAiLanguageModel.model`/`.modelWithTokenizer`; `OpenAiEmbeddingModel.model` | embeddings ×2 + `OpenAiTokenizer` + `OpenAiTelemetry`                  |
-|  [02]   | Anthropic       | `effect-ai-anthropic.md`      | `AnthropicLanguageModel.model`/`.modelWithTokenizer`                            | `AnthropicTokenizer` Layer + `prepareTools` export                     |
-|  [03]   | Google (Gemini) | `effect-ai-google.md`         | `GoogleLanguageModel.model`                                                     | raw-client embeddings/token-count only                                 |
-|  [04]   | Amazon Bedrock  | `effect-ai-amazon-bedrock.md` | `AmazonBedrockLanguageModel.model`                                              | SigV4 creds + native guardrail assessment + Anthropic-on-Bedrock tools |
-|  [05]   | OpenRouter      | `effect-ai-openrouter.md`     | `OpenRouterLanguageModel.model`                                                 | aggregator provider-routing + per-response cost metadata               |
+| [INDEX] | [PROVIDER]      | [CATALOG]                     | [EXTRA_ASYMMETRY]                                                      |
+| :-----: | :-------------- | :---------------------------- | :--------------------------------------------------------------------- |
+|  [01]   | OpenAI          | `effect-ai-openai.md`         | embeddings ×2 + `OpenAiTokenizer` + `OpenAiTelemetry`                  |
+|  [02]   | Anthropic       | `effect-ai-anthropic.md`      | `AnthropicTokenizer` Layer + `prepareTools` export                     |
+|  [03]   | Google (Gemini) | `effect-ai-google.md`         | raw-client embeddings/token-count only                                 |
+|  [04]   | Amazon Bedrock  | `effect-ai-amazon-bedrock.md` | SigV4 creds + native guardrail assessment + Anthropic-on-Bedrock tools |
+|  [05]   | OpenRouter      | `effect-ai-openrouter.md`     | aggregator provider-routing + per-response cost metadata               |
 
 ## [04]-[EMBEDDING_MODEL]
 
@@ -133,7 +133,7 @@ is uniform across all five; the asymmetry lives in the row config, catalogued pe
 `makeDataLoader` owns time-window coalescing (Scope-scoped). `ai/embed.ts` satisfies the
 `store/retrieve` `Embedder` port with the `EmbeddingModel` Tag; `ai/embed.ts` feeds `embedMany`.
 
-```ts contract
+```ts signature
 declare class EmbeddingModel extends Context.Tag("@effect/ai/EmbeddingModel")<EmbeddingModel, Service> {}
 interface Service {
   readonly embed: (input: string) => Effect.Effect<Array<number>, AiError.AiError>
@@ -182,7 +182,7 @@ bind handlers; `merge` composes toolkits (later wins). Every provider tool roste
 |  [12]   | `Tool.FailureMode`                                     | union        | `"error" \| "return"` failure-routing policy              |
 |  [13]   | `Tool.Any`                                             | erased bound | `Record<string, Tool.Any>` keys every options/toolkit sig |
 
-```ts contract
+```ts signature
 declare const make: <const Name extends string, Params extends Schema.Struct.Fields | EmptyParams = ...,
   Success extends Schema.Schema.Any = typeof Schema.Void, Failure extends Schema.Schema.All = typeof Schema.Never,
   Mode extends FailureMode | undefined = undefined, Deps extends Array<Context.Tag<any, any>> = []>(
@@ -224,7 +224,7 @@ declare const merge: <const Toolkits extends ReadonlyArray<Any>>(...toolkits: To
 `RawInput` is what `generateText({ prompt })` accepts (string | messages | `Prompt`). `Response` is the
 discriminated part union `streamText` yields — the design's streaming fold discriminates on `part.type`.
 
-```ts contract
+```ts signature
 // Prompt: message + part ADT with encoded twins and lowercase constructors.
 type RawInput = string | Prompt | ReadonlyArray<Message> | /* … */
 declare const make: (input: RawInput) => Prompt
@@ -248,17 +248,22 @@ declare const makePart: <T extends string>(type: T, params: ConstructorParams) =
 
 [AUGMENTATION_BASE]: the provider boundary-hook seam — every provider `declare module`-augments these interface twins, never the schema — rail: ai-core
 
-Each `Prompt` message/part carries a `ProviderOptions` slot and each `Response` part a `ProviderMetadata` slot (both
+Each `Prompt` message/part carries a `Prompt.ProviderOptions` slot and each `Response` part a `Response.ProviderMetadata` slot (both
 `Schema.Record<string, Record<string, unknown> | undefined>` bases). A provider package attaches its one optional
 provider-named key (`openai`/`anthropic`/`google`/`bedrock`/`openrouter`) by `declare module`-augmenting the SAME interfaces
 below — the roster every sibling catalog's augmentation table targets. Internal code reads canonical shapes; the edge maps the slots.
 
-| [INDEX] | [MODULE]              | [AUGMENTATION_BASE_INTERFACES]                                                                                                                                                                                                                             | [SLOT_BASE]                 |
-| :-----: | :-------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------- |
-|  [01]   | `@effect/ai/Prompt`   | `System`/`User`/`Assistant`/`Tool` `MessageOptions`; `Text`/`Reasoning`/`File`/`ToolCall`/`ToolResult` `PartOptions`                                                                                                                                       | `Prompt.ProviderOptions`    |
-|  [02]   | `@effect/ai/Response` | `Text{,Start,Delta,End}PartMetadata`, `Reasoning{,Start,Delta,End}PartMetadata`, `ToolParams{Start,Delta,End}PartMetadata`, `ToolCall`/`ToolResult` `PartMetadata`, `File`/`DocumentSource`/`UrlSource`/`ResponseMetadata`/`Finish`/`Error` `PartMetadata` | `Response.ProviderMetadata` |
+| [INDEX] | [MODULE]              | [AUGMENTATION_BASE_INTERFACES]                                                         |
+| :-----: | :-------------------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `@effect/ai/Prompt`   | `System`/`User`/`Assistant`/`Tool` `MessageOptions`                                    |
+|  [02]   | `@effect/ai/Prompt`   | `Text`/`Reasoning`/`File`/`ToolCall`/`ToolResult` `PartOptions`                        |
+|  [03]   | `@effect/ai/Response` | `Text{,Start,Delta,End}PartMetadata`                                                   |
+|  [04]   | `@effect/ai/Response` | `Reasoning{,Start,Delta,End}PartMetadata`                                              |
+|  [05]   | `@effect/ai/Response` | `ToolParams{Start,Delta,End}PartMetadata`                                              |
+|  [06]   | `@effect/ai/Response` | `ToolCall`/`ToolResult` `PartMetadata`                                                 |
+|  [07]   | `@effect/ai/Response` | `File`/`DocumentSource`/`UrlSource`/`ResponseMetadata`/`Finish`/`Error` `PartMetadata` |
 
-```ts contract
+```ts signature
 // providers augment the interface twin with one optional provider key — the boundary hook, no schema fork:
 declare module "@effect/ai/Response" { interface FinishPartMetadata { readonly openai?: { serviceTier?: … } } }
 declare module "@effect/ai/Prompt"   { interface FilePartOptions   { readonly anthropic?: { cacheControl?: … } } }
@@ -273,7 +278,7 @@ appending both turns. `export`/`exportJson` serialize; `fromJson`/`fromExport`/`
 `Persistence` + `layerPersisted` back durable sessions — the exact substrate `ai/agent.ts` and
 `ai/agent.ts` compose for durable agents over `work` entities.
 
-```ts contract
+```ts signature
 declare class Chat extends Context.Tag("@effect/ai/Chat")<Chat, Service> {}
 interface Service {
   readonly history: Ref.Ref<Prompt.Prompt>
@@ -303,7 +308,7 @@ declare const layerPersisted: (o: { /* … */ }) => Layer.Layer<Persistence, nev
 `modelWithTokenizer`/`layerWithTokenizer` fold either into the provides set. `truncate` is the budget enforcement — trim a
 `Prompt` to a token ceiling before generation.
 
-```ts contract
+```ts signature
 declare class Tokenizer extends Context.Tag("@effect/ai/Tokenizer")<Tokenizer, Service> {}
 interface Service {
   readonly tokenize: (input: Prompt.RawInput) => Effect.Effect<Array<number>, AiError.AiError>
@@ -332,7 +337,7 @@ with typed error subclasses. This is the sole MCP host — `@modelcontextprotoco
 |  [07]   | `McpSchema.*`                           | wire        | MCP protocol Schemas + typed errors  |
 |  [08]   | `McpSchema.param`                       | constructor | typed resource-template parameter    |
 
-```ts contract
+```ts signature
 declare const toolkit: <Tools extends Record<string, AiTool.Any>>(toolkit: Toolkit.Toolkit<Tools>)
   => Layer.Layer<never, never, AiTool.HandlersFor<Tools> | Exclude<AiTool.Requirements<Tools>, McpServerClient>>
 declare const layerStdio: (o: { readonly name: string; readonly version: string; readonly stdin: Stream<Uint8Array,...>; readonly stdout: Sink<...> }) => Layer.Layer<McpServer | McpServerClient, never, ...>
@@ -358,7 +363,7 @@ declare const param: <Id extends string, S>(id: Id, schema: S) => Param<Id, S>
 (`effect-ai-openai.md` [07]). `IdGenerator` is the pluggable tool-call id source. `AiError` is the one tagged
 failure union — `Match.tag` dispatch, never ad-hoc throws.
 
-```ts contract
+```ts signature
 declare const addGenAIAnnotations: (span: Span, options: GenAITelemetryAttributeOptions) => void
 declare const addSpanAttributes: (span: Span, attributes: GenAITelemetryAttributes) => void
 declare class CurrentSpanTransformer extends /* span-transformer Context reference */ {}

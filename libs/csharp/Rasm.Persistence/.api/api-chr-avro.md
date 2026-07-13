@@ -90,11 +90,11 @@ Abstract per-shape codec cases the binary/JSON legs specialize (each `: Deserial
 [REPRESENTATION_TYPES]: the schema read/write seam (namespace `Chr.Avro.Representation`)
 - rail: avro-schema
 
-| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE] | [CAPABILITY]                                                                        |
-| :-----: | :-------------------------------------- | :------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `ISchemaReader<TContext>`               | read contract  | `Schema Read(Stream, TContext?)` — a serialized schema → model                      |
-|  [02]   | `ISchemaWriter<TContext>`               | write contract | `void Write(Schema, Stream, bool canonical, TContext?)` — model → serialized schema |
-|  [03]   | `SchemaReaderCase` / `SchemaWriterCase` | abstract case  | per-schema-shape representation case bases                                          |
+| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE] | [CAPABILITY]                                            |
+| :-----: | :-------------------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `ISchemaReader<TContext>`               | read contract  | `Schema Read(Stream, TContext?)`                        |
+|  [02]   | `ISchemaWriter<TContext>`               | write contract | `void Write(Schema, Stream, bool canonical, TContext?)` |
+|  [03]   | `SchemaReaderCase` / `SchemaWriterCase` | abstract case  | per-schema-shape representation case bases              |
 
 The concrete JSON facade implementing these (`JsonSchemaReader`/`JsonSchemaWriter`, `IJsonSchemaReader`/`IJsonSchemaWriter`) ships in the transitive `Chr.Avro.Json`, not this assembly — see `api-chr-avro-confluent` `[INTEGRATION_LAW]`.
 
@@ -102,15 +102,16 @@ The concrete JSON facade implementing these (`JsonSchemaReader`/`JsonSchemaWrite
 
 [ENTRYPOINT_SCOPE]: schema construction from a CLR type
 - rail: avro-schema
+- `SchemaBuilder` ctors take the `(memberVisibility, enumBehavior, nullableReferenceTypeBehavior, temporalBehavior)` policy quartet (shared with `CreateDefaultCaseBuilders`) or the `(IEnumerable<Func<ISchemaBuilder, ISchemaBuilderCase>>)` custom case list.
 
-| [INDEX] | [SURFACE]                                                                                                                  | [CALL_SHAPE] | [CAPABILITY]                                              |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------- | :----------- | :-------------------------------------------------------- |
-|  [01]   | `new SchemaBuilder(memberVisibility, enumBehavior, nullableReferenceTypeBehavior, temporalBehavior)`                       | ctor         | builds the default ordered case set under explicit policy |
-|  [02]   | `new SchemaBuilder(IEnumerable<Func<ISchemaBuilder, ISchemaBuilderCase>>)`                                                 | ctor         | builds from a fully custom case list                      |
-|  [03]   | `SchemaBuilder.BuildSchema<T>(SchemaBuilderContext?)` → `Schema`                                                           | build call   | derives an Avro schema from `typeof(T)`                   |
-|  [04]   | `SchemaBuilder.BuildSchema(Type, SchemaBuilderContext?)` → `Schema`                                                        | build call   | derives a schema from a runtime `Type`                    |
-|  [05]   | `SchemaBuilder.CreateDefaultCaseBuilders(memberVisibility, enumBehavior, nullableReferenceTypeBehavior, temporalBehavior)` | factory      | the default case list for custom composition              |
-|  [06]   | `new SchemaBuilderContext()`                                                                                               | ctor         | the schema cache for one recursive build                  |
+| [INDEX] | [SURFACE]                                                           | [CALL_SHAPE] | [CAPABILITY]                                   |
+| :-----: | :------------------------------------------------------------------ | :----------- | :--------------------------------------------- |
+|  [01]   | `new SchemaBuilder(memberVisibility, …)`                            | ctor         | default ordered case set under explicit policy |
+|  [02]   | `new SchemaBuilder(IEnumerable<Func<…>>)`                           | ctor         | builds from a fully custom case list           |
+|  [03]   | `SchemaBuilder.BuildSchema<T>(SchemaBuilderContext?)` → `Schema`    | build call   | derives an Avro schema from `typeof(T)`        |
+|  [04]   | `SchemaBuilder.BuildSchema(Type, SchemaBuilderContext?)` → `Schema` | build call   | derives a schema from a runtime `Type`         |
+|  [05]   | `SchemaBuilder.CreateDefaultCaseBuilders(…)`                        | factory      | the default case list for custom composition   |
+|  [06]   | `new SchemaBuilderContext()`                                        | ctor         | the schema cache for one recursive build       |
 
 [ENTRYPOINT_SCOPE]: schema model construction
 - rail: avro-schema

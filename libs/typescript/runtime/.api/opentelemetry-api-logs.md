@@ -16,17 +16,17 @@
 [PUBLIC_TYPE_SCOPE]: the record shape and the shared vocabulary
 - rail: observability/logs
 
-| [INDEX] | [SYMBOL]                                                                                                                               | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                                                            |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------- | :------------ | :------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `LogRecord` (`timestamp?`, `observedTimestamp?`, `severityNumber?`, `severityText?`, `body?`, `attributes?`, `eventName?`, `context?`) | input record  | what `Logger.emit` takes; `context?` links the record to the active span                                       |
-|  [02]   | `SeverityNumber` (enum: `UNSPECIFIED = 0`, then `TRACE`/`DEBUG`/`INFO`/`WARN`/`ERROR`/`FATAL` anchors stepping by 4 to `FATAL4 = 24`)  | severity axis | the one severity vocabulary — `sdk-logs` `LoggerConfig.minimumSeverity` and the crash lane's `FATAL` key on it |
-|  [03]   | `AnyValue` (`scalar \| Uint8Array \| AnyValueArray \| AnyValueMap \| null \| undefined`) / `AnyValueMap`                               | value algebra | the recursive log-content value type — richer than span `Attributes`                                           |
-|  [04]   | `LogBody` (= `AnyValue`) / `LogAttributes` (= `AnyValueMap`)                                                                           | content types | body and attribute slots; never a local re-declaration                                                         |
-|  [05]   | `Logger` (`emit(logRecord)`, `enabled(options?)`)                                                                                      | contract      | the emit surface; `enabled` is the cheap pre-build drop probe                                                  |
-|  [06]   | `LoggerProvider` (`getLogger(name, version?, options?)`)                                                                               | contract      | what the SDK implements and the global registration holds                                                      |
-|  [07]   | `LoggerOptions` (`schemaUrl?`, `attributes?: LogAttributes`)                                                                           | scope options | per-logger scope identity — the field is `attributes`, not `scopeAttributes`                                   |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                    |
+| :-----: | :-------------------------- | :------------ | :--------------------------------------------------------------------- |
+|  [01]   | `LogRecord`                 | input record  | `Logger.emit` input (fence); `context?` links to the span              |
+|  [02]   | `SeverityNumber`            | severity axis | the one severity vocabulary (fence); `minimumSeverity` + crash `FATAL` |
+|  [03]   | `AnyValue` / `AnyValueMap`  | value algebra | recursive log-content value (fence) — richer than span `Attributes`    |
+|  [04]   | `LogBody` / `LogAttributes` | content types | body and attribute slots; never a local re-declaration                 |
+|  [05]   | `Logger`                    | contract      | the emit surface (fence); `enabled` is the pre-build drop probe        |
+|  [06]   | `LoggerProvider`            | contract      | what the SDK implements and the global registration holds              |
+|  [07]   | `LoggerOptions`             | scope options | per-logger scope identity — the field is `attributes`                  |
 
-```ts contract
+```ts signature
 interface LogRecord {
   timestamp?: TimeInput; observedTimestamp?: TimeInput          // TimeInput from @opentelemetry/api
   severityNumber?: SeverityNumber; severityText?: string
@@ -37,6 +37,12 @@ interface Logger {
   emit(logRecord: LogRecord): void
   enabled(options?: { context?: Context; severityNumber?: SeverityNumber; eventName?: string }): boolean   // pre-build drop probe
 }
+interface LoggerProvider { getLogger(name: string, version?: string, options?: LoggerOptions): Logger }
+interface LoggerOptions { schemaUrl?: string; attributes?: LogAttributes }   // scope identity; field is attributes, not scopeAttributes
+enum SeverityNumber { UNSPECIFIED = 0, /* TRACE DEBUG INFO WARN ERROR FATAL anchors step by 4 */ FATAL4 = 24 }
+type AnyValue = scalar | Uint8Array | AnyValueArray | AnyValueMap | null | undefined   // scalar = string|number|boolean
+type AnyValueMap = { [key: string]: AnyValue }
+type LogBody = AnyValue; type LogAttributes = AnyValueMap
 ```
 
 ## [03]-[ENTRYPOINTS]
@@ -45,12 +51,12 @@ interface Logger {
 - rail: observability/logs
 - `logs` is a singleton, not a class: one global provider per process, installed once at the composition root; every `getLogger` before installation returns a no-op that upgrades when the provider lands.
 
-| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                              |
-| :-----: | :------------------------------------------------------------ | :------------- | :--------------------------------------------------------------- |
-|  [01]   | `logs.getLogger(name, version?, options?): Logger`            | mint           | instrumentation-side logger acquisition; safe before SDK install |
-|  [02]   | `logs.setGlobalLoggerProvider(provider): LoggerProvider`      | install        | composition-root-only — the one global registration              |
-|  [03]   | `logs.getLoggerProvider(): LoggerProvider` / `logs.disable()` | introspect     | provider read-back; teardown to the no-op state                  |
-|  [04]   | `createNoopLogger(): Logger`                                  | noop           | the explicit no-op row for kit-driven specs and disabled lanes   |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                              |
+| :-----: | :-------------------------------------------- | :------------- | :--------------------------------------------------------------- |
+|  [01]   | `logs.getLogger(name, version?, options?)`    | mint           | instrumentation-side logger acquisition; safe before SDK install |
+|  [02]   | `logs.setGlobalLoggerProvider(provider)`      | install        | composition-root-only — the one global registration              |
+|  [03]   | `logs.getLoggerProvider()` / `logs.disable()` | introspect     | provider read-back; teardown to the no-op state                  |
+|  [04]   | `createNoopLogger()`                          | noop           | the explicit no-op row for kit-driven specs and disabled lanes   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

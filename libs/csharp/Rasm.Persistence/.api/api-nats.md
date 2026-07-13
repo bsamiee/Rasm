@@ -16,49 +16,57 @@
 [SUB_CLIENT_MAP]: which namespace owns which concern
 - rail: messaging-protocol
 
-| [INDEX] | [ASSEMBLY]                     | [NAMESPACE]                                | [OWNS]                                                                                                                                                  |
-| :-----: | :----------------------------- | :----------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `NATS.Client.Core`             | `NATS.Client.Core`                         | connection, pub/sub, request/reply, serializers, TLS, auth                                                                                              |
-|  [02]   | `NATS.Client.JetStream`        | `NATS.Client.JetStream`(`.Models`)         | durable streams, consumers, publish-ack, consume/fetch                                                                                                  |
-|  [03]   | `NATS.Client.KeyValueStore`    | `NATS.Client.KeyValueStore`                | JetStream KV — revisioned CAS, watch, history                                                                                                           |
-|  [04]   | `NATS.Client.ObjectStore`      | `NATS.Client.ObjectStore`                  | JetStream Object Store — chunked objects, links, seal                                                                                                   |
-|  [05]   | `NATS.Client.Services`         | `NATS.Client.Services`                     | the NATS micro-services protocol (discovery, stats, ping)                                                                                               |
-|  [06]   | `NATS.Client.Hosting`          | `Microsoft.Extensions.DependencyInjection` | `AddNats` DI registration + connection pool                                                                                                             |
-|  [07]   | `NATS.Client.Simplified`       | `NATS.Net`                                 | `NatsClient` one-line entry + `NatsClientDefaultSerializerRegistry` (the `CreateXContext` extensions live in their own KV/Object sub-clients, not here) |
-|  [08]   | `NATS.Client.Serializers.Json` | `NATS.Client.Serializers.Json`             | the System.Text.Json serializer registry leg                                                                                                            |
+| [INDEX] | [ASSEMBLY]                     | [NAMESPACE]                                | [OWNS]                                                     |
+| :-----: | :----------------------------- | :----------------------------------------- | :--------------------------------------------------------- |
+|  [01]   | `NATS.Client.Core`             | `NATS.Client.Core`                         | connection, pub/sub, request/reply, serializers, TLS, auth |
+|  [02]   | `NATS.Client.JetStream`        | `NATS.Client.JetStream`(`.Models`)         | durable streams, consumers, publish-ack, consume/fetch     |
+|  [03]   | `NATS.Client.KeyValueStore`    | `NATS.Client.KeyValueStore`                | JetStream KV — revisioned CAS, watch, history              |
+|  [04]   | `NATS.Client.ObjectStore`      | `NATS.Client.ObjectStore`                  | JetStream Object Store — chunked objects, links, seal      |
+|  [05]   | `NATS.Client.Services`         | `NATS.Client.Services`                     | the NATS micro-services protocol (discovery, stats, ping)  |
+|  [06]   | `NATS.Client.Hosting`          | `Microsoft.Extensions.DependencyInjection` | `AddNats` DI registration + connection pool                |
+|  [07]   | `NATS.Client.Simplified`       | `NATS.Net`                                 | `NatsClient` entry + `NatsClientDefaultSerializerRegistry` |
+|  [08]   | `NATS.Client.Serializers.Json` | `NATS.Client.Serializers.Json`             | the System.Text.Json serializer registry leg               |
 
 ## [02]-[PUBLIC_TYPES]
 
-[CONNECTION_TYPES]: the client, connection, options, and message — `NATS.Client.Core` / `NATS.Net`
+[CONNECTION_TYPES]: the client, connection, options, and message — `NATS.Client.Core` / `NATS.Net`; the message type is `NatsMsg<T> : INatsMsg<T>`
 - rail: messaging-protocol
 
-| [INDEX] | [SYMBOL]                                                              | [TYPE_FAMILY]    | [CAPABILITY]                                                                                      |
-| :-----: | :-------------------------------------------------------------------- | :--------------- | :------------------------------------------------------------------------------------------------ |
-|  [01]   | `NATS.Net.NatsClient : INatsClient`                                   | simplified entry | one-line client (`NatsClient(url, name, credsFile)`); `.Connection` exposes the `INatsConnection` |
-|  [02]   | `INatsConnection : INatsClient, IAsyncDisposable`                     | connection       | the full connection — pub/sub/request + lifecycle events                                          |
-|  [03]   | `NatsConnection : INatsConnection`                                    | connection       | the concrete connection (`new NatsConnection(NatsOpts)`)                                          |
-|  [04]   | `INatsConnectionPool` / `NatsConnectionPool`                          | pool             | multi-connection pool for throughput fan-out                                                      |
-|  [05]   | `NatsOpts` (sealed record)                                            | options          | url, name, serializer registry, TLS, auth, ping interval, pending-buffer policy                   |
-|  [06]   | `NatsMsg<T>` (readonly record struct, `: INatsMsg<T>`)                | message          | `Subject`/`Data`/`Headers`/`ReplyTo`/`Connection`; `ReplyAsync` for request/reply                 |
-|  [07]   | `NatsHeaders : IDictionary<string, StringValues>`                     | headers          | message headers — the `traceparent`/`Nats-Msg-Id` carrier                                         |
-|  [08]   | `NatsResult` / `NatsResult<T>` (readonly struct)                      | result rail      | the `Try*` non-throwing outcome — `Success`/`Error`, the native ROP rail                          |
-|  [09]   | `NatsAuthOpts` / `NatsAuthCred` / `NatsTlsOpts` / `NatsWebSocketOpts` | auth/transport   | creds/NKey/JWT, TLS mode, WebSocket transport                                                     |
-|  [10]   | `NatsStats` (readonly record struct)                                  | telemetry        | `SentBytes`/`ReceivedBytes`/`PendingMessages`/`SubscriptionCount`                                 |
-|  [11]   | `NatsInstrumentationOptions` / `NatsInstrumentationContext`           | telemetry        | the OpenTelemetry span context (subject/headers/connection/`ParentContext`)                       |
-|  [12]   | `Nuid`                                                                | id               | NATS unique id generator (subject/inbox tokens)                                                   |
+| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]    | [CAPABILITY]                                                      |
+| :-----: | :------------------------------------------------ | :--------------- | :---------------------------------------------------------------- |
+|  [01]   | `NATS.Net.NatsClient : INatsClient`               | simplified entry | one-line client; `.Connection` exposes `INatsConnection`          |
+|  [02]   | `INatsConnection : INatsClient, IAsyncDisposable` | connection       | the full connection — pub/sub/request + lifecycle events          |
+|  [03]   | `NatsConnection : INatsConnection`                | connection       | the concrete connection (`new NatsConnection(NatsOpts)`)          |
+|  [04]   | `INatsConnectionPool` / `NatsConnectionPool`      | pool             | multi-connection pool for throughput fan-out                      |
+|  [05]   | `NatsOpts` (sealed record)                        | options          | url, name, serializer registry, TLS, auth, ping, buffer           |
+|  [06]   | `NatsMsg<T>` (readonly record struct)             | message          | `Subject`/`Data`/`Headers`/`ReplyTo`/`Connection`; `ReplyAsync`   |
+|  [07]   | `NatsHeaders : IDictionary<string, StringValues>` | headers          | the `traceparent`/`Nats-Msg-Id` carrier                           |
+|  [08]   | `NatsResult` / `NatsResult<T>` (readonly struct)  | result rail      | the `Try*` non-throwing `Success`/`Error` — native ROP            |
+|  [09]   | `NatsAuthOpts`                                    | auth             | creds/NKey/JWT auth options                                       |
+|  [10]   | `NatsAuthCred`                                    | auth             | a single credential (creds/NKey/JWT)                              |
+|  [11]   | `NatsTlsOpts`                                     | transport        | TLS mode                                                          |
+|  [12]   | `NatsWebSocketOpts`                               | transport        | WebSocket transport                                               |
+|  [13]   | `NatsStats` (readonly record struct)              | telemetry        | `SentBytes`/`ReceivedBytes`/`PendingMessages`/`SubscriptionCount` |
+|  [14]   | `NatsInstrumentationOptions`                      | telemetry        | the OpenTelemetry span options                                    |
+|  [15]   | `NatsInstrumentationContext`                      | telemetry        | the span context (subject/headers/connection/`ParentContext`)     |
+|  [16]   | `Nuid`                                            | id               | NATS unique id generator (subject/inbox tokens)                   |
 
 [SERIALIZER_TYPES]: the codec registry seam — `NATS.Client.Core` / `NATS.Client.Serializers.Json`
 - rail: messaging-protocol
 
-| [INDEX] | [SYMBOL]                                                                     | [TYPE_FAMILY] | [CAPABILITY]                                                                 |
-| :-----: | :--------------------------------------------------------------------------- | :------------ | :--------------------------------------------------------------------------- |
-|  [01]   | `INatsSerializerRegistry`                                                    | registry      | the per-`NatsOpts` codec selector — `GetSerializer<T>`/`GetDeserializer<T>`  |
-|  [02]   | `INatsSerialize<T>` / `INatsDeserialize<T>` / `INatsSerializer<T>`           | codec         | the per-type serialize/deserialize contract                                  |
-|  [03]   | `NatsRawSerializer<T>`                                                       | codec         | raw `byte[]`/`ReadOnlyMemory<byte>` passthrough — the snapshot-bytes carrier |
-|  [04]   | `NatsUtf8PrimitivesSerializer<T>`                                            | codec         | UTF-8 primitive serializer (string/number)                                   |
-|  [05]   | `NatsJsonContextSerializer<T>` / `NatsJsonContextSerializerRegistry`         | codec         | source-generated `JsonSerializerContext` codec (AOT-safe)                    |
-|  [06]   | `NatsJsonSerializer<T>` / `NatsJsonSerializerRegistry` (`.Serializers.Json`) | codec         | reflection `System.Text.Json` codec + options form                           |
-|  [07]   | `NatsSerializerBuilder<T>`                                                   | builder       | chains a fallback serializer pipeline                                        |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [CAPABILITY]                                                                |
+| :-----: | :---------------------------------- | :------------ | :-------------------------------------------------------------------------- |
+|  [01]   | `INatsSerializerRegistry`           | registry      | the per-`NatsOpts` codec selector — `GetSerializer<T>`/`GetDeserializer<T>` |
+|  [02]   | `INatsSerialize<T>`                 | codec         | the per-type serialize contract                                             |
+|  [03]   | `INatsDeserialize<T>`               | codec         | the per-type deserialize contract                                           |
+|  [04]   | `INatsSerializer<T>`                | codec         | the combined serialize/deserialize contract                                 |
+|  [05]   | `NatsRawSerializer<T>`              | codec         | raw `byte[]`/`ReadOnlyMemory<byte>` passthrough — snapshot-bytes carrier    |
+|  [06]   | `NatsUtf8PrimitivesSerializer<T>`   | codec         | UTF-8 primitive serializer (string/number)                                  |
+|  [07]   | `NatsJsonContextSerializer<T>`      | codec         | source-generated `JsonSerializerContext` codec (AOT-safe)                   |
+|  [08]   | `NatsJsonContextSerializerRegistry` | registry      | the source-generated JSON registry                                          |
+|  [09]   | `NatsJsonSerializer<T>`             | codec         | reflection `System.Text.Json` codec + options form                          |
+|  [10]   | `NatsJsonSerializerRegistry`        | registry      | the reflection JSON registry (`.Serializers.Json`)                          |
+|  [11]   | `NatsSerializerBuilder<T>`          | builder       | chains a fallback serializer pipeline                                       |
 
 [FAULT_TYPES]: the `NatsException` family — `NATS.Client.Core`
 - rail: messaging-protocol
@@ -70,70 +78,104 @@
 [CONNECTION]: connect and the lifecycle events — `INatsClient` / `INatsConnection`
 - rail: messaging-protocol
 
-| [INDEX] | [SURFACE]                                                                                                                                                             | [ENTRY_FAMILY] | [CAPABILITY]                                                                                                                                                           |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new NatsClient(url, name, credsFile?)` / `new NatsConnection(NatsOpts)`                                                                                              | construct      | the connection (creds-file or `NatsOpts` form)                                                                                                                         |
-|  [02]   | `ConnectAsync()` / `ReconnectAsync()` → `ValueTask`                                                                                                                   | lifecycle      | establish / force-reconnect                                                                                                                                            |
-|  [03]   | `PingAsync(ct)` → `ValueTask<TimeSpan>`                                                                                                                               | health         | round-trip latency probe                                                                                                                                               |
-|  [04]   | `INatsConnection` events: `ConnectionOpened`/`ConnectionDisconnected`/`ReconnectFailed`/`MessageDropped`/`SlowConsumerDetected`/`LameDuckModeActivated`/`ServerError` | events         | connection-health stream into the telemetry/health spine; `LameDuckModeActivated` is the graceful-server-drain signal, `SlowConsumerDetected` the back-pressure signal |
-|  [05]   | `services.AddNats(poolSize, configureOpts, configureConnection, key)`                                                                                                 | DI             | `NATS.Client.Hosting` pooled registration                                                                                                                              |
+| [INDEX] | [SURFACE]                                                             | [ENTRY_FAMILY] | [CAPABILITY]                                    |
+| :-----: | :-------------------------------------------------------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `new NatsClient(url, name, credsFile?)`                               | construct      | the simplified client (creds-file form)         |
+|  [02]   | `new NatsConnection(NatsOpts)`                                        | construct      | the connection from `NatsOpts`                  |
+|  [03]   | `ConnectAsync()` / `ReconnectAsync()` → `ValueTask`                   | lifecycle      | establish / force-reconnect                     |
+|  [04]   | `PingAsync(ct)` → `ValueTask<TimeSpan>`                               | health         | round-trip latency probe                        |
+|  [05]   | `INatsConnection` events                                              | events         | connection-health stream (events in `[EVENTS]`) |
+|  [06]   | `services.AddNats(poolSize, configureOpts, configureConnection, key)` | DI             | `NATS.Client.Hosting` pooled registration       |
 
-[CORE_PUBSUB]: pub / sub / request-reply — the `EgressSink.Nats` Core leg
+[EVENTS]: the `INatsConnection` lifecycle events feeding the telemetry/health spine.
+- events: `ConnectionOpened`/`ConnectionDisconnected`/`ReconnectFailed`/`MessageDropped`/`SlowConsumerDetected`/`LameDuckModeActivated`/`ServerError`
+- signals: `LameDuckModeActivated` = graceful-server-drain, `SlowConsumerDetected` = back-pressure
+
+[CORE_PUBSUB]: pub / sub / request-reply — the `EgressSink.Nats` Core leg; each op is generic `<T>` and takes a trailing `serializer?, opts?, CancellationToken`
 - rail: messaging-protocol
 
-| [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY] | [CAPABILITY]                                                                      |
-| :-----: | :------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `PublishAsync<T>(subject, data, headers?, replyTo?, serializer?, opts?, ct)` → `ValueTask`         | publish        | fire-and-forget publish — the at-most-once `Settle` leg                           |
-|  [02]   | `PublishAsync<T>(in NatsMsg<T> msg, serializer?, opts?, ct)`                                       | publish        | publish a pre-built message (carries headers/reply)                               |
-|  [03]   | `SubscribeAsync<T>(subject, queueGroup?, serializer?, opts?, ct)` → `IAsyncEnumerable<NatsMsg<T>>` | subscribe      | core subscription as an async stream; `queueGroup` = load-balanced consumer group |
-|  [04]   | `SubscribeCoreAsync<T>(…)` → `INatsSub<T>`                                                         | subscribe      | the lower-level subscription handle (manual drain)                                |
-|  [05]   | `RequestAsync<TRequest, TReply>(subject, data, …)` → `ValueTask<NatsMsg<TReply>>`                  | request        | request/reply RPC (`NatsNoRespondersException` if none)                           |
-|  [06]   | `RequestManyAsync<TRequest, TReply>(…)` → `IAsyncEnumerable<NatsMsg<TReply>>`                      | scatter-gather | one request, many replies as a stream                                             |
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [CAPABILITY]                                                 |
+| :-----: | :--------------------------------------------------- | :------------- | :----------------------------------------------------------- |
+|  [01]   | `PublishAsync<T>(subject, data, headers?, replyTo?)` | publish        | → `ValueTask`; fire-and-forget at-most-once `Settle`         |
+|  [02]   | `PublishAsync<T>(in NatsMsg<T> msg)`                 | publish        | → `ValueTask`; publish a pre-built message (headers/reply)   |
+|  [03]   | `SubscribeAsync<T>(subject, queueGroup?)`            | subscribe      | → `IAsyncEnumerable<NatsMsg<T>>`; `queueGroup` load-balances |
+|  [04]   | `SubscribeCoreAsync<T>(…)`                           | subscribe      | → `INatsSub<T>`; lower-level handle (manual drain)           |
+|  [05]   | `RequestAsync<TRequest, TReply>(subject, data)`      | request        | → `ValueTask<NatsMsg<TReply>>`; request/reply RPC            |
+|  [06]   | `RequestManyAsync<TRequest, TReply>(…)`              | scatter-gather | → `IAsyncEnumerable<NatsMsg<TReply>>`; many replies streamed |
 
-[JETSTREAM]: durable streams, publish-ack, consume — the `DeliveryGuarantee.Settle` ceremony (`NATS.Client.JetStream`)
+[JETSTREAM]: durable streams, publish-ack, consume — the `DeliveryGuarantee.Settle` ceremony (`NATS.Client.JetStream`); receivers `INatsJSContext` (publish/admin), `INatsJSConsumer` (drain), `INatsJSMsg<T>` (ack), `INatsJSStream` (read/purge); async, trailing `serializer?/opts?/ct`; drain/fetch ops yield `IAsyncEnumerable<INatsJSMsg<T>>`
 - rail: jetstream-store-backend
 
-| [INDEX] | [SURFACE]                                                                                                                    | [ENTRY_FAMILY]    | [CAPABILITY]                                                                                                                                                                       |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------- | :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new NatsJSContext(INatsConnection connection)` / `new NatsJSContext(connection, NatsJSOpts opts)`                           | context factory   | constructs the `INatsJSContext` view — JS-context construction is constructor-only (there is no `CreateJetStreamContext` extension; KV/Object DO have `CreateXContext` extensions) |
-|  [02]   | `INatsJSContext.PublishAsync<T>(subject, data, serializer?, opts?, headers?, ct)` → `ValueTask<PubAckResponse>`              | durable publish   | at-least-once: awaits the broker `PubAckResponse` (Stream/Seq/Duplicate) — the `DeliveryAck.Persisted` analogue                                                                    |
-|  [03]   | `INatsJSContext.TryPublishAsync<T>(…)` → `ValueTask<NatsResult<PubAckResponse>>`                                             | durable publish   | the ROP-rail publish (no throw on `-ERR`)                                                                                                                                          |
-|  [04]   | `INatsJSContext.PublishConcurrentAsync<T>(…)` → `ValueTask<NatsJSPublishConcurrentFuture>`                                   | pipelined publish | decoupled publish + deferred-ack for high-throughput batches                                                                                                                       |
-|  [05]   | `INatsJSContext.CreateStreamAsync(StreamConfig, ct)` / `CreateOrUpdateStreamAsync` → `INatsJSStream`                         | stream admin      | provision a durable stream (Subjects/Retention/Storage/MaxAge/MaxMsgs/Discard)                                                                                                     |
-|  [06]   | `INatsJSContext.CreateOrUpdateConsumerAsync(stream, ConsumerConfig, ct)` → `INatsJSConsumer`                                 | consumer admin    | durable consumer (DurableName/AckPolicy/DeliverPolicy/FilterSubject(s)/MaxDeliver/AckWait)                                                                                         |
-|  [07]   | `INatsJSContext.CreateOrderedConsumerAsync(stream, opts?, ct)`                                                               | consumer admin    | ephemeral ordered consumer (replay in stream order)                                                                                                                                |
-|  [08]   | `INatsJSConsumer.ConsumeAsync<T>(serializer?, opts?, ct)` → `IAsyncEnumerable<INatsJSMsg<T>>`                                | drain             | continuous push-style cursor drain — the redrive/replay source                                                                                                                     |
-|  [09]   | `INatsJSConsumer.FetchAsync<T>(NatsJSFetchOpts, …)` / `FetchNoWaitAsync<T>` → `IAsyncEnumerable<INatsJSMsg<T>>`              | pull batch        | bounded pull-batch fetch                                                                                                                                                           |
-|  [10]   | `INatsJSConsumer.NextAsync<T>(serializer?, opts?, ct)` → `ValueTask<INatsJSMsg<T>?>`                                         | pull one          | single-message pull                                                                                                                                                                |
-|  [11]   | `INatsJSMsg<T>.AckAsync(opts?, ct)` / `NakAsync(opts?, ct)` / `AckProgressAsync(opts?, ct)` / `AckTerminateAsync(opts?, ct)` | ack               | commit / negative-ack-redeliver / in-progress-extend / terminate-no-redeliver — the at-least-once cursor commit                                                                    |
-|  [12]   | `INatsJSStream.GetDirectAsync<T>(StreamMsgGetRequest, …)` → `ValueTask<NatsMsg<T>>` / `PurgeAsync(StreamPurgeRequest)`       | stream read/purge | direct message get (replay) / retention purge                                                                                                                                      |
+| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY]  | [CAPABILITY]                                             |
+| :-----: | :--------------------------------------------------------- | :-------------- | :------------------------------------------------------- |
+|  [01]   | `new NatsJSContext(connection)`                            | context factory | → `INatsJSContext`; the base JS-context view             |
+|  [02]   | `new NatsJSContext(connection, NatsJSOpts opts)`           | context factory | → `INatsJSContext`; constructor-only construction        |
+|  [03]   | `.PublishAsync<T>(subject, data, headers?)`                | durable publish | → `ValueTask<PubAckResponse>`; at-least-once ack         |
+|  [04]   | `.TryPublishAsync<T>(…)`                                   | durable publish | → `ValueTask<NatsResult<PubAckResponse>>`; ROP publish   |
+|  [05]   | `.PublishConcurrentAsync<T>(…)`                            | pipelined       | → `NatsJSPublishConcurrentFuture`; deferred-ack batches  |
+|  [06]   | `.CreateStreamAsync(StreamConfig)`                         | stream admin    | → `INatsJSStream`; provision a stream (`StreamConfig`)   |
+|  [07]   | `.CreateOrUpdateStreamAsync(StreamConfig)`                 | stream admin    | → `INatsJSStream`; provision-or-update a stream          |
+|  [08]   | `.CreateOrUpdateConsumerAsync(…)`                          | consumer admin  | → `INatsJSConsumer`; durable consumer (`ConsumerConfig`) |
+|  [09]   | `.CreateOrderedConsumerAsync(stream, opts?)`               | consumer admin  | ephemeral ordered consumer (stream-order replay)         |
+|  [10]   | `.ConsumeAsync<T>(…)`                                      | drain           | continuous cursor drain — the redrive/replay source      |
+|  [11]   | `.FetchAsync<T>(NatsJSFetchOpts)` / `.FetchNoWaitAsync<T>` | pull batch      | bounded pull-batch fetch                                 |
+|  [12]   | `.NextAsync<T>(…)`                                         | pull one        | → `ValueTask<INatsJSMsg<T>?>`; single-message pull       |
+|  [13]   | `.AckAsync`                                                | ack             | commit the consumer cursor — at-least-once               |
+|  [14]   | `.NakAsync`                                                | ack             | negative-ack, trigger redelivery                         |
+|  [15]   | `.AckProgressAsync`                                        | ack             | extend the in-progress ack window                        |
+|  [16]   | `.AckTerminateAsync`                                       | ack             | terminate, no redelivery (dead-letter)                   |
+|  [17]   | `.GetDirectAsync<T>(StreamMsgGetRequest)`                  | stream read     | → `ValueTask<NatsMsg<T>>`; direct message get (replay)   |
+|  [18]   | `.PurgeAsync(StreamPurgeRequest)`                          | stream purge    | retention purge                                          |
 
-[JETSTREAM_KV]: revisioned CAS key-value store backend — `NATS.Client.KeyValueStore`
+[JS_CONFIG]: the admin config surfaces.
+- [01]-[STREAMCONFIG]: `Subjects`/`Retention`/`Storage`/`MaxAge`/`MaxMsgs`/`Discard`
+- [02]-[CONSUMERCONFIG]: `DurableName`/`AckPolicy`/`DeliverPolicy`/`FilterSubject(s)`/`MaxDeliver`/`AckWait`
+
+[JETSTREAM_KV]: revisioned CAS key-value store backend — `NATS.Client.KeyValueStore`; store ops hang off `INatsKVStore`, generic `<T>`, trailing `serializer?/opts?/ct`; reads yield `NatsKVEntry<T>` (`Value`/`Revision`/`Operation`/`Created`)
 - rail: jetstream-store-backend
 
-| [INDEX] | [SURFACE]                                                                                                                                             | [ENTRY_FAMILY] | [CAPABILITY]                                                                                                                                 |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `connection.CreateKeyValueStoreContext()` → `INatsKVContext`; `.CreateStoreAsync(NatsKVConfig)` / `.CreateStoreAsync(string bucket)` → `INatsKVStore` | context        | KV bucket provisioning (`NatsKVConfig`: `History`/`MaxAge`/`Storage`/`NumberOfReplicas`/`MaxBytes`/`MaxValueSize`/`Compression`/`Republish`) |
-|  [02]   | `INatsKVStore.PutAsync<T>(key, value, serializer?, ct)` → `ValueTask<ulong>`                                                                          | write          | upsert; returns the new revision                                                                                                             |
-|  [03]   | `INatsKVStore.CreateAsync<T>(key, value, ttl?, …)` → `ValueTask<ulong>`                                                                               | write-once     | create-if-absent (`NatsKVCreateException` on conflict) — the fenced-CAS create                                                               |
-|  [04]   | `INatsKVStore.UpdateAsync<T>(key, value, ulong revision, …)` → `ValueTask<ulong>`                                                                     | CAS write      | optimistic concurrency — `NatsKVWrongLastRevisionException` if revision moved                                                                |
-|  [05]   | `INatsKVStore.GetEntryAsync<T>(key, revision = 0, …)` → `ValueTask<NatsKVEntry<T>>`                                                                   | read           | revisioned read (`Value`/`Revision`/`Operation`/`Created`)                                                                                   |
-|  [06]   | `INatsKVStore.WatchAsync<T>(key\|keys?, opts?, ct)` → `IAsyncEnumerable<NatsKVEntry<T>>`                                                              | watch          | live change feed over keys — the distributed changefeed                                                                                      |
-|  [07]   | `INatsKVStore.HistoryAsync<T>(key, …)` → `IAsyncEnumerable<NatsKVEntry<T>>`                                                                           | history        | the revision history — the AS-OF replay at the KV tier                                                                                       |
-|  [08]   | `INatsKVStore.DeleteAsync(key, opts?)` / `PurgeAsync(key, ttl?, opts?)` / `GetKeysAsync(filters?)`                                                    | mutate/scan    | tombstone delete / purge history / key enumeration                                                                                           |
-|  [09]   | `Try*` mirrors (`TryPutAsync`/`TryCreateAsync`/`TryUpdateAsync`/`TryGetEntryAsync`/`TryDeleteAsync`/`TryPurgeAsync`) → `ValueTask<NatsResult<…>>`     | ROP            | the non-throwing rail for every mutation                                                                                                     |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CAPABILITY]                                                 |
+| :-----: | :-------------------------------------------- | :------------- | :----------------------------------------------------------- |
+|  [01]   | `connection.CreateKeyValueStoreContext()`     | context        | → `INatsKVContext`; the KV context view                      |
+|  [02]   | `.CreateStoreAsync(NatsKVConfig)`             | context        | → `INatsKVStore`; bucket provision (config in `[KV_DETAIL]`) |
+|  [03]   | `.CreateStoreAsync(string bucket)`            | context        | → `INatsKVStore`; provision by bucket name                   |
+|  [04]   | `.PutAsync<T>(key, value)`                    | write          | → `ValueTask<ulong>`; upsert, returns the new revision       |
+|  [05]   | `.CreateAsync<T>(key, value, ttl?)`           | write-once     | → `ValueTask<ulong>`; create-if-absent, fenced-CAS create    |
+|  [06]   | `.UpdateAsync<T>(key, value, ulong revision)` | CAS write      | → `ValueTask<ulong>`; optimistic concurrency                 |
+|  [07]   | `.GetEntryAsync<T>(key, revision = 0)`        | read           | → `ValueTask<NatsKVEntry<T>>`; revisioned read               |
+|  [08]   | `.WatchAsync<T>(key\|keys?, opts?)`           | watch          | → `IAsyncEnumerable<NatsKVEntry<T>>`; distributed changefeed |
+|  [09]   | `.HistoryAsync<T>(key)`                       | history        | → `IAsyncEnumerable<NatsKVEntry<T>>`; AS-OF KV replay        |
+|  [10]   | `.DeleteAsync(key)`                           | mutate         | tombstone delete                                             |
+|  [11]   | `.PurgeAsync(key, ttl?)`                      | mutate         | purge history                                                |
+|  [12]   | `.GetKeysAsync(filters?)`                     | scan           | key enumeration                                              |
+|  [13]   | `Try*` mirrors                                | ROP            | → `ValueTask<NatsResult<…>>`; the non-throwing rail          |
 
-[JETSTREAM_OBJECT]: chunked object store backend — `NATS.Client.ObjectStore`
+[KV_DETAIL]: bucket config and the ROP mirror roster; the fenced-CAS faults are `[KV_AS_FENCED_CAS]`'s.
+- [01]-[NATSKVCONFIG]: `History`/`MaxAge`/`Storage`/`NumberOfReplicas`/`MaxBytes`/`MaxValueSize`/`Compression`/`Republish`
+- [02]-[TRY_MIRRORS]: `TryPutAsync`/`TryCreateAsync`/`TryUpdateAsync`/`TryGetEntryAsync`/`TryDeleteAsync`/`TryPurgeAsync`
+
+[JETSTREAM_OBJECT]: chunked object store backend — `NATS.Client.ObjectStore`; ops hang off `INatsObjStore`, trailing `leaveOpen?/ct`; writes/reads return `ObjectMetadata` (fields in `[OBJ_META]`)
 - rail: jetstream-store-backend
 
-| [INDEX] | [SURFACE]                                                                                                                                                          | [ENTRY_FAMILY] | [CAPABILITY]                                                                                                                                             |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `connection.CreateObjectStoreContext()` → `INatsObjContext`; `.CreateObjectStoreAsync(NatsObjConfig)` / `.CreateObjectStoreAsync(string bucket)` → `INatsObjStore` | context        | object bucket provisioning                                                                                                                               |
-|  [02]   | `INatsObjStore.PutAsync(string key, Stream, leaveOpen?, ct)` / `PutAsync(key, byte[])` / `PutAsync(ObjectMetadata, Stream)` → `ValueTask<ObjectMetadata>`          | write          | chunked object upload returning `ObjectMetadata` (`NATS.Client.ObjectStore.Models`: `Name`/`Bucket`/`Nuid`/`Size`/`Chunks`/`Digest`/`Headers`/`Deleted`) |
-|  [03]   | `INatsObjStore.GetAsync(key, Stream, leaveOpen?, ct)` → `ValueTask<ObjectMetadata>` / `GetBytesAsync(key)` → `ValueTask<byte[]>`                                   | read           | chunked download to a stream / to bytes                                                                                                                  |
-|  [04]   | `INatsObjStore.GetInfoAsync(key, showDeleted?)` → `ValueTask<ObjectMetadata>` / `ListAsync(opts?)` → `IAsyncEnumerable<ObjectMetadata>`                            | head/list      | object metadata / enumeration                                                                                                                            |
-|  [05]   | `INatsObjStore.AddLinkAsync(link, target)` / `AddBucketLinkAsync(link, INatsObjStore)` → `ValueTask<ObjectMetadata>`                                               | link           | object/bucket alias links                                                                                                                                |
-|  [06]   | `INatsObjStore.SealAsync(ct)` / `DeleteAsync(key)` / `WatchAsync(opts?)` → `IAsyncEnumerable<ObjectMetadata>`                                                      | lifecycle      | make read-only / delete / watch object mutations                                                                                                         |
+| [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY] | [CAPABILITY]                                                 |
+| :-----: | :------------------------------------------ | :------------- | :----------------------------------------------------------- |
+|  [01]   | `connection.CreateObjectStoreContext()`     | context        | → `INatsObjContext`; the object context view                 |
+|  [02]   | `.CreateObjectStoreAsync(NatsObjConfig)`    | context        | → `INatsObjStore`; provision by config                       |
+|  [03]   | `.CreateObjectStoreAsync(string bucket)`    | context        | → `INatsObjStore`; provision by bucket name                  |
+|  [04]   | `.PutAsync(string key, Stream, leaveOpen?)` | write          | → `ObjectMetadata`; chunked stream upload                    |
+|  [05]   | `.PutAsync(key, byte[])`                    | write          | → `ObjectMetadata`; chunked byte upload                      |
+|  [06]   | `.PutAsync(ObjectMetadata, Stream)`         | write          | → `ObjectMetadata`; metadata-driven upload                   |
+|  [07]   | `.GetAsync(key, Stream, leaveOpen?)`        | read           | → `ObjectMetadata`; chunked download to a stream             |
+|  [08]   | `.GetBytesAsync(key)`                       | read           | → `ValueTask<byte[]>`; chunked download to bytes             |
+|  [09]   | `.GetInfoAsync(key, showDeleted?)`          | head           | → `ObjectMetadata`; object metadata                          |
+|  [10]   | `.ListAsync(opts?)`                         | list           | → `IAsyncEnumerable<ObjectMetadata>`; object enumeration     |
+|  [11]   | `.AddLinkAsync(link, target)`               | link           | → `ObjectMetadata`; object alias link                        |
+|  [12]   | `.AddBucketLinkAsync(link, INatsObjStore)`  | link           | → `ObjectMetadata`; bucket alias link                        |
+|  [13]   | `.SealAsync(ct)`                            | lifecycle      | make the bucket read-only                                    |
+|  [14]   | `.DeleteAsync(key)`                         | lifecycle      | delete an object                                             |
+|  [15]   | `.WatchAsync(opts?)`                        | lifecycle      | → `IAsyncEnumerable<ObjectMetadata>`; watch object mutations |
+
+[OBJ_META]: `ObjectMetadata` (`NATS.Client.ObjectStore.Models`): `Name`/`Bucket`/`Nuid`/`Size`/`Chunks`/`Digest`/`Headers`/`Deleted`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

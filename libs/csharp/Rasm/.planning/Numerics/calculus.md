@@ -318,10 +318,18 @@ internal static class FieldNoise {
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [AXIS_CONCERN]         | [OWNER]                                              | [KIND]                                                                             | [CASES] |
-| :-----: | :--------------------- | :--------------------------------------------------- | :--------------------------------------------------------------------------------- | :-----: |
-|  [01]   | Differential operators | `Nabla`                                              | sampler-generic central-difference stencil (one `SampleAxes`)                      |    8    |
-|  [02]   | Kernel profiles        | `KernelKind` + `KernelProfile`/`KernelProfileStatus` | `[SmartEnum<int>]` rows with value + two derivative columns + `DerivativeSupremum` |    6    |
-|  [03]   | Reconstruction weights | `WeightKernelFamily`                                 | `[SmartEnum<int>]` with `Interpolating` capability column                          |    5    |
-|  [04]   | Radial decay           | `Falloff`                                            | `[Union]` incl. the metric-sampler anisotropic case; `SlopeBound` column per case  |    6    |
-|  [05]   | Noise lattices         | `FieldNoise`                                         | deterministic Perlin/simplex/Worley over the canonical table                       |    4    |
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The per-axis kind rides the indexed notes below.
+
+| [INDEX] | [AXIS_CONCERN]         | [OWNER]                                              | [CASES] |
+| :-----: | :--------------------- | :--------------------------------------------------- | :-----: |
+|  [01]   | Differential operators | `Nabla`                                              |    8    |
+|  [02]   | Kernel profiles        | `KernelKind` + `KernelProfile`/`KernelProfileStatus` |    6    |
+|  [03]   | Reconstruction weights | `WeightKernelFamily`                                 |    5    |
+|  [04]   | Radial decay           | `Falloff`                                            |    6    |
+|  [05]   | Noise lattices         | `FieldNoise`                                         |    4    |
+
+- [01]-[DIFFERENTIAL_OPERATORS]: sampler-generic central-difference stencil (one `SampleAxes`).
+- [02]-[KERNEL_PROFILES]: `[SmartEnum<int>]` rows with value + two derivative columns + `DerivativeSupremum`.
+- [03]-[RECONSTRUCTION_WEIGHTS]: `[SmartEnum<int>]` with `Interpolating` capability column.
+- [04]-[RADIAL_DECAY]: `[Union]` incl. the metric-sampler anisotropic case; `SlopeBound` column per case.
+- [05]-[NOISE_LATTICES]: deterministic Perlin/simplex/Worley over the canonical table.

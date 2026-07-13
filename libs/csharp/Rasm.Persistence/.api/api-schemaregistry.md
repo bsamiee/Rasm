@@ -19,77 +19,84 @@
 [PUBLIC_TYPE_SCOPE]: client contract family
 - rail: schema-registry control-plane
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]   | [RAIL]                                                                                                                    |
-| :-----: | :--------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `ISchemaRegistryClient`      | client contract | register/lookup/compat/latest/cache-clear/association, `IDisposable`                                                      |
-|  [02]   | `CachedSchemaRegistryClient` | client impl     | the only shipped client; bounded LRU schema cache over the REST service                                                   |
-|  [03]   | `RestService`                | transport       | `public class : IRestService` — the low-level REST surface behind the cached client (`IRestService` itself is `internal`) |
-|  [04]   | `SchemaRegistryConfig`       | client config   | `: IEnumerable<KeyValuePair<string,string>>`; `Url`, retries, SSL, auth, cache TTL                                        |
-|  [05]   | `IWebProxy` (BCL)            | proxy           | optional outbound proxy on the client ctor                                                                                |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]   | [RAIL]                                                                              |
+| :-----: | :--------------------------- | :-------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `ISchemaRegistryClient`      | client contract | register/lookup/compat/latest/cache-clear/association, `IDisposable`                |
+|  [02]   | `CachedSchemaRegistryClient` | client impl     | the only shipped client; bounded LRU schema cache over the REST service             |
+|  [03]   | `RestService`                | transport       | `public class : IRestService`; low-level REST surface, `IRestService` is `internal` |
+|  [04]   | `SchemaRegistryConfig`       | client config   | `: IEnumerable<KeyValuePair<string,string>>`; `Url`, retries, SSL, auth, cache TTL  |
+|  [05]   | `IWebProxy` (BCL)            | proxy           | optional outbound proxy on the client ctor                                          |
 
 [PUBLIC_TYPE_SCOPE]: schema model family
 - rail: schema-registry control-plane
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [RAIL]                                                                                                           |
-| :-----: | :----------------- | :-------------- | :--------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Schema`           | unregistered    | `SchemaString`/`SchemaType`/`References`/`Metadata`/`RuleSet` (carries `Subject`/`Version`/`Id` once registered) |
-|  [02]   | `RegisteredSchema` | registered      | `: Schema`; adds the `Guid` (the GUID-keyed lookup id) — `Id`/`Subject`/`Version` live on the base `Schema`      |
-|  [03]   | `SchemaReference`  | reference       | named cross-schema dependency (`Name`/`Subject`/`Version`)                                                       |
-|  [04]   | `Metadata`         | schema metadata | `Tags`/`Properties`/`Sensitive` (the sensitive-field set the CSFLE rule reads)                                   |
-|  [05]   | `SchemaType`       | type enum       | `Avro` / `Protobuf` / `Json`                                                                                     |
-|  [06]   | `Compatibility`    | evolution enum  | `None`/`Forward`/`Backward`/`Full` (+`*Transitive`)                                                              |
-|  [07]   | `ServerConfig`     | subject config  | server-side compatibility/rule defaults                                                                          |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [RAIL]                                                                                  |
+| :-----: | :----------------- | :-------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | `Schema`           | unregistered    | `SchemaString`/`SchemaType`/`References`/`Metadata`/`RuleSet`                           |
+|  [02]   | `RegisteredSchema` | registered      | `: Schema`; adds the `Guid` lookup key — `Id`/`Subject`/`Version` live on base `Schema` |
+|  [03]   | `SchemaReference`  | reference       | named cross-schema dependency (`Name`/`Subject`/`Version`)                              |
+|  [04]   | `Metadata`         | schema metadata | `Tags`/`Properties`/`Sensitive` (the sensitive-field set the CSFLE rule reads)          |
+|  [05]   | `SchemaType`       | type enum       | `Avro` / `Protobuf` / `Json`                                                            |
+|  [06]   | `Compatibility`    | evolution enum  | `None`/`Forward`/`Backward`/`Full` (+`*Transitive`)                                     |
+|  [07]   | `ServerConfig`     | subject config  | server-side compatibility/rule defaults                                                 |
 
 `SchemaString` is the public `string` property on `Schema` (the server schema-string), not a public type — the `SchemaString` type itself is `internal`; `CompatibilityCheck` is likewise `internal`, never a consumer-facing result, so `IsCompatibleAsync` returns a plain `bool`.
 
 [PUBLIC_TYPE_SCOPE]: wire-id framing family
 - rail: schema-registry control-plane
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]   | [RAIL]                                                                                                                            |
-| :-----: | :----------------------------- | :-------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SchemaId`                     | wire id struct  | `SchemaType`/`Id`/`Guid`/`MessageIndexes`; `VALUE_SCHEMA_ID_HEADER`/`KEY_SCHEMA_ID_HEADER`/`MAGIC_BYTE_V0`/`MAGIC_BYTE_V1` consts |
-|  [02]   | `ISchemaIdEncoder`             | encode contract | `Encode(Span<byte>, ref SerializationContext, ref SchemaId)` + `CalculateSize(ref SchemaId)`                                      |
-|  [03]   | `ISchemaIdDecoder`             | decode contract | `Decode(ReadOnlyMemory<byte>, SerializationContext, ref SchemaId)`                                                                |
-|  [04]   | `SchemaIdSerializerStrategy`   | encode enum     | `Header` / `Prefix` — the PUBLIC encoder selector                                                                                 |
-|  [05]   | `SchemaIdDeserializerStrategy` | decode enum     | `Dual` / `Prefix` — the PUBLIC decoder selector                                                                                   |
+`SchemaId` also exposes the `VALUE_SCHEMA_ID_HEADER`/`KEY_SCHEMA_ID_HEADER` header names and `MAGIC_BYTE_V0`/`MAGIC_BYTE_V1` magic bytes as framing consts; every `ISchemaIdEncoder`/`ISchemaIdDecoder` method takes a trailing `ref SchemaId`.
+
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]   | [RAIL]                                                             |
+| :-----: | :----------------------------- | :-------------- | :----------------------------------------------------------------- |
+|  [01]   | `SchemaId`                     | wire id struct  | `SchemaType`/`Id`/`Guid`/`MessageIndexes`                          |
+|  [02]   | `ISchemaIdEncoder`             | encode contract | `Encode(Span<byte>, ref SerializationContext)` + `CalculateSize()` |
+|  [03]   | `ISchemaIdDecoder`             | decode contract | `Decode(ReadOnlyMemory<byte>, SerializationContext)`               |
+|  [04]   | `SchemaIdSerializerStrategy`   | encode enum     | `Header` / `Prefix` — the PUBLIC encoder selector                  |
+|  [05]   | `SchemaIdDeserializerStrategy` | decode enum     | `Dual` / `Prefix` — the PUBLIC decoder selector                    |
 
 The concrete encoders/decoders are `internal`, never `new`-able by a consumer: `PrefixSchemaIdEncoder` (the magic-byte `[0x00][int32 id]` prefix, the serde default) and `HeaderSchemaIdEncoder` (writes the id GUID into the `__value_schema_id`/`__key_schema_id` Kafka header) are selected by `SchemaIdSerializerStrategy`; `PrefixSchemaIdDecoder` and `DualSchemaIdDecoder` (header-or-prefix, the deserializer default) are selected by `SchemaIdDeserializerStrategy`. A serde sets the strategy on its config; it never references the encoder/decoder class. `ISchemaIdEncoder`/`ISchemaIdDecoder` are the public extension contracts for a bespoke framing.
 
 [PUBLIC_TYPE_SCOPE]: subject naming family
 - rail: schema-registry control-plane
 
-| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]   | [RAIL]                                                                                                                                      |
-| :-----: | :--------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `SubjectNameStrategy`                    | naming enum     | `Topic`/`Record`/`TopicRecord`/`Associated`/`None`                                                                                          |
-|  [02]   | `ReferenceSubjectNameStrategy`           | ref-naming enum | `ReferenceName`/`Qualified`/`Custom`                                                                                                        |
-|  [03]   | `SubjectNameStrategyExtensions`          | resolver        | `ConstructKeySubjectName`/`ConstructValueSubjectName(topic, recordType?)` + `ToDelegate`/`ToAsyncDelegate` — how the enum becomes a subject |
-|  [04]   | `ReferenceSubjectNameStrategyExtensions` | ref resolver    | `ToDelegate(strategy, custom?)` + `GetQualifiedSubjectName`/`GetReferenceNameSubjectName(context, referenceName)`                           |
-|  [05]   | `ICustomReferenceSubjectNameStrategy`    | ref hook        | custom reference-subject resolver (`Custom` mode)                                                                                           |
-|  [06]   | `SubjectNameStrategyDelegate`            | delegate        | `(context, recordType) -> subject`                                                                                                          |
-|  [07]   | `AsyncSubjectNameStrategyDelegate`       | async delegate  | async subject resolution (the form `AsyncSerde.subjectNameStrategy` holds)                                                                  |
-|  [08]   | `ReferenceSubjectNameStrategyDelegate`   | delegate        | reference-subject resolution                                                                                                                |
-|  [09]   | `AssociatedNameStrategy`                 | strategy impl   | registry-resolved subject (`Associated` mode, async-only)                                                                                   |
+Both `*Extensions` types fold the strategy enum into a subject via `ToDelegate`/`ToAsyncDelegate`; the `*Delegate` types are the resolved `(context, recordType) -> subject` forms.
+
+| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]   | [RAIL]                                                    |
+| :-----: | :--------------------------------------- | :-------------- | :-------------------------------------------------------- |
+|  [01]   | `SubjectNameStrategy`                    | naming enum     | `Topic`/`Record`/`TopicRecord`/`Associated`/`None`        |
+|  [02]   | `ReferenceSubjectNameStrategy`           | ref-naming enum | `ReferenceName`/`Qualified`/`Custom`                      |
+|  [03]   | `SubjectNameStrategyExtensions`          | resolver        | `ConstructKeySubjectName`/`ConstructValueSubjectName`     |
+|  [04]   | `ReferenceSubjectNameStrategyExtensions` | ref resolver    | `GetQualifiedSubjectName`/`GetReferenceNameSubjectName`   |
+|  [05]   | `ICustomReferenceSubjectNameStrategy`    | ref hook        | custom reference-subject resolver (`Custom` mode)         |
+|  [06]   | `SubjectNameStrategyDelegate`            | delegate        | `(context, recordType) -> subject`                        |
+|  [07]   | `AsyncSubjectNameStrategyDelegate`       | async delegate  | async form `AsyncSerde.subjectNameStrategy` holds         |
+|  [08]   | `ReferenceSubjectNameStrategyDelegate`   | delegate        | reference-subject resolution                              |
+|  [09]   | `AssociatedNameStrategy`                 | strategy impl   | registry-resolved subject (`Associated` mode, async-only) |
 
 [PUBLIC_TYPE_SCOPE]: data-contract rule family
 - rail: schema-registry control-plane
 
-| [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY]      | [RAIL]                                                                                                                                                              |
-| :-----: | :----------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `RuleSet`                                  | rule bundle        | `MigrationRules`/`DomainRules`/`EncodingRules`                                                                                                                      |
-|  [02]   | `Rule`                                     | one rule           | name, kind, mode, type, expr, tags, params                                                                                                                          |
-|  [03]   | `RuleKind`                                 | rule-kind enum     | `Transform` / `Condition`                                                                                                                                           |
-|  [04]   | `RuleMode`                                 | rule-mode enum     | `Upgrade`/`Downgrade`/`UpDown`/`Read`/`Write`/`WriteRead`                                                                                                           |
-|  [05]   | `RulePhase`                                | phase enum         | `Migration` / `Domain` / `Encoding`                                                                                                                                 |
-|  [06]   | `IRuleExecutor`                            | executor contract  | applies a transform/condition rule                                                                                                                                  |
-|  [07]   | `IRuleAction`                              | action contract    | on-success / on-failure rule action                                                                                                                                 |
-|  [08]   | `FieldRuleExecutor`                        | field executor     | `abstract : IRuleExecutor`; `NewTransform(ctx)` + `Type()` — the CSFLE field-transform base                                                                         |
-|  [09]   | `IFieldTransform`                          | field transform    | `: IDisposable`; per-field transform hook the executor builds                                                                                                       |
-|  [10]   | `FieldTransformer`                         | transform delegate | the `RuleContext.FieldTransformer` delegate the executor invokes to walk fields                                                                                     |
-|  [11]   | `RuleContext`                              | rule context       | `Source`/`Target`/`Subject`/`Topic`/`RuleMode`/`FieldTransformer`; nested `RuleContext.FieldContext` (`FullName`/`Name`/`Tags`); `CurrentField()`/`EnterField(...)` |
-|  [12]   | `IRuleBase`                                | rule base contract | `: IDisposable`; `Configure(config, client?)`/`Type()` shared by executor + action                                                                                  |
-|  [13]   | `RuleOverride`                             | rule override      | per-rule type/action override registered via `RuleRegistry.RegisterOverride`                                                                                        |
-|  [14]   | `RuleRegistry`                             | rule registry      | `RegisterExecutor`/`RegisterAction`/`RegisterOverride` (+ static `RegisterRule*`), `TryGet*`, `GlobalInstance`                                                      |
-|  [15]   | `RuleException` / `RuleConditionException` | rule fault         | `RuleException : Exception` (rule failure); `RuleConditionException : RuleException` (condition-rule violation)                                                     |
+`RuleSet` bundles the three rule phases; each executor reads a `RuleContext` whose `CurrentField()`/`EnterField(...)` walk the nested `RuleContext.FieldContext` (`FullName`/`Name`/`Tags`). `RuleRegistry` also carries static `RegisterRule*` plus `TryGet*` lookups.
+
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]      | [RAIL]                                                                   |
+| :-----: | :----------------------- | :----------------- | :----------------------------------------------------------------------- |
+|  [01]   | `RuleSet`                | rule bundle        | `MigrationRules`/`DomainRules`/`EncodingRules`                           |
+|  [02]   | `Rule`                   | one rule           | name, kind, mode, type, expr, tags, params                               |
+|  [03]   | `RuleKind`               | rule-kind enum     | `Transform` / `Condition`                                                |
+|  [04]   | `RuleMode`               | rule-mode enum     | `Upgrade`/`Downgrade`/`UpDown`/`Read`/`Write`/`WriteRead`                |
+|  [05]   | `RulePhase`              | phase enum         | `Migration` / `Domain` / `Encoding`                                      |
+|  [06]   | `IRuleExecutor`          | executor contract  | applies a transform/condition rule                                       |
+|  [07]   | `IRuleAction`            | action contract    | on-success / on-failure rule action                                      |
+|  [08]   | `FieldRuleExecutor`      | field executor     | `abstract : IRuleExecutor`; `NewTransform(ctx)`/`Type()` CSFLE base      |
+|  [09]   | `IFieldTransform`        | field transform    | `: IDisposable`; per-field transform hook                                |
+|  [10]   | `FieldTransformer`       | transform delegate | `RuleContext.FieldTransformer` delegate walking fields                   |
+|  [11]   | `RuleContext`            | rule context       | `Source`/`Target`/`Subject`/`Topic`/`RuleMode`/`FieldTransformer`        |
+|  [12]   | `IRuleBase`              | rule base contract | `: IDisposable`; `Configure(config, client?)`/`Type()`                   |
+|  [13]   | `RuleOverride`           | rule override      | per-rule type/action override via `RuleRegistry.RegisterOverride`        |
+|  [14]   | `RuleRegistry`           | rule registry      | `RegisterExecutor`/`RegisterAction`/`RegisterOverride`, `GlobalInstance` |
+|  [15]   | `RuleException`          | rule fault         | `: Exception`; a rule failed                                             |
+|  [16]   | `RuleConditionException` | condition fault    | `: RuleException`; a condition rule was violated                         |
 
 [PUBLIC_TYPE_SCOPE]: authentication and error family
 - rail: schema-registry control-plane
@@ -111,41 +118,45 @@ The concrete encoders/decoders are `internal`, never `new`-able by a consumer: `
 [ENTRYPOINT_SCOPE]: client construction
 - rail: schema-registry control-plane
 
-| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [RAIL]                                                                 |
-| :-----: | :------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------- |
-|  [01]   | `new CachedSchemaRegistryClient(config)`                       | ctor           | builds from `SchemaRegistryConfig` K/V pairs                           |
-|  [02]   | `new CachedSchemaRegistryClient(config, authProvider, proxy?)` | ctor           | explicit auth provider plus optional `IWebProxy`                       |
-|  [03]   | `new SchemaRegistryConfig { Url = ... }`                       | object init    | bootstrap URL, retries, SSL, auth, subject strategy                    |
-|  [04]   | `client.Dispose()`                                             | lifecycle      | `ISchemaRegistryClient : IDisposable`; one client shared across serdes |
+| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [RAIL]                                               |
+| :-----: | :------------------------------------------------------------- | :------------- | :--------------------------------------------------- |
+|  [01]   | `new CachedSchemaRegistryClient(config)`                       | ctor           | builds from `SchemaRegistryConfig` K/V pairs         |
+|  [02]   | `new CachedSchemaRegistryClient(config, authProvider, proxy?)` | ctor           | explicit auth provider plus optional `IWebProxy`     |
+|  [03]   | `new SchemaRegistryConfig { Url = ... }`                       | object init    | bootstrap URL, retries, SSL, auth, subject strategy  |
+|  [04]   | `client.Dispose()`                                             | lifecycle      | `ISchemaRegistryClient : IDisposable`, shared client |
 
 [ENTRYPOINT_SCOPE]: register and lookup
 - rail: schema-registry control-plane
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [RAIL]                                                              |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------------------------ |
-|  [01]   | `RegisterSchemaAsync(subject, schema, normalize?)`              | register       | registers; returns the assigned schema id                           |
-|  [02]   | `RegisterSchemaWithResponseAsync(subject, schema, normalize?)`  | register       | returns the full `RegisteredSchema` (id+guid+version)               |
-|  [03]   | `GetSchemaIdAsync(subject, schema, normalize?)`                 | lookup         | resolves an existing id without registering                         |
-|  [04]   | `LookupSchemaAsync(subject, schema, ignoreDeleted, normalize?)` | lookup         | returns the matching `RegisteredSchema`                             |
-|  [05]   | `GetSchemaAsync(id, format?)`                                   | fetch          | fetches a `Schema` by global id                                     |
-|  [06]   | `GetSchemaBySubjectAndIdAsync(subject, id, format?)`            | fetch          | id scoped to a subject                                              |
-|  [07]   | `GetSchemaByGuidAsync(guid, format?)`                           | fetch          | fetches by schema GUID                                              |
-|  [08]   | `GetRegisteredSchemaAsync(subject, version, ignoreDeleted?)`    | fetch          | fetches a `RegisteredSchema` by version                             |
-|  [09]   | `GetLatestSchemaAsync(subject)`                                 | fetch          | the latest registered version                                       |
-|  [10]   | `GetLatestWithMetadataAsync(subject, metadata, ignoreDeleted)`  | fetch          | latest version whose `Metadata` matches the K/V (data-contract pin) |
+| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [RAIL]                                                |
+| :-----: | :-------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `RegisterSchemaAsync(subject, schema, normalize?)`              | register       | registers; returns the assigned schema id             |
+|  [02]   | `RegisterSchemaWithResponseAsync(subject, schema, normalize?)`  | register       | returns the full `RegisteredSchema` (id+guid+version) |
+|  [03]   | `GetSchemaIdAsync(subject, schema, normalize?)`                 | lookup         | resolves an existing id without registering           |
+|  [04]   | `LookupSchemaAsync(subject, schema, ignoreDeleted, normalize?)` | lookup         | returns the matching `RegisteredSchema`               |
+|  [05]   | `GetSchemaAsync(id, format?)`                                   | fetch          | fetches a `Schema` by global id                       |
+|  [06]   | `GetSchemaBySubjectAndIdAsync(subject, id, format?)`            | fetch          | id scoped to a subject                                |
+|  [07]   | `GetSchemaByGuidAsync(guid, format?)`                           | fetch          | fetches by schema GUID                                |
+|  [08]   | `GetRegisteredSchemaAsync(subject, version, ignoreDeleted?)`    | fetch          | fetches a `RegisteredSchema` by version               |
+|  [09]   | `GetLatestSchemaAsync(subject)`                                 | fetch          | the latest registered version                         |
+|  [10]   | `GetLatestWithMetadataAsync(subject, metadata, ignoreDeleted)`  | fetch          | latest version matching a `Metadata` K/V pin          |
 
 [ENTRYPOINT_SCOPE]: compatibility and inventory
 - rail: schema-registry control-plane
 
-| [INDEX] | [SURFACE]                                                                                                      | [ENTRY_FAMILY] | [RAIL]                                                                                                  |
-| :-----: | :------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------ |
-|  [01]   | `IsCompatibleAsync(subject, schema)`                                                                           | compat probe   | tests a candidate schema against the subject (returns `bool`)                                           |
-|  [02]   | `GetCompatibilityAsync(subject?)`                                                                              | compat read    | reads the level (subject or global default)                                                             |
-|  [03]   | `UpdateCompatibilityAsync(compatibility, subject?)`                                                            | compat write   | sets the level for a subject or globally                                                                |
-|  [04]   | `GetAllSubjectsAsync()`                                                                                        | inventory      | every registered subject name                                                                           |
-|  [05]   | `GetSubjectVersionsAsync(subject)`                                                                             | inventory      | version list for a subject                                                                              |
-|  [06]   | `ClearCaches()` / `ClearLatestCaches()`                                                                        | cache control  | drop the in-process schema / latest-version caches on the long-lived shared client without disposing it |
-|  [07]   | `CreateAssociationAsync(request)` / `GetAssociationsByResourceNameAsync(...)` / `DeleteAssociationsAsync(...)` | governance     | the resource-association (data-governance lineage) surface, distinct from schema register/lookup        |
+The `*AssociationAsync` surface is the data-governance lineage rail, distinct from schema register/lookup.
+
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [RAIL]                                                        |
+| :-----: | :-------------------------------------------------- | :------------- | :------------------------------------------------------------ |
+|  [01]   | `IsCompatibleAsync(subject, schema)`                | compat probe   | tests a candidate schema against the subject (returns `bool`) |
+|  [02]   | `GetCompatibilityAsync(subject?)`                   | compat read    | reads the level (subject or global default)                   |
+|  [03]   | `UpdateCompatibilityAsync(compatibility, subject?)` | compat write   | sets the level for a subject or globally                      |
+|  [04]   | `GetAllSubjectsAsync()`                             | inventory      | every registered subject name                                 |
+|  [05]   | `GetSubjectVersionsAsync(subject)`                  | inventory      | version list for a subject                                    |
+|  [06]   | `ClearCaches()` / `ClearLatestCaches()`             | cache control  | drop the in-process schema/latest caches without disposing    |
+|  [07]   | `CreateAssociationAsync(request)`                   | governance     | registers a resource association                              |
+|  [08]   | `GetAssociationsByResourceNameAsync(...)`           | governance     | lists associations by resource name                           |
+|  [09]   | `DeleteAssociationsAsync(...)`                      | governance     | deletes resource associations                                 |
 
 [ENTRYPOINT_SCOPE]: schema, id, and rule construction
 - rail: schema-registry control-plane

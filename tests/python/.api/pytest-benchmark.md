@@ -11,15 +11,15 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]           | [KIND]         | [CAPABILITY]                                                                                                     |
-| :-----: | :----------------- | :------------- | :--------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `BenchmarkFixture` | fixture object | the injected `benchmark`; carries `group`, `extra_info`, `stats`, and the `pedantic`/`weave`/`patch` runners     |
-|  [02]   | `Stats`            | stat carrier   | robust fields `min`/`max`/`mean`/`stddev`/`median`/`iqr`/`q1`/`q3`/`ops`/`rounds`/`total` plus outlier counts    |
-|  [03]   | `Metadata`         | stats wrapper  | holds the `Stats` under `.stats`; `as_dict()` projects the JSON entry, `has_error` flags a failed subject        |
-|  [04]   | `BenchmarkSession` | session        | aggregates fixtures, resolves the storage URI, and generates/compares the run JSON                               |
-|  [05]   | `FileStorage`      | storage        | `file://` backend that writes `<machine>/NNNN_<name>.json` under the storage root; eager `mkdir` on construction |
+| [INDEX] | [SYMBOL]           | [KIND]         | [CAPABILITY]                                                                                   |
+| :-----: | :----------------- | :------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `BenchmarkFixture` | fixture object | injected `benchmark`; carries `group`/`extra_info`/`stats`, `pedantic`/`weave`/`patch` runners |
+|  [02]   | `Stats`            | stat carrier   | fields `min`/`max`/`mean`/`stddev`/`median`/`iqr`/`q1`/`q3`/`ops`/`rounds`/`total`, outliers   |
+|  [03]   | `Metadata`         | stats wrapper  | holds `Stats` under `.stats`; `as_dict()` projects the JSON entry, `has_error` flags failure   |
+|  [04]   | `BenchmarkSession` | session        | aggregates fixtures, resolves the storage URI, and generates/compares the run JSON             |
+|  [05]   | `FileStorage`      | storage        | `file://` backend writing `<machine>/NNNN_<name>.json` under the storage root; eager `mkdir`   |
 
-```python contract
+```python signature
 class BenchmarkFixture:
     group: str | None; extra_info: dict[str, object]; stats: Metadata | None       # stats is None until a run completes
     def __call__(self, function_to_benchmark: Callable[..., R], *args: object, **kwargs: object) -> R: ...
@@ -31,18 +31,20 @@ class Stats:  # median, iqr, ops, ... read as attributes after a run
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                       | [KIND]        | [CAPABILITY]                                                                                       |
-| :-----: | :-------------------------------------------------------------- | :------------ | :------------------------------------------------------------------------------------------------- |
-|  [01]   | `benchmark(fn, *args, **kwargs)`                                | fixture call  | runs `fn` under an autocalibrated round/iteration schedule and returns its result                  |
-|  [02]   | `benchmark.pedantic(...)`                                       | fixture call  | explicit `rounds`/`iterations`/`warmup_rounds` with a per-round `setup` closure for fresh payloads |
-|  [03]   | `benchmark.extra_info` / `benchmark.group`                      | metadata slot | arbitrary keys and the storage-series group folded into the JSON entry                             |
-|  [04]   | `--benchmark-storage`                                           | CLI option    | run-storage URI (`file://path` or `elasticsearch+http://...`); default `file://./.benchmarks`      |
-|  [05]   | `--benchmark-autosave` / `--benchmark-save=NAME`                | CLI option    | persist the current run to storage; autosave writes only when benchmarks ran, save requires a name |
-|  [06]   | `--benchmark-compare` / `--benchmark-compare-fail`              | CLI option    | diff against a stored run and fail on a threshold breach (`min:5%`, `mean:0.001`)                  |
-|  [07]   | `--benchmark-disable` / `--benchmark-only` / `--benchmark-skip` | CLI flag      | run subjects without timing / run only benchmarks / skip all benchmarks                            |
-|  [08]   | `pytest_benchmark_update_json`                                  | hookspec      | mutate the final `output_json` after a run; the regression gate reads the series here              |
+| [INDEX] | [SURFACE]                                          | [KIND]        | [CAPABILITY]                                                        |
+| :-----: | :------------------------------------------------- | :------------ | :------------------------------------------------------------------ |
+|  [01]   | `benchmark(fn, *args, **kwargs)`                   | fixture call  | runs `fn` under an autocalibrated round/iteration schedule          |
+|  [02]   | `benchmark.pedantic(...)`                          | fixture call  | explicit `rounds`/`iterations`/`warmup_rounds` + `setup` closure    |
+|  [03]   | `benchmark.extra_info` / `benchmark.group`         | metadata slot | arbitrary keys and the series group folded into the JSON entry      |
+|  [04]   | `--benchmark-storage`                              | CLI option    | run-storage URI: `file://` or `elasticsearch+http://`               |
+|  [05]   | `--benchmark-autosave` / `--benchmark-save=NAME`   | CLI option    | persist the run; autosave when benchmarks ran, save needs a name    |
+|  [06]   | `--benchmark-compare` / `--benchmark-compare-fail` | CLI option    | diff a stored run; fail on breach (`min:5%`, `mean:0.001`)          |
+|  [07]   | `--benchmark-disable`                              | CLI flag      | run subjects without timing                                         |
+|  [08]   | `--benchmark-only`                                 | CLI flag      | run only benchmarks                                                 |
+|  [09]   | `--benchmark-skip`                                 | CLI flag      | skip all benchmarks                                                 |
+|  [10]   | `pytest_benchmark_update_json`                     | hookspec      | mutate `output_json` post-run; the regression gate reads the series |
 
-```python contract
+```python signature
 def pytest_benchmark_update_json(config: pytest.Config, benchmarks: object, output_json: dict[str, object]) -> None: ...
 # output_json shape: {"machine_info": {...}, "commit_info": {...}, "datetime": str, "version": str,
 #   "benchmarks": [{"fullname": str, "name": str, "group": str | None, "params": dict, "extra_info": dict,

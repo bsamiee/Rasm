@@ -33,16 +33,16 @@
 - rail: validation#IDS_FACETS
 - note: each is `: FacetBase, IFacet`; its match fields are `ValueConstraint`s (or nullable strings), so the `validation#IDS_FACETS` `IdsFacet` union lowers each to its `ElementPredicate` arm.
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]        | [RAIL]                                                                                                                                    |
-| :-----: | :----------------------- | :------------------- | :---------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `IfcTypeFacet`           | entity facet         | `IfcType` + `PredefinedType` (`ValueConstraint`) + `IncludeSubtypes`                                                                      |
-|  [02]   | `AttributeFacet`         | attribute facet      | `AttributeName` + `AttributeValue` (`ValueConstraint`)                                                                                    |
-|  [03]   | `IfcPropertyFacet`       | property facet       | `PropertySetName` + `PropertyName` + `PropertyValue` (`ValueConstraint`) + `DataType`                                                     |
-|  [04]   | `IfcClassificationFacet` | classification facet | `ClassificationSystem` + `Identification` (both `ValueConstraint?`) + `IncludeSubClasses`                                                 |
-|  [05]   | `MaterialFacet`          | material facet       | `Value` (`ValueConstraint?`) — the material value matcher                                                                                 |
-|  [06]   | `PartOfFacet`            | part-of facet        | `EntityType` (`IfcTypeFacet?`, the containing-entity facet whose `IfcType` the part-of lowers) + `EntityRelation` (the IFC relation kind) |
-|  [07]   | `DocumentFacet`          | document facet       | a document reference value (an extended facet)                                                                                            |
-|  [08]   | `IfcRelationFacet`       | relation facet       | an IFC relation kind (`IfcRelationFacet.RelationType`)                                                                                    |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]        | [RAIL]                                                                             |
+| :-----: | :----------------------- | :------------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `IfcTypeFacet`           | entity facet         | `IfcType` + `PredefinedType` (`ValueConstraint`) + `IncludeSubtypes`               |
+|  [02]   | `AttributeFacet`         | attribute facet      | `AttributeName` + `AttributeValue` (`ValueConstraint`)                             |
+|  [03]   | `IfcPropertyFacet`       | property facet       | `PropertySetName`/`PropertyName`/`PropertyValue` (`ValueConstraint`) + `DataType`  |
+|  [04]   | `IfcClassificationFacet` | classification facet | `ClassificationSystem`/`Identification` (`ValueConstraint?`) + `IncludeSubClasses` |
+|  [05]   | `MaterialFacet`          | material facet       | `Value` (`ValueConstraint?`) — the material value matcher                          |
+|  [06]   | `PartOfFacet`            | part-of facet        | `EntityType` (`IfcTypeFacet?`) + `EntityRelation` (IFC relation kind)              |
+|  [07]   | `DocumentFacet`          | document facet       | a document reference value (an extended facet)                                     |
+|  [08]   | `IfcRelationFacet`       | relation facet       | an IFC relation kind (`IfcRelationFacet.RelationType`)                             |
 
 [PUBLIC_TYPE_SCOPE]: value-constraint engine
 - rail: validation#IDS_FACETS
@@ -62,72 +62,88 @@
 - rail: validation#IDS_FACETS
 - note: `ICardinality` is the IDS occurrence rule (required/optional/prohibited) the requirement fold checks; `IfcSchemaVersion` is the closed schema axis `IfcSchemaVersionHelper` bridges to `ids-lib`.
 
-| [INDEX] | [SYMBOL]                                                                                      | [TYPE_FAMILY]        | [RAIL]                                                                  |
-| :-----: | :-------------------------------------------------------------------------------------------- | :------------------- | :---------------------------------------------------------------------- |
-|  [01]   | `ICardinality`                                                                                | cardinality contract | `ExpectsRequirements`/`AllowsRequirements` + `IsSatisfiedBy(int count)` |
-|  [02]   | `RequirementCardinalityOptions` / `RequirementCardinalityOptions.Cardinality`                 | cardinality enum     | `Required`/`Optional`/`Prohibited`                                      |
-|  [03]   | `Cardinality.MinMaxCardinality` / `Cardinality.SimpleCardinality`                             | cardinality impl     | bounded-count vs simple cardinality                                     |
-|  [04]   | `IfcSchemaVersion`                                                                            | schema enum          | `Undefined`/`IFC2X3`/`IFC4`/`IFC4X3`                                    |
-|  [05]   | `IfcSchemaVersionHelper`                                                                      | schema bridge        | converts `IfcSchemaVersion` ↔ `IdsLib.IfcSchema.IfcSchemaVersions`      |
-|  [06]   | `Helpers.IfcMeasureInfo` / `Helpers.Measures.MeasureUnit` / `Helpers.Measures.UnitConversion` | measure helper       | the IFC measure/unit metadata the property `DataType` resolves          |
-|  [07]   | `XidsSettings` / `Xids.PrettyOutput`                                                          | serialization policy | the export formatting and load settings                                 |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]        | [RAIL]                                                                  |
+| :-----: | :----------------------------------- | :------------------- | :---------------------------------------------------------------------- |
+|  [01]   | `ICardinality`                       | cardinality contract | `ExpectsRequirements`/`AllowsRequirements` + `IsSatisfiedBy(int count)` |
+|  [02]   | `RequirementCardinalityOptions`      | cardinality enum     | `.Cardinality`: `Required`/`Optional`/`Prohibited`                      |
+|  [03]   | `Cardinality.MinMaxCardinality`      | cardinality impl     | bounded-count cardinality                                               |
+|  [04]   | `Cardinality.SimpleCardinality`      | cardinality impl     | simple cardinality                                                      |
+|  [05]   | `IfcSchemaVersion`                   | schema enum          | `Undefined`/`IFC2X3`/`IFC4`/`IFC4X3`                                    |
+|  [06]   | `IfcSchemaVersionHelper`             | schema bridge        | converts `IfcSchemaVersion` ↔ `IdsLib.IfcSchema.IfcSchemaVersions`      |
+|  [07]   | `Helpers.IfcMeasureInfo`             | measure helper       | IFC measure/unit metadata the property `DataType` resolves              |
+|  [08]   | `Helpers.Measures.MeasureUnit`       | measure helper       | the measure's unit + magnitude                                          |
+|  [09]   | `Helpers.Measures.UnitConversion`    | measure helper       | IFC↔SI unit conversion                                                  |
+|  [10]   | `XidsSettings` / `Xids.PrettyOutput` | serialization policy | the export formatting and load settings                                 |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document load and save
 - rail: validation#IDS_FACETS
 - note: `Xids` is the document root; `LoadBuildingSmartIDS`/`ExportBuildingSmartIDS` is the IDS XML round-trip, `Load`/`SaveAsJson` the native JSON, and `CanLoad`/`IsZipped` the format probes.
+- note: every load/save/probe overload takes a trailing optional `ILogger? logger = null`.
 
-| [INDEX] | [SURFACE]                                                                                                            | [ENTRY_FAMILY] | [RAIL]                                                                                                                                                        |
-| :-----: | :------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `Xids.LoadBuildingSmartIDS(Stream stream, ILogger? logger = null)` / `(string fileName, …)` / `(XElement main, …)`   | static load    | parses a buildingSMART IDS XML document                                                                                                                       |
-|  [02]   | `Xids.ImportBuildingSmartIDS(Stream stream, ILogger? logger = null)` (alias of load)                                 | static load    | the import-spelled IDS XML parse                                                                                                                              |
-|  [03]   | `Xids.ExportBuildingSmartIDS(string destinationFileName, ILogger? logger = null)` / `(Stream, …)` → `ExportedFormat` | author         | writes the IDS XML (or `.zip`), returns `XML`/`ZIP`                                                                                                           |
-|  [04]   | `Xids.Load(FileInfo sourceFile, ILogger? logger = null)` / `Xids.LoadFromJson(string sourceFile, …)`                 | static load    | native JSON / format-detecting load                                                                                                                           |
-|  [05]   | `Xids.SaveAsJson(string destinationFile, ILogger? logger = null)` / `(Stream, …)`                                    | save           | writes the native JSON form                                                                                                                                   |
-|  [06]   | `Xids.CanLoad(FileInfo sourceFile, ILogger? logger = null)` / `Xids.IsZipped(Stream, …)` / `Xids.HasData(Xids?)`     | probe          | format admissibility and content probes                                                                                                                       |
-|  [07]   | `Xids.AllSpecifications` / `Xids.FromStream(Stream s)` / `Xids.Purge` / `Xids.AssemblyVersion`                       | document op    | flatten every `SpecificationsGroup`'s `Specification`s (`IEnumerable<Specification>` the `Parse` fold maps), stream load, drop-empty cleanup, package version |
+| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [RAIL]                                        |
+| :-----: | :--------------------------------------------------------------- | :------------- | :-------------------------------------------- |
+|  [01]   | `Xids.LoadBuildingSmartIDS(Stream)` / `(string)` / `(XElement)`  | static load    | parses a buildingSMART IDS XML document       |
+|  [02]   | `Xids.ImportBuildingSmartIDS(Stream)` (alias of load)            | static load    | the import-spelled IDS XML parse              |
+|  [03]   | `Xids.ExportBuildingSmartIDS(string)` / `(Stream)`               | author         | writes IDS XML/`.zip` → `ExportedFormat`      |
+|  [04]   | `Xids.Load(FileInfo)` / `Xids.LoadFromJson(string sourceFile)`   | static load    | native JSON / format-detecting load           |
+|  [05]   | `Xids.SaveAsJson(string destinationFile)` / `(Stream)`           | save           | writes the native JSON form                   |
+|  [06]   | `Xids.CanLoad(FileInfo)` / `IsZipped(Stream)` / `HasData(Xids?)` | probe          | format admissibility and content probes       |
+|  [07]   | `Xids.AllSpecifications`                                         | document op    | flatten groups → `IEnumerable<Specification>` |
+|  [08]   | `Xids.FromStream(Stream s)`                                      | document op    | stream load                                   |
+|  [09]   | `Xids.Purge`                                                     | document op    | drop-empty cleanup                            |
+|  [10]   | `Xids.AssemblyVersion`                                           | document op    | package version                               |
 
 [ENTRYPOINT_SCOPE]: specification authoring
 - rail: validation#IDS_FACETS
 - note: `PrepareSpecification` is the canonical authoring factory — it creates a `Specification` for one or more `IfcSchemaVersion`s with optional applicability/requirement groups already attached to the document graph.
+- note: every `PrepareSpecification` overload takes trailing `FacetGroup? applicability = null, FacetGroup? requirement = null`.
 
-| [INDEX] | [SURFACE]                                                                                                                  | [ENTRY_FAMILY] | [RAIL]                                         |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------- |
-|  [01]   | `Xids.PrepareSpecification(IfcSchemaVersion ifcVersion, FacetGroup? applicability = null, FacetGroup? requirement = null)` | author         | a spec for one schema version                  |
-|  [02]   | `Xids.PrepareSpecification(IEnumerable<IfcSchemaVersion> ifcVersion, FacetGroup? applicability, FacetGroup? requirement)`  | author         | a spec spanning schema versions                |
-|  [03]   | `Xids.PrepareSpecification(SpecificationsGroup destinationGroup, IfcSchemaVersion ifcVersion, …)`                          | author         | a spec into a named group                      |
-|  [04]   | `Specification.Applicability` / `Specification.Requirement` { get; set; }: `FacetGroup`                                    | spec edit      | the applicability and requirement facet sets   |
-|  [05]   | `Specification.Cardinality` { get; set; }: `ICardinality` / `Specification.IfcVersion`                                     | spec edit      | the occurrence rule and target schema set      |
-|  [06]   | `new FacetGroup(FacetGroupRepository repository)` / `FacetGroup.Facets`: `ObservableCollection<IFacet>`                    | facet set      | a facet group bound to the document repository |
-|  [07]   | `FacetGroup.IsUsed(SpecificationsGroup, FacetUse mode)` / `GetRequirementCardinalityOption(IFacet, out …)`                 | facet query    | facet role and per-facet cardinality lookup    |
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [RAIL]                                  |
+| :-----: | :------------------------------------------------------------------- | :------------- | :-------------------------------------- |
+|  [01]   | `Xids.PrepareSpecification(IfcSchemaVersion ifcVersion, …)`          | author         | a spec for one schema version           |
+|  [02]   | `Xids.PrepareSpecification(IEnumerable<IfcSchemaVersion>, …)`        | author         | a spec spanning schema versions         |
+|  [03]   | `Xids.PrepareSpecification(SpecificationsGroup destinationGroup, …)` | author         | a spec into a named group               |
+|  [04]   | `Specification.Applicability` / `.Requirement`: `FacetGroup`         | spec edit      | applicability + requirement facet sets  |
+|  [05]   | `Specification.Cardinality`: `ICardinality` / `.IfcVersion`          | spec edit      | the occurrence rule + target schema set |
+|  [06]   | `new FacetGroup(FacetGroupRepository repository)`                    | facet set      | bound to the document repository        |
+|  [07]   | `FacetGroup.Facets`: `ObservableCollection<IFacet>`                  | facet set      | the group's facet collection            |
+|  [08]   | `FacetGroup.IsUsed(SpecificationsGroup, FacetUse mode)`              | facet query    | facet role lookup                       |
+|  [09]   | `GetRequirementCardinalityOption(IFacet, out …)`                     | facet query    | per-facet cardinality lookup            |
 
 [ENTRYPOINT_SCOPE]: value-constraint matching
 - rail: validation#IDS_FACETS
 - note: `ValueConstraint.IsSatisfiedBy` is the match the requirement fold runs per candidate value; the constraint is built from typed components and an IFC/XSD base type.
+- note: every match overload takes a trailing optional `ILogger? logger = null`.
 
-| [INDEX] | [SURFACE]                                                                                                                                                       | [ENTRY_FAMILY] | [RAIL]                                            |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------ |
-|  [01]   | `ValueConstraint.IsSatisfiedBy(object? candidateValue, bool ignoreCase, ILogger? logger = null)`                                                                | match          | true if any accepted component matches            |
-|  [02]   | `ValueConstraint.IsSatisfiedIgnoringCaseBy(object? candidateValue, ILogger? logger = null)`                                                                     | match          | case-insensitive match                            |
-|  [03]   | `new ValueConstraint(string value)` / `new ValueConstraint(IEnumerable<string> stringValues)`                                                                   | ctor           | an exact-value / value-set constraint             |
-|  [04]   | `new ValueConstraint(NetTypeName valueType, string value)` / `new ValueConstraint(int value)`                                                                   | ctor           | a typed exact constraint                          |
-|  [05]   | `ValueConstraint.CreatePattern(string pattern)` / `ValueConstraint.AddAccepted(IValueConstraintComponent)`                                                      | build          | a pattern constraint / add a component            |
-|  [06]   | `new ExactConstraint(string)` / `new PatternConstraint(string pattern)` / `new RangeConstraint(string? min, bool minInclusive, string? max, bool maxInclusive)` | ctor           | the typed constraint components                   |
-|  [07]   | `IValueConstraintComponent.IsSatisfiedBy(object, ValueConstraint context, bool ignoreCase, ILogger?)`                                                           | match          | the per-component match the constraint folds over |
-|  [08]   | `ValueConstraint.TryGetNetType(string? ifcDataTypeName, out NetTypeName)` / `ValueConstraint.ParseValue(string?, NetTypeName)`                                  | type coerce    | IFC-datatype-aware value parsing                  |
+| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [RAIL]                                       |
+| :-----: | :----------------------------------------------------------------------- | :------------- | :------------------------------------------- |
+|  [01]   | `ValueConstraint.IsSatisfiedBy(object? candidateValue, bool ignoreCase)` | match          | true if any accepted component matches       |
+|  [02]   | `ValueConstraint.IsSatisfiedIgnoringCaseBy(object? candidateValue)`      | match          | case-insensitive match                       |
+|  [03]   | `new ValueConstraint(string)` / `(IEnumerable<string>)`                  | ctor           | an exact-value / value-set constraint        |
+|  [04]   | `new ValueConstraint(NetTypeName, string)` / `(int)`                     | ctor           | a typed exact constraint                     |
+|  [05]   | `ValueConstraint.CreatePattern(string pattern)`                          | build          | a pattern constraint                         |
+|  [06]   | `ValueConstraint.AddAccepted(IValueConstraintComponent)`                 | build          | add an accepted component                    |
+|  [07]   | `new ExactConstraint(string)`                                            | ctor           | literal-value component                      |
+|  [08]   | `new PatternConstraint(string pattern)`                                  | ctor           | XSD-regex component                          |
+|  [09]   | `new RangeConstraint(min, minInclusive, max, maxInclusive)`              | ctor           | inclusive/exclusive range component          |
+|  [10]   | `IValueConstraintComponent.IsSatisfiedBy(object, ValueConstraint, bool)` | match          | the per-component match the constraint folds |
+|  [11]   | `ValueConstraint.TryGetNetType(string?, out NetTypeName)`                | type coerce    | resolve the IFC↔.NET base type               |
+|  [12]   | `ValueConstraint.ParseValue(string?, NetTypeName)`                       | type coerce    | parse a value to the base type               |
 
 [ENTRYPOINT_SCOPE]: facet construction and cardinality
 - rail: validation#IDS_FACETS
 - note: a facet's match fields are `ValueConstraint`s; the requirement cardinality is checked through `ICardinality.IsSatisfiedBy(int count)`.
 
-| [INDEX] | [SURFACE]                                                                                                | [ENTRY_FAMILY] | [RAIL]                                 |
-| :-----: | :------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------- |
-|  [01]   | `IfcTypeFacet { IfcType, PredefinedType: ValueConstraint?, IncludeSubtypes: bool }`                      | facet build    | the entity/predefined-type facet       |
-|  [02]   | `IfcPropertyFacet { PropertySetName, PropertyName, PropertyValue: ValueConstraint?, DataType: string? }` | facet build    | the property facet                     |
-|  [03]   | `IFacet.Short()` / `IFacet.IsValid()` / `FacetBase.ApplicabilityDescription` / `RequirementDescription`  | facet read     | the human-readable + validity surface  |
-|  [04]   | `ICardinality.IsSatisfiedBy(int count)` / `ExpectsRequirements` / `AllowsRequirements`                   | cardinality    | the occurrence-rule check              |
-|  [05]   | `IfcSchemaVersionHelper` (`IfcSchemaVersion` ↔ `IdsLib.IfcSchema.IfcSchemaVersions`)                     | schema bridge  | the `api-ids-lib` schema-metadata seam |
+| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [RAIL]                                         |
+| :-----: | :-------------------------------------------------------------- | :------------- | :--------------------------------------------- |
+|  [01]   | `new IfcTypeFacet { … }`                                        | facet build    | the entity/predefined-type facet (facets [01]) |
+|  [02]   | `new IfcPropertyFacet { … }`                                    | facet build    | the property facet (facets [03])               |
+|  [03]   | `IFacet.Short()` / `IFacet.IsValid()`                           | facet read     | short label + validity                         |
+|  [04]   | `FacetBase.ApplicabilityDescription` / `RequirementDescription` | facet read     | the human-readable descriptions                |
+|  [05]   | `ICardinality.IsSatisfiedBy(int count)`                         | cardinality    | the occurrence-rule check                      |
+|  [06]   | `IfcSchemaVersionHelper` (`IfcSchemaVersion` ↔ `ids-lib`)       | schema bridge  | the `api-ids-lib` schema-metadata seam         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

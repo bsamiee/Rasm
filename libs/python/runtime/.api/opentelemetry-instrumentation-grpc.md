@@ -62,14 +62,15 @@
 
 [ENTRYPOINT_SCOPE]: interceptor factories
 - rail: observability
+- every factory takes `(tracer_provider=None, filter_=None)`; the client factories add `request_hook=None, response_hook=None`. Wiring targets are the `INTEGRATION_STACK` grpcio leg.
 
-| [INDEX] | [SURFACE]                                                                                            | [ENTRY_FAMILY] | [RAIL]                                                                                                                                            |
-| :-----: | :--------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `client_interceptor(tracer_provider=None, filter_=None, request_hook=None, response_hook=None)`      | sync client    | a `grpcext` unary+stream client interceptor; pass to `grpcext.intercept_channel`                                                                  |
-|  [02]   | `server_interceptor(tracer_provider=None, filter_=None)`                                             | sync server    | `grpc.ServerInterceptor` for `grpc.server(interceptors=[...])`                                                                                    |
-|  [03]   | `aio_client_interceptors(tracer_provider=None, filter_=None, request_hook=None, response_hook=None)` | async client   | list of four `grpc.aio` interceptors (unary-unary, unary-stream, stream-unary, stream-stream) for `grpc.aio.insecure_channel(interceptors=[...])` |
-|  [04]   | `aio_server_interceptor(tracer_provider=None, filter_=None)`                                         | async server   | `grpc.aio.ServerInterceptor` for `grpc.aio.server(interceptors=[...])`                                                                            |
-|  [05]   | `grpcext.intercept_channel(channel, *interceptors)`                                                  | channel wrap   | apply `grpcext` interceptors to an existing sync channel, returning a wrapped channel                                                             |
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [RAIL]                                                     |
+| :-----: | :-------------------------------------------------- | :------------- | :--------------------------------------------------------- |
+|  [01]   | `client_interceptor(...)`                           | sync client    | `grpcext` unary+stream interceptor for `intercept_channel` |
+|  [02]   | `server_interceptor(...)`                           | sync server    | `grpc.ServerInterceptor` for `grpc.server`                 |
+|  [03]   | `aio_client_interceptors(...)`                      | async client   | four `grpc.aio` interceptors: unary/stream × unary/stream  |
+|  [04]   | `aio_server_interceptor(...)`                       | async server   | `grpc.aio.ServerInterceptor` for `grpc.aio.server`         |
+|  [05]   | `grpcext.intercept_channel(channel, *interceptors)` | channel wrap   | wrap an existing sync channel, returning it wrapped        |
 
 [ENTRYPOINT_SCOPE]: filter predicates
 - rail: observability

@@ -96,17 +96,18 @@
 
 [ENTRYPOINT_SCOPE]: JSON and text format
 - rail: transport
+- Each surface carries further keyword options beyond those shown; each shown option defaults `False`, and `preserving_proto_field_name` governs both `json_format` serializers.
 
-| [INDEX] | [SURFACE]                                                                                                                | [ENTRY_FAMILY] | [RAIL]                                   |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------- |
-|  [01]   | `json_format.MessageToJson(message, preserving_proto_field_name=False, ...)`                                             | serialize      | encode to JSON string                    |
-|  [02]   | `json_format.MessageToDict(message, always_print_fields_with_no_presence=False, preserving_proto_field_name=False, ...)` | serialize      | encode to dict                           |
-|  [03]   | `json_format.Parse(text, message, ignore_unknown_fields=False, ...)`                                                     | deserialize    | decode JSON string into existing message |
-|  [04]   | `json_format.ParseDict(js_dict, message, ignore_unknown_fields=False, ...)`                                              | deserialize    | decode dict into existing message        |
-|  [05]   | `text_format.MessageToString(message, as_one_line=False, ...)`                                                           | serialize      | encode to proto text format string       |
-|  [06]   | `text_format.MessageToBytes(message, ...)`                                                                               | serialize      | encode to proto text format bytes        |
-|  [07]   | `text_format.Parse(text, message, allow_unknown_field=False, ...)`                                                       | deserialize    | decode text format into existing message |
-|  [08]   | `text_format.Merge(text, message, ...)`                                                                                  | deserialize    | merge text format into existing message  |
+| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY] | [RAIL]                                   |
+| :-----: | :------------------------------------------------------------------------- | :------------- | :--------------------------------------- |
+|  [01]   | `json_format.MessageToJson(message)`                                       | serialize      | encode to JSON string                    |
+|  [02]   | `json_format.MessageToDict(message, always_print_fields_with_no_presence)` | serialize      | encode to dict                           |
+|  [03]   | `json_format.Parse(text, message, ignore_unknown_fields)`                  | deserialize    | decode JSON string into existing message |
+|  [04]   | `json_format.ParseDict(js_dict, message, ignore_unknown_fields)`           | deserialize    | decode dict into existing message        |
+|  [05]   | `text_format.MessageToString(message, as_one_line)`                        | serialize      | encode to proto text format string       |
+|  [06]   | `text_format.MessageToBytes(message)`                                      | serialize      | encode to proto text format bytes        |
+|  [07]   | `text_format.Parse(text, message, allow_unknown_field)`                    | deserialize    | decode text format into existing message |
+|  [08]   | `text_format.Merge(text, message)`                                         | deserialize    | merge text format into existing message  |
 
 [ENTRYPOINT_SCOPE]: registries and dynamic message classes
 - rail: transport
@@ -126,15 +127,17 @@
 - rail: transport
 - methods on the `_pb2` well-known message instances (mixed in from `internal.well_known_types`).
 
-| [INDEX] | [SURFACE]                                                                                   | [ENTRY_FAMILY] | [RAIL]                          |
-| :-----: | :------------------------------------------------------------------------------------------ | :------------- | :------------------------------ |
-|  [01]   | `Any.Pack(msg, type_url_prefix=...)` / `Any.Unpack(msg) -> bool`                            | any            | embed / extract a typed message |
-|  [02]   | `Any.Is(descriptor) -> bool` / `Any.TypeName() -> str`                                      | any            | type discrimination on the URL  |
-|  [03]   | `Timestamp.GetCurrentTime()` / `ToDatetime(tzinfo=None)` / `FromDatetime(dt)`               | timestamp      | now / `datetime` round-trip     |
-|  [04]   | `Timestamp.ToJsonString()` / `FromJsonString(v)` / `ToNanoseconds()` / `FromNanoseconds(n)` | timestamp      | RFC3339 / nanos round-trip      |
-|  [05]   | `Duration.ToJsonString()` / `FromJsonString(v)` / `ToNanoseconds()` / `FromTimedelta(td)`   | duration       | span round-trip                 |
-|  [06]   | `Struct.update(dict)` / `Struct.keys()` / `Struct.items()` / `Struct[k] = v`                | struct         | dynamic JSON-like object access |
-|  [07]   | `FieldMask.FromJsonString(v)` / `ToJsonString()` / `MergeMessage(src, dst)`                 | field mask     | partial-update path set         |
+| [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY] | [RAIL]                          |
+| :-----: | :---------------------------------------------------------------------------- | :------------- | :------------------------------ |
+|  [01]   | `Any.Pack(msg, type_url_prefix=...)` / `Any.Unpack(msg) -> bool`              | any            | embed / extract a typed message |
+|  [02]   | `Any.Is(descriptor) -> bool` / `Any.TypeName() -> str`                        | any            | type discrimination on the URL  |
+|  [03]   | `Timestamp.GetCurrentTime()` / `ToDatetime(tzinfo=None)` / `FromDatetime(dt)` | timestamp      | now / `datetime` round-trip     |
+|  [04]   | `Timestamp.ToJsonString()` / `FromJsonString(v)`                              | timestamp      | RFC3339 round-trip              |
+|  [05]   | `Timestamp.ToNanoseconds()` / `FromNanoseconds(n)`                            | timestamp      | nanos round-trip                |
+|  [06]   | `Duration.ToJsonString()` / `FromJsonString(v)`                               | duration       | JSON span round-trip            |
+|  [07]   | `Duration.ToNanoseconds()` / `FromTimedelta(td)`                              | duration       | nanos / timedelta round-trip    |
+|  [08]   | `Struct.update(dict)` / `Struct.keys()` / `Struct.items()` / `Struct[k] = v`  | struct         | dynamic JSON-like object access |
+|  [09]   | `FieldMask.FromJsonString(v)` / `ToJsonString()` / `MergeMessage(src, dst)`   | field mask     | partial-update path set         |
 
 [ENTRYPOINT_SCOPE]: FieldDescriptor constants
 - rail: transport

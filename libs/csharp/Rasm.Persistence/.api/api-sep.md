@@ -37,17 +37,17 @@ classifier — `Outer` strips surrounding whitespace, `AfterUnescape` trims post
 `All` = both. `SepCreateToString` is the
 `(SepReaderHeader?, int colCount) -> SepToString` pool-factory delegate.
 
-| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]   | [CAPABILITY]                                                                                                                                                                                                    |
-| :-----: | :------------------- | :--------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Sep`                | separator root   | `readonly record struct`; selects separator                                                                                                                                                                     |
-|  [02]   | `SepSpec`            | culture spec     | `readonly record struct`; binds `Sep` + culture                                                                                                                                                                 |
-|  [03]   | `SepDefaults`        | default anchors  | static default separator/culture policy                                                                                                                                                                         |
-|  [04]   | `SepReaderOptions`   | reader options   | `readonly record struct`; parse policy bag                                                                                                                                                                      |
-|  [05]   | `SepWriterOptions`   | writer options   | `readonly record struct`; emit policy bag                                                                                                                                                                       |
-|  [06]   | `SepTrim`            | trim classifier  | `[Flags] enum byte` `None`/`Outer`/`AfterUnescape`/`All`                                                                                                                                                        |
-|  [07]   | `SepColNotSetOption` | unset classifier | `enum byte` `Throw`/`Empty`/`Skip` (writer only)                                                                                                                                                                |
-|  [08]   | `SepToString`        | string-pool root | abstract pool; `Direct` + the 4 pool factories `PoolPerCol(maxLength, capacity)` / `PoolPerColThreadSafe` / `PoolPerColThreadSafeFixedCapacity(maxLength, capacity)` / `Pool` (decompile-verified member names) |
-|  [09]   | `SepCreateToString`  | pool delegate    | `(header,colCount) -> SepToString` factory                                                                                                                                                                      |
+| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]   | [CAPABILITY]                                                                  |
+| :-----: | :------------------- | :--------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `Sep`                | separator root   | `readonly record struct`; selects separator                                   |
+|  [02]   | `SepSpec`            | culture spec     | `readonly record struct`; binds `Sep` + culture                               |
+|  [03]   | `SepDefaults`        | default anchors  | static default separator/culture policy                                       |
+|  [04]   | `SepReaderOptions`   | reader options   | `readonly record struct`; parse policy bag                                    |
+|  [05]   | `SepWriterOptions`   | writer options   | `readonly record struct`; emit policy bag                                     |
+|  [06]   | `SepTrim`            | trim classifier  | `[Flags] enum byte` `None`/`Outer`/`AfterUnescape`/`All`                      |
+|  [07]   | `SepColNotSetOption` | unset classifier | `enum byte` `Throw`/`Empty`/`Skip` (writer only)                              |
+|  [08]   | `SepToString`        | string-pool root | abstract pool root; `Direct` + `PoolPerCol*`/`OnePool` factories (pool table) |
+|  [09]   | `SepCreateToString`  | pool delegate    | `(header,colCount) -> SepToString` factory                                    |
 
 [READER_TYPES]: read surfaces
 - rail: interchange-codec
@@ -92,16 +92,16 @@ composes with the repo's options-builder discipline; the bare form plus `with` i
 fallback. `Sep.Auto` returns a `Sep?` of `null`, which `Reader(this Sep?)` reads as
 "auto-detect separator from the first row".
 
-| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]      | [CAPABILITY]                                                             |
-| :-----: | :-------------------------------------------- | :---------------- | :----------------------------------------------------------------------- |
-|  [01]   | `Sep.New(char)` / `new Sep(char)`             | factory           | builds an explicit separator                                             |
-|  [02]   | `Sep.Default`                                 | static property   | `SepDefaults.Separator` (`;`)                                            |
-|  [03]   | `Sep.Auto`                                    | static property   | `Sep?` = `null`; routes to auto-detect                                   |
-|  [04]   | `Sep.Reader()` / `sep.Reader()`               | options factory   | starts `SepReaderOptions`                                                |
-|  [05]   | `Sep.Reader(Func<…>)` / `sep.Reader(Func<…>)` | options factory   | starts + configures reader options in one call                           |
-|  [06]   | `spec.Reader(…)`                              | options factory   | reader options from a `SepSpec` (culture-bound)                          |
-|  [07]   | `Strict`                                      | options extension | `in SepReaderOptions`/`in SepWriterOptions`; hardens col-count + quoting |
-|  [08]   | `Sep.Writer()` / `sep.Writer(Func<…>)`        | options factory   | starts + configures writer options                                       |
+| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]      | [CAPABILITY]                                            |
+| :-----: | :-------------------------------------------- | :---------------- | :------------------------------------------------------ |
+|  [01]   | `Sep.New(char)` / `new Sep(char)`             | factory           | builds an explicit separator                            |
+|  [02]   | `Sep.Default`                                 | static property   | `SepDefaults.Separator` (`;`)                           |
+|  [03]   | `Sep.Auto`                                    | static property   | `Sep?` = `null`; routes to auto-detect                  |
+|  [04]   | `Sep.Reader()` / `sep.Reader()`               | options factory   | starts `SepReaderOptions`                               |
+|  [05]   | `Sep.Reader(Func<…>)` / `sep.Reader(Func<…>)` | options factory   | starts + configures reader options in one call          |
+|  [06]   | `spec.Reader(…)`                              | options factory   | reader options from a `SepSpec` (culture-bound)         |
+|  [07]   | `Strict`                                      | options extension | `in` reader/writer options; hardens col-count + quoting |
+|  [08]   | `Sep.Writer()` / `sep.Writer(Func<…>)`        | options factory   | starts + configures writer options                      |
 
 [ENTRYPOINT_SCOPE]: reader options surface (`readonly record struct SepReaderOptions`)
 - rail: interchange-codec
@@ -147,23 +147,27 @@ the `name + factory` overloads admit a named stream/reader for diagnostics, with
 returns `T?`. `Cols.Parse<T>(Span<T>)` parses a whole column set into a caller buffer
 (zero alloc), and `Cols.Select<T>(ColFunc<T>)` projects each column through a delegate.
 
-| [INDEX] | [SURFACE]                                                                        | [CALL_SHAPE]    | [CAPABILITY]                                                                |
-| :-----: | :------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `MoveNext` / `MoveNextAsync`                                                     | reader call     | advances row (sync / `ValueTask<bool>`)                                     |
-|  [02]   | `Current`                                                                        | reader property | current `Row` ref struct                                                    |
-|  [03]   | `Row[name]` / `Row[index]` / `Row[range]`                                        | row indexer     | selects `Col`/`Cols`                                                        |
-|  [04]   | `Row.ColCount` / `Row.Span` / `Row.Join(sep)` / `Row.Select<T>`                  | row projection  | live column count (`int`) / whole-row span / joined span / delegate project |
-|  [05]   | `Col.Span`                                                                       | col property    | `ReadOnlySpan<char>` column chars                                           |
-|  [06]   | `Col.Parse<T>()`                                                                 | col call        | `where T : ISpanParsable<T>`                                                |
-|  [07]   | `Col.TryParse<T>()`                                                              | col call        | `where T : struct, ISpanParsable<T>` -> `T?`                                |
-|  [08]   | `Cols.Parse<T>()` / `Cols.Parse<T>(Span<T>)`                                     | cols call       | parse set -> `Span<T>` or into caller buffer                                |
-|  [09]   | `Cols.TryParse<T>()` / `Cols.TryParse<T>(Span<T?>)`                              | cols call       | nullable struct set parse (`T : struct`)                                    |
-|  [10]   | `Cols.Select<T>(ColFunc<T>)`                                                     | cols call       | delegate-project each column -> `Span<T>`                                   |
-|  [11]   | `Header.IndexOf(string)` / `IndexOf(ReadOnlySpan<char>)`                         | header call     | resolve column index (string / span)                                        |
-|  [12]   | `Header.TryIndexOf(…, out int)`                                                  | header call     | non-throwing index resolution                                               |
-|  [13]   | `Header.IndicesOf(IReadOnlyList<string>` / `params` / `Span<string>, Span<int>)` | header call     | resolve many; the `Span<int>` form writes into a caller buffer              |
-|  [14]   | `Header.NamesStartingWith(prefix[, StringComparison])`                           | header call     | prefixed column-name window (default `Ordinal`)                             |
-|  [15]   | `Header.ColNames` / `Header.IsEmpty` / `Header.Empty`                            | header members  | name roster / emptiness / sentinel                                          |
+| [INDEX] | [SURFACE]                                                | [CALL_SHAPE]    | [CAPABILITY]                                    |
+| :-----: | :------------------------------------------------------- | :-------------- | :---------------------------------------------- |
+|  [01]   | `MoveNext` / `MoveNextAsync`                             | reader call     | advances row (sync / `ValueTask<bool>`)         |
+|  [02]   | `Current`                                                | reader property | current `Row` ref struct                        |
+|  [03]   | `Row[name]` / `Row[index]` / `Row[range]`                | row indexer     | selects `Col`/`Cols`                            |
+|  [04]   | `Row.ColCount`                                           | row projection  | live column count (`int`)                       |
+|  [05]   | `Row.Span` / `Row.Join(sep)`                             | row projection  | whole-row span / joined span                    |
+|  [06]   | `Row.Select<T>`                                          | row projection  | delegate-project the row                        |
+|  [07]   | `Col.Span`                                               | col property    | `ReadOnlySpan<char>` column chars               |
+|  [08]   | `Col.Parse<T>()`                                         | col call        | `where T : ISpanParsable<T>`                    |
+|  [09]   | `Col.TryParse<T>()`                                      | col call        | `where T : struct, ISpanParsable<T>` -> `T?`    |
+|  [10]   | `Cols.Parse<T>()` / `Cols.Parse<T>(Span<T>)`             | cols call       | parse set -> `Span<T>` or into caller buffer    |
+|  [11]   | `Cols.TryParse<T>()` / `Cols.TryParse<T>(Span<T?>)`      | cols call       | nullable struct set parse (`T : struct`)        |
+|  [12]   | `Cols.Select<T>(ColFunc<T>)`                             | cols call       | delegate-project each column -> `Span<T>`       |
+|  [13]   | `Header.IndexOf(string)` / `IndexOf(ReadOnlySpan<char>)` | header call     | resolve column index (string / span)            |
+|  [14]   | `Header.TryIndexOf(…, out int)`                          | header call     | non-throwing index resolution                   |
+|  [15]   | `Header.IndicesOf(IReadOnlyList<string>)`                | header call     | resolve many column indices                     |
+|  [16]   | `Header.IndicesOf(params string[])`                      | header call     | resolve many (params form)                      |
+|  [17]   | `Header.IndicesOf(Span<string>, Span<int>)`              | header call     | resolve many into a caller buffer               |
+|  [18]   | `Header.NamesStartingWith(prefix[, StringComparison])`   | header call     | prefixed column-name window (default `Ordinal`) |
+|  [19]   | `Header.ColNames` / `Header.IsEmpty` / `Header.Empty`    | header members  | name roster / emptiness / sentinel              |
 
 [ENTRYPOINT_SCOPE]: row enumeration projections — sync, async, parallel
 - rail: interchange-codec
@@ -188,16 +192,19 @@ records out of ref-struct rows.
 accepts a span or an interpolated string via `FormatInterpolatedStringHandler`;
 `Col.Format` writes an `ISpanFormattable` with a format/culture.
 
-| [INDEX] | [SURFACE]                                                                                                          | [CALL_SHAPE]      | [CAPABILITY]                            |
-| :-----: | :----------------------------------------------------------------------------------------------------------------- | :---------------- | :-------------------------------------- |
-|  [01]   | `Sep.Writer()` / `sep.Writer(Func<…>)`                                                                             | options factory   | starts writer options                   |
-|  [02]   | `ToText()` / `ToText(int capacity)`                                                                                | options extension | string sink (capacity-presized)         |
-|  [03]   | `ToFile(string)`                                                                                                   | options extension | file sink                               |
-|  [04]   | `To(Stream[, leaveOpen])` / `To(TextWriter[, leaveOpen])` / `To(StringBuilder)` / `To(name, factory[, leaveOpen])` | options extension | stream / writer / builder / named sink  |
-|  [05]   | `writer.NewRow()`                                                                                                  | writer call       | starts a writer row (commit on dispose) |
-|  [06]   | `Col.Set(span)` / `Col.Set($"…")`                                                                                  | col call          | sets span or interpolated value         |
-|  [07]   | `Col.Format(value[, format, provider])`                                                                            | col call          | formats `ISpanFormattable`              |
-|  [08]   | `writer.Flush()`                                                                                                   | writer call       | flushes pending rows to the sink        |
+| [INDEX] | [SURFACE]                               | [CALL_SHAPE]      | [CAPABILITY]                            |
+| :-----: | :-------------------------------------- | :---------------- | :-------------------------------------- |
+|  [01]   | `Sep.Writer()` / `sep.Writer(Func<…>)`  | options factory   | starts writer options                   |
+|  [02]   | `ToText()` / `ToText(int capacity)`     | options extension | string sink (capacity-presized)         |
+|  [03]   | `ToFile(string)`                        | options extension | file sink                               |
+|  [04]   | `To(Stream[, leaveOpen])`               | options extension | stream sink                             |
+|  [05]   | `To(TextWriter[, leaveOpen])`           | options extension | writer sink                             |
+|  [06]   | `To(StringBuilder)`                     | options extension | builder sink                            |
+|  [07]   | `To(name, factory[, leaveOpen])`        | options extension | named sink                              |
+|  [08]   | `writer.NewRow()`                       | writer call       | starts a writer row (commit on dispose) |
+|  [09]   | `Col.Set(span)` / `Col.Set($"…")`       | col call          | sets span or interpolated value         |
+|  [10]   | `Col.Format(value[, format, provider])` | col call          | formats `ISpanFormattable`              |
+|  [11]   | `writer.Flush()`                        | writer call       | flushes pending rows to the sink        |
 
 [ENTRYPOINT_SCOPE]: reader->writer copy bridge
 - rail: interchange-codec

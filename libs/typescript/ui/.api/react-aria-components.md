@@ -15,7 +15,7 @@
 
 Every component styles through `RenderProps`, injects props through a `ContextValue`, and names its slot through `SlotProps`. These owners are the mechanism; the roster in [02] varies only the state type `T`. The value exports here (`composeRenderProps`, `Provider`, `useRenderProps`, `useContextProps`, `useSlottedContext`, `DEFAULT_SLOT`) and type exports (`RenderProps`, `StyleRenderProps`, `ContextValue`, `SlotProps`) are the entire compositional substrate.
 
-```ts contract
+```ts signature
 // className/style/children each accept a plain value OR a function of the component's render state (the data-* selectors). `render` overrides the DOM element.
 type ClassNameOrFunction<T> = string | ((s: T & { defaultClassName: string | undefined }) => string)
 interface StyleRenderProps<T, E extends keyof JSX.IntrinsicElements = 'div'> {
@@ -46,18 +46,30 @@ Consumer note: styling rarely needs the function form — the `data-*` selectors
 
 The roster — each row a family of the `Xxx` / `XxxContext` / `XxxStateContext` triple. Every `XxxProps extends Aria<Xxx>Props, RenderProps<XxxRenderProps>, SlotProps` plus a shared DOM-attributes base; each `XxxRenderProps` exposes the boolean/data state (`isHovered`, `isSelected`, `isDisabled`, `isPending`, `isOpen`, …) as `data-*` selectors. This is SEED DATA on [01], not a distinct API per row.
 
-| [INDEX] | [FAMILY]    | [COMPONENTS]                                                                                           | [STATE_AXIS]                                                           |
-| :-----: | :---------- | :----------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------- |
-|  [01]   | actions     | `Button` `ToggleButton` `ToggleButtonGroup` `Link` `FileTrigger`                                       | press/toggle/upload; `ButtonRenderProps.isPending`/`isDisabled`        |
-|  [02]   | collections | `ListBox` `GridList` `Menu` `Table` `Tree` `TagGroup` `Tabs` `Breadcrumbs` `Toolbar`                   | react-stately collection state; selection/sort/drag on the [03] engine |
-|  [03]   | pickers     | `Select` `ComboBox` `Autocomplete`                                                                     | collection + overlay + `useFilter` locale matching                     |
-|  [04]   | overlays    | `DialogTrigger` `Dialog` `Modal` `ModalOverlay` `Popover` `Tooltip`(`Trigger`) `OverlayArrow`          | focus-trap + dismiss + positioning (`Placement`)                       |
-|  [05]   | fields      | `Form` `FieldError` `Label` `Input` `TextField` `TextArea` `SearchField` `NumberField`                 | `validationBehavior` + `ValidationResult`                              |
-|  [06]   | toggles     | `Checkbox`(`Group`) `RadioGroup` `Switch` `Slider` `Meter` `ProgressBar`                               | react-stately toggle/slider/number state                               |
-|  [07]   | date/time   | `Calendar` `RangeCalendar` `DateField` `TimeField` `DatePicker` `DateRangePicker`                      | `@internationalized/date` (`DateValue`/`TimeValue`/`DateRange`)        |
-|  [08]   | color       | `ColorPicker` `ColorArea` `ColorField` `ColorSlider` `ColorWheel` `ColorSwatch`(`Picker`) `ColorThumb` | `parseColor`/`getColorChannels`; `Color`/`ColorSpace`/`ColorChannel`   |
-|  [09]   | structure   | `Group` `Separator` `Heading` `Header` `Text` `Keyboard` `Disclosure`(`Group`)                         | labeling/structure primitives                                          |
-|  [10]   | interaction | `Pressable` `Focusable` `VisuallyHidden`                                                               | raw press/focus/SR-only on the aria spine                              |
+| [INDEX] | [FAMILY]    | [COMPONENTS]                                                                                           |
+| :-----: | :---------- | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | actions     | `Button` `ToggleButton` `ToggleButtonGroup` `Link` `FileTrigger`                                       |
+|  [02]   | collections | `ListBox` `GridList` `Menu` `Table` `Tree` `TagGroup` `Tabs` `Breadcrumbs` `Toolbar`                   |
+|  [03]   | pickers     | `Select` `ComboBox` `Autocomplete`                                                                     |
+|  [04]   | overlays    | `DialogTrigger` `Dialog` `Modal` `ModalOverlay` `Popover` `Tooltip`(`Trigger`) `OverlayArrow`          |
+|  [05]   | fields      | `Form` `FieldError` `Label` `Input` `TextField` `TextArea` `SearchField` `NumberField`                 |
+|  [06]   | toggles     | `Checkbox`(`Group`) `RadioGroup` `Switch` `Slider` `Meter` `ProgressBar`                               |
+|  [07]   | date/time   | `Calendar` `RangeCalendar` `DateField` `TimeField` `DatePicker` `DateRangePicker`                      |
+|  [08]   | color       | `ColorPicker` `ColorArea` `ColorField` `ColorSlider` `ColorWheel` `ColorSwatch`(`Picker`) `ColorThumb` |
+|  [09]   | structure   | `Group` `Separator` `Heading` `Header` `Text` `Keyboard` `Disclosure`(`Group`)                         |
+|  [10]   | interaction | `Pressable` `Focusable` `VisuallyHidden`                                                               |
+
+State axis per family:
+- [01]-[ACTIONS]: press/toggle/upload; `ButtonRenderProps.isPending`/`isDisabled`.
+- [02]-[COLLECTIONS]: react-stately collection state; selection/sort/drag on the [03] engine.
+- [03]-[PICKERS]: collection + overlay + `useFilter` locale matching.
+- [04]-[OVERLAYS]: focus-trap + dismiss + positioning (`Placement`).
+- [05]-[FIELDS]: `validationBehavior` + `ValidationResult`.
+- [06]-[TOGGLES]: react-stately toggle/slider/number state.
+- [07]-[DATE_TIME]: `@internationalized/date` (`DateValue`/`TimeValue`/`DateRange`).
+- [08]-[COLOR]: `parseColor`/`getColorChannels`; `Color`/`ColorSpace`/`ColorChannel`.
+- [09]-[STRUCTURE]: labeling/structure primitives.
+- [10]-[INTERACTION]: raw press/focus/SR-only on the aria spine.
 
 Consumer note: each component also exports `XxxContext` (inject props via `Provider`) and, where stateful, `XxxStateContext` (read the react-stately state — `ListStateContext`, `TableStateContext`, `OverlayTriggerStateContext`, `SelectStateContext`, `RootMenuTriggerStateContext`, `TooltipTriggerStateContext`, `TabListStateContext`, …). Compound composition reads the state context rather than prop-drilling.
 
@@ -65,7 +77,7 @@ Consumer note: each component also exports `XxxContext` (inject props via `Provi
 
 Collections, selection, sorting, virtualization, drag-drop, and async data are ONE engine the collection/picker families share — react-stately state surfaced through RAC. A custom item is authored through the factory pair, never hand-parsed `children`.
 
-```ts contract
+```ts signature
 // Custom collection items: two factories, not bespoke children parsing. Collection/Section/CollectionBuilder are the render substrate.
 declare function createLeafComponent<T, P>(type: string, render: (props: P, ref, item) => ReactElement): (props: P) => ReactElement   // a selectable item
 declare function createBranchComponent<T, P>(type: string, render, useChildren?): (props: P) => ReactElement                          // an item owning child items (Tree/Section)

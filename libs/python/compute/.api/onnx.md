@@ -58,40 +58,36 @@
 [ENTRYPOINT_SCOPE]: load, save, check, and infer
 - rail: model
 
-| [INDEX] | [SURFACE]                                                                                                               | [ENTRY_FAMILY]   | [CAPABILITY]                                                                                            |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------- | :--------------- | :------------------------------------------------------------------------------------------------------ |
-|  [01]   | `load(f, format=None, load_external_data=True) -> ModelProto`                                                           | model load       | reads a model from a path or file object                                                                |
-|  [02]   | `load_model_from_string(s, format='protobuf') -> ModelProto`                                                            | model load       | parses a model from in-memory bytes                                                                     |
-|  [03]   | `save(proto, f, *, save_as_external_data=False, location, size_threshold=1024) -> None`                                 | model save       | writes a model, optionally externalizing tensors                                                        |
-|  [04]   | `load_tensor(f, format=None)` / `save_tensor(proto, f, format=None)`                                                    | tensor io        | reads/writes a single `TensorProto`                                                                     |
-|  [05]   | `checker.check_model(model, full_check=False, skip_opset_compatibility_check=False, check_custom_domain=False) -> None` | structural check | validates model structure, raising `ValidationError`; `full_check=True` also runs shape inference       |
-|  [06]   | `checker.check_graph(graph, ctx)` / `check_node(node, ctx)` / `check_tensor(tensor, ctx)`                               | structural check | per-element validation for incrementally built graphs                                                   |
-|  [07]   | `shape_inference.infer_shapes(model, check_type=False, strict_mode=False, data_prop=False) -> ModelProto`               | shape inference  | propagates static shapes through the graph; `data_prop=True` propagates constant data through shape ops |
-|  [08]   | `shape_inference.infer_shapes_path(model_path, output_path, *, check_type, strict_mode, data_prop)`                     | shape inference  | infers shapes for a path-based model (avoids the 2GB protobuf limit)                                    |
-|  [09]   | `version_converter.convert_version(model, target_version) -> ModelProto`                                                | opset convert    | rewrites the model to a target opset version                                                            |
-|  [10]   | `utils.extract_model(input_path, output_path, input_names, output_names, *, check_model=True)`                          | subgraph extract | slices a sub-model between named tensors                                                                |
-|  [11]   | `parser.parse_model(text) -> ModelProto` / `parser.parse_graph(text)`                                                   | textual io       | round-trips the human-readable ONNX text format                                                         |
-|  [12]   | `inliner.inline_local_functions(model, exclude=None) -> ModelProto`                                                     | function inline  | inlines `FunctionProto` callsites into the main graph                                                   |
-|  [13]   | `external_data_helper.{load_external_data_for_model,convert_model_to_external_data,write_external_data_tensors}`        | external data    | streams large initializers to side files (>2GB models)                                                  |
+- [01]-[LOAD]: `load(f, format=None, load_external_data=True) -> ModelProto` — reads a model from a path or file object.
+- [02]-[LOAD_MODEL_FROM_STRING]: `load_model_from_string(s, format='protobuf') -> ModelProto` — parses a model from in-memory bytes.
+- [03]-[SAVE]: `save(proto, f, *, save_as_external_data=False, location, size_threshold=1024) -> None` — writes a model, optionally externalizing tensors.
+- [04]-[LOAD_TENSOR]: `load_tensor(f, format=None)` / `save_tensor(proto, f, format=None)` — reads/writes a single `TensorProto`.
+- [05]-[CHECK_MODEL]: `checker.check_model(model, full_check=False, skip_opset_compatibility_check=False, check_custom_domain=False) -> None` — validates model structure, raising `ValidationError`; `full_check=True` also runs shape inference.
+- [06]-[CHECK_GRAPH]: `checker.check_graph(graph, ctx)` / `check_node(node, ctx)` / `check_tensor(tensor, ctx)` — per-element validation for incrementally built graphs.
+- [07]-[INFER_SHAPES]: `shape_inference.infer_shapes(model, check_type=False, strict_mode=False, data_prop=False) -> ModelProto` — propagates static shapes through the graph; `data_prop=True` propagates constant data through shape ops.
+- [08]-[INFER_SHAPES_PATH]: `shape_inference.infer_shapes_path(model_path, output_path, *, check_type, strict_mode, data_prop)` — infers shapes for a path-based model (avoids the 2GB protobuf limit).
+- [09]-[CONVERT_VERSION]: `version_converter.convert_version(model, target_version) -> ModelProto` — rewrites the model to a target opset version.
+- [10]-[EXTRACT_MODEL]: `utils.extract_model(input_path, output_path, input_names, output_names, *, check_model=True)` — slices a sub-model between named tensors.
+- [11]-[PARSE_MODEL]: `parser.parse_model(text) -> ModelProto` / `parser.parse_graph(text)` — round-trips the human-readable ONNX text format.
+- [12]-[INLINE_LOCAL_FUNCTIONS]: `inliner.inline_local_functions(model, exclude=None) -> ModelProto` — inlines `FunctionProto` callsites into the main graph.
+- [13]-[LOAD_EXTERNAL_DATA_FOR_MODELCONVERT_MODEL_TO_EXTERNAL_DATAWRITE_EXTERNAL_DATA_TENSORS]: `external_data_helper.{load_external_data_for_model,convert_model_to_external_data,write_external_data_tensors}` — streams large initializers to side files (>2GB models).
 
 [ENTRYPOINT_SCOPE]: construction and array conversion
 - rail: model
 
-| [INDEX] | [SURFACE]                                                                                                                                          | [ENTRY_FAMILY]     | [CAPABILITY]                                                                                                    |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------- | :-------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `helper.make_node(op_type, inputs, outputs, name, domain, **kwargs) -> NodeProto`                                                                  | node builder       | builds one operator node                                                                                        |
-|  [02]   | `helper.make_graph(nodes, name, inputs, outputs, initializer, value_info, sparse_initializer) -> GraphProto`                                       | graph builder      | assembles a graph from nodes and io                                                                             |
-|  [03]   | `helper.make_model(graph, **kwargs) -> ModelProto`                                                                                                 | model builder      | wraps a graph in a model with opset imports                                                                     |
-|  [04]   | `helper.make_tensor(name, data_type, dims, vals, raw=False) -> TensorProto`                                                                        | tensor builder     | builds an initializer/constant tensor                                                                           |
-|  [05]   | `helper.make_tensor_value_info(name, elem_type, shape) -> ValueInfoProto`                                                                          | value-info builder | builds a typed graph input/output descriptor                                                                    |
-|  [06]   | `helper.make_attribute(key, value, attr_type=None) -> AttributeProto`                                                                              | attribute builder  | builds a typed node attribute                                                                                   |
-|  [07]   | `helper.make_opsetid(domain, version)` / `helper.make_function(domain, fname, inputs, outputs, nodes, opset_imports, attributes) -> FunctionProto` | model builder      | builds opset-id pairs and reusable local functions                                                              |
-|  [08]   | `helper.tensor_dtype_to_np_dtype(t)` / `np_dtype_to_tensor_dtype(d)` / `tensor_dtype_to_field(t)`                                                  | dtype map          | bridges the `TensorProto` element-type enum to NumPy dtypes (replaces the deprecated `mapping.TENSOR_TYPE_MAP`) |
-|  [09]   | `helper.printable_graph(graph, prefix='') -> str`                                                                                                  | graph printer      | renders a human-readable graph dump                                                                             |
-|  [10]   | `numpy_helper.to_array(tensor, base_dir='')` / `from_array(array, name=None)`                                                                      | array convert      | converts between `TensorProto` and `np.ndarray`, including bf16/float8 via ml_dtypes                            |
-|  [11]   | `numpy_helper.{to_list,from_list,to_dict,from_dict,to_optional,bfloat16_to_float32,float8e4m3_to_float32}`                                         | array convert      | sequence/map/optional tensor bridges and sub-byte float decoders                                                |
-|  [12]   | `compose.merge_models(m1, m2, io_map)` / `add_prefix(model, prefix)` / `expand_out_dim(model, dim_idx)`                                            | model compose      | merges two models, namespaces a model, or adds a batch dim                                                      |
-|  [13]   | `defs.onnx_opset_version()` / `defs.get_all_schemas()` / `defs.get_schema(op_type, max_version, domain)`                                           | opset registry     | reports the supported opset and operator schemas (`OpSchema`)                                                   |
+- [01]-[MAKE_NODE]: `helper.make_node(op_type, inputs, outputs, name, domain, **kwargs) -> NodeProto` — builds one operator node.
+- [02]-[MAKE_GRAPH]: `helper.make_graph(nodes, name, inputs, outputs, initializer, value_info, sparse_initializer) -> GraphProto` — assembles a graph from nodes and io.
+- [03]-[MAKE_MODEL]: `helper.make_model(graph, **kwargs) -> ModelProto` — wraps a graph in a model with opset imports.
+- [04]-[MAKE_TENSOR]: `helper.make_tensor(name, data_type, dims, vals, raw=False) -> TensorProto` — builds an initializer/constant tensor.
+- [05]-[MAKE_TENSOR_VALUE_INFO]: `helper.make_tensor_value_info(name, elem_type, shape) -> ValueInfoProto` — builds a typed graph input/output descriptor.
+- [06]-[MAKE_ATTRIBUTE]: `helper.make_attribute(key, value, attr_type=None) -> AttributeProto` — builds a typed node attribute.
+- [07]-[MAKE_OPSETID]: `helper.make_opsetid(domain, version)` / `helper.make_function(domain, fname, inputs, outputs, nodes, opset_imports, attributes) -> FunctionProto` — builds opset-id pairs and reusable local functions.
+- [08]-[TENSOR_DTYPE_TO_NP_DTYPE]: `helper.tensor_dtype_to_np_dtype(t)` / `np_dtype_to_tensor_dtype(d)` / `tensor_dtype_to_field(t)` — bridges the `TensorProto` element-type enum to NumPy dtypes (replaces the deprecated `mapping.TENSOR_TYPE_MAP`).
+- [09]-[PRINTABLE_GRAPH]: `helper.printable_graph(graph, prefix='') -> str` — renders a human-readable graph dump.
+- [10]-[TO_ARRAY]: `numpy_helper.to_array(tensor, base_dir='')` / `from_array(array, name=None)` — converts between `TensorProto` and `np.ndarray`, including bf16/float8 via ml_dtypes.
+- [11]-[TO_LISTFROM_LISTTO_DICTFROM_DICTTO_OPTIONALBFLOAT16_TO_FLOAT32FLOAT8E4M3_TO_FLOAT32]: `numpy_helper.{to_list,from_list,to_dict,from_dict,to_optional,bfloat16_to_float32,float8e4m3_to_float32}` — sequence/map/optional tensor bridges and sub-byte float decoders.
+- [12]-[MERGE_MODELS]: `compose.merge_models(m1, m2, io_map)` / `add_prefix(model, prefix)` / `expand_out_dim(model, dim_idx)` — merges two models, namespaces a model, or adds a batch dim.
+- [13]-[ONNX_OPSET_VERSION]: `defs.onnx_opset_version()` / `defs.get_all_schemas()` / `defs.get_schema(op_type, max_version, domain)` — reports the supported opset and operator schemas (`OpSchema`).
 
 ## [04]-[IMPLEMENTATION_LAW]
 

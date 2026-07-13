@@ -30,16 +30,17 @@ collections back the entity-id↔volume registry without per-element allocation.
 - package: `SwiftCollections.Lean`
 - namespace: `SwiftCollections.Query`
 - rail: clash
+- note: `SwiftBVH`/`SwiftOctree`/`SwiftSpatialHash` each ship a `<TKey>` form (built-in `BoundVolume`) and a `<TKey, TVolume>` form (custom `IBoundVolume<TVolume>`)
 
-| [INDEX] | [SYMBOL]                                                     | [RAIL] | [CAPABILITY]                                                                                                                               |
-| :-----: | :----------------------------------------------------------- | :----- | :----------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SwiftBVH<TKey>` / `SwiftBVH<TKey, TVolume>`                 | clash  | refittable bounding-volume hierarchy; SAH-cost insertion, `EnsureCapacity`, `NodePool`/`RootNode` exposed — the default broad-phase        |
-|  [02]   | `SwiftOctree<TKey>` / `SwiftOctree<TKey, TVolume>`           | clash  | spatial octree; depth/node-capacity bounded subdivision with merge-on-remove                                                               |
-|  [03]   | `SwiftSpatialHash<TKey>` / `SwiftSpatialHash<TKey, TVolume>` | clash  | uniform-grid spatial hash; adds `QueryNeighborhood` over the padded cell ring                                                              |
-|  [04]   | `BoundVolume`                                                | clash  | `struct` AABB over `Vector3 Min`/`Max`; `Center`/`Size`/`Volume`, `Union`, `Intersects`, `GetCost` (SAH surface-area cost), `BoundsEquals` |
-|  [05]   | `IBoundVolume<TVolume>`                                      | clash  | the generic AABB contract (`Union`/`Intersects`/`GetCost`/`BoundsEquals`) a custom volume implements to plug into all three structures     |
-|  [06]   | `SwiftOctreeOptions`                                         | clash  | `(int maxDepth, int nodeCapacity[, bool enableMergeOnRemove])` octree tuning struct                                                        |
-|  [07]   | `SwiftSpatialHashOptions`                                    | clash  | `(int neighborhoodPadding)` with static `.Default`; controls the `QueryNeighborhood` ring radius                                           |
+| [INDEX] | [SYMBOL]                  | [CAPABILITY]                                                                                           |
+| :-----: | :------------------------ | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | `SwiftBVH`                | refittable BVH; SAH-cost insertion, `EnsureCapacity`, `NodePool`/`RootNode` — the default broad-phase  |
+|  [02]   | `SwiftOctree`             | spatial octree; depth/node-capacity bounded subdivision with merge-on-remove                           |
+|  [03]   | `SwiftSpatialHash`        | uniform-grid spatial hash; adds `QueryNeighborhood` over the padded cell ring                          |
+|  [04]   | `BoundVolume`             | `struct` `Vector3` AABB; `Union`/`Intersects`/`GetCost` (SAH)/`BoundsEquals`, `Center`/`Size`/`Volume` |
+|  [05]   | `IBoundVolume<TVolume>`   | generic AABB contract `Union`/`Intersects`/`GetCost`/`BoundsEquals`; plugs all three structures        |
+|  [06]   | `SwiftOctreeOptions`      | `(int maxDepth, int nodeCapacity[, bool enableMergeOnRemove])` octree tuning struct                    |
+|  [07]   | `SwiftSpatialHashOptions` | `(int neighborhoodPadding)`, static `.Default`; the `QueryNeighborhood` ring radius                    |
 
 [PUBLIC_TYPE_SCOPE]: handle-stable backing collections
 - package: `SwiftCollections.Lean`
@@ -50,13 +51,13 @@ The clash registry maps a `BimElement` GlobalId to its AABB; these allocation-
 conscious structures hold that mapping with stable integer handles so a model
 update mutates one slot instead of rebuilding the index.
 
-| [INDEX] | [SYMBOL]                           | [RAIL] | [CAPABILITY]                                                                                                                                                                                                                                   |
-| :-----: | :--------------------------------- | :----- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SwiftBucket<T>`                   | clash  | dense slab with stable int handles: `int Add(T)` returns a reusable index, `TryRemoveAt`/`TryGetValue`, `PeakCount`                                                                                                                            |
-|  [02]   | `SwiftSparseMap<T>`                | clash  | sparse int-keyed map; O(1) add/remove/lookup with dense iteration — the GlobalId-hash→volume registry                                                                                                                                          |
-|  [03]   | `SwiftSparseSet`                   | clash  | sparse int set for the candidate-pair dedupe                                                                                                                                                                                                   |
-|  [04]   | `SwiftList<T>` / `SwiftHashSet<T>` | clash  | low-overhead list/set the `Query(bounds, ICollection<TKey>)` result sink fills; both implement `IStateBacked<SwiftArrayState<T>>` for a snapshot of the candidate buffer                                                                       |
-|  [05]   | `IStateBacked<TState>`             | clash  | snapshot/restore contract the backing collections (`SwiftList`/`SwiftHashSet`/`SwiftBucket`/`SwiftSparseMap`) implement — the spatial `Query` structures do NOT; a deterministic clash receipt snapshots the registry, not the index node-pool |
+| [INDEX] | [SYMBOL]                           | [CAPABILITY]                                                                                    |
+| :-----: | :--------------------------------- | :---------------------------------------------------------------------------------------------- |
+|  [01]   | `SwiftBucket<T>`                   | dense slab, stable int handles: `int Add(T)`, `TryRemoveAt`/`TryGetValue`, `PeakCount`          |
+|  [02]   | `SwiftSparseMap<T>`                | sparse int-keyed map; O(1) add/remove/lookup — the GlobalId-hash→volume registry                |
+|  [03]   | `SwiftSparseSet`                   | sparse int set for the candidate-pair dedupe                                                    |
+|  [04]   | `SwiftList<T>` / `SwiftHashSet<T>` | low-overhead list/set for the `Query` sink; both `: IStateBacked<SwiftArrayState<T>>`           |
+|  [05]   | `IStateBacked<TState>`             | snapshot/restore contract; registry collections implement it, spatial `Query` structures do not |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -68,17 +69,17 @@ update mutates one slot instead of rebuilding the index.
 All three structures share this polymorphic surface (`TKey` = element handle,
 `TVolume` = AABB); the design binds the contract, not a concrete structure.
 
-| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                       | [CAPABILITY]                                                                                              |
-| :-----: | :----------------------------------- | :------------------------------------------------- | :-------------------------------------------------------------------------------------------------------- |
-|  [01]   | `new SwiftBVH<T>`                    | `(int capacity)`                                   | pre-sized BVH; `SwiftOctree`/`SwiftSpatialHash` take their options struct                                 |
-|  [02]   | `Insert`                             | `(TKey key, TVolume bounds)` → `bool`              | inserts an element AABB into the index                                                                    |
-|  [03]   | `UpdateEntryBounds`                  | `(TKey key, TVolume newBounds)`                    | refits one entry in place — the incremental update on a moved element, no full rebuild                    |
-|  [04]   | `Remove`                             | `(TKey key)` → `bool`                              | removes an element from the index                                                                         |
-|  [05]   | `Query`                              | `(TVolume queryBounds, ICollection<TKey> results)` | fills the caller's result sink with every entry overlapping `queryBounds` — the broad-phase candidate set |
-|  [06]   | `SwiftSpatialHash.QueryNeighborhood` | `(TVolume queryBounds, ICollection<TKey> results)` | widens the query by the padded cell ring for proximity/clearance checks                                   |
-|  [07]   | `TryGetBounds`                       | `(TKey key, out TVolume bounds)` → `bool`          | reads back a stored AABB (octree/spatial-hash)                                                            |
-|  [08]   | `Contains` / `Count`                 | `(TKey key)` → `bool` / property                   | membership and entry count                                                                                |
-|  [09]   | `EnsureCapacity` / `Clear`           | `(int capacity)` / `()`                            | pre-grow the node pool / reset the index for the next model snapshot                                      |
+| [INDEX] | [SURFACE]                                                        | [CAPABILITY]                                                   |
+| :-----: | :--------------------------------------------------------------- | :------------------------------------------------------------- |
+|  [01]   | `new SwiftBVH<T>(int capacity)`                                  | pre-sized BVH; `SwiftOctree`/`SwiftSpatialHash` take options   |
+|  [02]   | `Insert(TKey key, TVolume bounds)` → `bool`                      | inserts an element AABB into the index                         |
+|  [03]   | `UpdateEntryBounds(TKey key, TVolume newBounds)`                 | in-place refit of a moved element, no full rebuild             |
+|  [04]   | `Remove(TKey key)` → `bool`                                      | removes an element from the index                              |
+|  [05]   | `Query(TVolume queryBounds, ICollection<TKey> results)`          | sink of entries overlapping `queryBounds` — the candidate set  |
+|  [06]   | `SwiftSpatialHash.QueryNeighborhood(TVolume, ICollection<TKey>)` | widens the query by the padded cell ring (proximity/clearance) |
+|  [07]   | `TryGetBounds(TKey key, out TVolume bounds)` → `bool`            | reads back a stored AABB (octree/spatial-hash)                 |
+|  [08]   | `Contains(TKey key)` → `bool` / `Count`                          | membership and entry count                                     |
+|  [09]   | `EnsureCapacity(int capacity)` / `Clear()`                       | pre-grow the node pool / reset for the next snapshot           |
 
 [ENTRYPOINT_SCOPE]: BoundVolume — AABB algebra
 - package: `SwiftCollections.Lean`

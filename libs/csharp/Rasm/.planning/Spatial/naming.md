@@ -289,17 +289,25 @@ public static class Naming {
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
+One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes, and the per-axis kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]           | [OWNER]             | [KIND]                                                                                                             | [RAIL]                                    | [CASES] |
-| :-----: | :----------------------- | :------------------ | :----------------------------------------------------------------------------------------------------------------- | :---------------------------------------- | :-----: |
-|  [01]   | Entry                    | `Naming`/`NamingOp` | `[Union]` (`Track`/`Resolve`) folded by ONE `Apply` with `Op? key` threading                                       | `Naming.Apply → Fin<NameTable>`           |    2    |
-|  [02]   | Entity modality          | `EntityKind`        | `[SmartEnum<int>]` Vertex/Edge/Face + signature-arity column                                                       | discriminant (pure)                       |    3    |
-|  [03]   | Re-anchor outcome        | `TrackOutcome`      | `[Union]` Survived/Migrated/Born — derived via `NameEntry.Outcome(generation)`                                     | projection (pure)                         |    3    |
-|  [04]   | Migration policy         | `NamingPolicy`      | policy row (`MigrationOverlap` threshold), `Canonical` default                                                     | value (threaded by the op case)           |    —    |
-|  [05]   | Topological fingerprint  | `TopoSignature`     | `[ValueObject<UInt128>]` position-free name/kind digest (WL-1 vertex refinement) + `Overlap`                       | `TopoSignature.Of → TopoSignature` (pure) |    —    |
-|  [06]   | Stable lineage reference | `TopoName`          | `[ValueObject<UInt128>]` one naming algebra over all kinds + generation-salted `Mint`                              | `TopoName.Mint → TopoName` (pure)         |    —    |
-|  [07]   | Naming registry          | `NameTable`         | immutable registry + fingerprint buckets + boundary postings + `Self`-keyed `VertexNames` row, `IValidityEvidence` | value (returned in the `Apply` rail)      |    —    |
+| [INDEX] | [AXIS_CONCERN]           | [OWNER]             | [RAIL]                                    | [CASES] |
+| :-----: | :----------------------- | :------------------ | :---------------------------------------- | :-----: |
+|  [01]   | Entry                    | `Naming`/`NamingOp` | `Naming.Apply → Fin<NameTable>`           |    2    |
+|  [02]   | Entity modality          | `EntityKind`        | discriminant (pure)                       |    3    |
+|  [03]   | Re-anchor outcome        | `TrackOutcome`      | projection (pure)                         |    3    |
+|  [04]   | Migration policy         | `NamingPolicy`      | value (threaded by the op case)           |    —    |
+|  [05]   | Topological fingerprint  | `TopoSignature`     | `TopoSignature.Of → TopoSignature` (pure) |    —    |
+|  [06]   | Stable lineage reference | `TopoName`          | `TopoName.Mint → TopoName` (pure)         |    —    |
+|  [07]   | Naming registry          | `NameTable`         | value (returned in the `Apply` rail)      |    —    |
+
+- [01]-[ENTRY]: `[Union]` (`Track`/`Resolve`) folded by ONE `Apply` with `Op? key` threading.
+- [02]-[ENTITY_MODALITY]: `[SmartEnum<int>]` Vertex/Edge/Face + signature-arity column.
+- [03]-[RE_ANCHOR_OUTCOME]: `[Union]` Survived/Migrated/Born — derived via `NameEntry.Outcome(generation)`.
+- [04]-[MIGRATION_POLICY]: policy row (`MigrationOverlap` threshold), `Canonical` default.
+- [05]-[TOPOLOGICAL_FINGERPRINT]: `[ValueObject<UInt128>]` position-free name/kind digest (WL-1 vertex refinement) + `Overlap`.
+- [06]-[STABLE_LINEAGE_REFERENCE]: `[ValueObject<UInt128>]` one naming algebra over all kinds + generation-salted `Mint`.
+- [07]-[NAMING_REGISTRY]: immutable registry + fingerprint buckets + boundary postings + `Self`-keyed `VertexNames` row, `IValidityEvidence`.
 
 ## [04]-[RESEARCH]
 

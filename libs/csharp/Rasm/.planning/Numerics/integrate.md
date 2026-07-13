@@ -515,9 +515,16 @@ public abstract partial record FieldIntegrator {
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [AXIS_CONCERN]       | [OWNER]                                                                                                                        | [KIND]                                                         | [CASES] |
-| :-----: | :------------------- | :----------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------- | :-----: |
-|  [01]   | Integrator rows      | `IntegratorKind`                                                                                                               | `[SmartEnum<int>]` — the tableau IS the row                    |    9    |
-|  [02]   | Coefficient carrier  | `ButcherTableau` + `ButcherMomentReceipt`                                                                                      | order-condition-validated record + `ValidityClaim.All` receipt |    1    |
-|  [03]   | Continuous extension | `DenseOutputCoefficientFamily` · `DenseOutputReceipt` · `ButcherDenseOutput`                                                   | exact-rational tables + moment-fit fallback via `matrix.md`    |    3    |
-|  [04]   | Step algebra         | `IntegrationModule<TState,TDelta>` (THE `Combine`) · `StepControl` · `FieldIntegrator` · `IntegrationStep` · `DenseOutputSpan` | carrier-generic policy records + `[Union]` stepper             |   2·2   |
+One owner per axis; capability is a case, row, or member on the owning carrier, never a sibling surface. The `[OWNER]` cell names the canonical carrier; sibling carriers and the per-axis kind ride the indexed notes below.
+
+| [INDEX] | [AXIS_CONCERN]       | [OWNER]                            | [CASES] |
+| :-----: | :------------------- | :--------------------------------- | :-----: |
+|  [01]   | Integrator rows      | `IntegratorKind`                   |    9    |
+|  [02]   | Coefficient carrier  | `ButcherTableau`                   |    1    |
+|  [03]   | Continuous extension | `ButcherDenseOutput`               |    3    |
+|  [04]   | Step algebra         | `IntegrationModule<TState,TDelta>` |   2·2   |
+
+- [01]-[INTEGRATOR_ROWS]: `[SmartEnum<int>]` — the tableau IS the row.
+- [02]-[COEFFICIENT_CARRIER]: order-condition-validated record + `ButcherMomentReceipt` `ValidityClaim.All` receipt.
+- [03]-[CONTINUOUS_EXTENSION]: exact-rational tables + moment-fit fallback via `matrix.md`; carriers `DenseOutputCoefficientFamily` · `DenseOutputReceipt` · `ButcherDenseOutput`.
+- [04]-[STEP_ALGEBRA]: carrier-generic policy records + `[Union]` stepper — `IntegrationModule<TState,TDelta>` (THE `Combine`) with `StepControl` · `FieldIntegrator` · `IntegrationStep` · `DenseOutputSpan`.

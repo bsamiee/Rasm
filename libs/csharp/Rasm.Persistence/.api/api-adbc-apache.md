@@ -34,49 +34,59 @@ documented in `api-arrow.md`, not duplicated here.
 |  [03]   | `ImpalaDriver`         | `AdbcDriver`    | `.Open(parameters)` -> Apache Impala / Kudu Thrift `AdbcDatabase`              |
 |  [04]   | `HiveServer2Exception` | `AdbcException` | typed driver fault carrying `SqlState` and `NativeError` over `AdbcStatusCode` |
 
-[PUBLIC_TYPE_SCOPE]: connection-string parameter key holders (`static`)
+[PUBLIC_TYPE_SCOPE]: connection-string key holders (`static`)
 - rail: query egress
 
-Every driver is configured ONLY by the `IReadOnlyDictionary<string,string>` passed to `Open`; these holders
-carry the typed `adbc.*` `const string` key constants that populate that dictionary (`ApacheParameters` and
-`SparkParameters` are non-static `public class`; the Hive/Impala/value holders are `public static class`). They
-are the wire contract — there is no strongly-typed options object.
+Every driver is configured ONLY by the `IReadOnlyDictionary<string,string>` passed to `Open`; these holders carry
+the typed `adbc.*` `const string` keys that populate it (`ApacheParameters`/`SparkParameters` are non-static
+`public class`; the Hive/Impala/value holders are `public static class`). The map IS the wire contract — there is
+no strongly-typed options object.
 
-| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE] | [CAPABILITY]                                                                                                                                                                          |
-| :-----: | :---------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `ApacheParameters`                  | key holder     | family-shared statement + metadata-target keys (`adbc.apache.*`, `adbc.get_metadata.*`)                                                                                               |
-|  [02]   | `SparkParameters`                   | key holder     | Spark endpoint + auth keys (`adbc.spark.*`)                                                                                                                                           |
-|  [03]   | `HiveServer2Parameters`             | key holder     | Hive endpoint + auth keys (`adbc.hive.*`)                                                                                                                                             |
-|  [04]   | `ImpalaParameters`                  | key holder     | Impala endpoint + auth + TLS keys (`adbc.impala.*`)                                                                                                                                   |
-|  [05]   | `SparkAuthTypeConstants`            | value holder   | `none` / `username_only` / `basic` / `token` / `oauth` auth discriminants                                                                                                             |
-|  [06]   | `HiveServer2AuthTypeConstants`      | value holder   | `none` / `username_only` / `basic` auth discriminants                                                                                                                                 |
-|  [07]   | `ImpalaAuthTypeConstants`           | value holder   | `none` / `username_only` / `basic` auth discriminants                                                                                                                                 |
-|  [08]   | `SparkServerTypeConstants`          | value holder   | `http` / `standard` transport-type discriminants                                                                                                                                      |
-|  [09]   | `HiveServer2TransportTypeConstants` | value holder   | `http` / `standard` transport-type discriminants                                                                                                                                      |
-|  [10]   | `ImpalaServerTypeConstants`         | value holder   | `http` / `standard` transport-type discriminants                                                                                                                                      |
-|  [11]   | `HttpProxyOptions`                  | key holder     | `adbc.proxy_options.*` (use / host / port / ignore-list / auth / uid / pwd)                                                                                                           |
-|  [12]   | `HttpTlsOptions`                    | key holder     | `adbc.http_options.tls.*` (enabled / self-signed / hostname-mismatch / cert-path / disable-validation)                                                                                |
-|  [13]   | `StandardTlsOptions`                | key holder     | `adbc.standard_options.tls.*` (the non-HTTP transport TLS mirror)                                                                                                                     |
-|  [14]   | `ThriftTransportSizeConstants`      | key holder     | `MaxMessageSize`/`MaxFrameSize` (`adbc.apache.thrift.client.max.{message,frame}.size`) Thrift framing caps                                                                            |
-|  [15]   | `DataTypeConversionOptions`         | value holder   | the `DataTypeConv` policy VALUES — `None` (`"none"`) / `Scalar` (`"scalar"`); the KEY is the per-driver `Spark/Hive/Impala Parameters.DataTypeConv`, NOT an `ApacheParameters` member |
+| [INDEX] | [SYMBOL]                       | [KEYS]                                                                                         |
+| :-----: | :----------------------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `ApacheParameters`             | family-shared statement + metadata keys (`adbc.apache.*`, `adbc.get_metadata.*`)               |
+|  [02]   | `SparkParameters`              | Spark endpoint + auth keys (`adbc.spark.*`)                                                    |
+|  [03]   | `HiveServer2Parameters`        | Hive endpoint + auth keys (`adbc.hive.*`)                                                      |
+|  [04]   | `ImpalaParameters`             | Impala endpoint + auth + TLS keys (`adbc.impala.*`)                                            |
+|  [05]   | `HttpProxyOptions`             | `adbc.proxy_options.*` (use/host/port/ignore-list/auth/uid/pwd)                                |
+|  [06]   | `HttpTlsOptions`               | `adbc.http_options.tls.*` (enabled/self-signed/hostname-mismatch/cert-path/disable-validation) |
+|  [07]   | `StandardTlsOptions`           | `adbc.standard_options.tls.*` (non-HTTP transport TLS mirror)                                  |
+|  [08]   | `ThriftTransportSizeConstants` | `MaxMessageSize`/`MaxFrameSize` caps (`adbc.apache.thrift.client.max.{message,frame}.size`)    |
+
+[PUBLIC_TYPE_SCOPE]: auth / transport / conversion value holders (`static`)
+- rail: query egress
+- `DataTypeConversionOptions` values key the per-driver `Spark/Hive/ImpalaParameters.DataTypeConv`, never `ApacheParameters`.
+
+| [INDEX] | [SYMBOL]                            | [VALUES]                                              |
+| :-----: | :---------------------------------- | :---------------------------------------------------- |
+|  [01]   | `SparkAuthTypeConstants`            | `none`/`username_only`/`basic`/`token`/`oauth` (auth) |
+|  [02]   | `HiveServer2AuthTypeConstants`      | `none`/`username_only`/`basic` (auth)                 |
+|  [03]   | `ImpalaAuthTypeConstants`           | `none`/`username_only`/`basic` (auth)                 |
+|  [04]   | `SparkServerTypeConstants`          | `http`/`standard` (server-type)                       |
+|  [05]   | `HiveServer2TransportTypeConstants` | `http`/`standard` (transport-type)                    |
+|  [06]   | `ImpalaServerTypeConstants`         | `http`/`standard` (server-type)                       |
+|  [07]   | `DataTypeConversionOptions`         | `None`=`"none"`/`Scalar`=`"scalar"`                   |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: driver open + statement keys
+[ENTRYPOINT_SCOPE]: driver open + parameter/statement keys
 - rail: query egress
 
-| [INDEX] | [SURFACE]                                                                                                        | [CALL_SHAPE]   | [CAPABILITY]                                                                                |
-| :-----: | :--------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `SparkDriver.Open(IReadOnlyDictionary<string,string>)`                                                           | factory call   | constructs the Spark `AdbcDatabase` from the parameter map                                  |
-|  [02]   | `HiveServer2Driver.Open(...)` / `ImpalaDriver.Open(...)`                                                         | factory call   | the Hive / Impala mirrors of the same `AdbcDriver.Open` contract                            |
-|  [03]   | `SparkParameters.HostName` / `Port` / `Path` / `Token` / `AccessToken` / `AuthType` / `Type`                     | parameter key  | Spark Thrift endpoint, bearer/PAT token, auth-type, server-type config                      |
-|  [04]   | `SparkParameters.ConnectTimeoutMilliseconds` / `DataTypeConv` / `UserAgentEntry`                                 | parameter key  | connect-timeout, decimal-as-string policy, user-agent tag                                   |
-|  [05]   | `HiveServer2Parameters.HostName` / `Port` / `Path` / `AuthType` / `TransportType` / `ConnectTimeoutMilliseconds` | parameter key  | Hive endpoint + transport config                                                            |
-|  [06]   | `ImpalaParameters.HostName` / `Port` / `Path` / `AuthType` / `Type` / `TLSOptions`                               | parameter key  | Impala endpoint + TLS-option-set selector                                                   |
-|  [07]   | `ApacheParameters.PollTimeMilliseconds` / `BatchSize` / `BatchSizeStopCondition` / `QueryTimeoutSeconds`         | statement key  | result-fetch poll cadence, Arrow batch size, query timeout                                  |
-|  [08]   | `ApacheParameters.IsMetadataCommand` / `CatalogName` / `SchemaName` / `TableName` / `TableTypes` / `ColumnName`  | metadata key   | scope a `GetObjects`/`GetTableSchema` metadata pull (the `adbc.get_metadata.target_*` keys) |
-|  [09]   | `ApacheParameters.ForeignCatalogName` / `ForeignSchemaName` / `ForeignTableName` / `EscapePatternWildcards`      | metadata key   | cross-reference (FK) metadata target + LIKE-wildcard escaping policy                        |
-|  [10]   | `HiveServer2Exception.SqlState` / `NativeError`                                                                  | error property | the SQLSTATE + native error code on a faulted statement (the typed ADBC error rail)         |
+Every `*Driver.Open(IReadOnlyDictionary<string,string>)` mints the protocol `AdbcDatabase` from the map these
+keys populate. `Type` selects the server transport, `DataTypeConv` the decimal-as-string policy,
+`EscapePatternWildcards` the LIKE-escaping policy; the `ApacheParameters` metadata keys scope a
+`GetObjects`/`GetTableSchema` pull through `adbc.get_metadata.target_*`, and a faulted statement raises
+`HiveServer2Exception` (`SqlState`/`NativeError`).
+
+| [INDEX] | [OWNER]                 | [KEYS]                                                                                    |
+| :-----: | :---------------------- | :---------------------------------------------------------------------------------------- |
+|  [01]   | `SparkParameters`       | `HostName`/`Port`/`Path`/`Token`/`AccessToken`/`AuthType`/`Type` (endpoint + auth)        |
+|  [02]   | `SparkParameters`       | `ConnectTimeoutMilliseconds`/`DataTypeConv`/`UserAgentEntry` (timeout, conversion, UA)    |
+|  [03]   | `HiveServer2Parameters` | `HostName`/`Port`/`Path`/`AuthType`/`TransportType`/`ConnectTimeoutMilliseconds`          |
+|  [04]   | `ImpalaParameters`      | `HostName`/`Port`/`Path`/`AuthType`/`Type`/`TLSOptions` (endpoint + TLS selector)         |
+|  [05]   | `ApacheParameters`      | `PollTimeMilliseconds`/`BatchSize`/`BatchSizeStopCondition`/`QueryTimeoutSeconds` (fetch) |
+|  [06]   | `ApacheParameters`      | `IsMetadataCommand`/`CatalogName`/`SchemaName`/`TableName`/`TableTypes`/`ColumnName`      |
+|  [07]   | `ApacheParameters`      | `ForeignCatalogName`/`ForeignSchemaName`/`ForeignTableName`/`EscapePatternWildcards` (FK) |
 
 [ENTRYPOINT_SCOPE]: inherited base surface (documented in `api-arrow.md`)
 - rail: query egress

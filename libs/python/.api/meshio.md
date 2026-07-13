@@ -29,31 +29,37 @@
 [PUBLIC_TYPE_SCOPE]: `Mesh` members
 - rail: mesh file exchange
 
-| [INDEX] | [SYMBOL]                                                                                | [TYPE_FAMILY] | [RAIL]                                             |
-| :-----: | :-------------------------------------------------------------------------------------- | :------------ | :------------------------------------------------- |
-|  [01]   | `points`                                                                                | array         | `(n, dim)` float vertex coordinates                |
-|  [02]   | `cells`                                                                                 | blocks        | ordered `list[CellBlock]`                          |
-|  [03]   | `point_data` / `cell_data`                                                              | data maps     | point-aligned arrays and block-aligned cell arrays |
-|  [04]   | `field_data`                                                                            | metadata      | named scalar metadata                              |
-|  [05]   | `point_sets` / `cell_sets`                                                              | sets          | named index-group mappings                         |
-|  [06]   | `gmsh_periodic` / `info`                                                                | metadata      | format-carried Gmsh and free-form metadata         |
-|  [07]   | `cells_dict` / `cell_data_dict` / `cell_sets_dict`                                      | views         | type-keyed merged read views                       |
-|  [08]   | `get_cells_type` / `get_cell_data`                                                      | accessor      | per-cell-type connectivity and data                |
-|  [09]   | `cell_data_to_sets` / `cell_sets_to_data` / `point_data_to_sets` / `point_sets_to_data` | conversion    | physical-group and label conversion                |
+| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY] | [RAIL]                                             |
+| :-----: | :------------------------------------------------- | :------------ | :------------------------------------------------- |
+|  [01]   | `points`                                           | array         | `(n, dim)` float vertex coordinates                |
+|  [02]   | `cells`                                            | blocks        | ordered `list[CellBlock]`                          |
+|  [03]   | `point_data` / `cell_data`                         | data maps     | point-aligned arrays and block-aligned cell arrays |
+|  [04]   | `field_data`                                       | metadata      | named scalar metadata                              |
+|  [05]   | `point_sets` / `cell_sets`                         | sets          | named index-group mappings                         |
+|  [06]   | `gmsh_periodic` / `info`                           | metadata      | format-carried Gmsh and free-form metadata         |
+|  [07]   | `cells_dict` / `cell_data_dict` / `cell_sets_dict` | views         | type-keyed merged read views                       |
+|  [08]   | `get_cells_type` / `get_cell_data`                 | accessor      | per-cell-type connectivity and data                |
+|  [09]   | `cell_data_to_sets`                                | conversion    | cell data field to named sets                      |
+|  [10]   | `cell_sets_to_data`                                | conversion    | named sets to cell data field                      |
+|  [11]   | `point_data_to_sets`                               | conversion    | point data field to named sets                     |
+|  [12]   | `point_sets_to_data`                               | conversion    | named sets to point data field                     |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: read, write, and registry
 - rail: mesh file exchange
 
-| [INDEX] | [SURFACE]                                                                                                                                                    | [ENTRY_FAMILY] | [RAIL]                                    |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------- |
-|  [01]   | `read(filename, file_format=None) -> Mesh`                                                                                                                   | intake         | parse a path or buffer into a `Mesh`      |
-|  [02]   | `write(filename, mesh, file_format=None, **kwargs)`                                                                                                          | export         | serialize a `Mesh`                        |
-|  [03]   | `write_points_cells(filename, points, cells, point_data=None, cell_data=None, field_data=None, point_sets=None, cell_sets=None, file_format=None, **kwargs)` | export         | write from arrays without explicit `Mesh` |
-|  [04]   | `register_format(format_name, extensions, reader, writer_map)`                                                                                               | registry       | add a custom format reader/writer map     |
-|  [05]   | `deregister_format(format_name)`                                                                                                                             | registry       | remove a registered format                |
-|  [06]   | `extension_to_filetypes`                                                                                                                                     | registry       | extension-to-format candidate mapping     |
+| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY] | [RAIL]                                    |
+| :-----: | :------------------------------------------------------------- | :------------- | :---------------------------------------- |
+|  [01]   | `read(filename, file_format=None) -> Mesh`                     | intake         | parse a path or buffer into a `Mesh`      |
+|  [02]   | `write(filename, mesh, file_format=None, **kwargs)`            | export         | serialize a `Mesh`                        |
+|  [03]   | `write_points_cells(filename, points, cells, ...)`             | export         | write from arrays without explicit `Mesh` |
+|  [04]   | `register_format(format_name, extensions, reader, writer_map)` | registry       | add a custom format reader/writer map     |
+|  [05]   | `deregister_format(format_name)`                               | registry       | remove a registered format                |
+|  [06]   | `extension_to_filetypes`                                       | registry       | extension-to-format candidate mapping     |
+
+Full signature for the `...`-abbreviated writer:
+- [03]-[WRITE_POINTS_CELLS]: `write_points_cells(filename, points, cells, point_data=None, cell_data=None, field_data=None, point_sets=None, cell_sets=None, file_format=None, **kwargs)`
 
 [ENTRYPOINT_SCOPE]: per-format surfaces
 - rail: mesh file exchange

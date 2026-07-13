@@ -180,9 +180,9 @@ public sealed record SupportSpace {
 
 ## [04]-[DENSITY_BAR]
 
-One owner per axis; a proximity capability is a row or a column, never a sibling surface.
+One owner per axis; a proximity capability is a row or a column, never a sibling surface. `SupportProjection` carries three `[UseDelegateFromConstructor]` columns (`Capability`/`Accepts`/`ProjectRaw`); `SupportSpace` captures the `Admits.Normal`/`Tangent`/`Frame`/`Signed` verdicts once at admission.
 
-| [INDEX] | [AXIS_CONCERN]              | [OWNER]             | [KIND]                                                              | [RAIL]                                                | [CASES] |
-| :-----: | :-------------------------- | :------------------ | :------------------------------------------------------------------ | :---------------------------------------------------- | :-----: |
-|  [01]   | Closest-hit output modality | `SupportProjection` | `[SmartEnum<int>]` + capability/accepts/projectRaw columns          | `Project<TOut> → Fin<TOut>`                           |   14    |
-|  [02]   | Proximity handle            | `SupportSpace`      | `[BoundaryAdapter]` polymorphic record + captured `Admits` verdicts | `Of → Fin<SupportSpace>`; `Closest → Fin<ClosestHit>` |    —    |
+| [INDEX] | [AXIS_CONCERN]     | [OWNER]             | [KIND]              | [RAIL]                                                | [CASES] |
+| :-----: | :----------------- | :------------------ | :------------------ | :---------------------------------------------------- | :-----: |
+|  [01]   | Closest-hit output | `SupportProjection` | `[SmartEnum<int>]`  | `Project<TOut> → Fin<TOut>`                           |   14    |
+|  [02]   | Proximity handle   | `SupportSpace`      | `[BoundaryAdapter]` | `Of → Fin<SupportSpace>`; `Closest → Fin<ClosestHit>` |    —    |

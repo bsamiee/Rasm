@@ -1,91 +1,186 @@
 # [TS_RUNTIME_ARCHITECTURE]
 
-The domain map of `runtime` — the wave-3 execution package spanning both process planes. The sub-domains `proc`, `net`, `otel`, `serve`, `work`, `ai`, and `browser` meet through one runtime-row table, one budget ledger, one fault law, and one front-door assembly law; the browser sub-domain is the same package's browser condition, never a sibling package.
-
-Each codemap node is the eventual source file its `.planning/` design page becomes, named in the language's own folder and file casing — PascalCase `.cs`, lowercase `.py`, camelCase `.ts`. Treat every node as realized code; the `.planning/` scaffold is the authoring substrate, never part of the map.
+`runtime` owns the branch's execution substrate across both process planes: `proc`, `net`, `otel`, `serve`, `work`, and `ai` meet through one runtime-row table, one budget ledger, one fault law, and one front-door assembly law, and `browser` is the same package under the browser condition, never a sibling. Owners align with the core, security, and data peers by seam contract, never a cross-package reference.
 
 ## [01]-[DOMAIN_MAP]
 
 ```text codemap
 runtime/
 └── src/
-    ├── proc/                  # The process substrate: runtime rows, config, flags, lifecycle, off-thread compute
-    │   ├── exec.ts            # RUNTIME_ROWS — the keyed node|bun binding table; child processes as declarative values
-    │   ├── config.ts          # The ordered provider chain + the boot-validated Setting contract resolved exactly once
-    │   ├── flag.ts            # The OpenFeature server Provider: recursive rule family, content-key bucketing, FlagVerdict consumption
-    │   ├── life.ts            # Life — ranked lifecycle/health rows on severed fibers folded into one graded receipt
-    │   └── worker.ts          # The off-thread protocol: Schema.TaggedRequest union, zero-copy crossings, one pool
+    ├── proc/                  # Process substrate: runtime rows, config, flags, lifecycle, off-thread compute
+    │   ├── exec.ts            # Keyed node|bun runtime-row binding table; child processes as declarative values
+    │   ├── config.ts          # Ordered provider chain and the boot-validated Setting contract resolved once
+    │   ├── flag.ts            # OpenFeature server Provider: a recursive rule family over content-key bucketing
+    │   ├── life.ts            # Ranked lifecycle and health rows on severed fibers folded into one graded receipt
+    │   └── worker.ts          # Off-thread worker protocol: zero-copy crossings over one pool
     ├── net/                   # Outbound transport and the fanout/replay port
-    │   ├── client.ts          # The outbound HTTP lane table — status admission, retry pulses from the core Budget.schedule owner
-    │   ├── channel.ts         # Framed long-lived byte channels: socket duplex under a closed frame vocabulary + SSE feeds
-    │   ├── pubsub.ts          # Fanout — engine-blind broadcast/replay/blob port; local, cross-tab, and NATS JetStream rows over one Broker
-    │   └── coordinate.ts      # Accord — engine-blind lease/elect/CAS port; NATS KV revision row + browser Web Locks row
-    ├── otel/                  # The OTLP wire: export/ingest, crash capture, browser RUM
-    │   ├── emit.ts            # Export.live(policy) — the one OTLP egress Layer + collector ingress, with the Redaction scrub
-    │   ├── crash.ts           # The total Cause→fatal-emission fold through the core FaultCapture forensic band and fault enrichers
+    │   ├── client.ts          # Outbound HTTP lane table: status admission and retry pulses off the core budget
+    │   ├── channel.ts         # Framed long-lived byte channels: socket duplex and SSE feeds over one frame vocabulary
+    │   ├── pubsub.ts          # Fanout — the engine-blind broadcast, replay, and blob port over one Broker
+    │   └── coordinate.ts      # Accord — the engine-blind lease, elect, and CAS coordination port
+    ├── otel/                  # OTLP wire: export/ingest, crash capture, browser RUM
+    │   ├── emit.ts            # One OTLP egress Layer and collector ingress under the redaction scrub
+    │   ├── crash.ts           # Total Cause-to-fatal-emission fold through the core forensic fault band
     │   └── vital.ts           # Six RUM vital rows over one scoped PerformanceObserver bridge
-    ├── serve/                 # The one public front door
-    │   ├── api.ts             # The assembly law: domains export HttpApiGroup/RpcGroup data; the APP assembles exactly one HttpApi
-    │   ├── route.ts           # HttpLayerRouter serving: addHttpApi, Mount port, tus dispatchers, Intake verify, ASSET_ROWS
-    │   ├── live.ts            # Realtime serving: SSE/WS over branch feeds under the resume-token and admission laws
-    │   ├── problem.ts         # Problem — the RFC 9457 owner rendering itself via HttpServerRespondable; Problem.net seam
-    │   └── cli.ts             # Command-value verb families folded by the APP into one root via withSubcommands
+    ├── serve/                 # One public front door
+    │   ├── api.ts             # Assembly law: sub-domains export group data, the app assembles one HttpApi
+    │   ├── route.ts           # HttpLayerRouter serving fold: api mount, upload dispatch, and intake verify
+    │   ├── live.ts            # Realtime SSE/WS serving over branch feeds under the resume-token and admission laws
+    │   ├── problem.ts         # Problem — the RFC 9457 owner rendering itself as a self-describing response
+    │   └── cli.ts             # Command-value verb families the app folds into one root
     ├── work/                  # Durable work: actors, workflows, queues, schedules, delivery, documents
-    │   ├── entity.ts          # The durable-actor plane: WorkClass service-class table, mailbox tiers, Snowflake, ClusterError bridge
-    │   ├── flow.ts            # Workflow suspend-and-replay: Step mint, two-tier deadlines, Signal.pause durable timer
-    │   ├── queue.ts           # DurableQueue families, DurableRateLimiter throttles, the pg lane policy + LaneVerdict DLQ fold
-    │   ├── schedule.ts        # Cadence rows minted into ClusterCron with misfire/catch-up postures
-    │   ├── deliver.ts         # ONE channel table for mail/webhook egress: one receipt, one fault family, one suppression fold
-    │   └── report.ts          # Report.Spec folded through three engine arms (xlsx/pdf/csv) over the same decoded rows
-    ├── ai/                    # The intelligence spine
-    │   ├── model.ts           # Five provider families on one capability-asymmetry table; fallback via Effect.withExecutionPlan
-    │   ├── embed.ts           # Deterministic chunking, embedding rows, the data Embedder/Reranker port satisfaction
-    │   ├── tool.ts            # Schema-typed tools, Toolkit assembly, both MCP lanes, the one Safety owner
-    │   └── agent.ts           # The agent altitude: Transition-machine sessions, Chat.layerPersisted durability
-    └── browser/               # The browser runtime condition
-        ├── boot.ts            # BrowserRuntime.runMain single-boot law, AppSpec budget, Connect cells, Capability roster
-        ├── shell.ts           # The PWA shell: manifest as a typed value, Workbox scoped resource, the update handshake
-        ├── persist.ts         # The _domains IndexedDB vocabulary over idb-keyval with batch read/write modalities
-        ├── route.ts           # The Navigation-API typed router, the Vault session plane, the navigation admission fold
-        └── fetch.ts           # The browser byte transport: XHR/WebSocket/BrowserWorker binding rows, Depot verified arrivals
+    │   ├── entity.ts          # Durable-actor plane: the WorkClass service-class table over tiered mailboxes
+    │   ├── flow.ts            # Workflow suspend-and-replay: minted steps, two-tier deadlines, one durable pause timer
+    │   ├── queue.ts           # DurableQueue families and rate-limiter throttles over the pg lane policy and DLQ fold
+    │   ├── schedule.ts        # Cadence rows minted into cluster cron with misfire and catch-up postures
+    │   ├── deliver.ts         # One channel table for mail and webhook egress: one receipt, one fault, one suppression
+    │   └── report.ts          # Report specs folded through three engine arms over the same decoded rows
+    ├── ai/                    # Intelligence spine
+    │   ├── model.ts           # Five provider families on one capability-asymmetry table with ranked fallback
+    │   ├── embed.ts           # Deterministic chunking and embedding rows satisfying the data retrieval ports
+    │   ├── tool.ts            # Schema-typed tools and toolkit assembly across both MCP lanes under one safety owner
+    │   └── agent.ts           # Agent altitude: transition-machine sessions with persisted-chat durability
+    └── browser/               # Browser runtime condition
+        ├── boot.ts            # Single-boot law: the app-spec budget, connect cells, and the capability roster
+        ├── shell.ts           # PWA shell: the manifest as a typed value under a scoped resource and update handshake
+        ├── persist.ts         # IndexedDB domain vocabulary with batch read and write modalities
+        ├── route.ts           # Navigation-API typed router carrying the Vault session plane and admission fold
+        └── fetch.ts           # Browser byte transport: XHR, WebSocket, and worker binding rows for verified arrivals
 ```
 
 ## [02]-[SEAMS]
 
-```text seams
-proc/flag      ←  typescript:core/interchange  # [SHAPE]: FlagVerdict OpenFeature-contract landing
-net/client     ←  typescript:core/value        # [SHAPE]: Budget.schedule lane pulses under the transport transience gate
-net/channel    ←  typescript:core/value        # [SHAPE]: Budget.schedule("feed") reconnect envelope + Degrade silence cadence
-otel/crash     ←  typescript:core/value        # [SHAPE]: FaultCapture/FaultEnricher crash-evidence contract + FaultClass Cause dominance
-otel/emit      ←  typescript:core/value        # [SHAPE]: AppIdentity boot identity stamped on the OTLP Resource
-otel/emit      ←  typescript:core/observe      # [SHAPE]: Convention rows stamped at every emission
-otel/emit      ←  csharp:Rasm.AppHost          # [TRANSPORT]: OTLP export alignment at the shared collector
-serve/route    ←  typescript:security/crypt    # [BOUNDARY]: Intake held-octets verify seam
-serve/route    ←  typescript:security/authn    # [PORT]: BearerGuard/ApiKeyGuard HttpApiMiddleware Tags mounted on api routes
-serve/route    ←  typescript:data/object       # [BOUNDARY]: tus dispatcher mount rows
-serve/route    →  typescript:ui/viewer         # [BOUNDARY]: self-hosted draco/basis/meshopt transcoder assets served byte-identical
-serve/live     ←  typescript:data/read         # [SHAPE]: reactivity-keyed feeds under the resume-token law
-work/queue     ⇄  typescript:data/journal      # [BOUNDARY]: outbox claim-lease/urgency/park statements
-work/entity    ←  typescript:iac/program       # [PORT]: StackOutputs.sharding → ShardingConfig.layerFromEnv
-ai/embed       →  typescript:data/read         # [PORT]: Embedder fingerprint Layer + the gated Reranker fold
-browser/route  ⇄  typescript:security/authn    # [SHAPE]: Vault session residency + CookieSpec.csrf double-submit read
-browser/route  ⇄  typescript:security/authn    # [BOUNDARY]: OAuth redirect-ceremony continuity (depart/land)
-browser/fetch  ⇄  typescript:core/value        # [CONTENT_KEY]: Digest.mint("content") off-thread reassembly verify — a delegating mint site
-browser/fetch  →  typescript:ui/viewer         # [PORT]: Depot.haul verified arrivals + residency ledger into GlbViewport
-browser/*      ⇄  typescript:ui/system         # [PORT]: Router/Install/Guard/Vault Subscribable planes over Atom.subscribable rows
-browser/boot   →  typescript:ui/system         # [PORT]: Capability roster satisfies the ui-declared Clipboard Tag
-browser/boot   →  typescript:ui/viewer         # [PORT]: Capability roster satisfies ui-declared Position/Grant Tags from geolocation/permissions
-proc/life      →  typescript:iac/kube          # [SHAPE]: Setting.life.drain + probe routes mirrored as the workload _LIFE anchor
-net/pubsub     →  typescript:iac/kube          # [BOUNDARY]: Setting.fanout.origin dial against the JetStream server posture (fsync, quorum)
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: Runtime domain-peer seam registry
+    accDescr: Runtime sub-domain owners exchanging flag, budget, convention, identity, custody, and durable-store shapes with the core, security, and data TypeScript domain peers, edge rails colored by kind and nodes classed by seam direction.
+    subgraph runtime[RUNTIME]
+        Proc[Proc substrate]
+        Net[Net egress]
+        Otel[Otel wire]
+        Browser[Browser runtime]
+        Serve[Serve front door]
+        Work[Work plane]
+        Ai[AI spine]
+    end
+    Core{{core}}
+    Security{{security}}
+    Data[(data)]
+    Core e1@-->|"[SHAPE]: FlagVerdict"| Proc
+    Core e2@-->|"[SHAPE]: Budget.schedule"| Net
+    Core e3@-->|"[SHAPE]: Convention"| Otel
+    Browser e4@<-->|"[CONTENT_KEY]: Digest.mint"| Core
+    Browser e5@<-->|"[SHAPE]: CookieSpec"| Security
+    Browser e6@<-->|"[BOUNDARY]: OAuth redirect"| Security
+    Security e7@-->|"[PORT]: BearerGuard"| Serve
+    Security e8@-->|"[BOUNDARY]: Intake verify"| Serve
+    Data e9@-->|"[BOUNDARY]: Tus dispatcher"| Serve
+    Data e10@-->|"[SHAPE]: Reactivity feed"| Serve
+    Work e11@<-->|"[BOUNDARY]: Outbox claim"| Data
+    Ai e12@-->|"[PORT]: Embedder"| Data
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    class Proc,Net,Otel,Browser,Serve,Work,Ai primary
+    class Core,Security external
+    class Data data
+    class e4 edgeData
+    class e1,e2,e3,e5,e6,e7,e8,e9,e10,e11,e12 edgeControl
+```
+
+```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+    titleColor: "#D6BCFA"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
+flowchart LR
+    accTitle: Runtime platform and cross-runtime seam registry
+    accDescr: Runtime sub-domain owners exchanging settings, stack outputs, transcoder assets, subscribable planes, and OTLP telemetry with the iac and ui TypeScript peers and the Rasm.AppHost cross-runtime host, edge rails colored by kind and nodes classed by seam direction.
+    subgraph runtime[RUNTIME]
+        Otel[Otel wire]
+        Proc[Proc substrate]
+        Net[Net egress]
+        Serve[Serve front door]
+        Browser[Browser runtime]
+    end
+    AppHost([Rasm.AppHost])
+    Iac{{iac}}
+    Ui([ui])
+    AppHost e1@-->|"[TRANSPORT]: OtelExport"| Otel
+    Proc e2@-->|"[SHAPE]: Setting.life"| Iac
+    Net e3@-->|"[BOUNDARY]: JetStream posture"| Iac
+    Iac e4@-->|"[PORT]: StackOutputs"| Proc
+    Serve e5@-->|"[BOUNDARY]: transcoder assets"| Ui
+    Browser e6@-->|"[PORT]: Subscribable planes"| Ui
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
+    classDef edgeControl stroke:#FF79C6,color:#F8F8F2
+    class Otel,Proc,Net,Serve,Browser primary
+    class Iac external
+    class AppHost,Ui annotation
+    class e1 edgeExternal
+    class e2,e3,e4,e5,e6 edgeControl
 ```
 
 ## [03]-[ORGANIZATION]
 
-`proc` is the substrate every plane boots on: a runtime is a row, config resolves once, flags evaluate as data, lifecycle folds evidence, workers speak one protocol. `net` owns egress geometry — every outbound call inherits a lane's compiled pulse and circuit row, every long-lived channel one frame vocabulary, every broadcast the engine-blind fanout port, every cross-process agreement the coordination port over the same wire. `otel` is the wire half of observability; the vocabulary lives in core. `serve` enforces the one front-door law: libraries export route/verb/group DATA, the app assembles exactly one HttpApi, one CLI root, one serve fold; faults leave only as self-rendering Problems. `work` prices every durable surface against one WorkClass table so entities, queues, cron, and relay pacing share a single service-class economy. `ai` folds five providers onto one capability table and satisfies the data wave's retrieval ports. `browser` is the same package under the browser condition: one boot, one shell, one persistence vocabulary, one typed router carrying the session plane, one byte transport delegating identity to the core mint.
+`proc` is the substrate every plane boots on: a runtime is a row, config resolves once, flags evaluate as data, lifecycle folds evidence, workers speak one protocol. `net` owns egress geometry — every outbound call inherits a lane's compiled pulse and circuit row, every long-lived channel one frame vocabulary, every broadcast the engine-blind fanout port, every agreement the coordination port over the same wire. `otel` owns the wire half of observability; its vocabulary lives in core. `serve` enforces the one front-door law: libraries export route, verb, and group data, the app assembles exactly one `HttpApi`, one CLI root, and one serve fold, and faults leave only as self-rendering `Problem`s. `work` prices every durable surface against one `WorkClass` table, so entities, queues, cron, and relay pacing share a single service-class economy. `ai` folds five providers onto one capability table and satisfies the data wave's retrieval ports. `browser` is the same package under the browser condition: one boot, one shell, one persistence vocabulary, one typed router carrying the session plane, one byte transport delegating identity to the core mint.
 
 ## [04]-[BOUNDARIES]
 
-- The app root, never this folder, assembles the HttpApi, satisfies port Tags, selects runtime rows, and binds the browser composition root (GlbViewport from Depot arrivals, host planes into ui atoms).
-- The record of truth is the data wave's; work surfaces compose its outbox and mailbox statements, never a second store. NATS is fanout and replay, never the system of record.
-- The folder mints no content identity; the browser decode worker delegates to the core Digest engine as one of its three sanctioned sites.
-- Frozen upstream packages `@effect/rpc-http`, `@effect/cluster-node`, `@effect/cluster-browser`, and `@effect/cluster-workflow` are never admitted; cluster runs leaderless over RunnerStorage advisory locks.
+- App root, never this folder, assembles the `HttpApi`, satisfies port `Tag`s, selects runtime rows, and binds the browser composition root.
+- Data wave owns the record of truth; work surfaces compose its outbox and mailbox statements, never a second store, and NATS carries fanout and replay, never the system of record.
+- Content identity is never minted here; the browser decode worker delegates to the core `Digest` engine.
+- Cluster runs leaderless over `RunnerStorage` advisory locks, so the node-bound `@effect/cluster-node`, `@effect/cluster-browser`, `@effect/cluster-workflow`, and `@effect/rpc-http` upstreams are never admitted.

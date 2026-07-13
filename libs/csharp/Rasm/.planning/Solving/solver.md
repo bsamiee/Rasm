@@ -778,17 +778,25 @@ flowchart LR
 
 ## [04]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, column, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — pure verdicts where the result is total, `Fin` where a band-2400 `GeometryFault` can route.
+One owner per axis; capability is a case, row, column, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — pure verdicts where the result is total, `Fin` where a band-2400 `GeometryFault` can route — and the per-owner kind rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN]       | [OWNER]                   | [KIND]                                                                                                        | [RAIL]                                           | [CASES] |
-| :-----: | :------------------- | :------------------------ | :------------------------------------------------------------------------------------------------------------ | :----------------------------------------------- | :-----: |
-|  [01]   | Damped Gauss-Newton  | `Lm` + `ILmModel`         | the ONE λ-ladder functor over the residual+Jacobian floor; packed-upper contract via `Lm.PackedIndex`         | `Lm.Minimize → Fin<LmResult>`                    |    2    |
-|  [02]   | Ladder policy        | `SolvePolicy`             | policy record (λ seed/up/down · `PositiveMagnitude` tolerance · step floor · budget) + `Canonical` row        | policy value (pure)                              |    —    |
-|  [03]   | Parametric primitive | `Entity`                  | `record` over `SketchEntityKind` `[SmartEnum<int>]` (Point/Line/Circle + `Arity`/`Carrier` columns)           | `Entity.Origin → Point3d` (pure)                 |    3    |
-|  [04]   | Constraint algebra   | `Constraint`              | `[Union]` (15 cases) + generated-`Switch` `Residual`/`Touches`/`WellFormed` folds, analytic partials per arm  | `Constraint.Residual → Seq<ResidualRow>` (pure)  |   15    |
-|  [05]   | DOF verdict          | `DofAnalysis`/`DofReport` | `[SmartEnum<int>]` Well/Under/Over/RedundantConsistent + structural count + König matching + witness SVD rank | `StructuralAnalyze → DofReport` (pure)           |    4    |
-|  [06]   | Constraint graph     | `ConstraintSystem`        | immutable graph + accumulating `Build` + QuikGraph `Islands` decomposition fold                               | `ConstraintSystem.Build → Fin<ConstraintSystem>` |    —    |
-|  [07]   | Sketch solve         | `ConstraintSolver`        | island fold instantiating `ConstraintModel : ILmModel` per component, scatter-recombine                       | `ConstraintSolver.Solve → Fin<Solution>`         |    —    |
+| [INDEX] | [AXIS_CONCERN]       | [OWNER]                   | [RAIL]                                           | [CASES] |
+| :-----: | :------------------- | :------------------------ | :----------------------------------------------- | :-----: |
+|  [01]   | Damped Gauss-Newton  | `Lm` + `ILmModel`         | `Lm.Minimize → Fin<LmResult>`                    |    2    |
+|  [02]   | Ladder policy        | `SolvePolicy`             | policy value (pure)                              |    —    |
+|  [03]   | Parametric primitive | `Entity`                  | `Entity.Origin → Point3d` (pure)                 |    3    |
+|  [04]   | Constraint algebra   | `Constraint`              | `Constraint.Residual → Seq<ResidualRow>` (pure)  |   15    |
+|  [05]   | DOF verdict          | `DofAnalysis`/`DofReport` | `StructuralAnalyze → DofReport` (pure)           |    4    |
+|  [06]   | Constraint graph     | `ConstraintSystem`        | `ConstraintSystem.Build → Fin<ConstraintSystem>` |    —    |
+|  [07]   | Sketch solve         | `ConstraintSolver`        | `ConstraintSolver.Solve → Fin<Solution>`         |    —    |
+
+- [01]-[DAMPED_GAUSS_NEWTON]: the ONE λ-ladder functor over the residual+Jacobian floor; packed-upper contract via `Lm.PackedIndex`.
+- [02]-[LADDER_POLICY]: policy record (λ seed/up/down · `PositiveMagnitude` tolerance · step floor · budget) + `Canonical` row.
+- [03]-[PARAMETRIC_PRIMITIVE]: `record` over `SketchEntityKind` `[SmartEnum<int>]` (Point/Line/Circle + `Arity`/`Carrier` columns).
+- [04]-[CONSTRAINT_ALGEBRA]: `[Union]` (15 cases) + generated-`Switch` `Residual`/`Touches`/`WellFormed` folds, analytic partials per arm.
+- [05]-[DOF_VERDICT]: `[SmartEnum<int>]` Well/Under/Over/RedundantConsistent + structural count + König matching + witness SVD rank.
+- [06]-[CONSTRAINT_GRAPH]: immutable graph + accumulating `Build` + QuikGraph `Islands` decomposition fold.
+- [07]-[SKETCH_SOLVE]: island fold instantiating `ConstraintModel : ILmModel` per component, scatter-recombine.
 
 The `Lm` functor, the closed `Constraint` union with its analytic residual algebra, the island decomposition, the matching-based structural rank, and the witness adjudicator are pure-managed author-kernel, fully transcribed and depending on no live-host member spelling (`Point3d.X/Y`, `Vector3d`, and the `Rasm.Numerics` matrix owners are stable vocabulary). No tier-3 native gate: the linear solve composes the `Numerics/matrix.md` owners as the one MathNet access path, QuikGraph owns the two graph walks, and the entire iterate is mathematically defined over IEEE-754 doubles with the objective at 106-bit `ddouble`.
 
