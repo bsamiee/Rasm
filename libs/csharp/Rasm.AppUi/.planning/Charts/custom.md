@@ -1,6 +1,6 @@
 # [APPUI_CUSTOM_VISUALS]
 
-Custom visuals are the package's Skia layout-algebra rail for every diagram and deck.gl-class geo layer LiveCharts structurally cannot supply: `CustomVisual` is the fourteen-case union (sankey, treemap, waterfall, funnel, parallel-coordinates, radar, network, gantt, sunburst, hexbin, geo-arc, trip, extrusion, terrain) whose every case is a pure layout fold from `CustomVisualData` to an `SKPath` run, materialized through the one offscreen draw capsule and sealed as a per-cell render-hash twin; `ColorSpaceAxis` is the chart-side KEYED PROJECTION of the capture-owned `VisualCodec.ColorPolicy` rows — the one suite gamut/transfer vocabulary lives on `Render/capture.md#ENCODE_IDENTITY`, this axis derives and never diverges. The page owns the custom-visual union, its layout-fold and render-twin algebra, the synthesized live-region peer binding, and the four-row keyed projection the encode identity tags. The package spine is SkiaSharp path geometry behind the `DrawSource.Owned` capsule and the `VisualCodec` encode path; paints, label fonts, automation peers, and capture lanes arrive as settled vocabulary and are never re-minted here.
+Custom visuals are the package's Skia layout-algebra rail for every diagram and deck.gl-class geo layer LiveCharts structurally cannot supply: `CustomVisual` is the fourteen-row frozen layout catalog (sankey, treemap, waterfall, funnel, parallel-coordinates, radar, network, gantt, sunburst, hexbin, geo-arc, trip, extrusion, terrain) whose every row carries a pure layout fold from `CustomVisualData` to an `SKPath` run as its delegate column, materialized through the one offscreen draw capsule, emitted as an SVG vector twin on demand, and sealed as a per-cell render-hash twin; `ColorSpaceAxis` is the chart-side KEYED PROJECTION of the capture-owned `VisualCodec.ColorPolicy` rows — the one suite gamut/transfer vocabulary lives on `Render/capture.md#ENCODE_IDENTITY`, this axis derives and never diverges. The page owns the custom-visual union, its layout-fold and render-twin algebra, the synthesized live-region peer binding, and the four-row keyed projection the encode identity tags. The package spine is SkiaSharp path geometry behind the `DrawSource.Owned` capsule and the `VisualCodec` encode path; paints, label fonts, automation peers, and capture lanes arrive as settled vocabulary and are never re-minted here.
 
 ## [01]-[INDEX]
 
@@ -9,13 +9,13 @@ Custom visuals are the package's Skia layout-algebra rail for every diagram and 
 
 ## [02]-[SKIA_KINDS]
 
-- Owner: `CustomVisual` [Union] · `CustomVisualData` · `CustomVisuals`
-- Cases: Sankey · Treemap · Waterfall · Funnel · ParallelCoordinates · Radar · Network · Gantt · Sunburst · Hexbin · GeoArc · Trip · Extrusion · Terrain — the four flow-diagram kinds plus the five analytical-chart kinds (multi-axis parallel-coordinates, polar radar, force-laid network, time-tracked gantt, hierarchical sunburst) and the five deck.gl-class geo-layer kinds (hexagonal binning, great-circle arcs, time-ordered trips, pseudo-3D extruded columns, height-shaded terrain) projected through one equirectangular `Project`
-- Entry: `public IO<RenderReceipt> Materialize(VisualRuntime runtime, CustomVisualData data, SKImageInfo info, ColorSpaceAxis space)` — IO rail through the settled encode fold; `public static TelemetryContributorPort TelemetryRow(string version)` — the one contribution surface for the rendered and layout-elapsed instruments
+- Owner: `CustomVisual` `[SmartEnum<string>]` — the frozen layout-row catalog whose `Layout` fold is a `[UseDelegateFromConstructor]` column · `CustomVisualData` · `CustomVisuals` — the fold table
+- Cases: Sankey · Treemap · Waterfall · Funnel · ParallelCoordinates · Radar · Network · Gantt · Sunburst · Hexbin · GeoArc · Trip · Extrusion · Terrain — the four flow-diagram kinds plus the five analytical-chart kinds (multi-axis parallel-coordinates, polar radar, force-laid network, time-tracked gantt, hierarchical sunburst) and the five deck.gl-class geo-layer kinds (hexagonal binning, great-circle arcs, time-ordered trips, pseudo-3D extruded columns, height-shaded terrain) projected through one equirectangular `Project`; every kind shares one generative structure — a wire key and a pure layout fold — so the family is row DATA under `DERIVED_LOGIC`, never fourteen enumerated case records re-spelling one payload
+- Entry: `public IO<RenderReceipt> Materialize(VisualRuntime runtime, CustomVisualData data, SKImageInfo info, ColorSpaceAxis space)` — IO rail through the settled encode fold; `public Fin<string> VectorTwin(CustomVisualData data, SKImageInfo info)` — the same fold emitted as SVG path data for the drafting and export codecs; `public static TelemetryContributorPort TelemetryRow(string version)` — the one contribution surface for the rendered and layout-elapsed instruments
 - Auto: each case carries one pure `Func<CustomVisualData, SKImageInfo, Fin<SKPath>>` layout fold resolved at declaration — the sankey fold cubic-bridges weighted ribbons, the treemap fold squarified-rect packs the node weights through the Bruls worst-aspect-ratio row algebra that grows a row while the worst rect aspect ratio improves and flips the layout-row orientation on the shorter box side toward unit aspect, the waterfall fold bridges signed delta columns, the funnel fold trapezoids the descending stage widths, the parallel-coordinates fold polylines each series across min-max-normalized vertical axes, the radar fold closes each series over normalized polar spokes, the network fold draws edges then vertex nodes from the pre-laid vertex positions, the gantt fold rounds-rects each span on its track over the shared time scale, the sunburst fold arcs each wedge over its depth ring from the parent-share sweep fold, the hexbin fold pointy-top-hexagons the spatial bins the `Bin` fold aggregates, the geo-arc fold quad-bezier great-circle-approximates each arc over the equirectangular projection, the trip fold polylines each time-ordered path, the extrusion fold builds a pseudo-3D column per weighted point, and the terrain fold height-shades a square sample grid — the geo folds share one `Project` equirectangular lon-lat-to-canvas projection whose Web-Mercator refinement is the geo `MapProjection` research row; `Materialize` marks the clock around the layout fold and folds the elapsed onto the layout-elapsed instrument through `runtime.Measure` distinctly from the encode-elapsed, composing the fold through `DrawSource.Owned.Materialize` so the projected `SKPath` rasters onto an owned `SKImage` and never a host lease; the render-twin derives its `CaptureRow` from the same `Key` and the resolved `(ThemeVariantRow, DensityRow)` cell exactly as `ChartSeriesSpec.Baseline` does, so the proof lane captures the same materialized kind through `CaptureRenderedFrame` and the `FrameHash` baseline derives from one row with no parallel fixture.
 - Receipt: every materialize lands one `RenderReceipt` of kind custom-visual carrying the blob artifact key as its destination and the `ColorSpaceAxis` row key as its `ColorSpace` tag; `TelemetryRow` contributes the rendered count and the layout-elapsed duration inward through the AppHost `TelemetryContributorPort`, the layout-fold duration measured around `Layout` distinctly from the encode-elapsed the encode receipt carries, so a slow pack folds onto the layout-elapsed instrument and never blurs into encode cost.
 - Packages: SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: a new diagram or geo-layer kind is one `CustomVisual` case breaking the `Key` and `Layout` dispatch at compile time; a fifteenth kind carries its render-hash baseline by construction of the same fold; a new layout input is one `CustomVisualData` field, never a parallel data record; zero new surface.
+- Growth: a new diagram or geo-layer kind is ONE catalog row referencing its fold — no `Key` or `Layout` dispatch arm exists to extend because both derive from the row; a fifteenth kind carries its render-hash baseline by construction of the same fold; a new layout input is one `CustomVisualData` field, never a parallel data record; zero new surface.
 - Boundary:
   - `CustomVisual` mints zero Skia-surface, encode, placement, or peer owner — the layout fold composes through `DrawSource.Owned.Materialize` (the only Skia-surface owner) exactly as `PreviewRow.Render` does, `VisualCodec.Encode` is the only encode path, `DashboardTile.Custom` places a kind in a board, and the `custom-visual` `AnnouncementRow` synthesized row gives each kind its live-region peer through the one `ControlAutomationPeer` synthesized-peer construction.
   - The projected `SKPath` is using-scoped inside the fold and never outlives the materialize so a layout fault leaks no native handle.
@@ -24,6 +24,7 @@ Custom visuals are the package's Skia layout-algebra rail for every diagram and 
   - The layout folds are managed Skia geometry only and carry no native, bridge, or live-host probe and cross no TS wire — `CustomVisual`, `CustomVisualData`, `CustomVisuals`, and `ColorSpaceAxis` are host-local desktop-Skia owners with no browser or peer crossing, so the page authors no `TS_PROJECTION` cluster.
   - A custom-tile dashboard feed crosses only as the already-projected `EvidenceTimeline`/`RenderReceipt` evidence wire on Diagnostics/evidence#TS_PROJECTION and any remote numeric input arrives through the existing Compute Runtime/wire#PROTO_VOCABULARY `Solve` rpc, never a new AppUi wire shape — a custom-visual wire contract is the deleted form.
   - Each materialize folds one observation into the rendered count and the measured layout-fold duration into the layout-elapsed instrument through the one `AppUiTelemetry.Contribute` spine, so a custom-tile render contributes through `TelemetryContributorPort` and a layout-local meter is the deleted form.
+  - Boolean path algebra rides `SKPath.Op` — the extrusion column merges its shaft and sheared face through `SKPathOp.Union` into one clean silhouette — and `VectorTwin` emits the fold as `ToSvgPathData` text so a diagram's geometry reaches the drafting and export vector codecs without a raster hop; a hand-rolled winding workaround or a second vector-emit path is the deleted form.
   - A fork of `ChartSeriesSpec` for these kinds, a hand-rolled diagram control, and a second Skia-surface owner are the deleted patterns.
 
 ```csharp signature
@@ -43,56 +44,39 @@ public sealed record CustomVisualData(
     string PaintFamily,
     string LabelRole);
 
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record CustomVisual {
-    private CustomVisual() { }
-    public sealed record Sankey(string Key, Func<CustomVisualData, SKImageInfo, Fin<SKPath>> Fold) : CustomVisual;
-    public sealed record Treemap(string Key, Func<CustomVisualData, SKImageInfo, Fin<SKPath>> Fold) : CustomVisual;
-    public sealed record Waterfall(string Key, Func<CustomVisualData, SKImageInfo, Fin<SKPath>> Fold) : CustomVisual;
-    public sealed record Funnel(string Key, Func<CustomVisualData, SKImageInfo, Fin<SKPath>> Fold) : CustomVisual;
-    public sealed record ParallelCoordinates(string Key, Func<CustomVisualData, SKImageInfo, Fin<SKPath>> Fold) : CustomVisual;
-    public sealed record Radar(string Key, Func<CustomVisualData, SKImageInfo, Fin<SKPath>> Fold) : CustomVisual;
-    public sealed record Network(string Key, Func<CustomVisualData, SKImageInfo, Fin<SKPath>> Fold) : CustomVisual;
-    public sealed record Gantt(string Key, Func<CustomVisualData, SKImageInfo, Fin<SKPath>> Fold) : CustomVisual;
-    public sealed record Sunburst(string Key, Func<CustomVisualData, SKImageInfo, Fin<SKPath>> Fold) : CustomVisual;
-    public sealed record Hexbin(string Key, Func<CustomVisualData, SKImageInfo, Fin<SKPath>> Fold) : CustomVisual;
-    public sealed record GeoArc(string Key, Func<CustomVisualData, SKImageInfo, Fin<SKPath>> Fold) : CustomVisual;
-    public sealed record Trip(string Key, Func<CustomVisualData, SKImageInfo, Fin<SKPath>> Fold) : CustomVisual;
-    public sealed record Extrusion(string Key, Func<CustomVisualData, SKImageInfo, Fin<SKPath>> Fold) : CustomVisual;
-    public sealed record Terrain(string Key, Func<CustomVisualData, SKImageInfo, Fin<SKPath>> Fold) : CustomVisual;
+// DERIVED_LOGIC collapse: every kind shares one generative structure — a wire key and a pure layout fold
+// — so the family is ONE frozen [SmartEnum<string>] row catalog with the fold as a delegate column; the
+// fourteen enumerated case records re-spelling one identical payload are the deleted form, and a new kind
+// is one row referencing its fold, never a case plus two dispatch arms.
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class CustomVisual {
+    public static readonly CustomVisual Sankey = new("sankey", CustomVisuals.Sankey);
+    public static readonly CustomVisual Treemap = new("treemap", CustomVisuals.Treemap);
+    public static readonly CustomVisual Waterfall = new("waterfall", CustomVisuals.Waterfall);
+    public static readonly CustomVisual Funnel = new("funnel", CustomVisuals.Funnel);
+    public static readonly CustomVisual ParallelCoordinates = new("parallel-coordinates", CustomVisuals.ParallelCoordinates);
+    public static readonly CustomVisual Radar = new("radar", CustomVisuals.Radar);
+    public static readonly CustomVisual Network = new("network", CustomVisuals.Network);
+    public static readonly CustomVisual Gantt = new("gantt", CustomVisuals.Gantt);
+    public static readonly CustomVisual Sunburst = new("sunburst", CustomVisuals.Sunburst);
+    public static readonly CustomVisual Hexbin = new("hexbin", CustomVisuals.Hexbin);
+    public static readonly CustomVisual GeoArc = new("geo-arc", CustomVisuals.GeoArc);
+    public static readonly CustomVisual Trip = new("trip", CustomVisuals.Trip);
+    public static readonly CustomVisual Extrusion = new("extrusion", CustomVisuals.Extrusion);
+    public static readonly CustomVisual Terrain = new("terrain", CustomVisuals.Terrain);
 
-    public string Key => Switch(
-        sankey: static s => s.Key,
-        treemap: static t => t.Key,
-        waterfall: static w => w.Key,
-        funnel: static f => f.Key,
-        parallelCoordinates: static p => p.Key,
-        radar: static r => r.Key,
-        network: static n => n.Key,
-        gantt: static g => g.Key,
-        sunburst: static s => s.Key,
-        hexbin: static h => h.Key,
-        geoArc: static a => a.Key,
-        trip: static t => t.Key,
-        extrusion: static e => e.Key,
-        terrain: static t => t.Key);
+    [UseDelegateFromConstructor]
+    public partial Fin<SKPath> Layout(CustomVisualData data, SKImageInfo info);
 
-    public Fin<SKPath> Layout(CustomVisualData data, SKImageInfo info) => Switch(
-        state: (Data: data, Info: info),
-        sankey: static (ctx, s) => s.Fold(ctx.Data, ctx.Info),
-        treemap: static (ctx, t) => t.Fold(ctx.Data, ctx.Info),
-        waterfall: static (ctx, w) => w.Fold(ctx.Data, ctx.Info),
-        funnel: static (ctx, f) => f.Fold(ctx.Data, ctx.Info),
-        parallelCoordinates: static (ctx, p) => p.Fold(ctx.Data, ctx.Info),
-        radar: static (ctx, r) => r.Fold(ctx.Data, ctx.Info),
-        network: static (ctx, n) => n.Fold(ctx.Data, ctx.Info),
-        gantt: static (ctx, g) => g.Fold(ctx.Data, ctx.Info),
-        sunburst: static (ctx, s) => s.Fold(ctx.Data, ctx.Info),
-        hexbin: static (ctx, h) => h.Fold(ctx.Data, ctx.Info),
-        geoArc: static (ctx, a) => a.Fold(ctx.Data, ctx.Info),
-        trip: static (ctx, t) => t.Fold(ctx.Data, ctx.Info),
-        extrusion: static (ctx, e) => e.Fold(ctx.Data, ctx.Info),
-        terrain: static (ctx, t) => t.Fold(ctx.Data, ctx.Info));
+    // The vector-interchange twin: the same layout fold emitted as SVG path data (`SKPath.ToSvgPathData`)
+    // so a diagram's geometry feeds the drafting and export codecs without a raster hop.
+    public Fin<string> VectorTwin(CustomVisualData data, SKImageInfo info) =>
+        Layout(data, info).Map(path => {
+            using SKPath scoped = path;
+            return scoped.ToSvgPathData();
+        });
 
     public IO<RenderReceipt> Materialize(VisualRuntime runtime, CustomVisualData data, SKImageInfo info, ColorSpaceAxis space) =>
         from mark in IO.lift(runtime.Clocks.Mark)
@@ -106,6 +90,7 @@ public abstract partial record CustomVisual {
         from layout in IO.lift(() => runtime.Clocks.Elapsed(mark))
         from _ in runtime.Measure(CustomVisuals.LayoutInstrument, Key, layout)
         from receipt in VisualCodec.Encode(runtime, image, space.Encode, CustomVisuals.Kind, $"custom-visuals/{Key}@{space.Key}.png")
+            .Map(sealed_ => (fun(image.Dispose)(), sealed_).Item2)
         select receipt;
 
     public CaptureRow RenderTwin((ThemeVariantRow Variant, DensityRow Density) cell, double scale,
@@ -121,7 +106,9 @@ public static class CustomVisuals {
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, RenderedInstrument, LayoutInstrument);
 
-    public static readonly CustomVisual Sankey = new CustomVisual.Sankey("sankey", static (data, info) =>
+    // --- [OPERATIONS] — the fourteen layout folds: the row catalog's delegate-column values.
+
+    internal static Fin<SKPath> Sankey(CustomVisualData data, SKImageInfo info) =>
         data.Flows.Fold(Fin.Succ(new SKPath()), (rail, flow) => rail.Map(path => {
             float lane = info.Height / (float)(data.Nodes.Count + 1);
             float x0 = 0f, x1 = info.Width;
@@ -133,13 +120,13 @@ public static class CustomVisuals {
             path.CubicTo(info.Width * 0.5f, y1 + thickness, info.Width * 0.5f, y0 + thickness, x0, y0 + thickness);
             path.Close();
             return path;
-        })));
+        }));
 
-    public static readonly CustomVisual Treemap = new CustomVisual.Treemap("treemap", static (data, info) =>
+    internal static Fin<SKPath> Treemap(CustomVisualData data, SKImageInfo info) =>
         Squarify(data.Nodes, new SKRect(0f, 0f, info.Width, info.Height)).Map(rects =>
-            rects.Fold(new SKPath(), static (path, rect) => { path.AddRect(rect, SKPathDirection.Clockwise); return path; })));
+            rects.Fold(new SKPath(), static (path, rect) => { path.AddRect(rect, SKPathDirection.Clockwise); return path; }));
 
-    public static readonly CustomVisual Waterfall = new CustomVisual.Waterfall("waterfall", static (data, info) =>
+    internal static Fin<SKPath> Waterfall(CustomVisualData data, SKImageInfo info) =>
         Fin.Succ(data.Steps.Fold(
                 (Path: new SKPath(), Cursor: 0d, Index: 0),
                 (state, step) => {
@@ -151,9 +138,9 @@ public static class CustomVisuals {
                     state.Path.AddRect(new SKRect(x, Math.Min(top, bottom), x + width * 0.8f, Math.Max(top, bottom)), SKPathDirection.Clockwise);
                     return (state.Path, Cursor: step.Total ? 0d : state.Cursor + step.Delta, Index: state.Index + 1);
                 })
-            .Path));
+            .Path);
 
-    public static readonly CustomVisual Funnel = new CustomVisual.Funnel("funnel", static (data, info) =>
+    internal static Fin<SKPath> Funnel(CustomVisualData data, SKImageInfo info) =>
         Fin.Succ(data.Nodes.Fold(
                 (Path: new SKPath(), Top: 0f, Index: 0),
                 (state, node) => {
@@ -169,9 +156,9 @@ public static class CustomVisuals {
                     state.Path.Close();
                     return (state.Path, Top: bottom, Index: state.Index + 1);
                 })
-            .Path));
+            .Path);
 
-    public static readonly CustomVisual ParallelCoordinates = new CustomVisual.ParallelCoordinates("parallel-coordinates", static (data, info) =>
+    internal static Fin<SKPath> ParallelCoordinates(CustomVisualData data, SKImageInfo info) =>
         data.Series.IsEmpty || data.Series[0].Axes.IsEmpty
             ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("parcoords: no series axes"))
             : NormalizeAxes(data.Series) switch {
@@ -185,9 +172,9 @@ public static class CustomVisuals {
                     });
                     return path;
                 })),
-            });
+            };
 
-    public static readonly CustomVisual Radar = new CustomVisual.Radar("radar", static (data, info) =>
+    internal static Fin<SKPath> Radar(CustomVisualData data, SKImageInfo info) =>
         data.Series.IsEmpty || data.Series[0].Axes.IsEmpty
             ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("radar: no series axes"))
             : NormalizeAxes(data.Series) switch {
@@ -204,9 +191,9 @@ public static class CustomVisuals {
                     path.Close();
                     return path;
                 })),
-            });
+            };
 
-    public static readonly CustomVisual Network = new CustomVisual.Network("network", static (data, info) =>
+    internal static Fin<SKPath> Network(CustomVisualData data, SKImageInfo info) =>
         data.Vertices.IsEmpty
             ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("network: no vertices"))
             : Fin.Succ(data.Edges.Fold(new SKPath(), (path, edge) => {
@@ -221,9 +208,9 @@ public static class CustomVisuals {
                     path.AddCircle((float)(vertex.X * info.Width), (float)(vertex.Y * info.Height), 4f, SKPathDirection.Clockwise);
                     return path;
                 }),
-            }));
+            });
 
-    public static readonly CustomVisual Gantt = new CustomVisual.Gantt("gantt", static (data, info) =>
+    internal static Fin<SKPath> Gantt(CustomVisualData data, SKImageInfo info) =>
         data.Spans.IsEmpty
             ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("gantt: no spans"))
             : (Lo: data.Spans.Min(static s => s.Start), Hi: data.Spans.Max(static s => s.End), Tracks: data.Spans.Max(static s => s.Track) + 1) switch {
@@ -237,9 +224,9 @@ public static class CustomVisuals {
                     return path;
                 })),
                 _ => Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("gantt: zero time span")),
-            });
+            };
 
-    public static readonly CustomVisual Sunburst = new CustomVisual.Sunburst("sunburst", static (data, info) =>
+    internal static Fin<SKPath> Sunburst(CustomVisualData data, SKImageInfo info) =>
         data.Wedges.IsEmpty
             ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("sunburst: no wedges"))
             : Fin.Succ(SunburstArcs(data.Wedges).Fold(new SKPath(), (path, arc) => {
@@ -252,17 +239,17 @@ public static class CustomVisuals {
                 wedge.Close();
                 path.AddPath(wedge);
                 return path;
-            })));
+            }));
 
-    public static readonly CustomVisual Hexbin = new CustomVisual.Hexbin("hexbin", static (data, info) =>
+    internal static Fin<SKPath> Hexbin(CustomVisualData data, SKImageInfo info) =>
         data.Points.IsEmpty
             ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("hexbin: no points"))
             : Fin.Succ(Bin(data.Points, info, radiusPx: 18f).Fold(new SKPath(), static (path, cell) => {
                 path.AddPath(Hexagon(cell.Cx, cell.Cy, cell.Radius));
                 return path;
-            })));
+            }));
 
-    public static readonly CustomVisual GeoArc = new CustomVisual.GeoArc("geo-arc", static (data, info) =>
+    internal static Fin<SKPath> GeoArc(CustomVisualData data, SKImageInfo info) =>
         data.Arcs.IsEmpty
             ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("geoarc: no arcs"))
             : Fin.Succ(data.Arcs.Fold(new SKPath(), (path, arc) => {
@@ -272,9 +259,9 @@ public static class CustomVisuals {
                 path.MoveTo(sx, sy);
                 path.QuadTo(midX, midY, ex, ey);
                 return path;
-            })));
+            }));
 
-    public static readonly CustomVisual Trip = new CustomVisual.Trip("trip", static (data, info) =>
+    internal static Fin<SKPath> Trip(CustomVisualData data, SKImageInfo info) =>
         data.Trips.IsEmpty
             ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("trip: no trips"))
             : Fin.Succ(data.Trips.Fold(new SKPath(), (path, trip) => {
@@ -283,9 +270,11 @@ public static class CustomVisuals {
                     if (index == 0) { path.MoveTo(x, y); } else { path.LineTo(x, y); }
                 });
                 return path;
-            })));
+            }));
 
-    public static readonly CustomVisual Extrusion = new CustomVisual.Extrusion("extrusion", static (data, info) =>
+    // The column shaft and its sheared top face merge through SKPath.Op(Union) into ONE clean silhouette
+    // per column, so overlapping subpaths never double-fill or cancel under the fill winding rule.
+    internal static Fin<SKPath> Extrusion(CustomVisualData data, SKImageInfo info) =>
         data.Points.IsEmpty
             ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("extrusion: no columns"))
             : (Max: data.Points.Max(static p => p.Weight)) switch {
@@ -293,22 +282,28 @@ public static class CustomVisuals {
                     var (x, y) = Project(column.Lon, column.Lat, info);
                     float height = (float)(column.Weight / bounds.Max * info.Height * 0.25d);
                     float half = 6f;
-                    path.MoveTo(x - half, y);
-                    path.LineTo(x - half, y - height);
-                    path.LineTo(x + half, y - height - 4f);
-                    path.LineTo(x + half, y - 4f);
-                    path.Close();
-                    path.AddRect(new SKRect(x - half, y - height, x + half, y));
+                    using SKPath face = new();
+                    face.MoveTo(x - half, y - height);
+                    face.LineTo(x + half, y - height - 4f);
+                    face.LineTo(x + half, y - 4f);
+                    face.LineTo(x - half, y);
+                    face.Close();
+                    using SKPath shaft = new();
+                    shaft.AddRect(new SKRect(x - half, y - height, x + half, y));
+                    using SKPath column3d = face.Op(shaft, SKPathOp.Union);
+                    path.AddPath(column3d);
                     return path;
                 })),
                 _ => Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("extrusion: zero column weight")),
-            });
+            };
 
-    public static readonly CustomVisual Terrain = new CustomVisual.Terrain("terrain", static (data, info) =>
+    // Exact-square admission: a sample count that is not a perfect square >= 4 rejects — the floor-square
+    // acceptance that silently rendered a truncated prefix is the deleted form.
+    internal static Fin<SKPath> Terrain(CustomVisualData data, SKImageInfo info) =>
         data.Points.IsEmpty
             ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("terrain: no samples"))
-            : (Side: (int)Math.Sqrt(data.Points.Count)) switch {
-                var grid when grid.Side >= 2 && grid.Side * grid.Side <= data.Points.Count => Fin.Succ(
+            : (Side: (int)Math.Round(Math.Sqrt(data.Points.Count))) switch {
+                var grid when grid.Side >= 2 && grid.Side * grid.Side == data.Points.Count => Fin.Succ(
                     Enumerable.Range(0, grid.Side - 1).Aggregate(new SKPath(), (path, row) => {
                         float cell = info.Width / (float)(grid.Side - 1);
                         Enumerable.Range(0, grid.Side - 1).Iter(col => {
@@ -319,7 +314,7 @@ public static class CustomVisuals {
                         return path;
                     })),
                 _ => Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("terrain: sample count is not a square grid")),
-            });
+            };
 
     static Func<int, double, double> NormalizeAxes(Seq<(string Series, Seq<double> Axes)> series) {
         int axisCount = series[0].Axes.Count;

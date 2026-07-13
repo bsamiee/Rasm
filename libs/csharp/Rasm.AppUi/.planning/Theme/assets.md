@@ -5,14 +5,14 @@ Rasm.AppUi sources every icon and bundled asset through one nameof-derived `Asse
 ## [01]-[INDEX]
 
 - [01]-[ICON_AXIS]: Five-case icon union, rank-column fallback walk, one materialize dispatch.
-- [02]-[SVG_PIPELINE]: Retained SVG documents, scene graph, animation invalidation, hit testing.
+- [02]-[SVG_PIPELINE]: Retained SVG documents, scene graph, dirty-region mutation, animation leases, hit testing.
 - [03]-[RASTER_ASSETS]: Async raster loaders, cache scope, fallbacks, DPI-variant selection.
 - [04]-[ASSET_CATALOG]: Avares admission rows, key vocabulary, preload receipts, geo assets.
 
 ## [02]-[ICON_AXIS]
 
 - Owner: `IconSource` — one `[Union]` icon-sourcing axis; `IconSurface` owns the rank-walk resolution fold and the one materialize dispatch; `IconRow` is the resolution-table row carrying the rank column.
-- Cases: FluentSymbol | SvgDocument | PathGeometry | ProviderGenerated | HostBitmap in canonical fallback order; `AssetFault` = Text | UnknownKey | SizeOffAxis | MaterializeRejected in the 4120 code band; 16, 20, 24, 32 are the closed size axis.
+- Cases: FluentSymbol | SvgDocument | PathGeometry | ProviderGenerated | HostBitmap in canonical fallback order; `AssetFault` = Text | UnknownKey | SizeOffAxis | MaterializeRejected under the `AppUiFaultBand.Asset` 6600 registry row; 16, 20, 24, 32 are the closed size axis.
 - Entry: `public static Fin<IImage> Resolve(FrozenDictionary<AssetKey, ImmutableArray<IconRow>> table, AssetKey key, int size, double scale, Func<string, Color> tokens)` — `Fin` aborts on off-axis size, unknown key, and exhausted ranks.
 - Auto: the rank walk deletes per-call icon lookup and tint code; `DefaultRank` is the generated `Map` verdict table, so a new sourcing modality lands as one case plus one rank value; Projektanker-style attached icon registries stay rejected with this fold as the absorber.
 - Packages: FluentIcons.Avalonia, SkiaSharp, Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -108,30 +108,50 @@ flowchart LR
 
 ## [03]-[SVG_PIPELINE]
 
-- Owner: `SvgPipeline` — retained SVG document admission, scene-graph access, animation control and invalidation, hit testing, and tinted image projection.
-- Cases: `ScenePolicy` carrier values — `PictureOnly` for icons and illustrations, `RetainedScene` for hit-testable documents, `Animated` for time-driven documents — selecting whether `TryEnsureRetainedSceneGraph` runs at admission and whether the animation controller binds.
-- Entry: `public static Fin<SKSvg> Load(AssetKey key, ScenePolicy policy, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation = default)` — `Fin` aborts on unknown key and stream admission failure.
-- Auto: the process-static retained table deletes per-control re-parse and per-call picture rebuilds; `RetainedScene` rows eagerly build the diffable scene graph at admission so hit-test and animated previews never rebuild a picture per pointer move; animation invalidation drives `InvalidateVisual` on the consuming `Svg` control and the `AnimationController` exposes pause/seek as scene-policy data, never a draw-time timer; `SvgParameters` recolor and `CurrentColor` tinting ride the same theme token resolve.
+- Owner: `SvgPipeline` — retained SVG document admission, capability-monotone cache, scene-graph access, dirty-region mutation, animation control and invalidation, hit testing, and tinted image projection; `SvgLease` the subscription-owning load product.
+- Cases: `ScenePolicy` `[SmartEnum<string>]` rows — `PictureOnly` for icons and illustrations, `RetainedScene` for hit-testable documents, `Animated` for time-driven documents — the `Scene` column selecting whether the retained scene graph builds and the `Animate` column gating the animation-handler bind, so no fourth combination is representable.
+- Entry: `public static Fin<SvgLease> Load(AssetKey key, ScenePolicy policy, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation = default)` — `Fin` aborts on unknown key and stream admission failure; the lease is the handler's lifetime owner, so disposing it detaches exactly the handler this load attached.
+- Auto: the process-static retained table deletes per-control re-parse and per-call picture rebuilds, and capability is monotone over cache history — `Ensure` runs `TryEnsureRetainedSceneGraph` whenever the requesting policy's `Scene` column demands a graph the cached document lacks, so a later retained or animated request gets its scene capability regardless of prior load order and a picture-only caller never observes the upgrade; theme-tint flips, hover recolors, and animation frames re-render through `Mutate` — the catalogued `TryApplyRetainedSceneMutationByIdAndRender` dirty-region rail returning the `SvgSceneMutationResult` receipt a viewport invalidation keys on — never a whole-picture rebuild on a one-element change; animation invalidation drives `InvalidateVisual` on the consuming `Svg` control and the `AnimationController` exposes pause/seek as scene-policy data, never a draw-time timer; `SvgParameters` recolor and `CurrentColor` tinting ride the same theme token resolve.
 - Packages: Svg.Controls.Skia.Avalonia, SkiaSharp, Avalonia, LanguageExt.Core, BCL inbox
-- Growth: one retained row per asset key; a recolor, scene-build, or animation policy is one `ScenePolicy` value with zero new surface.
-- Boundary: the `Admit` and `Subscribed` pair is this fence's boundary capsule — native document construction, settings configuration, event attachment, scene-graph build, and the process-static cache stay inside their statement bodies, the admitted stream is using-scoped, and a racing duplicate document disposes in place so only the retained winner survives; SVG text resolves through the typography font chain rather than a private SVG font registry — `SKSvgSettings.TypefaceProviders` admits a `FontManagerTypefaceProvider` (in `Svg.Skia.TypefaceProviders`, implementing `ITypefaceProvider`) over the resolved `SKFontManager` at construction so an embedded-Inter SVG label shapes through the same family ranks the retained text stack reads, and the `SrgbLinear`/`Srgb` settings pin the color-managed working spaces in parity with the encode color policy, and the provider add is fail-closed (an SVG with no embedded text resolves unchanged when the provider collection is absent); hit dispatch rides the catalogued `SvgInteractionDispatcher.HitTestTopmostElement` for topmost pointer resolution and `SKSvg.HitTestSceneNodes` for the full hit set, both projecting `SvgSceneNode` values into the interaction rail, never retained control handles; the diffable `RetainedSceneGraph` `SvgSceneDocument` node walk is the same typed-traversal algebra the Markdown and inspector descriptor folds run, parameterized by node family; the animation controller never owns the frame clock — the motion pump schedules invalidation against the reduced-motion switch, so an animated SVG rides the same frame ceiling as every moving surface; the `SKSvg.AnimationInvalidated` event binds an `EventHandler<SvgAnimationFrameChangedEventArgs>` handler, matching the `Subscribed` fence carrier.
+- Growth: one retained row per asset key; a recolor, scene-build, or animation policy is one `ScenePolicy` row with zero new surface; a new mutation address form is one `Mutate` overload over the catalogued addressed-mutation family.
+- Boundary: `Admit`, `Ensure`, and `Leased` form this fence's boundary capsule — native document construction, settings configuration, scene-graph build, event attachment, and the process-static cache stay inside their statement bodies, the admitted stream is using-scoped, and a racing duplicate document disposes in place so only the retained winner survives; every scene-graph build and dirty-region mutation takes `lock (document.Sync)` — the engine's render lock — so a concurrent `Draw` never observes a half-applied mutation, and the handler attach rides the lease so repeated loads never accumulate handlers on the shared retained document; SVG text resolves through the typography font chain rather than a private SVG font registry — `SKSvgSettings.TypefaceProviders` admits a `FontManagerTypefaceProvider` (in `Svg.Skia.TypefaceProviders`, implementing `ITypefaceProvider`) over the resolved `SKFontManager` at construction so an embedded-Inter SVG label shapes through the same family ranks the retained text stack reads, and the `SrgbLinear`/`Srgb` settings pin the color-managed working spaces in parity with the encode color policy, and the provider add is fail-closed (an SVG with no embedded text resolves unchanged when the provider collection is absent); hit dispatch rides the catalogued `SvgInteractionDispatcher.HitTestTopmostElement` for topmost pointer resolution and `SKSvg.HitTestSceneNodes` for the full hit set, both projecting `SvgSceneNode` values into the interaction rail, never retained control handles; the diffable `RetainedSceneGraph` `SvgSceneDocument` node walk is the same typed-traversal algebra the Markdown and inspector descriptor folds run, parameterized by node family; the animation controller never owns the frame clock — the motion pump schedules invalidation against the reduced-motion switch, so an animated SVG rides the same frame ceiling as every moving surface; the `SKSvg.AnimationInvalidated` event binds an `EventHandler<SvgAnimationFrameChangedEventArgs>` handler, matching the `Subscribed` fence carrier.
 
 ```csharp signature
-public readonly record struct ScenePolicy(bool RetainScene, bool Animate) {
-    public static readonly ScenePolicy PictureOnly = new(RetainScene: false, Animate: false);
-    public static readonly ScenePolicy RetainedScene = new(RetainScene: true, Animate: false);
-    public static readonly ScenePolicy Animated = new(RetainScene: true, Animate: true);
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ScenePolicy {
+    public static readonly ScenePolicy PictureOnly = new("picture-only", scene: false, animate: false);
+    public static readonly ScenePolicy RetainedScene = new("retained-scene", scene: true, animate: false);
+    public static readonly ScenePolicy Animated = new("animated", scene: true, animate: true);
+
+    public bool Scene { get; }
+
+    public bool Animate { get; }
+}
+
+public sealed record SvgLease(SKSvg Document, Action Detach) : IDisposable {
+    public void Dispose() => Detach();
 }
 
 public static class SvgPipeline {
     static readonly ConcurrentDictionary<AssetKey, SKSvg> Retained = new();
 
-    public static Fin<SKSvg> Load(AssetKey key, ScenePolicy policy, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation = default) =>
-        (Retained.TryGetValue(key, out var hit) ? Fin.Succ(hit) : AssetCatalog.Open(key).Map(payload => Admit(key, payload, policy)))
-            .Map(document => Subscribed(document, onAnimation));
+    public static Fin<SvgLease> Load(AssetKey key, ScenePolicy policy, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation = default) =>
+        (Retained.TryGetValue(key, out var hit) ? Fin.Succ(hit) : AssetCatalog.Open(key).Map(payload => Admit(key, payload)))
+            .Map(document => Ensure(document, policy))
+            .Map(document => Leased(document, policy, onAnimation));
 
     public static Fin<IImage> Image(AssetKey asset, Color tint) =>
         AssetCatalog.Row(asset).Map(row => (IImage)new SvgImage { Source = SvgSource.Load(row.Source.ToString()), CurrentColor = tint });
+
+    public static Fin<SvgSceneMutationResult> Mutate(SKSvg document, string id, params ReadOnlySpan<string> changedAttributes) {
+        lock (document.Sync) {
+            return document.TryApplyRetainedSceneMutationByIdAndRender(id, changedAttributes.ToArray(), out SvgSceneMutationResult? dirty) && dirty is not null
+                ? Fin.Succ(dirty)
+                : Fin.Fail<SvgSceneMutationResult>(new AssetFault.MaterializeRejected(id));
+        }
+    }
 
     public static Option<SvgSceneDocument> Scene(SKSvg document) =>
         document.HasRetainedSceneGraph ? Optional(document.RetainedSceneGraph) : None;
@@ -147,21 +167,28 @@ public static class SvgPipeline {
 
     static readonly ITypefaceProvider Typefaces = new FontManagerTypefaceProvider { FontManager = SKFontManager.Default };
 
-    static SKSvg Admit(AssetKey key, Stream payload, ScenePolicy policy) {
+    static SKSvg Admit(AssetKey key, Stream payload) {
         using Stream scoped = payload;
         SKSvg document = new();
         document.Settings.TypefaceProviders?.Add(Typefaces);
         _ = document.Load(scoped);
-        if (policy.RetainScene) { _ = document.TryEnsureRetainedSceneGraph(); }
         SKSvg retained = Retained.GetOrAdd(key, document);
         if (!ReferenceEquals(retained, document)) { document.Dispose(); }
         return retained;
     }
 
-    static SKSvg Subscribed(SKSvg document, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation) {
-        onAnimation.IfSome(handler => document.AnimationInvalidated += handler);
+    static SKSvg Ensure(SKSvg document, ScenePolicy policy) {
+        if (policy.Scene && !document.HasRetainedSceneGraph) { lock (document.Sync) { _ = document.TryEnsureRetainedSceneGraph(); } }
         return document;
     }
+
+    static SvgLease Leased(SKSvg document, ScenePolicy policy, Option<EventHandler<SvgAnimationFrameChangedEventArgs>> onAnimation) =>
+        (policy.Animate ? onAnimation : None).Match(
+            Some: handler => {
+                document.AnimationInvalidated += handler;
+                return new SvgLease(document, () => document.AnimationInvalidated -= handler);
+            },
+            None: () => new SvgLease(document, static () => { }));
 }
 ```
 
@@ -203,7 +230,7 @@ public static class RasterAssets {
 - Cases: `AssetKind` = vector | raster | geo.
 - Entry: `public static Fin<Stream> Open(AssetKey key, double scale = 1d)` — `Fin` aborts on unknown key; geo rows feed the chart geo series by key so the chart never loads files.
 - Auto: `Preload` folds preload rows into identity receipts at boot; runtime asset reload is deleted — Debug hot reload rides HotAvalonia and Release assets are immutable avares plus blob-lane content.
-- Receipt: `AssetReceipt` — key, kind, origin, scale, and the asset bytes' content address minted through the kernel `Rasm.Domain` `ContentHash.Of` seed-zero entry (the federation one-hasher law; a page-local `XxHash128` mint is the deleted form, hex stays this boundary's projection) — sinks through `ReceiptSinkPort` into the evidence stream.
+- Receipt: `AssetReceipt` — key, kind, origin, scale, and the asset bytes' content address minted through the kernel `Rasm.Domain` `ContentHash.Of` seed-zero entry (the federation one-hasher law; a page-local `XxHash128` mint is the deleted form, hex stays this boundary's projection) — sinks through `ReceiptSinkPort` under the evidence union's `Asset` case (`AssetReceipt.ToEvidence()`).
 - Packages: Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project), BCL inbox
 - Growth: one `AssetRow` — key, kind, avares source, hi-dpi variant, preload flag — admits a new asset with zero new surface.
 - Boundary: avares content is the only Release-time asset origin; remote bytes enter through the raster loader rows and durable artifacts live in the blob lane; the key vocabulary crosses pages as values — sibling catalogs admit their icon and asset columns through `AssetKey` at composition; `Receipt` is this fence's boundary capsule — the probed stream is using-scoped inside the hash fold.

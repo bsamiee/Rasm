@@ -11,9 +11,9 @@ The graph canvas is the typed-edit plane's node surface: NodeEditorAvalonia `IDr
 
 ## [02]-[GRAPH_MODEL]
 
-- Owner: `GraphNodeRow` — the typed node row the drawing-node view-model materializes from; `GraphPinRow` — the typed pin row; `GraphCanvas` — the one canvas owner over `DrawingNodeEditor`.
-- Entry: `public Fin<IDrawingNode> Materialize(Seq<GraphNodeRow> nodes, Seq<(string From, string To)> edges)` — one fold from typed rows to the mounted drawing; edge endpoints carry the gate-owned grammar `nodeKey` or `nodeKey/pinKey` so pin identity survives from row to connector; every edit verb (add node, connect, move, delete) discriminates through the editor's own operation surface.
-- Auto: product view-models implement `IDrawingNode`/`INode`/`IConnector`/`IPin`/`IConnectablePin` on ReactiveUI so activation, command, and validation ride the suite's one reactive rail; `IDrawingNodeSettings` carries the connection policy columns (direction, bus, self-connection, duplicate-connection) as data; node templates are `INodeTemplate` rows on the editor's `Templates` host so a new node kind is one template row.
+- Owner: `GraphNodeRow` — the typed node row the drawing-node view-model materializes from; `GraphPinRow` — the typed pin row; `GraphCanvas` — the one canvas owner over `DrawingNodeEditor` carrying the `IDrawingNodeFactory` every pin and connector mints through.
+- Entry: `public Fin<IDrawingNode> Materialize(Seq<GraphNodeRow> nodes, Seq<(string From, string To)> edges)` — one two-phase fold from typed rows to the mounted drawing: stage detached through the factory, validate every edge against the settings policy, commit only in the success arm; edge endpoints carry the gate-owned grammar `nodeKey` or `nodeKey/pinKey` so pin identity survives from row to connector; every edit verb (add node, connect, move, delete) discriminates through the editor's own operation surface — `Drawing.Nodes`/`Connectors` mutate only from the staged commit, never mid-validation.
+- Auto: product view-models implement `IDrawingNode`/`INode`/`IConnector`/`IPin`/`IConnectablePin` on ReactiveUI so activation, command, and validation ride the suite's one reactive rail; `IDrawingNodeSettings` is the ONE connection-policy authority — `RequireDirectionalConnections`, `RequireMatchingBusWidth`, `AllowSelfConnections`, `AllowDuplicateConnections` are its data columns, the interactive connector-drag honors them through `DrawingNodeEditor.CanConnectPin`/`ConnectionValidationContext`, and the programmatic gate reads the same row so no second policy source exists; pins and connectors mint through `IDrawingNodeFactory.CreatePin()`/`CreateConnector()` so the engine sees every construction; node templates are `INodeTemplate` rows on the editor's `Templates` host so a new node kind is one template row.
 - Receipt: every committed structural edit seals an Edit-case `EvidenceReceipt` and projects a typed edit-intent op onto the `Collab/sync.md` durable stream — the graph mints no parallel op union.
 - Packages: NodeEditorAvalonia (+`.Model` transitive-floor pin), ReactiveUI, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new node kind is one `GraphNodeRow` template value; a new pin shape is one `GraphPinRow` value; zero new surface.
@@ -31,12 +31,12 @@ public sealed record GraphNodeRow(
     Seq<GraphPinRow> Pins);
 
 // Product ReactiveUI contract concretions — the ONLY INode/IConnectablePin/IConnector implementations this
-// plane mints; every other member of each contract rides ReactiveObject-backed setters per the model law.
+// plane mints; the engine constructs them through CanvasGraphFactory, never a bare new at a call site.
 public sealed class CanvasPin : ReactiveObject, IConnectablePin {
-    public string? Key { get; init; }
-    public PinAlignment Alignment { get; init; }
-    public PinDirection Direction { get; init; }
-    public int BusWidth { get; init; } = 1;
+    public string? Key { get; set; }
+    public PinAlignment Alignment { get; set; }
+    public PinDirection Direction { get; set; }
+    public int BusWidth { get; set; } = 1;
 }
 
 public sealed class CanvasNode : ReactiveObject, INode {
@@ -52,48 +52,84 @@ public sealed class CanvasConnector : ReactiveObject, IConnector {
     public IPin? End { get; set; }
 }
 
-public sealed record GraphCanvas(DrawingNodeEditor Editor, IDrawingNode Drawing, GraphAdmission Gate) {
+// The one IDrawingNodeFactory row: the engine and the staged fold mint every pin, connector, and list here.
+public sealed class CanvasGraphFactory : IDrawingNodeFactory {
+    public IPin CreatePin() => new CanvasPin();
+    public IConnector CreateConnector() => new CanvasConnector();
+    public IList<T> CreateList<T>() => [];
+}
+
+public sealed record GraphCanvas(DrawingNodeEditor Editor, IDrawingNode Drawing, IDrawingNodeFactory Factory, IDrawingNodeSettings Policy, GraphAdmission Gate) {
     public Fin<IDrawingNode> Materialize(Seq<GraphNodeRow> nodes, Seq<(string From, string To)> edges) =>
         Gate.Admit(nodes.Map(static n => n.Key), edges)
-            .Map(_ => Build(nodes, edges));
+            .Bind(_ => Staged(nodes, edges))
+            .Map(Commit);
 
-    // Reconcile entry for remote applies: the swap is atomic — the gate admits the replacement FIRST,
-    // the live canvas clears only inside the success arm, so a rejected apply leaves the graph intact.
+    // Reconcile entry for remote applies: the swap is atomic — the gate and the staged validation admit the
+    // replacement FIRST, the live canvas clears only inside the success arm, so a rejected apply leaves the
+    // graph intact.
     public Fin<IDrawingNode> Reset(Seq<GraphNodeRow> nodes, Seq<(string From, string To)> edges) =>
-        Gate.Admit(nodes.Map(static n => n.Key), edges).Map(_ => {
-            Drawing.Nodes?.Clear();
-            Drawing.Connectors?.Clear();
-            return Build(nodes, edges);
-        });
+        Gate.Admit(nodes.Map(static n => n.Key), edges)
+            .Bind(_ => Staged(nodes, edges))
+            .Map(staged => {
+                Drawing.Nodes?.Clear();
+                Drawing.Connectors?.Clear();
+                return Commit(staged);
+            });
 
-    IDrawingNode Build(Seq<GraphNodeRow> nodes, Seq<(string From, string To)> edges) {
-        Map<string, CanvasNode> byKey = nodes.Fold(Map<string, CanvasNode>(), (acc, row) => {
-            CanvasNode node = NodeOf(row);
-            Drawing.Nodes?.Add(node);
-            return acc.Add(row.Key, node);
-        });
-        edges.Iter(edge => Connect(byKey, edge));
+    // Two-phase apply: every node, pin, and connector mints DETACHED through the factory and validates
+    // against the settings policy BEFORE the first Drawing mutation.
+    Fin<(Seq<CanvasNode> Nodes, Seq<IConnector> Wires)> Staged(Seq<GraphNodeRow> rows, Seq<(string From, string To)> edges) {
+        Map<string, CanvasNode> byKey = rows.Fold(Map<string, CanvasNode>(), (acc, row) => acc.Add(row.Key, NodeOf(Factory, row)));
+        return edges.TraverseM(edge => Wired(byKey, edge)).As()
+            .Map(wires => (toSeq(byKey.Values), wires.Strict()));
+    }
+
+    IDrawingNode Commit((Seq<CanvasNode> Nodes, Seq<IConnector> Wires) staged) {
+        staged.Nodes.Iter(node => Drawing.Nodes?.Add(node));
+        staged.Wires.Iter(wire => Drawing.Connectors?.Add(wire));
         return Drawing;
     }
 
-    static CanvasNode NodeOf(GraphNodeRow row) {
+    // The settings row is the one policy authority: self-connection and bus-width checks read its columns,
+    // and CanConnectPin is the editor's own connectability gate over the same settings.
+    Fin<IConnector> Wired(Map<string, CanvasNode> byKey, (string From, string To) edge) =>
+        from start in Endpoint(byKey, edge.From, PinDirection.Output).ToFin(new CanvasFault.EndpointUnknown(edge.From))
+        from end in Endpoint(byKey, edge.To, PinDirection.Input).ToFin(new CanvasFault.EndpointUnknown(edge.To))
+        from _self in Policy.AllowSelfConnections || GraphAdmission.NodeKey(edge.From) != GraphAdmission.NodeKey(edge.To)
+            ? Fin.Succ(unit) : Fin.Fail<Unit>(new CanvasFault.PolicyRejected($"self connection {edge.From}"))
+        from _bus in !Policy.RequireMatchingBusWidth || (start, end) is (CanvasPin a, CanvasPin b) && a.BusWidth == b.BusWidth
+            ? Fin.Succ(unit) : Fin.Fail<Unit>(new CanvasFault.PolicyRejected($"bus width {edge.From} -> {edge.To}"))
+        from _gate in Editor.CanConnectPin(start) && Editor.CanConnectPin(end)
+            ? Fin.Succ(unit) : Fin.Fail<Unit>(new CanvasFault.PolicyRejected($"{edge.From} -> {edge.To}"))
+        select Wire(start, end);
+
+    IConnector Wire(IPin start, IPin end) {
+        IConnector wire = Factory.CreateConnector();
+        wire.Start = start;
+        wire.End = end;
+        return wire;
+    }
+
+    static CanvasNode NodeOf(IDrawingNodeFactory factory, GraphNodeRow row) {
         CanvasNode node = new() { Key = row.Key, Title = row.Title, X = row.X, Y = row.Y };
-        row.Pins.Iter(pin => node.Pins.Add(new CanvasPin {
-            Key = pin.Key,
-            Alignment = pin.Alignment,
-            Direction = pin.Input ? PinDirection.Input : PinDirection.Output,
-        }));
+        row.Pins.Iter(pin => node.Pins.Add(PinOf(factory, pin)));
         return node;
+    }
+
+    static IPin PinOf(IDrawingNodeFactory factory, GraphPinRow row) {
+        IPin pin = factory.CreatePin();
+        if (pin is CanvasPin typed) {
+            typed.Key = row.Key;
+            typed.Alignment = row.Alignment;
+            typed.Direction = row.Input ? PinDirection.Input : PinDirection.Output;
+        }
+        return pin;
     }
 
     // Endpoint grammar (GraphAdmission owns it): `nodeKey` or `nodeKey/pinKey` — a pin-qualified endpoint
     // routes to its named pin so pin identity survives end-to-end; an unqualified endpoint routes by
     // direction (first Output on source, first Input on target).
-    void Connect(Map<string, CanvasNode> byKey, (string From, string To) edge) =>
-        ignore(Endpoint(byKey, edge.From, PinDirection.Output)
-            .Bind(start => Endpoint(byKey, edge.To, PinDirection.Input)
-                .Map(end => { Drawing.Connectors?.Add(new CanvasConnector { Start = start, End = end }); return unit; })));
-
     static Option<IPin> Endpoint(Map<string, CanvasNode> byKey, string endpoint, PinDirection direction) {
         string[] parts = endpoint.Split('/', 2);
         return byKey.Find(parts[0]).Bind(node => Optional(node.Pins.FirstOrDefault(pin =>
@@ -104,9 +140,9 @@ public sealed record GraphCanvas(DrawingNodeEditor Editor, IDrawingNode Drawing,
 
 ## [03]-[ADMISSION_GATE]
 
-- Owner: `CanvasFault` — the typed canvas rail; `GraphAdmission` — the QuikGraph-backed connection-admission gate.
+- Owner: `CanvasFault` — the typed canvas rail; `GraphAdmission` — the QuikGraph-backed connection-admission gate whose policy column IS the editor `IDrawingNodeSettings` row, never a parallel policy source.
 - Entry: `public Fin<Unit> Admit(Seq<string> nodes, Seq<(string From, string To)> edges)` — the gate rejects a cycle, a dangling endpoint, or a policy-violating duplicate before the editor mutates.
-- Auto: the edge set folds into a QuikGraph `AdjacencyGraph<string, SEdge<string>>` and `IsDirectedAcyclicGraph` is the cycle oracle; topological order for downstream projections reads `TopologicalSort` off the same graph — a hand-rolled adjacency list or DFS beside QuikGraph is the deleted form.
+- Auto: the edge set folds into a QuikGraph `AdjacencyGraph<string, SEdge<string>>` and `IsDirectedAcyclicGraph` is the cycle oracle; topological order for downstream projections reads `TopologicalSort` off the same graph — a hand-rolled adjacency list or DFS beside QuikGraph is the deleted form; duplicate admission reads `IDrawingNodeSettings.AllowDuplicateConnections` so the gate and the interactive connector-drag answer from one settings row.
 - Packages: QuikGraph (shared tier), Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new admission rule is one gate clause folding on the same graph value; one `CanvasFault` case is one `detail` ordinal under the `AppUiFaultBand.Canvas` row (6330); zero new surface.
 - Boundary: the gate guards STRUCTURE only — recompute scheduling, dirty propagation, and evaluation stay the AppHost `RecomputeGraph`'s (a second incremental-recompute owner is the deleted form, the same law `Document/notebook.md` lands under `[V11]`); every fault derives through the `Diagnostics/evidence.md#FAULT_TABLES` registry.
@@ -125,7 +161,7 @@ public abstract partial record CanvasFault : Expected {
         : CanvasFault($"graph/echo: {OpId} re-applied its own mutation", AppUiFaultBand.Canvas.Code(3));
 }
 
-public sealed record GraphAdmission(bool AllowDuplicateEdges) {
+public sealed record GraphAdmission(IDrawingNodeSettings Policy) {
     // The gate owns the endpoint grammar: `nodeKey` or `nodeKey/pinKey`; node-level checks strip the pin.
     public static string NodeKey(string endpoint) => endpoint.Split('/', 2)[0];
 
@@ -134,12 +170,12 @@ public sealed record GraphAdmission(bool AllowDuplicateEdges) {
         return edges.Find(edge => !known.Contains(NodeKey(edge.From)) || !known.Contains(NodeKey(edge.To)))
             .Match(
                 Some: edge => Fin.Fail<Unit>(new CanvasFault.EndpointUnknown(known.Contains(NodeKey(edge.From)) ? edge.To : edge.From)),
-                None: () => (AllowDuplicateEdges ? None : Duplicate(edges)).Match(
+                None: () => (Policy.AllowDuplicateConnections ? None : Duplicate(edges)).Match(
                     Some: dup => Fin.Fail<Unit>(new CanvasFault.PolicyRejected($"duplicate edge {dup.From} -> {dup.To}")),
                     None: () => Acyclic(nodes, edges)));
     }
 
-    // Policy column honored as data: the duplicate gate fires only when the row disallows repeats;
+    // Policy column honored as data: the duplicate gate fires only when the settings row disallows repeats;
     // duplicates key on the full pin-qualified endpoint pair, so parallel pins stay distinct edges.
     static Option<(string From, string To)> Duplicate(Seq<(string From, string To)> edges) =>
         Optional(edges.GroupBy(static edge => edge).FirstOrDefault(static group => group.Count() > 1))

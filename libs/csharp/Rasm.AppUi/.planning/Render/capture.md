@@ -109,9 +109,11 @@ public sealed record ThumbnailRow(
     string ErrorKey);
 
 public static class Thumbnails {
+    // Encode borrows; the capture-minted image is this fold's to release once the receipt lands.
     public static IO<RenderReceipt> Refresh(VisualRuntime runtime, ThumbnailRow row, (double Scale, int PixelSize) variant) =>
         from image in row.Capture(variant)
         from receipt in VisualCodec.Encode(runtime, image, VisualCodec.Png, "thumbnail", VariantKey(row, variant))
+            .Map(sealed_ => (fun(image.Dispose)(), sealed_).Item2)
         select receipt;
 
     static string VariantKey(ThumbnailRow row, (double Scale, int PixelSize) variant) =>
@@ -176,9 +178,9 @@ public sealed record PreviewRow<TReceipt>(
 - Receipt: FrameHash is the whole-payload content hash through the runtime ContentHash delegate — the delegate binds at composition to the kernel `Rasm.Domain` `ContentHash.Of(ReadOnlySpan<byte>) -> UInt128` seed-zero entry (the federation one-hasher; hex encoding stays this boundary's projection), so an AppUi-local `XxHash128` call site is the deleted form; quality values are the encode-row axis values — lossless png at 100, perceptual jpeg and webp at 90; the receipt's `ColorSpace` field is the encode-row working-space tag so a wide-gamut baseline keys distinctly from its sRGB twin and a cross-host byte swap is attributable, never silent.
 - Packages: SkiaSharp, SkiaSharp.NativeAssets.macOS, SkiaSharp.NativeAssets.Linux.NoDependencies, Rasm.AppHost (project), Rasm (project), NodaTime, LanguageExt.Core
 - Growth: one encode row admits a format; one policy value retunes quality; one `ColorPolicy` row retunes the working-and-output color-space pair; one `ToneMap` row admits an HDR-to-SDR operator; an ICC-profiled output is one `ColorPolicy.FromIcc` value from a profile-byte source — zero new surface.
-- Boundary: Decode and Encode are the named native-disposal boundary capsules — the intermediate `SKBitmap`, the consumed `SKImage`, and the encoded `SKData` are using-scoped so a failing later clause never leaks a native handle, and Encode owns the image it consumes; per-format exporter classes are deleted with the encode rows as the absorbing axis; the `RenderReceipt` `Elapsed`, `Bytes`, and `FrameHash` fields project to the encode-duration span and byte-size metric on the AppHost telemetry spine through the runtime `Sink` bound to the `ReceiptSinkPort`, never a local meter or a second receipt vocabulary; render-hash proof lanes compare FrameHash values rendered on Skia-backed headless rows where `UseHeadlessDrawing` false selects real Skia drawing.
+- Boundary: Decode and Encode are the named native-disposal boundary capsules — the intermediate `SKBitmap`, the minted reprojection, and the encoded `SKData` are scope-released so a failing later clause never leaks a native handle, and Encode BORROWS the caller's image: it disposes only the projection `Reproject` mints (`Some` arm) and never the pass-through original (`None` arm), so a walkthrough frame encoded per-frame survives to its later clip mux and a thumbnail image stays valid for its display bind; per-format exporter classes are deleted with the encode rows as the absorbing axis; the `RenderReceipt` `Elapsed`, `Bytes`, and `FrameHash` fields project to the encode-duration span and byte-size metric on the AppHost telemetry spine through the runtime `Sink` bound to the `ReceiptSinkPort`, never a local meter or a second receipt vocabulary; render-hash proof lanes compare FrameHash values rendered on Skia-backed headless rows where `UseHeadlessDrawing` false selects real Skia drawing.
 - Color law, float end-to-end:
-  - The encode row carries a `ColorPolicy` whose `Working` space `Reproject` retags the consumed `SKImage` to its declared space through `SKImage.ColorSpace` and `SKImageInfo.WithColorSpace`, and whose `Output` space pins the encoded payload; `SKColorSpace.CreateSrgbLinear` is the composite-blend working space converted once at projection; `SKColorSpace.Equal` is the only color-space identity test; the reproject is fail-closed against an already-matching color space.
+  - The encode row carries a `ColorPolicy` whose `Working` space `Reproject` retags the borrowed `SKImage` to its declared space through `SKImage.ColorSpace` and `SKImageInfo.WithColorSpace`, and whose `Output` space pins the encoded payload; `SKColorSpace.CreateSrgbLinear` is the composite-blend working space converted once at projection; `SKColorSpace.Equal` is the only color-space identity test; ownership is the result shape — `Reproject` returns `Fin<Option<SKImage>>` where `None` states the caller's image is already conformant and stays caller-owned while `Some` carries the minted projection its consumer owns and disposes, so the identity arm can never route a borrowed image into an owned-resource `using`.
   - The byte `SKColor` path that assumes sRGB and quantizes before conversion is the deleted form — a wide-gamut render hashes its float pixels, never a quantized sRGB shadow; `SKColorF` carries token paints into the float pipeline.
   - `ColorPolicy` is THE single suite-wide gamut/transfer vocabulary — the six gamut rows `Display`, `WideGamut`, `DisplayP3`, `Rec2020`, `ScrgbFloat`, and `HdrPq` are the one family; the custom-visual rail's `ColorSpaceAxis` is a keyed PROJECTION of these rows (`Charts/custom.md`), never a parallel enum with divergent membership; the `RenderReceipt.ColorSpace` tag is one of the family keys so a cross-host byte swap is attributable to the exact gamut.
   - The ICC-tagged rows source `SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.DisplayP3)` and `SKColorSpaceXyz.Rec2020` on the `Rgba8888` byte surface; the float row sources `SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Linear, SKColorSpaceXyz.Srgb)` on the `RgbaF16` surface; the `Surface` column selects the reproject pixel format per row so the float row never truncates to bytes and the ICC rows never inflate to half-float.
@@ -223,18 +225,20 @@ public static class VisualCodec {
                 ? Fin.Succ(new ColorPolicy(key, () => space, () => space, surface, ToneMap.None))
                 : Fin.Fail<ColorPolicy>(new VisualFault.IccInvalid(key));
 
-        public Fin<SKImage> Reproject(SKImage image) {
+        // None = already conformant, the caller's image stays caller-owned; Some = a minted projection the
+        // consumer owns and disposes. The identity arm never re-owns a borrowed image.
+        public Fin<Option<SKImage>> Reproject(SKImage image) {
             using SKColorSpace target = Output();
             using SKColorFilter? tone = Tone.Filter();
             return SKColorSpace.Equal(image.ColorSpace ?? SKColorSpace.CreateSrgb(), target) && tone is null
-                ? Fin.Succ(image)
+                ? Fin.Succ(Option<SKImage>.None)
                 : Offscreen.Snapshot(
                     new SKImageInfo(image.Width, image.Height, Surface, SKAlphaType.Premul).WithColorSpace(target),
                     canvas => {
                         using SKPaint paint = new() { ColorFilter = tone };
                         canvas.DrawImage(image, 0f, 0f, paint);
                         return FinSucc(unit);
-                    });
+                    }).Map(Some);
         }
     }
 
@@ -271,9 +275,12 @@ public static class VisualCodec {
     public static IO<RenderReceipt> Encode(VisualRuntime runtime, SKImage image, EncodeRow row, string kind, string key) =>
         from mark in IO.lift(runtime.Clocks.Mark)
         from bytes in IO.lift(() => {
-            using SKImage scoped = row.Color.Reproject(image).ThrowIfFail();
-            using SKData encoded = scoped.Encode(row.Format, row.Quality);
-            return encoded.ToArray();
+            Option<SKImage> minted = row.Color.Reproject(image).ThrowIfFail();
+            try {
+                using SKData encoded = minted.IfNone(image).Encode(row.Format, row.Quality);
+                return encoded.ToArray();
+            }
+            finally { minted.Iter(static owned => owned.Dispose()); }
         })
         from artifact in runtime.BlobWrite(key, bytes)
         from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))

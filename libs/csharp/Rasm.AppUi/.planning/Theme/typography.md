@@ -128,12 +128,12 @@ public static class ShapingSurface {
 ## [05]-[MARKDOWN_PROJECTION]
 
 - Owner: `MarkdownProjection`
-- Cases: Heading | Paragraph | Quote | ListRows | Grid | CodeFence | Rule — the closed seven-arm fold; footnote, front-matter, task-list, and heading-anchor constructs ride existing arms and column slots, never an eighth case.
+- Cases: Heading | Paragraph | Quote | Callout | ListRows | Definitions | Grid | CodeFence | Rule | Opaque — the closed ten-arm fold; footnote, front-matter, task-list, strike, and heading-anchor constructs ride existing arms and column slots, and `Opaque` is the drop-with-receipt row carrying the node name and source span, so no construct silently misclassifies as Rule, Quote, or empty text.
 - Entry: `public static MarkdownDocumentRows Project(string markdown)` — pure fold from document text to role-keyed rows plus the front-matter row; presentation consumes rows, never the AST.
 - Auto: `TrackTrivia` plus `PreciseSourceLocation` make every `MarkdownRow` carry its source `Span`, so an editor round-trip maps a retained row back to its byte range with zero second parse; the `UseYamlFrontMatter` and `UseFootnotes` builder rows admit the front-matter and footnote constructs into the pipeline, and the `MarkdownDocumentRows.FrontMatter` and `Footnotes` fields populate live — the front-matter block's raw line text and the label-keyed footnote definitions folded through the one `Runs` inline projection.
 - Packages: Markdig, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new document construct is one `MarkdownRow` case plus one dispatch arm on the same fold; a new extension is one builder row on the one pipeline; zero new surface.
-- Boundary: the pipeline is built once with in-package extensions only, and `UseAdvancedExtensions` admits the pipe-table family whose `Table`/`TableRow`/`TableCell` blocks fold into the `Grid` arm and the `UseTaskLists` and `UseAutoIdentifiers` task-list and heading-anchor constructs while `UseYamlFrontMatter` and `UseFootnotes` admit the front-matter and footnote constructs into the pipeline and `TrackTrivia` plus `PreciseSourceLocation` admit the round-trip span fidelity; task-list checkboxes fold into the `InlineRun.Checked` column read from the `TaskList.Checked` inline state so a checklist item carries its toggle without an eighth row, and the `UseAutoIdentifiers` heading slug folds into the `Heading.Anchor` column read from the `HtmlAttributes.Id` set by `TryGetAttributes`, so an in-document link target rides the heading row; the front-matter and footnote fields populate from the `YamlFrontMatterBlock` raw lines and the `Footnote` label/children members (the `FootnoteGroup` container excluded from the body fold so definitions never render inline); the YAML front-matter DECODE (raw text to typed keys) stays the `FRONT_MATTER_AST` gate binding the `YamlDotNet` transitive-floor pin only when the typed arm goes live; `UseMathematics` and `UseDiagrams` stay excluded by design — the seven-arm fold owns no math or diagram node and a math construct degrades to a `Paragraph` of its source runs; `CodeFence` payloads hand off to the code-editor surface with their language tag — the projection never highlights or renders code; `HtmlBlock` and `HtmlInline` payloads degrade to empty runs so raw HTML never enters the retained tree; document headings cap at `Headline` — `Display` is reserved for shell hero text; the `Descendants<T>` typed traversal is the one document-fold algebra shared with the inspector descriptor synthesis and the SVG scene-node walk, parameterized by node family; Markdown.Avalonia and any parallel Markdown node model are the deleted patterns; retained materialization renders `InlineRun` sequences through the `Avalonia.Controls.Documents` family — `Run` inside `Span`, `Bold`, and `Italic` with `LineBreak`, appended to one `InlineCollection`.
+- Boundary: the pipeline is built once from individually admitted extension rows — `UsePipeTables` and `UseGridTables` admit the table family whose `Table`/`TableRow`/`TableCell` blocks fold into the `Grid` arm, `UseTaskLists` and `UseAutoIdentifiers` admit the task-list and heading-anchor constructs, `UseEmphasisExtras` admits the tilde delimiters whose double-`~` `EmphasisInline` folds into the `InlineRun.Strike` column, `UseDefinitionLists` admits the definition family folding into the `Definitions` arm, `UseAlertBlocks` admits the GitHub-style alert quote folding into the `Callout` arm (matched before `QuoteBlock`, its base type), and `UseYamlFrontMatter` plus `UseFootnotes` admit the front-matter and footnote constructs, with `TrackTrivia` plus `PreciseSourceLocation` admitting round-trip span fidelity — `UseAdvancedExtensions` is the deleted form because it admits math, diagram, citation, and container grammars no arm projects, and with the explicit row set an enabled form with no declared projection is structurally impossible; task-list checkboxes fold into the `InlineRun.Checked` column read from the `TaskList.Checked` inline state, and the `UseAutoIdentifiers` heading slug folds into the `Heading.Anchor` column read from the `HtmlAttributes.Id` set by `TryGetAttributes`, so an in-document link target rides the heading row; the front-matter and footnote fields populate from the `YamlFrontMatterBlock` raw lines and the `Footnote` label/children members (the `FootnoteGroup` container excluded from the body fold so definitions never render inline); the YAML front-matter DECODE (raw text to typed keys) stays the `FRONT_MATTER_AST` gate binding the `YamlDotNet` transitive-floor pin only when the typed arm goes live; math and diagram grammars are structurally absent — their extensions are never admitted, so a math construct parses as plain paragraph text with zero silent erasure; `CodeFence` payloads hand off to the code-editor surface with their language tag — the projection never highlights or renders code; `HtmlBlock` and `HtmlInline` payloads degrade to empty runs as the named raw-HTML exclusion policy so markup never enters the retained tree, while any residual block outside the admitted grammar folds to `Opaque` carrying its node name and span — a receipt, never a misclassification; document headings cap at `Headline` — `Display` is reserved for shell hero text; the `Descendants<T>` typed traversal is the one document-fold algebra shared with the inspector descriptor synthesis and the SVG scene-node walk, parameterized by node family; Markdown.Avalonia and any parallel Markdown node model are the deleted patterns; retained materialization renders `InlineRun` sequences through the `Avalonia.Controls.Documents` family — `Run` inside `Span`, `Bold`, and `Italic` with `LineBreak`, appended to one `InlineCollection`.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -146,23 +146,33 @@ public abstract partial record MarkdownRow {
 
     public sealed record Quote(Seq<MarkdownRow> Children) : MarkdownRow;
 
+    public sealed record Callout(string Kind, Seq<MarkdownRow> Children) : MarkdownRow;
+
     public sealed record ListRows(bool Ordered, Seq<Seq<MarkdownRow>> Items) : MarkdownRow;
+
+    public sealed record Definitions(Seq<(Seq<InlineRun> Term, Seq<MarkdownRow> Body)> Items) : MarkdownRow;
 
     public sealed record Grid(Seq<Seq<Seq<InlineRun>>> Rows) : MarkdownRow;
 
     public sealed record CodeFence(string Language, string Source) : MarkdownRow;
 
     public sealed record Rule : MarkdownRow;
+
+    public sealed record Opaque(string Node, SourceSpan Span) : MarkdownRow;
 }
 
-public readonly record struct InlineRun(string Text, bool Strong, bool Emphasis, bool Code, Option<string> Link, Option<bool> Checked, SourceSpan Span);
+public readonly record struct InlineRun(string Text, bool Strong, bool Emphasis, bool Strike, bool Code, Option<string> Link, Option<bool> Checked, SourceSpan Span);
 
 public sealed record MarkdownDocumentRows(Seq<MarkdownRow> Body, Option<string> FrontMatter, HashMap<string, Seq<InlineRun>> Footnotes);
 
 public static class MarkdownProjection {
     public static readonly MarkdownPipeline Pipeline =
         new MarkdownPipelineBuilder { PreciseSourceLocation = true, TrackTrivia = true }
-            .UseAdvancedExtensions()
+            .UsePipeTables()
+            .UseGridTables()
+            .UseEmphasisExtras()
+            .UseDefinitionLists()
+            .UseAlertBlocks()
             .UseTaskLists()
             .UseAutoIdentifiers()
             .UseYamlFrontMatter()
@@ -196,16 +206,20 @@ public static class MarkdownProjection {
             HeadingBlock heading => new MarkdownRow.Heading(HeadingRole(heading.Level), Runs(heading), Optional(heading.TryGetAttributes()?.Id)),
             FencedCodeBlock fence => new MarkdownRow.CodeFence(fence.Info ?? "", fence.Lines.ToString()),
             CodeBlock code => new MarkdownRow.CodeFence("", code.Lines.ToString()),
+            Markdig.Extensions.Alerts.AlertBlock alert => new MarkdownRow.Callout(alert.Kind.ToString(), toSeq<Block>(alert).Map(Row)),
             QuoteBlock quote => new MarkdownRow.Quote(toSeq<Block>(quote).Map(Row)),
             Markdig.Extensions.Tables.Table table => new MarkdownRow.Grid(
                 toSeq<Block>(table).Map(static row => toSeq<Block>((Markdig.Extensions.Tables.TableRow)row).Map(static cell =>
                     toSeq<Block>((Markdig.Extensions.Tables.TableCell)cell).Bind(static inner => inner is LeafBlock leaf ? Runs(leaf) : Seq<InlineRun>())))),
+            Markdig.Extensions.DefinitionLists.DefinitionList definitions => new MarkdownRow.Definitions(
+                toSeq<Block>(definitions).Map(static item => (
+                    toSeq<Block>((ContainerBlock)item).Bind(static child => child is Markdig.Extensions.DefinitionLists.DefinitionTerm term ? Runs(term) : Seq<InlineRun>()),
+                    toSeq<Block>((ContainerBlock)item).Filter(static child => child is not Markdig.Extensions.DefinitionLists.DefinitionTerm).Map(Row)))),
             ListBlock list => new MarkdownRow.ListRows(list.IsOrdered, toSeq<Block>(list).Map(static item => toSeq<Block>((ListItemBlock)item).Map(Row))),
             ThematicBreakBlock => new MarkdownRow.Rule(),
             ParagraphBlock paragraph => new MarkdownRow.Paragraph(Runs(paragraph)),
             LeafBlock leaf => new MarkdownRow.Paragraph(Runs(leaf)),
-            ContainerBlock container => new MarkdownRow.Quote(toSeq<Block>(container).Map(Row)),
-            _ => new MarkdownRow.Rule(),
+            var unmatched => new MarkdownRow.Opaque(unmatched.GetType().Name, unmatched.Span),
         };
 
     private static Seq<InlineRun> Runs(LeafBlock leaf) =>
@@ -215,18 +229,22 @@ public static class MarkdownProjection {
 
     private static InlineRun Flatten(LeafInline node) =>
         node switch {
-            CodeInline code => new InlineRun(code.Content, Strong: false, Emphasis: false, Code: true, Link: None, Checked: None, Span: code.Span),
-            TaskList task => new InlineRun("", Strong: false, Emphasis: false, Code: false, Link: None, Checked: Some(task.Checked), Span: task.Span),
+            CodeInline code => new InlineRun(code.Content, Strong: false, Emphasis: false, Strike: false, Code: true, Link: None, Checked: None, Span: code.Span),
+            TaskList task => new InlineRun("", Strong: false, Emphasis: false, Strike: false, Code: false, Link: None, Checked: Some(task.Checked), Span: task.Span),
             LiteralInline literal => new InlineRun(
                 Text: literal.Content.ToString(),
-                Strong: Ancestry(literal).Exists(static a => a is EmphasisInline { DelimiterCount: >= 2 }),
-                Emphasis: Ancestry(literal).Exists(static a => a is EmphasisInline { DelimiterCount: 1 }),
+                Strong: Ancestry(literal).Exists(static a => a is EmphasisInline { DelimiterChar: '*' or '_', DelimiterCount: >= 2 }),
+                Emphasis: Ancestry(literal).Exists(static a => a is EmphasisInline { DelimiterChar: '*' or '_', DelimiterCount: 1 }),
+                Strike: Ancestry(literal).Exists(static a => a is EmphasisInline { DelimiterChar: '~', DelimiterCount: 2 }),
                 Code: false,
                 Link: Ancestry(literal).Filter(static a => a is LinkInline).Map(static a => ((LinkInline)a).Url ?? "").HeadOrNone(),
                 Checked: None,
                 Span: literal.Span),
-            LineBreakInline brk => new InlineRun(" ", Strong: false, Emphasis: false, Code: false, Link: None, Checked: None, Span: brk.Span),
-            _ => new InlineRun("", Strong: false, Emphasis: false, Code: false, Link: None, Checked: None, Span: node.Span),
+            AutolinkInline auto => new InlineRun(auto.Url, Strong: false, Emphasis: false, Strike: false, Code: false, Link: Some(auto.Url), Checked: None, Span: auto.Span),
+            HtmlEntityInline entity => new InlineRun(entity.Transcoded.ToString(), Strong: false, Emphasis: false, Strike: false, Code: false, Link: None, Checked: None, Span: entity.Span),
+            LineBreakInline brk => new InlineRun(" ", Strong: false, Emphasis: false, Strike: false, Code: false, Link: None, Checked: None, Span: brk.Span),
+            HtmlInline html => new InlineRun("", Strong: false, Emphasis: false, Strike: false, Code: false, Link: None, Checked: None, Span: html.Span),
+            _ => new InlineRun("", Strong: false, Emphasis: false, Strike: false, Code: false, Link: None, Checked: None, Span: node.Span),
         };
 
     private static Seq<Inline> Ancestry(Inline node) =>
@@ -272,4 +290,5 @@ public sealed record TextMetricsPolicy(double BaselineUnit) {
 ## [07]-[RESEARCH]
 
 - [FRONT_MATTER_AST]: the front-matter and footnote AST node types and member accessors — the front-matter block and its line text, the footnote group and footnote label, and the typed descendant traversal that populates the `FrontMatter` and `Footnotes` fields from the parsed document, against the Markdig extension block families beyond the catalogued `UseYamlFrontMatter`/`UseFootnotes` builder rows.
+- [EXTENSION_AST]: the extension AST node spellings the catalogued builder rows admit but the catalog's type roster omits — `Markdig.Extensions.Alerts.AlertBlock` and its `Kind` slice, the `Markdig.Extensions.DefinitionLists.DefinitionList`/`DefinitionItem`/`DefinitionTerm` family, `AutolinkInline.Url`, and `HtmlEntityInline.Transcoded` — verified by decompile of the pinned Markdig assembly before the fold arms compile.
 

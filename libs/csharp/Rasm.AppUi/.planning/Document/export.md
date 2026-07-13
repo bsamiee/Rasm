@@ -42,6 +42,8 @@ public abstract partial record ExportFault : Expected {
         : ExportFault($"export/ooxml: {Part} — {Detail}", AppUiFaultBand.Export.Code(3));
     public sealed record DeliveryFailed(string Destination, string Detail)
         : ExportFault($"export/deliver: {Destination} — {Detail}", AppUiFaultBand.Export.Code(4));
+    public sealed record ContentUnsupported(string Format, string Sheet)
+        : ExportFault($"export/content: {Sheet} has no {Format} materialization", AppUiFaultBand.Export.Code(5));
 }
 
 public static class ExportDelivery {
@@ -151,39 +153,52 @@ public static class FlowReport {
 
 ## [04]-[PDF_POLICY]
 
-- Owner: `PdfPolicy` — the one PDF-hardening policy row; `PdfPolicies` — the apply fold over the rendered payload.
+- Owner: `PdfPolicy` — the one PDF-hardening policy row; `PdfIdentity` — the document-information identity columns every sealed artifact carries beside its content hash; `PdfPolicies` — the apply fold over the rendered payload.
 - Entry: `public static IO<byte[]> Apply(VisualRuntime runtime, PdfPolicy policy, byte[] rendered)` — IO rail; opens the rendered payload through `PdfReader`, applies the enabled arms, and re-saves.
-- Auto: the security arm sets `PdfSecuritySettings` with AES-256 encryption and the owner/user permission columns; the signature arm composes `DigitalSignatureHandler.ForDocument(PdfDocument, IDigitalSigner, DigitalSignatureOptions)` — the signer is COMPOSED at the boundary and its credential material rides the AppHost `Runtime/secrets.md` lease lifecycle (acquire/renew/zeroize; the settled AppHost export naming AppUi), never AppUi-held key bytes, so an absent or expired lease folds to `ExportFault.SignerUnavailable` and a raw key byte field on any row is the deleted form; the AcroForm arm adds typed field rows; the accessibility arm routes composition through `UAManager.ForDocument` (`PdfSharp.UniversalAccessibility`) so tagged structure emits with the content, never as a post-pass.
+- Auto: the security arm sets `PdfSecuritySettings` with AES-256 encryption through the catalogued `SetEncryptionToV5(bool encryptMetadata)` — the metadata-encryption decision is the `EncryptMetadata` policy column, never an implicit default — plus the owner/user permission columns; the identity arm writes `PdfDocumentInformation` `Title`/`Author`/`Subject`/`Keywords` from the `PdfIdentity` columns so every sealed export carries its identity metadata; the signature arm composes `DigitalSignatureHandler.ForDocument(PdfDocument, IDigitalSigner, DigitalSignatureOptions)` — the signer is COMPOSED at the boundary and its credential material rides the AppHost `Runtime/secrets.md` lease lifecycle (acquire/renew/zeroize; the settled AppHost export naming AppUi), never AppUi-held key bytes, so an absent or expired lease folds to `ExportFault.SignerUnavailable` and a raw key byte field on any row is the deleted form; the AcroForm arm adds typed field rows; the accessibility arm routes composition through `UAManager.ForDocument` (`PdfSharp.UniversalAccessibility`) so tagged structure emits with the content, never as a post-pass.
 - Packages: PDFsharp, Rasm.AppHost (project), LanguageExt.Core
-- Growth: a new hardening concern is one `PdfPolicy` field; a new permission is one column value; zero new surface.
+- Growth: a new hardening concern is one `PdfPolicy` field; a new permission is one column value; a new identity column is one `PdfIdentity` member; zero new surface.
 - Boundary: the signing-credential crossing is a declared ledger row (`Document/export` -> AppHost `Runtime/secrets.md`); PDF-UA tagging composes at document build for the flow-report arm (the `UAManager` wraps the document before content lands) — a tag-after-render pass is the honest degrade for the placed-visual-only arm and is stated per row, never silent.
 
 ```csharp signature
+// Identity metadata beside the content hash: every sealed export names itself through the catalogued
+// PdfDocumentInformation columns; an inert identity skips the modify pass entirely.
+public sealed record PdfIdentity(Option<string> Title, Option<string> Author, Option<string> Subject, Option<string> Keywords) {
+    public static readonly PdfIdentity Inert = new(Option<string>.None, Option<string>.None, Option<string>.None, Option<string>.None);
+    public bool IsInert => Title.IsNone && Author.IsNone && Subject.IsNone && Keywords.IsNone;
+}
+
 public sealed record PdfPolicy(
     bool EncryptAes256,
+    bool EncryptMetadata,
     Option<string> OwnerPasswordLease,
     bool AllowPrinting,
     bool AllowExtraction,
     Option<IDigitalSigner> Signer,
     Option<DigitalSignatureOptions> SignatureOptions,
     Seq<(string Field, string Value)> AcroFields,
-    bool TaggedUa) {
+    bool TaggedUa,
+    PdfIdentity Identity) {
 
-    public static readonly PdfPolicy Plain = new(false, None, true, true, None, None, [], false);
-    public static readonly PdfPolicy Archival = new(false, None, true, true, None, None, [], TaggedUa: true);
+    public static readonly PdfPolicy Plain = new(false, false, None, true, true, None, None, [], false, PdfIdentity.Inert);
+    public static readonly PdfPolicy Archival = new(false, false, None, true, true, None, None, [], TaggedUa: true, Identity: PdfIdentity.Inert);
 }
 
 public static class PdfPolicies {
     public static IO<byte[]> Apply(VisualRuntime runtime, PdfPolicy policy, byte[] rendered) =>
-        policy is { EncryptAes256: false, Signer.IsNone: true, AcroFields.IsEmpty: true, TaggedUa: false }
+        policy is { EncryptAes256: false, Signer.IsNone: true, AcroFields.IsEmpty: true, TaggedUa: false, Identity.IsInert: true }
             ? IO.pure(rendered)
             : IO.lift(() => {
                 using MemoryStream source = new(rendered);
                 using PdfDocument document = PdfReader.Open(source, PdfDocumentOpenMode.Modify);
                 if (policy.TaggedUa) { _ = UAManager.ForDocument(document); }
+                policy.Identity.Title.Iter(title => document.Info.Title = title);
+                policy.Identity.Author.Iter(author => document.Info.Author = author);
+                policy.Identity.Subject.Iter(subject => document.Info.Subject = subject);
+                policy.Identity.Keywords.Iter(keywords => document.Info.Keywords = keywords);
                 policy.AcroFields.Iter(field => document.AcroForm?.Fields[field.Field]?.Value = new PdfString(field.Value));
                 if (policy.EncryptAes256) {
-                    document.SecuritySettings.SetEncryptionToV5();
+                    document.SecuritySettings.SetEncryptionToV5(policy.EncryptMetadata);
                     policy.OwnerPasswordLease.Iter(lease => document.SecuritySettings.OwnerPassword = lease);
                     document.SecuritySettings.PermitPrint = policy.AllowPrinting;
                     document.SecuritySettings.PermitExtractContent = policy.AllowExtraction;
@@ -201,14 +216,14 @@ public static class PdfPolicies {
 
 ## [05]-[OFFICE_ARM]
 
-- Owner: `OfficeFormat` [SmartEnum] · `OfficeSpec` · `OfficeSheet` [Union] · `OfficeExport` — the OOXML part-graph arm.
-- Cases: `OfficeFormat` = xlsx · pptx · docx; `OfficeSheet` = Table · Chart · Image · RichText.
-- Entry: `public static IO<RenderReceipt> Emit(VisualRuntime runtime, OfficeSpec spec)` — the Office IO rail.
-- Auto: XLSX writes through `SpreadsheetDocument.Create`/`WorkbookPart`/`WorksheetPart`/`SheetData`/`Row`/`Cell`; DOCX through `WordprocessingDocument.Create`/`MainDocumentPart`/`Body`/`Paragraph`/`Run`/`Text`; PPTX through `PresentationDocument.Create` and the presentation -> master (+theme, +layout) -> slide part-graph chain, one slide per sheet; all three deliver through the typed part-graph factory and never a raw ZIP/XML write; embedded font faces pack through `FontTablePart.GetStream` so a report renders identically off-machine; rich-text sheets compose the same `ReportBlock` vocabulary as the flow arm so a DOCX section and a PDF section share one content model.
+- Owner: `OfficeFormat` [SmartEnum] · `OfficeSpec` · `OfficeSheet` [Union] · `OfficeFidelity` the per-(format × case) materialization vocabulary · `OfficeExport` — the OOXML part-graph arm.
+- Cases: `OfficeFormat` = xlsx · pptx · docx; `OfficeSheet` = Table · Chart · Image · RichText; `OfficeFidelity` = Native · Declared · Unsupported.
+- Entry: `public static IO<RenderReceipt> Emit(VisualRuntime runtime, OfficeSpec spec)` — the Office IO rail; admission runs the fidelity matrix over every sheet FIRST, so an `Unsupported` combination folds to `ExportFault.ContentUnsupported` before any part writes.
+- Auto: XLSX writes through `SpreadsheetDocument.Create`/`WorkbookPart`/`WorksheetPart`/`SheetData`/`Row`/`Cell`; DOCX through `WordprocessingDocument.Create`/`MainDocumentPart`/`Body`/`Paragraph`/`Run`/`Text`; PPTX through `PresentationDocument.Create` and the presentation -> master (+theme, +layout) -> slide part-graph chain, one slide per sheet; all three deliver through the typed part-graph factory and never a raw ZIP/XML write; embedded font faces pack through `FontTablePart.GetStream` so a report renders identically off-machine; rich-text sheets compose the same `ReportBlock` vocabulary as the flow arm so a DOCX section and a PDF section share one content model; every serializer switch is total over the four sheet cases — a silent `_` arm dropping a payload is the deleted form.
 - Receipt: one `RenderReceipt` of kind office per emit with whole-payload content hash and the delivered destination key.
 - Packages: DocumentFormat.OpenXml, SkiaSharp, Rasm.AppHost (project), NodaTime, LanguageExt.Core
-- Growth: one `OfficeFormat` row admits an Office target and one `OfficeSheet` case admits a content kind; zero new surface.
-- Boundary: the Office destination is the same `VisualDestination` union so the Office emit mints no second destination owner; the PPTX arm is a REAL serializer row — the master/theme/layout chain is minimal-valid and the deck theme's scheme colors track the token vocabulary at composition; chart sheets project the `ChartSeriesSpec` points as data rows so the chart vocabulary stays Charts-owned.
+- Growth: one `OfficeFormat` row admits an Office target and one `OfficeSheet` case admits a content kind; a fidelity promotion is one matrix cell flipped as the verified part members land; zero new surface.
+- Boundary: the Office destination is the same `VisualDestination` union so the Office emit mints no second destination owner; the fidelity matrix is the honesty law — `Native` cells materialize the payload in its own part vocabulary, `Declared` cells state their projection (a chart lands as its typed point table under a series-name header, a rich-text or table sheet in a text-first format lands as its stated text projection), and `Unsupported` cells (image payloads pending the media-part member verification) reject typed rather than degrade silently — so the union never presents capability its bodies omit; the PPTX arm is a REAL serializer row — the master/theme/layout chain is minimal-valid and the deck theme's scheme colors track the token vocabulary at composition; chart sheets project the `ChartSeriesSpec` points as data rows so the chart vocabulary stays Charts-owned.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -233,12 +248,40 @@ public abstract partial record OfficeSheet {
     public sealed record Chart(string Name, ChartSeriesSpec Spec, Seq<(double X, double Y)> Points) : OfficeSheet;
     public sealed record Image(string Name, SKImage Picture) : OfficeSheet;
     public sealed record RichText(string Name, Seq<ReportBlock> Blocks) : OfficeSheet;
+
+    public string Kind => Switch(
+        table: static _ => "table", chart: static _ => "chart", image: static _ => "image", richText: static _ => "richText");
+}
+
+[SmartEnum]
+public sealed partial class OfficeFidelity {
+    public static readonly OfficeFidelity Native = new();
+    public static readonly OfficeFidelity Declared = new();
+    public static readonly OfficeFidelity Unsupported = new();
 }
 
 public static class OfficeExport {
     public const string Kind = "office";
 
+    // The fidelity matrix is the honesty law: Native = own part vocabulary, Declared = stated projection,
+    // Unsupported = typed rejection; a promotion is one cell flip when the part members verify.
+    static readonly FrozenDictionary<(string Format, string Sheet), OfficeFidelity> Support = new Dictionary<(string, string), OfficeFidelity> {
+        [("xlsx", "table")] = OfficeFidelity.Native,
+        [("xlsx", "chart")] = OfficeFidelity.Declared,
+        [("xlsx", "richText")] = OfficeFidelity.Declared,
+        [("xlsx", "image")] = OfficeFidelity.Unsupported,
+        [("docx", "table")] = OfficeFidelity.Declared,
+        [("docx", "chart")] = OfficeFidelity.Declared,
+        [("docx", "richText")] = OfficeFidelity.Native,
+        [("docx", "image")] = OfficeFidelity.Unsupported,
+        [("pptx", "table")] = OfficeFidelity.Declared,
+        [("pptx", "chart")] = OfficeFidelity.Declared,
+        [("pptx", "richText")] = OfficeFidelity.Declared,
+        [("pptx", "image")] = OfficeFidelity.Unsupported,
+    }.ToFrozenDictionary();
+
     public static IO<RenderReceipt> Emit(VisualRuntime runtime, OfficeSpec spec) =>
+        from _admit in IO.lift(() => Admitted(spec).ThrowIfFail())
         from mark in IO.lift(runtime.Clocks.Mark)
         from payload in Write(spec)
         from destination in ExportDelivery.Deliver(runtime, spec.Destination, payload)
@@ -285,33 +328,60 @@ public static class OfficeExport {
         return sink.ToArray();
     }
 
-    static Seq<Row> Rows(OfficeSheet sheet) =>
-        sheet switch {
-            OfficeSheet.Table table => table.Rows.Map(cells => {
-                Row row = new();
-                cells.Iter(value => row.Append(new Cell { DataType = CellValues.String, CellValue = new CellValue(value) }));
-                return row;
-            }),
-            OfficeSheet.Chart chart => chart.Points.Map(point => {
-                Row row = new();
-                row.Append(new Cell { DataType = CellValues.Number, CellValue = new CellValue(point.X) });
-                row.Append(new Cell { DataType = CellValues.Number, CellValue = new CellValue(point.Y) });
-                return row;
-            }),
-            _ => Seq<Row>(),
-        };
+    static Fin<Unit> Admitted(OfficeSpec spec) =>
+        spec.Sheets.TraverseM(sheet => Support[(spec.Format.Key, sheet.Kind)] == OfficeFidelity.Unsupported
+            ? Fin.Fail<Unit>(new ExportFault.ContentUnsupported(spec.Format.Key, SheetName(sheet)))
+            : Fin.Succ(unit)).As().Map(static _ => unit);
 
-    static Seq<Paragraph> Paragraphs(OfficeSheet sheet) =>
-        sheet switch {
-            OfficeSheet.Table table => table.Rows.Map(cells =>
-                new Paragraph(new Run(new Text(string.Join('\t', cells))))),
-            OfficeSheet.RichText rich => rich.Blocks.Bind(block => block switch {
-                ReportBlock.Body body => Seq(new Paragraph(new Run(new Text(body.Text) { Space = SpaceProcessingModeValues.Preserve }))),
-                ReportBlock.Heading heading => Seq(new Paragraph(new Run(new Text(heading.Text)))),
-                _ => Seq<Paragraph>(),
-            }),
-            _ => Seq<Paragraph>(),
-        };
+    // Total dispatch per serializer: every case has an explicit arm; the image arm is unreachable past
+    // admission (its matrix cell is Unsupported) and stated so, never a silent catch-all.
+    static Seq<Row> Rows(OfficeSheet sheet) => sheet.Switch(
+        table: static t => t.Rows.Map(CellsRow),
+        chart: static c => TextRow(c.Name).Cons(c.Points.Map(PointRow)),
+        image: static _ => Seq<Row>(),
+        richText: static r => r.Blocks.Bind(BlockRow));
+
+    static Seq<Row> BlockRow(ReportBlock block) => block.Switch(
+        heading: static h => Seq(TextRow(h.Text)),
+        body: static b => Seq(TextRow(b.Text)),
+        table: static t => t.Rows.Map(cells => TextRow(string.Join('\t', cells))),
+        placedVisual: static _ => Seq<Row>(),
+        rule: static _ => Seq<Row>(),
+        pageBreak: static _ => Seq<Row>());
+
+    static Row CellsRow(Seq<string> cells) {
+        Row row = new();
+        cells.Iter(value => row.Append(new Cell { DataType = CellValues.String, CellValue = new CellValue(value) }));
+        return row;
+    }
+
+    static Row PointRow((double X, double Y) point) {
+        Row row = new();
+        row.Append(new Cell { DataType = CellValues.Number, CellValue = new CellValue(point.X) });
+        row.Append(new Cell { DataType = CellValues.Number, CellValue = new CellValue(point.Y) });
+        return row;
+    }
+
+    static Row TextRow(string value) {
+        Row row = new();
+        row.Append(new Cell { DataType = CellValues.String, CellValue = new CellValue(value) });
+        return row;
+    }
+
+    static Seq<Paragraph> Paragraphs(OfficeSheet sheet) => sheet.Switch(
+        table: static t => t.Rows.Map(static cells => new Paragraph(new Run(new Text(string.Join('\t', cells))))),
+        chart: static c => new Paragraph(new Run(new Text(c.Name)))
+            .Cons(c.Points.Map(static point => new Paragraph(new Run(new Text($"{point.X}\t{point.Y}"))))),
+        image: static _ => Seq<Paragraph>(),
+        richText: static r => r.Blocks.Bind(BlockParagraph));
+
+    static Seq<Paragraph> BlockParagraph(ReportBlock block) => block.Switch(
+        heading: static h => Seq(new Paragraph(new Run(new Text(h.Text)))),
+        body: static b => Seq(new Paragraph(new Run(new Text(b.Text) { Space = SpaceProcessingModeValues.Preserve }))),
+        table: static t => t.Rows.Map(static cells => new Paragraph(new Run(new Text(string.Join('\t', cells))))),
+        placedVisual: static _ => Seq<Paragraph>(),
+        rule: static _ => Seq<Paragraph>(),
+        pageBreak: static _ => Seq<Paragraph>());
 
     static string SheetName(OfficeSheet sheet) =>
         sheet.Switch(table: static t => t.Name, chart: static c => c.Name, image: static i => i.Name, richText: static r => r.Name);
@@ -375,17 +445,19 @@ public static class OfficeExport {
                 new D.ListStyle(),
                 [.. SlideLines(sheet).Map(static line => new D.Paragraph(new D.Run(new D.Text(line))))]));
 
-    static Seq<string> SlideLines(OfficeSheet sheet) =>
-        sheet switch {
-            OfficeSheet.Table table => table.Rows.Map(static cells => string.Join('\t', cells)),
-            OfficeSheet.Chart chart => chart.Points.Map(static point => $"{point.X}\t{point.Y}"),
-            OfficeSheet.RichText rich => rich.Blocks.Bind(static block => block switch {
-                ReportBlock.Body body => Seq(body.Text),
-                ReportBlock.Heading heading => Seq(heading.Text),
-                _ => Seq<string>(),
-            }),
-            _ => Seq(SheetName(sheet)),
-        };
+    static Seq<string> SlideLines(OfficeSheet sheet) => sheet.Switch(
+        table: static t => t.Rows.Map(static cells => string.Join('\t', cells)),
+        chart: static c => c.Name.Cons(c.Points.Map(static point => $"{point.X}\t{point.Y}")),
+        image: static _ => Seq<string>(),
+        richText: static r => r.Blocks.Bind(BlockLine));
+
+    static Seq<string> BlockLine(ReportBlock block) => block.Switch(
+        heading: static h => Seq(h.Text),
+        body: static b => Seq(b.Text),
+        table: static t => t.Rows.Map(static cells => string.Join('\t', cells)),
+        placedVisual: static _ => Seq<string>(),
+        rule: static _ => Seq<string>(),
+        pageBreak: static _ => Seq<string>());
 
     static P.ColorMap DeckColorMap() => new() {
         Background1 = D.ColorSchemeIndexValues.Light1, Text1 = D.ColorSchemeIndexValues.Dark1,
@@ -488,5 +560,5 @@ public static class PrintArm {
 
 ## [07]-[RESEARCH]
 
-- [OFFICE_OPENXML]: the residual OOXML surface is the cell-style and run-formatting member spellings (`CellFormats`/`RunProperties` numbering for a styled report) and the deterministic-ordering knobs (`OpenSettings`/relationship-id ordering) that make the OOXML byte-stream byte-reproducible across runs — these resolve at implementation against the installed OpenXml surface; the `OfficeFormat` axis, the `OfficeSheet` content union, the `OfficeSpec`, the `FontTablePart` embedded-font packing, and the PPTX presentation/master/theme/layout/slide part-graph chain are settled.
+- [OFFICE_OPENXML]: the residual OOXML surface is the cell-style and run-formatting member spellings (`CellFormats`/`RunProperties` numbering for a styled report), the deterministic-ordering knobs (`OpenSettings`/relationship-id ordering) that make the OOXML byte-stream byte-reproducible across runs, the `Wordprocessing` table part members that promote the docx table cell from `Declared` tab-joined text to `Native`, and the image/drawing part members that promote the image cells off `Unsupported` — each verified member flips exactly one fidelity-matrix cell; the `OfficeFormat` axis, the `OfficeSheet` content union, the `OfficeFidelity` matrix, the `OfficeSpec`, the `FontTablePart` embedded-font packing, and the PPTX presentation/master/theme/layout/slide part-graph chain are settled.
 - [MIGRADOC_STYLE_MAP]: the exact MigraDoc style-name registration for the `Theme/typography.md` role rows (per-role `Style` objects on the `Document.Styles` collection) binds at implementation; the role-to-style mapping shape is settled.

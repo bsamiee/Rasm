@@ -11,20 +11,44 @@ Rasm.AppUi motion is one six-row `MotionToken` vocabulary: each row carries its 
 
 ## [02]-[MOTION_AXIS]
 
-- Owner: `ComparerAccessors.StringOrdinal` accessor; `SpringValue` spring algebra; `MotionToken` six-row vocabulary.
-- Cases: instant, fast, standard, emphasized, spring-snappy, spring-gentle
+- Owner: `ComparerAccessors.StringOrdinal` accessor; `SpringValue` admission-gated spring algebra; `MotionFault` the typed motion rail on the `AppUiFaultBand.Motion` 6630 registry row; `MotionToken` six-row vocabulary.
+- Cases: instant, fast, standard, emphasized, spring-snappy, spring-gentle; `MotionFault` = SpringOutOfDomain under the 6630 row.
 - Entry: `public MotionToken Reduced` — key-lookup resolution of the reduced pair, total over the row family.
-- Auto: timing rows double as throttle and debounce pacing values consumed by live-data streams, behavior intervals, and screen runtime rows; `SpringValue` derives stiffness and damping from response and damping fraction, so a spring row carries two tuning values, never four constants.
+- Auto: timing rows double as throttle and debounce pacing values consumed by live-data streams, behavior intervals, and screen runtime rows; `SpringValue` derives stiffness and damping from response and damping fraction, so a spring row carries two tuning values, never four constants — and every derivation reads admitted members only, because the `[ComplexValueObject]` factory is the sole construction path.
 - Packages: Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL inbox
-- Growth: a new motion grade is one `MotionToken` row carrying its reduced pair key; zero new surface.
-- Boundary: a second easing or duration vocabulary anywhere in the package is the deleted pattern — charts, dialogs, toasts, behaviors, and pan-zoom canvases all read these rows; host canvas motion and host viewport overlay motion stay host-owned at the app root, and cross-surface consistency is carried as values — these spring rows are the parity source the app root's `SpringPreset` Snappy and Relaxed host rows read, a spring row's duration equals its response envelope, and the stiffness and damping derivations are the `SpringConfig` tuning math the host mirrors; color tweens interpolate in OKLab in parity with the host interpolation kernel — a channel-space sRGB lerp is the named defect.
+- Growth: a new motion grade is one `MotionToken` row carrying its reduced pair key; a new spring invariant is one predicate arm inside `ValidateFactoryArguments`; zero new surface.
+- Boundary: a second easing or duration vocabulary anywhere in the package is the deleted pattern — charts, dialogs, toasts, behaviors, and pan-zoom canvases all read these rows; host canvas motion and host viewport overlay motion stay host-owned at the app root, and cross-surface consistency is carried as values — these spring rows are the parity source the app root's `SpringPreset` Snappy and Relaxed host rows read, a spring row's duration equals its response envelope, and the stiffness and damping derivations are the `SpringConfig` tuning math the host mirrors; `SpringValue` admits once — `ValidateFactoryArguments` rejects a non-finite or non-positive response, a non-finite or negative damping fraction, and a non-finite or non-positive mass as `MotionFault.SpringOutOfDomain`, so the `Stiffness` and `Damping` divisions by `Response` are total over admitted values and a raw spring tuple never reaches a `MotionToken` — a publicly constructible spring product or a call-site parameter check is the deleted form; color tweens interpolate in OKLab in parity with the host interpolation kernel — a channel-space sRGB lerp is the named defect.
 
 ```csharp signature
 
-public readonly record struct SpringValue(float Response, float DampingFraction, float Mass) {
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record MotionFault : Expected, IValidationError<MotionFault> {
+    private MotionFault(string detail, int code) : base(detail, code) { }
+    public static MotionFault Create(string message) => new SpringOutOfDomain(message);
+    public sealed record SpringOutOfDomain(string Detail)
+        : MotionFault($"motion/spring: {Detail}", AppUiFaultBand.Motion.Code(0));
+}
+
+[ComplexValueObject]
+[ValidationError<MotionFault>]
+public readonly partial struct SpringValue {
+    public float Response { get; }
+
+    public float DampingFraction { get; }
+
+    public float Mass { get; }
+
     public float Stiffness => (2f * MathF.PI / Response) * (2f * MathF.PI / Response) * Mass;
 
     public float Damping => 4f * MathF.PI * DampingFraction * Mass / Response;
+
+    static partial void ValidateFactoryArguments(ref MotionFault? validationError, ref float response, ref float dampingFraction, ref float mass) =>
+        validationError = (float.IsFinite(response) && response > 0f, float.IsFinite(dampingFraction) && dampingFraction >= 0f, float.IsFinite(mass) && mass > 0f) switch {
+            (false, _, _) => new MotionFault.SpringOutOfDomain($"response {response}"),
+            (_, false, _) => new MotionFault.SpringOutOfDomain($"damping-fraction {dampingFraction}"),
+            (_, _, false) => new MotionFault.SpringOutOfDomain($"mass {mass}"),
+            _ => validationError,
+        };
 }
 
 [SmartEnum<string>]
@@ -34,8 +58,8 @@ public sealed partial class MotionToken {
     public static readonly MotionToken Fast = new("fast", duration: Duration.FromMilliseconds(100), curve: static t => 1.0 - ((1.0 - t) * (1.0 - t)), spring: None, reducedTo: "instant");
     public static readonly MotionToken Standard = new("standard", duration: Duration.FromMilliseconds(250), curve: static t => t < 0.5 ? 4.0 * t * t * t : 1.0 - (Math.Pow((-2.0 * t) + 2.0, 3.0) / 2.0), spring: None, reducedTo: "fast");
     public static readonly MotionToken Emphasized = new("emphasized", duration: Duration.FromMilliseconds(400), curve: static t => 1.0 - Math.Pow(1.0 - t, 5.0), spring: None, reducedTo: "fast");
-    public static readonly MotionToken SpringSnappy = new("spring-snappy", duration: Duration.FromMilliseconds(300), curve: static t => t, spring: Some(new SpringValue(Response: 0.30f, DampingFraction: 0.85f, Mass: 1f)), reducedTo: "fast");
-    public static readonly MotionToken SpringGentle = new("spring-gentle", duration: Duration.FromMilliseconds(650), curve: static t => t, spring: Some(new SpringValue(Response: 0.65f, DampingFraction: 1.00f, Mass: 1f)), reducedTo: "standard");
+    public static readonly MotionToken SpringSnappy = new("spring-snappy", duration: Duration.FromMilliseconds(300), curve: static t => t, spring: Some(SpringValue.Create(response: 0.30f, dampingFraction: 0.85f, mass: 1f)), reducedTo: "fast");
+    public static readonly MotionToken SpringGentle = new("spring-gentle", duration: Duration.FromMilliseconds(650), curve: static t => t, spring: Some(SpringValue.Create(response: 0.65f, dampingFraction: 1.00f, mass: 1f)), reducedTo: "standard");
 
     private readonly string reducedTo;
 
@@ -118,7 +142,7 @@ flowchart LR
 - Owner: `MotionProbeRow` probe row; `MotionReceipt` conformance receipt; `ReducedMotion` degrade switch.
 - Entry: `public static MotionToken Select(MotionToken token)` — the one reduction point every consumer shares.
 - Auto: probe re-runs ride the surface-hosts mount transaction and its appearance-change facts; `Observe` swaps the atom once and every subsequent `Select` resolves the reduced pair globally — no per-animation re-checks.
-- Receipt: `MotionReceipt` rows from `Conformance` — token key, resolved key, switch state, `Instant` stamp — feed the headless proof lane and sink through `ReceiptSinkPort` envelopes bound at composition.
+- Receipt: `MotionReceipt` rows from `Conformance` — token key, resolved key, switch state, `Instant` stamp — feed the headless proof lane and sink through `ReceiptSinkPort` under the evidence union's `Motion` case (`MotionReceipt.ToEvidence()` flattens token, resolved, and switch state; the row's `Instant` stays off the case because the envelope HLC owns time).
 - Packages: LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new host probe is one `MotionProbeRow` row; the web-browser probe activates as the designed-only surface case; zero new surface.
 - Boundary: per-animation accessibility conditionals are the deleted pattern — reduction lives in this one switch; probe delegates are host-agnostic columns and no host API enters a row — the macOS preference spelling rides the RESEARCH item, the headless row probes constant false with spec-driven `Observe` flips, and the designed-only web row carries no payload from unadmitted packages; reduced selection lands on spring-free rows and applications render reduced pairs as opacity-only, so positional transforms drop with the spring.

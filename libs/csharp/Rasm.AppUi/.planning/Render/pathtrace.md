@@ -11,8 +11,8 @@ The path-trace integrator for the infinite viewport: `PathTracePass` accumulates
 ## [02]-[PATH_TRACE]
 
 - Owner: `Bvh` the bounding-volume hierarchy — PAGE-LOCAL and PRIVATE (a measured oracle kernel over wire-decoded meshlet bounds; the kernel spatial engine is the federation broad-phase owner behind the `[PLACEMENT_LAW]`(e) firebreak, its cross-package acceleration crossing stays wire-shaped `SpatialAnswer.Wire` `NodeLinkProjection`, so an AppUi acceleration wire or a second exported BVH is unrepresentable); `Reservoir` the ReSTIR sample reservoir; `PathTracePass` the progressive accumulation pass; `Denoiser` the edge-aware denoise fold.
-- Entry: `public Fin<PathTracePass> Accumulate(AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed)` — accumulates one progressive sample set onto the running per-pixel mean under the one camera row; convergence is the accumulated sample count, never a wall-clock timer.
-- Auto: `Bvh.Build` constructs the hierarchy by a REAL recursive surface-area-heuristic split over the meshlet bounds — children emitted, leaf criterion at four primitives or no cost-improving split; `Refit` is a REAL bottom-up re-bound (leaves re-enclose their moved primitives, interior nodes re-enclose their two children in reverse emission order) and `Maintain` adopts the kernel `[DEGRADATION_REFIT]` shape (`Rasm/.planning/Spatial/index.md`): topology-stable in-place re-bounding plus a deterministic `SahCost` rebuild trigger, so a moving scene refits until quality degrades measurably and then rebuilds deterministically; ReSTIR resampled importance sampling keeps a per-pixel `Reservoir` of light samples from the `LightRig` reused spatially and temporally across frames; the progressive accumulator folds each sample set onto the running mean keyed by the accumulation ordinal so a static camera converges frame over frame and any camera motion resets the accumulator; the edge-aware denoiser folds the noisy estimate with the geometry-normal and depth guide buffers so an early-frame estimate is presentable before full convergence.
+- Entry: `public Fin<AccumulationTarget> Accumulate(AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed)` — accumulates one progressive sample set onto the running per-pixel mean under the one camera row and returns the ADVANCED `AccumulationTarget` (`Ordinal + sampleBudget`), so two sequential batches against one target produce the weighted mean of both and the next pass reads the total sample count from the same state owner; convergence is the accumulated sample count, never a wall-clock timer.
+- Auto: `Bvh.Build` constructs the hierarchy by a REAL recursive surface-area-heuristic split over the meshlet bounds — children emitted, leaf criterion at four primitives or no cost-improving split; `Refit` is a REAL bottom-up re-bound (leaves re-enclose their moved primitives, interior nodes re-enclose their two children in reverse emission order) and `Maintain` adopts the kernel `[DEGRADATION_REFIT]` shape (`Rasm/.planning/Spatial/index.md`): topology-stable in-place re-bounding plus a deterministic `SahCost` rebuild trigger, so a moving scene refits until quality degrades measurably and then rebuilds deterministically; ReSTIR resampled importance sampling keeps a per-pixel `Reservoir` of light samples from the `LightRig` reused spatially and temporally across frames; the progressive accumulator folds each sample set onto the running mean keyed by the accumulation ordinal and advances that ordinal on the returned target — `AccumulationTarget` is the ONE progression owner (`Of` mints it, `Advanced` weights the next batch, `Reset` serves camera motion) and no second sample counter exists — so a static camera converges frame over frame and the render graph resets the same target on camera motion; the edge-aware denoiser folds the noisy estimate with the geometry-normal and depth guide buffers so an early-frame estimate is presentable before full convergence.
 - Packages: SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new sampling strategy is one `SamplePolicy` value; a new guide buffer is one `Denoiser` channel; zero new surface.
 - Boundary: convergence is sample-count progressive — the accumulation ordinal is the only progress measure and a fixed-time render is the rejected form, so a path-traced still converges deterministically and the render-hash lane pins a sample count; the BVH refits in place on an animated frame and a full rebuild per frame is the deleted form — the rebuild fires only through the `Maintain` cost trigger; the ray-trace dispatch is the GPU compute surface bound through the `Render/pipeline` render-graph lease — the `SKRuntimeEffect` ray-generation shader and the per-backend acceleration-structure spelling resolve under VIEWPORT_GPU; the CPU reference path tracer over the BVH is the correctness oracle — it now has light to transport (the `LightRig`), so the oracle renders a lit image by construction and comparability with the raster path holds because BOTH integrators read the same rig; the GPU acceleration is the SPIKE; the BVH builds over the Compute-decoded `Render/meshlets` cluster bounds so the integrator re-models no geometry.
@@ -185,24 +185,35 @@ public sealed record Denoiser(double NormalSigma, double DepthSigma, double Colo
     public static readonly Denoiser EdgeAware = new(NormalSigma: 0.1, DepthSigma: 0.05, ColorSigma: 0.4);
 }
 
-// The per-pixel running mean the progressive fold owns — RGBA float accumulation plus the sample ordinal.
-public sealed record AccumulationTarget(int Width, int Height, float[] Rgba, long Ordinal);
+// The per-pixel running mean and its sample ordinal — the ONE progressive-state owner: Advanced weights
+// the next batch, Reset serves camera motion, and no second sample counter exists anywhere.
+public sealed record AccumulationTarget(int Width, int Height, float[] Rgba, long Ordinal) {
+    public static AccumulationTarget Of(int width, int height) => new(width, height, new float[width * height * 4], 0L);
 
-public sealed record PathTracePass(Bvh Scene, SamplePolicy Sampling, Denoiser Denoise, int Accumulated, Func<SurfacePoint, Rasm.Materials.Appearance.LayeredBsdf> MaterialOf) {
+    public AccumulationTarget Advanced(int samples) => this with { Ordinal = Ordinal + samples };
+
+    public AccumulationTarget Reset() {
+        Array.Clear(Rgba);
+        return this with { Ordinal = 0L };
+    }
+}
+
+public sealed record PathTracePass(Bvh Scene, SamplePolicy Sampling, Denoiser Denoise, Func<SurfacePoint, Rasm.Materials.Appearance.LayeredBsdf> MaterialOf) {
     // Honest integrate-or-gate: an empty scene or a lightless rig gates; the integrate arm traces
-    // sampleBudget paths per pixel through the private CPU oracle kernel below.
-    public Fin<PathTracePass> Accumulate(AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed) =>
+    // sampleBudget paths per pixel through the private CPU oracle kernel below and returns the target
+    // advanced by exactly the samples it folded into the mean.
+    public Fin<AccumulationTarget> Accumulate(AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed) =>
         Scene.Nodes.IsEmpty
-            ? Fin.Fail<PathTracePass>(new ViewportFault.Text("path-trace/empty-scene: BVH has no nodes"))
+            ? Fin.Fail<AccumulationTarget>(new ViewportFault.Text("path-trace/empty-scene: BVH has no nodes"))
             : rig.Rows.IsEmpty
-                ? Fin.Fail<PathTracePass>(new ViewportFault.Text("path-trace/no-light: the rig carries zero LightSource rows"))
+                ? Fin.Fail<AccumulationTarget>(new ViewportFault.Text("path-trace/no-light: the rig carries zero LightSource rows"))
                 : Fin.Succ(Integrate(target, camera, rig, sampleBudget, sampleSeed));
 
     // Statement-bodied oracle kernel — deterministic per-(pixel, ordinal, seed) sequence so the render-hash
     // lane pins a sample count. Path shape: primary ray -> closest hit (miss folds environment) -> NEE over
-    // the Sun/Emissive rows (shadow rays through the same Intersect kernel, throughput via the Materials
-    // Evaluate seam) -> ONE BSDF-sampled continuation into the environment. GPU twin stays SPIKE-gated.
-    private PathTracePass Integrate(AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed) {
+    // the Sun/Emissive/Spot/Area/Ies rows (shadow rays through the same Intersect kernel, throughput via
+    // the Materials Evaluate seam) -> ONE BSDF-sampled continuation into the environment. GPU twin stays SPIKE-gated.
+    private AccumulationTarget Integrate(AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed) {
         (double fx, double fy, double fz) = Normalize(camera.TargetX - camera.EyeX, camera.TargetY - camera.EyeY, camera.TargetZ - camera.EyeZ);
         (double rx, double ry, double rz) = Normalize(Cross(fx, fy, fz, camera.UpX, camera.UpY, camera.UpZ));
         (double ux, double uy, double uz) = Cross(rx, ry, rz, fx, fy, fz);
@@ -228,7 +239,7 @@ public sealed record PathTracePass(Bvh Scene, SamplePolicy Sampling, Denoiser De
                 target.Rgba[slot + 3] = 1f;
             }
         }
-        return Advance(sampleBudget);
+        return target.Advanced(sampleBudget);
     }
 
     private (double R, double G, double B) Radiance((double X, double Y, double Z) origin, (double X, double Y, double Z) direction, LightRig rig, ref ulong state) =>
@@ -249,6 +260,21 @@ public sealed record PathTracePass(Bvh Scene, SamplePolicy Sampling, Denoiser De
                 LightSource.Sun sun => Some((sun.Direction, Rgb(sun.Radiance), double.MaxValue)),
                 LightSource.Emissive glow when Toward(point.Position, (glow.X, glow.Y, glow.Z)) is var (wi, distance) =>
                     Some((wi, Scale(Rgb(glow.Radiance), glow.Area / Math.Max(distance * distance, 1e-6)), distance)),
+                LightSource.Spot spot when Toward(point.Position, (spot.X, spot.Y, spot.Z)) is var (wi, distance) =>
+                    Cone(spot, wi) switch {
+                        <= 0d => None,
+                        var falloff => Some((wi, Scale(Rgb(spot.Radiance), falloff / Math.Max(distance * distance, 1e-6)), distance)),
+                    },
+                LightSource.Area panel when Toward(point.Position, (panel.X, panel.Y, panel.Z)) is var (wi, distance) =>
+                    Math.Max(Dot(panel.Normal, (-wi.X, -wi.Y, -wi.Z)), 0d) switch {
+                        <= 0d => None,
+                        var facing => Some((wi, Scale(Rgb(panel.Radiance), facing * panel.Width * panel.Height / Math.Max(distance * distance, 1e-6)), distance)),
+                    },
+                LightSource.Ies lum when Toward(point.Position, (lum.X, lum.Y, lum.Z)) is var (wi, distance) =>
+                    IesCandela(lum, wi) switch {
+                        <= 0d => None,
+                        var candela => Some((wi, Scale(Rgb(lum.Tint), candela / Math.Max(distance * distance, 1e-6)), distance)),
+                    },
                 _ => None, // Environment folds on miss, never as NEE
             };
             sum = arm
@@ -316,29 +342,78 @@ public sealed record PathTracePass(Bvh Scene, SamplePolicy Sampling, Denoiser De
         return (state >> 11) * (1.0 / (1UL << 53));
     }
 
-    public PathTracePass Advance(int samples) => this with { Accumulated = Accumulated + samples };
+    // Spot cone falloff: smooth ramp between the inner (full) and outer (zero) half-angles measured off
+    // the aim; wi points surface->light, so the emitter-side direction is -wi.
+    private static double Cone(LightSource.Spot spot, (double X, double Y, double Z) wi) {
+        double cos = Dot(Normalize(spot.Aim), (-wi.X, -wi.Y, -wi.Z));
+        double inner = Math.Cos(double.DegreesToRadians(spot.InnerDeg));
+        double outer = Math.Cos(double.DegreesToRadians(spot.OuterDeg));
+        return Math.Clamp((cos - outer) / Math.Max(inner - outer, 1e-6), 0d, 1d);
+    }
 
-    public PathTracePass Reset() => this with { Accumulated = 0 };
+    // IES candela toward the shading point: polar off the aim axis, azimuth in the aim frame, sampled
+    // bilinearly from the photometric web and scaled by LumenScale.
+    private static double IesCandela(LightSource.Ies lum, (double X, double Y, double Z) wi) {
+        (double ax, double ay, double az) = Normalize(lum.Aim);
+        ShadingFrame frame = FrameOf(ax, ay, az);
+        (double X, double Y, double Z) toward = (-wi.X, -wi.Y, -wi.Z);
+        double polar = double.RadiansToDegrees(Math.Acos(Math.Clamp(Dot(toward, (ax, ay, az)), -1d, 1d)));
+        double azimuth = double.RadiansToDegrees(Math.Atan2(Dot(toward, frame.Bitangent), Dot(toward, frame.Tangent)));
+        return lum.Web.Sample(azimuth, polar) * lum.LumenScale;
+    }
 }
 ```
 
 ## [03]-[LIGHT_RIG]
 
-- Owner: `LightSource` `[Union]` — the ONE closed light row family (Environment | Sun | Emissive, seed DATA per `[GENERATOR_LAW]`); `LightRig` — the scene light set BOTH integrators read.
-- Cases: Environment (uniform or HDR-dome radiance), Sun (site-anchored directional), Emissive (mesh-attached area emitter).
+- Owner: `LightSource` `[Union]` — the ONE closed light row family (Environment | Sun | Emissive | Spot | Area | Ies, seed DATA per `[GENERATOR_LAW]`); `PhotometricWeb` the decoded IES/LDT candela table; `LightRig` — the scene light set BOTH integrators read.
+- Cases: Environment (uniform or HDR-dome radiance), Sun (site-anchored directional), Emissive (mesh-attached area emitter), Spot (inner/outer cone falloff), Area (rectangular panel with emitter-cosine), Ies (manufacturer luminaire shaped by its photometric web) — the AEC luminaire vocabulary both integrators evaluate; IES is the standard architectural photometry format, so a manufacturer fixture is one `Ies` row over decoded web data, never a bespoke emitter kind.
 - Entry: `public static LightSource SunAt(SolarSite site, Instant at)` — the Sun row derives from the Bim `GeoReference` seam plus the NodaTime instant under `ClockPolicy`, its azimuth/altitude COMPOSING the LANDED Compute solar-position export `SolarPosition.At(SolarSite, Instant) -> SunPosition` (the declared `[APPUI_SUN_EXPORT]` package-boundary row on `Analysis/daylight.md` naming the AppUi viewport sun-light) — never a second geodesy or solar-position kernel.
 - Auto: the raster shading path (`Render/shading.md`) and this oracle integrator read the SAME rig — one light rig, two integrators, comparability by construction; the ReSTIR reservoir samples candidates from the rig rows; a reduced-quality tier caps rig evaluation through the governor pass mask, never a second light list.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Compute (project), Rasm.Bim (boundary wire)
 - Growth: a new emitter kind is one `LightSource` case; a new sun site is a `SolarSite` value from the Bim `GeoReference` lowering; zero new surface.
-- Boundary: the `SolarPosition.At` crossing is a declared `[V9]` ledger row (`Render/pathtrace` <- Compute `Analysis/daylight`); the `GeoReference`-to-`SolarSite` lowering is Bim-owned and arrives as values; a Render-side solar ephemeris, a second light vocabulary on any Render page, or a per-integrator light list is the deleted form.
+- Boundary: the `SolarPosition.At` crossing is a declared `[V9]` ledger row (`Render/pathtrace` <- Compute `Analysis/daylight`); the `GeoReference`-to-`SolarSite` lowering is Bim-owned and arrives as values; the IES/LDT file decode is an asset-boundary admission that lands a validated `PhotometricWeb` value (`Of` rejects unsorted grids and a non-total candela table) so the rig row consumes decoded data and no light row ever parses a file; a Render-side solar ephemeris, a second light vocabulary on any Render page, or a per-integrator light list is the deleted form.
 
 ```csharp signature
+// The decoded IES/LDT photometric web: sorted polar/azimuth degree grids plus the candela table
+// (Candela[(azimuth * PolarDeg.Length) + polar]); the file decode is an asset-boundary admission and
+// Of is the one validated constructor.
+public sealed record PhotometricWeb(ImmutableArray<double> PolarDeg, ImmutableArray<double> AzimuthDeg, ImmutableArray<double> Candela) {
+    public static Fin<PhotometricWeb> Of(ImmutableArray<double> polarDeg, ImmutableArray<double> azimuthDeg, ImmutableArray<double> candela) =>
+        polarDeg.Length >= 2 && azimuthDeg.Length >= 1 && candela.Length == polarDeg.Length * azimuthDeg.Length
+            && polarDeg.Zip(polarDeg.Skip(1)).All(static pair => pair.First < pair.Second)
+            && azimuthDeg.Zip(azimuthDeg.Skip(1)).All(static pair => pair.First < pair.Second)
+            ? Fin.Succ(new PhotometricWeb(polarDeg, azimuthDeg, candela))
+            : Fin.Fail<PhotometricWeb>(new ViewportFault.Text("light/ies-web: grids must be sorted and the table total"));
+
+    // Bilinear candela over both grids; polar clamps to the measured range, azimuth wraps at 360.
+    public double Sample(double azimuthDeg, double polarDeg) {
+        (int a0, int a1, double at) = Bracket(AzimuthDeg, ((azimuthDeg % 360d) + 360d) % 360d);
+        (int p0, int p1, double pt) = Bracket(PolarDeg, Math.Clamp(polarDeg, PolarDeg[0], PolarDeg[^1]));
+        double low = Mix(Candela[(a0 * PolarDeg.Length) + p0], Candela[(a0 * PolarDeg.Length) + p1], pt);
+        double high = Mix(Candela[(a1 * PolarDeg.Length) + p0], Candela[(a1 * PolarDeg.Length) + p1], pt);
+        return Mix(low, high, at);
+    }
+
+    private static (int Lo, int Hi, double T) Bracket(ImmutableArray<double> grid, double value) {
+        for (int at = 1; at < grid.Length; at++) {
+            if (value <= grid[at]) { return (at - 1, at, (value - grid[at - 1]) / Math.Max(grid[at] - grid[at - 1], 1e-9)); }
+        }
+        return (grid.Length - 1, grid.Length - 1, 0d);
+    }
+
+    private static double Mix(double a, double b, double t) => a + ((b - a) * t);
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record LightSource {
     private LightSource() { }
     public sealed record Environment(string Key, Color Radiance, Option<string> HdrAssetKey) : LightSource;
     public sealed record Sun(string Key, double AzimuthDeg, double AltitudeDeg, Color Radiance) : LightSource;
     public sealed record Emissive(string Key, string MeshKey, Color Radiance, double Area, double X, double Y, double Z) : LightSource;
+    public sealed record Spot(string Key, double X, double Y, double Z, (double X, double Y, double Z) Aim, double InnerDeg, double OuterDeg, Color Radiance) : LightSource;
+    public sealed record Area(string Key, double X, double Y, double Z, (double X, double Y, double Z) Normal, double Width, double Height, Color Radiance) : LightSource;
+    public sealed record Ies(string Key, double X, double Y, double Z, (double X, double Y, double Z) Aim, PhotometricWeb Web, Color Tint, double LumenScale) : LightSource;
 
     // The Compute solar export composed: SunPosition azimuth/altitude become the directional row.
     public static LightSource SunAt(SolarSite site, Instant at, Color radiance) =>
@@ -351,6 +426,8 @@ public abstract partial record LightSource {
             Math.Cos(Rad(sun.AltitudeDeg)) * Math.Sin(Rad(sun.AzimuthDeg)),
             Math.Sin(Rad(sun.AltitudeDeg)),
             Math.Cos(Rad(sun.AltitudeDeg)) * Math.Cos(Rad(sun.AzimuthDeg))),
+        Spot spot => spot.Aim,
+        Ies lum => lum.Aim,
         _ => (0d, 1d, 0d),
     };
 

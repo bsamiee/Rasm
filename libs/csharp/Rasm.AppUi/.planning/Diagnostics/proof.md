@@ -97,9 +97,10 @@ public static class ProofEngine {
 
     public static IO<EvidenceReceipt> Dispatch(ProofSpec spec) =>
         IO.liftAsync(async () => await HeadlessUnitTestSession
-            .GetOrStartForAssembly(typeof(ProofEngine).Assembly)
-            .Dispatch(() => spec.Run().RunAsync().AsTask(), CancellationToken.None)
-            .ConfigureAwait(false));
+                .GetOrStartForAssembly(typeof(ProofEngine).Assembly)
+                .Dispatch(() => spec.Run().RunAsync().AsTask(), CancellationToken.None)
+                .ConfigureAwait(false))
+            .Bind(static settled => settled.Match(Succ: IO.pure<EvidenceReceipt>, Fail: IO.fail<EvidenceReceipt>));
 
     public static IO<Seq<CommandReceipt>> Replay(CommandDeck deck, Seq<(string Key, JsonElement Payload)> journal) =>
         journal.TraverseM(entry => deck.Invoke(entry.Key, entry.Payload)).As();
@@ -108,12 +109,12 @@ public static class ProofEngine {
 
 ## [04]-[PROOF_LAW]
 
-- Owner: `ProofLaw` — the law-matrix fence surface composing `ProofEngine` with CsCheck property generators and `Verify.XunitV3` FrameHash equality.
+- Owner: `ProofLaw` — the law-matrix fence surface composing `ProofEngine` with CsCheck property generators, `Verify.XunitV3` FrameHash equality, and the `VerifyChecks`/`DanglingSnapshots` suite-hygiene gates.
 - Entry: `public static IO<Seq<EvidenceReceipt>> ProofMatrix(...)` — the one entrypoint that owns the singular-cell and full-matrix run by input shape so a per-spec screenshot helper is the deleted form.
-- Auto: `ProofLaw.FrameHashEquality` seals one `key@scale×gamut` cell through `Captures.Shot` then `Verifier.Verify` so a render-hash regression attributes to the exact cell; `ProofLaw.DeterministicCapture` is the CsCheck property that two captures of one lane hash identically (a debounce or animation that smuggles wall time fails it); `ProofLaw.ReplayDeterminism` replays the journal twice under `FakeTimeProvider.SetUtcNow(UnixEpoch)` and `Verifier.Verify`-equals the two payload-digest seqs.
+- Auto: `ProofLaw.FrameHashEquality` seals one `key@scale×gamut` cell through `Captures.Shot` then `Verifier.Verify` so a render-hash regression attributes to the exact cell; `ProofLaw.DeterministicCapture` is the CsCheck property that two captures of one lane hash identically (a debounce or animation that smuggles wall time fails it), folding both terminal `Fin` results on the rail so a failed capture fails the property instead of vanishing; `ProofLaw.ReplayDeterminism` replays the journal twice under `FakeTimeProvider.SetUtcNow(UnixEpoch)` and `Verifier.Verify`-equals the two payload-digest seqs; `ProofLaw.SuiteHygiene` awaits `VerifyChecks.Run()` once per suite and sweeps `DanglingSnapshots.Run()` in the CI cleanup pass, so a misconfigured verify pipeline and an orphaned `.verified.` golden are suite-gate failures, never silent corpus drift as the render-hash grid grows per catalog row.
 - Packages: Verify.XunitV3, CsCheck, Avalonia.Headless, LanguageExt.Core
 - Growth: one lane cell absorbs a new golden; zero new surface.
-- Boundary: the `RenderHashGrid` FrameHash golden bytes are the C#-host-validated leg of the content-addressed kernel-hasher-keyed ONE_WIRE_FIXTURE_CORPUS — the render-hash lane is the host golden producer the cross-runtime consumers read, never a second golden store; the headless capture lanes are the parity oracle for every `[V6]` fence repair — a repaired fence proves itself here before the campaign closes; gamut cells key by `ColorPolicy` rows (the `Render/capture.md` one gamut/transfer family).
+- Boundary: the `RenderHashGrid` FrameHash golden bytes are the C#-host-validated leg of the content-addressed kernel-hasher-keyed ONE_WIRE_FIXTURE_CORPUS — the render-hash lane is the host golden producer the cross-runtime consumers read, never a second golden store; the headless capture lanes are the parity oracle for every `[V6]` fence repair — a repaired fence proves itself here before the campaign closes; gamut cells key by `ColorPolicy` rows (the `Render/capture.md` one gamut/transfer family); the proof fence is a terminal edge, so every `Run`/`RunAsync` lands on `Fin` and its disposition is explicit — `ThrowIfFail` collapses a capture or replay failure into the loud typed `ProofFault`-coded error the runner reports, `IfFail(false)` fails the property, and an assignment reading the inner value straight off the terminal result is the rejected form that neither compiles nor represents failure.
 
 ```csharp signature
 public readonly record struct RenderHashLane(string Key, double Scale, string Gamut, int Ticks) {
@@ -130,8 +131,13 @@ public static class ProofLaw {
         from gamut in Seq(ColorPolicy.Display.Key, ColorPolicy.DisplayP3.Key, ColorPolicy.Rec2020.Key)
         select new RenderHashLane(key, scale, gamut, Ticks: 1));
 
+    public static async Task SuiteHygiene() {
+        await VerifyChecks.Run();
+        DanglingSnapshots.Run();
+    }
+
     public static async Task FrameHashEquality(VisualRuntime runtime, RenderHashLane lane, Func<double, Func<IO<Unit>>, IO<SKImage>> grab, Func<SurfaceHost, bool> surface) {
-        RenderReceipt receipt = await Captures.Shot(runtime, lane.Row(grab, surface)).RunAsync();
+        RenderReceipt receipt = (await Captures.Shot(runtime, lane.Row(grab, surface)).RunAsync()).ThrowIfFail();
         await Verifier.Verify(new { lane.Cell, receipt.FrameHash, receipt.ColorSpace })
             .UseTextForParameters(lane.Cell);
     }
@@ -143,20 +149,20 @@ public static class ProofLaw {
         select new RenderHashLane(key, scale, gamut, 1);
 
     public static void DeterministicCapture(VisualRuntime runtime, Func<double, Func<IO<Unit>>, IO<SKImage>> grab, Func<SurfaceHost, bool> surface) =>
-        LaneGen.Sample(lane => {
-            RenderReceipt first = Captures.Shot(runtime, lane.Row(grab, surface)).Run();
-            RenderReceipt second = Captures.Shot(runtime, lane.Row(grab, surface)).Run();
-            return first.FrameHash == second.FrameHash;
-        });
+        LaneGen.Sample(lane =>
+            Captures.Shot(runtime, lane.Row(grab, surface)).Run()
+                .Bind(first => Captures.Shot(runtime, lane.Row(grab, surface)).Run()
+                    .Map(second => first.FrameHash == second.FrameHash))
+                .IfFail(static _ => false));
 
     public static IO<Seq<EvidenceReceipt>> ProofMatrix(ScreenCatalog catalog, Seq<(ThemeVariantRow Variant, DensityRow Density)> grid, Func<ScreenCatalogRow, ProofCheck, ThemeVariantRow, DensityRow, Func<IO<EvidenceReceipt>>> probe) =>
         ProofEngine.Derive(catalog, grid, probe).TraverseM(ProofEngine.Dispatch).As();
 
     public static async Task ReplayDeterminism(CommandDeck deck, Seq<(string Key, JsonElement Payload)> journal, FakeTimeProvider time) {
         time.SetUtcNow(DateTimeOffset.UnixEpoch);
-        Seq<CommandReceipt> first = await ProofEngine.Replay(deck, journal).RunAsync();
+        Seq<CommandReceipt> first = (await ProofEngine.Replay(deck, journal).RunAsync()).ThrowIfFail();
         time.SetUtcNow(DateTimeOffset.UnixEpoch);
-        Seq<CommandReceipt> second = await ProofEngine.Replay(deck, journal).RunAsync();
+        Seq<CommandReceipt> second = (await ProofEngine.Replay(deck, journal).RunAsync()).ThrowIfFail();
         await Verifier.Verify(first.Map(static r => r.PayloadDigest).Zip(second.Map(static r => r.PayloadDigest)));
     }
 }

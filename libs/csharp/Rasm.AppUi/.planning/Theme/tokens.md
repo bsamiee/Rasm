@@ -12,12 +12,12 @@ Rasm.AppUi resolves every visual constant through one frozen token catalogue: a 
 ## [02]-[TOKEN_CATALOG]
 
 - Owner: `TokenRow` `[Union]` role-keyed token family; `ThemeCatalog` frozen table and resolve fold; `ResolvedTheme` the one resolved artifact every consumer reads; `Colormap` `[SmartEnum<string>]` perceptually-uniform data-colormap catalog.
-- Cases: Paint | Metric | Depth | Span | Rank — color, dimension, elevation, duration, and z-order roles in one closed family; `Colormap` = viridis | magma | cividis | turbo — the perceptual scientific-data ramps the heat, density, and analytical visuals sample.
+- Cases: Paint | Metric | Depth | Span | Rank — color, dimension, elevation, duration, and z-order roles in one closed family; `Colormap` = viridis | magma | cividis | turbo | coolwarm — the scientific-data ramps the heat, density, and analytical visuals sample, each carrying its `ColormapClass` row: Sequential (lightness-monotone) for unsigned magnitudes, Diverging (neutral-pivot, RdBu class) for signed and deviation-from-target fields, Rainbow for category separation only.
 - Entry: `public static ResolvedTheme Resolve(ThemeVariantRow variant, DensityRow density, Func<Color, Color, double, Color> mix)` — one pure fold; the `(variant, density)` signature is the orthogonality law; `public Color Sample(double t, Func<Color, Color, double, Color> mix)` — the one colormap sampler over the same OKLab mix.
-- Auto: one resolve feeds five consumers — control resources, chart paints, SVG tint, icon foreground, editor highlights — from the same dictionaries; `Palette` projects the same paints into `ColorPaletteResources`, deleting per-consumer palette code; `Colormap.Sample` interpolates between the six anchor stops through the same OKLab `mix` so a heat ramp, a density gradient, or a geo heat-series ramp reads one perceptually-uniform scale, and `HeatMap` projects the sampled `Color` ramp through a caller-supplied `project` delegate so the geo and heat series receive the ramp without the catalogue transcribing the core color value — the `LiveChartsCore` color-value type the `project` delegate constructs resolves at implementation under the charts `GEO_PAYLOAD` research surface and binds at composition rather than as a fence member.
+- Auto: one resolve feeds five consumers — control resources, chart paints, SVG tint, icon foreground, editor highlights — from the same dictionaries; `Palette` projects the same paints into `ColorPaletteResources`, deleting per-consumer palette code; `Colormap.Sample` interpolates between the row's anchor stops through the same OKLab `mix` so a heat ramp, a density gradient, a signed-field diverging ramp, or a geo heat-series ramp reads one perceptually-coherent scale, and `HeatMap` projects the sampled `Color` ramp through a caller-supplied `project` delegate so the geo and heat series receive the ramp without the catalogue transcribing the core color value — the `LiveChartsCore` color-value type the `project` delegate constructs resolves at implementation under the charts `GEO_PAYLOAD` research surface and binds at composition rather than as a fence member.
 - Packages: Avalonia, Avalonia.Themes.Fluent, LiveChartsCore.SkiaSharpView.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: one token row reaches every consumer with zero new surface; a new role is one case on `TokenRow`; a new data-colormap is one `Colormap` row carrying its anchor stops; zero new surface.
-- Boundary: `mix` is the perceptual OKLab interpolation consumed as a delegate value sourced once from the admitted `Wacton.Unicolour` kernel — the delegate builds `new Unicolour(ColourSpace.Rgb255, a.R, a.G, a.B)` and the `b` twin, calls the instance `a.Mix(b, ColourSpace.Oklab, amount)` (the catalogued `Unicolour.Mix(Unicolour other, ColourSpace, double amount, ...)`), and reads the result's `Rgb255` triplet back into an Avalonia `Color`, so the perceptual interpolation rides the one suite colour owner and the `mix` is never an RGB-channel lerp masquerading as OKLab; a second color-interpolation implementation beside it is the rejected form, and `Colormap.Sample` rides the same delegate so a hand-rolled RGB-lerped colormap or a hardcoded heat-gradient table is the deleted form; the perceptual ramps (`viridis`, `magma`, `cividis`) carry `Perceptual: true` so a contrast-sensitive data surface selects a lightness-monotone scale and `turbo` carries `Perceptual: false` as the rainbow row admitted only where category separation outranks lightness order; ramp keys derive as ordinal `key+rank` strings mixed toward the row's `Toward` anchor; `Span` rows publish static delays only — interactive easing and tween vocabulary stay outside the catalogue; `HostMatched` never reaches `Resolve` because `Concrete` folds it to a concrete row first.
+- Growth: one token row reaches every consumer with zero new surface; a new role is one case on `TokenRow`; a new data-colormap is one `Colormap` row carrying its `ColormapClass` and anchor stops; zero new surface.
+- Boundary: `mix` is the perceptual OKLab interpolation consumed as a delegate value sourced once from the admitted `Wacton.Unicolour` kernel — the delegate builds `new Unicolour(ColourSpace.Rgb255, a.R, a.G, a.B)` and the `b` twin, calls the instance `a.Mix(b, ColourSpace.Oklab, amount)` (the catalogued `Unicolour.Mix(Unicolour other, ColourSpace, double amount, ...)`), composes `.MapToRgbGamut()` (the catalogued `Unicolour.MapToRgbGamut(GamutMap gamutMap = GamutMap.OklchChromaReduction)`) so an OKLab mix between saturated anchors that leaves the RGB cube re-enters through perceptual chroma reduction rather than a per-channel clip that bends lightness and hue, then reads the result's `Rgb255` triplet back into an Avalonia `Color` — the perceptual interpolation rides the one suite colour owner and the `mix` is never an RGB-channel lerp masquerading as OKLab; a second color-interpolation implementation beside it is the rejected form, and `Colormap.Sample` rides the same delegate so a hand-rolled RGB-lerped colormap or a hardcoded heat-gradient table is the deleted form; the ramp class is the `ColormapClass` row — Sequential rows are lightness-monotone so contrast-sensitive data surfaces read magnitude off lightness, the Diverging row centers its neutral stop at `t = 0.5` so signed AEC fields (stress ±, deviation, delta) pivot on gray with equal perceptual reach into both arms, and Rainbow is admitted only where category separation outranks lightness order; ramp keys derive as ordinal `key+rank` strings mixed toward the row's `Toward` anchor; `Span` rows publish static delays only — interactive easing and tween vocabulary stay outside the catalogue; `HostMatched` never reaches `Resolve` because `Concrete` folds it to a concrete row first.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -113,24 +113,38 @@ public static class ThemeCatalog {
 ```
 
 ```csharp signature
+[SmartEnum]
+public sealed partial class ColormapClass {
+    public static readonly ColormapClass Sequential = new(lightnessMonotone: true, centered: false);
+    public static readonly ColormapClass Diverging = new(lightnessMonotone: false, centered: true);
+    public static readonly ColormapClass Rainbow = new(lightnessMonotone: false, centered: false);
+
+    public bool LightnessMonotone { get; }
+
+    public bool Centered { get; }
+}
+
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class Colormap {
-    public static readonly Colormap Viridis = new("viridis", perceptual: true, stops: Seq(
+    public static readonly Colormap Viridis = new("viridis", ColormapClass.Sequential, stops: Seq(
         Color.FromUInt32(0xFF440154), Color.FromUInt32(0xFF414487), Color.FromUInt32(0xFF2A788E),
         Color.FromUInt32(0xFF22A884), Color.FromUInt32(0xFF7AD151), Color.FromUInt32(0xFFFDE725)));
-    public static readonly Colormap Magma = new("magma", perceptual: true, stops: Seq(
+    public static readonly Colormap Magma = new("magma", ColormapClass.Sequential, stops: Seq(
         Color.FromUInt32(0xFF000004), Color.FromUInt32(0xFF3B0F70), Color.FromUInt32(0xFF8C2981),
         Color.FromUInt32(0xFFDE4968), Color.FromUInt32(0xFFFE9F6D), Color.FromUInt32(0xFFFCFDBF)));
-    public static readonly Colormap Cividis = new("cividis", perceptual: true, stops: Seq(
+    public static readonly Colormap Cividis = new("cividis", ColormapClass.Sequential, stops: Seq(
         Color.FromUInt32(0xFF00224E), Color.FromUInt32(0xFF35456C), Color.FromUInt32(0xFF666970),
         Color.FromUInt32(0xFF948E77), Color.FromUInt32(0xFFCBBA69), Color.FromUInt32(0xFFFEE838)));
-    public static readonly Colormap Turbo = new("turbo", perceptual: false, stops: Seq(
+    public static readonly Colormap Turbo = new("turbo", ColormapClass.Rainbow, stops: Seq(
         Color.FromUInt32(0xFF30123B), Color.FromUInt32(0xFF4145AB), Color.FromUInt32(0xFF26BCE1),
         Color.FromUInt32(0xFF7DFF56), Color.FromUInt32(0xFFFB8022), Color.FromUInt32(0xFF7A0403)));
+    public static readonly Colormap Coolwarm = new("coolwarm", ColormapClass.Diverging, stops: Seq(
+        Color.FromUInt32(0xFF3B4CC0), Color.FromUInt32(0xFF9ABBFF), Color.FromUInt32(0xFFDDDDDD),
+        Color.FromUInt32(0xFFF49A7B), Color.FromUInt32(0xFFB40426)));
 
-    public bool Perceptual { get; }
+    public ColormapClass Class { get; }
 
     public Seq<Color> Stops { get; }
 
@@ -242,16 +256,25 @@ public sealed partial class DensityRow {
 
 ## [05]-[CONTROL_THEMES]
 
-- Owner: `ThemeCell` atomic swap capsule; `ThemeSwitchReceipt` token-diff receipt; `ThemeRail` the one Styles admission boundary mounting the Semi chain.
-- Cases: trigger values boot | user-switch | host-probe as receipt constants.
+- Owner: `ThemeCell` atomic swap capsule; `ThemeSwitchReceipt` token-diff receipt; `ThemeFault` the typed swap-and-mount rail on the `AppUiFaultBand.Theme` 6620 registry row; `ThemeRail` the one Styles admission boundary mounting the Semi chain.
+- Cases: trigger values boot | user-switch | host-probe as receipt constants; `ThemeFault` = SwapRejected | MountRejected under the 6620 row.
 - Entry: `public IO<ThemeSwitchReceipt> Swap(ThemeVariantRow variant, DensityRow density, Func<Option<ThemeVariantRow>> probe, string trigger, CorrelationId correlation)` — one swap re-resolves the full catalogue.
-- Auto: every swap emits one receipt carrying changed keys; the swap sinks the receipt through `ReceiptSinkPort` as a `Surface`-family appearance fact, so theme transitions ride the one evidence envelope stream the dashboards ingest and the accessibility gate consumes `ContrastCandidates` from the same resolve — deleting per-control theme refresh handlers; `Admit` builds the single `Application.Styles` chain `FluentTheme floor -> SemiTheme -> the per-control Semi skins -> UrsaSemiTheme` once at boot, and `ApplyTo` overrides the `ThemeVariant`-scoped Semi palette slots from the resolve, so a swap re-skins the whole admitted roster through one token system, never a re-templated control tree.
+- Auto: every swap emits one receipt carrying changed keys; the swap sinks the receipt through `ReceiptSinkPort` under the evidence union's `Theme` case (`ThemeSwitchReceipt.ToEvidence()` flattens variant, density, trigger, and the changed-key count onto the envelope), so theme transitions ride the one evidence envelope stream the dashboards ingest and the accessibility gate consumes `ContrastCandidates` from the same resolve — deleting per-control theme refresh handlers; `Track` is the host appearance-change terminal edge — the callback runs the swap once, `MapFail` lifts the failed swap into `ThemeFault.SwapRejected`, and the whole `Fin<ThemeSwitchReceipt>` passes to the `observe` disposition so a failed host-probe swap is a typed 6620 fact, never a discarded effect; `Admit` builds the single `Application.Styles` chain `FluentTheme floor -> SemiTheme -> the per-control Semi skins -> UrsaSemiTheme` once at boot, and `ApplyTo` overrides the `ThemeVariant`-scoped Semi palette slots from the resolve, so a swap re-skins the whole admitted roster through one token system, never a re-templated control tree.
 - Receipt: `ThemeSwitchReceipt` — variant, density, trigger, changed keys, `Instant`, correlation id; the reload-receipt shape on a separate stream, sealed once through the sink port at composition.
 - Packages: Avalonia, Avalonia.Themes.Fluent, Semi.Avalonia, Rasm.AppHost (project), LanguageExt.Core, NodaTime
 - Growth: one control-theme row, one contrast-candidate row, or one trigger constant; zero new surface.
-- Boundary: `ThemeRail` is the boundary capsule and its fence carries the language-owned statement forms — `Mount` and `ApplyTo` write retained application state; the one `Application.Styles` chain is ordered `FluentTheme` floor -> `<semi:SemiTheme/>` -> the per-control `Semi.Avalonia.*` skins (`DataGrid`/`ColorPicker`/`Dock`/`AvaloniaEdit`) -> `<semi:UrsaSemiTheme/>` (the `Shell/controls` Ursa-suite bridge), every skin strictly below `SemiTheme` so its tokens resolve, and loading a skin without `SemiTheme` is the rejected form; the resolved token dictionary occupies merged-dictionary index zero so a swap is one indexer write, marshaled through the UI scheduler port by the caller; the OKLCH ramp writes the `Semi.Avalonia` `Tokens.Palette` slots — a derived or brand variant overrides the `ThemeVariant`-scoped palette resources, never a re-templated control set, so a hand-authored second token dictionary beside the Semi slots is the deleted form; the `Sink` delegate binds `ReceiptSinkPort.Send` at composition so the swap carries zero telemetry wiring and a second receipt stamp on the swap is the deleted form; selector styles and `ControlTheme` rows enter only through this rail and pseudo-class states bind token keys, never literal paints; the `Apply` delegate re-themes every retained surface tree including the docked panels from the one resolve so a variant swap re-paints docks through the shell dock-theme owner bound at composition rather than a parallel dock-theme handler; OS dark/light follow rides `ApplicationExtension.RegisterFollowSystemTheme(this Application)` bound at composition where the host exposes `PlatformColorValues`, so a per-control OS-appearance handler is the deleted form; the Fluent-templated `bodong.PropertyGrid`/`DialogHost` intentionally keep the Fluent base and are never displaced by the Semi skins; the contrast ratio law lives with the accessibility gate — candidate pairs only here; `Defaults` reads the resolved profile so per-process boot variants are row values, not boot code.
+- Boundary: `ThemeRail` is the boundary capsule and its fence carries the language-owned statement forms — `Mount` and `ApplyTo` write retained application state; the one `Application.Styles` chain is ordered `FluentTheme` floor -> `<semi:SemiTheme/>` -> the per-control `Semi.Avalonia.*` skins (`DataGrid`/`ColorPicker`/`Dock`/`AvaloniaEdit`) -> `<semi:UrsaSemiTheme/>` (the `Shell/controls` Ursa-suite bridge), every skin strictly below `SemiTheme` so its tokens resolve, and loading a skin without `SemiTheme` is the rejected form; the resolved token dictionary occupies merged-dictionary index zero so a swap is one indexer write, marshaled through the UI scheduler port by the caller; the boot `Mount` collapse at the composition root lifts its failure into `ThemeFault.MountRejected` so a broken Styles chain is a typed 6620 boot fact; the OKLCH ramp writes the `Semi.Avalonia` `Tokens.Palette` slots — a derived or brand variant overrides the `ThemeVariant`-scoped palette resources, never a re-templated control set, so a hand-authored second token dictionary beside the Semi slots is the deleted form; the `Sink` delegate binds `ReceiptSinkPort.Send` at composition so the swap carries zero telemetry wiring and a second receipt stamp on the swap is the deleted form; selector styles and `ControlTheme` rows enter only through this rail and pseudo-class states bind token keys, never literal paints; the `Apply` delegate re-themes every retained surface tree including the docked panels from the one resolve so a variant swap re-paints docks through the shell dock-theme owner bound at composition rather than a parallel dock-theme handler; OS dark/light follow rides `ApplicationExtension.RegisterFollowSystemTheme(this Application)` bound at composition where the host exposes `PlatformColorValues`, so a per-control OS-appearance handler is the deleted form; the Fluent-templated `bodong.PropertyGrid`/`DialogHost` intentionally keep the Fluent base and are never displaced by the Semi skins; the contrast ratio law lives with the accessibility gate — candidate pairs only here; `Defaults` reads the resolved profile so per-process boot variants are row values, not boot code.
 
 ```csharp signature
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record ThemeFault : Expected {
+    private ThemeFault(string detail, int code) : base(detail, code) { }
+    public sealed record SwapRejected(string Detail)
+        : ThemeFault($"theme/swap: {Detail}", AppUiFaultBand.Theme.Code(0));
+    public sealed record MountRejected(string Detail)
+        : ThemeFault($"theme/mount: {Detail}", AppUiFaultBand.Theme.Code(1));
+}
+
 public sealed record ThemeSwitchReceipt(
     ThemeVariantRow Variant,
     DensityRow Density,
@@ -295,8 +318,11 @@ public sealed record ThemeCell(
             .Map(row => ThemeCatalog.Resolve(row.Concrete(probe), Current.Value.Density, Mix))
             .IfNone(() => Current.Value);
 
-    public IDisposable Track(Func<Action, IDisposable> appearanceChanged, Func<Option<ThemeVariantRow>> probe, CorrelationId correlation, Action<ThemeSwitchReceipt> sink) =>
-        appearanceChanged(() => sink(Swap(ThemeVariantRow.HostMatched, Current.Value.Density, probe, ThemeSwitchReceipt.ProbeTrigger, correlation).Run()));
+    public IDisposable Track(Func<Action, IDisposable> appearanceChanged, Func<Option<ThemeVariantRow>> probe, CorrelationId correlation, Action<Fin<ThemeSwitchReceipt>> observe) =>
+        appearanceChanged(() => observe(
+            Swap(ThemeVariantRow.HostMatched, Current.Value.Density, probe, ThemeSwitchReceipt.ProbeTrigger, correlation)
+                .Run()
+                .MapFail(static error => (Error)new ThemeFault.SwapRejected(error.Message))));
 
     static Seq<string> Changed<T>(FrozenDictionary<string, T> previous, FrozenDictionary<string, T> next) =>
         toSeq(next).Filter(entry => !EqualityComparer<T>.Default.Equals(previous[entry.Key], entry.Value)).Map(static entry => entry.Key);

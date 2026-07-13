@@ -7,6 +7,7 @@ The basemap is the tiled 2D geographic plane beside the Wgpu viewport: one Mapsu
 - [02]-[MAP_SURFACE]: One `MapControl`/`Map`; the layer row family; navigation verbs.
 - [03]-[NTS_OVERLAY]: Bim geospatial features as `GeometryFeature` overlay rows; CRS ingress.
 - [04]-[PICK_AND_SNAPSHOT]: Feature hit-test into the pick state; capture snapshots.
+- [05]-[REDLINE]: Design-review markup over `EditManager`; commit as `EditIntent.Annotation`.
 
 ## [02]-[MAP_SURFACE]
 
@@ -54,13 +55,13 @@ public sealed record BasemapSurface(MapControl Control) {
             flyTo: static (nav, v) => fun(() => nav.FlyTo(v.Center, v.Resolution, v.DurationMs))(),
             rotateTo: static (nav, v) => fun(() => nav.RotateTo(v.Degrees))())));
 
-    static Fin<Map> Mount(Map map, BasemapLayerRow row) =>
-        row switch {
-            BasemapLayerRow.Tile tile => Fin.Succ(fun(() => { map.Layers.Add(tile.Source()); return map; })()),
-            BasemapLayerRow.Overlay overlay => GeoOverlay.Layer(overlay).Map(layer => { map.Layers.Add(layer); return map; }),
-            BasemapLayerRow.Widget widget => Fin.Succ(fun(() => { map.Widgets.Add(widget.Source()); return map; })()),
-            _ => Fin.Fail<Map>(new ChartFault.LayerRejected(row.GetType().Name)),
-        };
+    // Generated total Switch over the closed family — a new BasemapLayerRow case breaks THIS dispatch at
+    // compile time; the runtime-silent `_` arm over the closed family is the deleted form.
+    static Fin<Map> Mount(Map map, BasemapLayerRow row) => row.Switch(
+        state: map,
+        tile: static (m, t) => Fin.Succ(fun(() => { m.Layers.Add(t.Source()); return m; })()),
+        overlay: static (m, o) => GeoOverlay.Layer(o).Map(layer => { m.Layers.Add(layer); return m; }),
+        widget: static (m, w) => Fin.Succ(fun(() => { m.Widgets.Add(w.Source()); return m; })()));
 }
 ```
 
@@ -102,7 +103,7 @@ public static class GeoOverlay {
         row.Feature.SourceCrs.IsNone && row.Feature.Geometry.SRID is 4326
             ? Fin.Succ(fun(() => {
                 NetTopologySuite.Geometries.Geometry mercator = row.Feature.Geometry.Copy();
-                mercator.Apply(new MercatorFilter());
+                mercator.Apply(MercatorFilter.Forward);
                 mercator.SRID = 3857;
                 GeometryFeature feature = new(mercator);
                 feature["id"] = row.FeatureId;
@@ -112,13 +113,18 @@ public static class GeoOverlay {
             : Fin.Fail<GeometryFeature>(new ChartFault.CrsUnresolved(row.FeatureId, row.Feature.Geometry.SRID));
 }
 
-// Coordinate-sequence filter applying SphericalMercator.FromLonLat in place — the ONE AppUi-side reprojection.
-public sealed class MercatorFilter : NetTopologySuite.Geometries.ICoordinateSequenceFilter {
+// ONE parameterized coordinate-sequence filter over the Mapsui projection primitive — Forward lifts
+// WGS-84 into EPSG:3857 at layer build, Inverse returns authored view geometry to WGS-84 at commit;
+// a direction-named sibling filter class is the deleted form.
+public sealed class MercatorFilter(Func<double, double, (double X, double Y)> project) : NetTopologySuite.Geometries.ICoordinateSequenceFilter {
+    public static readonly MercatorFilter Forward = new(static (x, y) => SphericalMercator.FromLonLat(x, y));
+    public static readonly MercatorFilter Inverse = new(static (x, y) => SphericalMercator.ToLonLat(x, y));
+
     public bool Done => false;
     public bool GeometryChanged => true;
 
     public void Filter(NetTopologySuite.Geometries.CoordinateSequence seq, int i) {
-        (double x, double y) = SphericalMercator.FromLonLat(seq.GetX(i), seq.GetY(i));
+        (double x, double y) = project(seq.GetX(i), seq.GetY(i));
         seq.SetX(i, x);
         seq.SetY(i, y);
     }
@@ -139,10 +145,12 @@ public sealed class MercatorFilter : NetTopologySuite.Geometries.ICoordinateSequ
 public readonly record struct BasemapPickReceipt(string FeatureId, double WorldX, double WorldY);
 
 public static class MapPick {
+    // An absent world position projects to absence — a zero-coordinate sentinel receipt is the deleted form.
     public static Option<BasemapPickReceipt> Pick(MapControl control, ScreenPosition screen) =>
         Optional(control.GetMapInfo(screen, control.Map.Layers))
             .Bind(info => Optional(info.Feature)
                 .Bind(feature => Optional(feature["id"] as string)
-                    .Map(id => new BasemapPickReceipt(id, info.WorldPosition?.X ?? 0d, info.WorldPosition?.Y ?? 0d))));
+                    .Bind(id => Optional(info.WorldPosition)
+                        .Map(world => new BasemapPickReceipt(id, world.X, world.Y)))));
 }
 ```

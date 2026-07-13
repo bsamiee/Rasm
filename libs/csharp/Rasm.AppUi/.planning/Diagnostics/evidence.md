@@ -1,10 +1,10 @@
 # [APPUI_DIAGNOSTICS_EVIDENCE]
 
-Rasm.AppUi evidence is one rail: a seven-case `EvidenceReceipt` union folds every sibling receipt stream into the HLC-stamped sink envelope, one correlation join projects per-package envelope streams into causal timelines with typed skew bands, and the `[FAULT_TABLES]` band registry is the single AppUi fault-code authority every fault union's `Code` derives through. The page owns the evidence union with the package wire context, the join fold, the fault-band registry mirroring the federation `FaultBand` form, and the evidence wire contract — composing AppHost ports and the settled sibling receipt records throughout. Capture lanes, headless derivation, the dev loop, and the quality governor are sibling Diagnostics owners (`proof.md`, `devloop.md`, `governor.md`).
+Rasm.AppUi evidence is one rail: a ten-case `EvidenceReceipt` union folds every sibling receipt stream into the HLC-stamped sink envelope, one correlation join projects per-package envelope streams into causal timelines with typed skew bands, and the `[FAULT_TABLES]` band registry is the single AppUi fault-code authority every fault union's `Code` derives through. The page owns the evidence union with the package wire context, the join fold, the fault-band registry mirroring the federation `FaultBand` form, and the evidence wire contract — composing AppHost ports and the settled sibling receipt records throughout. Capture lanes, headless derivation, the dev loop, and the quality governor are sibling Diagnostics owners (`proof.md`, `devloop.md`, `governor.md`).
 
 ## [01]-[INDEX]
 
-- [02]-[RECEIPT_UNION]: Seven-case evidence union sealed through the HLC sink envelope.
+- [02]-[RECEIPT_UNION]: Ten-case evidence union sealed through the HLC sink envelope.
 - [03]-[CORRELATION_JOIN]: Causal timeline join keyed correlation plus HLC with skew bands.
 - [04]-[FAULT_TABLES]: The type-enforced AppUi 6xxx band registry; pinned foreign mirrors.
 - [05]-[TS_PROJECTION]: Evidence and timeline wire shapes for dashboard ingestion.
@@ -12,13 +12,13 @@ Rasm.AppUi evidence is one rail: a seven-case `EvidenceReceipt` union folds ever
 ## [02]-[RECEIPT_UNION]
 
 - Owner: `EvidenceReceipt` — the one `[Union]` evidence vocabulary; `EvidenceOps` — the sibling-receipt projection fold; `AppUiWireContext` — the package wire context.
-- Cases: Surface | Focus | Render | Disposal | Edit | Command | NativeAssetIdentity under the locked kind literals surface, focus, render, disposal, edit, command, native-asset.
-- Entry: `public IO<ReceiptEnvelope> Seal(ReceiptSinkPort sink, CorrelationId correlation, TenantContext tenant, JsonSerializerOptions wire)` — `IO` carries the sink effect; the returned envelope is the emission evidence carrying both cross-process primitives, the ambient `TenantContext` threaded from `TenantContext.Current` at composition; the tenant is consumed as settled AppHost vocabulary and never re-minted here.
-- Auto: composition binds the settled sibling delegates onto case constructors — `ScreenRuntime.Disposed` to Disposal, `VisualRuntime.Sink` to Render through `ToEvidence`, the inspector receipt sink to the Edit flatten, the mount transaction and its fact stream to Surface and Focus, and the native load-identity probe to NativeAssetIdentity — so every existing receipt stream folds into one union with zero new emitters.
+- Cases: Surface | Focus | Render | Disposal | Edit | Command | NativeAssetIdentity | Theme | Motion | Asset under the locked kind literals surface, focus, render, disposal, edit, command, native-asset, theme, motion, asset.
+- Entry: `public IO<ReceiptEnvelope> Seal(ReceiptSinkPort sink, CorrelationId correlation, TenantContext tenant)` — `IO` carries the sink effect; the returned envelope is the emission evidence carrying both cross-process primitives, the ambient `TenantContext` threaded from `TenantContext.Current` at composition; the tenant is consumed as settled AppHost vocabulary and never re-minted here; serialization pins to the generated `AppUiWireContext.Default.EvidenceReceipt` type info, so an off-contract options graph is structurally impossible and the `EvidenceFeed` wire crossing is provably schema-stable against its TS decode side.
+- Auto: composition binds the settled sibling delegates onto case constructors — `ScreenRuntime.Disposed` to Disposal, `VisualRuntime.Sink` to Render through `ToEvidence`, the inspector receipt sink to the Edit flatten, the mount transaction and its fact stream to Surface and Focus, the native load-identity probe to NativeAssetIdentity, and the `ThemeCell` swap, `ReducedMotion` conformance, and `AssetCatalog` preload sinks to the Theme, Motion, and Asset flattens through their `ToEvidence` extensions — so every existing receipt stream folds into one union with zero new emitters.
 - Receipt: the sealed `ReceiptEnvelope` is the emission evidence; its HLC stamp is the only time authority on evidence, so a second stamp field on a case payload is the deleted form; the envelope's `Tenant` field partitions evidence per tenant from the same threaded `TenantContext`, so a per-tenant evidence view derives from the envelope partition rather than a second tenant field on a case payload.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one case row absorbs a new evidence family and one `[JsonSerializable]` row extends the context; zero new surface.
-- Boundary: receipts are process-local and HLC-correlated, never globally shared; a generic receipt or ledger abstraction is the rejected form — the typed union with slot metadata is the absorbing owner; cases nest a sibling receipt when its wire form is settled and flatten to scalars when the sibling shape carries non-wire members — the render flatten absorbs the optional destination and the render-row color-space tag so a wide-gamut baseline keys distinctly on the timeline, and the edit flatten absorbs the literal-free outcome union, and a third parallel evidence shape is the named defect; the kind literal reads from the serialized payload, so a second literal table is the deleted form; `AppUiTelemetry.Contribute(version, instruments)` is the one parameterized telemetry-contribution surface every owner calls with its own instrument-name constants — a hand-rolled per-owner `TelemetryContributorPort` factory is the deleted form, the instrument names stay owned by the contributing page, and the contribution shape stays single.
+- Boundary: receipts are process-local and HLC-correlated, never globally shared; a generic receipt or ledger abstraction is the rejected form — the typed union with slot metadata is the absorbing owner; cases nest a sibling receipt when its wire form is settled and flatten to scalars when the sibling shape carries non-wire members — the render flatten absorbs the optional destination and the render-row color-space tag so a wide-gamut baseline keys distinctly on the timeline, the edit flatten absorbs the literal-free outcome union, the theme flatten carries the variant and density keys plus the changed-key count while the receipt's own `Instant` and `CorrelationId` stay off the case because the envelope owns both, the motion flatten drops the receipt's `Instant` for the same reason, the asset flatten projects the key, kind, and origin scalars with the content hash as the nullable wire column, and a third parallel evidence shape is the named defect; the kind literal reads from the serialized payload, so a second literal table is the deleted form; `AppUiTelemetry.Contribute(version, instruments)` is the one parameterized telemetry-contribution surface every owner calls with its own instrument-name constants — a hand-rolled per-owner `TelemetryContributorPort` factory is the deleted form, the instrument names stay owned by the contributing page, and the contribution shape stays single.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -30,6 +30,9 @@ Rasm.AppUi evidence is one rail: a seven-case `EvidenceReceipt` union folds ever
 [JsonDerivedType(typeof(EvidenceReceipt.Edit), "edit")]
 [JsonDerivedType(typeof(EvidenceReceipt.Command), "command")]
 [JsonDerivedType(typeof(EvidenceReceipt.NativeAssetIdentity), "native-asset")]
+[JsonDerivedType(typeof(EvidenceReceipt.Theme), "theme")]
+[JsonDerivedType(typeof(EvidenceReceipt.Motion), "motion")]
+[JsonDerivedType(typeof(EvidenceReceipt.Asset), "asset")]
 public abstract partial record EvidenceReceipt {
     private EvidenceReceipt() { }
     public sealed record Surface(SurfaceReceipt Receipt) : EvidenceReceipt;
@@ -39,9 +42,12 @@ public abstract partial record EvidenceReceipt {
     public sealed record Edit(string Slot, string Surface, string Target, string Editor, string Outcome) : EvidenceReceipt;
     public sealed record Command(CommandReceipt Receipt) : EvidenceReceipt;
     public sealed record NativeAssetIdentity(NativeAssetFact Fact) : EvidenceReceipt;
+    public sealed record Theme(string Variant, string Density, string Trigger, int ChangedKeys) : EvidenceReceipt;
+    public sealed record Motion(string Token, string Resolved, bool Reduced) : EvidenceReceipt;
+    public sealed record Asset(string Key, string AssetKind, string Origin, double Scale, string? ContentHash) : EvidenceReceipt;
 
-    public IO<ReceiptEnvelope> Seal(ReceiptSinkPort sink, CorrelationId correlation, TenantContext tenant, JsonSerializerOptions wire) =>
-        IO.lift(() => JsonSerializer.SerializeToElement<EvidenceReceipt>(this, wire))
+    public IO<ReceiptEnvelope> Seal(ReceiptSinkPort sink, CorrelationId correlation, TenantContext tenant) =>
+        IO.lift(() => JsonSerializer.SerializeToElement(this, AppUiWireContext.Default.EvidenceReceipt))
             .Bind(payload => sink.Send(
                 correlation, tenant, "Rasm.AppUi", payload.GetProperty("kind").GetString() ?? string.Empty, payload));
 }
@@ -62,6 +68,20 @@ public static class EvidenceOps {
                 reverted: static _ => "reverted",
                 rejected: static _ => "rejected",
                 hostRouted: static _ => "host-routed"));
+    }
+
+    extension(ThemeSwitchReceipt receipt) {
+        public EvidenceReceipt ToEvidence() => new EvidenceReceipt.Theme(
+            receipt.Variant.Key, receipt.Density.Key, receipt.Trigger, receipt.ChangedKeys.Count);
+    }
+
+    extension(MotionReceipt receipt) {
+        public EvidenceReceipt ToEvidence() => new EvidenceReceipt.Motion(receipt.Token, receipt.Resolved, receipt.Reduced);
+    }
+
+    extension(AssetReceipt receipt) {
+        public EvidenceReceipt ToEvidence() => new EvidenceReceipt.Asset(
+            receipt.Key.ToString(), receipt.Kind.Key, receipt.Origin, receipt.Scale, receipt.ContentHash.Case as string);
     }
 }
 
@@ -184,6 +204,8 @@ public sealed partial class AppUiFaultBand {
     // --- [THEME_66XX]
     public static readonly AppUiFaultBand Asset        = new(6600, "AssetFault",       "Theme/assets");
     public static readonly AppUiFaultBand Locale       = new(6610, "LocaleFault",      "Theme/locale");
+    public static readonly AppUiFaultBand Theme        = new(6620, "ThemeFault",       "Theme/tokens");
+    public static readonly AppUiFaultBand Motion       = new(6630, "MotionFault",      "Theme/motion");
     // --- [DIAGNOSTICS_67XX]
     public static readonly AppUiFaultBand Proof        = new(6700, "ProofFault",       "Diagnostics/proof");
 
@@ -226,7 +248,10 @@ type EvidenceReceiptWire =
   | { readonly kind: "disposal"; readonly screenId: string; readonly active: string; readonly disposables: number }
   | { readonly kind: "edit"; readonly slot: string; readonly surface: string; readonly target: string; readonly editor: string; readonly outcome: string }
   | { readonly kind: "command"; readonly receipt: CommandReceiptWire }
-  | { readonly kind: "native-asset"; readonly fact: NativeAssetFactWire };
+  | { readonly kind: "native-asset"; readonly fact: NativeAssetFactWire }
+  | { readonly kind: "theme"; readonly variant: string; readonly density: string; readonly trigger: string; readonly changedKeys: number }
+  | { readonly kind: "motion"; readonly token: string; readonly resolved: string; readonly reduced: boolean }
+  | { readonly kind: "asset"; readonly key: string; readonly assetKind: string; readonly origin: string; readonly scale: number; readonly contentHash: string | null };
 
 interface SurfaceReceiptWire {
   readonly host: string;

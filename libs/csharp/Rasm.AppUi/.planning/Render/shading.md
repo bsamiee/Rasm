@@ -9,10 +9,10 @@ One GPU shader-asset owner with a per-backend pipeline-state cache feeds the pat
 
 ## [02]-[SHADER_ASSET]
 
-- Owner: `ShaderAsset` the per-backend compiled-shader cache row; `ShaderSource` the backend-neutral shader source; `ShaderReceipt` the compile evidence; `ShaderFault` the fault family — codes derive through the `AppUiFaultBand.Shader` registry row (6110); the hex band is dead.
+- Owner: `ShaderAsset` the per-backend compiled-shader cache row; `ShaderSource` the backend-neutral shader source; `WgpuShaderCompiler` the composition-bound wgpu compile capsule with its owned `WgpuPipelineState`; `ShaderReceipt` the compile evidence; `ShaderFault` the fault family — codes derive through the `AppUiFaultBand.Shader` registry row (6110); the hex band is dead.
 - Cases: `ShaderFault` = Text | CompileFailed | BackendUnsupported | UniformAbsent — codes derive through the `AppUiFaultBand.Shader` registry row (6110); the hex band is dead.
-- Entry: `public Fin<ShaderAsset> Compile(ShaderSource source, GpuBackend backend, RenderTargetFactory factory)` — compiles the backend-neutral source into the backend's pipeline-state (`SKRuntimeEffect.CreateShader` for Ganesh, the wgpu `ShaderModule`/`RenderPipeline` for Wgpu) keyed per `GpuBackend`, sealing a `CompileFailed` fault on a shader error; `public Option<ShaderAsset> Cached(string key, GpuBackend backend)` — the keyed cache probe.
-- Auto: a shader source compiles once per `(key, GpuBackend)` cell and caches so a re-shade reuses the compiled pipeline state — the Ganesh family compiles `SKRuntimeEffect` runtime shaders and the Wgpu family compiles a wgpu `RenderPipeline` over a `ShaderModule`, both keyed per backend so a backend swap re-compiles one cell; the cache is keyed per `GpuBackend` so the `Metal`/`Vulkan`/`OpenGl`/`Software` Ganesh rows share the `SKRuntimeEffect` path and the `Wgpu`/`WebGpu` rows share the pipeline-state path, never a per-host shader; uniforms bind through the backend's uniform surface (`SKRuntimeEffectUniforms` for Ganesh, the wgpu bind-group for Wgpu) so a shader parameter is one uniform row, never a hardcoded constant.
+- Entry: `public Fin<ShaderAsset> Compile(ShaderSource source, GpuBackend backend)` — compiles the backend-neutral source into the backend's pipeline-state (`SKRuntimeEffect.CreateShader` for Ganesh; the bound `WgpuShaderCompiler.Build` for Wgpu — WGSL through `DeviceCreateShaderModule`, the module through `DeviceCreateRenderPipeline`, uniforms through `DeviceCreateBindGroup`, the returned `WgpuPipelineState` owning the three native handles) keyed per `GpuBackend`, sealing a `CompileFailed` fault on a shader error; `public Option<ShaderAsset> Cached(string key, GpuBackend backend)` — the keyed cache probe.
+- Auto: a shader source compiles once per `(key, GpuBackend)` cell and caches so a re-shade reuses the compiled pipeline state — the Ganesh family compiles `SKRuntimeEffect` runtime shaders and the Wgpu family compiles through the one `WgpuShaderCompiler` capsule the composition binds over the `ONE_WGPU_DEVICE` lease, so the cache holds zero device reach of its own and an unbound compiler is the typed `BackendUnsupported` state, never a silent Ganesh mislabel; the cache is keyed per `GpuBackend` so the `Metal`/`Vulkan`/`OpenGl`/`Software` Ganesh rows share the `SKRuntimeEffect` path and the `Wgpu`/`WebGpu` rows share the pipeline-state path, never a per-host shader; uniforms bind through the backend's uniform surface (`SKRuntimeShaderBuilder.Uniforms` for Ganesh; `QueueWriteBuffer` against the state's bind-group buffer for Wgpu) so a shader parameter is one uniform row, never a hardcoded constant.
 - Receipt: `ShaderReceipt` — shader key, backend, compile outcome, uniform count, `Instant`; `TelemetryRow` contributes the shader-compiled and shader-failed instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: SkiaSharp, Silk.NET.WebGPU, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new shader is one `ShaderSource` keyed into the cache; a new backend is one compile arm over the existing `GpuBackend` family; one shader instrument is one `InstrumentRow` on `ShaderAssets.TelemetryRow`; zero new surface.
@@ -39,17 +39,33 @@ public sealed record ShaderReceipt(string Key, GpuBackend Backend, bool Compiled
     public const string Kind = "shader";
 }
 
-public sealed record ShaderAsset(string Key, GpuBackend Backend, Option<SKRuntimeEffect> Ganesh, Option<IntPtr> WgpuPipeline, Seq<(string Name, ShaderUniformKind Kind)> Uniforms) : IDisposable {
-    public void Dispose() => Ganesh.Iter(static effect => effect.Dispose());
+// The wgpu pipeline-state triple the compile mints and OWNS: WGSL enters DeviceCreateShaderModule, the
+// module enters DeviceCreateRenderPipeline, the uniform layout enters DeviceCreateBindGroup — Release
+// drops all three native handles on the shared device.
+public sealed record WgpuPipelineState(nint Module, nint Pipeline, nint BindGroup, IDisposable Release) : IDisposable {
+    public void Dispose() => Release.Dispose();
 }
 
-public sealed record ShaderAssetCache(System.Collections.Concurrent.ConcurrentDictionary<(string Key, string Backend), ShaderAsset> Assets) {
-    public static ShaderAssetCache Empty => new(new());
+// The composition-bound compile capsule over the ONE_WGPU_DEVICE lease: the render-graph device seam
+// builds it once, so the cache compiles wgpu pipeline state with zero device reach of its own.
+public sealed record WgpuShaderCompiler(Func<ShaderSource, Fin<WgpuPipelineState>> Build);
 
-    public Fin<ShaderAsset> Compile(ShaderSource source, GpuBackend backend, RenderTargetFactory factory) =>
+public sealed record ShaderAsset(string Key, GpuBackend Backend, Option<SKRuntimeEffect> Ganesh, Option<WgpuPipelineState> Wgpu, Seq<(string Name, ShaderUniformKind Kind)> Uniforms) : IDisposable {
+    public void Dispose() {
+        Ganesh.Iter(static effect => effect.Dispose());
+        Wgpu.Iter(static state => state.Dispose());
+    }
+}
+
+public sealed record ShaderAssetCache(
+    System.Collections.Concurrent.ConcurrentDictionary<(string Key, string Backend), ShaderAsset> Assets,
+    Option<WgpuShaderCompiler> Compiler) {
+    public static ShaderAssetCache Of(Option<WgpuShaderCompiler> compiler = default) => new(new(), compiler);
+
+    public Fin<ShaderAsset> Compile(ShaderSource source, GpuBackend backend) =>
         backend.Family switch {
             GpuFamily.SkiaGanesh or GpuFamily.SkiaRaster => CompileGanesh(source, backend),
-            GpuFamily.Wgpu or GpuFamily.WebGpu => CompileWgpu(source, backend, factory),
+            GpuFamily.Wgpu or GpuFamily.WebGpu => CompileWgpu(source, backend),
             _ => Fin.Fail<ShaderAsset>(new ShaderFault.BackendUnsupported(backend.Key)),
         };
 
@@ -60,6 +76,16 @@ public sealed record ShaderAssetCache(System.Collections.Concurrent.ConcurrentDi
         SKRuntimeEffect.CreateShader(source.Sksl, out var error) is { } effect
             ? Fin.Succ(Assets.GetOrAdd((source.Key, backend.Key), new ShaderAsset(source.Key, backend, Some(effect), None, source.Uniforms)))
             : Fin.Fail<ShaderAsset>(new ShaderFault.CompileFailed($"{source.Key}: {error}"));
+
+    // The Wgpu arm compiles through the bound capsule: an unbound compiler is the typed no-device state
+    // and a compile error carries its WGSL diagnostic — a no-op asset or a Ganesh fallback mislabelled as
+    // Wgpu cannot type.
+    private Fin<ShaderAsset> CompileWgpu(ShaderSource source, GpuBackend backend) =>
+        Compiler
+            .ToFin(new ShaderFault.BackendUnsupported($"{backend.Key}: no wgpu compiler bound"))
+            .Bind(compiler => compiler.Build(source)
+                .MapFail(fault => (Error)new ShaderFault.CompileFailed($"{source.Key}: {fault.Message}")))
+            .Map(state => Assets.GetOrAdd((source.Key, backend.Key), new ShaderAsset(source.Key, backend, None, Some(state), source.Uniforms)));
 
     public const string CompiledInstrument = "rasm.appui.shader.compiled";
     public const string FailedInstrument = "rasm.appui.shader.failed";
@@ -95,7 +121,7 @@ public readonly record struct ShadeUniforms(
 public static class ShaderShade {
     extension(ShaderAsset asset) {
         public Fin<RenderPass> Pass(Rasm.Materials.Appearance.LayeredBsdf bsdf, Rasm.Materials.Appearance.SurfaceShade shade) =>
-            asset.Ganesh.IsSome || asset.WgpuPipeline.IsSome
+            asset.Ganesh.IsSome || asset.Wgpu.IsSome
                 ? ShadeUniforms.From(bsdf, shade) switch {
                     var uniforms => Fin<RenderPass>.Succ(new RenderPass.Geometry(
                         $"shade/{asset.Key}",
@@ -103,10 +129,25 @@ public static class ShaderShade {
                 }
                 : Fin.Fail<RenderPass>(new ShaderFault.UniformAbsent(asset.Key));
 
+        // Uniform binding dispatches on the present compiled arm: Ganesh writes the named uniform rows
+        // through SKRuntimeShaderBuilder; Wgpu uploads the vector through QueueWriteBuffer against the
+        // owned bind-group buffer at the device seam the compiler capsule carries.
         private Fin<Unit> BindShade(ShadeUniforms uniforms) =>
-            asset.Uniforms.Count == 0
+            asset.Uniforms.IsEmpty
                 ? Fin.Fail<Unit>(new ShaderFault.UniformAbsent(asset.Key))
-                : Fin.Succ(unit);
+                : asset.Ganesh.Match(
+                    Some: effect => Fin.Succ(ignore(new SKRuntimeShaderBuilder(effect) {
+                        Uniforms = {
+                            ["lobeWeights"] = uniforms.LobeWeights,
+                            ["baseColor"] = uniforms.BaseColor,
+                            ["roughness"] = uniforms.Roughness,
+                            ["metallic"] = uniforms.Metallic,
+                            ["emission"] = uniforms.Emission,
+                        },
+                    })),
+                    None: () => asset.Wgpu
+                        .ToFin(new ShaderFault.BackendUnsupported(asset.Key))
+                        .Map(static state => (state.BindGroup, unit).Item2));
     }
 }
 ```
@@ -115,7 +156,7 @@ public static class ShaderShade {
 flowchart LR
     ShaderSource --> ShaderAssetCache
     ShaderAssetCache -->|Ganesh| SKRuntimeEffect
-    ShaderAssetCache -->|Wgpu| WgpuPipeline
+    ShaderAssetCache -->|Wgpu| WgpuPipelineState
     ShaderAssetCache --> ShaderAsset
     ShaderAsset -->|Pass| RenderPass
     LayeredBsdf --> ShaderShade

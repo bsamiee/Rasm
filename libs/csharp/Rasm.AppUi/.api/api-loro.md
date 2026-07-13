@@ -184,7 +184,7 @@
 |  [04]   | `SubscribePreCommit(PreCommitCallback)`     | pre-commit         |
 |  [05]   | `SubscribeFirstCommitFromPeer(...)`         | new peer commit    |
 
-`SubscribeLocalUpdate` emits the bytes broadcast to peers, while every other callback receives its typed event.
+`SubscribeLocalUpdate` emits the bytes broadcast to peers, while every other callback receives its typed event. Every container also carries its own `Subscription? Subscribe(Subscriber)` — a per-container diff feed equivalent to `Subscribe(container.Id(), subscriber)` on the document, null when the container is detached.
 
 [CONTAINER_OPS]: the per-kind editing surface (the dense vocabularies the editing rail composes)
 - rail: collaboration

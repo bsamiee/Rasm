@@ -1,6 +1,6 @@
 # [APPUI_CHARTS_DASHBOARDS]
 
-One LiveCharts rail carries every Rasm.AppUi visualization: `ChartSeriesSpec` is the fifteen-row series axis dispatching onto four `ChartCanvas` rows with a live `GeoOverlay` land-swap fold, `ChartAxisKind` owns the five scale rows, one `ChartPolicy` record owns interaction and styling keys, `ChartStream` rows bind `DataSource` feeds through window and downsampling folds with a persisted `BoardState` board snapshot, and `DashboardTile` composes boards with a `CrossFilter` linked-brushing fold persisted as versioned blobs. The package spine is LiveCharts on the admitted Skia stack over DynamicData change-sets; paints, motion, and label roles arrive as token keys resolved at mount; capture and export are consumed rails. Benchmark and activity-timeline dashboards are named layout rows over the analytical and receipt feeds.
+One LiveCharts rail carries every Rasm.AppUi visualization: `ChartSeriesSpec` is the fifteen-row series axis dispatching onto four `ChartCanvas` rows with a live `GeoLandFold` land-swap fold, `ChartAxisKind` owns the five scale rows, one `ChartPolicy` record owns interaction and styling keys, `ChartStream` rows bind `DataSource` feeds through window and downsampling folds with a persisted `BoardState` board snapshot, and `DashboardTile` composes boards with a `CrossFilter` linked-brushing fold persisted as versioned blobs. The package spine is LiveCharts on the admitted Skia stack over DynamicData change-sets; paints, motion, and label roles arrive as token keys resolved at mount; capture and export are consumed rails. Benchmark and activity-timeline dashboards are named layout rows over the analytical and receipt feeds.
 
 ## [01]-[INDEX]
 
@@ -22,7 +22,7 @@ One LiveCharts rail carries every Rasm.AppUi visualization: `ChartSeriesSpec` is
   - The geo row carries an absent series delegate and a `GeoAssetKey` resolved by key through the asset rank fold — chart code never opens files, the decoded asset feeds the `GeoMap` control through `SourceGenMapChart`, and the heat-land geometry projects off the canonical Compute `GeometryPayload` proto oneof through the settled wire boundary, never a second geometry minted here — the geo canvas binds the projected GeoJSON layer through the verified `SourceGenMapChart` members — `ActiveMap` (`DrawnMap`), `MapProjection` (`Default` or `Mercator`), `Series`, and `Stroke`/`Fill` resolved from token paints — and the heat-series binding carries one land set keyed by GeoJSON feature name whose heat ramp is the token-paint ramp.
   - The heat-land series constructor, the land-record shape on the series, the layer-load entrypoint, and the find-land-by-feature-name lookup on `DrawnMap` are the unverified `LiveChartsCore.SkiaSharpView` geo-series surface the GEO_PAYLOAD research item owns, so the boundary projects through the settled `GeoLand` record and never transcribes a heat-series member as fact.
   - A sync-fed live geometry feed updates the land set in place from the existing `ChartStream` `IChangeSet` deltas over the geo `DataSource.PersistenceQuery` lane through the one DynamicData `MergeMany`/`Connect()` spine so an overlay refresh is an incremental land swap, never a full re-render, and the spatial diff feeding the deltas is Persistence-owned.
-  - The `GeoOverlay` fold owns this binding — it consumes the `IChangeSet<GeoLand, string>` the geo `DataSource.PersistenceQuery` lane already emits, where each change-set delta carries one changed land keyed by GeoJSON feature name, and folds the change reasons onto the live land set inside the chart `SyncContext` lock through the composition-supplied `swap` delegate so an added feature appends a land, a moved or re-valued feature swaps the matching land by feature name and re-assigns its heat through the token-paint ramp, and a removed feature drops the land — the same incremental-swap law the multi-series feeds compose, never a full layer re-load per delta, with the `swap` delegate binding the unverified heat-series mutation at composition under the GEO_OVERLAY_DELTAS research item rather than a transcribed member.
+  - The `GeoLandFold` fold owns this binding — it consumes the `IChangeSet<GeoLand, string>` the geo `DataSource.PersistenceQuery` lane already emits, where each change-set delta carries one changed land keyed by GeoJSON feature name, and folds the change reasons onto the live land set inside the chart `SyncContext` lock through the composition-supplied `swap` delegate so an added feature appends a land, a moved or re-valued feature swaps the matching land by feature name and re-assigns its heat through the token-paint ramp, and a removed feature drops the land — the same incremental-swap law the multi-series feeds compose, never a full layer re-load per delta, with the `swap` delegate binding the unverified heat-series mutation at composition under the GEO_OVERLAY_DELTAS research item rather than a transcribed member.
   - The change-set is the Persistence `SpatialDiff` change-detection fold projected to land records — the diff algebra (changed-region detection over two geometry versions) is Persistence-owned at `Query/lanes#GEO_LANES` and AppUi consumes the resulting `IChangeSet`, never re-computes the diff.
   - The overlay contributes a `geo.overlay.swap` span and a `geo.overlay.lands` count through `TelemetryContributorPort` so a live overlay refresh attributes through the one meter without a second meter, and the proto-to-land projection rides the settled GEO_PAYLOAD wire boundary.
   - The projection from the Compute `GeometryPayload` proto oneof to the land records is the cross-package wire boundary resolved under the GEO_PAYLOAD research item, and the proto-to-GeoJSON codec arity stays Persistence-side.
@@ -82,7 +82,9 @@ public sealed partial class ChartSeriesSpec {
 ```csharp signature
 public sealed record GeoLand(string Name, double Value);
 
-public static class GeoOverlay {
+// GeoLandFold — the chart-projection land-swap fold; `GeoOverlay` is the basemap page's NTS owner and
+// the name stays its, so the two Charts-namespace owners never collide.
+public static class GeoLandFold {
     public static IDisposable Bind<TSeries>(
         TSeries series,
         IObservable<IChangeSet<GeoLand, string>> diff,
@@ -124,7 +126,7 @@ public readonly record struct ChartSection(double From, double To, string PaintK
 - Cases: `ChartAnchor` rows hidden, top, bottom, left, right, auto — one anchor vocabulary shared by the tooltip and legend columns.
 - Packages: PanAndZoom, LiveChartsCore.SkiaSharpView.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new interaction posture is one `ChartPolicy` value row; a new overlay verb is one CommandIntent table row the chart raises by key; zero new surface.
-- Boundary: `ZoomX`/`ZoomY` compose into the chart `ZoomMode` value of the `ZoomAndPanMode` flags and the anchors map onto the `TooltipPosition` and `LegendPosition` enums at the bind edge; `VisualElements` overlays route `VisualElementsPointerDown` through the `PointerIntent` field's CommandIntent table key, never a local handler, and `DrawMarginFrame` resolves its stroke and fill from the `GridRole` token key so the plot rectangle aligns across paired dashboard tiles; `AnimationsSpeed` (`TimeSpan`) and the `EasingFunction` delegate derive from the `MotionKey` motion row, and a second animation vocabulary is the deleted pattern; the dashboard canvas is one `ZoomBorder` — gestures ride `EnableGestures`, fit is `AutoFit`, focus is `ZoomToRectangle`, traversal is `NavigateBack`/`NavigateForward`, view history clears through `ClearViewHistory`, named viewports save and restore through `SaveView`/`RestoreView`, and `ZoomBorderState` round-trips through `ImportState` into `DashboardLayout.CanvasState`; `MotionKey`, `LabelRole`, `GridRole`, and `PaintFamily` values are row keys in the motion, typography, and token vocabularies resolved at mount; tooltip and legend text render through `TooltipTextPaint` and `LegendTextPaint` resolved from the `LabelRole` typography key.
+- Boundary: `Nav` is the one navigation posture — its `Mode` column carries the composed `ZoomAndPanMode` the bind edge assigns to the chart `ZoomMode` verbatim, so parallel zoom booleans and bind-edge flag reconstruction are the deleted forms, and a new posture is one `ChartNav` row; the anchors map onto the `TooltipPosition` and `LegendPosition` enums at the bind edge; `VisualElements` overlays route `VisualElementsPointerDown` through the `PointerIntent` field's CommandIntent table key, never a local handler, and `DrawMarginFrame` resolves its stroke and fill from the `GridRole` token key so the plot rectangle aligns across paired dashboard tiles; `AnimationsSpeed` (`TimeSpan`) and the `EasingFunction` delegate derive from the `MotionKey` motion row, and a second animation vocabulary is the deleted pattern; the dashboard canvas is one `ZoomBorder` — gestures ride `EnableGestures`, fit is `AutoFit`, focus is `ZoomToRectangle`, traversal is `NavigateBack`/`NavigateForward`, view history clears through `ClearViewHistory`, named viewports save and restore through `SaveView`/`RestoreView`, and `ZoomBorderState` round-trips through `ImportState` into `DashboardLayout.CanvasState`; `MotionKey`, `LabelRole`, `GridRole`, and `PaintFamily` values are row keys in the motion, typography, and token vocabularies resolved at mount; tooltip and legend text render through `TooltipTextPaint` and `LegendTextPaint` resolved from the `LabelRole` typography key.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -139,12 +141,25 @@ public sealed partial class ChartAnchor {
     public static readonly ChartAnchor Auto = new("auto");
 }
 
+// The navigation posture IS the policy value — each row carries the composed ZoomAndPanMode it assigns
+// to the chart ZoomMode at the bind edge, so no bind edge reconstructs behavior from flag combinations.
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ChartNav {
+    public static readonly ChartNav Fixed = new("fixed", ZoomAndPanMode.None);
+    public static readonly ChartNav TimeScroll = new("time-scroll", ZoomAndPanMode.X);
+    public static readonly ChartNav ValueScroll = new("value-scroll", ZoomAndPanMode.Y);
+    public static readonly ChartNav Free = new("free", ZoomAndPanMode.Both);
+
+    public ZoomAndPanMode Mode { get; }
+}
+
 public sealed record ChartPolicy(
     ChartAxisKind XAxis,
     ChartAxisKind YAxis,
     Seq<ChartSection> Sections,
-    bool ZoomX,
-    bool ZoomY,
+    ChartNav Nav,
     ChartAnchor Tooltip,
     ChartAnchor Legend,
     Option<string> ScaleGroup,
@@ -157,8 +172,7 @@ public sealed record ChartPolicy(
         XAxis: ChartAxisKind.Instant,
         YAxis: ChartAxisKind.Numeric,
         Sections: default,
-        ZoomX: true,
-        ZoomY: false,
+        Nav: ChartNav.TimeScroll,
         Tooltip: ChartAnchor.Auto,
         Legend: ChartAnchor.Hidden,
         ScaleGroup: None,
@@ -339,7 +353,7 @@ public sealed record FilterState(
     HashMap<string, Set<string>> Dimensions,
     Option<PolygonBrush> Region,
     Option<string> Source) {
-    public static readonly FilterState Empty = new(None, None, Empty, Empty, None, None);
+    public static readonly FilterState Empty = new(None, None, Set<string>(), HashMap<string, Set<string>>(), None, None);
 
     public bool Admits(Instant at, Set<string> rowTags) =>
         From.Map(lo => at >= lo).IfNone(true)
@@ -461,19 +475,19 @@ public sealed class CrossFilter {
         string tile,
         Func<TRow, Instant> at,
         Func<TRow, Set<string>> rowTags,
-        Func<TRow, string, Option<string>> dimension = null,
-        Func<TRow, (double X, double Y)> point = null) =>
+        Func<TRow, string, Option<string>>? dimension = null,
+        Func<TRow, (double X, double Y)>? point = null) =>
         state.Select(filter => (Func<TRow, bool>)(row =>
             filter.Source == Some(tile)
                 || (filter.Admits(at(row), rowTags(row))
                     && DimensionsAdmit(filter, row, dimension)
                     && RegionAdmits(filter, row, point))));
 
-    private static bool DimensionsAdmit<TRow>(FilterState filter, TRow row, Func<TRow, string, Option<string>> dimension) =>
+    private static bool DimensionsAdmit<TRow>(FilterState filter, TRow row, Func<TRow, string, Option<string>>? dimension) =>
         dimension is null || filter.Dimensions.ForAll(entry =>
             dimension(row, entry.Key).Match(Some: value => entry.Value.IsEmpty || entry.Value.Contains(value), None: () => true));
 
-    private static bool RegionAdmits<TRow>(FilterState filter, TRow row, Func<TRow, (double X, double Y)> point) =>
+    private static bool RegionAdmits<TRow>(FilterState filter, TRow row, Func<TRow, (double X, double Y)>? point) =>
         point is null || filter.Region.Match(Some: brush => point(row) is var p && brush.Contains(p.X, p.Y), None: () => true);
 
     public IObservable<IChangeSet<TRow, TKey>> Apply<TRow, TKey>(
@@ -481,8 +495,8 @@ public sealed class CrossFilter {
         IObservable<IChangeSet<TRow, TKey>> source,
         Func<TRow, Instant> at,
         Func<TRow, Set<string>> rowTags,
-        Func<TRow, string, Option<string>> dimension = null,
-        Func<TRow, (double X, double Y)> point = null) where TKey : notnull =>
+        Func<TRow, string, Option<string>>? dimension = null,
+        Func<TRow, (double X, double Y)>? point = null) where TKey : notnull =>
         source.Filter(Predicate(tile, at, rowTags, dimension, point));
 }
 ```
@@ -496,5 +510,5 @@ public sealed class CrossFilter {
 ## [07]-[RESEARCH]
 
 - [GEO_CHARTER_SPLIT]: RESOLVED — LiveCharts `GeoMap`/`DrawnMap` here is the CHART-projection row (choropleth/heat-land over chart geometry); the TILED basemap with NTS overlays is `Charts/basemap.md`'s Mapsui owner (`[V8]`b), disjoint charters stated on both pages; a dashboard tile embedding a slippy map mounts the basemap surface as its tile body.
-- [GEO_PAYLOAD]: the projection from the canonical Compute `GeometryPayload` proto oneof into the `GeoMap` land records is the cross-package wire boundary the geo row never re-mints; the `.api` catalogue verifies the `SourceGenMapChart` binding members `ActiveMap` (`DrawnMap`), `MapProjection`, `Series`, `Stroke`, and `Fill` that carry the projected land geometry and token paints, and the `GeoLand` record plus the `IChangeSet<GeoLand, string>` projection are settled; the heat-land series constructor, the land-record shape the series carries, the heat-ramp and gradient-stop members, the layer-load entrypoint, and the find-land-by-feature-name lookup on `DrawnMap` are the unverified `LiveChartsCore.SkiaSharpView` geo-series surface resolved at implementation against the decompiled core assembly and the settled Compute wire contract — the surface binds through the `GeoOverlay.Bind` `swap` delegate at composition rather than a transcribed member.
-- [GEO_OVERLAY_DELTAS]: the `swap` delegate `GeoOverlay.Bind` invokes folds the verified DynamicData `Change<GeoLand, string>` into the unverified heat-series mutation — the `Change` accessor spellings (`Reason` over `ChangeReason`, `Current`, `Key`), the `ChangeReason` add/update/remove case spellings the swap dispatches, and the heat-series land-collection mutability that the in-place swap re-assigns resolve at implementation against the decompiled DynamicData and LiveChartsCore.SkiaSharpView surfaces; the in-place swap law keyed by GeoJSON feature name, the `GeoLand` record, the `IChangeSet<GeoLand, string>` enumerable contract, and the `GeoOverlay.Bind` change-set fold are settled, the `Change` accessor and heat-series mutation spellings inside the `swap` delegate are the unverified surface bound at composition.
+- [GEO_PAYLOAD]: the projection from the canonical Compute `GeometryPayload` proto oneof into the `GeoMap` land records is the cross-package wire boundary the geo row never re-mints; the `.api` catalogue verifies the `SourceGenMapChart` binding members `ActiveMap` (`DrawnMap`), `MapProjection`, `Series`, `Stroke`, and `Fill` that carry the projected land geometry and token paints, and the `GeoLand` record plus the `IChangeSet<GeoLand, string>` projection are settled; the heat-land series constructor, the land-record shape the series carries, the heat-ramp and gradient-stop members, the layer-load entrypoint, and the find-land-by-feature-name lookup on `DrawnMap` are the unverified `LiveChartsCore.SkiaSharpView` geo-series surface resolved at implementation against the decompiled core assembly and the settled Compute wire contract — the surface binds through the `GeoLandFold.Bind` `swap` delegate at composition rather than a transcribed member.
+- [GEO_OVERLAY_DELTAS]: the `swap` delegate `GeoLandFold.Bind` invokes folds the verified DynamicData `Change<GeoLand, string>` into the unverified heat-series mutation — the `Change` accessor spellings (`Reason` over `ChangeReason`, `Current`, `Key`), the `ChangeReason` add/update/remove case spellings the swap dispatches, and the heat-series land-collection mutability that the in-place swap re-assigns resolve at implementation against the decompiled DynamicData and LiveChartsCore.SkiaSharpView surfaces; the in-place swap law keyed by GeoJSON feature name, the `GeoLand` record, the `IChangeSet<GeoLand, string>` enumerable contract, and the `GeoLandFold.Bind` change-set fold are settled, the `Change` accessor and heat-series mutation spellings inside the `swap` delegate are the unverified surface bound at composition.

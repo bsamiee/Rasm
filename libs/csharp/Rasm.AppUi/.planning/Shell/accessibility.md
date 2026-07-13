@@ -125,40 +125,49 @@ public static class FocusOps {
 
 ## [04]-[CONTRAST_GATE]
 
-- Owner: `ContrastGate` static surface; `ContrastReceipt` receipt record.
-- Cases: floor rows — body-text, large-text, non-text, high-contrast — plus the one luminance-offset value.
-- Entry: `public static ContrastReceipt Measure(string pairKey, string variant, Color foreground, Color background, double floor)` — one ratio assertion per candidate pair.
-- Auto: token resolve and every variant swap emit candidate pairs through `Measure`; the high-contrast variant gates at the elevated floor row; receipts join the evidence stream.
-- Receipt: `ContrastReceipt` per candidate pair, keyed pair key plus variant.
-- Packages: Wacton.Unicolour, Avalonia, BCL inbox
-- Growth: one floor row per pair class; zero new surface.
-- Boundary: the one luminance implementation suite-wide rides the Unicolour color kernel (`Theme/tokens.md` seals Unicolour as the suite colour owner — it owns the sRGB-to-luminance transform beside OKLab mix and colormap sampling), so a second ratio computation anywhere is the deleted pattern and the Avalonia `ColorHelper.GetRelativeLuminance` call is the DELETED form (`[V10]`); theme tokens emit pairs and consume receipts, never ratios.
+- Owner: `ContrastFloor` `[SmartEnum<string>]` the admitted floor vocabulary; `ContrastGate` static surface; `ContrastReceipt` receipt record.
+- Cases: `ContrastFloor` = BodyText 4.5 | LargeText 3.0 | NonText 3.0 | HighContrast 7.0 — the four floor rows; no fifth threshold source exists.
+- Entry: `public static ContrastReceipt Measure(string pairKey, string variant, Color foreground, Color background, ContrastFloor floor)` — one ratio assertion per candidate pair; the floor arrives as a vocabulary row, so a caller-selected scalar (`0d`, a mismatched pair label, a non-policy threshold) is unrepresentable and every receipt names the admitted policy it was gated by.
+- Auto: token resolve and every variant swap emit candidate pairs through `Measure`, each pair class resolving its `ContrastFloor` row from the frozen token vocabulary; the high-contrast variant gates every pair at `ContrastFloor.HighContrast`; receipts join the evidence stream.
+- Receipt: `ContrastReceipt` per candidate pair, keyed pair key plus variant, carrying the floor row key and its value so the compliance sweep distinguishes a violated declared floor from a malformed or absent policy selection.
+- Packages: Wacton.Unicolour, Avalonia, Thinktecture.Runtime.Extensions, BCL inbox
+- Growth: one `ContrastFloor` row per pair class; zero new surface.
+- Boundary: the one WCAG implementation suite-wide rides the Unicolour color kernel (`Theme/tokens.md` seals Unicolour as the suite colour owner) — `Ratio` is one `Unicolour.Contrast(other)` call, the package's own WCAG ratio over its `RelativeLuminance` transform including the 0.05 offset terms, so a hand-folded luminance pair and the Avalonia `ColorHelper.GetRelativeLuminance` call are the DELETED forms (`[V10]`); theme tokens emit pairs and consume receipts, never ratios.
 
 ```csharp signature
-public readonly record struct ContrastReceipt(string PairKey, string Variant, double Ratio, double Floor, bool Pass);
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class ContrastFloor {
+    public static readonly ContrastFloor BodyText = new("body-text", floor: 4.5);
+    public static readonly ContrastFloor LargeText = new("large-text", floor: 3.0);
+    public static readonly ContrastFloor NonText = new("non-text", floor: 3.0);
+    public static readonly ContrastFloor HighContrast = new("high-contrast", floor: 7.0);
+
+    public double Floor { get; }
+}
+
+public readonly record struct ContrastReceipt(string PairKey, string Variant, double Ratio, ContrastFloor Floor, bool Pass);
 
 public static class ContrastGate {
-    // WCAG relative luminance through the Unicolour kernel — one color-science owner suite-wide.
-    public static double Ratio(Color foreground, Color background) {
-        var first = new Unicolour(ColourSpace.Rgb255, foreground.R, foreground.G, foreground.B).RelativeLuminance;
-        var second = new Unicolour(ColourSpace.Rgb255, background.R, background.G, background.B).RelativeLuminance;
-        return (Math.Max(first, second) + 0.05) / (Math.Min(first, second) + 0.05);
-    }
+    // WCAG ratio through the Unicolour kernel's own Contrast member — one color-science owner suite-wide.
+    public static double Ratio(Color foreground, Color background) =>
+        new Unicolour(ColourSpace.Rgb255, foreground.R, foreground.G, foreground.B)
+            .Contrast(new Unicolour(ColourSpace.Rgb255, background.R, background.G, background.B));
 
-    public static ContrastReceipt Measure(string pairKey, string variant, Color foreground, Color background, double floor) {
-        var ratio = Ratio(foreground, background);
-        return new(pairKey, variant, ratio, floor, ratio >= floor);
-    }
+    public static ContrastReceipt Measure(string pairKey, string variant, Color foreground, Color background, ContrastFloor floor) =>
+        Ratio(foreground, background) switch {
+            var ratio => new(pairKey, variant, ratio, floor, ratio >= floor.Floor),
+        };
 }
 ```
 
-| [INDEX] | [ROW]            | [VALUE] | [BINDS]                                     |
-| :-----: | :--------------- | :-----: | :------------------------------------------ |
-|  [01]   | body-text        |   4.5   | text pairs at body sizes                    |
-|  [02]   | large-text       |   3.0   | display and headline pairs                  |
-|  [03]   | non-text         |   3.0   | focus visuals, icon tints, chart strokes    |
-|  [04]   | high-contrast    |   7.0   | every pair on the high-contrast variant row |
-|  [05]   | luminance-offset |  0.05   | both ratio terms                            |
+| [INDEX] | [ROW]           | [VALUE] | [BINDS]                                     |
+| :-----: | :-------------- | :-----: | :------------------------------------------ |
+|  [01]   | `BodyText`      |   4.5   | text pairs at body sizes                    |
+|  [02]   | `LargeText`     |   3.0   | display and headline pairs                  |
+|  [03]   | `NonText`       |   3.0   | focus visuals, icon tints, chart strokes    |
+|  [04]   | `HighContrast`  |   7.0   | every pair on the high-contrast variant row |
 
 ## [05]-[COMPLIANCE_PROOF]
 

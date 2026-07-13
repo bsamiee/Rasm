@@ -60,10 +60,10 @@ public sealed record RevertibleOp(
 
 ## [03]-[REVERT_SCOPE]
 
-- Owner: `RevertScope` the unified inverse algebra; `RevertArm` the client-versus-durable axis; `RevertCursor` the position across both arms.
+- Owner: `RevertScope` the unified inverse algebra; `RevertArm` the client-versus-durable axis; `RevertCursor` the position across both arms — every successful inverse operation returns the ADVANCED cursor beside the applied op, so the combined position is history state, never caller arithmetic.
 - Cases: `RevertArm` = client | durable under the locked kind literals — the client `CancelableCommandRecorder` window and the durable Persistence `Version/ledger` `OpLogEntry` inverse stream.
-- Entry: `public Fin<RevertibleOp> Undo(RevertCursor cursor)` — drives the client recorder's `CancelableCommandRecorder.Undo` (which pops the head command and runs its `Cancel` inverse delegate) while the cursor sits inside the `MaxCommand=20` window and resolves the applied op for the receipt, then falls through to the durable `OpLogEntry` inverse stream keyed by `ContentIdentity` once the client window is exhausted; `public Fin<RevertibleOp> Redo(RevertCursor cursor)` — the symmetric `CancelableCommandRecorder.Redo` forward re-execute.
-- Auto: an undo inside the client window drives `CancelableCommandRecorder.Undo`, which pops the head `ICancelableCommand` and runs its `Cancel` inverse delegate so the inverse delta applies through the admitted recorder rather than a hand-rolled re-application, and the popped op resolves through `ClientHead` for the receipt; an undo past the `MaxCommand=20` client window resolves against the durable Persistence `Version/ledger` `OpLogEntry` inverse stream keyed by `ContentIdentity` so the deep history rides the settled durable sync, never a second client history scheme; the two arms speak one `RevertibleOp` vocabulary so the client window and the durable stream fold one inverse algebra — a `RevertibleOp` recorded in the client window projects onto the ONE `Collab/sync.md#DURABLE_INTENT` edit-intent union — the single typed op family every plane contributes — which lands as Persistence-owned `OpLogEntry`/`SyncOpKind` rows through the `Version/ledger` changefeed (the `ONE_REVERT_VOCABULARY` ripple; `RevertibleOp` stays the LOCAL revert algebra projecting onto that family, never a parallel union); the cursor tracks the combined position so the boundary between the in-memory window and the durable stream is invisible to the user.
+- Entry: `public Fin<(RevertibleOp Op, RevertCursor Next)> Undo(RevertCursor cursor, string contentIdentity)` — drives the client recorder's `CancelableCommandRecorder.Undo` (which pops the head command and runs its `Cancel` inverse delegate) while the cursor sits inside the `MaxCommand=20` window, advancing `ClientDepth`, then falls through to the durable `OpLogEntry` inverse stream keyed by `ContentIdentity` and advancing `DurableOffset` once the client window is exhausted; `public Fin<(RevertibleOp Op, RevertCursor Next)> Redo(RevertCursor cursor, string contentIdentity)` — the symmetric inverse traversal: a positive `DurableOffset` replays the durable forward stream first at `DurableOffset - 1`, then the client `CancelableCommandRecorder.Redo` retreats `ClientDepth`.
+- Auto: an undo inside the client window drives `CancelableCommandRecorder.Undo`, which pops the head `ICancelableCommand` and runs its `Cancel` inverse delegate so the inverse delta applies through the admitted recorder rather than a hand-rolled re-application, and the popped op resolves through `ClientHead` for the receipt; an undo past the `MaxCommand=20` client window resolves against the durable Persistence `Version/ledger` `OpLogEntry` inverse stream keyed by `ContentIdentity` so the deep history rides the settled durable sync, never a second client history scheme; every success carries `Next` — `DeeperClient`, `DeeperDurable`, or `Shallower` — so repeated undo addresses strictly deeper positions, repeated redo strictly shallower ones, and the client-to-durable transition is recoverable from the returned cursor alone; the two arms speak one `RevertibleOp` vocabulary so the client window and the durable stream fold one inverse algebra — a `RevertibleOp` recorded in the client window projects onto the ONE `Collab/sync.md#DURABLE_INTENT` edit-intent union — the single typed op family every plane contributes — which lands as Persistence-owned `OpLogEntry`/`SyncOpKind` rows through the `Version/ledger` changefeed (the `ONE_REVERT_VOCABULARY` ripple; `RevertibleOp` stays the LOCAL revert algebra projecting onto that family, never a parallel union).
 - Packages: bodong.PropertyModels, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project)
 - Growth: a new revert source is structurally fixed at two arms; zero new surface.
 - Boundary: the revert scope is the one inverse algebra spanning two arms — a second revert vocabulary beside it is the `[05]-[PROHIBITIONS]` rejected form, so the client window and the durable op-log are two arms of one `RevertScope` and `EditOutcome.Reverted` is the only revert receipt; the client arm is the admitted `CancelableCommandRecorder` and the durable arm is the settled Persistence `Version/ledger` `OpLogEntry` inverse stream reached through the `Collab/sync.md` edit-intent projection, so the page mints neither — it folds them; the cursor falls through from client to durable at the `MaxCommand=20` boundary so a deep undo is seamless and a separate deep-history store is the deleted form; the durable arm keys by `ContentIdentity` so a client op and a durable op align by content key across the seam (the bidirectional `ONE_REVERT_VOCABULARY` link — AppUi owns the `RevertibleOp` forward/inverse-delta vocabulary and records the deltas, Persistence replays them as a `SyncOpKind` row over the `Editing/history → Persistence Version/ledger` revertible op-log seam (via the `Collab/sync.md` intent rail), no AppHost owner mints the vocabulary); a host-mutating revert routes through the abstract `DocumentTransaction` surface-host port so the host undo scope and the client undo fold one transaction.
@@ -78,6 +78,11 @@ public sealed partial class RevertArm {
 public sealed record RevertCursor(int ClientDepth, long DurableOffset) {
     public static readonly RevertCursor Origin = new(0, 0L);
     public bool InClientWindow(int maxCommand) => ClientDepth < maxCommand;
+    public RevertCursor DeeperClient() => this with { ClientDepth = ClientDepth + 1 };
+    public RevertCursor DeeperDurable() => this with { DurableOffset = DurableOffset + 1 };
+    public RevertCursor Shallower() => DurableOffset > 0
+        ? this with { DurableOffset = DurableOffset - 1 }
+        : this with { ClientDepth = int.Max(0, ClientDepth - 1) };
 }
 
 public sealed record RevertScope(
@@ -86,31 +91,37 @@ public sealed record RevertScope(
     Func<string, long, IO<Option<RevertibleOp>>> DurableInverse,
     Func<string, long, IO<Option<RevertibleOp>>> DurableForward,
     int MaxCommand) {
-    public Fin<RevertibleOp> Undo(RevertCursor cursor, string contentIdentity) =>
+    public Fin<(RevertibleOp Op, RevertCursor Next)> Undo(RevertCursor cursor, string contentIdentity) =>
         cursor.InClientWindow(MaxCommand) && Recorder.CanUndo
             ? ClientHead(RevertArm.Client).Match(
-                Some: op => Recorder.Undo() ? Fin.Succ(op) : Fin.Fail<RevertibleOp>(new HistoryFault.InverseAbsent(op.Target)),
-                None: () => Fin.Fail<RevertibleOp>(new HistoryFault.NothingToUndo(contentIdentity)))
+                Some: op => Recorder.Undo()
+                    ? Fin.Succ((op, cursor.DeeperClient()))
+                    : Fin.Fail<(RevertibleOp, RevertCursor)>(new HistoryFault.InverseAbsent(op.Target)),
+                None: () => Fin.Fail<(RevertibleOp, RevertCursor)>(new HistoryFault.NothingToUndo(contentIdentity)))
             : DurableInverse(contentIdentity, cursor.DurableOffset).Run().Match(
-                Some: op => Fin.Succ(op),
-                None: () => Fin.Fail<RevertibleOp>(new HistoryFault.NothingToUndo(contentIdentity)));
+                Some: op => Fin.Succ((op, cursor.DeeperDurable())),
+                None: () => Fin.Fail<(RevertibleOp, RevertCursor)>(new HistoryFault.NothingToUndo(contentIdentity)));
 
-    public Fin<RevertibleOp> Redo(RevertCursor cursor, string contentIdentity) =>
-        Recorder.CanRedo
-            ? ClientHead(RevertArm.Client).Match(
-                Some: op => Recorder.Redo() ? Fin.Succ(op) : Fin.Fail<RevertibleOp>(new HistoryFault.InverseAbsent(op.Target)),
-                None: () => Fin.Fail<RevertibleOp>(new HistoryFault.NothingToRedo(contentIdentity)))
-            : DurableForward(contentIdentity, cursor.DurableOffset).Run().Match(
-                Some: op => Fin.Succ(op),
-                None: () => Fin.Fail<RevertibleOp>(new HistoryFault.NothingToRedo(contentIdentity)));
+    public Fin<(RevertibleOp Op, RevertCursor Next)> Redo(RevertCursor cursor, string contentIdentity) =>
+        cursor.DurableOffset > 0
+            ? DurableForward(contentIdentity, cursor.DurableOffset - 1).Run().Match(
+                Some: op => Fin.Succ((op, cursor.Shallower())),
+                None: () => Fin.Fail<(RevertibleOp, RevertCursor)>(new HistoryFault.NothingToRedo(contentIdentity)))
+            : Recorder.CanRedo
+                ? ClientHead(RevertArm.Client).Match(
+                    Some: op => Recorder.Redo()
+                        ? Fin.Succ((op, cursor.Shallower()))
+                        : Fin.Fail<(RevertibleOp, RevertCursor)>(new HistoryFault.InverseAbsent(op.Target)),
+                    None: () => Fin.Fail<(RevertibleOp, RevertCursor)>(new HistoryFault.NothingToRedo(contentIdentity)))
+                : Fin.Fail<(RevertibleOp, RevertCursor)>(new HistoryFault.NothingToRedo(contentIdentity));
 }
 ```
 
 ## [04]-[EDIT_HISTORY]
 
 - Owner: `EditHistory` the `CancelableCommandRecorder` wrapper; `HistoryIntents` the undo/redo command-table projection.
-- Entry: `public IO<EditReceipt> Record(RevertibleOp op, Func<RevertibleOp, bool> apply, ClockPolicy clocks, CorrelationId correlation)` — records the op as an `ICancelableCommand` (whose `Execute`/`Cancel` delegates the `apply` fold drives) on the recorder through `PushCommand` and seals an `EditReceipt`; `public IO<EditReceipt> Undo(string contentIdentity, ...)` / `Redo(...)` — resolve through the `RevertScope` (driving the recorder's `Undo`/`Redo`) and seal `EditReceipt` with `EditOutcome.Reverted`.
-- Auto: every edit records through the admitted `CancelableCommandRecorder` as a `RevertibleOp` command so the recorder owns the `MaxCommand=20` window, the `CanUndo`/`CanRedo` state, and the queue snapshots; undo/redo surface as `CommandIntent` table rows (`history.undo`/`history.redo`) whose availability gates on `CommandHistoryViewModel.CanUndo`/`CanRedo` so the toolbar undo button derives from the recorder state, never a manual enable flag; every revert seals one `EditReceipt` with `EditOutcome.Reverted(string Editor)` through the `ReceiptSinkPort` so the revert is one evidence row in the same `EditReceipt` family the inspector seals; the recorder clears at screen teardown so a screen never resumes a stale undo stack.
+- Entry: `public IO<EditReceipt> Record(RevertibleOp op, Func<RevertibleOp, bool> apply, ClockPolicy clocks, CorrelationId correlation)` — records the op as an `ICancelableCommand` (whose `Execute`/`Cancel` delegates the `apply` fold drives) on the recorder through `PushCommand` and seals an `EditReceipt`; `public IO<(EditReceipt Receipt, RevertCursor Next)> Undo(string contentIdentity, RevertCursor cursor, ...)` / `Redo(...)` — resolve through the `RevertScope` (driving the recorder's `Undo`/`Redo`), seal `EditReceipt` with `EditOutcome.Reverted`, and return the advanced cursor the screen threads into its next revert; `public Seq<(string Name, RevertArm Arm, bool Undoable)> Timeline()` — the history-timeline pane projection off the recorder's own `GetUndoQueue()`/`GetRedoQueue()` snapshots.
+- Auto: every edit records through the admitted `CancelableCommandRecorder` as a `RevertibleOp` command so the recorder owns the `MaxCommand=20` window, the `CanUndo`/`CanRedo` state, and the queue snapshots; undo/redo surface as `CommandIntent` table rows (`history.undo`/`history.redo`) whose availability gates on `CommandHistoryViewModel.CanUndo`/`CanRedo` so the toolbar undo button derives from the recorder state, never a manual enable flag; the timeline pane projects `GetUndoQueue()`/`GetRedoQueue()` snapshots — per-entry name and direction straight off the recorder — so a history HUD is a fold over the recorder's own queues, never a second history scheme; every revert seals one `EditReceipt` with `EditOutcome.Reverted(string Editor)` through the `ReceiptSinkPort` so the revert is one evidence row in the same `EditReceipt` family the inspector seals; the recorder clears at screen teardown so a screen never resumes a stale undo stack.
 - Receipt: `EditReceipt` with `EditOutcome.Reverted` per revert; `TelemetryRow` contributes the edit-reverted and edit-redone instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: bodong.PropertyModels, ReactiveUI, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new history verb is one `CommandIntent` row; one history instrument is one `InstrumentRow` on `EditHistory.TelemetryRow`; zero new surface — an undo package is deleted by the admitted recorder.
@@ -125,10 +136,21 @@ public sealed record EditHistory(CancelableCommandRecorder Recorder, CommandHist
         IO.lift(() => Recorder.PushCommand(op.ToCommand(op.Kind.Key, apply)))
             .Map(_ => new EditReceipt(EditReceipt.EditKind, Surface, op.Target, op.Kind.Key, new EditOutcome.Committed(op.Kind.Key), clocks.Now, correlation));
 
-    public IO<EditReceipt> Undo(string contentIdentity, RevertCursor cursor, ClockPolicy clocks, CorrelationId correlation) =>
+    public IO<(EditReceipt Receipt, RevertCursor Next)> Undo(string contentIdentity, RevertCursor cursor, ClockPolicy clocks, CorrelationId correlation) =>
         Scope.Undo(cursor, contentIdentity).Match(
-            Succ: op => IO.pure(new EditReceipt(EditReceipt.EditKind, Surface, op.Target, op.Kind.Key, new EditOutcome.Reverted(op.Kind.Key), clocks.Now, correlation)),
-            Fail: error => IO.pure(new EditReceipt(EditReceipt.EditKind, Surface, contentIdentity, string.Empty, new EditOutcome.Rejected(EditFault.Create(error.Message)), clocks.Now, correlation)));
+            Succ: advanced => IO.pure((new EditReceipt(EditReceipt.EditKind, Surface, advanced.Op.Target, advanced.Op.Kind.Key, new EditOutcome.Reverted(advanced.Op.Kind.Key), clocks.Now, correlation), advanced.Next)),
+            Fail: error => IO.pure((new EditReceipt(EditReceipt.EditKind, Surface, contentIdentity, string.Empty, new EditOutcome.Rejected(EditFault.Create(error.Message)), clocks.Now, correlation), cursor)));
+
+    public IO<(EditReceipt Receipt, RevertCursor Next)> Redo(string contentIdentity, RevertCursor cursor, ClockPolicy clocks, CorrelationId correlation) =>
+        Scope.Redo(cursor, contentIdentity).Match(
+            Succ: advanced => IO.pure((new EditReceipt(EditReceipt.EditKind, Surface, advanced.Op.Target, advanced.Op.Kind.Key, new EditOutcome.Reverted(advanced.Op.Kind.Key), clocks.Now, correlation), advanced.Next)),
+            Fail: error => IO.pure((new EditReceipt(EditReceipt.EditKind, Surface, contentIdentity, string.Empty, new EditOutcome.Rejected(EditFault.Create(error.Message)), clocks.Now, correlation), cursor)));
+
+    // Timeline pane: the recorder's own queue snapshots ARE the history model — undo entries newest-first,
+    // redo entries as the not-undoable tail; no parallel history list exists to drift.
+    public Seq<(string Name, RevertArm Arm, bool Undoable)> Timeline() =>
+        toSeq(Recorder.GetUndoQueue()).Map(static command => (command.Name, RevertArm.Client, true))
+        + toSeq(Recorder.GetRedoQueue()).Map(static command => (command.Name, RevertArm.Client, false));
 
     public IObservable<bool> CanUndo => this.WhenAnyValue(static h => h.View.CanUndo);
     public IObservable<bool> CanRedo => this.WhenAnyValue(static h => h.View.CanRedo);

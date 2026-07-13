@@ -12,7 +12,7 @@ Rasm.AppUi presents every modal and transient surface through one `DialogIntent`
 ## [02]-[DIALOG_INTENTS]
 
 - Owner: `DialogIntent` `[Union]` — the one modal vocabulary across every admitted surface; `DialogFault` the typed fault family on the `AppUiFaultBand.Dialog` registry row (6040).
-- Cases: Confirm → `Unit`, Form → template commit record, Pick → `Seq<string>`, Progress → `DeadlineOutcome`, Error → `Unit`, About → `Unit`; dismissal projects `Option<TResult>.None`; `DialogFault` = Text | ResultShape | PickerUnavailable.
+- Cases: Confirm → `Unit`, Form → template commit record, Pick → `Seq<string>`, Progress → `DeadlineOutcome`, Error → `Unit`, About → `Unit`; dismissal projects `Option<TResult>.None`; `DialogFault` = Text | ResultShape | PickerUnavailable | SessionOccupied.
 - Auto: the screen fault fold raises the Error case with its correlation — never per-control failure handling; the boot crash-restore offer rides one Confirm row; the conflict-resolution inspector registers as one Form content row.
 - Packages: Thinktecture.Runtime.Extensions, ReactiveUI, LanguageExt.Core, Rasm.AppHost (project)
 - Growth: one `DialogIntent` case or one Form content row resolved through `IViewFor` registration; zero new surface.
@@ -39,6 +39,7 @@ public abstract partial record DialogFault : Expected, IValidationError<DialogFa
     public sealed record Text : DialogFault { public Text(string detail) : base(detail, AppUiFaultBand.Dialog.Code(0)) { } }
     public sealed record ResultShape : DialogFault { public ResultShape(string expected, string actual) : base($"{expected}:{actual}", AppUiFaultBand.Dialog.Code(1)) { } }
     public sealed record PickerUnavailable : DialogFault { public PickerUnavailable(string surface) : base(surface, AppUiFaultBand.Dialog.Code(2)) { } }
+    public sealed record SessionOccupied : DialogFault { public SessionOccupied(string surface) : base(surface, AppUiFaultBand.Dialog.Code(3)) { } }
 }
 ```
 
@@ -46,8 +47,8 @@ public abstract partial record DialogFault : Expected, IValidationError<DialogFa
 
 - Owner: `DialogTopology` — one per-surface root row binding identifier, stacking, close policy, styling token keys, toast pipe, pick pipe, and its `Interaction` seam; `DialogSurface` extension fold over the row.
 - Cases: six topology rows — avalonia-desktop, rhino-panel, rhino-modal, gh2-companion, sidecar-shell, headless; the web-browser case carries zero rows.
-- Entry: `public IO<Fin<Option<TResult>>> Show<TResult>(DialogIntent intent)` — `Fin` aborts on fault, `Option` carries dismissal as a value; `Advance` drives live progress through `UpdateContent`; `Retreat` closes the top stacked session; `Dismiss` closes the current session.
-- Auto: `RegisterRoot` binds the row's handler at surface mount and disposes with the activation scope; composition projects each row onto `Identifier`, `IsMultipleDialogsEnabled`, `CloseOnClickAway`, `OverlayBackground`, `BlurBackground`, `PopupPositioner`, and `DialogHostStyle` `CornerRadius`; the Form arm wraps its content through `Templated`, resolving the `Form.TemplateKey` against the `ContentTemplate` resolver onto the host `DialogContentTemplate`; a dirty Form session arms `DialogClosingEventArgs` `Cancel` through `DialogClosingCallback`; `StackedSessions` drives `IsMultipleDialogsEnabled`, `DialogHost.CurrentSessions` is the stacked-session surface the `Retreat` veto consults, and `HasOpenSession` reads `IsDialogOpen` so a `Show` on a non-stacked row that already holds an open session folds to the existing session rather than minting a parallel root.
+- Entry: `public IO<Fin<Option<TResult>>> Show<TResult>(DialogIntent intent)` — `Fin` aborts on fault, `Option` carries dismissal as a value; `Show` executes the row's `StackedSessions` column before forwarding: a stacked row forwards unconditionally, a non-stacked row holding an open session refuses with `DialogFault.SessionOccupied` through the one `Project` rail, so a second live session on a non-stacked root is structurally impossible; `Advance` drives live progress through `UpdateContent`; `Retreat` closes the top stacked session; `Dismiss` closes the current session.
+- Auto: `RegisterRoot` binds the row's handler at surface mount and disposes with the activation scope; composition projects each row onto `Identifier`, `IsMultipleDialogsEnabled`, `CloseOnClickAway`, `OverlayBackground`, `BlurBackground`, `PopupPositioner`, and `DialogHostStyle` `CornerRadius`; the Form arm wraps its content through `Templated`, resolving the `Form.TemplateKey` against the `ContentTemplate` resolver onto the host `DialogContentTemplate`; a dirty Form session arms `DialogClosingEventArgs` `Cancel` through `DialogClosingCallback`; `StackedSessions` drives `IsMultipleDialogsEnabled`, `DialogHost.CurrentSessions` is the stacked-session surface the `Retreat` veto consults, and `HasOpenSession` reads `IsDialogOpen` — the `Show` gate consults both so the non-stacking policy is executed row-owned at the one entry, never re-checked at a call site.
 - Packages: DialogHost.Avalonia, ReactiveUI, Avalonia, LanguageExt.Core
 - Growth: one topology row admits a new surface root, one positioner row swaps `IDialogPopupPositioner`; zero new surface.
 - Boundary: `DialogSurface` is the named boundary capsule — the registration handler and pick route carry the erased close parameter the DialogHost seam owns, and `Project` re-types it onto the `Fin` rail; overlay, blur, and corner styling resolve through theme token keys, never local literals; `TopLevelResolver` is the single per-surface service-capsule delegate the `ToastPipe` and `PickPipe` bind over so a desktop row resolves the window capsule and an embedded row resolves the embedded-root capsule — host service-capsule resolution inside the embedded root is the deleted call site, replaced by the bound delegate, and the embedded resolution spelling stays research-gated; one headless smoke spec opens, stacks, and closes sessions per row.
@@ -74,7 +75,9 @@ public sealed record DialogTopology(
 public static class DialogSurface {
     extension(DialogTopology root) {
         public IO<Fin<Option<TResult>>> Show<TResult>(DialogIntent intent) where TResult : notnull =>
-            IO.liftAsync(async () => Project<TResult>(await root.Requests.Handle(intent)));
+            root.StackedSessions || !root.HasOpenSession
+                ? IO.liftAsync(async () => Project<TResult>(await root.Requests.Handle(intent)))
+                : IO.pure(Fin.Fail<Option<TResult>>(new DialogFault.SessionOccupied(root.SurfaceKey)));
 
         public IO<Unit> Advance(DialogIntent.Progress snapshot) =>
             IO.lift(() => Optional(DialogHost.GetDialogSession(root.Identifier)).Iter(session => session.UpdateContent(snapshot)));

@@ -11,17 +11,19 @@ Rasm.AppUi live data owns every change-set pipeline between data sources and scr
 
 ## [02]-[DATA_SOURCES]
 
-- Owner: `HostDocumentFact`, `SourcePolicy`, `DataSource<TRow, TKey>` — the closed sourcing axis; one generated dispatch feeds one keyed cache per projection.
+- Owner: `HostDocumentFact`, `SourcePolicy`, `DataSource<TRow, TKey>` — the closed sourcing axis; one generated dispatch feeds one keyed cache per projection, and every `SourcePolicy` axis lands on a composed operator inside `Open` — an inert policy field is the `POLICY_VALUES` rejected form.
 - Cases: HostDocumentEvents, PersistenceQuery, ComputeReceiptStream, InMemorySeq, RemoteCompanionStream, FakeDeterministic, OrderedList
-- Entry: `public (IObservableCache<TRow, TKey> Cache, IDisposable Feed) Open(Func<TRow, TKey> key, SourcePolicy policy, Action<Error> fault)` — the cache is the replay substrate; the feed disposable registers into the caller's activation scope.
+- Entry: `public (IObservableCache<TRow, TKey> Cache, IDisposable Feed) Open(Func<TRow, TKey> key, SourcePolicy policy, Action<Error> fault)` — the cache is the replay substrate; the feed disposable registers into the caller's activation scope and carries the policy operators: `Expiry` composes `ExpireAfter` and `SizeBound` composes `LimitSizeTo` over the source cache on the policy scheduler, and `Refresh` drives the periodic re-snapshot on query rows, so a source's scheduling, refresh, expiry, and size behavior is recoverable from its declared policy alone.
 - Auto: the live-data spine — a host watch fact drives the Persistence projection write, the tag transition fires `Invalidations`, `Delta` fetches the changed rows, and the cache emits `IChangeSet`; one named pipeline, zero bespoke glue; the emitted `IChangeSet` is the single delta spine — one `Connect` chain fans into chart `SeriesSource`, table projection, and aggregation tiles through `Transform`/`MergeMany` with zero materialized intermediate, so a new consumer subscribes to the existing delta and the source never forks into a second collection-mutation path.
 - Packages: DynamicData, System.Reactive, LanguageExt.Core, Thinktecture.Runtime.Extensions, NodaTime
 - Growth: a new feed is one case on the closed family; a new bound is one policy value on `SourcePolicy`; a new live consumer is one downstream chain off the existing `Connect`; zero new surface.
-- Boundary: `Open` and `Admit` form the page's Rx-to-rail boundary capsule and this fence carries language-owned statement forms inside that capsule; hosts enter only as fact and envelope delegates — the host `WatchEvent` delegate column (bound to the host at the app root) projects to `HostDocumentFact` at the surface adapter (`WatchPhase` key, document serial, object ids, viewport change counter) and a case body never names a host API; key selectors transcribe the Persistence IdentityPolicy rows — uuidv7 surrogate, content hash, natural key — one key discipline per row model; late subscribers replay from cache state because `Connect` emits current state as the first change set, so per-source replay buffers are the deleted pattern; live rows feed on `TaskPoolScheduler` and the fake row on a `VirtualTimeScheduler` through `SourcePolicy.Source`; receipt-stream bounds trace to the cache-ttl `DeadlineClass` row; the `OrderedList` case is the one insertion-ordered source where row position is the model fact rather than a key projection — it admits a `SourceList<TRow>` change-set, folds into the one keyed cache on every list edit, and the binding capsule reattaches insertion order through `BindToObservableList` so a parallel ordered collection beside the keyed cache is the deleted form, with the diff-efficient list-to-cache path riding the `SourceList<TRow>.Items` (`IReadOnlyList<TRow>`) read and `ObservableCacheEx.PopulateInto(IObservable<IChangeSet<TRow,TKey>>, ISourceCache<TRow,TKey>)` sink over the keyed list connect; chart, table, and aggregation consumers compose off the one `Connect` delta and a second materialized snapshot beside it is the deleted form; an event aggregator and per-source error handlers are the rejected forms — every fault lands in the one `Action<Error>` rail.
+- Boundary: `Open` and `Admit` form the page's Rx-to-rail boundary capsule and this fence carries language-owned statement forms inside that capsule; hosts enter only as fact and envelope delegates — the host `WatchEvent` delegate column (bound to the host at the app root) projects to `HostDocumentFact` at the surface adapter (`WatchPhase` key, document serial, object ids, viewport change counter) and a case body never names a host API; key selectors transcribe the Persistence IdentityPolicy rows — uuidv7 surrogate, content hash, natural key — one key discipline per row model; late subscribers replay from cache state because `Connect` emits current state as the first change set, so per-source replay buffers are the deleted pattern; live rows feed on `TaskPoolScheduler` and the fake row on a `VirtualTimeScheduler` through `SourcePolicy.Source`; receipt-stream bounds trace to the cache-ttl `DeadlineClass` row and land as the `Open` policy operators — `Expiry` through `ExpireAfter`, `SizeBound` through `LimitSizeTo`, `Refresh` as the query-row re-snapshot interval — so no policy axis exists that the composed pipeline does not read; the `OrderedList` case is the one insertion-ordered source where row position is the model fact rather than a key projection — it admits a `SourceList<TRow>` change-set, folds into the one keyed cache on every list edit, and the binding capsule reattaches insertion order through `BindToObservableList` so a parallel ordered collection beside the keyed cache is the deleted form, with the diff-efficient list-to-cache path riding the `SourceList<TRow>.Items` (`IReadOnlyList<TRow>`) read and `ObservableCacheEx.PopulateInto(IObservable<IChangeSet<TRow,TKey>>, ISourceCache<TRow,TKey>)` sink over the keyed list connect; chart, table, and aggregation consumers compose off the one `Connect` delta and a second materialized snapshot beside it is the deleted form; an event aggregator and per-source error handlers are the rejected forms — every fault lands in the one `Action<Error>` rail.
 
 ```csharp signature
 public readonly record struct HostDocumentFact(int PhaseKey, uint DocumentSerial, Seq<Guid> ObjectIds, uint ChangeCounter);
 
+// Every axis is consumed by Open: Source schedules timers and bound sweeps, Expiry -> ExpireAfter,
+// SizeBound -> LimitSizeTo, Refresh -> the query-row re-snapshot interval and the AutoRefresh buffer.
 public sealed record SourcePolicy(
     IScheduler Source,
     Option<Duration> Expiry = default,
@@ -57,8 +59,20 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
 
     public (IObservableCache<TRow, TKey> Cache, IDisposable Feed) Open(Func<TRow, TKey> key, SourcePolicy policy, Action<Error> fault) {
         SourceCache<TRow, TKey> cache = new(key);
-        return (cache, new CompositeDisposable(cache, Feed(cache, key, policy, fault)));
+        return (cache, new CompositeDisposable(cache, Feed(cache, key, policy, fault), Bounds(cache, policy)));
     }
+
+    // The policy operators live at the owning cache: ExpireAfter sweeps TTL leavers and LimitSizeTo evicts
+    // oldest-first past the bound, both on the policy scheduler — a per-source bound reimplementation and an
+    // inert policy field are the deleted forms.
+    private static IDisposable Bounds(ISourceCache<TRow, TKey> cache, SourcePolicy policy) =>
+        new CompositeDisposable(
+            policy.Expiry.Match(
+                Some: ttl => (IDisposable)cache.ExpireAfter(_ => ttl.ToTimeSpan(), policy.Source).Subscribe(),
+                None: () => Disposable.Empty),
+            policy.SizeBound.Match(
+                Some: bound => (IDisposable)cache.LimitSizeTo(bound, policy.Source).Subscribe(),
+                None: () => Disposable.Empty));
 
     private IDisposable Feed(ISourceCache<TRow, TKey> cache, Func<TRow, TKey> key, SourcePolicy policy, Action<Error> fault) =>
         Switch(
@@ -66,7 +80,11 @@ public abstract partial record DataSource<TRow, TKey> where TRow : notnull where
             hostDocumentEvents: static (s, c) => c.Facts(fact => s.cache.Edit(updater => c.Project(fact).Iter(row => updater.AddOrUpdate(row)))),
             persistenceQuery: static (s, c) => new CompositeDisposable(
                 Admit(s.cache, c.Snapshot(), s.fault),
-                c.Invalidations(tag => Admit(s.cache, c.Delta(tag), s.fault))),
+                c.Invalidations(tag => Admit(s.cache, c.Delta(tag), s.fault)),
+                s.policy.Refresh.Match(
+                    Some: every => (IDisposable)Observable.Interval(every.ToTimeSpan(), s.policy.Source)
+                        .Subscribe(_ => Admit(s.cache, c.Snapshot(), s.fault)),
+                    None: () => Disposable.Empty)),
             computeReceiptStream: static (s, c) => c.Receipts(envelope => s.cache.Edit(updater => c.Project(envelope).Iter(row => updater.AddOrUpdate(row)))),
             inMemorySeq: static (s, c) => Admit(s.cache, Fin.Succ(c.Rows), s.fault),
             remoteCompanionStream: static (s, c) => c.Stream(envelope => s.cache.Edit(updater => c.Project(envelope).Iter(row => updater.AddOrUpdate(row)))),
@@ -130,10 +148,10 @@ public sealed record PipelineInputs<TRow>(
 |  [04]   | flat-map             | TransformMany           | one host fact expands to N child rows                              |
 |  [05]   | live-grouping        | Group                   | group change sets for live tiles                                   |
 |  [06]   | stable-grouping      | GroupWithImmutableState | the projection-policy row for paged and virtualized projections    |
-|  [07]   | property-refresh     | AutoRefresh             | `Refresh` buffer, 250 ms on host-fact rows                         |
+|  [07]   | property-refresh     | AutoRefresh             | buffer = `SourcePolicy.Refresh`, 250 ms default on host-fact rows |
 |  [08]   | child-merge          | MergeMany               | child observable composition                                       |
-|  [09]   | timed-expiry         | ExpireAfter             | `Expiry` = cache-ttl allotment on receipt-stream rows              |
-|  [10]   | size-bound           | LimitSizeTo             | `SizeBound` = 10000 rows on receipt-stream rows                    |
+|  [09]   | timed-expiry         | ExpireAfter             | applied at `Open` from `SourcePolicy.Expiry` (cache-ttl allotment) |
+|  [10]   | size-bound           | LimitSizeTo             | applied at `Open` from `SourcePolicy.SizeBound`, 10000 default    |
 |  [11]   | paging               | Page                    | `Pages` stream; PageRequest size 50 default                        |
 |  [12]   | windowing            | Virtualise              | `Windows` stream; VirtualRequest window 100 default                |
 |  [13]   | set-algebra          | And, Or, Except, Xor    | keyed source composition across `DataSource` outputs               |

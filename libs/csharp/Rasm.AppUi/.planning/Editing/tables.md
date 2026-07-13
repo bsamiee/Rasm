@@ -1,6 +1,6 @@
 # [APPUI_TABLES_HIERARCHY]
 
-Tabular and hierarchical projection for the Rasm.AppUi grid rail: one `TableColumnRow` metadata family drives column generation, filter admission, group descriptors, edit admission, and export; the `TableProjection` union folds flat, tree, grouped, paged, and windowed shapes into one virtualized `TreeRow` stream on the free `DataGrid`; the `TableViewState` snapshot keeps collection-view state explicit; and the `TableCommit` row bridges grid edits onto the CommandIntent rail, `StoreOp.Upsert` persistence, and `DocumentTransaction` host routing. Live-data change-set streams, screen-state snapshot rows, density and typography tokens, the AppHost `DataClassification` taxonomy, and the Persistence Sep lane arrive as settled vocabulary.
+Tabular and hierarchical projection for the Rasm.AppUi grid rail: one `TableColumnRow` metadata family drives column generation, sort comparers, filter admission, group descriptors, edit admission, clipboard projection, and export; the `TableProjection` union folds flat, tree, grouped, paged, and windowed shapes into one virtualized `TreeRow` stream on the free `DataGrid`; the `TableViewState` snapshot keeps collection-view state explicit; and the `TableCommit` row bridges grid edits onto the CommandIntent rail, `StoreOp.Upsert` persistence, and `DocumentTransaction` host routing. Export delivery is the `Document/export.md` `VisualDestination` union through `ExportDelivery.Deliver` — the tables fold shapes text, never mints a second delivery vocabulary. Live-data change-set streams, screen-state snapshot rows, density and typography tokens, the AppHost `DataClassification` taxonomy, and the Persistence Sep lane arrive as settled vocabulary.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@ Tabular and hierarchical projection for the Rasm.AppUi grid rail: one `TableColu
 - Owner: `TableColumnRow<TRow>` — the one row-model metadata record; `TableSurface` attaches the column and filter folds as one extension block; `TableCellKind` closes the cell vocabulary.
 - Cases: `Text`, `CheckBox`, `Template`.
 - Entry: `DataGridColumn Column()`.
-- Auto: one row family derives columns, group descriptors, quick-filter admission, edit admission, and export admission — five concerns, one owner; `AutoGenerateColumns` stays false and `Columns` is populated by the `Column()` fold.
+- Auto: one row family derives columns, sort comparers, group descriptors, quick-filter admission, edit admission, clipboard projection, and export admission — seven concerns, one owner; `AutoGenerateColumns` stays false and `Columns` is populated by the `Column()` fold; the `Sort` comparer column lands as `CustomSortComparer` beside `SortMemberPath` so value-object cells order by domain comparer rather than display text, and the `Cell` binding doubles as `ClipboardContentBinding` on bound columns so the grid's own `Ctrl+C` copy under `DataGridClipboardCopyMode.IncludeHeader` and the export fold project one column vocabulary.
 - Packages: Avalonia.Controls.DataGrid; Avalonia; LanguageExt.Core.
 - Growth: one column row per field; a sizing, visibility, or classification change is one policy value; zero new surface.
 - Boundary: a classified row rides the AppHost `DataClassification` consequence — its cells render the redacted presentation template from theme tokens and the column never enters filter or export admission; row height and cell spacing arrive as density-token values, and `Numeric` columns consume the tabular-figure typography role; per-column control subclasses are the deleted form.
@@ -33,19 +33,25 @@ public sealed record TableColumnRow<TRow>(
     bool Editable,
     bool Numeric,
     bool Visible,
+    Option<IComparer> Sort = default,
     Option<DataClassification> Classification = default,
     Option<DataTemplate> Template = default);
 
 public static class TableSurface {
     extension<TRow>(TableColumnRow<TRow> row) {
-        public DataGridColumn Column() => (row.Kind, row.Template) switch {
-            (TableCellKind.Template, { IsSome: true, Case: DataTemplate template }) =>
-                new DataGridTemplateColumn { Header = row.Header, Width = row.Width, CellTemplate = template, IsReadOnly = !row.Editable },
-            (TableCellKind.CheckBox, _) =>
-                new DataGridCheckBoxColumn { Header = row.Header, Width = row.Width, Binding = row.Cell, IsReadOnly = !row.Editable },
-            _ =>
-                new DataGridTextColumn { Header = row.Header, Width = row.Width, Binding = row.Cell, IsReadOnly = !row.Editable },
-        };
+        public DataGridColumn Column() {
+            DataGridColumn column = (row.Kind, row.Template) switch {
+                (TableCellKind.Template, { IsSome: true, Case: DataTemplate template }) =>
+                    new DataGridTemplateColumn { Header = row.Header, Width = row.Width, CellTemplate = template, IsReadOnly = !row.Editable },
+                (TableCellKind.CheckBox, _) =>
+                    new DataGridCheckBoxColumn { Header = row.Header, Width = row.Width, Binding = row.Cell, ClipboardContentBinding = row.Cell, IsReadOnly = !row.Editable },
+                _ =>
+                    new DataGridTextColumn { Header = row.Header, Width = row.Width, Binding = row.Cell, ClipboardContentBinding = row.Cell, IsReadOnly = !row.Editable },
+            };
+            column.CanUserSort = row.Sortable;
+            row.Sort.Iter(comparer => column.CustomSortComparer = comparer);
+            return column;
+        }
     }
 
     extension<TRow>(Seq<TableColumnRow<TRow>> rows) {
@@ -60,6 +66,8 @@ public static class TableSurface {
 - Virtualization: the free `DataGrid` virtualizes rows over the one flat bound collection; a fixed density-token row height keeps the scroll math exact.
 - Materialization: `LoadingRow` stamps row state from theme tokens onto the `DataGridRow` pseudo-classes `:selected`, `:current`, `:editing`, `:edited`, `:invalid`, `:pressed`, `:focus`, `:expanded`, `:sortascending`, `:sortdescending`, `:empty-rows`, `:empty-columns`; `LoadingRowDetails` materializes the single per-screen details template on demand.
 - Selection: selection mode is a per-screen policy value; `SelectedItems` and the current row project into the screen-state snapshot.
+- Sort: `CustomSortComparer` carries the row's `Sort` comparer so a value-object or unit-bearing cell orders by domain law, `SortMemberPath` stays the display fallback, and the `Sorting` event never substitutes a comparer the row already declares — `Comparer<TRow>` instances satisfy the column's non-generic `IComparer` slot.
+- Clipboard: the grid `Ctrl+C` copy rides `ClipboardCopyMode` with `ClipboardContentBinding` mirroring each row's `Cell` binding; classified columns render redacted, so the copy path leaks nothing the cell does not already show.
 - Quick filter: `Matches` is an ordinal case-insensitive scan over visible unclassified column projections; classified columns never match.
 - Footers: aggregate footer values arrive from the live-data aggregation rows (`Count`, `Sum`, `Avg`); the grid renders totals, never computes them.
 - Column posture: user reorder, resize, and sort-toggle flags are per-screen policy values on `CanUserReorderColumns`, `CanUserResizeColumns`, and `CanUserSortColumns`, with `FrozenColumnCount`, `RowHeight`, and `RowDetailsTemplate` as the remaining posture members.
@@ -176,28 +184,18 @@ public static class ProjectionFold {
 
 ## [05]-[GRID_COMMIT]
 
-- Owner: `TableCommit<TRow>` — the one edit-commit row; `TableExportSpec` with the `ExportDestination` union owns the export path; `CommitSurface` bridges grid edit events to the intent rail and folds rows to delimited text.
-- Cases: `Clipboard`, `File`, `BlobLane`.
-- Entry: `IDisposable Attach(DataGrid grid, Action<string, TRow> invoke)`.
-- Auto: every commit and export executes as a CommandIntent, so availability gating, re-entrancy suppression, and `CommandReceipt` emission arrive with zero local receipt code.
+- Owner: `TableCommit<TRow>` — the one edit-commit row; `TableExportSpec` — the pure text-shaping policy row whose delivery is the `Document/export.md` `VisualDestination` union; `CommitSurface` bridges grid edit events to the intent rail, folds rows to delimited text, and delivers through the one `ExportDelivery.Deliver` fold.
+- Entry: `IDisposable Attach(DataGrid grid, Action<string, TRow> invoke)`; `IO<string> Export(VisualRuntime runtime, TableExportSpec spec, Seq<TRow> items, VisualDestination destination)`.
+- Auto: every commit and export executes as a CommandIntent, so availability gating, re-entrancy suppression, and `CommandReceipt` emission arrive with zero local receipt code; a delivery-case change breaks the one `VisualDestination` dispatch at compile time, never a table-local sibling family.
 - Receipt: the CommandReceipt rail carries intent key, surface, elapsed, outcome, and `CorrelationId`; host-routed commits project the `DocumentTransaction` receipt into the same rail; `TelemetryRow` contributes the commit-outcome and export-volume instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: Avalonia.Controls.DataGrid; System.Reactive; Thinktecture.Runtime.Extensions; LanguageExt.Core.
-- Growth: one destination case or one export policy value; a new commit target is one `Persist` delegate binding; one grid instrument is one `InstrumentRow` on `CommitSurface.TelemetryRow`; zero new surface.
-- Boundary: store rows bind `Persist` to `StoreOp.Upsert` through the Persistence port; host-object rows bind the same column to the abstract `DocumentTransaction` commit surface-host port the app root binds to the host; `File` and `BlobLane` destinations hand the spec to the Persistence Sep lane with the file path arriving as a value from the storage-pick DialogIntent row; the `Clipboard` case hands its text to the input rail's typed clipboard row — a bespoke CSV writer is the deleted form.
+- Growth: one export policy value on the spec; a new delivery case is one `VisualDestination` case landed at the export.md owner; a new commit target is one `Persist` delegate binding; one grid instrument is one `InstrumentRow` on `CommitSurface.TelemetryRow`; zero new surface.
+- Boundary: store rows bind `Persist` to `StoreOp.Upsert` through the Persistence port; host-object rows bind the same column to the abstract `DocumentTransaction` commit surface-host port the app root binds to the host; delivery is the `Document/export.md` `VisualDestination` union through `ExportDelivery.Deliver` — the `FilePath` value arrives from the storage-pick DialogIntent row and the `BlobLane` arm rides the Persistence Sep lane — so a table-local delivery union is the `SHAPE_BUDGET` deleted form; the clipboard path is a transport, never a destination: `TableExportSpec.Tsv` fixes tab-plus-header shaping and the folded text hands to the input rail's typed clipboard row — a bespoke CSV writer is the deleted form.
 
 ```csharp signature
-[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ExportDestination {
-    private ExportDestination() { }
-
-    public sealed record Clipboard : ExportDestination;
-
-    public sealed record File(string Path) : ExportDestination;
-
-    public sealed record BlobLane(string Key) : ExportDestination;
+public sealed record TableExportSpec(Seq<string> ColumnKeys, bool HeaderRow, char Delimiter) {
+    public static TableExportSpec Tsv(Seq<string> columnKeys) => new(columnKeys, HeaderRow: true, Delimiter: '\t');
 }
-
-public sealed record TableExportSpec(Seq<string> ColumnKeys, bool HeaderRow, char Delimiter, ExportDestination Destination);
 
 public sealed record TableCommit<TRow>(
     string IntentKey,
@@ -238,7 +236,10 @@ public static class CommitSurface {
                 (spec.HeaderRow ? string.Join(spec.Delimiter, rows.Admitted(spec).Map(row => Quote(row.Header, spec.Delimiter))).Cons(Seq<string>()) : Seq<string>())
                 + items.Map(item => string.Join(spec.Delimiter, rows.Admitted(spec).Map(row => Quote(row.Export(item), spec.Delimiter)))));
 
-        private static string Quote(string field, string delimiter) =>
+        public IO<string> Export(VisualRuntime runtime, TableExportSpec spec, Seq<TRow> items, VisualDestination destination) =>
+            ExportDelivery.Deliver(runtime, destination, Encoding.UTF8.GetBytes(rows.Delimited(spec, items)));
+
+        private static string Quote(string field, char delimiter) =>
             field.Contains(delimiter, StringComparison.Ordinal) || field.Contains('"') || field.Contains('\r') || field.Contains('\n')
                 ? $"\"{field.Replace("\"", "\"\"")}\""
                 : field;
@@ -259,8 +260,9 @@ flowchart LR
 - Commit rail: `BeginEdit`, `CommitEdit`, and `CancelEdit` drive the programmatic edit lifecycle; only a committing row passes the `EditAction` filter into the gate.
 - Gate altitude: `Gate` receives the screen validation seam's folded `Fin` rail; a failing gate aborts before `Persist` and surfaces on the screen fault state.
 - Persistence split: the `Persist` column is the host-agnostic parameter: store rows, host-object rows, and fake-deterministic rows differ only in the bound delegate.
-- Clipboard: the `Clipboard` destination fixes `Delimiter` at tab with `HeaderRow` true — the rows-as-TSV case.
-- Export admission: classified columns never pass `Admitted`; the delimited projection is the single text-shaping fold for clipboard and Sep destinations.
+- Clipboard: `TableExportSpec.Tsv` fixes `Delimiter` at tab with `HeaderRow` true and the folded text rides the input rail's typed clipboard row — a transport policy over the one shaping fold, never a destination case.
+- Delivery: `Export` folds `Delimited` bytes through `ExportDelivery.Deliver`, so file, blob-lane, and bundle delivery share the export.md exhaustiveness obligation and its `RenderReceipt` seal.
+- Export admission: classified columns never pass `Admitted`; the delimited projection is the single text-shaping fold for clipboard and delivered destinations alike.
 
 ## [06]-[RESEARCH]
 

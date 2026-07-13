@@ -33,7 +33,7 @@ public abstract partial record ContentFault : Expected, IValidationError<Content
 
 public static class MarkdownInlineRenderer {
     public static InlineCollection Render(MarkdownDocumentRows rows, FontChain chain) {
-        var collection = new InlineCollection();
+        InlineCollection collection = [];
         rows.Body.Iter(row => Inlines(row, chain).Iter(collection.Add));
         return collection;
     }
@@ -49,7 +49,7 @@ public static class MarkdownInlineRenderer {
         rule: static (_, _) => Seq<Inline>());
 
     static Inline Styled(InlineRun run, TypographyRole role, FontChain chain) {
-        var style = TextStyleRow.Resolve(run.Code ? TypographyRole.Code : role, chain);
+        TextStyleRow style = TextStyleRow.Resolve(run.Code ? TypographyRole.Code : role, chain);
         Inline inline = new Run(run.Text) { FontFamily = new FontFamily(style.Family), FontSize = style.Size, FontWeight = (FontWeight)style.Weight };
         inline = run.Strong ? new Bold { Inlines = { inline } } : inline;
         inline = run.Emphasis ? new Italic { Inlines = { inline } } : inline;
@@ -123,33 +123,72 @@ public static class MediaSurfaces {
 
 ## [04]-[PLAYBACK_TRANSPORT]
 
-- Owner: `PlaybackTransport` the one playback transport over the libmpv `MpvContext`; `TransportState` the observed position-and-state snapshot.
-- Entry: `public IO<Unit> Load(MpvContext context, string source)` — opens media through `LoadFile`; `public IO<Unit> Command(MpvContext context, TransportVerb verb)` — folds a transport verb onto its `MpvContext` member, never a per-control playback handler.
-- Auto: transport verbs (play/pause/seek/speed/volume/mute) fold onto the typed `MpvContext` members — `Pause`/`Speed`/`Volume`/`Mute` options, `TimePos`/`PercentPos` for seek, `LoadFile` for source intake (`.api/api-libmpv.md` transport properties); position and state surface through the observed `MpvPropertyRead` members (`TimePos`, `Duration`, `EofReached`, `Seeking`) and the `PropertyChanged` event so the surface never polls libmpv on a timer; the transport binds as `CommandIntent` rows so a media-control toolbar derives from the one command table; playback verbs map onto the pan-zoom-style continuous and discrete intents so a scrub gesture and a play button ride the same intent vocabulary.
+- Owner: `PlaybackTransport` the one playback transport over the libmpv `MpvContext`; `TransportVerb` the payload-bearing verb `[Union]`; `TransportState` the observed position-and-state snapshot.
+- Entry: `public IO<Unit> Load(MpvContext context, string source)` — opens media through `LoadFile`; `public IO<Unit> Command(MpvContext context, TransportVerb verb)` — the ONE total dispatch folding every verb case onto its `MpvContext` member, never a per-control playback handler; `public IObservable<TransportState> Observe(MpvContext context)` — the observed state projection off `ObserveProperty` registrations and the `PropertyChanged` event.
+- Auto: the verb family is a `[Union]` because seek, speed, volume, and mute carry per-occurrence payloads — play/pause fold onto the `Pause` option, seek onto the `TimePos` property write, speed/volume/mute onto their options, frame step onto `FrameStep`/`FrameBackStep`, stop onto `Stop`, and the scrub revert onto `RevertSeek` (`.api/api-libmpv.md` transport commands and properties); a new verb is one case that breaks the total `Switch` at compile time; position and state surface through the observed `MpvPropertyRead` members (`TimePos`, `Duration`, `Pause`, `Seeking`) registered once through `ObserveProperty` and folded from `PropertyChanged`, so the surface never polls libmpv on a timer; each verb derives its `Intent` key symbolically from its case so the media-control toolbar rows derive from the one command table with zero literal drift; every dispatched verb seals a `MediaReceipt` so playback evidence rides the one stream.
 - Packages: HanumanInstitute.LibMpv, System.Reactive, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new transport verb is one `TransportVerb` value folding onto its `MpvContext` member; zero new surface.
-- Boundary: playback transport is the one rail over the typed `MpvContext` — a hand-rolled mpv command/property marshaller is the rejected form (`.api/api-libmpv.md` reject), so transport verbs fold onto the named `MpvContext` members; position surfaces through observed `MpvPropertyRead`/`PropertyChanged`, never a polling timer; transport verbs derive as `CommandIntent` rows so a media control is an intent key, never a transport-local command registry; the transport correlates its receipts through the `MediaReceipt` family so playback evidence rides one stream; a transient seek mutates the live position and re-applies through `RevertSeek`, so a scrub-and-revert rides the libmpv transport rather than a snapshot.
+- Growth: a new transport verb is one `TransportVerb` case folding onto its `MpvContext` member; zero new surface.
+- Boundary: playback transport is the one rail over the typed `MpvContext` — a hand-rolled mpv command/property marshaller is the rejected form (`.api/api-libmpv.md` reject), so transport verbs fold onto the named `MpvContext` members and command intake rides the catalogued `MpvCommand` `InvokeAsync` deferred invocation; position surfaces through observed `MpvPropertyRead`/`PropertyChanged`, never a polling timer; transport verbs derive as `CommandIntent` rows so a media control is an intent key, never a transport-local command registry; a transient scrub seeks the live position and `RevertSeek` returns to the pre-scrub mark, so scrub-and-revert rides the libmpv transport rather than a snapshot.
 
 ```csharp signature
-[SmartEnum<string>]
-public sealed partial class TransportVerb {
-    public static readonly TransportVerb Play = new("play");
-    public static readonly TransportVerb Pause = new("pause");
-    public static readonly TransportVerb Seek = new("seek");
-    public static readonly TransportVerb Speed = new("speed");
-    public static readonly TransportVerb Volume = new("volume");
-    public static readonly TransportVerb Mute = new("mute");
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TransportVerb {
+    private TransportVerb() { }
+    public sealed record Play : TransportVerb;
+    public sealed record Pause : TransportVerb;
+    public sealed record Seek(double Seconds) : TransportVerb;
+    public sealed record Speed(double Rate) : TransportVerb;
+    public sealed record Volume(double Level) : TransportVerb;
+    public sealed record Mute(bool Muted) : TransportVerb;
+    public sealed record Step(bool Back) : TransportVerb;
+    public sealed record Revert : TransportVerb;
+    public sealed record Stop : TransportVerb;
+
+    public string Kind => Switch(
+        play: static _ => "play", pause: static _ => "pause", seek: static _ => "seek",
+        speed: static _ => "speed", volume: static _ => "volume", mute: static _ => "mute",
+        step: static _ => "step", revert: static _ => "revert", stop: static _ => "stop");
+
+    public string Intent => $"media.{Kind}";
 }
 
 public readonly record struct TransportState(double Position, double Duration, bool Playing, bool Seeking);
 
 public static class PlaybackTransport {
-    public const string PlayIntent = "media.play";
-    public const string PauseIntent = "media.pause";
-    public const string SeekIntent = "media.seek";
-
     public static IO<Unit> Load(MpvContext context, string source) =>
-        IO.liftAsync(async () => { await context.LoadFile(source).ConfigureAwait(false); return unit; });
+        IO.liftAsync(async () => { await context.LoadFile(source).InvokeAsync().ConfigureAwait(false); return unit; });
+
+    // The one verb dispatch: options and property writes ride their typed SetAsync, command verbs ride the
+    // MpvCommand InvokeAsync dual — no raw mpv command strings anywhere.
+    public static IO<Unit> Command(MpvContext context, TransportVerb verb) => verb.Switch(
+        state: context,
+        play:   static (mpv, _) => Write(mpv.Pause, false),
+        pause:  static (mpv, _) => Write(mpv.Pause, true),
+        seek:   static (mpv, s) => IO.liftAsync(async () => { await mpv.TimePos.SetAsync(s.Seconds).ConfigureAwait(false); return unit; }),
+        speed:  static (mpv, s) => Write(mpv.Speed, s.Rate),
+        volume: static (mpv, v) => Write(mpv.Volume, v.Level),
+        mute:   static (mpv, m) => Write(mpv.Mute, m.Muted),
+        step:   static (mpv, s) => Invoke(s.Back ? mpv.FrameBackStep() : mpv.FrameStep()),
+        revert: static (mpv, _) => Invoke(mpv.RevertSeek(default)),
+        stop:   static (mpv, _) => Invoke(mpv.Stop()));
+
+    // ObserveProperty registers the time-pos/duration/pause/seeking feeds once; every PropertyChanged tick
+    // re-projects one immutable snapshot — the polling timer is the deleted form.
+    public static IObservable<TransportState> Observe(MpvContext context) =>
+        Observable.FromEventPattern<MpvPropertyEventArgs>(
+                handler => context.PropertyChanged += handler,
+                handler => context.PropertyChanged -= handler)
+            .Select(_ => new TransportState(
+                context.TimePos.Get() ?? 0d,
+                context.Duration.Get() ?? 0d,
+                !(context.Pause.Get() ?? true),
+                context.Seeking.Get() ?? false));
+
+    static IO<Unit> Write<T>(MpvOption<T> option, T value) where T : struct =>
+        IO.liftAsync(async () => { await option.SetAsync(value).ConfigureAwait(false); return unit; });
+
+    static IO<Unit> Invoke(MpvCommand command) =>
+        IO.liftAsync(async () => { await command.InvokeAsync().ConfigureAwait(false); return unit; });
 }
 ```
 

@@ -15,8 +15,8 @@ Rasm.AppUi runs one command rail: a single `CommandIntent` row table is the only
 - Owner: `CommandIntent` row record with its nested `Availability` input struct; `CommandPayload` `[Union]` argument shapes; `CommandDeck` per-surface frozen result carrying the row table, the normalized palette index, and the gesture-conflict fold.
 - Cases: `CommandPayload` = None | Single | Many | Text under the locked kind literals none, single, many, text — parameterized intents discriminate on payload shape, never on name suffixes.
 - Entry: `public static Fin<CommandDeck> Freeze` — `Fin` aborts on a duplicate intent key or duplicate palette label with a typed `CommandFault` case deriving through the `AppUiFaultBand.Command` registry row (6070); one freeze per mounted surface.
-- Auto: the `Surfaces` predicate filters rows exactly once at freeze, so a row absent from a surface never materializes there; the mount transaction sinks every `GestureConflicts` row as one envelope of kind `ConflictKind`.
-- Receipt: `GestureConflicts` is the freeze-time evidence fold — each conflict names the chord and every intent key bound to it.
+- Auto: the `Surfaces` predicate filters rows exactly once at freeze, so a row absent from a surface never materializes there; the mount transaction runs `SealConflicts` so every `GestureConflicts` row rides the sink as one envelope of kind `ConflictKind`.
+- Receipt: `GestureConflicts` is the freeze-time evidence fold — each `GestureConflict` names the chord and every intent key bound to it — and `SealConflicts` is its one sink seal.
 - Packages: Thinktecture.Runtime.Extensions, Avalonia, LanguageExt.Core, BCL inbox
 - Growth: one `CommandIntent` row absorbs a new verb across every derived surface and one `CommandPayload` case absorbs a new argument shape; zero new surface.
 - Boundary: the locked row shape — intent key, availability delegate with `DegradationLevel` input, `Option<KeyGesture>`, surface predicate — deletes menu registries, toolbar registries, palette registries, hotkey tables, and deep-link maps in one stroke; the intent key is simultaneously the localization string key the `label` resolver consumes and the icon catalog key, so a label column and an icon column are the deleted forms; the `chord` delegate is the host-agnostic Cmd/Ctrl column transform, so duplicate per-platform gesture rows are the rejected form; `Execute` delegates bind host work at composition and no case body names a host API outside its own row.
@@ -57,6 +57,8 @@ public abstract partial record CommandFault : Expected {
         : CommandFault($"command/unknown-intent: {Key}", AppUiFaultBand.Command.Code(1));
 }
 
+public sealed record GestureConflict(string Gesture, Seq<string> Keys);
+
 public sealed record CommandDeck(
     FrozenDictionary<string, CommandIntent> Rows,
     FrozenDictionary<string, string> Index,
@@ -83,14 +85,23 @@ public sealed record CommandDeck(
                 admitted.Map(row => KeyValuePair.Create(label(row.Key).ToLowerInvariant(), row.Key)).ToFrozenDictionary(StringComparer.Ordinal),
                 surfaceKey, chord, inputs, snapshot, scheduler, time, correlation, tenant, sink, wire));
 
-    public Seq<(KeyGesture Gesture, Seq<string> Keys)> GestureConflicts() =>
+    public Seq<GestureConflict> GestureConflicts() =>
         toSeq(Rows.Values)
             .Bind(row => row.Gesture.Map(Chord).ToSeq().Map(gesture => (Gesture: gesture, row.Key)))
             .GroupBy(static bound => bound.Gesture)
             .AsIterable()
-            .Map(static group => (group.Key, toSeq(group).Map(static bound => bound.Key)))
-            .Filter(static conflict => conflict.Item2.Length > 1)
+            .Map(static group => new GestureConflict(group.Key.ToString(), toSeq(group).Map(static bound => bound.Key)))
+            .Filter(static conflict => conflict.Keys.Length > 1)
             .ToSeq();
+
+    // The freeze-time conflict evidence SEALS: each conflict rides the sink as one ConflictKind envelope,
+    // so the mount transaction's conflict claim is a receipt, never an unsunk data fold.
+    public IO<Unit> SealConflicts() =>
+        GestureConflicts()
+            .TraverseM(conflict => Sink.Send(Correlation, Tenant, "Rasm.AppUi", ConflictKind,
+                JsonSerializer.SerializeToElement(conflict, Wire)))
+            .As()
+            .Map(static _ => unit);
 
     static Fin<Seq<CommandIntent>> Admitted(Seq<CommandIntent> rows, Func<string, string> label) =>
         rows.Map(static row => row.Key).Distinct().Length == rows.Length
@@ -224,7 +235,7 @@ public static class CommandExecution {
 - Receipt: remote and replay invocations seal the same `CommandReceipt` family as interactive execution — one evidence stream for every caller modality.
 - Packages: LanguageExt.Core, BCL inbox
 - Growth: one shape function absorbs a new derived surface and one table row absorbs a new remote verb; zero new surface.
-- Boundary: ReactiveUI MessageBus is the named rejected form — decoupled invocation is an intent key through the one table; a palette-specific command registry is the second rejected form, absorbed by `Search` over the freeze-built index; `Search` and its `Score` kernel are the page's one language-owned boundary capsule carrying statement forms for the alternate-lookup probe and the span walk; intent keys cross every boundary as ordinal strings.
+- Boundary: ReactiveUI MessageBus is the named rejected form — decoupled invocation is an intent key through the one table; a palette-specific command registry is the second rejected form, absorbed by `Search` over the freeze-built index; label normalization is a property of the frozen index owner — `Search` folds the query to lowercase once through `MemoryExtensions.ToLowerInvariant` so the exact and fuzzy branches share one normalized comparison domain and equivalent queries differing only by case return identical keys and rank order, a search-local normalization rule beside the index admission being the rejected form; `Search` and its `Score` kernel are the page's one language-owned boundary capsule carrying statement forms for the alternate-lookup probe and the span walk; intent keys cross every boundary as ordinal strings.
 
 ```csharp signature
 public static class CommandProjections {
@@ -233,11 +244,15 @@ public static class CommandProjections {
             toSeq(deck.Rows.Values).Map(shape);
 
         public Seq<(string Key, int Rank)> Search(ReadOnlySpan<char> query) {
+            // One normalized comparison domain: the query folds to lowercase ONCE, so the exact probe and
+            // the fuzzy walk both read the same casing the freeze-built index admitted.
+            Span<char> folded = query.Length <= 128 ? stackalloc char[query.Length] : new char[query.Length];
+            ignore(query.ToLowerInvariant(folded));
             var lookup = deck.Index.GetAlternateLookup<ReadOnlySpan<char>>();
-            if (lookup.TryGetValue(query, out var exact)) { return [(exact, 0)]; }
+            if (lookup.TryGetValue(folded, out var exact)) { return [(exact, 0)]; }
             var ranked = new List<(string Key, int Rank)>();
             foreach (var entry in deck.Index) {
-                var rank = Score(entry.Key.AsSpan(), query);
+                var rank = Score(entry.Key.AsSpan(), folded);
                 if (rank is { IsSome: true, Case: int hit }) { ranked.Add((entry.Value, hit)); }
             }
             return toSeq(ranked.OrderBy(static found => found.Rank));
@@ -250,11 +265,13 @@ public static class CommandProjections {
                 : deck.Seal(key, new CommandOutcome.Rejected(), Duration.Zero, string.Empty);
     }
 
+    // Both spans arrive pre-normalized — label from the freeze-built index, query from Search's fold —
+    // so the walk is a pure ordinal subsequence rank with no per-char case work.
     static Option<int> Score(ReadOnlySpan<char> label, ReadOnlySpan<char> query) {
         var cursor = 0;
         var spread = 0;
         for (var at = 0; at < label.Length && cursor < query.Length; at++) {
-            var match = label[at] == char.ToLowerInvariant(query[cursor]);
+            var match = label[at] == query[cursor];
             cursor += match ? 1 : 0;
             spread += match ? at - cursor : 0;
         }

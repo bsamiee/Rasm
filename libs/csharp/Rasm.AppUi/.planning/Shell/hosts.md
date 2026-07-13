@@ -16,10 +16,10 @@ Rasm.AppUi mounts one shell into every admitted host substrate through a single 
 - Cases: AvaloniaDesktopWindow, RhinoPanel, RhinoModal, Gh2CompanionWindow, SidecarShell, WebBrowser, Headless; `SurfaceFault` = Text | HostAbsent | MountRejected | HandleUnavailable | ThreadAffinity — codes derive through the `AppUiFaultBand.Surface` registry row (6000).
 - Entry: `Fin<SurfaceSession> Mount(SurfaceHost host, SurfaceSeam seam, Control content, ClockPolicy clocks, CorrelationId correlation)` — `Fin` aborts on absent host, rejected mount, missing handle, and thread-affinity violation.
 - Auto: one mount transaction replaces seven boot programs — boot-edge guard, builder shaping, parent-handle capture, scale capture, disposal registration, and receipt emission land in one fold; raw case keys serialize through the suite wire law as locked kind literals.
-- Receipt: `SurfaceReceipt` — host case, native handle identity as descriptor and value, scale, `Instant`, `CorrelationId`; `TelemetryRow` contributes the mount-outcome and scale-flip instruments inward through the AppHost `TelemetryContributorPort`.
+- Receipt: `SurfaceReceipt` — host case, native handle identity as descriptor plus `Option<long>` value (interactive rows always `Some` because a missing handle aborts the mount, the headless row structurally `None`), scale, `Instant`, `CorrelationId`; `TelemetryRow` contributes the mount-outcome and scale-flip instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: Avalonia, Avalonia.Desktop, Avalonia.Headless, Avalonia.Skia, ReactiveUI.Avalonia, System.Reactive, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: one case row — payload fields, seam column, capability set — absorbs a new host substrate with zero new surface, and one host instrument is one `InstrumentRow` on `Surfaces.TelemetryRow`; `WebBrowser` stays the designed growth case whose future activation is one seam column plus one dispatch arm swap.
-- Boundary: `Surfaces` is the named boundary capsule for the statement carve-out on its boot-edge guard; host-agnostic sourcing law — every probe, marshal, mount, and fact delegate is a `SurfaceSeam` column and no dispatch arm names a host API: rhino rows cross only the panel, semi-modal, and UI-thread `SurfaceSeam` delegate columns (the catching marshal that wraps the swallowing host invoke binds at the app root that composes a live host), the gh2 row crosses only its companion-mount `SurfaceSeam` column, and the empty-host shell crosses nothing; boot is one `SetupWithoutStarting` admission behind the `Interlocked` edge guard and a second `AppBuilder` or lifetime anywhere is the rejected form; production view materialization is build-time compiled-XAML only, so `AvaloniaXamlLoader.Load` runtime XAML materialize is rejected wholesale — every view enters the tree through its `Configure<TApp>` compiled-XAML class and `RejectRuntimeXaml` is the never-callable structural surface folding a runtime-load attempt into `SurfaceFault.MountRejected`, the `Avalonia.Markup.Xaml.Loader` markup-loader package resolves only inside the Debug HotAvalonia closure (the diagnostics DEV_LOOP markup-loader pin) and the Release closure carries no runtime XAML loader, so a `new ViewType()` compiled-XAML construction or a HotAvalonia Debug re-patch is the only path and a runtime `AvaloniaXamlLoader.Load(this)`/`Load(uri)` call site is the deleted form; the Skia backend GPU cache is tuned once at boot through one `SkiaOptions` value carrying `MaxGpuResourceSizeBytes` from the `GpuResourceBudget` anchor with `UseOpacitySaveLayer` true so the render-hash lanes share one deterministic GPU budget and a per-shell GPU knob is the rejected form; `WebBrowser` carries an empty capability set and zero payload, so its wire key is its only live surface; the headless row holds host-document capability structurally false, draws through Skia for the render-hash lanes, and is the mount surface of the command-journal replay lane.
+- Boundary: `Surfaces` is the named boundary capsule for the statement carve-out on its boot-edge guard; host-agnostic sourcing law — every probe, marshal, mount, and fact delegate is a `SurfaceSeam` column and no dispatch arm names a host API: rhino rows cross only the panel, semi-modal, and UI-thread `SurfaceSeam` delegate columns (the catching marshal that wraps the swallowing host invoke binds at the app root that composes a live host), the gh2 row crosses only its companion-mount `SurfaceSeam` column, and the empty-host shell crosses nothing; boot is one `SetupWithoutStarting` admission behind the `Interlocked` edge guard and a second `AppBuilder` or lifetime anywhere is the rejected form; production view materialization is build-time compiled-XAML only, so `AvaloniaXamlLoader.Load` runtime XAML materialize is rejected wholesale — every view enters the tree through its `Configure<TApp>` compiled-XAML class and `RejectRuntimeXaml` is the never-callable structural surface folding a runtime-load attempt into `SurfaceFault.MountRejected`, the `Avalonia.Markup.Xaml.Loader` markup-loader package resolves only inside the Debug HotAvalonia closure (the diagnostics DEV_LOOP markup-loader pin) and the Release closure carries no runtime XAML loader, so a `new ViewType()` compiled-XAML construction or a HotAvalonia Debug re-patch is the only path and a runtime `AvaloniaXamlLoader.Load(this)`/`Load(uri)` call site is the deleted form; the Skia backend GPU cache is tuned once at boot through one `SkiaOptions` value carrying `MaxGpuResourceSizeBytes` from the `GpuResourceBudget` anchor with `UseOpacitySaveLayer` true so the render-hash lanes share one deterministic GPU budget and a per-shell GPU knob is the rejected form; `WebBrowser` carries an empty capability set and zero payload, so its wire key is its only live surface; the headless row holds host-document capability structurally false, draws through Skia with the `FrameBufferFormat` pinned to `Rgba8888` so the capture pixel layout is one declared comparison layout for the render-hash lanes, attaches through `HeadlessRoot` whose receipt handle is structurally `None`, and is the mount surface of the command-journal replay lane; a missing platform handle on an interactive row aborts as `SurfaceFault.HandleUnavailable` — a zero-handle success receipt is the deleted sentinel, so every `Some` handle originates from a present platform handle and mount success and failure stay disjoint on the `Fin` rail.
 
 ```csharp signature
 [Union]
@@ -63,12 +63,12 @@ public sealed record SurfaceRow(
     Func<Action, IO<Unit>> Marshal,
     Func<double> Scale,
     Func<bool> OnUiThread,
-    Func<Control, Fin<(long Handle, string Descriptor, IDisposable Teardown)>> Attach,
+    Func<Control, Fin<(Option<long> Handle, string Descriptor, IDisposable Teardown)>> Attach,
     Func<Action<SurfaceFact>, IDisposable> Facts,
     FrozenSet<Capability> Capabilities,
     bool Interactive);
 
-public sealed record SurfaceReceipt(SurfaceHost Host, string Descriptor, long Handle, double Scale, Instant At, CorrelationId Correlation);
+public sealed record SurfaceReceipt(SurfaceHost Host, string Descriptor, Option<long> Handle, double Scale, Instant At, CorrelationId Correlation);
 
 public sealed record SurfaceSession(SurfaceReceipt Receipt, Func<Action<SurfaceFact>, IDisposable> Facts, IDisposable Teardown) : IDisposable {
     public void Dispose() => Teardown.Dispose();
@@ -85,13 +85,15 @@ public static class Surfaces {
 
     public static Fin<SurfaceRow> Row(SurfaceHost host, SurfaceSeam seam) => host.Switch(
         state: seam,
-        avaloniaDesktopWindow: static (s, own) => Fin.Succ(Shell(s, static b => b.UsePlatformDetect().UseSkia().With(SkiaBudget).UseReactiveUI(), s.RunLoop, interactive: true)),
+        avaloniaDesktopWindow: static (s, own) => Fin.Succ(Shell(s, static b => b.UsePlatformDetect().UseSkia().With(SkiaBudget).UseReactiveUI(), s.RunLoop, Windowed, interactive: true)),
         rhinoPanel: static (s, own) => Fin.Succ(Embedded(s, s.PanelMount(own.PanelId))),
         rhinoModal: static (s, own) => Fin.Succ(Embedded(s, s.ModalMount)),
         gh2CompanionWindow: static (s, own) => Fin.Succ(Embedded(s, s.CompanionMount)),
-        sidecarShell: static (s, own) => Fin.Succ(Shell(s, static b => b.UsePlatformDetect().UseSkia().With(SkiaBudget).UseReactiveUI(), s.RunLoop, interactive: true)),
+        sidecarShell: static (s, own) => Fin.Succ(Shell(s, static b => b.UsePlatformDetect().UseSkia().With(SkiaBudget).UseReactiveUI(), s.RunLoop, Windowed, interactive: true)),
         webBrowser: static (s, own) => Fin.Fail<SurfaceRow>(new SurfaceFault.HostAbsent(nameof(SurfaceHost.WebBrowser))),
-        headless: static (s, own) => Fin.Succ(Shell(s, static b => b.UseSkia().With(SkiaBudget).UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }).UseReactiveUI(), Setup, interactive: false)));
+        headless: static (s, own) => Fin.Succ(Shell(s,
+            static b => b.UseSkia().With(SkiaBudget).UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false, FrameBufferFormat = PixelFormat.Rgba8888 }).UseReactiveUI(),
+            Setup, HeadlessRoot, interactive: false)));
 
     public static Fin<Unit> Boot(SurfaceHost host, SurfaceSeam seam, Func<AppBuilder> entry) =>
         from row in Row(host, seam)
@@ -113,18 +115,21 @@ public static class Surfaces {
         Marshal: seam.HostMarshal,
         Scale: seam.Scale,
         OnUiThread: seam.OnUiThread,
-        Attach: content => new EmbedCapsule(content, EmbedOptions.Embedded).Mounted(mount),
+        Attach: content => new EmbedCapsule(content, EmbedOptions.Embedded).Mounted(mount)
+            .Map(static attached => (Some(attached.Handle), attached.Descriptor, attached.Teardown)),
         Facts: seam.HostFacts,
         Capabilities: Capability.Set(Capability.HostDocument),
         Interactive: true);
 
-    static SurfaceRow Shell(SurfaceSeam seam, Func<AppBuilder, AppBuilder> build, Func<AppBuilder, Fin<Unit>> start, bool interactive) => new(
+    static SurfaceRow Shell(
+        SurfaceSeam seam, Func<AppBuilder, AppBuilder> build, Func<AppBuilder, Fin<Unit>> start,
+        Func<Control, Fin<(Option<long> Handle, string Descriptor, IDisposable Teardown)>> attach, bool interactive) => new(
         Build: build,
         Start: start,
         Marshal: SurfaceScheduler.Post,
         Scale: seam.Scale,
         OnUiThread: seam.OnUiThread,
-        Attach: Windowed,
+        Attach: attach,
         Facts: seam.HostFacts,
         Capabilities: Capability.Set(),
         Interactive: interactive);
@@ -133,13 +138,21 @@ public static class Surfaces {
 
     static bool FirstBoot() => Interlocked.Exchange(ref booted, 1) == 0;
 
-    static Fin<(long Handle, string Descriptor, IDisposable Teardown)> Windowed(Control content) =>
+    // Interactive windows FAULT on a missing platform handle — a zero-handle success receipt is the
+    // deleted sentinel; the headless row legitimately carries None through its own attach.
+    static Fin<(Option<long> Handle, string Descriptor, IDisposable Teardown)> Windowed(Control content) =>
         Fin.Succ(new Window { Content = content })
             .Map(static window => (fun(window.Show)(), window).Item2)
-            .Map(static window => (
-                window.TryGetPlatformHandle() is { } handle ? handle.Handle.ToInt64() : 0L,
-                window.TryGetPlatformHandle()?.HandleDescriptor ?? nameof(SurfaceHost.Headless),
-                (IDisposable)Disposable.Create(window.Close)));
+            .Bind(static window => window.TryGetPlatformHandle() is { } handle
+                ? Fin.Succ((Some(handle.Handle.ToInt64()), handle.HandleDescriptor ?? string.Empty,
+                    (IDisposable)Disposable.Create(window.Close)))
+                : (fun(window.Close)(), Fin.Fail<(Option<long>, string, IDisposable)>(
+                    new SurfaceFault.HandleUnavailable(nameof(Windowed)))).Item2);
+
+    static Fin<(Option<long> Handle, string Descriptor, IDisposable Teardown)> HeadlessRoot(Control content) =>
+        Fin.Succ(new Window { Content = content })
+            .Map(static window => (fun(window.Show)(), window).Item2)
+            .Map(static window => (Option<long>.None, nameof(SurfaceHost.Headless), (IDisposable)Disposable.Create(window.Close)));
 
     public static Fin<TControl> RejectRuntimeXaml<TControl>(string view) where TControl : Control =>
         Fin.Fail<TControl>(new SurfaceFault.MountRejected($"<runtime-xaml-rejected:{view}; AvaloniaXamlLoader.Load is build-time compiled-XAML only>"));
@@ -324,4 +337,4 @@ public abstract partial record SurfaceFact {
 
 ## [07]-[RESEARCH]
 
-- [EMBED_SPIKE]: the seam `OnUiThread` access-assertion spelling and scheduler boundary under the Rhino-owned AppKit run-loop — the UI-thread predicate the seam column binds, input and IME delivery, and the CADisplayLink-paced pump fallback row; `EnforceClientSize` tracking of the foreign host view against seam-pushed frame sync on panel resize; render-backend selection for the embedded surface — `RenderingMode` orderings of Metal against the host pipeline against software raster, compared on frame-elapsed receipts; the shared-`GRContext` spelling against the host GPU pipeline when the embedded surface composites into a host-owned context, bound as one `SurfaceSeam` delegate column.
+- [EMBED_SPIKE]: the seam `OnUiThread` access-assertion spelling and scheduler boundary under the Rhino-owned AppKit run-loop — the UI-thread predicate the seam column binds, input and IME delivery, and the CADisplayLink-paced pump fallback row; `EnforceClientSize` tracking of the foreign host view against seam-pushed frame sync on panel resize; render-backend selection for the embedded surface — `RenderingMode` orderings of Metal against the host pipeline against software raster, compared on frame-elapsed receipts; the shared-context spelling is settled — `Render/pipeline.md#RENDER_GRAPH` `Lease` opens the host GPU context through `ISkiaSharpApiLeaseFeature.Lease()` and `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi()`, so the remaining question is only the lease acquisition ordering against the Rhino-owned run loop.

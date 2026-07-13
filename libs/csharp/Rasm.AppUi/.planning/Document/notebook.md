@@ -12,9 +12,9 @@ The notebook rail is the reproducible computational-document model: `NotebookCel
 ## [02]-[CELL_MODEL]
 
 - Owner: `CapabilityPin` the pinned-capability fingerprint; `NotebookCell` `[Union]` the cell-kind family; `CellOutput` `[Union]` the materialized output; `Notebook` the cell sequence.
-- Cases: `NotebookCell` = Code | Markdown | Chart | Render | Viewpoint | Parameter under the locked kind literals; `CellOutput` = Receipt | Rows | Image | Timeline | Empty under the locked kind literals.
-- Entry: `public Fin<CellOutput> Evaluate(NotebookRuntime runtime, HashMap<string, CellOutput> upstream)` — `Fin` aborts on an unpinned capability or a missing upstream output; a code cell runs through the Compute dispatch under its pin.
-- Auto: every code and chart cell carries a `CapabilityPin` composing the AppHost `DeterminismContext`/`EnvFingerprint` as its environment identity plus the Compute capability key and the model-or-kernel checksum — so a cell records exactly the determinism context (seed, float mode, host fingerprint) and the capability version it ran against, and a re-run under a drifted environment or capability is a detectable mismatch through `DeterminismKernel.Reproduces`, never a notebook-local checksum tuple and never a silent re-result; the notebook reproducibility-proof is one owner with the runtime determinism kernel — the pin's environment identity is the `EnvFingerprint.Digest` and a notebook-local environment hash is the deleted form; markdown cells project through the typography `MarkdownProjection` so a documentation cell rides the one markdown vocabulary; chart and render cells bind their output to the chart and visual owners so a notebook output cell mints no second chart; parameter cells expose a typed binding the downstream cells read so a notebook is a live parameterized document.
+- Cases: `NotebookCell` = Code | Markdown | Chart | Render | Viewpoint | Parameter | Evidence under the locked kind literals; `CellOutput` = Receipt | Rows | Image | Timeline | Empty under the locked kind literals — every output case has a producing cell arm, and the `Timeline` producer is the `Evidence` cell querying the diagnostics evidence join over the correlation the notebook already carries.
+- Entry: `public Fin<CellOutput> Evaluate(NotebookRuntime runtime, HashMap<string, CellOutput> upstream)` — `Fin` aborts on an unpinned capability or a missing upstream output; a code cell runs through the Compute dispatch under its pin; an evidence cell runs the runtime `Timeline` delegate against the `Diagnostics/evidence.md#EVIDENCE_JOIN` correlation surface.
+- Auto: every code and chart cell carries a `CapabilityPin` composing the AppHost `DeterminismContext`/`EnvFingerprint` as its environment identity plus the Compute capability key and the model-or-kernel checksum — so a cell records exactly the determinism context (seed, float mode, host fingerprint) and the capability version it ran against, and a re-run under a drifted environment or capability is a detectable mismatch through `DeterminismKernel.Reproduces`, never a notebook-local checksum tuple and never a silent re-result; the notebook reproducibility-proof is one owner with the runtime determinism kernel — the pin's environment identity is the `EnvFingerprint.Digest` and a notebook-local environment hash is the deleted form; markdown cells project through the typography `MarkdownProjection` so a documentation cell rides the one markdown vocabulary; chart and render cells bind their output to the chart and visual owners so a notebook output cell mints no second chart; parameter cells expose a typed binding the downstream cells read so a notebook is a live parameterized document; evidence cells bind the runtime `Timeline` delegate to the diagnostics evidence-join correlation query, so the `CellOutput.Timeline` case has exactly one producer and the notebook documents its own diagnostic story without a second evidence surface.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Compute (project), Rasm.AppHost (project)
 - Growth: a new cell kind is one `NotebookCell` case; a new output kind is one `CellOutput` case; a new pin field is one `CapabilityPin` member; zero new surface.
 - Boundary: the capability pin is the reproducibility law — a code or chart cell with no pin faults at evaluate so an unpinned cell can never enter the document, and the pin composes the `Rasm.AppHost/Runtime/determinism.md#DETERMINISM_KERNEL` `DeterminismContext`/`EnvFingerprint` as its environment identity plus the Compute model-or-kernel checksum, so the notebook reproducibility rides the settled runtime determinism kernel rather than a notebook-local hash — the `CapabilityPin.Matches` composes `DeterminismKernel.Reproduces` so a re-run under a divergent environment is detected before it produces a wrong result, and a parallel notebook-local checksum tuple is the rejected form; markdown cells route to the typography projection and chart/render cells to the chart and visual owners so the notebook composes existing output owners and a notebook-local renderer is the deleted form; code cells edit through the AvaloniaEdit `CodePane` so the notebook mints no second editor; the cell output is the typed `CellOutput` union and a stringly-typed output blob is the rejected form.
@@ -56,18 +56,29 @@ public abstract partial record NotebookCell {
     public sealed record Render(string Id, CustomVisual Kind, CapabilityPin Pin, Seq<string> Inputs) : NotebookCell;
     public sealed record Viewpoint(string Id, AppUi.Viewport.Viewpoint View) : NotebookCell;
     public sealed record Parameter(string Id, string Key, JsonElement Value) : NotebookCell;
+    public sealed record Evidence(string Id, string Query, Seq<string> Inputs) : NotebookCell;
 
     public string Id => Switch(
-        code: static c => c.Id, markdown: static m => m.Id, chart: static c => c.Id,
-        render: static r => r.Id, viewpoint: static v => v.Id, parameter: static p => p.Id);
+        code: static c => c.Id, markdown: static m => m.Id, chart: static c => c.Id, render: static r => r.Id,
+        viewpoint: static v => v.Id, parameter: static p => p.Id, evidence: static e => e.Id);
+
+    public string Kind => Switch(
+        code: static _ => "code", markdown: static _ => "markdown", chart: static _ => "chart", render: static _ => "render",
+        viewpoint: static _ => "viewpoint", parameter: static _ => "parameter", evidence: static _ => "evidence");
+
+    public Option<string> Source => Switch(
+        code: static c => Some(c.Source), markdown: static m => Some(m.Source), chart: static _ => Option<string>.None,
+        render: static _ => Option<string>.None, viewpoint: static _ => Option<string>.None,
+        parameter: static _ => Option<string>.None, evidence: static _ => Option<string>.None);
 
     public Seq<string> Inputs => Switch(
-        code: static c => c.Inputs, markdown: static _ => Seq<string>(), chart: static c => c.Inputs,
-        render: static r => r.Inputs, viewpoint: static _ => Seq<string>(), parameter: static _ => Seq<string>());
+        code: static c => c.Inputs, markdown: static _ => Seq<string>(), chart: static c => c.Inputs, render: static r => r.Inputs,
+        viewpoint: static _ => Seq<string>(), parameter: static _ => Seq<string>(), evidence: static e => e.Inputs);
 
     public Option<CapabilityPin> Pin => Switch(
         code: static c => Some(c.Pin), markdown: static _ => Option<CapabilityPin>.None, chart: static c => Some(c.Pin),
-        render: static r => Some(r.Pin), viewpoint: static _ => Option<CapabilityPin>.None, parameter: static _ => Option<CapabilityPin>.None);
+        render: static r => Some(r.Pin), viewpoint: static _ => Option<CapabilityPin>.None,
+        parameter: static _ => Option<CapabilityPin>.None, evidence: static _ => Option<CapabilityPin>.None);
 
     public IO<CellOutput> Evaluate(NotebookRuntime runtime, HashMap<string, CellOutput> upstream) => Switch(
         state: (Runtime: runtime, Upstream: upstream),
@@ -76,13 +87,15 @@ public abstract partial record NotebookCell {
         chart: static (ctx, c) => ctx.Runtime.Verify(c.Pin) ? ctx.Runtime.Chart(c.Spec, c.Policy, ctx.Upstream) : IO.fail<CellOutput>(new NotebookFault.CapabilityDrift(c.Id)),
         render: static (ctx, r) => ctx.Runtime.Verify(r.Pin) ? ctx.Runtime.Render(r.Kind, ctx.Upstream) : IO.fail<CellOutput>(new NotebookFault.CapabilityDrift(r.Id)),
         viewpoint: static (_, _) => IO.pure<CellOutput>(new CellOutput.Empty()),
-        parameter: static (_, p) => IO.pure<CellOutput>(new CellOutput.Rows(Seq(p.Value))));
+        parameter: static (_, p) => IO.pure<CellOutput>(new CellOutput.Rows(Seq(p.Value))),
+        evidence: static (ctx, e) => ctx.Runtime.Timeline(e.Query, ctx.Upstream));
 }
 
 public sealed record NotebookRuntime(
     Func<CapabilityPin, bool> VerifyPin,
     Func<ChartSeriesSpec, ChartPolicy, HashMap<string, CellOutput>, IO<CellOutput>> Chart,
     Func<CustomVisual, HashMap<string, CellOutput>, IO<CellOutput>> Render,
+    Func<string, HashMap<string, CellOutput>, IO<CellOutput>> Timeline,
     ClockPolicy Clocks,
     CorrelationId Correlation) {
     public bool Verify(CapabilityPin pin) => VerifyPin(pin);
@@ -150,7 +163,7 @@ public sealed record NotebookRecompute(
 ## [04]-[CRDT_COEDIT]
 
 - Owner: `NotebookCoedit` the notebook projection over the one `Collab/sync.md#DOCUMENT_OWNER` `CollabDoc` merge authority.
-- Entry: `public Fin<NotebookCoedit> Open(CollabDoc document)` — attaches the notebook's `movable-list` cell-sequence container and per-cell `map` containers on the one document; `public Fin<Unit> Insert(int index, NotebookCell cell)` / `Move(int from, int to)` / `Delete(string cellId)` / `Retext(string cellId, string source)` — each a typed edit on the document's containers, the document converging without conflict.
+- Entry: `public Fin<NotebookCoedit> Open(CollabDoc document)` — attaches the notebook's `movable-list` cell-sequence container and per-cell `map` containers on the one document; `public Fin<LoroMap> Insert(int index, NotebookCell cell)` — materializes the cell's `Id`, `Kind`, and columns on the per-cell map and attaches the per-cell `text` container for source-bearing kinds; `Move(int from, int to)` — `LoroMovableList.Mov` identity-preserving reorder; `Delete(string cellId)` — resolves the stable cell id to its live position before the list `Delete`, so a concurrently moved cell deletes correctly; `Retext(string cellId, string source)` — `LoroText.Update` whole-source diff onto the cell's `text` container, character-granular under concurrent edits.
 - Auto: the notebook holds NO replicated-op vocabulary, no last-writer-wins register, no fractional-index math, and no tombstone set — the `CollabDoc` IS the merge authority: the cell sequence is a `movable-list` container whose `Mov(from, to)` reorders by stable id without delete+insert losing identity (the textbook collaborative cell-reorder), a cell insert is `Insert*Container` at the index, a cell delete is the list `Delete` (the engine's tombstone is internal), and a code/markdown cell's `Source` is a `text` container per cell whose concurrent edits the engine's eg-walker text CRDT resolves character-granular rather than whole-cell last-writer-wins; convergence is the `CollabDoc` law so two replicas that have imported the same op-log deltas hold the same notebook; the materialized `Notebook` reads the live container state through `GetDeepValue` projected onto the typed cell union.
 - Packages: LoroCs, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project)
 - Growth: a new co-edited notebook concern is one container attach on the existing document, never a new replicated-op case; zero new surface.
@@ -159,6 +172,7 @@ public sealed record NotebookRecompute(
 ```csharp signature
 public sealed record NotebookCoedit(CollabDoc Document, LoroMovableList Cells) {
     public const string CellsContainer = "notebook.cells";
+    const string SourceContainer = "source";
 
     public static Fin<NotebookCoedit> Open(CollabDoc document) =>
         document.Attach(CollabContainer.MovableList, CellsContainer)
@@ -166,22 +180,50 @@ public sealed record NotebookCoedit(CollabDoc Document, LoroMovableList Cells) {
                 ? Fin.Succ(new NotebookCoedit(document, cells))
                 : Fin.Fail<NotebookCoedit>(new CollabFault.Detached(CellsContainer)));
 
+    // Typed insert: the stable id and kind literal land as map columns, and source-bearing kinds attach the
+    // per-cell text container seeded through the whole-source diff Update so history starts converged.
+    public Fin<LoroMap> Insert(int index, NotebookCell cell) =>
+        CollabDoc.Lift(() => Cells.InsertMapContainer((uint)index, new LoroMap()))
+            .Map(map => {
+                map.Insert("id", LoroVal.Of(cell.Id));
+                map.Insert("kind", LoroVal.Of(cell.Kind));
+                cell.Source.Iter(source => map.GetOrCreateTextContainer(SourceContainer, new LoroText()).Update(source, new UpdateOptions()));
+                return map;
+            });
+
     public Fin<Unit> Move(int from, int to) =>
         CollabDoc.Lift(() => { Cells.Mov((uint)from, (uint)to); return unit; });
 
-    public Fin<Unit> Delete(int index) =>
-        CollabDoc.Lift(() => { Cells.Delete((uint)index, 1); return unit; });
+    // Identity-addressed delete: the stable id resolves to its LIVE position first, so a cell a peer moved
+    // concurrently deletes at its current index — an index-only delete contract is the rejected form.
+    public Fin<Unit> Delete(string cellId) =>
+        Locate(cellId).ToFin(new CollabFault.Detached(cellId))
+            .Bind(found => CollabDoc.Lift(() => { Cells.Delete(found.Index, 1); return unit; }));
 
-    public Fin<LoroMap> Insert(int index, string cellId) =>
-        CollabDoc.Lift(() => Cells.InsertMapContainer((uint)index, new LoroMap()))
-            .Map(map => { map.Insert("id", LoroVal.Of(cellId)); return map; });
+    // Character-granular retext: Update diffs the whole source against the cell's text container so a remote
+    // caret and concurrent keystrokes survive; delete-and-reinsert whole-cell LWW is the rejected form.
+    public Fin<Unit> Retext(string cellId, string source) =>
+        Locate(cellId).ToFin(new CollabFault.Detached(cellId))
+            .Bind(found => CollabDoc.Lift(() => {
+                found.Map.GetOrCreateTextContainer(SourceContainer, new LoroText()).Update(source, new UpdateOptions());
+                return unit;
+            }));
+
+    // Id-to-position resolution reads the live container state — never a local index mirror that drifts
+    // under remote inserts; the per-index Get hands back the live per-cell map handle.
+    Option<(uint Index, LoroMap Map)> Locate(string cellId) =>
+        toSeq(Enumerable.Range(0, Cells.ToVec().Length))
+            .Choose(index => Optional(Cells.Get((uint)index)?.AsContainer() as LoroMap)
+                .Filter(map => map.Get("id")?.AsValue() is LoroValue.String id && id.Value == cellId)
+                .Map(map => ((uint)index, map)))
+            .HeadOrNone();
 }
 ```
 
 ## [05]-[REPLAY_BUNDLE]
 
 - Owner: `ReplayManifest` the pinned-input-and-capability manifest; `ReplayBundle` the export-to-replay artifact; `NotebookReplay` the bit-identity check.
-- Entry: `public static Fin<ReplayBundle> Export(Notebook notebook, HashMap<string, CellOutput> outputs, Func<string, IO<ReadOnlyMemory<byte>>> blob)` — `Fin` aborts when any pin-bearing cell kind (code, chart, render) carries an unset pin, input count never proxies the gate; the bundle packs the cells, the pinned capabilities, the input blobs, and the recorded outputs; `public static IO<Fin<bool>> Verify(ReplayBundle bundle, NotebookRuntime runtime)` — re-runs the notebook and compares each cell's output hash to the recorded hash.
+- Entry: `public static Fin<ReplayBundle> Export(Notebook notebook, DeterminismContext context, HashMap<string, CellOutput> outputs, HashMap<string, ReadOnlyMemory<byte>> blobs, Func<CellOutput, ChainHash> hash, ClockPolicy clocks)` — `Fin` aborts when any pin-bearing cell kind (code, chart, render) carries an unset pin, input count never proxies the gate; the bundle packs the cells, the pinned capabilities, the input blobs, and the recorded output hashes; `public static IO<Fin<Seq<string>>> Verify(ReplayBundle bundle, NotebookRecompute recompute, NotebookRuntime runtime, DeterminismContext live, Func<CellOutput, ChainHash> hash)` — re-runs the notebook under the manifest pins and returns the mismatched cell ids, empty on bit-identity.
 - Auto: the manifest records every cell's `CapabilityPin` (carrying the AppHost `DeterminismContext`/`EnvFingerprint` environment identity) and the content hash of every input blob through the kernel `Rasm.Domain` `ContentHash.Of` one-hasher entry (hex encoding stays the boundary projection) so the bundle is self-contained — a replay resolves its capabilities and determinism context from the manifest and its inputs from the packed blobs, never the live environment; `Verify` composes the AppHost `EventLog`/`ChainHash`/`ReplayVerify` content-hash identity rather than a notebook-local `hash(output)` fold — it re-runs the recompute projection under the manifest's pins through the one `Diagnostics/proof.md#HEADLESS_DERIVATION` `ProofEngine.Replay` route and proves each cell's output content hash matches the recorded hash so a reproducibility regression surfaces as a named cell mismatch, the notebook reproducibility receipt riding the existing `ReceiptEnvelopeWire`/`LogEntryWire` rather than a notebook-only wire shape; the bundle is a versioned Persistence artifact so it crosses the blob lane as an opaque payload.
 - Receipt: `Verify` seals a render or evidence receipt per re-run cell; a mismatch folds the cell id into the replay-mismatch instrument.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm (project), NodaTime, Rasm.Persistence (project), Rasm.AppHost (project)
@@ -272,5 +314,6 @@ flowchart LR
 
 ## [06]-[RESEARCH]
 
+- [COEDIT_HANDLE_ACCESSORS]: the `LoroCs` `ValueOrContainer` extraction spellings the `Locate` fold composes — `AsValue()` is the catalogued leaf accessor (`.api/api-loro.md` result union; the graph co-edit bridge composes it), and the symmetric live-container accessor spelled `AsContainer()` here re-verifies against the UniFFI-generated binding at implementation; the `InsertMapContainer`/`GetOrCreateTextContainer`/`Update(UpdateOptions)`/`Mov`/`Delete`/`ToVec`/`Get` members are catalogued and settled.
 - [NOTEBOOK_CAPABILITY]: the Compute capability-registry key and checksum surface the `CapabilityPin` records — the capability identity (kernel/model checksum, substrate, opset) the pin matches against, resolved at implementation against the settled Compute model-lane and intent-selection vocabulary; the cell union, the dependency-graph dirty fold, the CRDT merge, and the replay bundle are settled, the exact capability-registry member shape the `VerifyPin` delegate reads is the unverified surface.
 - [NOTEBOOK_DETERMINISM]: the `CapabilityPin` composes the `Rasm.AppHost/Runtime/determinism.md#DETERMINISM_KERNEL` `DeterminismContext`/`EnvFingerprint` and `DeterminismKernel.Reproduces` as its environment identity, the `ReplayManifest`/`NotebookReplay.Verify` composes the `#EVENT_LOG` `ChainHash` content-addressed identity and the `#REPLAY_VERIFY` `ReplayVerify.Replay` per-step proof through the diagnostics `ProofEngine.Replay` route, and the cell node identity aligns to the `#RECOMPUTE_GRAPH` `RecomputeNode` content-address node identity — these AppHost determinism members arrive as settled finalized vocabulary consumed at the package edge, so the notebook reproducibility-proof is one owner with the runtime determinism kernel and the `Rasm.AppHost.Determinism` namespace and exact member spellings resolve against the finalized determinism surface, never re-minted.

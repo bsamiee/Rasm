@@ -17,7 +17,7 @@ One typed `ControlIntent` family materializes every interactive control from a d
 - Auto: the `EditorFactory` eleven-row typed-shape→control precedent already proven in `PropertyGrid` cells (`Inspector/editor-factories`) is the inspector specialization of this vocabulary — `ControlIntent` generalizes it from property cells to whole screens, so a grid cell editor and a screen field materialize through one fold; `Theme/tokens` `TokenRow` resolves every appearance and `Shell/accessibility` `AutomationProperties.SetName` reads the one `AutomationName` column, so a per-control token literal and a per-control automation call site are the deleted forms.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new control is one `ControlIntent` case carrying its shape plus `IntentBinding`; a new container is one case nesting child intents; zero new surface — the closed eighteen-case family is the axis and a nineteenth parallel control name beside it is the rejected form.
-- Boundary: `ControlIntent` is the one control vocabulary in the package — a per-screen control-builder, a second control-generation framework, and a parallel binding/token/automation path are the `[05]-[PROHIBITIONS]` parallel-control-framework rejected forms; the command column is `Option<string>` carrying the `CommandIntent` key the materialized control's `ICommand` resolves through `BehaviorRail.Intent`, never a `ReactiveCommand` instance on the intent (the intent is a serializable shape, the command resolves at materialize) so the intent crosses the `ControlIntentWire` seam unchanged; container kinds (`Grid`, `Tree`, `Tab`, `Accordion`, `Panel`, `Dock`, `Splitter`, `Toolbar`, `Menu`) carry their child-intent sequence so a whole screen is one nested intent tree; the `Grid`, `Tree`, and `Panel` kinds carry the `VirtualWindow` window spec the `GENERIC_VIRTUALIZATION_FABRIC` owner consumes, so a windowed control mints no second virtualizer; value-carrying kinds (`TextInput`, `NumberInput`, `DateInput`, `PathInput`, `Slider`, `Toggle`) carry a typed two-way binding path read at materialize; the `Select` and `Radio` option sets are the bounded-choice column; the `Dock` and `Splitter` kinds defer their layout to the `LayoutConstraint`/`LayoutSolver` owner (`Shell/solver`) so the intent names the constraint program and the panel solves it.
+- Boundary: `ControlIntent` is the one control vocabulary in the package — a per-screen control-builder, a second control-generation framework, and a parallel binding/token/automation path are the `[05]-[PROHIBITIONS]` parallel-control-framework rejected forms; the command column is `Option<string>` carrying the `CommandIntent` key the materialized control's `ICommand` resolves through `BehaviorRail.Intent`, never a `ReactiveCommand` instance on the intent (the intent is a serializable shape, the command resolves at materialize) so the intent crosses the `ControlIntentWire` seam unchanged; container kinds (`Grid`, `Tree`, `Tab`, `Accordion`, `Panel`, `Dock`, `Splitter`, `Toolbar`, `Menu`) carry their child-intent sequence so a whole screen is one nested intent tree; the `Grid` and `Tree` kinds carry the `VirtualWindow` window spec the `GENERIC_VIRTUALIZATION_FABRIC` owner consumes — the spec crosses the wire so a remote head windows the same viewport contract — and a windowed control mints no second virtualizer; value-carrying kinds (`TextInput`, `NumberInput`, `DateInput`, `PathInput`, `Slider`, `Toggle`) carry a typed two-way binding path read at materialize; the `Select` and `Radio` option sets are the bounded-choice column; the `Dock` and `Splitter` kinds defer their layout to the `LayoutConstraint`/`LayoutSolver` owner (`Shell/solver`) so the intent names the constraint program and the panel solves it.
 
 ```csharp signature
 [Union]
@@ -81,7 +81,7 @@ public enum PathBrowseMode { File, Directory, SaveFile }
 - Receipt: `ControlReceipt` — intent key, control type name, bound command key, resolved token role, `Instant` — sealed through the screen evidence stream; `TelemetryRow` contributes the control-materialized and control-rejected instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: Avalonia, Avalonia.Controls.DataGrid, Xaml.Behaviors.Avalonia, ReactiveUI, LanguageExt.Core, NodaTime
 - Growth: one fold arm per new `ControlIntent` case; a new container is one nesting arm recursing `Materialize` over child intents; one control instrument is one `InstrumentRow` on `ControlFactory.TelemetryRow`; zero new surface.
-- Boundary: `ControlFactory` is the named boundary capsule for the control-construction statement carve-out — each arm carries the Avalonia control-construction statements while the dispatch stays one total generated `Switch`, so a new case breaks every site at compile time and a runtime `_` arm is the rejected form; the only `ICommand` binding bridge is `BehaviorRail.Intent`, so `PropertyBinderImplementation.Bind`/`OneWayBind`/`BindTo`, `CommandBinder.BindCommand`, and `IViewFor` property-expression wiring are rejected wholesale (the `[05]-[PROHIBITIONS]` ReactiveUI-code-behind clause) and a `view.OneWayBind(vm, x => x.Prop, v => v.Control.Text)` call site is the deleted form; the materialized control's view-to-view-model binding is XAML compiled-`{Binding}` over the `ValuePath`, never a C# binder call; templates are compiled `ControlTemplate`/`DataTemplate`/`ControlTheme` resolved from the theme, so `AvaloniaXamlLoader.Load` runtime materialization is the rejected form (`[05]-[PROHIBITIONS]` runtime-XAML clause) and `Surfaces.RejectRuntimeXaml` is the never-callable structural rejection; the `Grid`, `Tree`, and `Panel` arms hand their `VirtualWindowSpec` to the `Shell/virtualization` `VirtualWindow` owner so windowing rides the one fabric and a factory-local virtualizer is the rejected form; the `Panel`, `Dock`, and `Splitter` arms hand their `ConstraintProgram` to the `Shell/solver` `LayoutSolver` panel so layout rides the one constraint owner; the command key resolves against the boot-frozen `CommandDeck` so an unknown key aborts the materialize on the `Fin` rail rather than binding a dead control.
+- Boundary: `ControlFactory` is the named boundary capsule for the control-construction statement carve-out — each arm carries the Avalonia control-construction statements while the dispatch stays one total generated `Switch`, so a new case breaks every site at compile time and a runtime `_` arm is the rejected form; the only `ICommand` binding bridge is `BehaviorRail.Intent`, so `PropertyBinderImplementation.Bind`/`OneWayBind`/`BindTo`, `CommandBinder.BindCommand`, and `IViewFor` property-expression wiring are rejected wholesale (the `[05]-[PROHIBITIONS]` ReactiveUI-code-behind clause) and a `view.OneWayBind(vm, x => x.Prop, v => v.Control.Text)` call site is the deleted form; the materialized control's view-to-view-model binding is XAML compiled-`{Binding}` over the `ValuePath`, never a C# binder call; templates are compiled `ControlTemplate`/`DataTemplate`/`ControlTheme` resolved from the theme, so `AvaloniaXamlLoader.Load` runtime materialization is the rejected form (`[05]-[PROHIBITIONS]` runtime-XAML clause) and `Surfaces.RejectRuntimeXaml` is the never-callable structural rejection; the `Grid` and `Tree` arms hand their `VirtualWindowSpec` to the `Shell/virtualization` `VirtualWindow` owner so windowing rides the one fabric and a factory-local virtualizer is the rejected form; the `Panel` and `Dock` arms hand their `ConstraintProgram` to the `Shell/solver` `LayoutSolver` panel and mount their children through `Mounted`, which stamps `LayoutSolver.ChildKeyProperty` from each child intent's `Key` before the child enters the panel — the one admitted source of the solver's child identity, so a nullable `Control.Name` fallback and a per-panel side mapping are the rejected forms; the command key resolves against the boot-frozen `CommandDeck` so an unknown key aborts the materialize on the `Fin` rail rather than binding a dead control.
 
 ```csharp signature
 public sealed record MaterializeContext(
@@ -117,15 +117,32 @@ public static class ControlFactory {
         slider: static (ctx, c) => Fin<Control>.Succ(new Slider { Minimum = c.Min, Maximum = c.Max, TickFrequency = c.Step }),
         toggle: static (ctx, c) => Fin<Control>.Succ(new ToggleSwitch { Content = c.Label }),
         radio: static (ctx, c) => Fin<Control>.Succ(RadioGroup(c.Options)),
-        grid: static (ctx, c) => Fin<Control>.Succ(new DataGrid { AutoGenerateColumns = false, ItemsSource = ctx.Window(c.Window) }),
-        tree: static (ctx, c) => Fin<Control>.Succ(new DataGrid { AutoGenerateColumns = false, ItemsSource = ctx.Window(c.Window) }),
+        grid: static (ctx, c) => Fin<Control>.Succ(Windowed(new DataGrid { AutoGenerateColumns = false }, ctx.Window(c.Window))),
+        tree: static (ctx, c) => Fin<Control>.Succ(Windowed(new DataGrid { AutoGenerateColumns = false }, ctx.Window(c.Window))),
         menu: static (ctx, c) => Children(c.Items, ctx).Map(static items => (Control)new Menu { ItemsSource = items.ToArray() }),
         toolbar: static (ctx, c) => Children(c.Items, ctx).Map(static items => (Control)new ItemsControl { ItemsSource = items.ToArray() }),
         tab: static (ctx, c) => Pages(c.Pages, ctx).Map(static pages => (Control)new TabControl { ItemsSource = pages.ToArray() }),
         accordion: static (ctx, c) => Sections(c.Sections, ctx).Map(static panels => (Control)new StackPanel().With(panels)),
-        panel: static (ctx, c) => ctx.Layout(c.ConstraintProgram),
-        dock: static (ctx, c) => ctx.Layout(c.ConstraintProgram),
+        panel: static (ctx, c) => Mounted(ctx.Layout(c.ConstraintProgram), c.Children, ctx),
+        dock: static (ctx, c) => Mounted(ctx.Layout(c.ConstraintProgram), c.Regions, ctx),
         splitter: static (ctx, c) => Split(c, ctx));
+
+    // The solver child-identity admission: every solved child is stamped ChildKeyProperty from its OWN
+    // intent Key here, so LayoutSolver.SolvedRect always resolves a program-owner key and a keyless
+    // child is structurally unmountable — never a post-arrange failure.
+    static Fin<Control> Mounted(Fin<Control> layout, Seq<ControlIntent> children, MaterializeContext context) =>
+        layout.Bind(host => host is Panel panel
+            ? children
+                .TraverseM(child => Materialize(child, context).Map(control => {
+                    control.SetValue(LayoutSolver.ChildKeyProperty, child.Key);
+                    return control;
+                }))
+                .As()
+                .Map(mounted => {
+                    mounted.Iter(control => panel.Children.Add(control));
+                    return (Control)panel;
+                })
+            : Fin<Control>.Fail(new ControlFault.TemplateMissing(nameof(LayoutSolver))));
 
     // The recycling re-entry: MaterializePool routes a reset parked control back through the one Bind fold.
     public static Fin<Control> Rebind(IntentBinding binding, Control control, MaterializeContext context) =>
@@ -137,6 +154,17 @@ public static class ControlFactory {
             None: () => Fin<Option<ICommand>>.Succ(None))
         from brush in context.Token(binding.TokenRole).Map(Fin<IBrush>.Succ).IfNone(() => Fin<IBrush>.Fail(new ControlFault.TokenUnresolved(binding.TokenRole)))
         select Apply(control, binding, command, brush, context);
+
+    // The one bound-collection hop: the realized change-set binds ONCE into a ReadOnlyObservableCollection
+    // the grid consumes — ItemsSource never receives the raw stream — and the subscription parks weak-keyed
+    // on the control so a freed grid frees its window binding with it.
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, IDisposable> LiveWindows = new();
+
+    static Control Windowed(DataGrid grid, IObservable<IChangeSet<RealizedItem<object>, object>> window) {
+        LiveWindows.Add(grid, window.Bind(out ReadOnlyObservableCollection<RealizedItem<object>> view).Subscribe());
+        grid.ItemsSource = view;
+        return grid;
+    }
 
     // Recycling owns binding LIFETIME: the live ValuePath subscription parks here (weak-keyed, so an
     // unparked control frees with GC) and Apply/Unbind dispose it before rebinding or resetting.
@@ -260,7 +288,7 @@ flowchart LR
 - Owner: `ControlIntentWire`, `IntentBindingWire`, `ControlReceiptWire` — the kind-discriminated control wire contract the TypeScript head materializes; the `csharp:Rasm.AppUi/Controls` mint emits `ControlIntentWire` over the `ControlIntent` family that `typescript:core/interchange/codec` decodes and `typescript:ui/viewer` materializes (`viewer/panel`), so a web/remote caller materializes the same control vocabulary the desktop renders.
 - Packages: BCL inbox
 - Growth: one wire member row per new intent field; one kind literal per new control case; zero new surface.
-- Boundary: shapes transcribe the camelCase Strict emission — the control kind crosses as the locked kind literal, the command crosses as the `CommandIntent` ordinal-string key (never a live command), the token role crosses as the `TokenRow` string key, the automation name crosses as a string, value paths cross as ordinal strings, and container kinds carry their child-intent arrays so a nested screen crosses as one nested intent tree; the wire carries the intent shape only — the realized control, the bound command, and the resolved brush never cross because the web head materializes them from the same vocabulary; this is the `ONE_UI_INTENT_WIRE` counterpart, so the `ControlIntentWire` strength/kind parity matches the `LayoutConstraintWire` ordered-program invariant.
+- Boundary: shapes transcribe the camelCase Strict emission — the control kind crosses as the locked kind literal, the command crosses as the `CommandIntent` ordinal-string key (never a live command), the token role crosses as the `TokenRow` string key, the automation name crosses as a string, value paths cross as ordinal strings, date bounds cross as ISO-8601 date text or null, the `Grid`/`Tree` window spec crosses whole as `VirtualWindowSpecWire` so a remote head reconstructs the same viewport contract, and container kinds carry their child-intent arrays so a nested screen crosses as one nested intent tree; every field a wire-visible `ControlIntent` case owns has a wire representation, so a new case field is one detectable contract-pressure point and a web-only default for an omitted field is the rejected form; the wire carries the intent shape only — the realized control, the bound command, and the resolved brush never cross because the web head materializes them from the same vocabulary; this is the `ONE_UI_INTENT_WIRE` counterpart, so the `ControlIntentWire` strength/kind parity matches the `LayoutConstraintWire` ordered-program invariant.
 
 ```ts contract
 interface IntentBindingWire {
@@ -270,18 +298,25 @@ interface IntentBindingWire {
   readonly valuePath: string | null;
 }
 
+interface VirtualWindowSpecWire {
+  readonly extent: number;
+  readonly overscan: number;
+  readonly mode: "fixed" | "measured";
+  readonly fixedItemExtent: number;
+}
+
 type ControlIntentWire =
   | { readonly kind: "button"; readonly key: string; readonly content: string; readonly binding: IntentBindingWire }
   | { readonly kind: "textInput"; readonly key: string; readonly watermark: string; readonly multiline: boolean; readonly binding: IntentBindingWire }
   | { readonly kind: "numberInput"; readonly key: string; readonly min: number; readonly max: number; readonly increment: number; readonly binding: IntentBindingWire }
-  | { readonly kind: "dateInput"; readonly key: string; readonly binding: IntentBindingWire }
+  | { readonly kind: "dateInput"; readonly key: string; readonly min: string | null; readonly max: string | null; readonly binding: IntentBindingWire }
   | { readonly kind: "pathInput"; readonly key: string; readonly mode: string; readonly filters: readonly string[]; readonly binding: IntentBindingWire }
   | { readonly kind: "select"; readonly key: string; readonly options: readonly { readonly value: string; readonly label: string }[]; readonly binding: IntentBindingWire }
   | { readonly kind: "slider"; readonly key: string; readonly min: number; readonly max: number; readonly step: number; readonly binding: IntentBindingWire }
   | { readonly kind: "toggle"; readonly key: string; readonly label: string; readonly binding: IntentBindingWire }
   | { readonly kind: "radio"; readonly key: string; readonly options: readonly { readonly value: string; readonly label: string }[]; readonly binding: IntentBindingWire }
-  | { readonly kind: "grid"; readonly key: string; readonly columns: readonly ControlIntentWire[]; readonly binding: IntentBindingWire }
-  | { readonly kind: "tree"; readonly key: string; readonly binding: IntentBindingWire }
+  | { readonly kind: "grid"; readonly key: string; readonly columns: readonly ControlIntentWire[]; readonly window: VirtualWindowSpecWire; readonly binding: IntentBindingWire }
+  | { readonly kind: "tree"; readonly key: string; readonly window: VirtualWindowSpecWire; readonly binding: IntentBindingWire }
   | { readonly kind: "menu"; readonly key: string; readonly items: readonly ControlIntentWire[]; readonly binding: IntentBindingWire }
   | { readonly kind: "toolbar"; readonly key: string; readonly items: readonly ControlIntentWire[]; readonly binding: IntentBindingWire }
   | { readonly kind: "tab"; readonly key: string; readonly pages: readonly { readonly header: string; readonly body: ControlIntentWire }[]; readonly binding: IntentBindingWire }

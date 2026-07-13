@@ -83,7 +83,7 @@ public sealed record VirtualWindow<TItem, TKey>(VirtualWindowSpec Spec, ExtentLe
 - Auto: in fixed mode the extent is `VirtualWindowSpec.FixedItemExtent` and the offset is index times extent, so the scroll math is exact and O(1); in measured mode each realized row reports its measured extent through `Measure`, the ledger keeps a Fenwick/prefix-sum tree of cumulative extents so `OffsetOf` and the total extent are O(log n), and a not-yet-measured row uses the running average extent as its estimate so the scrollbar is stable before every row measures; the scroll-to-index seek resolves the target offset from the ledger so a programmatic scroll lands exactly.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new extent estimator is one `MeasurePolicy` value; zero new surface.
-- Boundary: extent measurement is the one ledger — a per-surface row-height table is the rejected form, so fixed-height grids and variable-height tree rows share one extent model; the measured-extent tree is O(log n) so a scroll over a million measured rows never re-sums the whole list; the not-yet-measured estimate uses the running average so the scrollbar never jumps when a row first measures; the fixed-mode path keeps the scroll math integer-exact (`Editing/tables#SUBSTRATE_LAW` fixed density-token row height), so a fixed grid pays no measurement cost; a measured offset query before any measurement returns the average-estimate offset rather than faulting, so the window realizes before the first measure pass.
+- Boundary: extent measurement is the one ledger — a per-surface row-height table is the rejected form, so fixed-height grids and variable-height tree rows share one extent model; the measured-extent tree is O(log n) so a scroll over a million measured rows never re-sums the whole list; prefix sums equal the sum of registered extents across every capacity boundary — the online append initializes each new Fenwick cell to its covered-range sum, so backing-store growth never zeroes an ancestor aggregate and `Seek` selects the same ordinal as a reference cumulative model after growth, a full-list offset rescan being the rejected repair; the not-yet-measured estimate uses the running average so the scrollbar never jumps when a row first measures; the fixed-mode path keeps the scroll math integer-exact (`Editing/tables#SUBSTRATE_LAW` fixed density-token row height), so a fixed grid pays no measurement cost; a measured offset query before any measurement returns the average-estimate offset rather than faulting, so the window realizes before the first measure pass.
 
 ```csharp signature
 public sealed record MeasurePolicy(ExtentMode Mode, double Estimate) {
@@ -95,9 +95,12 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
     private readonly Dictionary<TKey, int> ordinals = new();
     private readonly List<TKey> order = [];
     private readonly List<double> extents = [];
-    private double[] fenwick = new double[16]; // 1-based Fenwick (BIT) over per-index extents
-    private double averageExtent = 28d;
+    private double[] fenwick = new double[16]; // 1-based ONLINE Fenwick (BIT): appended cells initialize to their covered-range sum
+    private double extentSum;
+    private int live;
     private int retired;
+
+    private double AverageExtent => live > 0 ? extentSum / live : MeasurePolicy.Adaptive.Estimate;
 
     // Source registration: adds enter at the running estimate so count, offsets, and seeks are live
     // BEFORE any row measures; removes retire to a zero-extent tombstone (offsets stay exact) and a
@@ -105,7 +108,7 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
     public Unit Admit<TItem>(IChangeSet<TItem, TKey> changes) where TItem : notnull {
         foreach (var change in changes) {
             _ = change.Reason switch {
-                ChangeReason.Add => Apply(change.Key, averageExtent, register: true),
+                ChangeReason.Add => Append(change.Key, AverageExtent),
                 ChangeReason.Remove => Retire(change.Key),
                 _ => unit,
             };
@@ -113,39 +116,49 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
         return unit;
     }
 
-    // O(log n): a measure is a point DELTA update over an already-registered ordinal — registration is
-    // Admit's, so an unseen key registers first and then measures through the same delta path.
-    public Unit Measure(TKey key, double extent) => Apply(key, extent, register: true);
+    // A measure over a registered ordinal is a point DELTA update; an unseen key appends first.
+    public Unit Measure(TKey key, double extent) =>
+        ordinals.ContainsKey(key) ? Adjust(key, extent) : Append(key, extent);
 
-    private Unit Apply(TKey key, double extent, bool register) {
-        double delta;
-        if (!ordinals.TryGetValue(key, out var index)) {
-            if (!register) { return unit; }
-            index = order.Count; ordinals[key] = index; order.Add(key); extents.Add(extent);
-            EnsureCapacity(order.Count); delta = extent;
-        }
-        else { delta = extent - extents[index]; extents[index] = extent; }
-        averageExtent = extents.Count > 0 ? averageExtent + ((extent - averageExtent) / extents.Count) : extent;
+    // ONLINE append law: the new 1-based cell at position p covers (p - lowbit(p), p], so it INITIALIZES
+    // to that range's extent sum — a zero-filled or copy-grown cell silently omits every earlier extent
+    // it covers, which is the rejected growth form; ancestors past p do not exist yet and each later
+    // append initializes itself the same way, so no ancestor loop runs here.
+    private Unit Append(TKey key, double extent) {
+        var index = order.Count;
+        ordinals[key] = index; order.Add(key); extents.Add(extent);
+        extentSum += extent; live++;
+        var position = index + 1;
+        EnsureCapacity(position);
+        fenwick[position] = extent + PrefixSum(index) - PrefixSum(position - (position & -position));
+        return unit;
+    }
+
+    private Unit Adjust(TKey key, double extent) {
+        var index = ordinals[key];
+        var delta = extent - extents[index];
+        extents[index] = extent;
+        extentSum += delta;
         for (var at = index + 1; at <= order.Count; at += at & -at) { fenwick[at] += delta; }
         return unit;
     }
 
     private Unit Retire(TKey key) {
         if (!ordinals.TryGetValue(key, out var index)) { return unit; }
-        ignore(Apply(key, 0d, register: false));
+        ignore(Adjust(key, 0d));
         ignore(ordinals.Remove(key));
+        live--;
         retired++;
         if (retired * 2 > order.Count) { Compact(); }
         return unit;
     }
 
     private void Compact() {
-        var live = order.Where(ordinals.ContainsKey).ToList();
-        var kept = live.Select(key => extents[ordinals[key]]).ToList();
+        var kept = order.Where(ordinals.ContainsKey).Select(key => (Key: key, Extent: extents[ordinals[key]])).ToList();
         ordinals.Clear(); order.Clear(); extents.Clear();
-        fenwick = new double[Math.Max(16, live.Count + 1)];
-        retired = 0;
-        for (var at = 0; at < live.Count; at++) { ignore(Apply(live[at], kept[at], register: true)); }
+        fenwick = new double[Math.Max(16, kept.Count + 1)];
+        (extentSum, live, retired) = (0d, 0, 0);
+        kept.ForEach(row => ignore(Append(row.Key, row.Extent)));
     }
 
     // O(log n) prefix query: cumulative extent of indices [0, index).
@@ -160,7 +173,7 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
 
     public double ExtentOf(TKey key, VirtualWindowSpec spec) =>
         spec.Mode == ExtentMode.Fixed ? spec.FixedItemExtent
-            : ordinals.TryGetValue(key, out var index) && index < extents.Count ? extents[index] : averageExtent;
+            : ordinals.TryGetValue(key, out var index) && index < extents.Count ? extents[index] : AverageExtent;
 
     public int IndexOf(TKey key) => ordinals.TryGetValue(key, out var index) ? index : -1;
 
@@ -183,9 +196,11 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
         return Math.Clamp(index, 0, Math.Max(0, order.Count - 1));
     }
 
-    private void EnsureCapacity(int count) {
-        if (count < fenwick.Length) { return; }
-        var grown = new double[Math.Max(fenwick.Length * 2, count + 1)];
+    // Growth copies only established cells; positions past order.Count are never read before their own
+    // Append initializes them, so copy-growth is sound exactly because Append never trusts a zero cell.
+    private void EnsureCapacity(int position) {
+        if (position < fenwick.Length) { return; }
+        var grown = new double[Math.Max(fenwick.Length * 2, position + 1)];
         fenwick.CopyTo(grown, 0);
         fenwick = grown;
     }

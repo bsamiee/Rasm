@@ -156,7 +156,7 @@ flowchart LR
 
 - Owner: `PointSample` the single LiDAR return; `PointCloudSource` the decoded point set; `PointOctree` the level-of-detail residency tree.
 - Entry: `public static Fin<PointCloudSource> Decode(GpuBackend backend, ResidencyPayload payload, ResidencyBudget budget)` — projects the ONE Compute `ResidencyPayload` (point-cloud kind) into the octree-keyed point set under the same kind -> non-empty -> layout -> watermark admission ladder the splat arm runs, an oversized cloud failing `CaptureFault.DecodeDeferred` for the residency stream; a divergent `PointPayload` carrier is the DELETED form (`[V5]`); AppUi consumes the decoded payload at the wire and never decodes LAZ.
-- Auto: each point carries its position, the classification byte, the intensity, and the RGB color so a `PointCloudSource` is the decoded scan return set the Compute payload streams; `PointOctree` partitions the points into a spatial octree whose nodes carry their level-of-detail subsample so a massive cloud renders the coarse subsample at distance and the full density up close, pop-free because adjacent levels share locked node boundaries exactly as the meshlet cluster-LOD shares cluster boundaries; the octree nodes key into the residency budget by their cell so a billion-point cloud stays VRAM-bounded; the classification byte routes through the perceptually-uniform colormap so a class-colored cloud maps through one lightness-monotone scale.
+- Auto: each point carries its position, the classification byte, the intensity, and the RGB color so a `PointCloudSource` is the decoded scan return set the Compute payload streams; `PointOctree` partitions the points into a spatial octree — level L subdivides the bounding cube into `2^L` divisions per axis, occupied cells only, each node carrying ITS OWN cell bounds, resident count, and coarse-level `SampleStride` — so a massive cloud renders the coarse subsample at distance and the full density up close, pop-free because adjacent levels share locked node boundaries exactly as the meshlet cluster-LOD shares cluster boundaries; the octree nodes key into the residency budget by their Morton cell key so a billion-point cloud stays VRAM-bounded and adjacent cells sort near for tile-coherent upload; the classification byte routes through the perceptually-uniform colormap so a class-colored cloud maps through one lightness-monotone scale.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Compute (project)
 - Growth: a new point attribute is one `PointSample` field; a new LOD policy is one octree subsample value; zero new surface.
 - Boundary: the point source projects off the ONE Compute `ResidencyPayload` boundary record — the offline LAZ/scan decode is the Python companion's geometry producer crossing as a Compute payload, so AppUi carries no LAZ-decode package and a `laszip`/`pdal` admission inside `realitycapture/` is the rejected form; the octree LOD is the one massive-cloud residency law and a flat point-array draw is the deleted form; the octree residency rides the `RESIDENCY_BUDGET` owner so the point node and the meshlet tile share one residency manager; the GPU point splatting binds the `RenderTarget` factory through the render-graph lease under CAPTURE_GPU and a CPU octree subsample is the floor for the 2D fallback while the GPU draw is the SPIKE.
@@ -189,22 +189,58 @@ public sealed record PointCloudSource(
                     ? Fin.Fail<PointCloudSource>(new CaptureFault.PayloadMalformed($"point/layout:{payload.PointBytes.Length}b != {payload.PointCount}x{Unsafe.SizeOf<PointSample>()}b"))
                     : payload.PointBytes.Length > budget.Watermark
                         ? Fin.Fail<PointCloudSource>(new CaptureFault.DecodeDeferred($"point/oversized:{payload.PointBytes.Length}b > {budget.Watermark}b"))
-                        : Fin.Succ(new PointCloudSource(backend, Project(payload), Octree(payload), Colormap.Viridis,
-                            new BoundingSphere(payload.BoundsX, payload.BoundsY, payload.BoundsZ, payload.BoundsRadius)));
+                        : Fin.Succ(Materialized(backend, payload));
 
     public Seq<PointOctreeNode> Visible(Frustum frustum, double lodScale) =>
         Octree.Filter(node => frustum.Intersects(node.Bounds) && node.Level <= (int)lodScale);
+
+    static PointCloudSource Materialized(GpuBackend backend, ResidencyPayload payload) {
+        Seq<PointSample> points = Project(payload);
+        return new PointCloudSource(backend, points, Octree(payload, points), Colormap.Viridis,
+            new BoundingSphere(payload.BoundsX, payload.BoundsY, payload.BoundsZ, payload.BoundsRadius));
+    }
 
     // MemoryMarshal.Cast layout assumption GATED on CAPTURE_PAYLOAD — the wire layout contract.
     private static Seq<PointSample> Project(ResidencyPayload payload) =>
         toSeq(MemoryMarshal.Cast<byte, PointSample>(payload.PointBytes.Span).ToArray());
 
-    private static Seq<PointOctreeNode> Octree(ResidencyPayload payload) =>
-        toSeq(Enumerable.Range(0, int.Max(payload.LevelDepth, 1))
-            .Select(level => new PointOctreeNode(
-                $"{payload.ContentKey:x32}/{level}", level,
-                new BoundingSphere(payload.BoundsX, payload.BoundsY, payload.BoundsZ, payload.BoundsRadius),
-                1 << (payload.LevelDepth - level), payload.PointCount >> level, 0L)));
+    // A REAL spatial octree: level L partitions the bounding cube into 2^L divisions per axis, occupied
+    // cells only, each node carrying ITS cell bounds, its resident count, and the coarse-level SampleStride
+    // (1 << (depth-1-level)) the LOD subsample reads — the flat one-node-per-level list is the deleted form.
+    private static Seq<PointOctreeNode> Octree(ResidencyPayload payload, Seq<PointSample> points) {
+        int depth = int.Max(payload.LevelDepth, 1);
+        (float ox, float oy, float oz) = (payload.BoundsX - payload.BoundsRadius, payload.BoundsY - payload.BoundsRadius, payload.BoundsZ - payload.BoundsRadius);
+        float span = float.Max(payload.BoundsRadius * 2f, 1e-6f);
+        return toSeq(Enumerable.Range(0, depth).SelectMany(level => {
+            int divisions = 1 << level;
+            float cell = span / divisions;
+            return points
+                .GroupBy(p => Cell(p, ox, oy, oz, cell, divisions))
+                .Select(bucket => new PointOctreeNode(
+                    $"{payload.ContentKey:x32}/{level}/{Morton(bucket.Key)}", level,
+                    new BoundingSphere(
+                        ox + ((bucket.Key.X + 0.5f) * cell), oy + ((bucket.Key.Y + 0.5f) * cell), oz + ((bucket.Key.Z + 0.5f) * cell),
+                        cell * 0.8660254f),
+                    1 << (depth - 1 - level), bucket.LongCount(), 0L));
+        }));
+    }
+
+    static (int X, int Y, int Z) Cell(PointSample p, float ox, float oy, float oz, float cell, int divisions) =>
+        ((int)float.Clamp((p.X - ox) / cell, 0f, divisions - 1),
+         (int)float.Clamp((p.Y - oy) / cell, 0f, divisions - 1),
+         (int)float.Clamp((p.Z - oz) / cell, 0f, divisions - 1));
+
+    // 10-bit-per-axis 3D Morton interleave — the compact residency cell key adjacent cells sort near.
+    static uint Morton((int X, int Y, int Z) cell) =>
+        Spread((uint)cell.X) | (Spread((uint)cell.Y) << 1) | (Spread((uint)cell.Z) << 2);
+
+    static uint Spread(uint v) {
+        v &= 0x3FF;
+        v = (v | (v << 16)) & 0x030000FF;
+        v = (v | (v << 8)) & 0x0300F00F;
+        v = (v | (v << 4)) & 0x030C30C3;
+        return (v | (v << 2)) & 0x09249249;
+    }
 }
 ```
 
@@ -266,18 +302,31 @@ public sealed record MeasureOverlay(string Key, Seq<MeasurePoint> Vertices, Seq<
     public UnitsNet.Length Total =>
         Segments.Fold(UnitsNet.Length.Zero, static (sum, segment) => sum + segment.Distance);
 
+    // The per-interior-vertex turning angle between consecutive segments — the angle evidence a polyline
+    // measurement reads beside its running length.
+    public Seq<UnitsNet.Angle> Angles =>
+        Segments.Zip(Segments.Tail).Map(static pair => Turn(pair.Item1, pair.Item2)).ToSeq();
+
     public Viewpoint Bind(Viewpoint view) =>
         view with { Overrides = view.Overrides + Vertices.Map(static v => new VisibilityOverride(v.SnappedReturn, true, None, 0d)) };
 
     private static UnitsNet.Length Span(MeasurePoint a, MeasurePoint b) =>
         UnitsNet.Length.FromMeters(Math.Sqrt(Math.Pow(b.X - a.X, 2) + Math.Pow(b.Y - a.Y, 2) + Math.Pow(b.Z - a.Z, 2)));
+
+    private static UnitsNet.Angle Turn(MeasureSegment ab, MeasureSegment bc) {
+        (double ux, double uy, double uz) = (ab.To.X - ab.From.X, ab.To.Y - ab.From.Y, ab.To.Z - ab.From.Z);
+        (double vx, double vy, double vz) = (bc.To.X - bc.From.X, bc.To.Y - bc.From.Y, bc.To.Z - bc.From.Z);
+        double dot = ((ux * vx) + (uy * vy) + (uz * vz))
+            / (Math.Max(Math.Sqrt((ux * ux) + (uy * uy) + (uz * uz)) * Math.Sqrt((vx * vx) + (vy * vy) + (vz * vz)), double.Epsilon));
+        return UnitsNet.Angle.FromDegrees(Math.Acos(Math.Clamp(dot, -1d, 1d)) * 180d / Math.PI);
+    }
 }
 ```
 
 ## [06]-[CAPTURE_CLIP]
 
 - Owner: `CaptureFrame` the time-stamped capture epoch; `CaptureClip` the capture-frame playback bound to the animation playhead.
-- Entry: `public FieldIndexTrack OnTimeline(string key)` — projects the capture epochs onto an animation `FieldIndex` track so a multi-epoch scan scrubs on the one playhead; the capture frame is a field index, never a wall-clock tick.
+- Entry: `public Fin<Track> OnTimeline(string key)` — projects the capture epochs through the animation `Track.OfFieldIndex` admission rail so a multi-epoch scan scrubs on the one playhead under the sorted non-empty track invariant; the capture frame is a field index, never a wall-clock tick, and an epoch-free clip faults typed.
 - Auto: each capture frame carries its epoch instant and its payload key so a multi-epoch reality capture (a construction-progress scan series) reads one frame per epoch; the clip projects the epochs onto an animation `FieldIndex` track so the capture-frame scrub rides the one deterministic playhead the kinematic camera and the transient field scrub share — a construction-progress scrub and a camera fly-through animate on the same timeline; the frame index selects the active `SplatSource`/`PointCloudSource` payload key so scrubbing the playhead swaps the rendered capture epoch.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new capture epoch is one `CaptureFrame` row; zero new surface.
@@ -289,9 +338,13 @@ public readonly record struct CaptureFrame(int Index, Instant Epoch, string Payl
 public sealed record CaptureClip(string Key, Seq<CaptureFrame> Frames) {
     public Option<CaptureFrame> At(int index) => Frames.Find(frame => frame.Index == index);
 
-    public Animation.Track.FieldIndex OnTimeline(string key) =>
-        new(key, Frames.Map(frame => new Animation.Keyframe<int>(
-            Duration.FromTimeSpan(frame.Epoch - Frames.Head.Epoch), frame.Index, MotionToken.Standard)).ToSeq());
+    // Routes through the Track.OfFieldIndex admission rail so the sorted non-empty track invariant holds
+    // at construction; an epoch-free clip faults typed instead of dereferencing an absent head.
+    public Fin<Track> OnTimeline(string key) =>
+        Frames.HeadOrNone().Match(
+            None: () => Fin.Fail<Track>(new CaptureFault.PayloadMalformed($"clip/empty:{Key}")),
+            Some: head => Track.OfFieldIndex(key, Frames.Map(frame => new Keyframe<int>(
+                frame.Epoch - head.Epoch, frame.Index, MotionToken.Standard)).ToSeq()));
 }
 ```
 

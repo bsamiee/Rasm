@@ -219,11 +219,11 @@ flowchart LR
 
 - Owner: `InputDevice` `[Union]` the alternative-input source family over the four admitted net10 SDKs; `DeviceAxis` the normalized continuous-axis sample; `DeviceOutput` `[Union]` the device-output sink family; `InputFabric` the device-to-intent and intent-to-device fold.
 - Cases: `InputDevice` = SpaceMouse | GameController | HapticSurface | MidiSurface under the locked kind literals; `DeviceOutput` = ControllerRumble | HapticRumble under the locked kind literals — eye-gaze, switch-access, voice, CNC, and robot are out of the fabric (no viable cross-platform net10 SDK, closed `INPUT-FABRIC-SDKS`).
-- Entry: `public Seq<CommandIntent> Map(InputDevice device, Seq<DeviceAxis> sample, CommandDeck deck)` — folds a device sample into the command intents it raises through the one table; `public IO<Unit> Drive(DeviceOutput output, Seq<DeviceAxis> command)` — folds a command into the device-output samples it emits.
+- Entry: `public DeviceIntentReport Map(InputDevice device, Seq<DeviceAxis> sample, CommandDeck deck)` — folds a device sample into a survivor/casualty partition over the one table: every device-produced key admits through `deck.Rows` into its `CommandIntent` row, and a key the deck does not carry lands as a typed `InputDriverFault.IntentUnmapped` casualty carrying the device identity and the refused key, so a driver typo, a renamed command key, or an unsupported MIDI mapping is observable input evidence, never a silent drop; `public IO<Unit> Drive(DeviceOutput output, Seq<DeviceAxis> command)` — folds a command into the device-output samples it emits.
 - Auto: every alternative-input device folds onto the one `CommandIntent` table — a SpaceMouse six-degree-of-freedom translation/rotation sample maps to the viewport orbit/pan/zoom intents, a game-controller stick to the same navigation intents, a haptic-surface trigger to a feedback intent, and a MIDI control surface to parameter intents — so a new input modality raises existing verbs and never a parallel command path; device output is the symmetric fold — a controller rumble or a haptic-device pulse consumes the normalized command axes so the same intent that an input device raises a device output can consume, completing the input-output fabric; the continuous-axis sample is normalized to [-1, 1] so a device-specific range never leaks into the intent fold; each device's continuous axes fold through the `Shell/input` pan-zoom canvas algebra (`[04]-[POINTER_GESTURES]`) and discrete events map onto the `CommandIntent` vocabulary.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new input device is one `InputDevice` case reading the shared intent rail; a new output device is one `DeviceOutput` case; a new continuous control is one `DeviceAxis` row; zero new surface — a parallel input framework beside this fabric is the rejected form.
-- Boundary: alternative input folds onto the one command table so a per-device handler is the deleted form — a SpaceMouse, controller, haptic, or MIDI sample raises a `CommandIntent` exactly as a hotkey does, and the one availability algebra gates them all; the device sample is normalized so the fabric carries no device-specific range literal; device output is the symmetric consequence — the controller-rumble and haptic sinks consume normalized command axes through a `SurfaceSeam`-bound device delegate so no fabric body names a device SDK at a call site, the SDK driver capsules live in `[07]-[DEVICE_DRIVERS]`; the mouse, touch, pen, and keyboard paths stay the pointer-gesture and hotkey owners so the fabric adds only the alternative modalities and re-models no existing input; the fabric union arm carries only the device→intent projection delegate, so the four SDK boundary capsules of `[07]` bind those columns at composition and the fabric body names no SDK member.
+- Boundary: alternative input folds onto the one command table so a per-device handler is the deleted form — a SpaceMouse, controller, haptic, or MIDI sample raises a `CommandIntent` exactly as a hotkey does, and the one availability algebra gates them all; the `DeviceIntentReport` partition is the ingress evidence — `Raised` rows ride the command receipt family unchanged while `Unmapped` casualties fold into the screen fault state and the `AbsentInstrument`-adjacent device telemetry, so device ingress carries the same admission-and-evidence discipline as the drop and paste rails; the device sample is normalized so the fabric carries no device-specific range literal; device output is the symmetric consequence — the controller-rumble and haptic sinks consume normalized command axes through a `SurfaceSeam`-bound device delegate so no fabric body names a device SDK at a call site, the SDK driver capsules live in `[07]-[DEVICE_DRIVERS]`; the mouse, touch, pen, and keyboard paths stay the pointer-gesture and hotkey owners so the fabric adds only the alternative modalities and re-models no existing input; the fabric union arm carries only the device→intent projection delegate, so the four SDK boundary capsules of `[07]` bind those columns at composition and the fabric body names no SDK member.
 
 ```csharp signature
 public readonly record struct DeviceAxis(string Channel, double Value);
@@ -247,10 +247,17 @@ public abstract partial record DeviceOutput {
     public sealed record HapticRumble(string Id, Func<double, IO<Unit>> Pulse) : DeviceOutput;
 }
 
+public readonly record struct DeviceIntentReport(Seq<CommandIntent> Raised, Seq<InputDriverFault> Unmapped) {
+    public static readonly DeviceIntentReport Empty = new(Seq<CommandIntent>(), Seq<InputDriverFault>());
+}
+
 public static class InputFabric {
-    public static Seq<CommandIntent> Map(InputDevice device, Seq<DeviceAxis> sample, CommandDeck deck) =>
-        Keys(device, sample, deck)
-            .Bind(key => deck.Rows.TryGetValue(key, out var row) ? Seq(row) : Seq<CommandIntent>());
+    public static DeviceIntentReport Map(InputDevice device, Seq<DeviceAxis> sample, CommandDeck deck) =>
+        Keys(device, sample, deck).Fold(
+            DeviceIntentReport.Empty,
+            (report, key) => deck.Rows.TryGetValue(key, out var row)
+                ? report with { Raised = report.Raised.Add(row) }
+                : report with { Unmapped = report.Unmapped.Add(new InputDriverFault.IntentUnmapped($"{device.Id}:{key}")) });
 
     static Seq<string> Keys(InputDevice device, Seq<DeviceAxis> sample, CommandDeck deck) =>
         device.Switch(
@@ -271,7 +278,7 @@ public static class InputFabric {
 ## [07]-[DEVICE_DRIVERS]
 
 - Owner: `DeviceDriver` `[Union]` the four SDK boundary capsules binding the fabric's delegate columns; `DeviceSession` the scoped device handle; `InputDriverFault` the typed fault family on the `AppUiFaultBand.InputDriver` registry row (6050).
-- Cases: `DeviceDriver` = Hid(HidSharp SpaceMouse) | Gamepad(Silk.NET.Input controller) | Haptic(Silk.NET.SDL force-feedback) | Midi(Melanchall.DryWetMidi control surface) under the locked kind literals; `InputDriverFault` = Text | DeviceAbsent | OpenRejected | DecodeFailed — codes derive through the `Diagnostics/evidence.md#FAULT_TABLES` registry.
+- Cases: `DeviceDriver` = Hid(HidSharp SpaceMouse) | Gamepad(Silk.NET.Input controller) | Haptic(Silk.NET.SDL force-feedback) | Midi(Melanchall.DryWetMidi control surface) under the locked kind literals; `InputDriverFault` = Text | DeviceAbsent | OpenRejected | DecodeFailed | BindingRejected | DropRejected | PasteRejected | IntentUnmapped — codes derive through the `Diagnostics/evidence.md#FAULT_TABLES` registry.
 - Entry: `public Fin<DeviceSession> Open(DeviceDriver driver)` — opens the SDK handle in a scoped boundary, returning the device→intent projection the fabric arm reads and the teardown that releases the native handle; `public IObservable<Seq<DeviceAxis>> Stream(DeviceSession session)` — projects the SDK's raw report stream into normalized `DeviceAxis` samples.
 - Auto: the `Hid` capsule enumerates a 3Dconnexion SpaceMouse through `DeviceList.Local.GetHidDevices(vendorId, productId)`, opens a scoped `HidStream`, and decodes its six translation/rotation axes through `DeviceItemInputParser`/`DataValue.GetScaledValue` so canonical [-1,1] axes leave the capsule, not raw HID bytes (`.api/api-hidsharp.md`); the `Gamepad` capsule mints one `IInputContext` per view through `IView.CreateInput()`, reads `IGamepad.Thumbsticks`/`Triggers`/`Buttons` through the named `GamepadExtensions` accessors with `Deadzone.Apply` recentering, and folds them into `DeviceAxis` samples (`.api/api-silk-input.md`); the `Haptic` capsule arms the SDL haptic subsystem through `Init(InitHaptic)`, opens a device through `HapticOpenFromJoystick`, and runs effects through `HapticRumblePlay`/`GameControllerRumble` gated behind `HapticQuery` capability (`.api/api-silk-sdl.md`); the `Midi` capsule resolves an input device through `InputDevice.GetByName`, listens through `StartEventsListening`, and projects `ControlChangeEvent.ControlValue`/`NoteOnEvent.Velocity` (bounded `SevenBitNumber`) into normalized parameter axes (`.api/api-drywetmidi.md`); every handle is lifecycle-scoped and disposed at teardown.
 - Receipt: the first opened device emits a driver-resolved evidence row — device kind, identity, axis count; `TelemetryRow` contributes the device-resolved and device-absent instruments inward through the AppHost `TelemetryContributorPort`.
@@ -293,6 +300,7 @@ public abstract partial record InputDriverFault : Expected, IValidationError<Inp
     public sealed record BindingRejected : InputDriverFault { public BindingRejected(string detail) : base(detail, AppUiFaultBand.InputDriver.Code(4)) { } }
     public sealed record DropRejected : InputDriverFault { public DropRejected(string detail) : base(detail, AppUiFaultBand.InputDriver.Code(5)) { } }
     public sealed record PasteRejected : InputDriverFault { public PasteRejected(string detail) : base(detail, AppUiFaultBand.InputDriver.Code(6)) { } }
+    public sealed record IntentUnmapped : InputDriverFault { public IntentUnmapped(string detail) : base(detail, AppUiFaultBand.InputDriver.Code(7)) { } }
 }
 
 public sealed record DeviceSession(string Id, InputDevice Device, IObservable<Seq<DeviceAxis>> Samples, IDisposable Teardown) : IDisposable {

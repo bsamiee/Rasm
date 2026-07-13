@@ -14,7 +14,7 @@ The geometry-virtualization and residency owners for the infinite viewport: the 
 - Auto: the clusters arrive Compute-built — meshopt clustering, REAL per-cluster bounds, REAL cone apex/axis/cutoff, and encoded `Error`/`ParentError` columns that are monotonic BY CONSTRUCTION (`ParentError >= Error` on the `payload.md` row — the landed encode guarantee), so cut well-formedness (crack-free, no double-draw) rides the producer guarantee and this page re-verifies nothing; the LOD SELECTION ALGEBRA is AppUi's own: the per-cluster error bound projects to screen space under the camera row, the `LodPolicy` pixel threshold picks the cut (`Projected(Error) <= threshold < Projected(ParentError)` — exactly one cluster per subtree by monotonicity), and the hysteresis band on the same policy row keeps a prior-cut cluster selected until its error crosses the threshold by the band so a dolly move never flickers the cut; the cull ladder is RAISED past cone parity per the page's infinite-viewport charter: frustum -> wire-cone backface (a cluster whose cone faces away from the eye rejects; a cutoff of -1 never rejects, so degenerate cones stay drawable) -> LOD cut -> prior-frame depth-pyramid (HZB) two-phase occlusion — draw the prior-visible set first, test the remainder against the pyramid, and a cluster fully occluded by the prior frame draws nothing; bindless resource indices resolve through `BindlessTable` so a draw names a resource by index, never a per-draw bind.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Compute (project), Silk.NET.WebGPU
 - Growth: a new LOD policy is one `LodPolicy` value; a new vertex-stream channel is one `BindlessTable` slot; a new cull phase is one ladder row; zero new surface.
-- Boundary: cluster geometry is DECODE-ONLY consumption of the Compute `ResidencyPayload` — local `Build`/`Partition`, a `MeshSource` re-projection, a re-tessellation, or a `meshoptimizer` AppUi admission is the DELETED form (Compute owns clustering; the recorded roster REJECT stands); tiles and clusters key by the payload's own `ContentKey` per the single-mint law; the HZB pyramid build is ONE compute pass over the shared device (`CommandEncoderBeginComputePass`/`ComputePassEncoder`/`DispatchWorkgroups` — a mip-chain farthest-depth reduction), and `QueryType.Occlusion` is the fallback probe row where the pyramid lane is unavailable; the mesh-shader draw path is the GPU surface bound through the `Render/pipeline` render-graph lease, and the GPU-driven multi-draw rides the WGPU vendor rows (`RenderPassEncoderMultiDrawIndexedIndirect`) under the VIEWPORT_GPU spike; the `Render/pipeline` `Taa` motion-vector buffer is one `BindlessTable` slot here, never a parallel motion-vector owner; this crossing is a declared `[V9]` ledger row (`Render/meshlets` <- Compute `Runtime/payload.md` clusters).
+- Boundary: cluster geometry is DECODE-ONLY consumption of the Compute `ResidencyPayload` — local `Build`/`Partition`, a `MeshSource` re-projection, a re-tessellation, or a `meshoptimizer` AppUi admission is the DELETED form (Compute owns clustering; the recorded roster REJECT stands); tiles and clusters key by the payload's own `ContentKey` per the single-mint law; the HZB pyramid build is ONE compute pass over the shared device (`CommandEncoderBeginComputePass`/`ComputePassEncoder`/`DispatchWorkgroups` — a mip-chain farthest-depth reduction), and `QueryType.Occlusion` is the fallback probe row where the pyramid lane is unavailable; the mesh-shader draw path is the GPU surface bound through the `Render/pipeline` render-graph lease, and the GPU-driven multi-draw rides the WGPU vendor rows — `RenderPassEncoderMultiDrawIndexedIndirectCount` lets the cull pass write the draw count GPU-side so no CPU readback sits between cull and draw, with per-draw constants through `RenderPassEncoderSetPushConstants` — under the VIEWPORT_GPU spike; the `Render/pipeline` `Taa` motion-vector buffer is one `BindlessTable` slot here, never a parallel motion-vector owner; this crossing is a declared `[V9]` ledger row (`Render/meshlets` <- Compute `Runtime/payload.md` clusters).
 
 ```csharp signature
 public readonly record struct BoundingSphere(double X, double Y, double Z, double Radius) {
@@ -189,8 +189,8 @@ public sealed record MeshletCluster(
 ## [03]-[RESIDENCY_BUDGET]
 
 - Owner: `ResidencyTile` the streamable geometry page; `ResidencyBudget` the VRAM-budget residency manager; `Prefetch` the predictive prefetch fold; `InstanceBuffer` the massive-instancing draw row.
-- Entry: `public Fin<ResidencyPlan> Plan(Frustum frustum, (double X, double Y, double Z) camera, (double X, double Y, double Z) velocity, long vramBytes)` — folds the resident, evict, and prefetch sets against the VRAM budget; the plan never exceeds `vramBytes`.
-- Auto: residency keys each tile by the payload's own `ContentKey` and tracks its byte cost and last-touch frame; the plan keeps the frustum-visible tiles resident, evicts the least-recently-touched tiles when the budget is exceeded (the LRU watermark), and prefetches the tiles the camera velocity will reach within the prefetch horizon so a panning camera streams the next cells before they enter the frustum; instanced geometry collapses into one `InstanceBuffer` per mesh key carrying the per-instance transform run so a forest of repeated objects is one draw call, never N draws.
+- Entry: `public Fin<ResidencyPlan> Plan(Frustum frustum, (double X, double Y, double Z) camera, (double X, double Y, double Z) velocity, long vramBytes, long frame, ResidencyPlan prior)` — one state transition per frame: the prior plan IS the resident-set state, and the next plan accounts for every resident, visible, evicted, and prefetched tile in one fold; the resident-plus-prefetch byte total never exceeds `vramBytes`.
+- Auto: residency keys each tile by the payload's own `ContentKey` and tracks its byte cost and last-touch frame; the transition touches every frustum-visible tile at `frame`, carries the prior plan's out-of-frustum residents forward at their old touch, admits the union in touch-recency order under the byte budget (visible tiles admit first by construction because their touch is current), and EVICTS every tile that was resident in the prior plan and is not resident in the next — a tile that left the frustum either survives as a carried resident or lands in `Evict`, so no resident tile can persist outside the reported residency state; prefetch admits the velocity-reachable non-resident tiles greedily into the remaining byte headroom only, its bytes carried on `PrefetchBytes`, so the budget governs resident and prefetch admissions from one derivable total; instanced geometry collapses into one `InstanceBuffer` per mesh key carrying the per-instance transform run so a forest of repeated objects is one draw call, never N draws.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Persistence (project)
 - Growth: a new residency policy is one watermark value; a new instance channel is one `InstanceBuffer` column; zero new surface.
 - Boundary: frame budget is the invariant the plan enforces — a plan that overruns the VRAM budget evicts before it admits and the eviction folds onto the residency-evict instrument, so out-of-core is budget-bounded by construction and an unbounded resident set is structurally impossible; tile bytes stream from the Persistence blob lane as opaque versioned payloads through the blob-read delegate so the residency manager never opens files; the predictive prefetch is a pure velocity-extrapolation fold and a background IO thread is the rejected form — prefetch issues blob-read requests the caller's IO scheduler drains; the GPU upload of a resident tile to a bindless slot rides the `Render/pipeline` render-graph lease under VIEWPORT_GPU; the residency manifest the web leg consumes projects through the `Render/pipeline` `ResidencyManifest.Mint` off the resident set, so the residency owner mints no second wire; the watermark scales by the `Diagnostics/governor.md` `QualityVerdict.WatermarkFactor` — one quality authority.
@@ -202,37 +202,63 @@ public sealed record InstanceBuffer(string MeshKey, Seq<(double M11, double M12,
     public int Count => Transforms.Count;
 }
 
-public sealed record ResidencyPlan(Seq<ResidencyTile> Resident, Seq<UInt128> Evict, Seq<UInt128> Prefetch, long ResidentBytes);
+// The plan IS the cross-frame residency state: Boot seeds it, every frame folds it forward, and the
+// resident/evict/prefetch sets plus both byte totals are recoverable from the value alone.
+public sealed record ResidencyPlan(Seq<ResidencyTile> Resident, Seq<UInt128> Evict, Seq<UInt128> Prefetch, long ResidentBytes, long PrefetchBytes, long Frame) {
+    public static readonly ResidencyPlan Boot = new(Seq<ResidencyTile>(), Seq<UInt128>(), Seq<UInt128>(), 0L, 0L, 0L);
+}
 
 public sealed record ResidencyBudget(
     HashMap<UInt128, ResidencyTile> Tiles,
     Func<UInt128, IO<ReadOnlyMemory<byte>>> BlobRead,
     long Watermark,
     double PrefetchHorizon) {
-    public Fin<ResidencyPlan> Plan(Frustum frustum, (double X, double Y, double Z) camera, (double X, double Y, double Z) velocity, long vramBytes) =>
-        toSeq(Tiles.Values).Filter(tile => frustum.Intersects(tile.Bounds)) switch {
-            var visible => Admit(visible, vramBytes) switch {
-                var admitted => Fin.Succ(new ResidencyPlan(
-                    Resident: admitted.Kept,
-                    Evict: admitted.Evicted.Map(static tile => tile.ContentKey),
-                    Prefetch: PrefetchSet(camera, velocity),
-                    ResidentBytes: admitted.Kept.Sum(static tile => tile.Bytes))),
+    public Fin<ResidencyPlan> Plan(Frustum frustum, (double X, double Y, double Z) camera, (double X, double Y, double Z) velocity, long vramBytes, long frame, ResidencyPlan prior) =>
+        Candidates(frustum, frame, prior) switch {
+            var candidates => Admit(candidates, vramBytes) switch {
+                var admitted => toHashSet(admitted.Kept.Map(static tile => tile.ContentKey)) switch {
+                    var kept => Fin.Succ(new ResidencyPlan(
+                        Resident: admitted.Kept,
+                        Evict: prior.Resident.Map(static tile => tile.ContentKey).Filter(key => !kept.Contains(key)),
+                        Prefetch: PrefetchSet(camera, velocity, kept, vramBytes - admitted.Bytes, out long prefetchBytes),
+                        ResidentBytes: admitted.Bytes,
+                        PrefetchBytes: prefetchBytes,
+                        Frame: frame)),
+                },
             },
         };
 
-    private static (Seq<ResidencyTile> Kept, Seq<ResidencyTile> Evicted) Admit(Seq<ResidencyTile> visible, long vramBytes) =>
-        visible.OrderByDescending(static tile => tile.LastTouch).ToSeq()
-            .Fold(
-                (Kept: Seq<ResidencyTile>(), Evicted: Seq<ResidencyTile>(), Bytes: 0L),
-                (state, tile) => state.Bytes + tile.Bytes <= vramBytes
-                    ? (state.Kept.Add(tile), state.Evicted, state.Bytes + tile.Bytes)
-                    : (state.Kept, state.Evicted.Add(tile), state.Bytes))
-            switch { var folded => (folded.Kept, folded.Evicted) };
+    // Candidate set = visible tiles touched NOW + prior residents carried at their old touch; one union,
+    // deduped by content key with the fresh touch winning.
+    private Seq<ResidencyTile> Candidates(Frustum frustum, long frame, ResidencyPlan prior) =>
+        toSeq(toSeq(Tiles.Values)
+            .Filter(tile => frustum.Intersects(tile.Bounds))
+            .Map(tile => tile with { LastTouch = frame })
+            .Concat(prior.Resident)
+            .Fold(HashMap<UInt128, ResidencyTile>(), static (held, tile) => held.Find(tile.ContentKey).IsSome ? held : held.Add(tile.ContentKey, tile))
+            .Values);
 
-    private Seq<UInt128> PrefetchSet((double X, double Y, double Z) camera, (double X, double Y, double Z) velocity) =>
-        toSeq(Tiles.Values)
-            .Filter(tile => Reaches(camera, velocity, tile.Bounds))
-            .Map(static tile => tile.ContentKey);
+    private static (Seq<ResidencyTile> Kept, long Bytes) Admit(Seq<ResidencyTile> candidates, long vramBytes) =>
+        candidates.OrderByDescending(static tile => tile.LastTouch).ToSeq()
+            .Fold(
+                (Kept: Seq<ResidencyTile>(), Bytes: 0L),
+                (state, tile) => state.Bytes + tile.Bytes <= vramBytes
+                    ? (state.Kept.Add(tile), state.Bytes + tile.Bytes)
+                    : state);
+
+    // Prefetch is budget-bounded: velocity-reachable non-resident tiles admit greedily into the byte
+    // headroom the resident admission left; an unbudgeted prefetch cannot type its way onto the plan.
+    private Seq<UInt128> PrefetchSet((double X, double Y, double Z) camera, (double X, double Y, double Z) velocity, LanguageExt.HashSet<UInt128> resident, long headroom, out long prefetchBytes) {
+        var folded = toSeq(Tiles.Values)
+            .Filter(tile => !resident.Contains(tile.ContentKey) && Reaches(camera, velocity, tile.Bounds))
+            .Fold(
+                (Keys: Seq<UInt128>(), Bytes: 0L),
+                (state, tile) => state.Bytes + tile.Bytes <= headroom
+                    ? (state.Keys.Add(tile.ContentKey), state.Bytes + tile.Bytes)
+                    : state);
+        prefetchBytes = folded.Bytes;
+        return folded.Keys;
+    }
 
     private bool Reaches((double X, double Y, double Z) camera, (double X, double Y, double Z) velocity, BoundingSphere bounds) =>
         (Predict(camera, velocity) switch {

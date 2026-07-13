@@ -57,11 +57,11 @@ public sealed record ScreenCatalog(FrozenDictionary<string, ScreenCatalogRow> Ro
 
 - Owner: `ScreenRuntime` policy record; `ScreenBase` activation capsule.
 - Entry: `public IDisposable BindActivation(IObservable<bool> visible, UiSchedulerPort scheduler)` — visibility edges and phase receipts fold into one activate/suspend rail.
-- Auto: `WhenActivated` composes rehydration, the per-screen `Wire` pipelines, and a closing disposal that checkpoints state and emits the disposal evidence; `DrainRow` registers the screens teardown as one `DrainParticipantPort` row; the draining phase receipt suspends every bound screen through the same `Suspend` path; `Reachable` probes `Interaction.GetHandlers` so a deep-link or modal route gates on registered handler presence before navigating, never on a caught unhandled-interaction throw.
+- Auto: `WhenActivated` composes rehydration, the per-screen `Wire` pipelines, and a closing disposal that checkpoints state and emits the disposal evidence; `DrainRow` registers the screens teardown as one `DrainParticipantPort` row; the draining phase receipt suspends every bound screen through the same `Suspend` path; `ScreenInteraction<TInput,TOutput>` counts its registrations so a deep-link or modal route gates on `Reachable` — a counted-value presence check — before navigating, never on a caught unhandled-interaction throw.
 - Receipt: disposal evidence — row id, active `Duration`, disposable count — through `ScreenRuntime.Disposed` into the evidence stream bound at composition; `TelemetryRow` contributes the activation and suspend instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: ReactiveUI, System.Reactive, LanguageExt.Core, NodaTime, Rasm.AppHost (project)
 - Growth: one screen is one `ScreenBase` subclass expression body plus one catalog row, and one screen instrument is one `InstrumentRow` on `ScreenBase.TelemetryRow`; zero new surface.
-- Boundary: `ScreenBase` is the named boundary capsule for the statement carve-out — activation wiring, visibility subscription, and disposal registration carry language-owned statement forms while every other member stays expression-shaped; `ViewModelActivator` ref-counts through `Interlocked` increments — activation fires only on the zero-to-one edge and `Deactivate` decrements symmetrically — so concurrent visibility-driven suspension and view-driven activation compose without a second guard; AutoSuspendHelper and RxApp.SuspensionHost are the deleted patterns, suspension rides the state checkpoint plus the visibility fold; view-model questions ride `Interaction<TInput,TOutput>` and `Reachable` reads its `GetHandlers` count so deep-link gating stays a value check, never an exception probe; the drain row registers rank 10 — the one rank literal here — ordering screen teardown first inside `DrainBand.Interaction`; `Throttle` arrives on `ScreenRuntime` from the motion timing rows, so the fences carry zero duration literals.
+- Boundary: `ScreenBase` is the named boundary capsule for the statement carve-out — activation wiring, visibility subscription, and disposal registration carry language-owned statement forms while every other member stays expression-shaped; `ViewModelActivator` ref-counts through `Interlocked` increments — activation fires only on the zero-to-one edge and `Deactivate` decrements symmetrically — so concurrent visibility-driven suspension and view-driven activation compose without a second guard; AutoSuspendHelper and RxApp.SuspensionHost are the deleted patterns, suspension rides the state checkpoint plus the visibility fold; view-model questions ride `ScreenInteraction<TInput,TOutput>` — `Register` is the one registration verb, wrapping the base `RegisterHandler` with an `Interlocked` count whose disposal decrements, so `Reachable` is a value check and never an exception probe, and a handler registered through the base `RegisterHandler` bypasses the count and is the rejected form; the drain row registers rank 10 — the one rank literal here — ordering screen teardown first inside `DrainBand.Interaction`; `Throttle` arrives on `ScreenRuntime` from the motion timing rows, so the fences carry zero duration literals.
 
 ```csharp signature
 public sealed record ScreenRuntime(
@@ -107,9 +107,6 @@ public abstract class ScreenBase : ReactiveObject, IActivatableViewModel, IValid
     public IO<Unit> Suspend() =>
         this.Checkpoint().Bind(_ => IO.lift(fun(() => Activator.Deactivate())));
 
-    public static bool Reachable<TInput, TOutput>(Interaction<TInput, TOutput> question) =>
-        question.GetHandlers().Any();
-
     public const string ActivatedInstrument = "rasm.appui.screen.activated";
     public const string SuspendedInstrument = "rasm.appui.screen.suspended";
 
@@ -127,6 +124,23 @@ public abstract class ScreenBase : ReactiveObject, IActivatableViewModel, IValid
         var wired = Wire();
         return wired.Add(Disposable.Create(() =>
             ignore(this.Checkpoint().Bind(_ => Runtime.Disposed(Row.Id, Runtime.Clocks.Elapsed(mark), wired.Count + 1)).Run())));
+    }
+}
+
+public sealed class ScreenInteraction<TInput, TOutput>(IScheduler? scheduler = null) : Interaction<TInput, TOutput>(scheduler) {
+    int handlers;
+
+    public bool Reachable => Volatile.Read(ref handlers) > 0;
+
+    // The one registration verb: the count and the base registration dispose together, so Reachable is
+    // a value check; a base RegisterHandler call bypasses the count and is the rejected form.
+    public IDisposable Register(Func<IInteractionContext<TInput, TOutput>, Task> handler) {
+        var registration = RegisterHandler(handler);
+        ignore(Interlocked.Increment(ref handlers));
+        return Disposable.Create(() => {
+            ignore(Interlocked.Decrement(ref handlers));
+            registration.Dispose();
+        });
     }
 }
 ```
@@ -267,19 +281,24 @@ flowchart LR
 ## [07]-[CONTROL_STREAM]
 
 - Owner: `ScreenWire` the screen control-intent stream extension over `ScreenBase`; `ScreenBody` the materialized root the activation scope mounts.
-- Entry: `public IObservable<ControlIntent> Wire()` — composes the catalog row's `Body` projection into a control-intent stream that re-emits when the screen's bound state changes; `public Fin<Control> Compose(MaterializeContext context)` — materializes the current intent tree through `ControlFactory` into the mounted root, recycling realized controls across re-emits.
-- Auto: `ScreenCatalogRow.Body` projects the screen's model onto one `ControlIntent` tree (`Shell/controls`), so a `ScreenCatalog` row carries its whole body as a generative intent rather than a per-screen XAML literal — the XAML-literal screen body is deleted across the frozen-row table; the intent stream re-emits on the screen's `WhenAnyValue` state edges so a model change re-materializes only the changed sub-tree through the `RecycleScope` pool; the materialized root mounts at the surface root where `AccessOps.Identify` applies the catalog automation identity, so the screen's automation name and the control-intent automation names compose one tree.
+- Entry: `public IObservable<ControlIntent> Wire(IScheduler scheduler)` — composes the catalog row's `Body` projection into a live control-intent stream: the mount emission fires at subscription and every screen property edge re-projects the body, paced through the runtime throttle; `public Fin<Control> Compose(ControlIntent intent, MaterializeContext context, RecycleScope recycle)` — materializes the current intent tree through `ControlFactory` into the mounted root, recycling realized controls across re-emits.
+- Auto: `ScreenCatalogRow.Body` projects the screen's model onto one `ControlIntent` tree (`Shell/controls`), so a `ScreenCatalog` row carries its whole body as a generative intent rather than a per-screen XAML literal — the XAML-literal screen body is deleted across the frozen-row table; the intent stream re-emits on the screen's `ReactiveObject.Changed` property edges — every `RaiseAndSetIfChanged` write is a re-projection edge, throttled so a burst of edges collapses to one re-materialize — and a one-shot `Observable.Return` projection dressed as a state stream is the rejected form; the materialized root mounts at the surface root where `AccessOps.Identify` applies the catalog automation identity, so the screen's automation name and the control-intent automation names compose one tree.
 - Packages: ReactiveUI, System.Reactive, Avalonia, LanguageExt.Core
 - Growth: a screen is one `ScreenBase` subclass plus one catalog row whose `Body` names its control-intent tree; a new control on a screen is one intent in the tree, never a XAML edit; zero new surface.
-- Boundary: the screen body is the one `ControlIntent` tree materialized through `ControlFactory` — a per-screen compiled-XAML view class is the deleted body form (the view still enters the tree through its `Configure<TApp>` shell host, but the screen content is the materialized intent tree, not a hand-authored XAML literal), so the `[05]-[PROHIBITIONS]` parallel-control-framework clause holds and `ControlFactory` is the only materialization path; the intent stream re-emits through the screen's paced `Calm` fold so a burst model change collapses before re-materialize; control recycling rides the `RecycleScope` pool over the `VirtualWindow` window so a windowed screen recycles its realized controls; the body crosses the `ControlIntentWire` seam unchanged, so the same screen materializes on the web head; binding stays `BehaviorRail.Intent`-only through the materialize fold, so a screen body names no `ICommand` call site and a `BindCommand` in a screen is the deleted form.
+- Boundary: the screen body is the one `ControlIntent` tree materialized through `ControlFactory` — a per-screen compiled-XAML view class is the deleted body form (the view still enters the tree through its `Configure<TApp>` shell host, but the screen content is the materialized intent tree, not a hand-authored XAML literal), so the `[05]-[PROHIBITIONS]` parallel-control-framework clause holds and `ControlFactory` is the only materialization path; the intent stream paces through the runtime throttle alone — `Calm`'s distinct gate is wrong over unit-shaped edges, so `Wire` throttles the `Changed` edge stream directly and a burst model change collapses before re-materialize; control recycling rides the `RecycleScope` pool over the `VirtualWindow` window so a windowed screen recycles its realized controls; the body crosses the `ControlIntentWire` seam unchanged, so the same screen materializes on the web head; binding stays `BehaviorRail.Intent`-only through the materialize fold, so a screen body names no `ICommand` call site and a `BindCommand` in a screen is the deleted form.
 
 ```csharp signature
 public sealed record ScreenBody(Control Root, RecycleScope Recycle);
 
 public static class ScreenWire {
     extension(ScreenBase screen) {
+        // Changed is the re-projection edge stream; StartWith AFTER the throttle keeps the mount
+        // emission immediate while property bursts still collapse to one re-materialize.
         public IObservable<ControlIntent> Wire(IScheduler scheduler) =>
-            screen.Calm(Observable.Return(screen.Row.Body(screen)), scheduler);
+            screen.Changed.Select(static _ => unit)
+                .Throttle(screen.Runtime.Throttle.ToTimeSpan(), scheduler)
+                .StartWith(unit)
+                .Select(_ => screen.Row.Body(screen));
 
         public Fin<Control> Compose(ControlIntent intent, MaterializeContext context, RecycleScope recycle) =>
             recycle.Realize(intent, context);

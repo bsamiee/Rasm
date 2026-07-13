@@ -13,7 +13,7 @@ The drafting rail produces 2D documentation from 3D geometry: `SheetSet` owns a 
 
 - Owner: `SheetSize` `[SmartEnum<string>]` the standard sheet-size catalog; `TitleBlock` the locale-aware title-block record; `Sheet` the single sheet with its regions; `SheetSet` the sheet collection.
 - Cases: `SheetSize` = a0…a4 (ISO 216) · ansi-a…ansi-e (ANSI/ASME Y14.1) · jis-b0…jis-b4 (JIS B) — the standard sheet rows carrying width, height, and standard family.
-- Entry: `public Fin<Sheet> Compose(SheetSize size, TitleBlock title, Seq<SheetRegion> regions, ResolvedLocale locale)` — `Fin` aborts on a region outside the sheet bounds; the title-block fields resolve through the locale string vocabulary.
+- Entry: `public static Fin<Sheet> Compose(string key, SheetSize size, TitleBlock title, Seq<SheetRegion> regions, Seq<(string Region, Dimension Value)> dimensions, Seq<Annotation> annotations)` — `Fin` aborts on a region outside the sheet bounds and on a dimension naming an unresolved region; the title-block fields resolve through the locale string vocabulary at emit.
 - Auto: `TitleBlock` carries the standard family so an ISO sheet draws the ISO border-and-zone grid, an ANSI sheet the ANSI title-block layout, and a JIS sheet the JIS layout from one templating fold; the title-block field labels (drawing number, title, scale, date, sheet n-of-m, revision) resolve through `ResolvedLocale.Label` so a localized drawing renders its field labels in the active culture and the date through the NodaTime pattern, never a hardcoded label string.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new sheet size is one `SheetSize` row carrying its dimensions and standard family; a new title-block layout is one `TitleBlockStandard` value; a new field is one `TitleBlock` member; zero new surface.
@@ -77,13 +77,17 @@ public sealed record TitleBlock(
 // Each region carries its OWN projection basis and model reference — no pinned view, no key conflation.
 public readonly record struct SheetRegion(string Key, string ModelKey, ProjectionBasis Basis, double X, double Y, double Width, double Height);
 
-public sealed record Sheet(string Key, SheetSize Size, TitleBlock Title, Seq<SheetRegion> Regions, Seq<Dimension> Dimensions, Seq<Annotation> Annotations);
+// A dimension anchors in the world space of a NAMED region so emission resolves its projection basis;
+// annotations are already sheet-space and carry no region key.
+public sealed record Sheet(string Key, SheetSize Size, TitleBlock Title, Seq<SheetRegion> Regions, Seq<(string Region, Dimension Value)> Dimensions, Seq<Annotation> Annotations);
 
 public sealed record SheetSet(string Key, Seq<Sheet> Sheets) {
-    public static Fin<Sheet> Compose(string key, SheetSize size, TitleBlock title, Seq<SheetRegion> regions, Seq<Dimension> dimensions, Seq<Annotation> annotations) =>
+    public static Fin<Sheet> Compose(string key, SheetSize size, TitleBlock title, Seq<SheetRegion> regions, Seq<(string Region, Dimension Value)> dimensions, Seq<Annotation> annotations) =>
         regions.Find(region => region.X < 0d || region.Y < 0d || region.X + region.Width > size.WidthMm || region.Y + region.Height > size.HeightMm) is { IsSome: true, Case: SheetRegion bad }
             ? Fin.Fail<Sheet>(new DraftFault.RegionOutOfBounds($"{key}/{bad.Key}"))
-            : Fin.Succ(new Sheet(key, size, title, regions, dimensions, annotations));
+            : dimensions.Find(row => !regions.Exists(region => region.Key == row.Region)) is { IsSome: true, Case: (string orphan, _) }
+                ? Fin.Fail<Sheet>(new DraftFault.RegionOutOfBounds($"{key}/dimension:{orphan}"))
+                : Fin.Succ(new Sheet(key, size, title, regions, dimensions, annotations));
 }
 ```
 
@@ -142,6 +146,7 @@ public sealed partial class EdgeStyle {
     public static readonly EdgeStyle Hidden = new("hidden", dashed: true, weight: 0.25f);
     public static readonly EdgeStyle Silhouette = new("silhouette", dashed: false, weight: 0.7f);
     public static readonly EdgeStyle Centerline = new("centerline", dashed: true, weight: 0.25f);
+    public static readonly EdgeStyle Marking = new("marking", dashed: false, weight: 0.25f);
 
     public bool Dashed { get; }
 
@@ -180,11 +185,11 @@ public sealed record Viewport2D(string Key, SheetRegion Region, ProjectionBasis 
 
 - Owner: `Dimension` `[Union]` the dimension vocabulary; `Tolerance` the tolerance value; `Annotation` `[Union]` the GD&T and text annotation vocabulary; `GdtFrame` the feature-control frame.
 - Cases: `Dimension` = Linear | Aligned | Angular | Radial | Diametric | Ordinate under the locked kind literals; `Annotation` = Text | Leader | Datum | FeatureControl | SurfaceFinish | Weld under the locked kind literals.
-- Entry: `public Fin<SKPath> Draw(ProjectionBasis basis, ResolvedLocale locale)` — projects the dimension into sheet-space extension lines, arrowheads, and the dimension text; the value formats through the locale quantity edge.
-- Auto: each dimension carries its anchor points and the measured value, and `Draw` builds the extension lines, dimension line, arrowheads, and text from the dimension kind — a linear dimension draws horizontal-or-vertical extension lines, an aligned dimension parallel to the measured edge, an angular dimension an arc with the angle, a radial a leader from the arc center, a diametric a through-center line, and an ordinate a single offset value from the datum; the GD&T feature-control frame folds the geometric characteristic symbol, tolerance value, and datum references into the ASME Y14.5 frame layout; dimension values format through `ResolvedLocale.Quantity` so a metric or imperial drawing reads its values in the active unit and culture.
+- Entry: `public Seq<SheetEntity> Entities(Func<(double X, double Y, double Z), (double X, double Y)> project, ResolvedLocale locale)` — the ONE dimension-to-entity projection: sheet-space extension lines, the offset dimension line, terminal ticks, arcs, and the locale-formatted value as a `TextRun`, consumed identically by every emit format; `Annotation.Entities(ResolvedLocale)` is the sibling projection for the annotation family.
+- Auto: each dimension carries its anchor points and the measured value, and `Entities` builds the extension lines, dimension line, ticks, and text from the dimension kind — a linear or aligned dimension spans its projected anchors under its offset, an angular dimension sweeps an arc at the vertex with both legs, a radial and a diametric draw the center ray with the `R`/`⌀` prefix, and an ordinate draws the datum elbow; the GD&T feature-control frame folds the geometric characteristic `Glyph`, tolerance value, and datum references into the ASME Y14.5 box-stroke frame layout; dimension values and tolerances format through `ResolvedLocale.Quantity` so a metric or imperial drawing reads its values in the active unit and culture, the `±` symmetric and `+/-` asymmetric tolerance spellings deriving from `Tolerance.Symmetric`.
 - Packages: SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, UnitsNet, BCL inbox
 - Growth: a new dimension kind is one `Dimension` case; a new annotation kind is one `Annotation` case; a new GD&T characteristic is one `GeometricCharacteristic` row; zero new surface.
-- Boundary: dimension geometry is built in sheet-space from the projected anchor points so a dimension follows its view — a free-floating annotation layer is the deleted form; the GD&T feature-control frame is the typed `GdtFrame` record so a hand-laid-out tolerance frame is the deleted form, and the geometric characteristic symbols (straightness, flatness, position, concentricity, and the rest) ride one `GeometricCharacteristic` smart-enum carrying its Unicode glyph; dimension text shapes through the typography rail's `DrawShapedText` so a raw `DrawText` loop is the rejected form; the tolerance value rides UnitsNet through the locale quantity edge so a tolerance reads in the drawing unit.
+- Boundary: dimension geometry is built in sheet-space from the projected anchor points so a dimension follows its view — a free-floating annotation layer is the deleted form, and each dimension names its owning region so emission resolves the projection basis the anchors ride; the GD&T feature-control frame is the typed `GdtFrame` record so a hand-laid-out tolerance frame is the deleted form, and the geometric characteristic symbols (straightness, flatness, position, concentricity, and the rest) ride one `GeometricCharacteristic` smart-enum carrying its Unicode glyph; dimension and annotation text lands as `SheetEntity.TextRun`/`Glyph` cases rendered through the `ShapedTextSeam` typography column so a raw `DrawText` loop is the rejected form; the tolerance value rides UnitsNet through the locale quantity edge so a tolerance reads in the drawing unit.
 
 ```csharp signature
 public readonly record struct Tolerance(double Plus, double Minus) {
@@ -230,6 +235,66 @@ public abstract partial record Dimension {
         diametric: static d => d.Diameter,
         ordinate: static o => Distance(o.Datum, o.Point));
 
+    // The ONE dimension-to-entity projection every emit format consumes: extension lines, the offset
+    // dimension line, tick strokes, and the locale-formatted value as a TextRun — sheet space throughout.
+    public Seq<SheetEntity> Entities(Func<(double X, double Y, double Z), (double X, double Y)> project, ResolvedLocale locale) => Switch(
+        state: (Project: project, Locale: locale),
+        linear:    static (ctx, l) => Span(ctx.Project(l.A), ctx.Project(l.B), l.Offset, Label(l.Measure, l.Tolerance, ctx.Locale)),
+        aligned:   static (ctx, a) => Span(ctx.Project(a.A), ctx.Project(a.B), a.Offset, Label(a.Measure, a.Tolerance, ctx.Locale)),
+        angular:   static (ctx, a) => Wedge(ctx.Project(a.Vertex), ctx.Project(a.A), ctx.Project(a.B), $"{ctx.Locale.Quantity(a.Measure)}°"),
+        radial:    static (ctx, r) => Ray(ctx.Project(r.Center), r.Radius, $"R{ctx.Locale.Quantity(r.Measure)}"),
+        diametric: static (ctx, d) => Ray(ctx.Project(d.Center), d.Diameter * 0.5d, $"⌀{ctx.Locale.Quantity(d.Measure)}"),
+        ordinate:  static (ctx, o) => Elbow(ctx.Project(o.Datum), ctx.Project(o.Point), ctx.Locale.Quantity(o.Measure)));
+
+    static string Label(double measure, Tolerance tolerance, ResolvedLocale locale) =>
+        tolerance == Tolerance.None
+            ? locale.Quantity(measure)
+            : tolerance.Symmetric
+                ? $"{locale.Quantity(measure)} ±{locale.Quantity(tolerance.Plus)}"
+                : $"{locale.Quantity(measure)} +{locale.Quantity(tolerance.Plus)}/-{locale.Quantity(tolerance.Minus)}";
+
+    static Seq<SheetEntity> Span((double X, double Y) a, (double X, double Y) b, double offset, string label) {
+        (double dx, double dy) = (b.X - a.X, b.Y - a.Y);
+        double length = Math.Max(Math.Sqrt((dx * dx) + (dy * dy)), double.Epsilon);
+        (double nx, double ny) = (-dy / length * offset, dx / length * offset);
+        ((double X, double Y) a2, (double X, double Y) b2) = ((a.X + nx, a.Y + ny), (b.X + nx, b.Y + ny));
+        return Seq<SheetEntity>(
+            new SheetEntity.Stroke(EdgeStyle.Marking, a, a2),
+            new SheetEntity.Stroke(EdgeStyle.Marking, b, b2),
+            new SheetEntity.Stroke(EdgeStyle.Marking, a2, b2),
+            Tick(a2, dx / length, dy / length), Tick(b2, dx / length, dy / length),
+            new SheetEntity.TextRun(label, ((a2.X + b2.X) * 0.5d, (a2.Y + b2.Y) * 0.5d), 3d, "annotation"));
+    }
+
+    // The architectural 45° tick at a dimension-line terminus.
+    static SheetEntity Tick((double X, double Y) at, double ux, double uy) =>
+        new SheetEntity.Stroke(EdgeStyle.Marking, (at.X - ((ux - uy) * 1.2d), at.Y - ((uy + ux) * 1.2d)), (at.X + ((ux - uy) * 1.2d), at.Y + ((uy + ux) * 1.2d)));
+
+    static Seq<SheetEntity> Wedge((double X, double Y) vertex, (double X, double Y) a, (double X, double Y) b, string label) {
+        double radius = Math.Min(Hypot(vertex, a), Hypot(vertex, b)) * 0.6d;
+        (double startDeg, double endDeg) = (Deg(vertex, a), Deg(vertex, b));
+        return Seq<SheetEntity>(
+            new SheetEntity.Stroke(EdgeStyle.Marking, vertex, a),
+            new SheetEntity.Stroke(EdgeStyle.Marking, vertex, b),
+            new SheetEntity.Sweep(EdgeStyle.Marking, vertex, radius, startDeg, endDeg - startDeg),
+            new SheetEntity.TextRun(label, (vertex.X + radius, vertex.Y - radius), 3d, "annotation"));
+    }
+
+    static Seq<SheetEntity> Ray((double X, double Y) center, double reach, string label) => Seq<SheetEntity>(
+        new SheetEntity.Stroke(EdgeStyle.Marking, center, (center.X + reach, center.Y)),
+        new SheetEntity.TextRun(label, (center.X + (reach * 0.5d), center.Y - 2d), 3d, "annotation"));
+
+    static Seq<SheetEntity> Elbow((double X, double Y) datum, (double X, double Y) point, string label) => Seq<SheetEntity>(
+        new SheetEntity.Stroke(EdgeStyle.Marking, datum, (point.X, datum.Y)),
+        new SheetEntity.Stroke(EdgeStyle.Marking, (point.X, datum.Y), point),
+        new SheetEntity.TextRun(label, point, 3d, "annotation"));
+
+    static double Hypot((double X, double Y) a, (double X, double Y) b) =>
+        Math.Sqrt(Math.Pow(b.X - a.X, 2) + Math.Pow(b.Y - a.Y, 2));
+
+    static double Deg((double X, double Y) origin, (double X, double Y) to) =>
+        Math.Atan2(to.Y - origin.Y, to.X - origin.X) * 180d / Math.PI;
+
     private static double Distance((double X, double Y, double Z) a, (double X, double Y, double Z) b) =>
         Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2) + Math.Pow(a.Z - b.Z, 2));
 
@@ -248,6 +313,34 @@ public abstract partial record Annotation {
     public sealed record FeatureControl(GdtFrame Frame, (double X, double Y) At) : Annotation;
     public sealed record SurfaceFinish(double Roughness, (double X, double Y) At) : Annotation;
     public sealed record Weld(string Symbol, (double X, double Y) At) : Annotation;
+
+    // The ONE annotation-to-entity projection every emit format consumes — the ASME Y14.5 frame renders
+    // as its box strokes plus the characteristic Glyph, so no format-specific annotation arm exists.
+    public Seq<SheetEntity> Entities(ResolvedLocale locale) => Switch(
+        state: locale,
+        text:    static (l, t) => Seq<SheetEntity>(new SheetEntity.TextRun(l.Label(t.Key), t.At, 3d, t.Role)),
+        leader:  static (l, a) => Seq<SheetEntity>(
+            new SheetEntity.Stroke(EdgeStyle.Marking, a.Tail, a.Head),
+            new SheetEntity.TextRun(l.Label(a.Key), a.Tail, 3d, "annotation")),
+        datum:   static (_, d) => Box(d.At, 6d, 6d)
+            .Add(new SheetEntity.TextRun(d.Label, (d.At.X + 1.5d, d.At.Y + 1.5d), 3d, "annotation")),
+        featureControl: static (l, f) => Box(f.At, 10d + (f.Frame.Datums.Count * 6d), 6d)
+            .Add(new SheetEntity.Glyph(f.Frame.Characteristic.Glyph, (f.At.X + 1d, f.At.Y + 1.5d), 3d))
+            .Add(new SheetEntity.TextRun(
+                $"{(f.Frame.Diameter ? "⌀" : string.Empty)}{l.Quantity(f.Frame.ToleranceValue)} {string.Join('|', f.Frame.Datums)}",
+                (f.At.X + 5d, f.At.Y + 1.5d), 3d, "annotation")),
+        surfaceFinish: static (l, s) => Seq<SheetEntity>(
+            new SheetEntity.Glyph("√", s.At, 3d),
+            new SheetEntity.TextRun(l.Quantity(s.Roughness), (s.At.X + 3d, s.At.Y - 2d), 2.5d, "annotation")),
+        weld:    static (_, w) => Seq<SheetEntity>(
+            new SheetEntity.Stroke(EdgeStyle.Marking, w.At, (w.At.X + 8d, w.At.Y)),
+            new SheetEntity.Glyph(w.Symbol, (w.At.X + 3d, w.At.Y - 3d), 3d)));
+
+    static Seq<SheetEntity> Box((double X, double Y) at, double width, double height) => Seq<SheetEntity>(
+        new SheetEntity.Stroke(EdgeStyle.Marking, at, (at.X + width, at.Y)),
+        new SheetEntity.Stroke(EdgeStyle.Marking, (at.X + width, at.Y), (at.X + width, at.Y + height)),
+        new SheetEntity.Stroke(EdgeStyle.Marking, (at.X + width, at.Y + height), (at.X, at.Y + height)),
+        new SheetEntity.Stroke(EdgeStyle.Marking, (at.X, at.Y + height), at));
 }
 ```
 
@@ -255,12 +348,12 @@ public abstract partial record Annotation {
 
 - Owner: `DraftFormat` `[SmartEnum<string>]` the emit-format axis; `DraftFault` the fault family; `DraftEmit` the multi-format emit dispatch.
 - Cases: `DraftFormat` = pdf · svg · dwg · dxf under the locked kind literals; `DraftFault` = Text | RegionOutOfBounds | EmptyView | EntityWriterUnavailable — codes derive through the `AppUiFaultBand.Draft` registry row (6140).
-- Entry: `public static IO<RenderReceipt> Emit(VisualRuntime runtime, Sheet sheet, DraftFormat format, ResolvedLocale locale, CadVersionPolicy cadVersion, VisualDestination destination, Func<string, Option<MeshSource>> meshOf, HiddenLineSeam hlr)` — `IO` rail; the sheet projects each region through the `HiddenLineSeam` HLR, then renders to the format and delivers to the destination, the CAD arms threading the one version-policy row to their writer.
-- Auto: the PDF arm composes each sheet as a precomposed vector page fold through the capture `VisualExport` vector-print arm (a paginated REPORT with flow content rides `Document/export.md#FLOW_REPORT` instead) so a multi-sheet set is one PDF; the SVG arm renders each sheet to an `SKCanvas` recording surface emitted as SVG text through `SKSvgCanvas`; the DWG arm writes the projected line/arc/text/dimension entities as model-space `ACadSharp` `Line`/`Arc`/`MText`/`Dimension` entities into a `CadDocument` and serializes through `DwgWriter.Write` (`.api/api-drafting-export.md` ENTRYPOINTS 7-8), the DXF arm writes the SAME `CadDocument` entity fold and serializes through `DxfWriter.Write` — ONE document model, TWO writer rows (netDxf is REMOVED per `[V7]`: feed-verified archived upstream; a failed entity class in the standing DXF fidelity probe re-pins it as a recorded exception, never silently) — both layer the visible solid, hidden dashed, and silhouette runs onto named `Layer`/`Layers` table entries carrying their `LineType`/`linetype` so the CAD layer structure round-trips the `EdgeStyle` tag; every emit lands one `RenderReceipt` of kind drawing carrying the format and the delivered destination.
+- Entry: `public static IO<RenderReceipt> Emit(VisualRuntime runtime, Sheet sheet, DraftFormat format, ResolvedLocale locale, CadVersionPolicy cadVersion, VisualDestination destination, Func<string, Option<MeshSource>> meshOf, HiddenLineSeam hlr, ShapedTextSeam text)` — `IO` rail; the sheet projects ONCE into the complete `SheetEntity` run — per-region hidden-line strokes, region-basis-projected dimensions, annotations, title-block runs — then every format arm renders that one run and delivers to the destination, the CAD arms threading the one version-policy row to their writer.
+- Auto: the PDF arm composes each sheet as a precomposed vector page fold through the capture `VisualExport` vector-print arm (a paginated REPORT with flow content rides `Document/export.md#FLOW_REPORT` instead) so a multi-sheet set is one PDF; the SVG arm renders the same entity run to an `SKCanvas` recording surface emitted as SVG text through `SKSvgCanvas`, measured and delivered exactly as the CAD arms are; the DWG arm writes the projected `Stroke`/`Sweep`/`TextRun`/`Glyph` entities as model-space `ACadSharp` `Line`/`Arc`/`MText` entities into a `CadDocument` and serializes through `DwgWriter.Write` (`.api/api-drafting-export.md` ENTRYPOINTS 7-8), the DXF arm writes the SAME `CadDocument` entity fold and serializes through `DxfWriter.Write` — ONE document model, TWO writer rows (netDxf is REMOVED per `[V7]`: feed-verified archived upstream; a failed entity class in the standing DXF fidelity probe re-pins it as a recorded exception, never silently) — every `EdgeStyle` row owns a named `Layer` bound to its `LineType` so the CAD layer structure round-trips the style tag, and annotation text lands on the `draft-annotation` layer; every emit lands one `RenderReceipt` of kind drawing carrying the format, the measured elapsed, and the delivered destination.
 - Receipt: one `RenderReceipt` of kind drawing per emit; sealed through the visuals encode receipt sink.
 - Packages: SkiaSharp, ACadSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project)
-- Growth: a new emit format is one `DraftFormat` row plus one `Emit` dispatch arm; a new CAD entity kind is one `SheetEntity` projection arm written once into the ONE `CadDocument` fold both writer rows serialize; zero new surface.
-- Boundary: PDF and SVG ride the settled visuals document and Skia surfaces so the page mints no second exporter — the `SKDocument` PDF and the `SKSvgCanvas` SVG ship today; DWG and DXF BOTH write through the ONE `ACadSharp` `CadDocument` typed-entity fold — `DwgWriter.Write` and `DxfWriter.Write` are two rows on one `DraftEmit` axis, the typed entity constructor then collection `Add` and never a raw group-code write (the `IMPLEMENTATION_LAW` LOCAL_ADMISSION reject), the output DWG/DXF version a `CadVersionPolicy` row and never a hardcoded `AutoCad2018` literal, so the entity-writer bodies transcribe now and only the per-entity property spellings (the `Dimension` style table, the `MText` formatting codes) carry the residual DRAFT_ENTITY verification, with the DXF round-trip fidelity probe (dimensions/hatches/leaders/blocks) the standing `[V7]` obligation; the destination union is the visuals `VisualDestination` so the drafting emit delivers through the one destination owner and a drafting-local file write is the rejected form, the `SheetEntities` fold being the single projection of a `Sheet`'s viewports, dimensions, and title-block into the shared entity run both CAD writers consume so a DWG and a DXF of the same sheet carry identical entities; the emit receipt rides the visuals `RenderReceipt` family so the drafting page mints no second receipt vocabulary; vector content survives as picture content in PDF, path elements in SVG, and typed CAD entities in DWG/DXF so a drawing rasterizes only where the format demands.
+- Growth: a new emit format is one `DraftFormat` row plus one `Emit` dispatch arm; a new drawn primitive is one `SheetEntity` case that breaks the Skia render and the `CadDocument` fold at compile time so no format can silently drop it; a new line style is one `EdgeStyle` row that mints its CAD layer by construction; zero new surface.
+- Boundary: PDF and SVG ride the settled visuals document and Skia surfaces so the page mints no second exporter — the `SKDocument` PDF and the `SKSvgCanvas` SVG ship today; DWG and DXF BOTH write through the ONE `ACadSharp` `CadDocument` typed-entity fold — `DwgWriter.Write` and `DxfWriter.Write` are two rows on one `DraftEmit` axis, the typed entity constructor then collection `Add` and never a raw group-code write (the `IMPLEMENTATION_LAW` LOCAL_ADMISSION reject), the output DWG/DXF version a `CadVersionPolicy` row and never a hardcoded `AutoCad2018` literal, so the entity-writer bodies transcribe now and only the per-entity property spellings (the `Dimension` style table, the `MText` formatting codes) carry the residual DRAFT_ENTITY verification, with the DXF round-trip fidelity probe (dimensions/hatches/leaders/blocks) the standing `[V7]` obligation; every arm delivers through `ExportDelivery.Deliver` over the one `VisualDestination` union so a drafting-local file write or destination fold is the deleted form, the `Project` fold being the SINGLE projection of a `Sheet`'s viewports, dimensions, annotations, and title-block into the shared `SheetEntity` run all four arms consume so a PDF, SVG, DWG, and DXF of the same sheet carry the identical complete drawing vocabulary; the emit receipt rides the visuals `RenderReceipt` family with the measured elapsed on every arm — a `Duration.Zero` receipt beside a measured sibling is the deleted two-truth form; vector content survives as picture content in PDF, path elements in SVG, and typed CAD entities in DWG/DXF so a drawing rasterizes only where the format demands.
 
 ```csharp signature
 [Union]
@@ -287,94 +380,133 @@ public sealed partial class DraftFormat {
     public bool Native { get; }
 }
 
-public readonly record struct SheetEntity(EdgeStyle Style, (double X, double Y) A, (double X, double Y) B);
+// The ONE drawn-primitive vocabulary every emit format consumes — viewport edges, dimension linework,
+// arcs, shaped text, and symbol glyphs are cases of one closed family, so no format can drop a
+// drawing-vocabulary axis without a compile break at its dispatch.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SheetEntity {
+    private SheetEntity() { }
+    public sealed record Stroke(EdgeStyle Style, (double X, double Y) A, (double X, double Y) B) : SheetEntity;
+    public sealed record Sweep(EdgeStyle Style, (double X, double Y) Center, double Radius, double StartDeg, double SweepDeg) : SheetEntity;
+    public sealed record TextRun(string Value, (double X, double Y) At, double Height, string Role) : SheetEntity;
+    public sealed record Glyph(string Symbol, (double X, double Y) At, double Height) : SheetEntity;
+}
+
+// The composition-bound shaped-text column: drafting text rasters through the typography shaping rail
+// (HarfBuzz DrawShapedText under the role's resolved font), never a raw DrawText loop minted here.
+public sealed record ShapedTextSeam(Func<SKCanvas, string, (double X, double Y), double, string, Fin<Unit>> Draw);
 
 public static class DraftEmit {
     public const string Kind = "drawing";
 
     public static IO<RenderReceipt> Emit(
         VisualRuntime runtime, Sheet sheet, DraftFormat format, ResolvedLocale locale, CadVersionPolicy cadVersion,
-        VisualDestination destination, Func<string, Option<MeshSource>> meshOf, HiddenLineSeam hlr) =>
-        Project(sheet, meshOf, hlr).Match(
+        VisualDestination destination, Func<string, Option<MeshSource>> meshOf, HiddenLineSeam hlr, ShapedTextSeam text) =>
+        Project(sheet, locale, meshOf, hlr).Match(
             Succ: entities => format.Key switch {
                 var key when key == DraftFormat.Pdf.Key =>
                     VisualExport.Export(runtime, new VisualExportSpec("pdf", sheet.Size.PointWidth, sheet.Size.PointHeight,
-                        Seq((Func<SKCanvas, Fin<Unit>>)(canvas => Render(canvas, sheet, entities, locale))), destination)),
-                var key when key == DraftFormat.Svg.Key => Svg(runtime, sheet, entities, locale, destination),
-                var key when key == DraftFormat.Dwg.Key => CadEmit(runtime, sheet, entities, locale, destination, DraftFormat.Dwg, cadVersion, WriteDwg),
-                _ => CadEmit(runtime, sheet, entities, locale, destination, DraftFormat.Dxf, cadVersion, WriteDxf),
+                        Seq((Func<SKCanvas, Fin<Unit>>)(canvas => Render(canvas, entities, text))), destination)),
+                var key when key == DraftFormat.Svg.Key => Svg(runtime, sheet, entities, text, destination),
+                var key when key == DraftFormat.Dwg.Key => CadEmit(runtime, entities, destination, DraftFormat.Dwg, cadVersion, WriteDwg),
+                _ => CadEmit(runtime, entities, destination, DraftFormat.Dxf, cadVersion, WriteDxf),
             },
             Fail: error => IO.fail<RenderReceipt>(error));
 
-    // Per-region basis: each SheetRegion carries its OWN basis/view spec and its OWN model reference —
-    // the pinned ProjectionBasis.Top and the region-key-as-mesh-key conflation are the deleted forms.
-    static Fin<Seq<SheetEntity>> Project(Sheet sheet, Func<string, Option<MeshSource>> meshOf, HiddenLineSeam hlr) =>
+    // The ONE sheet-to-entity projection: per-region hidden-line strokes (each region its OWN basis and
+    // model reference), region-basis-projected dimensions, sheet-space annotations, and the title-block
+    // runs — every format consumes this complete fold, so a dropped drawing axis is unrepresentable.
+    static Fin<Seq<SheetEntity>> Project(Sheet sheet, ResolvedLocale locale, Func<string, Option<MeshSource>> meshOf, HiddenLineSeam hlr) =>
         sheet.Regions
             .Map(region => new Viewport2D(region.Key, region, region.Basis, hlr) switch {
                 var view => meshOf(region.ModelKey).Match(
-                    Some: mesh => view.Project(mesh).Map(segs => segs.Map(s => new SheetEntity(s.Style, (s.A.X, s.A.Y), (s.B.X, s.B.Y)))),
+                    Some: mesh => view.Project(mesh).Map(segs => segs.Map(s => (SheetEntity)new SheetEntity.Stroke(s.Style, (s.A.X, s.A.Y), (s.B.X, s.B.Y)))),
                     None: () => Fin.Fail<Seq<SheetEntity>>(new DraftFault.EmptyView($"{region.Key}: model {region.ModelKey} unresolved"))),
             })
-            .Fold(Fin.Succ(Seq<SheetEntity>()), (rail, region) => rail.Bind(acc => region.Map(acc.Concat)));
+            .Fold(Fin.Succ(Seq<SheetEntity>()), (rail, region) => rail.Bind(acc => region.Map(acc.Concat)))
+            .Bind(strokes => sheet.Dimensions
+                .Map(row => sheet.Regions.Find(region => region.Key == row.Region)
+                    .ToFin(new DraftFault.EmptyView($"dimension region {row.Region} unresolved"))
+                    .Map(region => row.Value.Entities(world => Mapped(region, world), locale)))
+                .Fold(Fin.Succ(strokes), (rail, dim) => rail.Bind(acc => dim.Map(acc.Concat))))
+            .Map(drawn => drawn + sheet.Annotations.Bind(annotation => annotation.Entities(locale)) + TitleRuns(sheet, locale));
 
-    static IO<RenderReceipt> Svg(VisualRuntime runtime, Sheet sheet, Seq<SheetEntity> entities, ResolvedLocale locale, VisualDestination destination) =>
+    static (double X, double Y) Mapped(SheetRegion region, (double X, double Y, double Z) world) =>
+        region.Basis.Map(world) switch { var p => (region.X + p.X, region.Y - p.Y) };
+
+    static Seq<SheetEntity> TitleRuns(Sheet sheet, ResolvedLocale locale) =>
+        sheet.Title.Fields(locale).Map((field, index) => (SheetEntity)new SheetEntity.TextRun(
+            $"{locale.Label(field.LabelKey)}: {field.Value}",
+            (10d, sheet.Size.HeightMm - 10d - (index * 6d)), 3d, "annotation")).ToSeq();
+
+    static IO<RenderReceipt> Svg(VisualRuntime runtime, Sheet sheet, Seq<SheetEntity> entities, ShapedTextSeam text, VisualDestination destination) =>
+        from mark in IO.lift(runtime.Clocks.Mark)
         from bytes in IO.lift(() => {
             using MemoryStream sink = new();
             using (SKCanvas canvas = SKSvgCanvas.Create(new SKRect(0f, 0f, sheet.Size.PointWidth, sheet.Size.PointHeight), sink)) {
-                ignore(Render(canvas, sheet, entities, locale));
+                Render(canvas, entities, text).ThrowIfFail();
             }
             return sink.ToArray();
         })
-        from artifact in runtime.BlobWrite($"drawings/{sheet.Key}.svg", bytes)
-        let receipt = new RenderReceipt(Kind, DraftFormat.Svg.Key, runtime.ContentHash(bytes), bytes.LongLength, Duration.Zero, runtime.Correlation, Optional(artifact), VisualCodec.ColorPolicy.Display.Key)
+        from artifact in ExportDelivery.Deliver(runtime, destination, bytes)
+        from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
+        let receipt = new RenderReceipt(Kind, DraftFormat.Svg.Key, runtime.ContentHash(bytes), bytes.LongLength, elapsed, runtime.Correlation, Optional(artifact), VisualCodec.ColorPolicy.Display.Key)
         from _ in runtime.Sink(receipt)
         select receipt;
 
     // The version policy is ROW-THREADED: the dispatch arm names its DraftFormat and hands the one
     // CadVersionPolicy to its writer row — the receipt format is the dispatching row, never a path sniff.
     static IO<RenderReceipt> CadEmit(
-        VisualRuntime runtime, Sheet sheet, Seq<SheetEntity> entities, ResolvedLocale locale, VisualDestination destination,
-        DraftFormat format, CadVersionPolicy version, Func<Sheet, Seq<SheetEntity>, ResolvedLocale, CadVersionPolicy, byte[]> write) =>
+        VisualRuntime runtime, Seq<SheetEntity> entities, VisualDestination destination,
+        DraftFormat format, CadVersionPolicy version, Func<Seq<SheetEntity>, CadVersionPolicy, byte[]> write) =>
         from mark in IO.lift(runtime.Clocks.Mark)
-        from bytes in IO.lift(() => write(sheet, entities, locale, version))
-        from artifact in Deliver(runtime, destination, bytes)
+        from bytes in IO.lift(() => write(entities, version))
+        from artifact in ExportDelivery.Deliver(runtime, destination, bytes)
         from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
         let receipt = new RenderReceipt(Kind, format.Key, runtime.ContentHash(bytes), bytes.LongLength, elapsed, runtime.Correlation, Optional(artifact), VisualCodec.ColorPolicy.Display.Key)
         from _ in runtime.Sink(receipt)
         select receipt;
 
-    static byte[] WriteDwg(Sheet sheet, Seq<SheetEntity> entities, ResolvedLocale locale, CadVersionPolicy version) {
-        CadDocument doc = BuildCadDocument(sheet, entities, locale);
+    static byte[] WriteDwg(Seq<SheetEntity> entities, CadVersionPolicy version) {
+        CadDocument doc = BuildCadDocument(entities);
         doc.Header.Version = version.Dwg;
         using MemoryStream sink = new();
         DwgWriter.Write(sink, doc);
         return sink.ToArray();
     }
 
-    // ONE CadDocument entity fold both writer rows consume — a DWG and a DXF of one sheet carry
-    // identical entities by construction.
-    static CadDocument BuildCadDocument(Sheet sheet, Seq<SheetEntity> entities, ResolvedLocale locale) {
+    // ONE CadDocument entity fold both writer rows consume — a DWG and a DXF of one sheet carry identical
+    // entities by construction; every EdgeStyle row owns a named layer bound to its linetype so the layer
+    // structure round-trips the style tag, and text lands on the annotation layer as MText.
+    static CadDocument BuildCadDocument(Seq<SheetEntity> entities) {
         CadDocument doc = new();
         LineType dashed = new("DASHED");
         doc.LineTypes.Add(dashed);
-        Layer visible = new("draft-visible") { LineType = LineType.Continuous };
-        Layer hidden = new("draft-hidden") { LineType = dashed };
-        doc.Layers.Add(visible);
-        doc.Layers.Add(hidden);
-        entities.Iter(entity => {
-            Line line = new(new CSMath.XYZ(entity.A.X, entity.A.Y, 0d), new CSMath.XYZ(entity.B.X, entity.B.Y, 0d)) {
-                Layer = entity.Style.Dashed ? hidden : visible,
-            };
-            doc.Entities.Add(line);
-        });
-        TitleEntities(sheet, locale).Iter(text => doc.Entities.Add(text));
+        var layers = EdgeStyle.Items.ToDictionary(
+            style => style,
+            style => {
+                Layer layer = new($"draft-{style.Key}") { LineType = style.Dashed ? dashed : LineType.Continuous };
+                doc.Layers.Add(layer);
+                return layer;
+            });
+        Layer note = new("draft-annotation") { LineType = LineType.Continuous };
+        doc.Layers.Add(note);
+        entities.Iter(entity => doc.Entities.Add(entity.Switch(
+            stroke: s => (Entity)new Line(new CSMath.XYZ(s.A.X, s.A.Y, 0d), new CSMath.XYZ(s.B.X, s.B.Y, 0d)) { Layer = layers[s.Style] },
+            sweep: s => new Arc {
+                Center = new CSMath.XYZ(s.Center.X, s.Center.Y, 0d), Radius = s.Radius,
+                StartAngle = s.StartDeg * Math.PI / 180d, EndAngle = (s.StartDeg + s.SweepDeg) * Math.PI / 180d,
+                Layer = layers[s.Style],
+            },
+            textRun: t => new MText { Value = t.Value, InsertPoint = new CSMath.XYZ(t.At.X, t.At.Y, 0d), Height = t.Height, Layer = note },
+            glyph: g => new MText { Value = g.Symbol, InsertPoint = new CSMath.XYZ(g.At.X, g.At.Y, 0d), Height = g.Height, Layer = note })));
         return doc;
     }
 
     // The DXF row: the SAME CadDocument fold as DWG, serialized through DxfWriter — one document model,
     // two writer rows; the output version is the CadVersionPolicy row, never a literal.
-    static byte[] WriteDxf(Sheet sheet, Seq<SheetEntity> entities, ResolvedLocale locale, CadVersionPolicy version) {
-        CadDocument doc = BuildCadDocument(sheet, entities, locale);
+    static byte[] WriteDxf(Seq<SheetEntity> entities, CadVersionPolicy version) {
+        CadDocument doc = BuildCadDocument(entities);
         doc.Header.Version = version.Dxf;
         using MemoryStream sink = new();
         DxfWriter.Write(sink, doc, binary: version.BinaryDxf);
@@ -386,29 +518,35 @@ public static class DraftEmit {
         public static readonly CadVersionPolicy Default = new(ACadVersion.AC1032, ACadVersion.AC1032, BinaryDxf: false);
     }
 
-    static Seq<MText> TitleEntities(Sheet sheet, ResolvedLocale locale) =>
-        sheet.Title.Fields(locale).Map((field, index) => new MText {
-            Value = field.Value,
-            InsertPoint = new CSMath.XYZ(10d, sheet.Size.HeightMm - 10d - (index * 6d), 0d),
-            Height = 3d,
-        });
+    static Fin<Unit> Render(SKCanvas canvas, Seq<SheetEntity> entities, ShapedTextSeam text) =>
+        entities.Fold(FinSucc(unit), (rail, entity) => rail.Bind(_ => entity.Switch(
+            state: (Canvas: canvas, Text: text),
+            stroke: static (ctx, s) => Drawn(ctx.Canvas, s),
+            sweep: static (ctx, s) => Swept(ctx.Canvas, s),
+            textRun: static (ctx, t) => ctx.Text.Draw(ctx.Canvas, t.Value, t.At, t.Height, t.Role),
+            glyph: static (ctx, g) => ctx.Text.Draw(ctx.Canvas, g.Symbol, g.At, g.Height, "annotation"))));
 
-    static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, byte[] payload) =>
-        destination.Switch(
-            state: (runtime, payload),
-            filePath: static (ctx, file) => IO.lift(() => { File.WriteAllBytes(file.AbsolutePath, ctx.payload); return file.AbsolutePath; }),
-            blobLane: static (ctx, blob) => ctx.runtime.BlobWrite(blob.ArtifactKey, ctx.payload),
-            bundle: static (ctx, bundle) => ctx.runtime.BundleWrite(bundle.ArtifactName, bundle.Classification, ctx.payload));
+    static Fin<Unit> Drawn(SKCanvas canvas, SheetEntity.Stroke stroke) {
+        using SKPaint paint = Paint(stroke.Style);
+        canvas.DrawLine((float)stroke.A.X, (float)stroke.A.Y, (float)stroke.B.X, (float)stroke.B.Y, paint);
+        return FinSucc(unit);
+    }
 
-    static Fin<Unit> Render(SKCanvas canvas, Sheet sheet, Seq<SheetEntity> entities, ResolvedLocale locale) =>
-        entities.Fold(FinSucc(unit), (rail, entity) => rail.Bind(_ => {
-            using SKPaint paint = new() {
-                Color = SKColors.Black, StrokeWidth = entity.Style.Weight, IsStroke = true,
-                PathEffect = entity.Style.Dashed ? SKPathEffect.CreateDash([3f, 2f], 0f) : null,
-            };
-            canvas.DrawLine((float)entity.A.X, (float)entity.A.Y, (float)entity.B.X, (float)entity.B.Y, paint);
-            return FinSucc(unit);
-        }));
+    static Fin<Unit> Swept(SKCanvas canvas, SheetEntity.Sweep sweep) {
+        using SKPaint paint = Paint(sweep.Style);
+        using SKPath arc = new();
+        arc.AddArc(new SKRect(
+            (float)(sweep.Center.X - sweep.Radius), (float)(sweep.Center.Y - sweep.Radius),
+            (float)(sweep.Center.X + sweep.Radius), (float)(sweep.Center.Y + sweep.Radius)),
+            (float)sweep.StartDeg, (float)sweep.SweepDeg);
+        canvas.DrawPath(arc, paint);
+        return FinSucc(unit);
+    }
+
+    static SKPaint Paint(EdgeStyle style) => new() {
+        Color = SKColors.Black, StrokeWidth = style.Weight, IsStroke = true,
+        PathEffect = style.Dashed ? SKPathEffect.CreateDash([3f, 2f], 0f) : null,
+    };
 }
 ```
 
@@ -426,5 +564,5 @@ flowchart LR
 
 ## [06]-[RESEARCH]
 
-- [DRAFT_ENTITY]: the DWG/DXF model-space entity-writer bodies transcribe now against the catalogued `ACadSharp` `CadDocument`/`Line`/`Layer`/`MText`/`DwgWriter.Write` and `DxfWriter.Write` surfaces (netDxf REMOVED per `[V7]`) (`.api/api-drafting-export.md`); the residual verification is the per-entity property spelling — `ACadSharp` exposes only the `LineType.Continuous`/`ByLayer`/`ByBlock` static singletons (NO `Dashed` singleton), so the hidden layer binds a constructed named `LineType("DASHED")` registered on `doc.LineTypes` whose `Segments` dash pattern resolves at implementation; the `CSMath.XYZ` point constructor, the `MText` height arity, and the `Dimension`-entity style-table mapping for a dimensioned drawing (`Dimension` entity is catalogued PUBLIC_TYPE but its style-table population resolves at implementation) resolve against the installed ACadSharp surface; the projected line run, the layer `EdgeStyle` mapping, the title-block text entities, the `DwgWriter.Write(Stream, CadDocument)` static (its config/notification tail defaulted), and the `SKSvgCanvas.Create(SKRect, Stream)` SVG path are settled.
+- [DRAFT_ENTITY]: the DWG/DXF model-space entity-writer bodies transcribe now against the catalogued `ACadSharp` `CadDocument`/`Line`/`Arc`/`Layer`/`MText`/`DwgWriter.Write` and `DxfWriter.Write` surfaces (netDxf REMOVED per `[V7]`) (`.api/api-drafting-export.md`); the residual verification is the per-entity property spelling — `ACadSharp` exposes only the `LineType.Continuous`/`ByLayer`/`ByBlock` static singletons (NO `Dashed` singleton), so the dashed layers bind a constructed named `LineType("DASHED")` registered on `doc.LineTypes` whose `Segments` dash pattern resolves at implementation; the `CSMath.XYZ` point constructor, the `Arc` `Center`/`Radius`/`StartAngle`/`EndAngle` member spellings and their radian convention, the `MText` height arity, and the `Dimension`-entity style-table mapping for a native-dimension upgrade of the exploded dimension linework (`Dimension` entity is catalogued PUBLIC_TYPE but its style-table population resolves at implementation) resolve against the installed ACadSharp surface; the projected entity run, the per-`EdgeStyle` layer mapping, the title-block text runs, the `DwgWriter.Write(Stream, CadDocument)` static (its config/notification tail defaulted), and the `SKSvgCanvas.Create(SKRect, Stream)` SVG path are settled.
 - [HIDDEN_LINE_SEAM]: the CAD-grade hidden-line removal is the single Fabrication owner `cs:Rasm.Fabrication/Documentation/projection#PROJECTION_HIDDEN_LINE` (`Hlr.Solve` over the BSP front-to-back visibility tree plus the Clipper2 open-path screen Boolean), composed here through the `HiddenLineSeam` in-process delegate column AppUi binds at composition — a two-sided CONSUMPTION seam where Fabrication produces the world-space `(Visible, Hidden, Silhouette)` `Edge3` sets and AppUi owns the projection-to-sheet; the in-folder painter depth-sort `HiddenLine` is DROPPED root-up, the `MeshSource`-to-`FabricationInput` adapter (the `ProjectionBasis`-to-`ProjectionDir` and `MeshSource`-to-`MeshSpace` projection) binds at the seam delegate where the Fabrication `FabricationInput`/`FabricationPolicy.HiddenLine` shape meets the AppUi `MeshSource`, and a re-minted painter sort here is the rejected form.

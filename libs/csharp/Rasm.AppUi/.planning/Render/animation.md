@@ -18,7 +18,7 @@ The animation rail is the Render plane's temporal engine: `Track` is the closed 
 - Auto: each keyframe carries its time, value, and a `MotionToken` whose spring or curve drives the interpolation between it and the next so the easing vocabulary is the one motion catalog — a keyframe never carries a raw cubic-bezier literal; camera tracks interpolate through `TrackInterp.Pose` — `System.Numerics.Quaternion.Slerp` over the camera orientation with the eased positional arc, the stratum peer of the kernel `MotionInterpolation` one-slerp law under the same one-site discipline: this Camera row is the ONE pose-interpolation site AppUi-wide and `Collab/tour.md`'s transition interpolation rides it — a component-wise eye/target/up lerp or a second pose-interpolation site is the deleted form; visibility tracks step a `VisibilityOverride` set at the keyframe; field-index tracks step the `SimField.FrameIndex`; color tracks interpolate through `TrackInterp` OKLab row — the `Theme/tokens.md` Unicolour OKLab mix composed ONCE at catalog construction, never a per-call delegate; the bracketing search is a binary search over the time-sorted keyframes so a sample is logarithmic in keyframe count.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, System.Numerics (inbox)
 - Growth: a new track kind is one `Track` case plus its one `Of*` smart constructor plus its one `TrackInterp` policy row; a new easing is one `MotionToken` row consumed here; a new fault is one `detail` ordinal on the 6150 row; zero new surface.
-- Boundary: the easing is the motion-token vocabulary so a hand-rolled tween curve is the deleted form — every keyframe traces its easing to a `MotionToken` row exactly as every visual constant traces to a token; camera tracks ride the `ViewCamera` shape so the animation camera and the viewport camera and the drafting projection share one camera vocabulary; field-index tracks step the `SimField.FrameIndex` so a transient field scrub rides the simulation owner and the animation page re-computes no field; the `Track.Of*` smart constructors sort by time and reject an empty track into `Fin`, so the non-empty ascending-time invariant holds at construction and the `Sample` projection is total — an unsorted or empty track is structurally rejected at the rail edge, never guarded inside the pure sampler, so no `throw` and no unconstrained `default!` ever enters the value projection; the private union constructors are reachable only through the `Of*` rail so the invariant cannot be bypassed; interpolation is track-OWNED policy per `[GENERATOR_LAW]` — the Camera row the one pose-slerp, the Color row the tokens OKLab mix, and the caller-threaded `lerpD`/`lerpCam`/`lerpColor` delegate tail is the deleted form at every former call site (`SampleAt`, `Scrub.To`, `Walkthrough.Render`, the tour).
+- Boundary: the easing is the motion-token vocabulary so a hand-rolled tween curve is the deleted form — every keyframe traces its easing to a `MotionToken` row exactly as every visual constant traces to a token; camera tracks ride the `ViewCamera` shape so the animation camera and the viewport camera and the drafting projection share one camera vocabulary; field-index tracks step the `SimField.FrameIndex` so a transient field scrub rides the simulation owner and the animation page re-computes no field; the `Track.Of*` smart constructors sort by time and reject an empty track into `Fin`, so the non-empty ascending-time invariant holds at construction and the `Sample` projection is total — an unsorted or empty track is rejected at the rail edge, never guarded inside the pure sampler, so no `throw` and no unconstrained `default!` ever enters the value projection; the `Of*` rail is the ONE track ingress — every consumer (`CaptureClip.OnTimeline`, the tour projection, the timeline authoring verbs) mints through it, and a direct case construction that skips the sorted admission is the deleted form the binary-search bracket makes incorrect by construction; interpolation is track-OWNED policy per `[GENERATOR_LAW]` — the Camera row the one pose-slerp, the Color row the tokens OKLab mix, and the caller-threaded `lerpD`/`lerpCam`/`lerpColor` delegate tail is the deleted form at every former call site (`SampleAt`, `Scrub.To`, `Walkthrough.Render`, the tour).
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -48,23 +48,36 @@ public static class Easing {
         1d - (Math.Exp(-spring.Damping * t) * Math.Cos(spring.Stiffness * t));
 }
 
-// Track-owned interpolation policy rows. Pose is the ONE pose-interpolation site AppUi-wide;
-// OkMix binds ONCE at composition to the Theme/tokens Unicolour OKLab mix delegate.
+// Track-owned interpolation policy rows. Pose is the ONE pose-interpolation site AppUi-wide, written
+// against the scalar ViewCamera wire shape the pipeline owns; OkMix binds ONCE at composition to the
+// Theme/tokens Unicolour OKLab mix delegate.
 public sealed record TrackInterp(Func<Color, Color, double, Color> OkMix) {
     public static double Scalar(double a, double b, double t) => a + ((b - a) * t);
 
     public static int Stepped(int a, int b, double t) => (int)Math.Round(a + ((b - a) * t));
 
+    // Slerped orientation over lerped eye/target plus the lens scalars — a fly-through tweens its
+    // FieldOfView and OrthoScale too, so a dolly-zoom keyframe pair renders continuously.
     public static ViewCamera Pose(ViewCamera a, ViewCamera b, double t) {
-        Vector3 eye = Vector3.Lerp(a.Eye, b.Eye, (float)t);
-        Vector3 target = Vector3.Lerp(a.Target, b.Target, (float)t);
-        Quaternion orient = Quaternion.Slerp(OrientOf(a), OrientOf(b), (float)t);
-        return a with { Eye = eye, Target = target, Up = Vector3.Transform(Vector3.UnitY, orient) };
+        Vector3 eye = Vector3.Lerp(EyeOf(a), EyeOf(b), (float)t);
+        Vector3 target = Vector3.Lerp(TargetOf(a), TargetOf(b), (float)t);
+        Vector3 up = Vector3.Transform(Vector3.UnitY, Quaternion.Slerp(OrientOf(a), OrientOf(b), (float)t));
+        return a with {
+            EyeX = eye.X, EyeY = eye.Y, EyeZ = eye.Z,
+            TargetX = target.X, TargetY = target.Y, TargetZ = target.Z,
+            UpX = up.X, UpY = up.Y, UpZ = up.Z,
+            FieldOfView = Scalar(a.FieldOfView, b.FieldOfView, t),
+            OrthoScale = Scalar(a.OrthoScale, b.OrthoScale, t),
+        };
     }
 
+    static Vector3 EyeOf(ViewCamera c) => new((float)c.EyeX, (float)c.EyeY, (float)c.EyeZ);
+
+    static Vector3 TargetOf(ViewCamera c) => new((float)c.TargetX, (float)c.TargetY, (float)c.TargetZ);
+
     static Quaternion OrientOf(ViewCamera camera) {
-        Vector3 forward = Vector3.Normalize(camera.Target - camera.Eye);
-        Vector3 right = Vector3.Normalize(Vector3.Cross(forward, camera.Up));
+        Vector3 forward = Vector3.Normalize(TargetOf(camera) - EyeOf(camera));
+        Vector3 right = Vector3.Normalize(Vector3.Cross(forward, new Vector3((float)camera.UpX, (float)camera.UpY, (float)camera.UpZ)));
         Vector3 up = Vector3.Cross(right, forward);
         return Quaternion.CreateFromRotationMatrix(new Matrix4x4(
             right.X, right.Y, right.Z, 0f,
@@ -115,15 +128,19 @@ public abstract partial record Track {
                 Easing.Eased(bracket.Hi.Easing, (t - bracket.Lo.At).TotalNanoseconds / (double)(bracket.Hi.At - bracket.Lo.At).TotalNanoseconds)),
         };
 
-    private static (Keyframe<T> Lo, Keyframe<T> Hi) Bracket<T>(Keyframe<T> head, Seq<Keyframe<T>> rest, Duration t) =>
-        rest.LastOrNone().Match(
-            None: () => (head, head),
-            Some: last =>
-                t <= head.At ? (head, head)
-                    : t >= last.At ? (last, last)
-                    : head.Cons(rest).Zip(rest).Find(pair => t >= pair.Item1.At && t <= pair.Item2.At).Match(
-                        Some: pair => (pair.Item1, pair.Item2),
-                        None: () => (last, last)));
+    // Binary search over the Of*-sorted frames — O(log n) per sample; the invariant frames[lo].At <= t <
+    // frames[hi].At narrows one probe per step. The while loop is the named kernel exemption.
+    private static (Keyframe<T> Lo, Keyframe<T> Hi) Bracket<T>(Keyframe<T> head, Seq<Keyframe<T>> rest, Duration t) {
+        if (rest.IsEmpty || t <= head.At) { return (head, head); }
+        Seq<Keyframe<T>> frames = head.Cons(rest);
+        if (t >= frames[frames.Count - 1].At) { return (frames[frames.Count - 1], frames[frames.Count - 1]); }
+        var (lo, hi) = (0, frames.Count - 1);
+        while (hi - lo > 1) {
+            int mid = lo + ((hi - lo) >> 1);
+            if (frames[mid].At <= t) { lo = mid; } else { hi = mid; }
+        }
+        return (frames[lo], frames[hi]);
+    }
 }
 ```
 
@@ -215,7 +232,7 @@ public sealed record ScrubState(Playhead Head, bool Playing) {
     public ScrubState Play() => this with { Playing = true };
     public ScrubState Pause() => this with { Playing = false };
     public ScrubState Tick() => Playing ? this with { Head = Head.Advance() } : this;
-    public ScrubState Seek(long frame) => this with { Head = Head with { Index = frame, Direction = 1 } };
+    public ScrubState Seek(long frame) => this with { Head = Head with { Index = Math.Clamp(frame, 0L, Head.FrameCount - 1L), Direction = 1 } };
 }
 
 public static class Scrub {
@@ -246,22 +263,37 @@ public readonly record struct EncodeRowSelector(string FormatKey);
 public static class Walkthrough {
     public const string Kind = "walkthrough";
 
+    // Frames are RETAINED only when a clip mux consumes them and disposed frame-by-frame otherwise, so a
+    // long frame-only walkthrough runs at one-frame memory; the mux arm disposes its retained set after
+    // the clip lands. Encode borrows each frame per the capture reproject ownership law.
     public static IO<RenderReceipt> Render(
         VisualRuntime runtime,
         Timeline timeline,
         WalkthroughSpec spec,
         TrackInterp interp,
         Func<TimelineSample, SKImageInfo, Fin<SKImage>> frame) =>
-        Range(0L, timeline.Playhead().FrameCount)
+        from mark in IO.lift(runtime.Clocks.Mark)
+        from totals in Range(0L, timeline.Playhead().FrameCount)
             .Fold(IO.pure((Frames: Seq<SKImage>(), Bytes: 0L)), (rail, index) => rail.Bind(state =>
                 from sample in IO.pure(timeline.SampleAt(timeline.Playhead().TimeOf(index), interp))
                 from image in IO.lift(() => frame(sample, new SKImageInfo(spec.Width, spec.Height)).ThrowIfFail())
                 from receipt in VisualCodec.Encode(runtime, image, VisualCodec.Png, Kind, $"walkthroughs/{spec.Key}/{index:D6}.png")
-                select (state.Frames.Add(image), state.Bytes + receipt.Bytes)))
-            .Bind(totals => spec.Clip.Match(
-                Some: row => ClipEncoder.Mux(runtime, row, totals.Frames, spec.Destination),
-                None: () => IO.pure(new RenderReceipt(
-                    Kind, "frame-sequence", string.Empty, totals.Bytes, Duration.Zero, runtime.Correlation, None, VisualCodec.ColorPolicy.Display.Key))));
+                select (spec.Clip.IsSome ? state.Frames.Add(image) : Released(state.Frames, image), state.Bytes + receipt.Bytes)))
+        from receipt in spec.Clip.Match(
+            Some: row => ClipEncoder.Mux(runtime, row, totals.Frames, spec.Destination)
+                .Map(clip => (totals.Frames.Iter(static held => held.Dispose()), clip).Item2),
+            None: () =>
+                from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
+                let sequence = new RenderReceipt(
+                    Kind, "frame-sequence", string.Empty, totals.Bytes, elapsed, runtime.Correlation, None, VisualCodec.ColorPolicy.Display.Key)
+                from _ in runtime.Sink(sequence)
+                select sequence)
+        select receipt;
+
+    static Seq<SKImage> Released(Seq<SKImage> held, SKImage frame) {
+        frame.Dispose();
+        return held;
+    }
 }
 ```
 
