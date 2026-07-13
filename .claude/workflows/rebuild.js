@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The standing hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it maps every .planning sub-folder, ideates per package, hostile-rebuilds every page batch concurrently at the owning-language doctrine bar, and closes with a finder fan plus one terminal fixer.',
     description:
-        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan (opus) expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one opus deep-map lane and one gpt-5.6-terra two-tier .api inventory lane per .planning sub-folder unit, each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (opus, the non-binding fix addendum) and a bigger-ideas worklist (fable, new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a terra doctrine-bar lens, then fable implement, gpt-5.6-sol critique (workspace-write, fixlog to disk), and fable redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Close: a read-only terra finder fan plus one governance finder per language, then ONE terminal fable fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then a doctrine lander adjudicating pooled harvest nominations. Stage law lives in the prompt blocks; CODEX=false restores native lanes throughout.',
+        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan (opus) expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one opus deep-map lane and one gpt-5.6-terra two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (opus, the non-binding fix addendum) and a bigger-ideas worklist (fable, new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a terra doctrine-bar lens, then fable implement, gpt-5.6-sol critique (workspace-write, fixlog to disk), and fable redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Close: a read-only terra finder fan plus one governance finder per language, then ONE terminal fable fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then a doctrine lander adjudicating pooled harvest nominations. Stage law lives in the prompt blocks; CODEX=false restores native lanes throughout.',
     phases: [
         {
             title: 'Plan',
@@ -12,7 +12,7 @@ export const meta = {
         },
         {
             title: 'Map',
-            detail: 'per .planning sub-folder unit: an opus deep-map lane (ownership, seams, cross-folder relevance, domain gaps — information, never code) beside a terra two-tier .api inventory lane, each writing the per-unit dossier the batches reuse',
+            detail: 'per sub-folder unit segment: an opus deep-map lane (ownership, seams, cross-folder relevance, domain gaps — information, never code) beside a terra two-tier .api inventory lane, each writing the per-unit dossier the batches reuse',
             model: 'opus',
         },
         {
@@ -38,7 +38,7 @@ const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
 const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
-const BATCH_MAX = 10; // packing ceiling; per-sub-folder maps + census legwork carry the navigation, so a writer holds a full dense batch without fidelity loss
+const BATCH_MAX = 8; // unit-segment + batch-packing ceiling; per-segment maps + census legwork carry the navigation, so a writer holds a full dense batch
 const FINDER_PAGES = 8; // landed pages per close-phase finder
 const CODEX = true; // recon/finder lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
@@ -1561,13 +1561,18 @@ phase('Map');
 // beside a terra two-tier .api inventory lane (codex) PER `.planning/<sub>` — package-level mapping dilutes depth on a large
 // package and starves the batches of per-page grounding. Products are per-unit dossiers + reports on disk; receipts on the wire.
 const PKGS = [...new Set(PAGES.map((p) => pkgOf(p.page)))];
+// An oversize sub-folder splits into ceiling-bounded SEGMENTS here, once — map lanes and batches both consume the segmented
+// units, so every batch's dossiers cover exactly its pages and the mapper fan scales with the writer fan on any folder size.
 const UNITS = PKGS.flatMap((pkg) => {
     const pkgPages = PAGES.filter((p) => pkgOf(p.page) === pkg);
-    return [...new Set(pkgPages.map((p) => subOf(p.page)))].map((sub) => ({
-        pkg,
-        sub,
-        pages: pkgPages.filter((p) => subOf(p.page) === sub),
-    }));
+    return [...new Set(pkgPages.map((p) => subOf(p.page)))].flatMap((sub) => {
+        const pages = pkgPages.filter((p) => subOf(p.page) === sub);
+        const segs = pages.length > BATCH_MAX ? evenChunk(pages, BATCH_MAX) : [pages];
+        return segs.map((seg, i) => {
+            const name = sub + (segs.length > 1 ? '.' + (i + 1) : '');
+            return { pkg, sub, name, key: pkg + '|' + name, tag: pkg.split('/').pop() + '.' + name, pages: seg };
+        });
+    });
 });
 const unitMap = {};
 await Promise.all(
@@ -1575,7 +1580,7 @@ await Promise.all(
         const L = Lof(u.pkg);
         const unitPages = u.pages.map((p) => Object.assign({}, p, { i: 0 }));
         const scope = unitPages.map((p) => p.page);
-        const tag = u.pkg.split('/').pop() + '.' + u.sub;
+        const tag = u.tag;
         const ctxDossier = dossierPath('map:ctx:' + tag);
         const apiDossier = dossierPath('map:api:' + tag);
         const [ctx, api] = await Promise.all([
@@ -1599,11 +1604,11 @@ await Promise.all(
                 ),
             ),
         ]);
-        unitMap[u.pkg + '|' + u.sub] = { ctx, api, ctxDossier, apiDossier };
+        unitMap[u.key] = { ctx, api, ctxDossier, apiDossier };
     }),
 );
 const mapOk = Object.values(unitMap).filter((m) => (m.ctx && m.ctx.ok) || (m.api && m.api.ok)).length;
-log('Map: ' + UNITS.length + ' sub-folder unit(s) across ' + PKGS.length + ' package(s) mapped; ' + mapOk + ' with a live dossier');
+log('Map: ' + UNITS.length + ' unit segment(s) across ' + PKGS.length + ' package(s) mapped; ' + mapOk + ' with a live dossier');
 
 phase('Ideate');
 // TWO lanes per owning package with disjoint charters: a corrections census (opus — the fix addendum the batches land as rung 3)
@@ -1616,9 +1621,9 @@ await Promise.all(
         const tag = pkg.split('/').pop();
         const mapIndex = UNITS.filter((u) => u.pkg === pkg)
             .map((u) => ({
-                sub: u.sub,
-                deepMap: (unitMap[pkg + '|' + u.sub].ctx?.ok && unitMap[pkg + '|' + u.sub].ctxDossier) || null,
-                inventory: (unitMap[pkg + '|' + u.sub].api?.ok && unitMap[pkg + '|' + u.sub].apiDossier) || null,
+                sub: u.name,
+                deepMap: (unitMap[u.key].ctx?.ok && unitMap[u.key].ctxDossier) || null,
+                inventory: (unitMap[u.key].api?.ok && unitMap[u.key].apiDossier) || null,
             }))
             .filter((r) => r.deepMap || r.inventory);
         if (!mapIndex.length) {
@@ -1648,17 +1653,21 @@ phase('Build');
 // Batch composition packs WHOLE sub-folder units (in plan order) up to BATCH_MAX, splitting only an oversize unit — a batch's
 // ownership seam then aligns with its map dossiers instead of slicing across sub-folders. Nothing serializes on the lanes;
 // the agent-level slot scheduler is the only governor.
+// Packs WHOLE unit segments (each already ceiling-bounded) into batches; a batch carries its source units so its dossier
+// roster is exact, never re-derived from page paths.
 const packBatches = (units, max) => {
     const out = [];
     let cur = [];
-    for (const u of units)
-        for (const seg of u.pages.length > max ? evenChunk(u.pages, max) : [u.pages]) {
-            if (cur.length && cur.length + seg.length > max) {
-                out.push(cur);
-                cur = [];
-            }
-            cur = cur.concat(seg);
+    let n = 0;
+    for (const u of units) {
+        if (cur.length && n + u.pages.length > max) {
+            out.push(cur);
+            cur = [];
+            n = 0;
         }
+        cur.push(u);
+        n += u.pages.length;
+    }
     if (cur.length) out.push(cur);
     return out;
 };
@@ -1666,7 +1675,7 @@ const BATCHES = PKGS.flatMap((pkg) =>
     packBatches(
         UNITS.filter((u) => u.pkg === pkg),
         BATCH_MAX,
-    ).map((pages, i) => ({ pkg, i, pages })),
+    ).map((units, i) => ({ pkg, i, units, pages: units.flatMap((u) => u.pages) })),
 );
 const SCOPES = JSON.stringify(BATCHES.map((b) => ({ batch: b.pkg.split('/').pop() + ':b' + b.i, pages: b.pages.map((p) => p.page) })));
 const built = (
@@ -1676,8 +1685,8 @@ const built = (
             const L = Lof(b.pkg);
             const batch = b.pages.map((p) => Object.assign({}, p, { i: b.i }));
             const pageScope = batch.map((p) => p.page);
-            // ctx + api grounding come from the Map phase (per-sub-folder units, reused); only the page-scoped bar lens runs per batch.
-            const pms = [...new Set(batch.map((p) => subOf(p.page)))].map((s) => unitMap[b.pkg + '|' + s]).filter(Boolean);
+            // ctx + api grounding come from the Map phase (per-unit-segment, reused); only the page-scoped bar lens runs per batch.
+            const pms = b.units.map((u) => unitMap[u.key]).filter(Boolean);
             const bar = await slot(() =>
                 recon(
                     (reg) => barLensPrompt(L, batch, reg),
