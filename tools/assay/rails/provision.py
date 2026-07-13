@@ -206,22 +206,23 @@ class _ProvisionPayload(msgspec.Struct, frozen=True, gc=False, rename="camel"):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ROUTED: Final[Routed] = Routed(language=Language.PYTHON, scope=Scope.CHANGED)
-_JSON_VERBS: Final[frozenset[str]] = frozenset({
-    "up",
-    "down",
-    "status",
-    "doctor",
-    "ports",
-    "inventory",
-    "extensions",
-    "plan",
-    "env",
-    "check",
-    "apply",
-    "tools",
-})
-_VERB_MODE: Final[dict[str, Mode]] = {"up": Mode.WRITE, "down": Mode.WRITE, "apply": Mode.WRITE}
-_VERB_TIMEOUT: Final[dict[str, float]] = {"up": 300.0, "check": 180.0, "apply": 180.0}
+# One row per forge-provision verb: (catalog mode, timeout seconds). The JSON roster, mode split, and per-verb deadlines all derive from
+# this table, so a new verb is one row here plus its handler assignment and registry Bind. `tools` is the internal fan leg `check` consumes.
+_VERBS: Final[dict[str, tuple[Mode, float]]] = {
+    "up": (Mode.WRITE, 300.0),
+    "down": (Mode.WRITE, 120.0),
+    "status": (Mode.RUN, 120.0),
+    "doctor": (Mode.RUN, 120.0),
+    "ports": (Mode.RUN, 120.0),
+    "inventory": (Mode.RUN, 120.0),
+    "extensions": (Mode.RUN, 120.0),
+    "plan": (Mode.RUN, 120.0),
+    "env": (Mode.RUN, 120.0),
+    "check": (Mode.RUN, 180.0),
+    "apply": (Mode.WRITE, 180.0),
+    "tools": (Mode.RUN, 120.0),
+}
+_JSON_VERBS: Final[frozenset[str]] = frozenset(_VERBS)
 _FACT_FIELDS: Final[tuple[tuple[str, str], ...]] = (("schemaVersion", "schema_version"), ("ok", "ok"), ("state", "state"))
 _SENSITIVE_KEY_FRAGMENTS: Final[frozenset[str]] = frozenset({"password", "token", "secret", "pgpass"})
 _SENSITIVE_KEYS: Final[frozenset[str]] = frozenset({
@@ -312,7 +313,8 @@ _PAYLOAD_DECODER: Final[msgspec.json.Decoder[_ProvisionPayload]] = msgspec.json.
 def _stack(verb: str) -> Check:
     # The verb selects the RUN or WRITE forge-provision row; per-verb timeout rides the Check override.
     args = ToolArgs(flags=("--json",) if verb in _JSON_VERBS else (), verb=verb)
-    return Check(tool=_PROVISION_ROWS["forge-provision", _VERB_MODE.get(verb, Mode.RUN)], args=args, timeout=_VERB_TIMEOUT.get(verb, 120.0))
+    mode, timeout = _VERBS[verb]
+    return Check(tool=_PROVISION_ROWS["forge-provision", mode], args=args, timeout=timeout)
 
 
 def _unsafe_key(key: str) -> bool:

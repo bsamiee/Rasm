@@ -286,6 +286,7 @@ dev = [
     "sqlfluff",             # SQL format/lint rail; squawk keeps the migration-safety lane
     "squawk-cli",
     "ty",
+    "types-defusedxml",
     "types-geopandas",
     "types-grpcio",
     "types-grpcio-health-checking",
