@@ -18,7 +18,7 @@ export const meta = {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const CAP = 14; // concurrent folder-CHAIN ceiling — the default target sets run below it; it binds only when args name more folders than CAP
+const CAP = 14; // concurrent folder-CHAIN ceiling; binds only when args name more folders than CAP
 const IMPL_FAN = 3; // max implement agents fanned per folder, and only over discovery-proven page-disjoint card groups
 const STAGGER_MS = 1500;
 const STALL = 300000;

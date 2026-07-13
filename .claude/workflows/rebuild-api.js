@@ -11,14 +11,14 @@ export const meta = {
         },
         {
             title: 'API-Rebuild',
-            detail: 'folder-tier batches per language lane on gpt-5.6-terra (codex wrappers, workspace-write): one folder per batch, small sibling-folder tails packed up to the batch size; all lanes concurrent under CAP=14; every cross-catalog defect fixed in-pass',
+            detail: 'folder-tier batches per language lane on gpt-5.6-terra (codex wrappers, workspace-write): one folder per batch, small sibling-folder tails packed up to the batch size; all lanes concurrent under the run-wide slot cap; every cross-catalog defect fixed in-pass',
         },
     ],
 };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const CAP = 14;
+const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this machine; matching it keeps the stagger honest
 const BATCH = 4; // .api files per agent — deep enough per file, many agents for parallelism
 const STAGGER_MS = 1500;
 const STALL = 300000;

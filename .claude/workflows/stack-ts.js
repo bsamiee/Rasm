@@ -6,7 +6,7 @@ export const meta = {
     phases: [
         {
             title: 'Inventory',
-            detail: 'read-only recon: real page set in atlas order, per-page capability map + hostile weak/strong call',
+            detail: 'read-only recon: real page set in atlas order, per-page facts-only capability map — verified members, sibling seams, stacking guidance',
             model: 'opus',
         },
         {

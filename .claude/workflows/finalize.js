@@ -221,7 +221,7 @@ const FIX_SCHEMA = {
     },
 };
 
-// The Index terminal now applies index rows, drains pooled residuals to a fixpoint, and harvests: `remaining` re-feeds the drain loop.
+// The Index terminal applies index rows, drains pooled residuals to a fixpoint, and harvests: `remaining` re-feeds the drain loop.
 const INDEX_SCHEMA = {
     type: 'object',
     additionalProperties: false,
