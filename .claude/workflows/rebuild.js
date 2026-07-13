@@ -32,7 +32,7 @@ export const meta = {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this machine; matching it keeps the stagger honest
+const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
@@ -45,7 +45,8 @@ const CODEX = true; // recon/finder lanes run on gpt-5.6-terra via the codex wra
 // --- [INPUTS] --------------------------------------------------------------------------
 
 const normTarget = (t) => String(t).trim().replace(/\/+$/, '').replace(/^\/+/, '');
-// Hosts may deliver object args JSON-encoded; decode before shape dispatch.
+const langOf = (t) =>
+    t.indexOf('libs/csharp') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null;
 const argsIn = typeof args === 'string' && /^\s*[\[{]/.test(args) ? JSON.parse(args) : args;
 const isObj = !!argsIn && typeof argsIn === 'object' && !Array.isArray(argsIn);
 const rawTargets = Array.isArray(argsIn)
@@ -57,18 +58,12 @@ const rawTargets = Array.isArray(argsIn)
         : typeof argsIn === 'string' && argsIn.trim()
           ? [argsIn]
           : [];
-const langOf = (t) =>
-    t.indexOf('libs/csharp') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null;
 const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => langOf(t));
 const REJECTED = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => !langOf(t));
-// Absolute repo root for codex-lane cwd + report paths; args.root retargets an isolated checkout (worktree validation).
 const ROOT_DIR =
     isObj && typeof argsIn.root === 'string' && argsIn.root.trim()
         ? argsIn.root.trim().replace(/\/+$/, '')
         : '/Users/bardiasamiee/Documents/99.Github/Rasm';
-// Per-instance scratch dir — lane report files + grounding dossiers + per-batch seam-ledger files. Minted deterministically from the
-// normalized target set (clock/randomness would break resume): one FLAT dir per instance under .claude/scratch/, a human-readable
-// basename slug plus an FNV-1a tail so distinct target sets never share a directory and a resume rehydrates the same one.
 const fnv1a = (s) => {
     let h = 0x811c9dc5;
     for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
@@ -82,7 +77,7 @@ const SCRATCH =
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const S = { type: 'string' }; // schema atom; every string-typed field reads through it
+const S = { type: 'string' };
 const UNDERUTIL = {
     type: 'array',
     items: { type: 'object', additionalProperties: false, required: ['catalog', 'capability'], properties: { catalog: S, capability: S } },
@@ -115,8 +110,8 @@ const PLAN_SCHEMA = {
     },
 };
 
-// One anchor = one fact at one coordinate; interpretation never lives in an anchor row.
 const ANCHOR_INFO = {
+    // One anchor = one fact at one coordinate; interpretation never lives in an anchor row.
     type: 'object',
     additionalProperties: false,
     required: ['path', 'line', 'role', 'note'],
@@ -237,8 +232,8 @@ const BAR_SCHEMA = {
     },
 };
 
-// Thin wire receipt: the lane's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
 const RECEIPT = {
+    // Thin wire receipt: the lane's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
     type: 'object',
     additionalProperties: false,
     required: ['ok', 'report', 'entries', 'headline', 'failure'],
@@ -255,14 +250,14 @@ const SEAMS = {
     },
 };
 
-// navigation facts: what moved, as data, zero adjectives
 const DELTAS = {
+    // navigation facts: what moved, as data, zero adjectives
     type: 'array',
     items: { type: 'object', additionalProperties: false, required: ['symbol', 'change'], properties: { symbol: S, change: S } },
 };
 
-// the counted backlog: second-order + live-batch-scope ripples
 const DEFERRED = {
+    // the counted backlog: second-order + live-batch-scope ripples
     type: 'array',
     items: {
         type: 'object',
@@ -277,8 +272,8 @@ const BEYOND = {
     items: { type: 'object', additionalProperties: false, required: ['catalog', 'member'], properties: { catalog: S, member: S } },
 };
 
-// doc = index doc, central manifest, or IDEAS.md; row = the exact row text
 const INDEXROWS = {
+    // doc = index doc, central manifest, or IDEAS.md; row = the exact row text
     type: 'array',
     items: { type: 'object', additionalProperties: false, required: ['doc', 'row'], properties: { doc: S, row: S } },
 };
@@ -397,8 +392,8 @@ const FINDINGS_SCHEMA = {
     },
 };
 
-// Required-but-possibly-empty `beyond` is an attestation: the fixer's own hunt ran, not only the signal list.
 const FIXER_SCHEMA = {
+    // Required-but-possibly-empty `beyond` is an attestation: the fixer's own hunt ran, not only the signal list.
     type: 'object',
     additionalProperties: false,
     required: ['files', 'indexApplied', 'resolved', 'backlogDrained', 'beyond', 'rejected', 'remaining', 'harvest', 'summary'],
@@ -448,8 +443,8 @@ const DOCTRINE_SCHEMA = {
 
 // --- [DOCTRINE] ------------------------------------------------------------------------
 
-// LANG carries routing data and engine-parameter rows ONLY — doctrine content is reached through READ_FIRST at the source, never paraphrased here.
 const LANG = {
+    // LANG carries routing data and engine-parameter rows ONLY — doctrine content is reached through READ_FIRST at the source, never paraphrased here.
     cs: {
         key: 'cs',
         name: 'C#',
@@ -467,8 +462,7 @@ const LANG = {
         apiTiers:
             'the SHARED substrate catalogs `libs/csharp/.api/*.md` (Thinktecture generated owners, LanguageExt ' +
             'rails/effects/schedules/immutable collections, QuikGraph, Mapperly and siblings) AND the folder catalogs ' +
-            '`<package>/.api/*.md` — the universal Thinktecture/LanguageExt rails layered onto the domain packages, never the ' +
-            'folder set alone.',
+            '`<package>/.api/*.md` — the universal Thinktecture/LanguageExt rails layered onto the domain packages, never the folder set alone.',
         verify:
             '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for feed ' +
             'truth, and Context7/exa/tavily for the official surface own the fallback)',
@@ -489,8 +483,7 @@ const LANG = {
             'migration, and lifecycle, not naive columns',
         ownerGrammar:
             'a CASE in the existing closed family, a ROW or richer data on the existing smart-enum, a FIELD or a composed ' +
-            '`[ValueObject]`/`[ComplexValueObject]` on the existing record, an OPERATION on the existing surface, or a POLICY_VALUE ' +
-            'on the existing vocabulary',
+            '`[ValueObject]`/`[ComplexValueObject]` on the existing record, an OPERATION on the existing surface, or a POLICY_VALUE on the existing vocabulary',
         deepPkgs: 'LanguageExt/Thinktecture/MathNet/CSparse',
         body:
             'nested `Bind`/`Map` lambda towers where LINQ query syntax or one composed `Eff`/`Fin` pipeline reads flat; ' +
@@ -510,8 +503,7 @@ const LANG = {
         corpus: 'libs/python planning corpus (markdown specs of intended Python module designs)',
         strata: 'CLAUDE.md manifest law governs.',
         stackFloor:
-            'docs/stacks/python is the bar and docs/stacks/csharp the density/ambition FLOOR — match its richness, never ' +
-            'import C#-shaped idioms.',
+            'docs/stacks/python is the bar and docs/stacks/csharp the density/ambition FLOOR — match its richness, never import C#-shaped idioms.',
         apiTiers:
             'the SHARED/universal branch catalogs `libs/python/.api/*.md` (anyio, expression, msgspec, pydantic, ' +
             'pydantic-settings, beartype, structlog, stamina, numpy, psutil, opentelemetry-*) AND the folder catalogs ' +
@@ -527,8 +519,7 @@ const LANG = {
         gapPkg: 'BOTH tiers; stacking that full surface IS new functionality woven into the owner, not a denser spelling of the same call',
         gapDomain:
             'a dimension owner owns the full ISO 129-1 linear/aligned/angular/radial/diameter/ordinate/chain/baseline + ' +
-            'tolerance family, not a single linear case; a layer codec owns the full ISO 13567 + NCS discipline/major/minor/status ' +
-            'structure, not a flat string',
+            'tolerance family, not a single linear case; a layer codec owns the full ISO 13567 + NCS discipline/major/minor/status structure, not a flat string',
         ownerGrammar:
             'a CASE in the existing closed `@tagged_union`/`Literal`/`StrEnum` family, a ROW or richer data on the ' +
             'existing `frozendict` table, a FIELD on the existing `msgspec.Struct`/Pydantic model/frozen dataclass/`TypedDict`, an ' +
@@ -537,8 +528,7 @@ const LANG = {
         body:
             'nested try/except and if-ladders where the `expression` Result/Option pipeline or one `match` expression reads ' +
             'flat; bare `except` and silently discarded `Result` where a typed failure case belongs; manual loop/accumulator ' +
-            'plumbing where fold/traverse/partition combinators compose the join; module-level helpers and one-off aliases ' +
-            'orbiting an owner',
+            'plumbing where fold/traverse/partition combinators compose the join; module-level helpers and one-off aliases orbiting an owner',
         exhaust: 'total `match` + `assert_never` over the FULL case set',
         modern: 'py3.15-modern only',
         mechanics:
@@ -575,12 +565,10 @@ const LANG = {
             'ONE deep `Schema.Class`/`TaggedClass`/`TaggedError` family — embedded sub-schemas, brand-in-field ' +
             'refinements, class-carried methods and statics — or ONE tagged discriminated union + exhaustive match, IN THE SAME ' +
             'FILE; CLASS-FIRST: a module-level type alias, interface, or bare `Struct` standing where a class family could carry ' +
-            'invariants, statics, and derived projections is a defect, and `Schema.Struct` survives only as an anonymous ' +
-            'single-consumer field block',
+            'invariants, statics, and derived projections is a defect, and `Schema.Struct` survives only as an anonymous single-consumer field block',
         gapPkg:
             'BOTH tiers: the shared `libs/typescript/.api/` Effect substrate rails AND the folder domain packages, cross-checked ' +
-            'against node_modules; stacking that full surface IS new functionality woven into the owner, not naive ' +
-            'Promise/try-catch glue',
+            'against node_modules; stacking that full surface IS new functionality woven into the owner, not naive Promise/try-catch glue',
         gapDomain:
             'a chart owns scale/axis/series/interaction/annotation families and zoom/brush/tooltip/series-key operations, not ' +
             'two naive renders; a service owns retry/breaker/telemetry/validation/cache layers internally, not a bare fetch; a ' +
@@ -592,8 +580,7 @@ const LANG = {
             'projection on the existing class, a member on the existing `Effect.Service`, a ROW in the existing ' +
             'const-union/table, or a POLICY value on the existing vocabulary',
         deepPkgs:
-            'the Effect ecosystem (`Effect`/`Layer`/`Context`/`Schema`/`Stream` + platform/experimental/cluster/' +
-            'workflow/sql/rpc/ai) + the area packages',
+            'the Effect ecosystem (`Effect`/`Layer`/`Context`/`Schema`/`Stream` + platform/experimental/cluster/workflow/sql/rpc/ai) + the area packages',
         body:
             'nested `Effect.flatMap(Effect.flatMap(...))` and pipe-inside-pipe pyramids where `Effect.gen`/`Do`/one flat pipe ' +
             'owns the sequence; `catchAll(() => Effect.void)` blanket swallows where typed `catchTag`/`catchTags` or a ruled ' +
@@ -611,8 +598,7 @@ const LANG = {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-// Agent-level slot scheduler: CAP agents in flight across ALL batch chains, staggered launch, work-conserving backfill the moment a
-// slot frees. The single governor for every agent call.
+// Agent-level slot scheduler: CAP agents in flight across ALL batch chains, staggered launch, work-conserving backfill the moment a slot frees.
 const makeSlots = (cap) => {
     let active = 0;
     let gate = Promise.resolve();
@@ -635,15 +621,10 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(CAP);
-// Option mints — one writer posture (fable/opus agents: high effort, standard stall) and one recon posture (lens/finder lanes);
-// per-call identity rides the arguments, anything else lands through `over`.
 const wopts = (label, phase, model, schema, over) => Object.assign({ label, phase, model, effort: 'high', schema, stallMs: STALL }, over);
 const ropts = (label, phase, schema, scope, hl, over) => Object.assign({ label, phase, schema, scope, hl }, over);
 
-// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
-// to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
-// (role split, battery-validated); the prompt carries only the task — built REG.codex-shaped by recon()'s
-// dispatch branch, never the estate hostile register verbatim; the output contract sits LAST.
+// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const laneLaw = (schema, o) =>
     (o.fix
@@ -717,9 +698,6 @@ const codexPrompt = (label, task, schema, o) => {
             'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-// Every codex-dispatched lane routes here: terra by default, sol where o.model says so; CODEX=false restores a fully native run. The task arrives as
-// a REGISTER-KEYED BUILDER: the codex branch takes REG.codex (neutral, de-conflicted), every native execution — o.native, CODEX=false, the quota
-// fallback — takes REG.claude (the full estate register), so the register follows the EXECUTING model, never the lane name.
 
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus,
 // sol->fable, luna->sonnet) — the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the
@@ -739,8 +717,9 @@ const nativeLane = (task, o) => {
         { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT, stallMs: o.stallMs || STALL },
     );
 };
-// o.native forces the native branch (the opus deep-map lane rides it: a capable native model, not a codex wrapper).
+
 const recon = (taskOf, o) => {
+    // o.native forces the native branch (the opus deep-map lane rides it: a capable native model, not a codex wrapper).
     const task = typeof taskOf === 'function' ? taskOf : () => taskOf;
     const wrapper = {
         label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
@@ -774,18 +753,17 @@ const chunk = (arr, n) => {
 // Even split: ceil(n/max) batches of near-equal size — no runt tail heavying batch 0 and starving the last.
 const evenChunk = (arr, max) => chunk(arr, Math.ceil(arr.length / (Math.ceil(arr.length / max) || 1)));
 const pkgOf = (p) => p.split('/.planning/')[0]; // package = the write-partition key (index docs live at its root)
-// Sub-folder = the map/batch granularity unit: one mapper pair and one batch-ownership seam per `.planning/<sub>`; root-level pages pool as '_root'.
 const subOf = (p) => {
+    // Sub-folder = the map/batch granularity unit: one mapper pair and one batch-ownership seam per `.planning/<sub>`; root-level pages pool as '_root'.
     const rest = p.split('/.planning/')[1] || '';
     return rest.includes('/') ? rest.split('/')[0] : '_root';
 };
 const Lof = (pkg) => LANG[langOf(pkg)] || LANG.cs;
-// Scratch paths follow one grammar: SCRATCH + '/' + fileTag(<label>) + '-<artifact>'. Seam ledgers key on the
-// batch tag; dossiers key on their recon lane label; lane reports key on the lane label via codexPrompt.
+// Scratch paths follow one grammar: SCRATCH + '/' + fileTag(<label>) + '-<artifact>'. Seam ledgers key on the batch tag; dossiers key on their recon lane label
 const scratchBase = (pkg, i) => SCRATCH + '/' + fileTag(pkg.split('/').pop() + ':b' + i);
 const dossierPath = (lensLabel) => SCRATCH + '/' + fileTag(lensLabel) + '-dossier.md';
-// Preserves plan emission order (dependency + cohesion order); dedupe by page, first wins.
 const normalizePages = (pl) => {
+    // Preserves plan emission order (dependency + cohesion order); dedupe by page, first wins.
     const seen = new Set();
     const out = [];
     for (const p of (pl && pl.pages) || []) {
@@ -796,8 +774,8 @@ const normalizePages = (pl) => {
     return out;
 };
 
-// Navigation handoff: FACTS ONLY — files, symbol deltas, seam rows, backlog. Never verdicts, summaries, or adjectives.
 const navOf = (logs) => {
+    // Navigation handoff: FACTS ONLY — files, symbol deltas, seam rows, backlog. Never verdicts, summaries, or adjectives.
     const rows = logs.filter(Boolean);
     return {
         files: [...new Set(rows.flatMap((r) => r.files || []))],
@@ -811,8 +789,6 @@ const navOf = (logs) => {
 
 // Every rigor law appears exactly once, here; stages compose subsets. Block order in prompts: stable per-language law first (byte-identical across a
 // batch's stages), batch-variable material second, the stage task + output contract LAST — nothing load-bearing mid-prompt.
-// Subagents keep the launching session's ORIGINAL project cwd even when the run targets a worktree; only explicit path authority moves a lane, so
-// every prompt states the root and natives get exact absolute paths.
 const ROOT_LAW =
     'WORKING ROOT: ' +
     ROOT_DIR +
@@ -832,8 +808,7 @@ const SELF_CHECK =
     'vague/hedged entry. Completeness is part of correctness: after the re-read, hunt once more for what the first pass missed ' +
     '— an omitted load-bearing fact is as wrong as a false one.';
 const ANTI_ANCHOR = (L) =>
-    'ANTI-ANCHOR LAW: your report and dossier carry FINDINGS, never designs — quality defects graded against the doctrine read ' +
-    'at source (name the law and the ' +
+    'ANTI-ANCHOR LAW: your report and dossier carry FINDINGS, never designs — quality defects graded against the doctrine read at source (name the law and the ' +
     L.stack +
     ' pattern whose application would most deeply transform the page — the collapse, the owner form, the rail — never the ' +
     'resulting code) and capability inventory in catalog-anchored spellings; a fence sketch, a prescribed shape, or a pre-ruled ' +
@@ -850,8 +825,7 @@ const REG = {
             'about itself and verify it against the real domain and the catalogued package surface. NAIVETY is a defect on two ' +
             'orthogonal axes: COVERAGE — the owner models a thin slice of its concept (a 2-case family for a 20-case domain, ' +
             'three fields where the concept carries fifteen); APPROACH — an enumerated roster where one parameterized generator ' +
-            'should GENERATE the space (the roster demotes to seed DATA over named parameters). ILLUSORY code is the primary ' +
-            'target: doctrine vocabulary ' +
+            'should GENERATE the space (the roster demotes to seed DATA over named parameters). ILLUSORY code is the primary target: doctrine vocabulary ' +
             L.vocab +
             ', cited packages, confident prose, hollow body — a phantom (' +
             L.illusion +
@@ -873,8 +847,7 @@ const REG = {
             'generated surfaces, and native pipelines the concept ADMITS but no fence exploits',
         bar: (n) => 'TASK: HOSTILE READ-ONLY DOCTRINE-BAR ATTACK over these ' + n + ' pages (investigate, do NOT edit): ',
         barAttack: (L) =>
-            'attack its quality against the doctrine AT SOURCE — EXTREMELY adversarial: the ' +
-            'page is presumed ' +
+            'attack its quality against the doctrine AT SOURCE — EXTREMELY adversarial: the page is presumed ' +
             L.slur +
             ' until proven otherwise. Hunt',
         finder: (i) => 'TASK: HOSTILE READ-ONLY FINDER, slice ' + i + ' (investigate, do NOT edit).',
@@ -944,11 +917,9 @@ const BODY = (L) =>
 const VERIFY = (L) =>
     'VERIFY — cite only members confirmed via ' +
     L.verify +
-    '; a member you cannot verify is a phantom to ' +
-    'delete. Mine BOTH .api tiers to operator depth: ' +
+    '; a member you cannot verify is a phantom to delete. Mine BOTH .api tiers to operator depth: ' +
     L.apiTiers +
-    ' An admitted capability the concept admits that no ' +
-    'owner exploits is a defect to close.';
+    ' An admitted capability the concept admits that no owner exploits is a defect to close.';
 
 const RIPPLE_LAW =
     'RIPPLE LAW — every fix you identify you make NOW via Edit/Write; the fix-log reports edits already made, never a to-do, ' +
@@ -1030,9 +1001,6 @@ const HARVEST_LAW =
     'path — or "absent" plus the surfaces searched). A batch-local fix never nominates; an empty array is the normal verdict — ' +
     'the doctrine lander refutes weak rows, so nominate substance, never volume.';
 
-// The four-input ladder for every batch writer, in binding order: (1) OWN blind hostile pass — the primary product; (2) the map dossiers —
-// two-tier .api stacking + context grounding; (3) the corrections census — additional fixes, never the plan; (4) the bigger-ideas worklist —
-// ambition beyond. OWN_PASS is the ladder's law; CORRECTIONS and IDEAS carry rungs 3 and 4.
 const OWN_PASS =
     'OWN PASS FIRST — the input ladder is binding, in order: (1) your own blind hostile pass, (2) the map dossiers, (3) the ' +
     'corrections census, (4) the bigger-ideas worklist. Rung (1) is the PRIMARY product: cold-read every target page from ' +
@@ -1080,8 +1048,7 @@ const readFirst = (L, pkg, dossiers) =>
             'GATE (`dotnet_style_namespace_match_folder = true:error` means namespace ALWAYS equals folder path); a claim ' +
             'contradicting an error-level analyzer rule is a FICTION to correct, never law to compose.',
         '(1d) LAWS — read `docs/laws/` IN FULL (README + topology + patterns + scars; short registry pages): a topology row ' +
-            'whose [SURFACE] your edits touch binds its obligated counterparts into the SAME pass, and every patterns row binds ' +
-            'each branch it names.',
+            'whose [SURFACE] your edits touch binds its obligated counterparts into the SAME pass, and every patterns row binds each branch it names.',
         '(2) .API — `ls` BOTH catalog tiers in full — the shared substrate `' +
             L.root +
             '/.api/` AND the folder `' +
@@ -1170,8 +1137,6 @@ const planPrompt = () =>
             'adjacency keeps coupled pages inside one writer); alphabetical only as the final tiebreak. The engine never re-sorts.',
     ].join('\n\n');
 
-// Ideate runs per owning package as TWO lanes with disjoint charters: the corrections census (the fix addendum, ladder rung 3) and the
-// bigger-ideas worklist (the ambition, ladder rung 4) — merged into one log they collapse into a fixlog and the ambition dies.
 const correctionsPrompt = (L, pkg, mapIndex, dossier) =>
     [
         ROOT_LAW,
@@ -1246,13 +1211,11 @@ const ctxLensPrompt = (L, batch, dossier, reg) =>
             'what the OTHER packages hold that is relevant to each page — kernel and sibling-package owners it composes or its ' +
             'concept plainly touches, imports, consumer sites, ripple targets both ends — as verified anchors in ' +
             '`seams`/`anchors`, so a writer NAVIGATES (trust, then verify at the anchor) instead of exploring; relevance is ' +
-            'fact, never a suggested change. Each entry also carries `files` and typed `anchors` per the entry form. GROUNDING ' +
-            'DOSSIER: write `' +
+            'fact, never a suggested change. Each entry also carries `files` and typed `anchors` per the entry form. GROUNDING DOSSIER: write `' +
             dossier +
             '` — Tier-1: the branch ARCHITECTURE.md [02]-[SEAMS] rows covering these pages quoted verbatim with `file:line` ' +
             'anchors, folder-context and charter-intent anchors; Tier-2: pointer rows (path + one line) for every sibling page ' +
-            'composed. FORBIDDEN: doctrine digests, removal framing, unanchored claims, prescriptive designs. Return worklist + ' +
-            'coverage.',
+            'composed. FORBIDDEN: doctrine digests, removal framing, unanchored claims, prescriptive designs. Return worklist + coverage.',
     ].join('\n\n');
 
 const apiLensPrompt = (L, batch, dossier, reg) =>
@@ -1269,8 +1232,7 @@ const apiLensPrompt = (L, batch, dossier, reg) =>
             L.root +
             '/.api/` AND the folder `' +
             pkgOf(batch[0].page) +
-            '/.api/` — read every catalog relevant to these pages and DIFF the complete admitted inventory against the whole ' +
-            'folder: ' +
+            '/.api/` — read every catalog relevant to these pages and DIFF the complete admitted inventory against the whole folder: ' +
             REG[reg].apiVerify +
             ' — a capability no page exploits is a named integration gap ROUTED to EVERY page whose concept admits it, never ' +
             'one "best" owner alone. SINGLE-CONSUMER EXPANSION: a package with a catalog at ANY tier consumed by only ONE page ' +
@@ -1281,8 +1243,7 @@ const apiLensPrompt = (L, batch, dossier, reg) =>
             'batch/stream-capable member; grade used-but-shallow with the same {catalog, capability} rows as unused. For EACH ' +
             'page return `apiUsed`, `apiUnderutilized` ({catalog, capability}: exact catalog-anchored spelling + integration ' +
             "shape as fact), `stackingInventory` (capability names + the doctrine patterns the page's concept admits, as " +
-            'inventory fact — never a prescribed design), plus `files` and typed `anchors` per the entry form. Verify every ' +
-            'cited member via ' +
+            'inventory fact — never a prescribed design), plus `files` and typed `anchors` per the entry form. Verify every cited member via ' +
             L.verify +
             '; never list a phantom. GROUNDING DOSSIER: write `' +
             dossier +
@@ -1329,14 +1290,12 @@ const implementPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped) =
                 'owners. kind=`rebuild`: HOSTILE GROUND-UP REBUILD in place. Before authoring EACH page, restate in one line the ' +
                 'owner it holds, the seams and frozen wire names it must honor, and the doctrine laws that bind it — then build ' +
                 'against that restatement. Construct in LIFECYCLE order — admit raw once, canonical owner by OWNER_CHOOSER, ' +
-                'stacked rail/aspect over a thin pure core, projection, egress, BOTH ingress and egress parameterized; collapse ' +
-                'parallel shapes into ' +
+                'stacked rail/aspect over a thin pure core, projection, egress, BOTH ingress and egress parameterized; collapse parallel shapes into ' +
                 L.collapseInto +
                 "; one polymorphic entrypoint per modality. COMPOSE the reports' `apiUsed` at full operator depth, STACK every " +
                 '`apiUnderutilized` into the owner, CLOSE every bar finding at its law, CONFIRM no other admitted catalog is ' +
                 'missing, and CLOSE the concept capability gaps per BUILD LAW. Then the remaining ladder rungs: land every ' +
-                'CORRECTIONS CENSUS row intersecting your pages, and realize the BIGGER-IDEAS entries your pages own at the ' +
-                'strongest form disk admits. ' +
+                'CORRECTIONS CENSUS row intersecting your pages, and realize the BIGGER-IDEAS entries your pages own at the strongest form disk admits. ' +
                 L.modern +
                 '; ' +
                 L.fileOrg +
