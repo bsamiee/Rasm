@@ -29,7 +29,6 @@ const STAGGER_MS = 1500;
 const STALL = 480000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
 const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
-const SCRATCH = '.claude/scratch/finalize'; // per-folder grounding dossiers: shared-context extracts, facts only
 const CODEX = true; // census lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
 // --- [INPUTS] --------------------------------------------------------------------------
@@ -51,6 +50,18 @@ const langOf = (t) =>
     t.indexOf('libs/csharp') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null;
 const LANG_KEYS = [...new Set(TARGETS.map(langOf))];
 const LANG_KEY = LANG_KEYS.length === 1 && LANG_KEYS[0] ? LANG_KEYS[0] : null;
+// Per-instance scratch dir — per-folder grounding dossiers plus every per-page census/fix report file. Minted deterministically from the normalized
+// target set (clock/randomness would break resume): one FLAT dir per instance, a basename slug plus an FNV-1a tail so distinct target sets never share it.
+const fnv1a = (s) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+    return (h >>> 0).toString(16).padStart(8, '0').slice(0, 6);
+};
+const SCRATCH =
+    '.claude/scratch/' +
+    ('finalize-' + TARGETS.map((t) => t.split('/').pop().toLowerCase()).join('-')).replace(/[^a-z0-9.-]+/g, '-').slice(0, 60) +
+    '-' +
+    fnv1a(JSON.stringify(TARGETS));
 
 // --- [MODELS] --------------------------------------------------------------------------
 

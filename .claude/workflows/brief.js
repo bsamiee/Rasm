@@ -11,7 +11,6 @@ export const meta = {
 const STALL = 480000;
 const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const CODEX = true; // survey/strata + deep research lanes run on gpt-5.6-terra via the codex wrapper; false restores native lanes
-const SCRATCH = '.claude/scratch/brief'; // per-lane MCP reports and dossiers
 
 const LANG = {
     python: {
@@ -78,6 +77,19 @@ const outOf = (t) => 'RASM-' + (langOf(t) || { tag: 'X' }).tag + '-' + nameOf(t)
 const deepFor = (t) => DEEP === true || (Array.isArray(DEEP) && DEEP.includes(t));
 const mandateFor = (t) =>
     typeof MANDATE === 'string' ? MANDATE.trim() : MANDATE && typeof MANDATE === 'object' && typeof MANDATE[t] === 'string' ? MANDATE[t].trim() : '';
+
+// Per-instance scratch dir — per-lane MCP reports and dossiers. Minted deterministically from the normalized target set
+// (clock/randomness would break resume): one FLAT dir per instance, a human-readable basename slug plus an FNV-1a tail.
+const fnv1a = (s) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+    return (h >>> 0).toString(16).padStart(8, '0').slice(0, 6);
+};
+const SCRATCH =
+    '.claude/scratch/' +
+    ('brief-' + TARGETS.map((t) => t.split('/').pop().toLowerCase()).join('-')).replace(/[^a-z0-9.-]+/g, '-').slice(0, 60) +
+    '-' +
+    fnv1a(JSON.stringify(TARGETS));
 
 // --- [MODELS] --------------------------------------------------------------------------
 

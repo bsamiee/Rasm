@@ -37,7 +37,6 @@ const DEFAULT_TARGETS = [
     'libs/typescript/iac',
 ];
 const CODEX = true;
-const SCRATCH = '.claude/scratch/implement-ts'; // per-lane report files
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -52,6 +51,19 @@ const TARGETS = Array.isArray(args)
       : typeof args === 'string' && args.trim() && args.trim().toUpperCase() !== 'ALL'
         ? [norm(args)]
         : DEFAULT_TARGETS;
+// Per-instance scratch dir — per-lane report files + grounding dossiers + per-batch seam-ledger files. Minted deterministically from the
+// resolved TARGETS (clock/randomness would break resume): one FLAT dir per instance, a basename slug plus an FNV-1a tail so distinct
+// target sets never share a directory and a resume rehydrates the same one; an empty/defaulted scope hashes over the resolved defaults.
+const fnv1a = (s) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+    return (h >>> 0).toString(16).padStart(8, '0').slice(0, 6);
+};
+const SCRATCH =
+    '.claude/scratch/' +
+    ('implement-ts-' + TARGETS.map((t) => t.split('/').pop().toLowerCase()).join('-')).replace(/[^a-z0-9.-]+/g, '-').slice(0, 60) +
+    '-' +
+    fnv1a(JSON.stringify(TARGETS));
 
 // --- [MODELS] --------------------------------------------------------------------------
 

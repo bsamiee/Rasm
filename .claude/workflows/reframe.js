@@ -29,7 +29,6 @@ const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
 const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
-const SCRATCH = '.claude/scratch/reframe'; // frame-recon report files + critique fixlogs
 const CODEX = true; // frame-recon + critique lanes run on gpt-5.6 via the codex wrapper; false restores native lanes (terra->opus, sol->fable)
 
 // --- [INPUTS] --------------------------------------------------------------------------
@@ -51,6 +50,18 @@ const langOf = (t) =>
     t.indexOf('libs/csharp') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null;
 const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => langOf(t));
 const REJECTED = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => !langOf(t));
+// Per-instance scratch dir — frame-recon report files + critique fixlogs. Minted deterministically from the normalized target set
+// (clock/randomness would break resume): one FLAT dir under .claude/scratch/, a basename slug plus an FNV-1a tail so distinct sets never collide.
+const fnv1a = (s) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+    return (h >>> 0).toString(16).padStart(8, '0').slice(0, 6);
+};
+const SCRATCH =
+    '.claude/scratch/' +
+    ('reframe-' + TARGETS.map((t) => t.split('/').pop().toLowerCase()).join('-')).replace(/[^a-z0-9.-]+/g, '-').slice(0, 60) +
+    '-' +
+    fnv1a(JSON.stringify(TARGETS));
 
 // --- [MODELS] --------------------------------------------------------------------------
 

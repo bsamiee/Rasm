@@ -38,7 +38,6 @@ const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no sh
 const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
 const CENSUS_PAGES = 10; // pages per census lane; a folder past it splits so each lane returns a bounded entry set on the wire
-const SCRATCH = '.claude/scratch/resolve'; // census products, verdict reports, apply fixlogs, per-folder seam ledgers
 const CODEX = true; // census + catalog/doc verify lanes run on gpt-5.6-terra via the codex wrapper; false restores native lanes
 
 // --- [INPUTS] --------------------------------------------------------------------------
@@ -60,6 +59,18 @@ const langOf = (t) =>
     t.indexOf('libs/csharp') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null;
 const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => langOf(t));
 const REJECTED = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => !langOf(t));
+// Per-instance scratch dir (census products, verdict reports, apply fixlogs, per-folder seam ledgers): one FLAT dir under
+// .claude/scratch/, minted deterministically from the normalized targets (clock/randomness would break resume) so a resume rehydrates it.
+const fnv1a = (s) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+    return (h >>> 0).toString(16).padStart(8, '0').slice(0, 6);
+};
+const SCRATCH =
+    '.claude/scratch/' +
+    ('resolve-' + TARGETS.map((t) => t.split('/').pop().toLowerCase()).join('-')).replace(/[^a-z0-9.-]+/g, '-').slice(0, 60) +
+    '-' +
+    fnv1a(JSON.stringify(TARGETS));
 
 // --- [MODELS] --------------------------------------------------------------------------
 

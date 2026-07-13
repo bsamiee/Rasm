@@ -70,6 +70,7 @@ The rules that break runs, each carried in depth by its owning reference:
 - [09]-[ARGS_STRUCTURED]: `args` is structured data — read it directly, never `JSON.parse` it, and default the no-args run to a safe no-op, never a full-corpus sweep.
 - [10]-[PROMPT_CONCAT]: Wrap long prompt strings with adjacent `+` at a space kept on the left segment — never a multi-line template literal, which injects `\n` and changes both the value and the resume key.
 - [11]-[LIVE_INTERPOLATION]: A stage prompt that embeds earlier receipts interpolates them live at author time — `+ JSON.stringify(receipts) +` or a single-line `${JSON.stringify(receipts)}` — never a `__TOKEN__` placeholder patched later and never a `${'$'}{…}` escape: both ship literal text the agent reads as its data, and the defect stays silent until that stage fires hours in. The linter flags both shapes; a patched persisted script re-runs it before the launch is trusted.
+- [12]-[INSTANCE_SCRATCH]: Run scratch is minted per INSTANCE — `.claude/scratch/<name>-<slug>-<hash>`, derived deterministically from the normalized args after normalization (patterns reference, the scratch convention). A per-workflow constant dir mixes concurrent and successive runs' products; a clock- or random-based path breaks resume.
 
 ## [05]-[FILE]
 

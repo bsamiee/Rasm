@@ -22,7 +22,6 @@ export const meta = {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const SCRATCH = '.claude/scratch/estate';
 const CORE_PAGES = 4;
 const STALL = 300000;
 const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
@@ -107,6 +106,20 @@ const LANGS = Array.isArray(args)
         : ['csharp', 'python', 'typescript'];
 const WANT_FINAL = args?.final !== false;
 const ACTIVE = LANGS.filter((l) => TRACKS[l]);
+
+// Per-instance scratch dir — recon dossiers + pass report files. Minted deterministically from the normalized active-track set
+// (clock/randomness would break resume): one FLAT dir under .claude/scratch/, a human-readable basename slug plus an FNV-1a tail
+// so distinct track sets never share a directory and a resume of the same run rehydrates the same one.
+const fnv1a = (s) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+    return (h >>> 0).toString(16).padStart(8, '0').slice(0, 6);
+};
+const SCRATCH =
+    '.claude/scratch/' +
+    ('estate-' + ACTIVE.map((l) => l.toLowerCase()).join('-')).replace(/[^a-z0-9.-]+/g, '-').slice(0, 60) +
+    '-' +
+    fnv1a(JSON.stringify(ACTIVE));
 
 // --- [MODELS] --------------------------------------------------------------------------
 

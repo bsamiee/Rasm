@@ -30,7 +30,6 @@ const SHARED_API = 'libs/python/.api';
 const CENTRAL = 'pyproject.toml';
 const DEFAULT_TARGETS = ['libs/python/artifacts', 'libs/python/compute', 'libs/python/data', 'libs/python/geometry', 'libs/python/runtime'];
 const CODEX = true;
-const SCRATCH = '.claude/scratch/implement-py'; // per-lane report files
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -46,6 +45,18 @@ const TARGETS = Array.isArray(args)
         ? [norm(args)]
         : DEFAULT_TARGETS;
 const TARGET_NAMES = TARGETS.map((t) => '`' + (t.split('/').filter(Boolean).pop() || t) + '`').join(', ');
+// Per-instance scratch dir (the per-lane report files) — minted deterministically from the normalized target set so a resume rehydrates the same
+// FLAT .claude/scratch/ dir; a human-readable basename slug plus an FNV-1a tail keeps distinct target sets from ever sharing a directory.
+const fnv1a = (s) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+    return (h >>> 0).toString(16).padStart(8, '0').slice(0, 6);
+};
+const SCRATCH =
+    '.claude/scratch/' +
+    ('implement-py-' + TARGETS.map((t) => t.split('/').pop().toLowerCase()).join('-')).replace(/[^a-z0-9.-]+/g, '-').slice(0, 60) +
+    '-' +
+    fnv1a(JSON.stringify(TARGETS));
 
 // --- [MODELS] --------------------------------------------------------------------------
 

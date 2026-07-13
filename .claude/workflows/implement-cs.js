@@ -31,7 +31,6 @@ const SHARED_API = 'libs/csharp/.api';
 const CENTRAL = 'Directory.Packages.props';
 const DEFAULT_TARGETS = ['libs/csharp/Rasm.AppHost', 'libs/csharp/Rasm.Compute', 'libs/csharp/Rasm.AppUi', 'libs/csharp/Rasm.Persistence'];
 const CODEX = true;
-const SCRATCH = '.claude/scratch/implement-cs'; // per-lane report files
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -47,6 +46,18 @@ const TARGETS = Array.isArray(args)
         ? [norm(args)]
         : DEFAULT_TARGETS;
 const TARGET_NAMES = TARGETS.map((t) => '`' + (t.split('/').filter(Boolean).pop() || t) + '`').join(', ');
+// Per-instance scratch dir for lane report files — minted deterministically from the resolved target set (clock/randomness would break
+// resume): one FLAT dir under .claude/scratch/, a human-readable basename slug plus an FNV-1a tail so distinct scopes never collide.
+const fnv1a = (s) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+    return (h >>> 0).toString(16).padStart(8, '0').slice(0, 6);
+};
+const SCRATCH =
+    '.claude/scratch/' +
+    ('implement-cs-' + TARGETS.map((t) => t.split('/').pop().toLowerCase()).join('-')).replace(/[^a-z0-9.-]+/g, '-').slice(0, 60) +
+    '-' +
+    fnv1a(JSON.stringify(TARGETS));
 
 // --- [MODELS] --------------------------------------------------------------------------
 

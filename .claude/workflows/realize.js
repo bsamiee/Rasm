@@ -31,7 +31,6 @@ const MAX_SLICES = 8;
 const STALL = 300000;
 const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const CODEX = true;
-const SCRATCH = '.claude/scratch/realize'; // per-lane MCP reports
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -49,6 +48,18 @@ const chunk = (a, n) => {
     for (let i = 0; i < a.length; i += n) o.push(a.slice(i, i + n));
     return o;
 };
+// Per-instance scratch dir holding the per-lane MCP reports — minted deterministically from the normalized campaign set (clock/randomness
+// would break resume): one FLAT dir under .claude/scratch/, a root-basename slug plus an FNV-1a tail so distinct campaign sets never collide.
+const fnv1a = (s) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+    return (h >>> 0).toString(16).padStart(8, '0').slice(0, 6);
+};
+const SCRATCH =
+    '.claude/scratch/' +
+    ('realize-' + CAMPS.map((c) => c.root.split('/').pop().toLowerCase()).join('-')).replace(/[^a-z0-9.-]+/g, '-').slice(0, 60) +
+    '-' +
+    fnv1a(JSON.stringify(CAMPS));
 
 // --- [MODELS] --------------------------------------------------------------------------
 

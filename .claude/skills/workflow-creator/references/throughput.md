@@ -143,7 +143,7 @@ The same budget applies to POOL-per-cluster shapes (one agent per atomic cluster
 
 ## [05]-[CROSS_RUN]
 
-- Concurrent runs of DIFFERENT scripts coexist freely — each owns its run directory, journal, and scratch namespace.
+- Concurrent runs coexist freely — each owns its run directory and journal, and the instance-minted scratch (patterns reference, the scratch convention) forks per args set, so even two runs of ONE script over different targets never share a data plane.
 - Launch same-script runs one call at a time. Three parallel `Workflow` invocations of one scriptPath in a single batch misdeliver `args`: two runs receive them, the third receives empty `args` and skips on its own validation. Launch same-scriptPath runs sequentially, and give every workflow an early guard — `if (!required) return { skipped: true, reason }` — so the failure mode is a 6 ms no-op instead of a silent mis-run.
 - A launch into territory adjacent to a LIVE writer carries the seam law. When a new agent's territory shares a file with an agent still running — or with that agent's uncommitted output — the new agent's prompt names the foreign content FROZEN (never edit, move, or reformat it), sequences the shared file LAST with a mandatory full re-read immediately before the first edit, and restricts that file to surgical Edit operations — one full-file Write clobbers the sibling.
 - A sibling's territory breach observed mid-flight is adjudicated at its receipt, never by intervening in a live run.

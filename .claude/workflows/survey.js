@@ -50,7 +50,6 @@ const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's
 const MAP_SLICE = 5; // planning pages per mapper
 const CATALOG_BATCH = 2; // admitted packages per catalog writer
 const CODEX = true; // scout/research/map lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
-const SCRATCH = '.claude/scratch/survey'; // per-lane report files
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -71,6 +70,19 @@ const rawTargets = Array.isArray(argsIn)
           ? [argsIn]
           : [];
 const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))];
+
+// Per-instance scratch dir — per-lane report files, one FLAT dir per instance. Minted deterministically from the normalized target set
+// (clock/randomness would break resume): a human-readable basename slug plus an FNV-1a tail so distinct target sets never share a directory.
+const fnv1a = (s) => {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+    return (h >>> 0).toString(16).padStart(8, '0').slice(0, 6);
+};
+const SCRATCH =
+    '.claude/scratch/' +
+    ('survey-' + TARGETS.map((t) => t.split('/').pop().toLowerCase()).join('-')).replace(/[^a-z0-9.-]+/g, '-').slice(0, 60) +
+    '-' +
+    fnv1a(JSON.stringify(TARGETS));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
