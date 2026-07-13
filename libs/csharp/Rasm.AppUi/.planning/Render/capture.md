@@ -19,7 +19,7 @@ Offscreen visuals are the package's raster rail: one DrawSource capsule projects
 - Auto: in-tree visuals lease the live canvas through `ISkiaSharpApiLeaseFeature.Lease` at render scope and fold to Borrowed; offscreen pipelines construct Owned with the target `SKImageInfo` and Materialize a snapshot.
 - Packages: SkiaSharp, Avalonia.Skia, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one effect row extends the FX table, and the in-tree vehicle is one `ICustomDrawOperation` implementation — `Bounds`, `HitTest(Point)`, `Render(ImmediateDrawingContext)` with the canvas leased through `ISkiaSharpApiLeaseFeature.Lease()` folding to Borrowed — zero new surface.
-- Boundary: `Offscreen` is the named boundary capsule — the using-scoped `SKSurface` create-and-dispose pair is the only place a Skia surface is owned; a Borrowed lease draws into the host's in-flight frame and never materializes, so Materialize folds that arm to the LeaseBound error row; transforms compose as `SKMatrix` values inside `Save`/`Restore` scopes and no mutated canvas state survives a projection; FX-row effect natives construct once at token resolve and bind onto the long-lived paint, and gradient stops enter through `SKColorF` token paints under the color-managed law so a wide-gamut ramp never quantizes through the byte color path — a per-draw effect construction or a sRGB-lerped gradient is the deleted form; the custom-visual layout folds compose their projected `SKPath` through `Owned.Materialize` exactly as `PreviewRow.Render` does, so `Offscreen` stays the only Skia-surface owner and the custom-visual rail mints no second surface, encode, or capture owner; the GPU-accelerated offscreen path is the `Render/pipeline.md#RENDER_GRAPH` `RenderTargetFactory` backend column, so an offscreen dashboard or custom-tile draw under the `Wgpu` row encodes through the `Silk.NET.WebGPU` `RenderPipeline`/`CommandEncoder` wgpu surface and an offscreen draw under the `Software` row stays this `SKSurface.Create` CPU floor, the backend selection riding the one `GpuBackend` factory column and never a second offscreen-surface owner here — the in-tree `ICustomDrawOperation` Borrowed lease is the Skia-backend vehicle and the offscreen `Owned` capsule is the floor below the GPU factory.
+- Boundary: `Offscreen` is the named boundary capsule — the using-scoped `SKSurface` create-and-dispose pair is the only place a Skia surface is owned; a Borrowed lease draws into the host's in-flight frame and never materializes, so Materialize folds that arm to the LeaseBound error row; transforms compose as `SKMatrix` values inside `Save`/`Restore` scopes and no mutated canvas state survives a projection; FX-row effect natives construct once at token resolve and bind onto the long-lived paint, and gradient stops enter through `SKColorF` token paints under the color-managed law so a wide-gamut ramp never quantizes through the byte color path — a per-draw effect construction or a sRGB-lerped gradient is the deleted form; the custom-visual layout folds compose their projected `SKPath` through `Owned.Materialize` exactly as `PreviewRow.Render` does, so `Offscreen` stays the only Skia-surface owner and the custom-visual rail mints no second surface, encode, or capture owner; the GPU-accelerated offscreen path is the `Render/pipeline.md#RENDER_GRAPH` `GpuBackend` target-factory column, so an offscreen dashboard or custom-tile draw under the `Wgpu` row encodes through the `Silk.NET.WebGPU` `RenderPipeline`/`CommandEncoder` wgpu surface and an offscreen draw under the `Software` row stays this `SKSurface.Create` CPU floor, the backend selection riding the one `GpuBackend` factory column and never a second offscreen-surface owner here — the in-tree `ICustomDrawOperation` Borrowed lease is the Skia-backend vehicle and the offscreen `Owned` capsule is the floor below the GPU factory.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -33,6 +33,8 @@ public abstract partial record VisualFault : Expected {
         : VisualFault("visuals/xps-unavailable: the loaded Skia native carries no XPS backend on this platform", AppUiFaultBand.Visual.Code(2));
     public sealed record EncodeFailed(string Stage)
         : VisualFault($"visuals/encode-failed: {Stage}", AppUiFaultBand.Visual.Code(3));
+    public sealed record SurfaceAllocationFailed(int Width, int Height)
+        : VisualFault($"visuals/surface-allocation: {Width}x{Height}", AppUiFaultBand.Visual.Code(4));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -56,12 +58,16 @@ public static class Offscreen {
     public static readonly VisualFault LeaseBound = new VisualFault.LeaseBound();
 
     public static Fin<T> Rent<T>(SKImageInfo info, Func<SKCanvas, Fin<T>> draw) {
-        using SKSurface surface = SKSurface.Create(info);
+        SKSurface? candidate = SKSurface.Create(info);
+        if (candidate is null) { return Fin<T>.Fail(new VisualFault.SurfaceAllocationFailed(info.Width, info.Height)); }
+        using SKSurface surface = candidate;
         return draw(surface.Canvas);
     }
 
     public static Fin<SKImage> Snapshot(SKImageInfo info, Func<SKCanvas, Fin<Unit>> draw) {
-        using SKSurface surface = SKSurface.Create(info);
+        SKSurface? candidate = SKSurface.Create(info);
+        if (candidate is null) { return Fin<SKImage>.Fail(new VisualFault.SurfaceAllocationFailed(info.Width, info.Height)); }
+        using SKSurface surface = candidate;
         return draw(surface.Canvas).Map(_ => surface.Snapshot());
     }
 }
@@ -78,13 +84,13 @@ public static class Offscreen {
 
 ## [03]-[THUMBNAIL_PIPELINE]
 
-- Owner: `VisualRuntime` · `ThumbnailRow` · `Thumbnails`
-- Entry: `public static IO<RenderReceipt> Refresh(VisualRuntime runtime, ThumbnailRow row, (double Scale, int PixelSize) variant)` — IO rail
+- Owner: `VisualRuntime` · `ThumbnailSource` · `ThumbnailVariant` · `ThumbnailRow` · `Thumbnails`
+- Entry: `public static IO<RenderReceipt> Refresh(VisualRuntime runtime, ThumbnailRow row, ThumbnailVariant variant)` — IO rail
 - Auto: capture delegates discriminate on the host row — the rhino row rides the `ViewCapture.CaptureToBitmap` capture delegate column an app root binds to the host, the gh2 row rides the host canvas-snapshot delegate column, and the empty host row materializes through `DrawSource.Owned`; display binds `AdvancedImage` to the runtime `Loader` with `FallbackImage` resolved from the row's placeholder and error keys; variant selection picks the table row whose Scale matches the mounted surface's scale fact.
 - Receipt: every refresh lands one RenderReceipt of kind thumbnail carrying the blob artifact key as its destination.
 - Packages: AsyncImageLoader.Avalonia, SkiaSharp, Rasm.AppHost (project), LanguageExt.Core, NodaTime
 - Growth: one thumbnail row admits a new visual family; one variant row retunes scale and pixel policy values — zero new surface.
-- Boundary: the memory cache is the `RamCachedWebImageLoader`-backed Loader and the durable cache is the blob lane behind the BlobWrite and BlobRead delegates — a second thumbnail cache is deleted; host bitmaps convert to `SKImage` exactly once at the port edge and no Eto or RhinoCommon bitmap type crosses into rows; the BundleWrite delegate is the support-contributor consequence, the Sink delegate is the receipt-sink envelope binding, and the Measure delegate records a named-instrument duration through the one `AppUiTelemetry.Contribute` spine so a phase elapsed distinct from the encode receipt rides the same telemetry surface, never a local meter.
+- Boundary: the memory cache is the `RamCachedWebImageLoader`-backed `Loader`, and the durable cache is the blob lane behind `BlobWrite`/`BlobRead`; admitting `DiskCachedWebImageLoader` creates a second durable owner and is rejected. Host bitmaps convert to `SKImage` exactly once at the port edge, and no Eto or RhinoCommon bitmap type crosses into rows. `BundleWrite`, `Sink`, and `Measure` bind support evidence, receipt delivery, and named duration to the existing AppHost ports.
 
 ```csharp signature
 public sealed record VisualRuntime(
@@ -100,35 +106,86 @@ public sealed record VisualRuntime(
     Func<string, string, Duration, IO<Unit>> Measure,
     Func<IO<Seq<NativeAssetFact>>> NativeIdentity);
 
+[SmartEnum<string>]
+public sealed partial class ThumbnailSource {
+    public static readonly ThumbnailSource Rhino = new("rhino");
+    public static readonly ThumbnailSource Grasshopper = new("grasshopper");
+    public static readonly ThumbnailSource Owned = new("owned");
+}
+
+[SmartEnum<string>]
+public sealed partial class ThumbnailVariant {
+    public static readonly ThumbnailVariant List = new("list", 1d, 128);
+    public static readonly ThumbnailVariant ListRetina = new("list-retina", 2d, 256);
+    public static readonly ThumbnailVariant Gallery = new("gallery", 1d, 256);
+    public static readonly ThumbnailVariant GalleryRetina = new("gallery-retina", 2d, 512);
+
+    public double Scale { get; }
+
+    public int PixelSize { get; }
+}
+
 public sealed record ThumbnailRow(
     string Key,
-    string HostKind,
-    Func<(double Scale, int PixelSize), IO<SKImage>> Capture,
+    ThumbnailSource Source,
+    Func<ThumbnailVariant, IO<SKImage>> Capture,
     DataClassification Classification,
     string PlaceholderKey,
     string ErrorKey);
 
 public static class Thumbnails {
     // Encode borrows; the capture-minted image is this fold's to release once the receipt lands.
-    public static IO<RenderReceipt> Refresh(VisualRuntime runtime, ThumbnailRow row, (double Scale, int PixelSize) variant) =>
+    public static IO<RenderReceipt> Refresh(VisualRuntime runtime, ThumbnailRow row, ThumbnailVariant variant) =>
         from image in row.Capture(variant)
         from receipt in VisualCodec.Encode(runtime, image, VisualCodec.Png, "thumbnail", VariantKey(row, variant))
             .Map(sealed_ => (fun(image.Dispose)(), sealed_).Item2)
         select receipt;
 
-    static string VariantKey(ThumbnailRow row, (double Scale, int PixelSize) variant) =>
-        $"thumbnails/{row.Key}@{variant.Scale}x{variant.PixelSize}.png";
+    private static string VariantKey(ThumbnailRow row, ThumbnailVariant variant) =>
+        $"thumbnails/{row.Source.Key}/{row.Key}/{variant.Key}@{variant.Scale}x{variant.PixelSize}.png";
 }
 ```
 
 ```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
 flowchart LR
+    accTitle: Thumbnail capture flow
+    accDescr: Host capture or owned drawing produces an image that encodes into a receipt and display cache.
     ThumbnailRow -->|Capture| SKImage
     DrawSource -->|Materialize| SKImage
     SKImage -->|Encode| VisualCodec
     VisualCodec -->|BlobWrite| VisualRuntime
     VisualCodec -->|Sink| RenderReceipt
     VisualRuntime -->|Loader| IAsyncImageLoader
+    linkStyle 4 stroke:#50FA7B,color:#F8F8F2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    class ThumbnailRow,VisualCodec,VisualRuntime primary
+    class DrawSource,SKImage data
+    class RenderReceipt,IAsyncImageLoader boundary
 ```
 
 | [INDEX] | [VARIANT]      | [SCALE] | [PIXEL] |
@@ -178,7 +235,7 @@ public sealed record PreviewRow<TReceipt>(
 - Receipt: FrameHash is the whole-payload content hash through the runtime ContentHash delegate — the delegate binds at composition to the kernel `Rasm.Domain` `ContentHash.Of(ReadOnlySpan<byte>) -> UInt128` seed-zero entry (the federation one-hasher; hex encoding stays this boundary's projection), so an AppUi-local `XxHash128` call site is the deleted form; quality values are the encode-row axis values — lossless png at 100, perceptual jpeg and webp at 90; the receipt's `ColorSpace` field is the encode-row working-space tag so a wide-gamut baseline keys distinctly from its sRGB twin and a cross-host byte swap is attributable, never silent.
 - Packages: SkiaSharp, SkiaSharp.NativeAssets.macOS, SkiaSharp.NativeAssets.Linux.NoDependencies, Rasm.AppHost (project), Rasm (project), NodaTime, LanguageExt.Core
 - Growth: one encode row admits a format; one policy value retunes quality; one `ColorPolicy` row retunes the working-and-output color-space pair; one `ToneMap` row admits an HDR-to-SDR operator; an ICC-profiled output is one `ColorPolicy.FromIcc` value from a profile-byte source — zero new surface.
-- Boundary: Decode and Encode are the named native-disposal boundary capsules — the intermediate `SKBitmap`, the minted reprojection, and the encoded `SKData` are scope-released so a failing later clause never leaks a native handle, and Encode BORROWS the caller's image: it disposes only the projection `Reproject` mints (`Some` arm) and never the pass-through original (`None` arm), so a walkthrough frame encoded per-frame survives to its later clip mux and a thumbnail image stays valid for its display bind; per-format exporter classes are deleted with the encode rows as the absorbing axis; the `RenderReceipt` `Elapsed`, `Bytes`, and `FrameHash` fields project to the encode-duration span and byte-size metric on the AppHost telemetry spine through the runtime `Sink` bound to the `ReceiptSinkPort`, never a local meter or a second receipt vocabulary; render-hash proof lanes compare FrameHash values rendered on Skia-backed headless rows where `UseHeadlessDrawing` false selects real Skia drawing.
+- Boundary: Decode and Encode are the named native-disposal boundary capsules — Decode admits through the `SKCodec.Create` result taxonomy (`Info`-gated allocation, `IncompleteInput` as partial success, the frame arm through `SKCodecOptions.FrameIndex`/`PriorFrame`) and never an eager whole-image `SKBitmap.Decode`, and the intermediate `SKBitmap`, the minted reprojection, and the encoded `SKData` are scope-released so a failing later clause never leaks a native handle, and Encode BORROWS the caller's image: it disposes only the projection `Reproject` mints (`Some` arm) and never the pass-through original (`None` arm), so a walkthrough frame encoded per-frame survives to its later clip mux and a thumbnail image stays valid for its display bind; per-format exporter classes are deleted with the encode rows as the absorbing axis; the `RenderReceipt` `Elapsed`, `Bytes`, and `FrameHash` fields project to the encode-duration span and byte-size metric on the AppHost telemetry spine through the runtime `Sink` bound to the `ReceiptSinkPort`, never a local meter or a second receipt vocabulary; render-hash proof lanes compare FrameHash values rendered on Skia-backed headless rows where `UseHeadlessDrawing` false selects real Skia drawing.
 - Color law, float end-to-end:
   - The encode row carries a `ColorPolicy` whose `Working` space `Reproject` retags the borrowed `SKImage` to its declared space through `SKImage.ColorSpace` and `SKImageInfo.WithColorSpace`, and whose `Output` space pins the encoded payload; `SKColorSpace.CreateSrgbLinear` is the composite-blend working space converted once at projection; `SKColorSpace.Equal` is the only color-space identity test; ownership is the result shape — `Reproject` returns `Fin<Option<SKImage>>` where `None` states the caller's image is already conformant and stays caller-owned while `Some` carries the minted projection its consumer owns and disposes, so the identity arm can never route a borrowed image into an owned-resource `using`.
   - The byte `SKColor` path that assumes sRGB and quantizes before conversion is the deleted form — a wide-gamut render hashes its float pixels, never a quantized sRGB shadow; `SKColorF` carries token paints into the float pipeline.
@@ -220,17 +277,27 @@ public static class VisualCodec {
 
         public SKColorF Resolve(Color token) => new(token.R / 255f, token.G / 255f, token.B / 255f, token.A / 255f);
 
-        public static Fin<ColorPolicy> FromIcc(string key, ReadOnlyMemory<byte> profile, SKColorType surface) =>
-            Optional(SKColorSpace.CreateIcc(profile.Span)) is { IsSome: true, Case: SKColorSpace space }
-                ? Fin.Succ(new ColorPolicy(key, () => space, () => space, surface, ToneMap.None))
-                : Fin.Fail<ColorPolicy>(new VisualFault.IccInvalid(key));
+        public static Fin<ColorPolicy> FromIcc(string key, ReadOnlyMemory<byte> profile, SKColorType surface) {
+            byte[] bytes = profile.ToArray();
+            using SKColorSpace? probe = SKColorSpace.CreateIcc(bytes);
+            return probe is null
+                ? Fin.Fail<ColorPolicy>(new VisualFault.IccInvalid(key))
+                : Fin.Succ(new ColorPolicy(
+                    key,
+                    () => SKColorSpace.CreateIcc(bytes)!,
+                    () => SKColorSpace.CreateIcc(bytes)!,
+                    surface,
+                    ToneMap.None));
+        }
 
         // None = already conformant, the caller's image stays caller-owned; Some = a minted projection the
         // consumer owns and disposes. The identity arm never re-owns a borrowed image.
         public Fin<Option<SKImage>> Reproject(SKImage image) {
             using SKColorSpace target = Output();
             using SKColorFilter? tone = Tone.Filter();
-            return SKColorSpace.Equal(image.ColorSpace ?? SKColorSpace.CreateSrgb(), target) && tone is null
+            using SKColorSpace? fallback = image.ColorSpace is null ? SKColorSpace.CreateSrgb() : null;
+            SKColorSpace source = image.ColorSpace ?? fallback!;
+            return SKColorSpace.Equal(source, target) && tone is null
                 ? Fin.Succ(Option<SKImage>.None)
                 : Offscreen.Snapshot(
                     new SKImageInfo(image.Width, image.Height, Surface, SKAlphaType.Premul).WithColorSpace(target),
@@ -266,10 +333,31 @@ public static class VisualCodec {
 
     public sealed record EncodeRow(string Key, SKEncodedImageFormat Format, int Quality, ColorPolicy Color);
 
-    public static IO<SKImage> Decode(ReadOnlyMemory<byte> payload) =>
+    // Raster admission rides the codec taxonomy, never an eager whole-image decode: SKCodec.Create yields
+    // the (codec, SKCodecResult) pair, Info gates allocation BEFORE any pixel lands, IncompleteInput is
+    // partial success carried with its rows-decoded evidence, and the frame arm selects one animated frame
+    // through SKCodecOptions.FrameIndex/PriorFrame off FrameCount/GetFrameInfo/RepetitionCount — the motion
+    // pump schedules the frame table, the codec never owns a timer. One entry, frame index as the modality.
+    public static IO<SKImage> Decode(ReadOnlyMemory<byte> payload, Option<int> frame = default) =>
         IO.lift(() => {
-            using SKBitmap bitmap = SKBitmap.Decode(payload.Span);
-            return SKImage.FromBitmap(bitmap);
+            using MemoryStream stream = new(payload.ToArray());
+            using SKCodec codec = SKCodec.Create(stream, out SKCodecResult admitted);
+            if (codec is null || admitted is not (SKCodecResult.Success or SKCodecResult.IncompleteInput)) {
+                throw ((Error)new VisualFault.EncodeFailed($"decode/{admitted}")).ToException();
+            }
+            SKImageInfo info = codec.Info;
+            using SKBitmap pixels = new(info);
+            SKCodecResult landed = frame.Match(
+                Some: index => index >= 0 && index < codec.FrameCount
+                    ? codec.GetPixels(info, pixels.GetPixels(), new SKCodecOptions(index) { PriorFrame = codec.GetFrameInfo(index).RequiredFrame })
+                    : SKCodecResult.ErrorInInput,
+                None: () => {
+                    codec.StartIncrementalDecode(info, pixels.GetPixels(), info.RowBytes);
+                    return codec.IncrementalDecode(out _);
+                });
+            return landed is SKCodecResult.Success or SKCodecResult.IncompleteInput
+                ? SKImage.FromBitmap(pixels)
+                : throw ((Error)new VisualFault.EncodeFailed($"decode/pixels/{landed}")).ToException();
         });
 
     public static IO<RenderReceipt> Encode(VisualRuntime runtime, SKImage image, EncodeRow row, string kind, string key) =>
@@ -292,17 +380,30 @@ public static class VisualCodec {
 
 ## [06]-[VECTOR_PRINT]
 
-- Owner: `VisualExportSpec` · `VisualExport` — the pure-visual vector-print arm: precomposed canvas page folds through `SKDocument.CreatePdf`/`CreateXps`, nothing more.
+- Owner: `PrintFormat` the format policy row carrying its own document-open delegate; `VisualExportSpec` · `VisualExport` — the pure-visual vector-print arm: precomposed canvas page folds through the row-opened `SKDocument`, nothing more.
 - Entry: `public static IO<RenderReceipt> Export(VisualRuntime runtime, VisualExportSpec spec)` — IO rail.
 - Auto: pages are precomposed `Func<SKCanvas, Fin<Unit>>` folds — vector content enters as picture content so vectors and text survive rather than rasterizing; delivery rides the `Document/export.md#EXPORT_DESTINATIONS` `VisualDestination` union.
 - Receipt: one RenderReceipt of kind document per export with whole-payload content hash through the kernel-bound delegate and the delivered destination key.
 - Packages: SkiaSharp, SkiaSharp.HarfBuzz, Rasm.AppHost (project), NodaTime, LanguageExt.Core
-- Growth: one page-size row extends the table; zero new surface.
-- Boundary: this arm is NARROWED to pure-visual vector printing — flow pagination, running bands, Office output, PDF security/signatures/AcroForms/UA, and print color are `Document/export.md`'s owners, and the hand-rolled `FlowBlock`/`FlowFold`/`HeaderFooterBand`/`BreakRule` pagination engine is DELETED for the MigraDoc flow DOM; Paged and Deliver are the named boundary capsules carrying statement bodies for SKDocument paging and byte delivery; the page fold is forward-only — `BeginPage` returns a canvas valid only until `EndPage`, `Close` finalizes, and the failure arm calls `Abort` explicitly so a paging fault neither commits nor disposes silently; `CreateXps` yields null where the Skia native carries no XPS backend, so the xps arm folds to the `XpsUnavailable` error row and pdf is the proven format on macOS and Linux profiles; QuestPDF, ImageSharp, and Magick.NET stay deleted with `SKDocument` and the codec axis as the absorbing owners; text drawn onto a page composes the shaping rail's `DrawShapedText` so glyphs shape through HarfBuzz before they raster.
+- Growth: one page-size row extends the table; a new document format is one `PrintFormat` row; zero new surface.
+- Boundary: this arm is NARROWED to pure-visual vector printing — flow pagination, running bands, Office output, PDF security/signatures/AcroForms/UA, and print color are `Document/export.md`'s owners, and the hand-rolled `FlowBlock`/`FlowFold`/`HeaderFooterBand`/`BreakRule` pagination engine is DELETED for the MigraDoc flow DOM; Paged and Deliver are the named boundary capsules carrying statement bodies for SKDocument paging and byte delivery; the page fold is forward-only — `BeginPage` returns a canvas valid only until `EndPage`, `Close` finalizes, and the failure arm calls `Abort` explicitly so a paging fault neither commits nor disposes silently; `CreateXps` yields null where the Skia native carries no XPS backend, so the xps row folds to the `XpsUnavailable` error row and pdf is the proven format on macOS and Linux profiles — the format is the `PrintFormat` row whose `Open` delegate IS the behavior, so a free-string format token or an else-to-PDF fallback arm cannot exist; QuestPDF, ImageSharp, and Magick.NET stay deleted with `SKDocument` and the codec axis as the absorbing owners; text drawn onto a page composes the shaping rail's `DrawShapedText` so glyphs shape through HarfBuzz before they raster.
 
 ```csharp signature
+// Document format is a POLICY ROW carrying its own open behavior — the receipt's format identity and the
+// selected native document arm are the SAME value, so an unknown, mis-cased, or future token cannot render
+// as a different format and a new format is one row. CreateXps yields null where the loaded Skia native
+// lacks the XPS backend; the row's absence projects to the XpsUnavailable error row, never a PDF fallback.
+[SmartEnum<string>]
+public sealed partial class PrintFormat {
+    public static readonly PrintFormat Pdf = new("pdf", static sink => Optional(SKDocument.CreatePdf(sink)));
+    public static readonly PrintFormat Xps = new("xps", static sink => Optional(SKDocument.CreateXps(sink)));
+
+    [UseDelegateFromConstructor]
+    public partial Option<SKDocument> Open(Stream sink);
+}
+
 public sealed record VisualExportSpec(
-    string Format,
+    PrintFormat Format,
     float PageWidth,
     float PageHeight,
     Seq<Func<SKCanvas, Fin<Unit>>> Pages,
@@ -316,21 +417,23 @@ public static class VisualExport {
         from payload in IO.lift(() => Paged(spec).ThrowIfFail())
         from destination in ExportDelivery.Deliver(runtime, spec.Destination, payload)
         from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
-        let receipt = new RenderReceipt("document", spec.Format, runtime.ContentHash(payload), payload.LongLength, elapsed, runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
+        let receipt = new RenderReceipt("document", spec.Format.Key, runtime.ContentHash(payload), payload.LongLength, elapsed, runtime.Correlation, Optional(destination), VisualCodec.ColorPolicy.Display.Key)
         from _ in runtime.Sink(receipt)
         select receipt;
 
-    static Fin<byte[]> Paged(VisualExportSpec spec) {
+    private static Fin<byte[]> Paged(VisualExportSpec spec) {
         using MemoryStream sink = new();
-        SKDocument? document = spec.Format == "xps" ? SKDocument.CreateXps(sink) : SKDocument.CreatePdf(sink);
-        if (document is null) { return Fin.Fail<byte[]>(XpsUnavailable); }
-        using SKDocument scoped = document;
-        return spec.Pages
-            .Fold(FinSucc(unit), (rail, page) => rail.Bind(_ =>
-                page(scoped.BeginPage(spec.PageWidth, spec.PageHeight)).Map(_ => { scoped.EndPage(); return unit; })))
-            .Match(
-                Succ: _ => { scoped.Close(); return Fin.Succ(sink.ToArray()); },
-                Fail: error => { scoped.Abort(); return Fin.Fail<byte[]>(error); });
+        return spec.Format.Open(sink).Match(
+            None: () => Fin.Fail<byte[]>(XpsUnavailable),
+            Some: document => {
+                using SKDocument scoped = document;
+                return spec.Pages
+                    .Fold(FinSucc(unit), (rail, page) => rail.Bind(_ =>
+                        page(scoped.BeginPage(spec.PageWidth, spec.PageHeight)).Map(_ => { scoped.EndPage(); return unit; })))
+                    .Match(
+                        Succ: _ => { scoped.Close(); return Fin.Succ(sink.ToArray()); },
+                        Fail: error => { scoped.Abort(); return Fin.Fail<byte[]>(error); });
+            });
     }
 }
 ```
@@ -369,14 +472,14 @@ public static class ClipEncoder {
         from _ in runtime.Sink(receipt)
         select receipt;
 
-    static Exception Fault(string stage) => ((Error)new VisualFault.EncodeFailed(stage)).ToException();
+    private static Exception Fault(string stage) => ((Error)new VisualFault.EncodeFailed(stage)).ToException();
 
-    static int Guard(int code, string stage) => code >= 0 ? code : throw Fault($"{stage}: {code}");
+    private static int Guard(int code, string stage) => code >= 0 ? code : throw Fault($"{stage}: {code}");
 
     // ONE statement-bodied boundary kernel per the boundary-kernel law: alloc muxer/encoder/frame/packet/
     // sws, write header, per-frame convert -> send -> receive -> mux, null-frame flush terminal, trailer,
     // teardown in reverse ownership order. Faults throw typed VisualFault the IO.lift rail captures.
-    static unsafe byte[] Encode(VideoEncodeRow row, Seq<SKImage> frames) {
+    private static unsafe byte[] Encode(VideoEncodeRow row, Seq<SKImage> frames) {
         SKImage first = frames.Head.Match(Some: static image => image, None: () => throw Fault("empty frame stream"));
         (int width, int height) = (first.Width, first.Height);
         string sink = Path.Combine(Path.GetTempPath(), $"rasm-clip-{Guid.CreateVersion7():N}.{row.Container}");
@@ -441,7 +544,7 @@ public static class ClipEncoder {
         }
     }
 
-    static unsafe void Drain(AVFormatContext* mux, AVCodecContext* codec, AVStream* stream, AVPacket* packet, AVFrame* frame) {
+    private static unsafe void Drain(AVFormatContext* mux, AVCodecContext* codec, AVStream* stream, AVPacket* packet, AVFrame* frame) {
         Guard(ffmpeg.avcodec_send_frame(codec, frame), "send-frame");
         for (int received = ffmpeg.avcodec_receive_packet(codec, packet);
              received != ffmpeg.AVERROR(ffmpeg.EAGAIN) && received != ffmpeg.AVERROR_EOF;
@@ -457,6 +560,6 @@ public static class ClipEncoder {
 }
 ```
 
-## [08]-[RESEARCH]
+## [08]-[COLOR_BOUNDARY]
 
-- [ICC_TONEMAP]: the `SKColorSpace.CreateIcc(ReadOnlySpan<byte>)` ICC-profile parse returning a tagged color space, the `SKColorFilter.CreateTable(byte[])` 256-entry LUT-filter arity the `ToneMap.Filter` builds, and the `SKImageInfo.WithColorSpace` ICC round-trip preservation resolve at implementation against the installed SkiaSharp 3 surface; the `ColorPolicy.FromIcc` fence, the `ToneMap` curve operators, and the reproject paint binding are settled, the exact `CreateIcc`/`CreateTable` member shapes are the unverified surface.
+- [ICC_TONEMAP]: `ColorPolicy.FromIcc` validates bytes through `SKColorSpace.CreateIcc(ReadOnlySpan<byte>)` and stores the immutable profile bytes so `Working` and `Output` mint independently owned color spaces. `ToneMap.Filter` binds `SKColorFilter.CreateTable(byte[])`, and `Reproject` binds `SKImageInfo.WithColorSpace`; borrowed images remain borrowed while every minted projection and color object is disposed by its owner.

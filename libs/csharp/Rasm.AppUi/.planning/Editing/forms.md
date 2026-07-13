@@ -1,12 +1,12 @@
 # [APPUI_FORMS_SELECTION]
 
-A declarative forms-and-selection owner family delivers schema-driven forms with validation and wizard flows plus multi-selection batch editing over the admitted `PropertyModels` infrastructure with zero new package. `FormSchema` is a sequence of typed field rows, validation rules, and wizard steps materialized through the one `ControlFactory` (`Shell/controls`) and validated through the screens `Validation<Error,T>` lift; conditional visibility is schema data — each field declares its `DependsOn` key edges and its `Visible` predicate over `FormState`, so the schema itself owns re-evaluation and no attribute machinery is claimed for it; `Selection` is a model over the admitted `ICheckedList`/`ISelectableList` driving batch-edit intents that fold to one combined `CommandReceipt` through `CommandExecution.Combine`. The page owns the form schema and wizard fold, the validation lift, and the selection-and-batch-edit fold; it mints no settings-dialog framework, no form-control framework, and no per-macro registry — forms ride the one control vocabulary, validation rides the one typed rail, and batch verbs ride the one command-combine algebra. The PropertyModels `[ConditionTarget]`/`[PropertyVisibilityCondition]`/`[DependsOnProperty]` annotations stay the inspector's law over `ReactiveObject` model properties and never govern this schema. The spine is `bodong.PropertyModels` (`ICheckedList`/`ISelectableList`, `CheckedListEdit`), `ReactiveUI.Validation`, the `ControlIntent`/`ControlFactory` owner, the `CommandIntent`/`CommandExecution` rail, Thinktecture.Runtime.Extensions, and LanguageExt rails.
+A declarative forms-and-selection owner family delivers schema-driven forms with validation and wizard flows plus multi-selection batch editing over the admitted `PropertyModels` infrastructure with zero new package. `FormSchema` is a sequence of typed field rows, validation rules, and wizard steps materialized through the one `ControlFactory` (`Shell/controls`) and validated through the screens `Validation<Error,T>` lift; conditional visibility is schema data — each field declares its `DependsOn` key edges and its `Visible` predicate over `FormState`, so the schema itself owns re-evaluation and no attribute machinery is claimed for it; `Selection` is a model over the admitted `ICheckedList` driving batch-edit intents that fold to one combined `CommandReceipt` through `CommandExecution.Combine`. The page owns the form schema and wizard fold, the validation lift, and the selection-and-batch-edit fold; it mints no settings-dialog framework, no form-control framework, and no per-macro registry — forms ride the one control vocabulary, validation rides the one typed rail, and batch verbs ride the one command-combine algebra. The PropertyModels `[ConditionTarget]`/`[PropertyVisibilityCondition]`/`[DependsOnProperty]` annotations stay the inspector's law over `ReactiveObject` model properties and never govern this schema. The spine is `bodong.PropertyModels` (`ICheckedList`, `CheckedListEdit`), `ReactiveUI.Validation`, the `ControlIntent`/`ControlFactory` owner, the `CommandIntent`/`CommandExecution` rail, Thinktecture.Runtime.Extensions, and LanguageExt rails.
 
 ## [01]-[INDEX]
 
 - [01]-[FORM_SCHEMA]: Typed field rows materialized through `ControlFactory`; validation as the one typed rail.
 - [02]-[WIZARD_FLOW]: Multi-step wizard over the one schema; step gates ride the same validation rail.
-- [03]-[SELECTION_MODEL]: Checked/selectable list selection over the admitted collections.
+- [03]-[SELECTION_MODEL]: Checked-list selection over the one admitted collection backing.
 - [04]-[BATCH_EDIT]: N-item batch edit folding to one combined `CommandReceipt` through `CommandExecution.Combine`.
 
 ## [02]-[FORM_SCHEMA]
@@ -30,6 +30,7 @@ public abstract partial record FormFault : Expected, IValidationError<FormFault>
     public sealed record FieldInvalid : FormFault { public FieldInvalid(string target, string detail) : base($"{target}: {detail}", AppUiFaultBand.Form.Code(1)) => Target = target; public string Target { get; } }
     public sealed record StepIncomplete : FormFault { public StepIncomplete(string detail) : base(detail, AppUiFaultBand.Form.Code(2)) { } }
     public sealed record SubmitRejected : FormFault { public SubmitRejected(string detail) : base(detail, AppUiFaultBand.Form.Code(3)) { } }
+    public sealed record SchemaInvalid : FormFault { public SchemaInvalid(string detail) : base(detail, AppUiFaultBand.Form.Code(4)) { } }
 }
 
 public sealed record FormField(
@@ -49,7 +50,29 @@ public sealed record FormState(HashMap<string, JsonElement> Values) {
         (this with { Values = Values.AddOrUpdate(key, value) }, key);
 }
 
-public sealed record FormSchema(string Key, string SubmitIntent, Seq<FormField> Fields, Seq<WizardStep> Steps) {
+public sealed record FormSchema {
+    private FormSchema(string key, string submitIntent, Seq<FormField> fields, Seq<WizardStep> steps) =>
+        (Key, SubmitIntent, Fields, Steps) = (key, submitIntent, fields, steps);
+
+    public string Key { get; }
+    public string SubmitIntent { get; }
+    public Seq<FormField> Fields { get; }
+    public Seq<WizardStep> Steps { get; }
+
+    public static Validation<Error, FormSchema> Create(string key, string submitIntent, Seq<FormField> fields, Seq<WizardStep> steps) {
+        Set<string> fieldKeys = fields.Map(static field => field.Key).ToSet();
+        Set<string> stepKeys = steps.Map(static step => step.Key).ToSet();
+        return (
+            guard(!string.IsNullOrWhiteSpace(key), (Error)new FormFault.SchemaInvalid("form key is empty")).ToValidation(),
+            guard(fieldKeys.Count == fields.Count, (Error)new FormFault.SchemaInvalid($"{key}: duplicate field key")).ToValidation(),
+            guard(fields.ForAll(field => field.DependsOn.ForAll(fieldKeys.Contains)), (Error)new FormFault.SchemaInvalid($"{key}: unknown dependency key")).ToValidation(),
+            guard(stepKeys.Count == steps.Count, (Error)new FormFault.SchemaInvalid($"{key}: duplicate step key")).ToValidation(),
+            guard(steps.ForAll(step => step.FieldKeys.ForAll(fieldKeys.Contains)), (Error)new FormFault.SchemaInvalid($"{key}: unknown step field")).ToValidation(),
+            guard(Acyclic(fields), (Error)new FormFault.SchemaInvalid($"{key}: dependency cycle")).ToValidation())
+            .Apply((_, _, _, _, _, _) => new FormSchema(key, submitIntent, fields, steps))
+            .As();
+    }
+
     public Validation<Error, FormState> Admit(FormState state) =>
         Fields.Filter(field => field.Visible(state))
             .Traverse(field => field.Rule(state).Map(static _ => unit)).As()
@@ -59,6 +82,13 @@ public sealed record FormSchema(string Key, string SubmitIntent, Seq<FormField> 
     // edge; a field with no DependsOn row never re-materializes on foreign writes.
     public Seq<FormField> Affected(string changedKey) =>
         Fields.Filter(field => field.DependsOn.Contains(changedKey));
+
+    private static bool Acyclic(Seq<FormField> fields) {
+        AdjacencyGraph<string, SEdge<string>> graph = new();
+        fields.Iter(field => graph.AddVertex(field.Key));
+        fields.Iter(field => field.DependsOn.Iter(dependency => graph.AddEdge(new SEdge<string>(dependency, field.Key))));
+        return graph.IsDirectedAcyclicGraph();
+    }
 }
 
 public static class FormSurface {
@@ -76,14 +106,14 @@ public static class FormSurface {
 ## [03]-[WIZARD_FLOW]
 
 - Owner: `WizardStep` the wizard-step row; `WizardState` the step-cursor state; `WizardFold` the step-transition fold.
-- Entry: `public Fin<WizardState> Advance(WizardState cursor, FormState state)` — advances to the next step only when the current step's fields validate, sealing a `StepIncomplete` fault otherwise; `public WizardState Retreat(WizardState cursor)` — steps back with no validation gate.
-- Auto: a `WizardStep` carries its field-key set and its step-completion predicate, so a wizard is a sequence of field groups over the one `FormSchema` rather than a parallel multi-page model; `Advance` gates the forward transition on the current step's field validation through the same `Validation<Error,T>` rail the form uses so a step never advances incomplete; the visible field set narrows to the current step's keys so the wizard materializes only the current step's controls through `ControlFactory`; cross-step dependencies ride the same `DependsOn` edges — an earlier step's write re-evaluates exactly the later-step fields declaring it through `FormSchema.Affected`, no second propagation scheme.
+- Entry: `public Fin<WizardState> Advance(WizardState cursor, FormState state)` — advances only when the current step's field rules validate through `AdmitStep`, sealing the accumulated failures as one `StepIncomplete` fault otherwise; `public WizardState Retreat(WizardState cursor)` — steps back with no validation gate.
+- Auto: a `WizardStep` carries its field-key set and its `Skip` predicate, so a wizard is a sequence of field groups over the one `FormSchema` rather than a parallel multi-page model; `Advance` gates the forward transition on `AdmitStep` — the form validation rail narrowed to the current step's visible field keys, traversed applicatively so EVERY invalid step field reports at once — and `FieldKeys` is therefore behaviorally consumed by the transition, never a UI-only grouping; the visible field set narrows to the current step's keys so the wizard materializes only the current step's controls through `ControlFactory`; cross-step dependencies ride the same `DependsOn` edges — an earlier step's write re-evaluates exactly the later-step fields declaring it through `FormSchema.Affected`, no second propagation scheme.
 - Packages: bodong.PropertyModels, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new wizard step is one `WizardStep` row on the schema; zero new surface.
-- Boundary: a wizard is steps over the one `FormSchema` — a parallel wizard framework is the rejected form, so a step is a field-key group and the wizard materializes through the same `ControlFactory` fold; the forward gate rides the one `Validation<Error,T>` rail so a step-completion check is the form validation narrowed to the step's keys, never a second validation scheme; the step cursor is a typed value the `ControlIntent.Tab`/`Accordion` wizard chrome reads so the wizard chrome is itself a materialized control; a conditional step is the step's `Complete` predicate over `FormState` — a skipped step is a predicate, not a hand-wired jump.
+- Boundary: a wizard is steps over the one `FormSchema` — a parallel wizard framework is the rejected form, so a step is a field-key group and the wizard materializes through the same `ControlFactory` fold; the forward gate IS the one `Validation<Error,T>` rail narrowed to the step's keys — a boolean completion predicate standing in for validation is the deleted form, and `Skip` marks only the conditional step the flow bypasses, never a validation substitute; the step cursor is a typed value the `ControlIntent.Tab`/`Accordion` wizard chrome reads so the wizard chrome is itself a materialized control.
 
 ```csharp signature
-public sealed record WizardStep(string Key, string TitleKey, Seq<string> FieldKeys, Func<FormState, bool> Complete);
+public sealed record WizardStep(string Key, string TitleKey, Seq<string> FieldKeys, Func<FormState, bool> Skip);
 
 public sealed record WizardState(int Index, Seq<string> Visited) {
     public static WizardState Start => new(0, Seq<string>());
@@ -91,50 +121,80 @@ public sealed record WizardState(int Index, Seq<string> Visited) {
 
 public static class WizardFold {
     extension(FormSchema schema) {
+        // The forward gate is the form rail narrowed to the step: every visible step-field rule runs
+        // applicatively, so the user sees every invalid field at once; Skip bypasses a conditional step.
         public Fin<WizardState> Advance(WizardState cursor, FormState state) =>
             schema.Steps.At(cursor.Index).Match(
-                Some: step => step.Complete(state)
-                    ? Fin.Succ(cursor with { Index = Math.Min(cursor.Index + 1, schema.Steps.Count - 1), Visited = cursor.Visited.Add(step.Key) })
-                    : Fin.Fail<WizardState>(new FormFault.StepIncomplete(step.Key)),
+                Some: step => step.Skip(state)
+                    ? Fin.Succ(Advanced(schema, cursor, step, state))
+                    : schema.AdmitStep(step, state).Match(
+                        Succ: _ => Fin.Succ(Advanced(schema, cursor, step, state)),
+                        Fail: error => Fin.Fail<WizardState>(new FormFault.StepIncomplete($"{step.Key}: {error.Message}"))),
                 None: () => Fin.Succ(cursor));
 
-        public WizardState Retreat(WizardState cursor) => cursor with { Index = Math.Max(0, cursor.Index - 1) };
+        public Validation<Error, FormState> AdmitStep(WizardStep step, FormState state) =>
+            schema.Fields.Filter(field => step.FieldKeys.Contains(field.Key) && field.Visible(state))
+                .Traverse(field => field.Rule(state).Map(static _ => unit)).As()
+                .Map(_ => state);
+
+        public WizardState Retreat(WizardState cursor) => cursor with { Index = int.Clamp(cursor.Index - 1, 0, int.Max(0, schema.Steps.Count - 1)) };
 
         public Seq<FormField> StepFields(WizardState cursor) =>
             schema.Steps.At(cursor.Index).Match(
                 Some: step => schema.Fields.Filter(field => step.FieldKeys.Contains(field.Key)),
-                None: () => schema.Fields);
+                None: () => Seq<FormField>());
     }
+
+    static WizardState Advanced(FormSchema schema, WizardState cursor, WizardStep step, FormState state) =>
+        cursor with {
+            Index = toSeq(Enumerable.Range(cursor.Index + 1, int.Max(0, schema.Steps.Count - cursor.Index - 1)))
+                .Find(index => !schema.Steps[index].Skip(state))
+                .IfNone(schema.Steps.Count),
+            Visited = cursor.Visited.Add(step.Key),
+        };
 }
 ```
 
 ## [04]-[SELECTION_MODEL]
 
-- Owner: `Selection<TItem>` the selection model over the admitted `ICheckedList`/`ISelectableList`; `SelectionMode` the single/multi axis carrying its own apply behavior.
+- Owner: `Selection<TItem>` the selection model over the admitted `ICheckedList` — the ONE selection backing, whose own `Select` verbs carry the exclusive modality; `SelectionMode` the single/multi axis carrying its own apply behavior.
 - Entry: `public Selection<TItem> Apply(TItem item)` — one entrypoint per gesture: single mode selects exclusively through the admitted `Select`, multi mode toggles through `SetChecked`; `public Selection<TItem> Range(Seq<TItem> items, bool checkedState)` — a contiguous run through `SetRangeChecked`/`SelectRange`; `public Seq<TItem> Selected()` — projects the checked set through `ICheckedList.Items`.
-- Auto: `Selection` wraps the admitted `ICheckedList` (checked multi-select) or `ISelectableList` (single/multi exclusive) so the selection state rides the package collection, never a parallel selection list; the mode row carries the apply delegate, so a click gesture is one `Apply` call and the exclusive-versus-toggle split is a policy value, never a caller branch; the checked set drives the batch-edit intent set and the selection-count availability input (`Commands#AVAILABILITY_ALGEBRA` `Availability.Selected`); the selection projects into the screen-state snapshot `Selection` field so a restored screen re-applies its selection.
+- Auto: `Selection` wraps the admitted `ICheckedList` so the selection state rides the package collection, never a parallel selection list — the exclusive single-select modality is the SAME backing's `Select(object)` verb, so no second collection contract exists to bind; the mode row carries the apply delegate, so a click gesture is one `Apply` call and the exclusive-versus-toggle split is a policy value, never a caller branch; the checked set drives the batch-edit intent set and the selection-count availability input (`Commands#AVAILABILITY_ALGEBRA` `Availability.Selected`); the selection projects into the screen-state snapshot `Selection` field so a restored screen re-applies its selection.
 - Packages: bodong.PropertyModels, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new selection mode is one `SelectionMode` row with its apply delegate; zero new surface — the admitted `ICheckedList`/`ISelectableList` is the selection collection.
-- Boundary: selection rides the admitted `ICheckedList`/`ISelectableList` (`.api/api-propertygrid.md` collection types) — a parallel selection list is the deleted form, so the checked set is the one selection vocabulary; exclusive selection composes the admitted `Select(object)`/`SelectRange` verbs and toggle selection the `SetChecked`/`SetRangeChecked` verbs, so single-select lists and shift-click runs are admitted members, never new surface; the selection count feeds the command availability algebra so a batch verb gates on selection count structurally, never a manual count flag; selection persists on the screen-state `Selection` snapshot field so restore re-applies it; the selection model carries no UI control — the checked-list editor (`CheckedListEdit`) materializes through the inspector/control rail, so selection mints no second control.
+- Growth: a new selection mode is one `SelectionMode` row with its apply delegate; zero new surface — the admitted `ICheckedList` is the selection collection.
+- Boundary: selection rides the admitted `ICheckedList` (`.api/api-propertygrid.md` collection entrypoints) — a parallel selection list is the deleted form, and a second backing contract bound for the exclusive modality is equally deleted because `Select(object)`/`SelectRange` already live on the checked list; the selection count feeds the command availability algebra so a batch verb gates on selection count structurally, never a manual count flag; selection persists on the screen-state `Selection` snapshot field so restore re-applies it; the selection model carries no UI control — the checked-list editor (`CheckedListEdit`) materializes through the inspector/control rail, so selection mints no second control.
 
 ```csharp signature
 [SmartEnum]
 public sealed partial class SelectionMode {
-    public static readonly SelectionMode Single = new(static (backing, item) => backing.Select(item));
-    public static readonly SelectionMode Multi = new(static (backing, item) => backing.SetChecked(item, !backing.IsChecked(item)));
+    public static readonly SelectionMode Single = new(
+        static (backing, item) => backing.Select(item),
+        static (backing, items, _) => backing.SelectRange(items));
+    public static readonly SelectionMode Multi = new(
+        static (backing, item) => backing.SetChecked(item, !backing.IsChecked(item)),
+        static (backing, items, selected) => backing.SetRangeChecked(items, selected));
 
     [UseDelegateFromConstructor]
     public partial void Apply(ICheckedList backing, object item);
+
+    [UseDelegateFromConstructor]
+    public partial void ApplyRange(ICheckedList backing, IEnumerable<object> items, bool selected);
 }
 
-public sealed record Selection<TItem>(ICheckedList Backing, SelectionMode Mode) where TItem : notnull {
+public sealed record Selection<TItem>(
+    ICheckedList Backing,
+    SelectionMode Mode,
+    Func<object, Option<TItem>> Admit,
+    Func<TItem, string> Identity) where TItem : notnull {
     public Selection<TItem> Apply(TItem item) =>
-        (fun(() => Mode.Apply(Backing, item!))(), this).Item2;
+        (fun(() => Mode.Apply(Backing, item))(), this).Item2;
 
     public Selection<TItem> Range(Seq<TItem> items, bool checkedState) =>
-        (fun(() => Backing.SetRangeChecked(items.Cast<object>(), checkedState))(), this).Item2;
+        (fun(() => Mode.ApplyRange(Backing, items.Cast<object>(), checkedState))(), this).Item2;
 
-    public Seq<TItem> Selected() => toSeq(Backing.Items).OfType<TItem>();
+    public Fin<Seq<TItem>> Selected() => toSeq(Backing.Items)
+        .Traverse(item => Admit(item).ToFin(new FormFault.FieldInvalid("selection", item.GetType().Name)))
+        .As();
 
     public int Count => Backing.Items.Length;
 }
@@ -168,7 +228,13 @@ public static class BatchEdit {
                 ? deck.Combine(Enumerable.Repeat(verbIntent, selection.Count).ToArray())
                 : Fin.Fail<CombinedReactiveCommand<CommandPayload, CommandReceipt>>(new FormFault.SubmitRejected($"{verbIntent}: empty selection"));
 
-        public CommandPayload Payload() => new CommandPayload.Many(selection.Selected().Map(static item => item.ToString() ?? string.Empty));
+        public Fin<CommandPayload> Payload() => selection.Selected()
+            .Map(items => (CommandPayload)new CommandPayload.Many(items.Map(selection.Identity)));
+
+        public Fin<BatchReceipt> Seal(string verb, CorrelationId correlation, Seq<CommandReceipt> children) =>
+            children.Count == selection.Count
+                ? Fin.Succ(new BatchReceipt(verb, selection.Count, correlation, children))
+                : Fin.Fail<BatchReceipt>(new FormFault.SubmitRejected($"{verb}: expected {selection.Count} child receipts, received {children.Count}"));
     }
 }
 ```

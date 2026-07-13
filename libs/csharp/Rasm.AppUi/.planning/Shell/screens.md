@@ -18,38 +18,55 @@ Rasm.AppUi screens are catalog rows over one activatable base: a frozen `ScreenC
 - Auto: dock factories, window titles, palette listings, automation names, and headless proof specs derive as folds over `Rows` — zero per-derivation registries; `IViewFor<TViewModel>` views register through `RegisterViews(m => m.Map<TViewModel, TView>())` on the ReactiveUI builder at the composition root (the catalog-verified spelling — `RegisterView<...>` does not exist), one registration per catalog row.
 - Packages: ReactiveUI, LanguageExt.Core, BCL inbox
 - Growth: one catalog row carries screen, dockable, title, automation name, headless proof, and the generative control-intent body; zero new surface.
-- Boundary: `Id`, `RouteKey`, `IconKey`, and `TitleRole` cells are string-serializable symbols — the route key crosses deep links and remote invocation unchanged, the title-role and icon cells resolve against the typography-role and icon-key vocabularies at render, and `Surface` is the single per-host admission gate; the `AutomationName`, `HeadlessProof`, and `Surface` columns are the one derivation source for accessibility names and headless proof lanes; a per-screen base-class family is the rejected form; the `Body` column is the generative control-intent body — a `Func<ScreenBase, ControlIntent>` projecting the screen's model onto the one `ControlIntent` vocabulary (`Shell/controls`) materialized through `ControlFactory`, so a screen is authored as a control-intent stream and a per-screen XAML literal body is the deleted form, the body crossing the `ControlIntentWire` seam unchanged so a web/remote caller materializes the same screen the desktop renders.
+- Boundary: `Key` is the one identity cell; `Id`, `RouteKey`, `AutomationName`, and `IconKey` are derived members, while `Title` resolves from the same key through the composition-bound label column. Deep links, remote invocation, dock identity, automation, palette listings, and proof names therefore cannot drift by independently authored literals. `TitleRole` remains an orthogonal typography policy, `Surface` is the single per-host admission gate, and `ProofLane` is the proof policy. A per-screen base-class family is rejected; `Body` projects the screen model onto the one `ControlIntent` vocabulary and crosses the `ControlIntentWire` seam unchanged.
 
 ```csharp signature
 public sealed record ScreenCatalogRow(
-    string Id,
-    string Title,
+    string Key,
+    Func<string, string> Label,
     string TitleRole,
-    string IconKey,
-    string RouteKey,
-    string AutomationName,
-    bool HeadlessProof,
+    ProofLane Proof,
     Func<SurfaceHost, bool> Surface,
     Func<string, ScreenBase> Model,
-    Func<ScreenBase, ControlIntent> Body);
+    Func<ScreenBase, ControlIntent> Body) {
+    public string Id => Key;
+    public string RouteKey => Key;
+    public string AutomationName => Key;
+    public string IconKey => $"{Key}.icon";
+    public string Title => Label($"{Key}.title");
+}
+
+[SmartEnum<string>]
+public sealed partial class ProofLane {
+    public static readonly ProofLane Interactive = new("interactive", headless: false);
+    public static readonly ProofLane Headless = new("headless", headless: true);
+
+    public bool Headless { get; }
+}
 
 public sealed record ScreenCatalog(FrozenDictionary<string, ScreenCatalogRow> Rows) {
-    public Seq<ScreenCatalogRow> HeadlessLane => toSeq(Rows.Values).Filter(static row => row.HeadlessProof);
+    public Seq<ScreenCatalogRow> HeadlessLane => toSeq(Rows.Values).Filter(static row => row.Proof.Headless);
 
     public static Fin<ScreenCatalog> Freeze(params ReadOnlySpan<ScreenCatalogRow> rows) =>
         Build(toSeq(rows.ToArray()));
 
     public Option<ScreenCatalogRow> Resolve(string id) =>
-        Rows.TryGetValue(id, out var row) ? Some(row) : None;
+        Rows.TryGetValue(id, out ScreenCatalogRow? row) ? Some(row) : None;
 
     public Seq<ScreenCatalogRow> For(SurfaceHost host) =>
         toSeq(Rows.Values).Filter(row => row.Surface(host));
 
-    // The fault names the offending key: the first id declared more than once rides the DuplicateId detail.
-    static Fin<ScreenCatalog> Build(Seq<ScreenCatalogRow> rows) =>
-        Optional(rows.Map(static row => row.Id).GroupBy(static id => id).FirstOrDefault(static group => group.Count() > 1)).Match(
-            Some: duplicate => Fin<ScreenCatalog>.Fail(new ScreenFault.DuplicateId(duplicate.Key)),
-            None: () => Fin<ScreenCatalog>.Succ(new(rows.ToFrozenDictionary(static row => row.Id, static row => row, StringComparer.Ordinal))));
+    // The fault names the offending key: the first id declared more than once rides the DuplicateId
+    // detail — CountBy folds per key in one pass where GroupBy materialized every group.
+    private static Fin<ScreenCatalog> Build(Seq<ScreenCatalogRow> rows) =>
+        Optional(rows.Map(static row => row.Id).AsEnumerable()
+                .CountBy(identity, StringComparer.Ordinal)
+                .Where(static entry => entry.Value > 1)
+                .Select(static entry => entry.Key)
+                .FirstOrDefault())
+            .Match(
+                Some: duplicate => Fin<ScreenCatalog>.Fail(new ScreenFault.DuplicateId(duplicate)),
+                None: () => Fin<ScreenCatalog>.Succ(new(rows.ToFrozenDictionary(static row => row.Id, static row => row, StringComparer.Ordinal))));
 }
 ```
 
@@ -71,8 +88,8 @@ public sealed record ScreenRuntime(
     Duration Throttle);
 
 public abstract class ScreenBase : ReactiveObject, IActivatableViewModel, IValidatableViewModel {
-    long mark;
-    Option<ScreenIncident> fault = None;
+    private long mark;
+    private Option<ScreenIncident> fault = None;
 
     protected ScreenBase(ScreenCatalogRow row, string surface, ScreenRuntime runtime) {
         Row = row;
@@ -99,8 +116,8 @@ public abstract class ScreenBase : ReactiveObject, IActivatableViewModel, IValid
     protected abstract Seq<IDisposable> Wire();
 
     public IDisposable BindActivation(IObservable<bool> visible, UiSchedulerPort scheduler) {
-        var phased = scheduler.Phases(receipt => ignore(receipt.To == RuntimePhase.Draining ? Suspend().Run() : unit));
-        var sighted = visible.DistinctUntilChanged().Subscribe(open => ignore(open ? ignore(Activator.Activate()) : Suspend().Run()));
+        IDisposable phased = scheduler.Phases(receipt => ignore(receipt.To == RuntimePhase.Draining ? Run("drain", Suspend()) : unit));
+        IDisposable sighted = visible.DistinctUntilChanged().Subscribe(open => ignore(open ? ignore(Activator.Activate()) : Run("visibility", Suspend())));
         return new CompositeDisposable(phased, sighted);
     }
 
@@ -118,24 +135,29 @@ public abstract class ScreenBase : ReactiveObject, IActivatableViewModel, IValid
 
     internal Unit Commit(ScreenIncident failure) => ignore(Fault = Some(failure));
 
-    IEnumerable<IDisposable> Scope() {
+    private IEnumerable<IDisposable> Scope() {
         mark = Runtime.Clocks.Mark();
-        ignore(this.Rehydrate().Run());
-        var wired = Wire();
+        ignore(Run("rehydrate", this.Rehydrate()));
+        Seq<IDisposable> wired = Wire();
         return wired.Add(Disposable.Create(() =>
-            ignore(this.Checkpoint().Bind(_ => Runtime.Disposed(Row.Id, Runtime.Clocks.Elapsed(mark), wired.Count + 1)).Run())));
+            ignore(Run("checkpoint", this.Checkpoint().Bind(_ => Runtime.Disposed(Row.Id, Runtime.Clocks.Elapsed(mark), wired.Count + 1))))));
     }
+
+    private Unit Run(string source, IO<Unit> effect) =>
+        effect.Run().Match(
+            Succ: static _ => unit,
+            Fail: failure => Commit(new ScreenIncident(Row.Id, new ScreenFault.Thrown(source, failure.Message), Runtime.Clocks.Now, source)));
 }
 
 public sealed class ScreenInteraction<TInput, TOutput>(IScheduler? scheduler = null) : Interaction<TInput, TOutput>(scheduler) {
-    int handlers;
+    private int handlers;
 
     public bool Reachable => Volatile.Read(ref handlers) > 0;
 
     // The one registration verb: the count and the base registration dispose together, so Reachable is
     // a value check; a base RegisterHandler call bypasses the count and is the rejected form.
     public IDisposable Register(Func<IInteractionContext<TInput, TOutput>, Task> handler) {
-        var registration = RegisterHandler(handler);
+        IDisposable registration = RegisterHandler(handler);
         ignore(Interlocked.Increment(ref handlers));
         return Disposable.Create(() => {
             ignore(Interlocked.Decrement(ref handlers));
@@ -148,7 +170,7 @@ public sealed class ScreenInteraction<TInput, TOutput>(IScheduler? scheduler = n
 ## [04]-[DERIVED_STATE]
 
 - Owner: `ScreenFault` — the typed fault family on the `AppUiFaultBand.Screen` registry row (6080); `ScreenIncident` — the fault-cell state record (who, when, which typed fault); `DerivedOps` extension fold over `ScreenBase`.
-- Entry: `public ObservableAsPropertyHelper<T> Derive<T>(IObservable<T> source, string property, IScheduler scheduler, T initial)` — one paced OAPH row per derived property.
+- Entry: `public ObservableAsPropertyHelper<T> Derive<T>(IObservable<T> source, Expression<Func<TScreen,T>> property, IScheduler scheduler, T initial)` — one paced OAPH row per derived property with the target member carried as a checked expression rather than a reflection string.
 - Auto: `WhenAnyValue` and `SubscribeToExpressionChain` streams feed `Derive`; `FoldFaults` merges command and pipeline `ThrownExceptions` through the one `ScreenFault.Thrown` conversion into the `Fault` cell; `RaiseAndSetIfChanged` publishes the fault transition to bound views.
 - Packages: ReactiveUI, System.Reactive, LanguageExt.Core, NodaTime
 - Growth: one OAPH row per derived property and one merged stream per fault source; zero new surface.
@@ -162,16 +184,18 @@ public abstract partial record ScreenFault : Expected {
         : ScreenFault($"screen/duplicate: {Detail}", AppUiFaultBand.Screen.Code(0));
     public sealed record Thrown(string Source, string Reason)
         : ScreenFault($"screen/thrown: {Source}: {Reason}", AppUiFaultBand.Screen.Code(1));
+    public sealed record StateRejected(string Reason)
+        : ScreenFault($"screen/state: {Reason}", AppUiFaultBand.Screen.Code(2));
 }
 
 public readonly record struct ScreenIncident(string ScreenId, ScreenFault Evidence, Instant At, string Source);
 
 public static class DerivedOps {
-    extension(ScreenBase screen) {
+    extension<TScreen>(TScreen screen) where TScreen : ScreenBase {
         public IObservable<T> Calm<T>(IObservable<T> source, IScheduler scheduler) =>
             source.DistinctUntilChanged().Throttle(screen.Runtime.Throttle.ToTimeSpan(), scheduler);
 
-        public ObservableAsPropertyHelper<T> Derive<T>(IObservable<T> source, string property, IScheduler scheduler, T initial) =>
+        public ObservableAsPropertyHelper<T> Derive<T>(IObservable<T> source, Expression<Func<TScreen, T>> property, IScheduler scheduler, T initial) =>
             screen.Calm(source, scheduler).ToProperty(screen, property, initial);
 
         public IDisposable FoldFaults(string source, params ReadOnlySpan<IObservable<Exception>> streams) =>
@@ -215,7 +239,7 @@ public static class ScreenValidation {
         Observable.FromEventPattern<DataErrorsChangedEventArgs>(
                 handler => screen.ErrorsChanged += handler,
                 handler => screen.ErrorsChanged -= handler)
-            .Where(change => change.EventArgs.PropertyName == property)
+            .Where(change => string.Equals(change.EventArgs.PropertyName, property, StringComparison.Ordinal))
             .StartWith((EventPattern<DataErrorsChangedEventArgs>?)null)
             .Select(_ => toSeq(screen.GetErrors(property).OfType<string>()));
 }
@@ -234,6 +258,7 @@ public static class ScreenValidation {
 ```csharp signature
 public sealed record ScreenStatePolicy(
     Func<string, string, IO<Option<ScreenState>>> Load,
+    Func<ScreenState, Validation<Error, ScreenState>> Admit,
     Func<ScreenState, IO<Unit>> Persist);
 
 public sealed record ScreenState(
@@ -259,7 +284,13 @@ public static class ScreenStateOps {
         public IO<Unit> Rehydrate() =>
             screen.Runtime.State.Load(screen.Row.Id, screen.Surface)
                 .Map(found => found
-                    .Map(persisted => screen.Restore(ScreenState.Merge(persisted, screen.Snapshot(), screen.Alive)))
+                    .Map(persisted => screen.Runtime.State.Admit(persisted).Match(
+                        Succ: admitted => screen.Restore(ScreenState.Merge(admitted, screen.Snapshot(), screen.Alive)),
+                        Fail: errors => screen.Commit(new ScreenIncident(
+                            screen.Row.Id,
+                            new ScreenFault.StateRejected(string.Join("; ", errors.Map(static error => error.Message))),
+                            screen.Runtime.Clocks.Now,
+                            "rehydrate"))))
                     .IfNone(unit));
 
         public IO<Unit> Checkpoint() =>
@@ -305,4 +336,3 @@ public static class ScreenWire {
     }
 }
 ```
-

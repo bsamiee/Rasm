@@ -1,6 +1,6 @@
 # [APPUI_COLLAB_SYNC]
 
-One CRDT document is the LIVE merge authority for every co-edited AppUi surface, and one typed edit-intent stream is the DURABLE truth: `CollabDoc` wraps one `LoroDoc` whose nested container forest holds the notebook cells, the issue comment threads, the table rows, the graph structure, and the live-data annotations, owning every attached Rust container handle for its whole activation; `CollabContainer` is the attach-or-create vocabulary over the six container kinds; the durable seam projects AppUi's own domain ops onto Persistence-owned `OpLogEntry`/`SyncOpKind` rows through the `Version/ledger` changefeed — Loro bytes NEVER cross durable truth — and `IntentLedger.Commit` is the ONE live-plus-durable transaction rail every collaborative mutation rides; `Presence` publishes carets through the TTL-expiring ephemeral channel AND per-peer identity through `Awareness`, both applied back from remote bytes through the same owner; and `TimeTravel` checks out, forks, previews, and history-preservingly reverts to any `Frontiers` cut. The document IS the live convergence law, so every collaborative page composes this one owner and holds no merge, last-writer-wins, or fractional-index algebra of its own. The spine is the `LoroCs` UniFFI binding over the Rust eg-walker/Fugue engine (`loro.dylib`, companion-only), the Persistence `Version/ledger` changefeed, the AppHost transport and HLC, the kernel `ContentHash.Of` one-hasher, Thinktecture.Runtime.Extensions, and LanguageExt rails.
+One CRDT document is the LIVE merge authority for every co-edited AppUi surface, and one typed edit-intent stream is the DURABLE truth: `CollabDoc` wraps one `LoroDoc` whose nested container forest holds the notebook cells, the issue comment threads, the table rows, the graph structure, and the live-data annotations, owning every attached Rust container handle for its whole activation; `CollabContainer` is the attach-or-create vocabulary over the six container kinds; the durable seam projects AppUi's own domain ops onto Persistence-owned `OpLogEntry`/`SyncOpKind` rows through the `Version/ledger` changefeed — Loro bytes NEVER cross durable truth — and `IntentLedger.Commit` is the ONE live-plus-durable transaction rail every collaborative mutation rides; `Presence` publishes carets through the TTL-expiring ephemeral channel AND per-peer identity through `Awareness`, both applied back from remote bytes through the same owner; and `TimeTravel` checks out, forks, and previews any `Frontiers` cut and commits reverts as inverse edit-intents through the same ledger rail. The document IS the live convergence law, so every collaborative page composes this one owner and holds no merge, last-writer-wins, or fractional-index algebra of its own. The spine is the `LoroCs` UniFFI binding over the Rust eg-walker/Fugue engine (`loro.dylib`, companion-only), the Persistence `Version/ledger` changefeed, the AppHost transport and HLC, the kernel `ContentHash.Of` one-hasher, Thinktecture.Runtime.Extensions, and LanguageExt rails.
 
 ## [01]-[INDEX]
 
@@ -8,7 +8,7 @@ One CRDT document is the LIVE merge authority for every co-edited AppUi surface,
 - [03]-[DURABLE_INTENT]: The single edit-intent union; the one live+durable commit rail; replay-window cold-load; the session-epoch law.
 - [04]-[LIVE_WIRE]: In-session delta broadcast and single-or-batch import; the snapshot accelerator; the transport topics.
 - [05]-[PRESENCE]: Caret AND awareness over both ephemeral channels; encoding-honest anchors; remote application.
-- [06]-[TIME_TRAVEL]: Undo respecting remote ops; checkout, fork, diff preview, and history-preserving revert over `Frontiers`.
+- [06]-[TIME_TRAVEL]: Undo respecting remote ops; checkout, fork, diff preview; the inverse-intent revert through the one commit rail.
 
 ## [02]-[DOCUMENT_OWNER]
 
@@ -93,6 +93,14 @@ public sealed record CollabDoc(LoroDoc Doc, string Key, Atom<Seq<IDisposable>> H
 
     public Fin<Subscription> Changes(Subscriber subscriber) => Lift(() => Doc.SubscribeRoot(subscriber));
 
+    // Positional provenance is exposed by the movable-list container; other container kinds fold to
+    // None because the tree binding carries no positional provenance member.
+    public Fin<Option<ulong>> LastEditorAt(CollabHandle handle, uint position) =>
+        Lift(() => handle.Container switch {
+            LoroMovableList list => Optional(list.GetLastEditorAt(position)),
+            _ => Option<ulong>.None,
+        });
+
     internal static Fin<T> Lift<T>(Func<T> act) {
         try { return Fin<T>.Succ(act()); }
         catch (LoroException.ImportUpdatesThatDependsOnOutdatedVersion ex) { return Fin<T>.Fail(new CollabFault.EpochMismatch(ex.Message)); }
@@ -135,7 +143,7 @@ public sealed record LoroVal(LoroValue Value) : LoroValueLike {
 ## [03]-[DURABLE_INTENT]
 
 - Owner: `EditIntent` — the SINGLE typed edit-intent `[Union]` whose rows the domain planes contribute; `IntentLedger` — the projection onto Persistence-owned rows, the ONE live+durable commit rail, and the replay-window cold-load; `SessionEpoch` — the epoch identity that makes cold-load honest; `TextRunGate` — the producer-side probe gate on the text arm.
-- Cases: `EditIntent` = CellInsert | CellEdit | CellMove | CellDelete | CommentAdd | CommentEdit | CommentResolve | TableRowCommit | GraphStructure | Annotation | TextRun — every collaborative surface's committed edit is ONE row here, never a parallel per-page op union; `history.md`'s `RevertibleOp` stays the LOCAL revert algebra that projects onto this same family; `GraphOp` = NodeAdd | NodeRemove | EdgeAdd | EdgeRemove — each case carrying exactly its own payload, so no arm reads an `Option` a sibling case never populates; `TextRunOp` = Insert | Delete | Mark over unicode-index positions the ledger decode resolves from the Persistence stable-position rows in window order.
+- Cases: `EditIntent` = CellInsert | CellEdit | CellMove | CellDelete | CommentAdd | CommentEdit | CommentResolve | TableRowCommit | GraphStructure | Annotation | TextRun — every collaborative surface's committed edit is ONE row here, never a parallel per-page op union; `history.md`'s `RevertibleOp` stays the LOCAL revert algebra that projects onto this same family; `GraphOp` = NodeAdd | NodeMove | NodeRemove | EdgeAdd | EdgeRemove — each case carrying exactly its own payload, so no arm reads an `Option` a sibling case never populates, and the move arm rides the tree's identity-preserving `MovTo`; `TextRunOp` = Insert | Delete | Mark over unicode-index positions the ledger decode resolves from the Persistence stable-position rows in window order.
 - Entry: `public IO<Fin<Unit>> Project(EditIntent intent)` — encodes the intent onto a Persistence-owned `OpLogEntry` under its `SyncOpKind` row through the `Version/ledger` changefeed (Persistence owns the row types; AppUi projects and decodes), refusing a `TextRun` row with the typed `CollabFault.Gated` while `TextRunGate.Probing` stands; `public IO<Fin<Unit>> Commit(CollabDoc doc, EditIntent intent, string origin)` — the ONE transaction rail: the durable projection lands FIRST, then the live state applies through the SAME `IntentApply.Apply` dispatch replay uses and seals with `doc.Commit(origin)`, so live and replay converge on one register shape by construction and a durable refusal never leaves a committed live divergence; `public IO<Fin<(CollabDoc Doc, SessionEpoch Epoch)>> ColdLoad(Option<CollabDocPolicy> policy = default)` — decodes the per-document replay window from the ledger and replays it into a FRESH `LoroDoc` in log order.
 - Auto: cold-load is DETERMINISTIC HYDRATION — no Loro byte is read from durable truth; each decoded intent applies through the same container verbs a live edit uses, so the rehydrated state is a pure function of the ledger window; the SESSION-EPOCH law makes it honest: a rehydrated `LoroDoc`'s version vector is unrelated to any live session's, so a live peer's `Export(Updates(vv))` delta CANNOT import over it (`LoroException.ImportUpdatesThatDependsOnOutdatedVersion`/`DecodeVersionVectorException` are the verified failure surface, folding to `CollabFault.EpochMismatch`) — replay-window rehydration is the cold-START path that SEEDS a session epoch, and a peer joining an ACTIVE session syncs Loro-native session state from a live peer over the AppHost transport (in-session wire, ephemeral, never persisted), never by replaying the log beside a live epoch.
 - Receipt: every projected intent seals a receipt through the `ReceiptSinkPort` envelope carrying the ledger sequence and the intent kind; the replay-window read receipt carries the window bounds and the replayed op count.
@@ -162,6 +170,7 @@ public sealed partial class TextRunGate {
 public abstract partial record GraphOp {
     private GraphOp() { }
     public sealed record NodeAdd(string NodeId) : GraphOp;
+    public sealed record NodeMove(string NodeId, Option<string> Parent, uint Index) : GraphOp;
     public sealed record NodeRemove(string NodeId) : GraphOp;
     public sealed record EdgeAdd(string From, string To) : GraphOp;
     public sealed record EdgeRemove(string From, string To) : GraphOp;
@@ -216,9 +225,10 @@ public sealed record IntentLedger(
     public IO<Fin<(CollabDoc Doc, SessionEpoch Epoch)>> ColdLoad(Option<CollabDocPolicy> policy = default) =>
         ReplayWindow(DocumentKey).Map(window => window.Bind(intents => {
             CollabDoc doc = CollabDoc.Open(DocumentKey, policy);
-            return intents
-                .Fold(Fin.Succ(unit), (rail, intent) => rail.Bind(_ => IntentApply.Apply(doc, intent)))
-                .Map(_ => (doc, new SessionEpoch(DocumentKey, Guid.CreateVersion7(), Clocks.Now)));
+            Fin<Unit> replayed = intents.Fold(Fin.Succ(unit), (rail, intent) => rail.Bind(_ => IntentApply.Apply(doc, intent)));
+            return replayed.Match(
+                Succ: _ => Fin.Succ((doc, new SessionEpoch(DocumentKey, Guid.CreateVersion7(), Clocks.Now))),
+                Fail: error => { doc.Dispose(); return Fin.Fail<(CollabDoc, SessionEpoch)>(error); });
         }));
 }
 
@@ -234,11 +244,12 @@ public static class IntentApply {
         intent.Switch(
             state: doc,
             cellInsert: static (doc, i) => Cells(doc).Bind(cells => Meta(doc, i.CellId).Bind(meta =>
-                CollabDoc.Lift(() => { cells.Insert(After(cells, i.AfterId), LoroVal.Of(i.CellId)); meta.Insert("kind", LoroVal.Of(i.Kind)); return unit; }))),
+                After(cells, i.AfterId).Bind(at =>
+                    CollabDoc.Lift(() => { cells.Insert(at, LoroVal.Of(i.CellId)); meta.Insert("kind", LoroVal.Of(i.Kind)); return unit; })))),
             cellEdit: static (doc, e) => Meta(doc, e.CellId).Bind(meta =>
                 CollabDoc.Lift(() => { meta.Insert("patch", LoroVal.Of(e.Patch.GetRawText())); return unit; })),
             cellMove: static (doc, m) => Cells(doc).Bind(cells => IndexOf(cells, m.CellId).Bind(from =>
-                CollabDoc.Lift(() => { cells.Mov(from, After(cells, m.AfterId)); return unit; }))),
+                After(cells, m.AfterId).Bind(to => CollabDoc.Lift(() => { cells.Mov(from, to); return unit; })))),
             cellDelete: static (doc, d) => Cells(doc).Bind(cells => IndexOf(cells, d.CellId).Bind(at =>
                 CollabDoc.Lift(() => { cells.Delete(at, 1); return unit; }))),
             commentAdd: static (doc, c) => Comment(doc, c.TopicId, c.CommentId).Bind(row =>
@@ -297,13 +308,20 @@ public static class IntentApply {
         return Fin.Fail<uint>(new CollabFault.Text($"ordinal {id} absent from replay state"));
     }
 
-    static uint After(LoroMovableList list, string afterId) =>
-        IndexOf(list, afterId).Match(Succ: static i => i + 1, Fail: static _ => 0u); // head/empty anchor
+    static Fin<uint> After(LoroMovableList list, string afterId) =>
+        string.IsNullOrEmpty(afterId) ? Fin.Succ(0u) : IndexOf(list, afterId).Map(static i => i + 1);
 
     static Fin<Unit> Graph(CollabDoc doc, GraphOp op) => op.Switch(
         state: doc,
         nodeAdd: static (doc, n) => As<LoroTree>(doc, CollabContainer.Tree, "graph").Bind(tree =>
             CollabDoc.Lift(() => { tree.GetMeta(tree.Create(new TreeParentId.Root())).Insert("key", LoroVal.Of(n.NodeId)); return unit; })),
+        // Identity-preserving reparent: MovTo relocates the node under its new parent at the index, so a
+        // co-edited canvas reorder never rides delete-plus-recreate losing node identity.
+        nodeMove: static (doc, m) => As<LoroTree>(doc, CollabContainer.Tree, "graph").Bind(tree =>
+            NodeOf(tree, m.NodeId).Bind(target => m.Parent.Match(
+                Some: parentId => NodeOf(tree, parentId).Bind(parent =>
+                    CollabDoc.Lift(() => { tree.MovTo(target, new TreeParentId.Node(parent), m.Index); return unit; })),
+                None: () => CollabDoc.Lift(() => { tree.MovTo(target, new TreeParentId.Root(), m.Index); return unit; })))),
         nodeRemove: static (doc, n) => As<LoroTree>(doc, CollabContainer.Tree, "graph").Bind(tree =>
             NodeOf(tree, n.NodeId).Bind(target => CollabDoc.Lift(() => { tree.Delete(target); return unit; }))),
         edgeAdd: static (doc, e) => Register(doc, "graph/edges").Bind(edges =>
@@ -323,8 +341,8 @@ public static class IntentApply {
 
 - Owner: `LiveWire` the in-session sync path; `SnapshotAccelerator` the content-keyed cold-start accelerator.
 - Entry: `public IDisposable Broadcast(Func<ReadOnlyMemory<byte>, IO<Unit>> sink)` — subscribes to each local op-log delta and pushes the bytes to the composition-bound transport sink; `public IO<Fin<CollabSyncReceipt>> Merge(params ReadOnlyMemory<byte>[] deltas)` — imports one remote session delta through `Import` or a reconnect burst through `ImportBatch`, arity discriminated by the input shape, never a batch flag.
-- Auto: `SubscribeLocalUpdate` yields each local delta `byte[]` so the only outbound path is the transport broadcast and the only inbound path is the one `Merge` entrypoint, and the document is the merge authority so the rail holds NO custom merge logic; a peer joining an ACTIVE session requests `ExportMode.Updates(VersionVector)` against its last-seen frontier FROM A LIVE PEER — session-ephemeral wire, never persisted; the `ImportStatus` carries the success spans plus the pending spans so a delta whose dependency is missing surfaces its pending range rather than silently dropping; the live delta rides the AppHost bus/topics law — the document topic carries data deltas as opaque `DomainEvent` payload rows (the AppHost `topics.md` `[COLLAB_DELTA_FEED]` row, both sides declared) and presence rides its separate ephemeral topic.
-- Receipt: a `CollabSyncReceipt` per merge carrying the delta count, total byte length, the pending-span count, and the import success — sealed through the `ReceiptSinkPort` envelope; `TelemetryRow` contributes the merge-applied and merge-rejected instruments through the AppHost `TelemetryContributorPort`.
+- Auto: `SubscribeLocalUpdate` yields each local delta `byte[]` so the only outbound path is the transport broadcast and the only inbound path is the one `Merge` entrypoint, and the document is the merge authority so the rail holds NO custom merge logic; the subscription callback is a named terminal edge — recovery composes into the `Faults` route before its one `Run`, so a failed outbound publication is observed evidence, never a discarded `Fin`; a peer joining an ACTIVE session requests `ExportMode.Updates(VersionVector)` against its last-seen frontier FROM A LIVE PEER — session-ephemeral wire, never persisted; the `ImportStatus` carries the success spans plus the pending spans so a delta whose dependency is missing surfaces its pending range rather than silently dropping; the live delta rides the AppHost bus/topics law — the document topic carries data deltas as opaque `DomainEvent` payload rows (the AppHost `topics.md` `[COLLAB_DELTA_FEED]` row, both sides declared) and presence rides its separate ephemeral topic.
+- Receipt: a `CollabSyncReceipt` per merge carrying the delta count, total byte length, the pending-span count, and the import success — sealed through its `Diagnostics/evidence.md#RECEIPT_UNION` `EvidenceReceipt.CollabSync` case; `TelemetryRow` contributes the merge-applied and merge-rejected instruments through the AppHost `TelemetryContributorPort`.
 - Packages: LoroCs, Rasm (project), Rasm.Persistence (project), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: one sync instrument is one `InstrumentRow` on `LiveWire.TelemetryRow`; zero new surface.
 - Boundary:
@@ -342,7 +360,7 @@ public readonly record struct CollabSnapshot(string Key, UInt128 ContentKey, lon
 
 public readonly record struct CollabSyncReceipt(string Key, int Deltas, long Bytes, int Pending, bool Applied, Instant At, CorrelationId Correlation);
 
-public sealed record LiveWire(CollabDoc Document, SessionEpoch Epoch, ClockPolicy Clocks, CorrelationId Correlation, Func<CollabSyncReceipt, IO<Unit>> Sink) {
+public sealed record LiveWire(CollabDoc Document, SessionEpoch Epoch, ClockPolicy Clocks, CorrelationId Correlation, Func<CollabSyncReceipt, IO<Unit>> Sink, Func<Error, IO<Unit>> Faults) {
     public const string AppliedInstrument = "rasm.appui.collab.merge-applied";
     public const string RejectedInstrument = "rasm.appui.collab.merge-rejected";
 
@@ -350,16 +368,20 @@ public sealed record LiveWire(CollabDoc Document, SessionEpoch Epoch, ClockPolic
         AppUiTelemetry.Contribute(version, AppliedInstrument, RejectedInstrument);
 
     public IDisposable Broadcast(Func<ReadOnlyMemory<byte>, IO<Unit>> sink) =>
-        Document.Doc.SubscribeLocalUpdate(new LocalSink(sink));
+        Document.Doc.SubscribeLocalUpdate(new LocalSink(sink, Faults));
 
-    private sealed record LocalSink(Func<ReadOnlyMemory<byte>, IO<Unit>> Sink) : LocalUpdateCallback {
-        public void OnLocalUpdate(byte[] update) => ignore(Sink(update).Run());
+    // The subscription callback is the named terminal edge: recovery composes into the Faults route
+    // BEFORE the one Run, so a failed outbound broadcast is observed, never a discarded Fin.
+    private sealed record LocalSink(Func<ReadOnlyMemory<byte>, IO<Unit>> Sink, Func<Error, IO<Unit>> Faults) : LocalUpdateCallback {
+        public void OnLocalUpdate(byte[] update) =>
+            ignore((Sink(update) | @catch<IO, Unit>(static _ => true, error => Faults(error))).As().Run());
     }
 
-    // Input shape discriminates arity: one delta rides Import, a reconnect burst rides ImportBatch.
+    // Input shape discriminates arity: one delta rides the origin-tagged ImportWith (the session epoch
+    // is the origin, so the change feed attributes remote imports), a reconnect burst rides ImportBatch.
     public IO<Fin<CollabSyncReceipt>> Merge(params ReadOnlyMemory<byte>[] deltas) =>
         IO.lift(() => CollabDoc.Lift(() => deltas is [var single]
-                ? Document.Doc.Import(single.ToArray())
+                ? Document.Doc.ImportWith(single.ToArray(), Epoch.Epoch.ToString("N"))
                 : Document.Doc.ImportBatch([.. deltas.AsIterable().Map(static delta => delta.ToArray())]))
             .Map(status => new CollabSyncReceipt(
                 Document.Key, deltas.Length, deltas.AsIterable().Fold(0L, static (sum, delta) => sum + delta.Length),
@@ -395,7 +417,7 @@ flowchart LR
 - Owner: `Presence` the caret-and-awareness owner holding BOTH channel handles; `PresenceKind` `[SmartEnum<string>]` the channel axis every ingress dispatch reads; `CollabCursor` the position that survives concurrent edits; `PresenceDelta` the remote-application receipt.
 - Cases: `PresenceKind` = cursor | awareness under the locked kind literals — `cursor` is the TTL-expiring caret/selection channel through `EphemeralStore`, `awareness` is the per-peer user/color identity through `Awareness`; both modes have an owned transport and lifecycle path on this one owner.
 - Entry: `public static Presence Open(CollabDoc document, ulong peer, long timeoutMs)` — mints both channel handles under one TTL; `public Fin<CollabCursor> Anchor(CollabHandle handle, uint position, PosType source, Side side)` — anchors a stable cursor, converting the editor's declared index space through `ConvertPos(position, source, PosType.Unicode)` BEFORE `GetCursor` so a caret after a supplementary-plane character resolves identically in the editor and in loro; `public Fin<PresenceDelta> ApplyRemote(PresenceKind kind, ReadOnlyMemory<byte> update)` — applies a remote peer's presence bytes onto the kind-selected channel; `public Fin<byte[]> Identity(LoroVal state)` — sets the local peer's awareness state and returns the encoded wire bytes for the transport.
-- Auto: a remote caret/selection publishes through `EphemeralStore` (TTL-expiring) and never enters durable truth, so a stale caret evicts on `RemoveOutdated` rather than persisting; the cursor anchors through `GetCursor(pos, Side)` so it survives concurrent edits, and the rendered caret reads back through `Locate` — `GetCursorPos(cursor)` returning the `PosQueryResult` whose `AbsolutePosition` carries the post-merge position, a gc'd anchor (`CannotFindRelativePosition`) folding to `None` rather than a throw; `Awareness` carries the per-peer user/color identity on its own channel — `SetLocalState` admits, `Encode(peers)` wires out, `Apply` folds a remote update to its `AwarenessPeerUpdate` changed-peer receipt, `GetAllStates` projects the live roster, and `RemoveOutdated` expires the disconnected; both channels encode to `byte[]` riding the same AppHost transport as the data updates but on a separate ephemeral topic, so presence and data never mix; the tour presenter-follow arm (`Collab/tour.md`) rides THIS owner's cursor channel.
+- Auto: a remote caret/selection publishes through `EphemeralStore` (TTL-expiring) and never enters durable truth, so a stale caret evicts on `RemoveOutdated` rather than persisting; the cursor anchors through `GetCursor(pos, Side)` so it survives concurrent edits, and the rendered caret reads back through `Locate` — `GetCursorPos(cursor)` returning the `PosQueryResult` whose `Current` is the `AbsolutePosition` record carrying the post-merge position, a gc'd anchor (`CannotFindRelativePosition`) folding to `None` rather than a throw; `Awareness` carries the per-peer user/color identity on its own channel — `SetLocalState` admits, `Encode(peers)` wires out, `Apply` folds a remote update to its `AwarenessPeerUpdate` changed-peer receipt, and `GetAllStates` projects the live roster; both channels encode to `byte[]` riding the same AppHost transport as the data updates but on a separate ephemeral topic, so presence and data never mix; the tour presenter-follow arm (`Collab/tour.md`) rides THIS owner's cursor channel.
 - Packages: LoroCs, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new presence channel is one `PresenceKind` row plus its `ApplyRemote` arm; a new presence field is one ephemeral key or one awareness-state column; zero new surface.
 - Boundary: presence rides the ephemeral channels beside the data, never durable truth — a caret stored durably is the deleted form, so `EphemeralStore`/`Awareness` are the presence owners and the durable stream carries only edit intents; a cursor-only surface presented as full presence is the deleted form — the awareness half is owned here, admitted, encoded, applied, and expired through the same authority; the anchor boundary carries the SOURCE index encoding — a raw UI offset passed to `GetCursor` and a hard-coded `PosType.Unicode` label are the rejected forms, the `Bytes`/`Unicode`/`Utf16` tri-encoding crossing once through `ConvertPos` at this seam while list ordinals anchor conversion-free; both channel handles are Rust-pointer wrappers the owner disposes; `PosQueryResult` is itself a disposable pair, scoped inside `Locate`.
@@ -444,8 +466,8 @@ public sealed record Presence(CollabDoc Document, ulong Peer, EphemeralStore Cur
             return (at.Current.Pos, at.Current.Side);
         }).ToOption();
 
-    public IDisposable Publish(Func<ReadOnlyMemory<byte>, IO<Unit>> sink) =>
-        Cursors.SubscribeLocalUpdate(new EphemeralSink(Cursors, sink));
+    public IDisposable Publish(Func<ReadOnlyMemory<byte>, IO<Unit>> sink, Func<Error, IO<Unit>> faults) =>
+        Cursors.SubscribeLocalUpdate(new EphemeralSink(Cursors, sink, faults));
 
     public Fin<byte[]> Identity(LoroVal state) =>
         CollabDoc.Lift(() => { Peers.SetLocalState(state); return Peers.Encode([Peer]); });
@@ -460,15 +482,18 @@ public sealed record Presence(CollabDoc Document, ulong Peer, EphemeralStore Cur
             }),
             awareness: static (s, _) => CollabDoc.Lift(() => {
                 AwarenessPeerUpdate changed = s.Self.Peers.Apply(s.Update.ToArray());
-                ignore(s.Self.Peers.RemoveOutdated());
                 return new PresenceDelta(PresenceKind.Awareness, changed.Updated.Length + changed.Added.Length);
             }));
 
     public HashMap<ulong, LoroValue> Roster() =>
         toHashMap(Peers.GetAllStates().AsIterable().Map(static entry => (entry.Key, entry.Value.State)));
 
-    private sealed record EphemeralSink(EphemeralStore Store, Func<ReadOnlyMemory<byte>, IO<Unit>> Sink) : LocalEphemeralListener {
-        public void OnEphemeralUpdate(byte[] update) { Store.RemoveOutdated(); ignore(Sink(update).Run()); }
+    // Same terminal-edge law as the data sink: recovery composes before the one Run.
+    private sealed record EphemeralSink(EphemeralStore Store, Func<ReadOnlyMemory<byte>, IO<Unit>> Sink, Func<Error, IO<Unit>> Faults) : LocalEphemeralListener {
+        public void OnEphemeralUpdate(byte[] update) {
+            Store.RemoveOutdated();
+            ignore((Sink(update) | @catch<IO, Unit>(static _ => true, error => Faults(error))).As().Run());
+        }
     }
 
     public void Dispose() { Cursors.Dispose(); Peers.Dispose(); }
@@ -478,12 +503,12 @@ public sealed record Presence(CollabDoc Document, ulong Peer, EphemeralStore Cur
 ## [06]-[TIME_TRAVEL]
 
 - Owner: `TimeTravel` the checkout-fork-preview-revert owner; `CollabUndo` the local-only undo respecting remote ops.
-- Entry: `public Fin<Unit> Revert(Frontiers cut)` — appends inverse ops returning the document state to a historical cut while preserving history; `public Fin<DiffBatch> Changes(Frontiers from, Frontiers to)` — the typed change-set between two cuts, the revert-preview and audit-inspection read; `public Fin<CollabDoc> Fork(Frontiers cut)` — branches a new independent document from a historical cut; `public Fin<Unit> Undo()` / `Redo()` — drives the local-only `UndoManager` that skips remote ops; `public Fin<Unit> Group(Func<Fin<Unit>> edits)` — brackets a multi-edit transaction between `GroupStart`/`GroupEnd` so it undoes as one unit.
-- Auto: `UndoManager(doc)` is the local-only undo — `AddExcludeOriginPrefix` excludes the programmatic origins (set via `CommitWith(CommitOptions)`) so a user's Ctrl-Z never reverts a peer's concurrent edit, `SetMaxUndoSteps` bounds the window as a policy value, and `GroupStart`/`GroupEnd` coalesce a multi-edit transaction into one undo unit; `RevertTo(Frontiers)` is the history-preserving revert that appends inverse ops (rather than discarding history) so an audited timeline never rewrites; `Checkout(Frontiers)` time-travels the read state to a historical cut for inspection and `CheckoutToLatest` returns, while an edit during checkout faults `EditWhenDetached` so a detached edit is structurally rejected; `Diff(a, b)` previews exactly what a revert will invert before it lands; `ForkAt(Frontiers)` branches an independent document so a what-if exploration never touches the shared timeline; the cut is a `Frontiers` DAG cut (a set of op-ids) read from `OplogFrontiers`, so time-travel keys on the op-log identity the live wire already broadcasts.
-- Receipt: a `CollabRevertReceipt` per revert carrying the target frontier digest and the appended inverse-op count — sealed through the `ReceiptSinkPort` envelope; the undo/redo verbs surface as `CommandIntent` table rows whose availability gates on `UndoManager.CanUndo`/`CanRedo`; a revert ALSO projects its inverse intents onto the durable stream so durable truth and live state never diverge.
+- Entry: `public IO<Fin<CollabRevertReceipt>> Revert(IntentLedger ledger, Frontiers cut)` — the COMMITTED revert: diffs the live cut against the target, decodes the `DiffBatch` into inverse `EditIntent` rows through the composition-bound `Inverse` column, folds each through the ONE `IntentLedger.Commit` rail (durable-first, live apply through the same `IntentApply` dispatch replay uses), and seals a `CollabRevertReceipt`; `public Fin<DiffBatch> Changes(Frontiers from, Frontiers to)` — the typed change-set between two cuts, the revert-preview and audit-inspection read; `public Fin<CollabDoc> Fork(Frontiers cut)` — branches a new independent document from a historical cut; `public Fin<Unit> Undo()` / `Redo()` — drives the local-only `UndoManager` that skips remote ops; `public Fin<Unit> Group(Func<Fin<Unit>> edits)` — brackets a multi-edit transaction between `GroupStart`/`GroupEnd` so it undoes as one unit.
+- Auto: `UndoManager(doc)` is the local-only undo — `AddExcludeOriginPrefix` excludes the programmatic origins (set via `CommitWith(CommitOptions)`) so a user's Ctrl-Z never reverts a peer's concurrent edit, `SetMaxUndoSteps` bounds the window as a policy value, and `GroupStart`/`GroupEnd` coalesce a multi-edit transaction into one undo unit; the committed revert is INVERSE INTENTS through the one commit rail — `Diff(live, cut)` names exactly what inverts, the `Inverse` decode projects those container diffs onto typed `EditIntent` rows (the same closed family every edit rides, aligned with `Editing/history.md`'s `RevertibleOp` inverse algebra), and the fold commits each row durable-first so cold-load replay reproduces the reverted state from the ledger alone; `Checkout(Frontiers)` time-travels the read state to a historical cut for inspection and `CheckoutToLatest` returns, while an edit during checkout faults `EditWhenDetached` so a detached edit is structurally rejected; `ForkAt(Frontiers)` branches an independent document so a what-if exploration never touches the shared timeline; the cut is a `Frontiers` DAG cut (a set of op-ids) read from `OplogFrontiers`, so time-travel keys on the op-log identity the live wire already broadcasts.
+- Receipt: the `CollabRevertReceipt` carries the target frontier digest and the committed inverse-intent count and seals through its `Diagnostics/evidence.md#RECEIPT_UNION` `EvidenceReceipt.CollabRevert` case; the undo/redo verbs surface as `CommandIntent` table rows whose availability gates on `UndoManager.CanUndo`/`CanRedo`.
 - Packages: LoroCs, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: a new time-travel verb is one operation on this owner; one undo verb is one `CommandIntent` row; zero new surface.
-- Boundary: the local undo is `UndoManager` respecting remote-op origins — a hand-rolled undo stack that ignores remote ops is the deleted form, so `AddExcludeOriginPrefix` excludes programmatic origins and a user's Ctrl-Z reverts only the user's own edits; the audited revert is `RevertTo(Frontiers)` (history-preserving inverse ops) not a `Checkout` that discards history, so an audit timeline never loses an intermediate state; `Checkout` is read-only time-travel and an edit during checkout faults `EditWhenDetached` at the boundary, never a silent divergent write; `Fork` branches an independent document so a what-if never mutates the shared one; the undo/redo verbs are `CommandIntent` rows gating on `UndoManager.CanUndo`/`CanRedo` so the toolbar buttons derive from the manager state, never a manual enable flag; `Frontiers`, `DiffBatch`, and the forked document are disposable Rust handles under the same lifetime law as every other crossing; this is the one time-travel owner for the document — the notebook replay-determinism kernel (`Document/notebook.md#REPLAY_BUNDLE`) composes the AppHost determinism kernel for bit-identity proof and is a distinct concern from this document-history time-travel, the two never folded into one revert vocabulary.
+- Growth: a new time-travel verb is one operation on this owner; one undo verb is one `CommandIntent` row; a new invertible container kind is one `Inverse` decode arm; zero new surface.
+- Boundary: the local undo is `UndoManager` respecting remote-op origins — a hand-rolled undo stack that ignores remote ops is the deleted form, so `AddExcludeOriginPrefix` excludes programmatic origins and a user's Ctrl-Z reverts only the user's own edits. A raw `RevertTo(Frontiers)` on a shared document is rejected because Loro-only inverse bytes leave durable truth unable to reproduce the reverted state. `Checkout` is read-only, `Fork` creates an independent document, and committed reverts traverse inverse `EditIntent` rows through `IntentLedger.Commit`; notebook replay remains a separate bit-identity concern.
 
 ```csharp signature
 public sealed record CollabRevertReceipt(string Key, string FrontierDigest, int InverseOps, Instant At, CorrelationId Correlation);
@@ -513,8 +538,34 @@ public sealed record CollabUndo(UndoManager Manager) : IDisposable {
     public void Dispose() => Manager.Dispose();
 }
 
-public sealed record TimeTravel(CollabDoc Document, ClockPolicy Clocks, CorrelationId Correlation) {
-    public Fin<Unit> Revert(Frontiers cut) => CollabDoc.Lift(() => { Document.Doc.RevertTo(cut); return unit; });
+public sealed record TimeTravel(
+    CollabDoc Document,
+    Func<DiffBatch, Fin<Seq<EditIntent>>> Inverse, // composition-bound: DiffBatch -> inverse EditIntent rows, decode-only at the engine boundary
+    ClockPolicy Clocks,
+    CorrelationId Correlation,
+    Func<CollabRevertReceipt, IO<Unit>> Sink) {
+
+    public const string RevertOrigin = "revert";
+
+    // Committed revert = inverse intents through the ONE commit rail: durable-first per row, live apply
+    // through the same IntentApply dispatch replay uses, so cold-load reproduces the reverted state and
+    // a raw engine RevertTo (Loro-byte inverse ops, invisible to the ledger) never runs on a shared doc.
+    public IO<Fin<CollabRevertReceipt>> Revert(IntentLedger ledger, Frontiers cut) =>
+        IO.lift(() => CollabDoc.Lift(() => {
+            using Frontiers live = Document.Doc.OplogFrontiers();
+            using DiffBatch diff = Document.Doc.Diff(live, cut);
+            return Inverse(diff);
+        }).Bind(static decoded => decoded))
+            .Bind(decoded => decoded.Match(
+                Succ: intents => intents
+                    .Fold(IO.pure(Fin.Succ(0)), (rail, intent) => rail.Bind(count => count.Match(
+                        Succ: applied => ledger.Commit(Document, intent, RevertOrigin).Map(done => done.Map(_ => applied + 1)),
+                        Fail: error => IO.pure(Fin.Fail<int>(error)))))
+                    .Bind(count => count.Match(
+                        Succ: applied => IO.lift(() => new CollabRevertReceipt(Document.Key, $"{cut}", applied, Clocks.Now, Correlation))
+                            .Bind(receipt => Sink(receipt).Map(_ => Fin.Succ(receipt))),
+                        Fail: error => IO.pure(Fin.Fail<CollabRevertReceipt>(error)))),
+                Fail: error => IO.pure(Fin.Fail<CollabRevertReceipt>(error))));
 
     public Fin<Unit> Inspect(Frontiers cut) => CollabDoc.Lift(() => { Document.Doc.Checkout(cut); return unit; });
 
@@ -538,10 +589,7 @@ flowchart LR
     Presence -->|cursor channel| EphemeralStore
     Presence -->|identity channel| Awareness
     CollabDoc --> TimeTravel
+    TimeTravel -->|inverse EditIntent rows| IntentLedger
     TimeTravel --> CollabUndo
     CollabUndo -->|origin-exclude| UndoManager
 ```
-
-## [07]-[RESEARCH]
-
-- [TEXT_CONVERGENCE_PROBE]: the `TextRunGate` flips `Probing` -> `Sealed` only after a two-replica concurrent-intra-cell-edit convergence probe passes on the Persistence `CrdtField.RgaSequence` wire — the stable-position run-op encoding and the total `TextRunOp` replay arm are settled contract shape; the probe gates ADMISSION at `IntentLedger.Project`, never replay.

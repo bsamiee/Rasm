@@ -1,22 +1,22 @@
 # [APPUI_RICH_CONTENT_MEDIA]
 
-A rich-content-and-media owner renders markdown to live Avalonia inlines and plays image/video/audio through one `MediaSurface` over codec rows, so documentation cells, help, and embedded media become first-class content surfaces beside the code editor. `MarkdownInlineRenderer` walks the `Theme/typography` `MarkdownRow`/`InlineRun` projection into theme-token-styled `Avalonia.Controls.Documents` inlines (the retained materialization the typography projection produces rows for but does not itself mount), and `MediaSurface` is the `[Union]` over image/video/audio codec rows mounting on the one render `SurfaceSeam` with `HanumanInstitute.LibMpv.Avalonia` driving video/audio and the admitted `AsyncImageLoader` the image row. The page owns the markdown retained-materialization, the media codec-row union, and the playback transport; it mints no second markdown model (the typography owner holds the AST projection), no second image cache, and no per-surface codec — one content vocabulary serves every rich surface and a new codec is one row (the `[05]-[PROHIBITIONS]` per-surface-AsyncImageLoader and SKSurface-outside-Offscreen clauses hold). The spine is `Theme/typography` `MarkdownProjection`, `Avalonia.Controls.Documents`, `AsyncImageLoader.Avalonia`, `HanumanInstitute.LibMpv`/`HanumanInstitute.LibMpv.Avalonia` (`.api/api-libmpv.md`), the render `SurfaceSeam`, Thinktecture.Runtime.Extensions, and LanguageExt rails.
+A rich-content-and-media owner renders markdown to live Avalonia inlines and plays image/svg/video/audio through one `MediaSurface` over codec rows, so documentation cells, help, and embedded media become first-class content surfaces beside the code editor. `MarkdownInlineRenderer` walks the `Theme/typography` `MarkdownRow`/`InlineRun` projection into theme-token-styled `Avalonia.Controls.Documents` inlines (the retained materialization the typography projection produces rows for but does not itself mount) with a link-hit table for pointer resolution, and `MediaSurface` is the `[Union]` over image/svg/video/audio codec rows whose materialized control crosses to its host through the one `Shell/hosts.md` `Surfaces.Mount` rail — `HanumanInstitute.LibMpv.Avalonia` drives video/audio, the admitted `AsyncImageLoader` the image row, and `Avalonia.Svg.Skia` the vector row. The page owns the markdown retained-materialization, the media codec-row union, and the playback transport; it mints no second markdown model (the typography owner holds the AST projection), no second image cache, and no per-surface codec — one content vocabulary serves every rich surface and a new codec is one row (the `[05]-[PROHIBITIONS]` per-surface-AsyncImageLoader and SKSurface-outside-Offscreen clauses hold). The spine is `Theme/typography` `MarkdownProjection`, `Avalonia.Controls.Documents`, `AsyncImageLoader.Avalonia`, `Svg.Controls.Skia.Avalonia`, `HanumanInstitute.LibMpv`/`HanumanInstitute.LibMpv.Avalonia` (`.api/api-libmpv.md`), the `Shell/hosts.md` mount rail, Thinktecture.Runtime.Extensions, and LanguageExt rails.
 
 ## [01]-[INDEX]
 
-- [01]-[MARKDOWN_INLINES]: The `MarkdownRow`/`InlineRun` retained materialization into theme-token Avalonia inlines.
-- [02]-[MEDIA_SURFACE]: The `MediaSurface` `[Union]` codec rows mounting on the one render `SurfaceSeam`.
-- [03]-[PLAYBACK_TRANSPORT]: One playback transport rail over the libmpv `MpvContext`.
+- [02]-[MARKDOWN_INLINES]: The `MarkdownRow`/`InlineRun` retained materialization into theme-token Avalonia inlines; the link-hit table.
+- [03]-[MEDIA_SURFACE]: The `MediaSurface` `[Union]` codec rows materialized for the one `Surfaces.Mount` crossing.
+- [04]-[PLAYBACK_TRANSPORT]: One playback transport rail over the libmpv `MpvContext` — transport, track-selection, and loop verbs.
 
 ## [02]-[MARKDOWN_INLINES]
 
-- Owner: `MarkdownInlineRenderer` the `MarkdownRow`/`InlineRun`-to-Avalonia-inline materialization; `InlineStyle` the per-run token-style resolve; `ContentFault` the typed fault family on the `AppUiFaultBand.Content` registry row (6410).
+- Owner: `MarkdownInlineRenderer` the `MarkdownRow`/`InlineRun`-to-Avalonia-inline materialization; `MarkdownRendered` the inline collection plus the span-keyed link-hit table; `ContentFault` the typed fault family on the `AppUiFaultBand.Content` registry row (6410).
 - Cases: `ContentFault` = Text | UnresolvedRole | CodecAbsent | DecodeFailed.
-- Entry: `public InlineCollection Render(MarkdownDocumentRows rows, FontChain chain)` — materializes the `Theme/typography` `MarkdownProjection.Project` rows into one `InlineCollection` of `Avalonia.Controls.Documents` `Run`/`Bold`/`Italic`/`Span` styled through the resolved `TextStyleRow`; `public Control Block(MarkdownRow row, FontChain chain)` — materializes a block row (heading, quote, list, grid, code-fence, rule) into its container control.
-- Auto: the markdown AST projection is owned by `Theme/typography` (`MarkdownProjection`, the closed seven-arm fold to `MarkdownRow`/`InlineRun`) — this renderer consumes those rows and never re-parses, so a parallel markdown model is the deleted form; each `InlineRun` materializes into a `Run` wrapped in `Bold`/`Italic`/`Span` per its `Strong`/`Emphasis`/`Code`/`Link` flags, styled through `TextStyleRow.Resolve(role, chain)` so the inline font, weight, tracking, line-height, and OpenType features ride the one `TypographyRole` vocabulary (the `Code` run takes the mono role, a heading takes its `HeadingRole`); a `CodeFence` row hands off to the `Inspector#CODE_EDITING` `CodePane` with its language tag so the renderer never highlights code; an `HtmlBlock`/`HtmlInline` run degrades to empty per the typography projection so raw HTML never enters the retained tree; the round-trip `SourceSpan` on each run maps a retained run back to its byte range for editor sync.
+- Entry: `public static MarkdownRendered Render(MarkdownDocumentRows rows, FontChain chain)` — materializes the inline-bearing `Theme/typography` rows into one `InlineCollection` plus the span-keyed `LinkHit` table. Block rows retain their typed payload for the code, mathematics, and retained-control consumers; this owner does not advertise a block entrypoint it does not implement.
+- Auto: the markdown AST projection is owned by `Theme/typography` (`MarkdownProjection`, the closed eleven-arm fold to `MarkdownRow`/`InlineRun`) — this renderer consumes those rows and never re-parses. Each `InlineRun` materializes every column: `Strong`, `Emphasis`, `Strike`, `Code`, `Math`, `Link`, and `Checked`; code and inline mathematics resolve through the mono typography role until the math-layout consumer replaces the retained run. The round-trip `SourceSpan` maps each retained run to its source range.
 - Packages: Markdig, Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new inline style is one `InlineStyle` resolve over an existing `TypographyRole`; a new block container is one `Block` arm over the closed `MarkdownRow` family; zero new surface.
-- Boundary: the markdown AST is the `Theme/typography` owner — the renderer materializes its `MarkdownRow`/`InlineRun` rows into `Avalonia.Controls.Documents` inlines and a `Markdig` re-parse or a parallel markdown node model is the deleted form (the typography `MARKDOWN_PROJECTION` boundary names this retained materialization as the consumer of its rows); every inline styles through `TextStyleRow.Resolve` so an inline font literal is the rejected form and the markdown styling rides the one typography vocabulary (the `csharp:Rasm.AppUi/Theme/typography` seam owns the inline-styling roles); the renderer materializes `Run` inside `Span`/`Bold`/`Italic` with `LineBreak` appended to one `InlineCollection`, so a hand-built `TextBlock` per run is the deleted form; `Inlines` dispatches the closed `MarkdownRow` family through the total generated `.Switch` so a new `MarkdownRow` case breaks this site at compile time and a silent `_` catch-all dropping a block is the rejected form — the inline-bearing arms (`Paragraph`/`Heading`/`Quote`) project runs while the block-container arms (`ListRows`/`Grid`/`CodeFence`/`Rule`) return empty here and materialize through `Block`, so the inline-versus-block split is exhaustive and compile-checked; the code-fence hands off to the `CodePane` so the renderer owns only prose and a fenced-code highlighter here is the rejected form; the notebook markdown cells, help, and inspector docs consume this one renderer so a notebook-local markdown renderer is the deleted form (`Notebook#CELL_MODEL` markdown cells route here).
+- Growth: a new inline column is one `Styled` fold arm; a new `MarkdownRow` case breaks the generated dispatch and requires an explicit routing verdict.
+- Boundary: the renderer dispatches all eleven current `MarkdownRow` cases — `Heading`, `Paragraph`, `Quote`, `Callout`, `ListRows`, `Definitions`, `Grid`, `CodeFence`, `Math`, `Rule`, and `Opaque`. Inline-bearing rows materialize here; block rows return an explicit empty inline projection and retain their typed payload for their owning consumer. A `Markdig` re-parse, silent catch-all, or claim that an empty inline projection rendered a block is rejected.
 
 ```csharp signature
 [Union]
@@ -31,43 +31,64 @@ public abstract partial record ContentFault : Expected, IValidationError<Content
     public sealed record DecodeFailed : ContentFault { public DecodeFailed(string detail) : base(detail, AppUiFaultBand.Content.Code(3)) { } }
 }
 
+public readonly record struct LinkHit(SourceSpan Span, string Url);
+
+public sealed record MarkdownRendered(InlineCollection Inlines, Seq<LinkHit> Links);
+
 public static class MarkdownInlineRenderer {
-    public static InlineCollection Render(MarkdownDocumentRows rows, FontChain chain) {
+    public static MarkdownRendered Render(MarkdownDocumentRows rows, FontChain chain) {
         InlineCollection collection = [];
-        rows.Body.Iter(row => Inlines(row, chain).Iter(collection.Add));
-        return collection;
+        Seq<LinkHit> links = rows.Body.Fold(Seq<LinkHit>(), (acc, row) => {
+            (Seq<Inline> inlines, Seq<LinkHit> hits) = Inlines(row, chain);
+            inlines.Iter(collection.Add);
+            return acc + hits;
+        });
+        return new MarkdownRendered(collection, links);
     }
 
-    static Seq<Inline> Inlines(MarkdownRow row, FontChain chain) => row.Switch(
+    // Inline-bearing arms project runs; block rows retain their typed payload. The generated switch is
+    // exhaustive over the closed eleven-arm family, so a new row case breaks this dispatch.
+    static (Seq<Inline> Inlines, Seq<LinkHit> Links) Inlines(MarkdownRow row, FontChain chain) => row.Switch(
         state: chain,
-        paragraph: static (c, paragraph) => paragraph.Runs.Map(run => Styled(run, TypographyRole.Body, c)),
-        heading: static (c, heading) => heading.Runs.Map(run => Styled(run, heading.Role, c)),
-        quote: static (c, quote) => quote.Children.Bind(child => Inlines(child, c)),
-        listRows: static (_, _) => Seq<Inline>(),
-        grid: static (_, _) => Seq<Inline>(),
-        codeFence: static (_, _) => Seq<Inline>(),
-        rule: static (_, _) => Seq<Inline>());
+        heading: static (c, heading) => Styled(heading.Runs, heading.Role, c),
+        paragraph: static (c, paragraph) => Styled(paragraph.Runs, TypographyRole.Body, c),
+        quote: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
+        callout: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
+        listRows: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
+        definitions: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
+        grid: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
+        codeFence: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
+        math: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
+        rule: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()),
+        opaque: static (_, _) => (Seq<Inline>(), Seq<LinkHit>()));
 
-    static Inline Styled(InlineRun run, TypographyRole role, FontChain chain) {
-        TextStyleRow style = TextStyleRow.Resolve(run.Code ? TypographyRole.Code : role, chain);
-        Inline inline = new Run(run.Text) { FontFamily = new FontFamily(style.Family), FontSize = style.Size, FontWeight = (FontWeight)style.Weight };
-        inline = run.Strong ? new Bold { Inlines = { inline } } : inline;
-        inline = run.Emphasis ? new Italic { Inlines = { inline } } : inline;
-        return inline;
-    }
+    static (Seq<Inline>, Seq<LinkHit>) Styled(Seq<InlineRun> runs, TypographyRole role, FontChain chain) =>
+        runs.Fold((Inlines: Seq<Inline>(), Links: Seq<LinkHit>()), (acc, run) => {
+            TextStyleRow style = TextStyleRow.Resolve(run.Code || run.Math ? TypographyRole.Code : role, chain);
+            Inline inline = new Run(run.Checked.Match(Some: static done => done ? "☑ " : "☐ ", None: () => string.Empty) + run.Text) {
+                FontFamily = new FontFamily(style.Family), FontSize = style.Size, FontWeight = (FontWeight)style.Weight,
+            };
+            if (run.Strike) { inline.TextDecorations = TextDecorations.Strikethrough; }
+            run.Link.Iter(_ => inline.TextDecorations = TextDecorations.Underline);
+            inline = run.Strong ? new Bold { Inlines = { inline } } : inline;
+            inline = run.Emphasis ? new Italic { Inlines = { inline } } : inline;
+            return (acc.Inlines.Add(inline), run.Link.Match(
+                Some: url => acc.Links.Add(new LinkHit(run.Span, url)),
+                None: () => acc.Links));
+        });
 }
 ```
 
 ## [03]-[MEDIA_SURFACE]
 
-- Owner: `MediaSurface` the `[Union]` codec-row family; `MediaCodec` the per-kind decode-and-mount row; `MediaReceipt` the load evidence.
-- Cases: `MediaSurface` = Image | Video | Audio under the locked kind literals — image rides the admitted `AsyncImageLoader`, video and audio ride `HanumanInstitute.LibMpv.Avalonia` on the one `SurfaceSeam`.
-- Entry: `public Fin<Control> Mount(MediaSurface surface, SurfaceSeam seam)` — projects each codec row onto its control mounted on the one render `SurfaceSeam`; the `Fin` rail seals a `CodecAbsent` fault when a codec's native backend is unprovisioned.
-- Auto: the `Image` case mounts the admitted `AsyncImageLoader.Avalonia` `AdvancedImage` control with its `Loader` set to the global `ImageLoader.AsyncImageLoader` (the `RamCachedWebImageLoader`-backed single cache) so an image loads async off the UI thread through the one image cache with `AdvancedImage` owning load state, fallback, and `Stretch` (the `[05]-[PROHIBITIONS]` per-surface-AsyncImageLoader clause — one cache, not per-surface); the `Video` and `Audio` cases compose `MpvView` with `Renderer` set to `VideoRenderer.OpenGl` so playback shares the Avalonia GL surface rather than a `NativeControlHost` airspace (`.api/api-libmpv.md` local admission), mounting on the one render `SurfaceSeam`; a new codec is one `MediaSurface` case so the codec vocabulary is the absorbing axis; every media surface mounts on the single `SurfaceSeam` render host so a per-surface codec is deleted.
-- Receipt: `MediaReceipt` — surface key, codec kind, source identity, mount outcome, `Instant`; `TelemetryRow` contributes the media-mounted and media-failed instruments inward through the AppHost `TelemetryContributorPort`.
-- Packages: AsyncImageLoader.Avalonia, HanumanInstitute.LibMpv, HanumanInstitute.LibMpv.Avalonia, Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
-- Growth: a new codec is one `MediaSurface` case mounting on the same `SurfaceSeam`; one media instrument is one `InstrumentRow` on `MediaSurfaces.TelemetryRow`; zero new surface.
-- Boundary: the media vocabulary is the one `MediaSurface` union — a per-surface codec, a second image cache, and a parallel video player are the rejected forms, so a new codec is one row and every surface mounts on the one `SurfaceSeam` (`Hosts#HOST_AXIS`); the image row is the admitted `AsyncImageLoader` single cache so a per-surface `AsyncImageLoader` is the `[05]-[PROHIBITIONS]` rejected form; the video/audio row is `HanumanInstitute.LibMpv.Avalonia` on the OpenGL render path so a bundled libmpv native binary and a `NativeControlHost` airspace embedding are the rejected forms (`.api/api-libmpv.md` reject law), the libmpv native provisioning at the app-host distribution layer; the media surface never owns an `SKSurface` — its render rides the libmpv GL path and the image cache, so an `SKSurface` outside the `Offscreen` capsule is the `[05]-[PROHIBITIONS]` rejected form; playback control flows through the `MpvContext` the bound `IVideoView` exposes, never a hand-rolled mpv command marshaller (`.api/api-libmpv.md` reject); every `MpvContext`/view/overlay disposes through `IVideoView.Dispose` at teardown so the render context releases.
+- Owner: `MediaSurface` the `[Union]` codec-row family; `MediaReceipt` the mount evidence.
+- Cases: `MediaSurface` = Image | Svg | Video | Audio under the locked kind literals — image rides the admitted `AsyncImageLoader`, vector rides the `Avalonia.Svg.Skia` `Svg` control, video and audio ride `HanumanInstitute.LibMpv.Avalonia`.
+- Entry: `public static IO<Fin<Control>> Materialize(MediaSurface surface, Func<MediaReceipt, IO<Unit>> sink, ClockPolicy clocks)` — the ONE codec dispatch: projects each row onto its control with source intake ON THE RAIL — a video/audio row runs `PlaybackTransport.Load` to completion before the control returns, so a failed intake folds `ContentFault` and a returned control never represents a failed load; every materialization seals a `MediaReceipt` through the composition-bound sink, mounted and failed alike.
+- Auto: the `Image` case assigns `AdvancedImage.Source` and the global `ImageLoader.AsyncImageLoader`, so intake uses the one shared cache; `FallbackImage`, `IsLoading`, and `CurrentImage` remain host-bindable control projections rather than fabricated receipt fields. The `Svg` case assigns the catalogued `Path`, and video/audio compose `MpvView` on `VideoRenderer.OpenGl`.
+- Receipt: `MediaReceipt` — surface key, codec kind, source identity, mount outcome, `Instant`; the mounted and failed instruments contribute inward through `MediaSurfaces.TelemetryRow`, and the receipt seals through its `Diagnostics/evidence.md#RECEIPT_UNION` `EvidenceReceipt.Media` case.
+- Packages: AsyncImageLoader.Avalonia, Svg.Controls.Skia.Avalonia, HanumanInstitute.LibMpv, HanumanInstitute.LibMpv.Avalonia, Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
+- Growth: a new codec is one `MediaSurface` case with one `Materialize` arm; one media instrument is one `InstrumentRow` on `MediaSurfaces.TelemetryRow`; zero new surface.
+- Boundary: the media vocabulary is the one `MediaSurface` union — a per-surface codec, a second image cache, and a parallel video player are the rejected forms; the materialized control crosses to its host through the ONE `Shell/hosts.md` `Surfaces.Mount(SurfaceHost, SurfaceSeam, Control, ClockPolicy, CorrelationId)` rail composed at the shell edge — `SurfaceSeam` carries mount delegate COLUMNS, not a mount method, so a media-local `seam.Mount(view)` spelling is a phantom and the host crossing is never re-derived here; source intake runs on the IO rail BEFORE the control returns — a mid-pipeline `.Run()` whose `Fin` is discarded is the deleted form, so a load failure reaches the caller as `ContentFault` and a mounted control never represents a failed intake; the video/audio row is `HanumanInstitute.LibMpv.Avalonia` on the OpenGL render path so a bundled libmpv native binary and a `NativeControlHost` airspace embedding are the rejected forms (`.api/api-libmpv.md` reject law), the libmpv native provisioning at the app-host distribution layer; the media surface never owns an `SKSurface` — its render rides the libmpv GL path, the `Svg` control's engine, and the image cache, so an `SKSurface` outside the `Offscreen` capsule is the `[05]-[PROHIBITIONS]` rejected form; playback control flows through the `MpvContext` the bound `IVideoView` exposes, never a hand-rolled mpv command marshaller (`.api/api-libmpv.md` reject); every `MpvContext`/view/overlay disposes through `IVideoView.Dispose` at teardown so the render context releases.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -75,12 +96,15 @@ public abstract partial record MediaSurface {
     private MediaSurface() { }
 
     public sealed record Image(string Key, string Source, Stretch Stretch) : MediaSurface;
+    public sealed record Svg(string Key, string Source) : MediaSurface;
     public sealed record Video(string Key, string Source, bool AutoPlay, bool Loop) : MediaSurface;
     public sealed record Audio(string Key, string Source, bool AutoPlay) : MediaSurface;
 
-    public string Key => Switch(image: static i => i.Key, video: static v => v.Key, audio: static a => a.Key);
+    public string Key => Switch(image: static i => i.Key, svg: static s => s.Key, video: static v => v.Key, audio: static a => a.Key);
 
-    public string Source => Switch(image: static i => i.Source, video: static v => v.Source, audio: static a => a.Source);
+    public string Source => Switch(image: static i => i.Source, svg: static s => s.Source, video: static v => v.Source, audio: static a => a.Source);
+
+    public string Kind => Switch(image: static _ => "image", svg: static _ => "svg", video: static _ => "video", audio: static _ => "audio");
 }
 
 public sealed record MediaReceipt(string Key, string Codec, string Source, bool Mounted, Instant At) {
@@ -94,43 +118,62 @@ public static class MediaSurfaces {
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, MountedInstrument, FailedInstrument);
 
-    public static Fin<Control> Mount(MediaSurface surface, SurfaceSeam seam) => surface.Switch(
-        state: seam,
-        image: static (s, i) => Fin<Control>.Succ(new AdvancedImage(new Uri(i.Source)) { Stretch = i.Stretch, Loader = ImageLoader.AsyncImageLoader }),
-        video: static (s, v) => Wire(s, v.Source, v.AutoPlay, v.Loop),
-        audio: static (s, a) => Wire(s, a.Source, a.AutoPlay, loop: false));
+    // The one codec dispatch: intake runs ON the rail — a video/audio load failure folds before the
+    // control exists, and the receipt seals mounted and failed alike through the composition-bound sink.
+    public static IO<Fin<Control>> Materialize(MediaSurface surface, Func<MediaReceipt, IO<Unit>> sink, ClockPolicy clocks) =>
+        surface.Switch<(Func<MediaReceipt, IO<Unit>> Sink, ClockPolicy Clocks), IO<Fin<Control>>>(
+            state: (sink, clocks),
+            image: static (ctx, i) => Sealed(ctx, i, IO.lift(() =>
+                Fin<Control>.Succ(new AdvancedImage(new Uri(i.Source)) { Source = i.Source, Stretch = i.Stretch, Loader = ImageLoader.AsyncImageLoader }))),
+            svg: static (ctx, s) => Sealed(ctx, s, IO.lift(() =>
+                Fin<Control>.Succ(new Avalonia.Svg.Skia.Svg(new Uri(s.Source)) { Path = s.Source }))),
+            video: static (ctx, v) => Sealed(ctx, v, Wire(v.Source, v.AutoPlay, v.Loop)),
+            audio: static (ctx, a) => Sealed(ctx, a, Wire(a.Source, a.AutoPlay, loop: false)));
 
-    // The wired mount: MpvContext binds onto the view's MpvContextProperty, the AutoPlay/Loop columns
-    // land as Pause/LoopFile options, and source intake runs the ONE PlaybackTransport.Load rail to
-    // completion BEFORE the view mounts — a load failure faults the mount instead of racing it.
-    static Fin<Control> Wire(SurfaceSeam seam, string source, bool autoPlay, bool loop) =>
-        Guarded(() => {
+    static IO<Fin<Control>> Sealed((Func<MediaReceipt, IO<Unit>> Sink, ClockPolicy Clocks) ctx, MediaSurface surface, IO<Fin<Control>> mount) =>
+        mount.Bind(outcome => ctx.Sink(new MediaReceipt(surface.Key, surface.Kind, surface.Source, outcome.IsSucc, ctx.Clocks.Now))
+            .Map(_ => outcome));
+
+    // The wired mount: MpvContext binds onto MpvContextProperty, AutoPlay/Loop land as Pause/LoopFile
+    // options, and the ONE PlaybackTransport.Load rail completes BEFORE the view returns — a load
+    // failure folds ContentFault.DecodeFailed on the rail, never a mounted control over a dead source.
+    static IO<Fin<Control>> Wire(string source, bool autoPlay, bool loop) =>
+        IO.lift(() => {
             MpvContext context = new();
             MpvView view = new() { Renderer = VideoRenderer.OpenGl };
             view.SetValue(MpvView.MpvContextProperty, context);
+            context.ObserveProperty(1, "time-pos", MpvFormat.Double);
+            context.ObserveProperty(2, "duration", MpvFormat.Double);
+            context.ObserveProperty(3, "time-remaining", MpvFormat.Double);
+            context.ObserveProperty(4, "pause", MpvFormat.Flag);
+            context.ObserveProperty(5, "seeking", MpvFormat.Flag);
+            context.ObserveProperty(6, "eof-reached", MpvFormat.Flag);
             context.Pause.Set(!autoPlay);
             if (loop) { context.LoopFile.Set("inf"); }
-            PlaybackTransport.Load(context, source).Run();
-            return seam.Mount(view);
-        });
-
-    static Fin<Control> Guarded(Func<Control> mount) {
-        try { return Fin.Succ(mount()); }
-        catch (Exception ex) { return Fin.Fail<Control>(new ContentFault.CodecAbsent(ex.Message)); }
-    }
+            return (Context: context, View: view);
+        })
+        .Bind(wired => (PlaybackTransport.Load(wired.Context, source).Map(_ => Fin<Control>.Succ(wired.View))
+            | @catch<IO, Fin<Control>>(static _ => true, error => IO.pure(Fin.Fail<Control>(new ContentFault.DecodeFailed(error.Message))))).As());
 }
 ```
 
 ## [04]-[PLAYBACK_TRANSPORT]
 
-- Owner: `PlaybackTransport` the one playback transport over the libmpv `MpvContext`; `TransportVerb` the payload-bearing verb `[Union]`; `TransportState` the observed position-and-state snapshot.
+- Owner: `PlaybackTransport` the one playback transport over the libmpv `MpvContext`; `TransportVerb` the payload-bearing verb `[Union]`; `TrackKind` `[SmartEnum<string>]` the track-selection axis; `TransportState` the observed position-and-state snapshot.
 - Entry: `public IO<Unit> Load(MpvContext context, string source)` — opens media through `LoadFile`; `public IO<Unit> Command(MpvContext context, TransportVerb verb)` — the ONE total dispatch folding every verb case onto its `MpvContext` member, never a per-control playback handler; `public IObservable<TransportState> Observe(MpvContext context)` — the observed state projection off `ObserveProperty` registrations and the `PropertyChanged` event.
-- Auto: the verb family is a `[Union]` because seek, speed, volume, and mute carry per-occurrence payloads — play/pause fold onto the `Pause` option, seek onto the `TimePos` property write, speed/volume/mute onto their options, frame step onto `FrameStep`/`FrameBackStep`, stop onto `Stop`, and the scrub revert onto `RevertSeek` (`.api/api-libmpv.md` transport commands and properties); a new verb is one case that breaks the total `Switch` at compile time; position and state surface through the observed `MpvPropertyRead` members (`TimePos`, `Duration`, `Pause`, `Seeking`) registered once through `ObserveProperty` and folded from `PropertyChanged`, so the surface never polls libmpv on a timer; each verb derives its `Intent` key symbolically from its case so the media-control toolbar rows derive from the one command table with zero literal drift; every dispatched verb seals a `MediaReceipt` so playback evidence rides the one stream.
+- Auto: the verb family is a `[Union]` because seek, speed, volume, mute, track selection, and section loops carry per-occurrence payloads — play/pause fold onto the `Pause` option, seek onto the `TimePos` property write, speed/volume/mute onto their options, frame step onto `FrameStep`/`FrameBackStep`, stop onto `Stop`, the scrub revert onto `RevertSeek`, active-track selection onto the `AudioId`/`SubId`/`VideoId` option rows keyed by the `TrackKind` axis, an external subtitle onto the `SubAdd` command, and the A-B section loop onto the `AbLoopA`/`AbLoopB` option pair (`.api/api-libmpv.md` transport commands, track members, and properties); a new verb is one case that breaks the total `Switch` at compile time; position and state surface through the observed `MpvPropertyRead` members (`TimePos`, `Duration`, `TimeRemaining`, `Pause`, `Seeking`, `EofReached`) registered once through `ObserveProperty` and folded from `PropertyChanged`, so the surface never polls libmpv on a timer; each verb derives its `Intent` key symbolically from its case so the media-control toolbar rows derive from the one command table with zero literal drift.
 - Packages: HanumanInstitute.LibMpv, System.Reactive, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new transport verb is one `TransportVerb` case folding onto its `MpvContext` member; zero new surface.
-- Boundary: playback transport is the one rail over the typed `MpvContext` — a hand-rolled mpv command/property marshaller is the rejected form (`.api/api-libmpv.md` reject), so transport verbs fold onto the named `MpvContext` members and command intake rides the catalogued `MpvCommand` `InvokeAsync` deferred invocation; position surfaces through observed `MpvPropertyRead`/`PropertyChanged`, never a polling timer; transport verbs derive as `CommandIntent` rows so a media control is an intent key, never a transport-local command registry; a transient scrub seeks the live position and `RevertSeek` returns to the pre-scrub mark, so scrub-and-revert rides the libmpv transport rather than a snapshot.
+- Growth: a new transport verb is one `TransportVerb` case folding onto its `MpvContext` member; a new selectable track lane is one `TrackKind` row; zero new surface.
+- Boundary: playback transport is the one rail over the typed `MpvContext` — a hand-rolled mpv command/property marshaller is the rejected form (`.api/api-libmpv.md` reject), so transport verbs fold onto the named `MpvContext` members and command intake rides the catalogued `MpvCommand` `InvokeAsync` deferred invocation; position surfaces through observed `MpvPropertyRead`/`PropertyChanged`, never a polling timer; transport verbs derive as `CommandIntent` rows executed through the command deck, so playback evidence rides the deck's `CommandReceipt` stream and a transport-local receipt or command registry is the deleted form; a transient scrub seeks the live position and `RevertSeek` returns to the pre-scrub mark, so scrub-and-revert rides the libmpv transport rather than a snapshot; the `AudioId`/`SubId`/`VideoId` rows are `MpvOptionWithAutoNo<int>` sentinel wrappers — the typed id write rides the option base and the `auto`/`no` sentinel members ride the catalogued wrapper, never a raw property string.
 
 ```csharp signature
+[SmartEnum<string>]
+public sealed partial class TrackKind {
+    public static readonly TrackKind Audio = new("audio");
+    public static readonly TrackKind Subtitle = new("subtitle");
+    public static readonly TrackKind Video = new("video");
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TransportVerb {
     private TransportVerb() { }
@@ -142,38 +185,53 @@ public abstract partial record TransportVerb {
     public sealed record Mute(bool Muted) : TransportVerb;
     public sealed record Step(bool Back) : TransportVerb;
     public sealed record Revert : TransportVerb;
+    public sealed record Track(TrackKind Lane, int Id) : TransportVerb;
+    public sealed record Subtitle(string Path) : TransportVerb;
+    public sealed record SectionLoop(double From, double To) : TransportVerb;
     public sealed record Stop : TransportVerb;
 
     public string Kind => Switch(
         play: static _ => "play", pause: static _ => "pause", seek: static _ => "seek",
         speed: static _ => "speed", volume: static _ => "volume", mute: static _ => "mute",
-        step: static _ => "step", revert: static _ => "revert", stop: static _ => "stop");
+        step: static _ => "step", revert: static _ => "revert", track: static _ => "track",
+        subtitle: static _ => "subtitle", sectionLoop: static _ => "section-loop", stop: static _ => "stop");
 
     public string Intent => $"media.{Kind}";
 }
 
-public readonly record struct TransportState(double Position, double Duration, bool Playing, bool Seeking);
+public readonly record struct TransportState(double Position, double Duration, double Remaining, bool Playing, bool Seeking, bool Ended);
 
 public static class PlaybackTransport {
     public static IO<Unit> Load(MpvContext context, string source) =>
         IO.liftAsync(async () => { await context.LoadFile(source).InvokeAsync().ConfigureAwait(false); return unit; });
 
-    // The one verb dispatch: options and property writes ride their typed SetAsync, command verbs ride the
-    // MpvCommand InvokeAsync dual — no raw mpv command strings anywhere.
+    // The one verb dispatch: options and property writes ride their typed SetAsync, command verbs ride
+    // the MpvCommand InvokeAsync dual — no raw mpv command strings anywhere.
     public static IO<Unit> Command(MpvContext context, TransportVerb verb) => verb.Switch(
         state: context,
-        play:   static (mpv, _) => Write(mpv.Pause, false),
-        pause:  static (mpv, _) => Write(mpv.Pause, true),
-        seek:   static (mpv, s) => IO.liftAsync(async () => { await mpv.TimePos.SetAsync(s.Seconds).ConfigureAwait(false); return unit; }),
-        speed:  static (mpv, s) => Write(mpv.Speed, s.Rate),
-        volume: static (mpv, v) => Write(mpv.Volume, v.Level),
-        mute:   static (mpv, m) => Write(mpv.Mute, m.Muted),
-        step:   static (mpv, s) => Invoke(s.Back ? mpv.FrameBackStep() : mpv.FrameStep()),
-        revert: static (mpv, _) => Invoke(mpv.RevertSeek(default)),
-        stop:   static (mpv, _) => Invoke(mpv.Stop()));
+        play:        static (mpv, _) => Write(mpv.Pause, false),
+        pause:       static (mpv, _) => Write(mpv.Pause, true),
+        seek:        static (mpv, s) => IO.liftAsync(async () => { await mpv.TimePos.SetAsync(s.Seconds).ConfigureAwait(false); return unit; }),
+        speed:       static (mpv, s) => Write(mpv.Speed, s.Rate),
+        volume:      static (mpv, v) => Write(mpv.Volume, v.Level),
+        mute:        static (mpv, m) => Write(mpv.Mute, m.Muted),
+        step:        static (mpv, s) => Invoke(s.Back ? mpv.FrameBackStep() : mpv.FrameStep()),
+        revert:      static (mpv, _) => Invoke(mpv.RevertSeek(default)),
+        track:       static (mpv, t) => t.Lane.Switch(
+            state: (Mpv: mpv, t.Id),
+            audio:    static (s, _) => IO.liftAsync(async () => { await s.Mpv.AudioId.SetAsync(s.Id).ConfigureAwait(false); return unit; }),
+            subtitle: static (s, _) => IO.liftAsync(async () => { await s.Mpv.SubId.SetAsync(s.Id).ConfigureAwait(false); return unit; }),
+            video:    static (s, _) => IO.liftAsync(async () => { await s.Mpv.VideoId.SetAsync(s.Id).ConfigureAwait(false); return unit; })),
+        subtitle:    static (mpv, s) => Invoke(mpv.SubAdd(s.Path)),
+        sectionLoop: static (mpv, l) => IO.liftAsync(async () => {
+            await mpv.AbLoopA.SetAsync(l.From.ToString("F3")).ConfigureAwait(false);
+            await mpv.AbLoopB.SetAsync(l.To.ToString("F3")).ConfigureAwait(false);
+            return unit;
+        }),
+        stop:        static (mpv, _) => Invoke(mpv.Stop()));
 
-    // ObserveProperty registers the time-pos/duration/pause/seeking feeds once; every PropertyChanged tick
-    // re-projects one immutable snapshot — the polling timer is the deleted form.
+    // ObserveProperty registers the position/duration/remaining/pause/seeking/eof feeds once; every
+    // PropertyChanged tick re-projects one immutable snapshot — the polling timer is the deleted form.
     public static IObservable<TransportState> Observe(MpvContext context) =>
         Observable.FromEventPattern<MpvPropertyEventArgs>(
                 handler => context.PropertyChanged += handler,
@@ -181,8 +239,10 @@ public static class PlaybackTransport {
             .Select(_ => new TransportState(
                 context.TimePos.Get() ?? 0d,
                 context.Duration.Get() ?? 0d,
+                context.TimeRemaining.Get() ?? 0d,
                 !(context.Pause.Get() ?? true),
-                context.Seeking.Get() ?? false));
+                context.Seeking.Get() ?? false,
+                context.EofReached.Get() ?? false));
 
     static IO<Unit> Write<T>(MpvOption<T> option, T value) where T : struct =>
         IO.liftAsync(async () => { await option.SetAsync(value).ConfigureAwait(false); return unit; });
@@ -195,17 +255,13 @@ public static class PlaybackTransport {
 ```mermaid
 flowchart LR
     MarkdownDocumentRows --> MarkdownInlineRenderer
-    MarkdownInlineRenderer --> InlineCollection
-    InlineCollection --> TextStyleRow
-    MediaSurface --> MediaCodec
-    MediaCodec -->|Image| AsyncImageLoader
-    MediaCodec -->|Video/Audio| MpvView
-    MpvView --> SurfaceSeam
-    MediaCodec --> MediaReceipt
+    MarkdownInlineRenderer --> MarkdownRendered
+    MarkdownRendered --> TextStyleRow
+    MediaSurface -->|Materialize| Control
+    Control -->|Surfaces.Mount| SurfaceSession
+    MediaSurface -->|Image| AsyncImageLoader
+    MediaSurface -->|Svg| SvgControl["Avalonia.Svg.Skia Svg"]
+    MediaSurface -->|Video/Audio| MpvView
+    MediaSurface --> MediaReceipt
     MediaReceipt --> ReceiptSinkPort
 ```
-
-## [05]-[RESEARCH]
-
-- [INLINE_DOCUMENTS]: the `Avalonia.Controls.Documents` inline-materialization surface the `MarkdownInlineRenderer` mounts — the `Run`/`Bold`/`Italic`/`Span`/`LineBreak` construction and the `InlineCollection.Add` append the `Theme/typography` `MARKDOWN_PROJECTION` boundary names — resolved at implementation against the Avalonia 12 documents surface; the `MarkdownRow`/`InlineRun` rows (typography-owned), the `TextStyleRow.Resolve` styling, and the block-container materialization are settled, the per-inline `Avalonia.Controls.Documents` member spellings are the unverified surface bound at composition.
-- [MPV_SURFACE_MOUNT]: the libmpv NATIVE provisioning fact only — the libmpv native (>= 0.40.0) provisions at the app-host distribution layer; the mount itself is WIRED (`MpvView.Renderer`/`MpvContextProperty`/`LoadFile`/`Pause`/`LoopFile` verified against `.api/api-libmpv.md`), the `MediaSurface` union, the codec rows, the playback transport, and the `SurfaceSeam` mount are settled.

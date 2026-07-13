@@ -14,9 +14,9 @@ Rasm.AppUi runs one command rail: a single `CommandIntent` row table is the only
 
 - Owner: `CommandIntent` row record with its nested `Availability` input struct; `CommandPayload` `[Union]` argument shapes; `CommandDeck` per-surface frozen result carrying the row table, the normalized palette index, and the gesture-conflict fold.
 - Cases: `CommandPayload` = None | Single | Many | Text under the locked kind literals none, single, many, text — parameterized intents discriminate on payload shape, never on name suffixes.
-- Entry: `public static Fin<CommandDeck> Freeze` — `Fin` aborts on a duplicate intent key or duplicate palette label with a typed `CommandFault` case deriving through the `AppUiFaultBand.Command` registry row (6070); one freeze per mounted surface.
-- Auto: the `Surfaces` predicate filters rows exactly once at freeze, so a row absent from a surface never materializes there; the mount transaction runs `SealConflicts` so every `GestureConflicts` row rides the sink as one envelope of kind `ConflictKind`.
-- Receipt: `GestureConflicts` is the freeze-time evidence fold — each `GestureConflict` names the chord and every intent key bound to it — and `SealConflicts` is its one sink seal.
+- Entry: `public static Fin<CommandDeck> Freeze(CommandComposition composition, params ReadOnlySpan<CommandIntent> rows)` — `Fin` aborts on a duplicate intent key, duplicate palette label, or scope-local gesture collision with a typed `CommandFault` case deriving through the `AppUiFaultBand.Command` registry row (6070); one freeze per mounted surface, and the composition-time services travel as one carrier.
+- Auto: the `Surfaces` predicate filters rows exactly once at freeze, so a row absent from a surface never materializes there; `GestureConflicts` groups on scope plus normalized chord, and `Freeze` refuses the first deterministic row before any command materializes.
+- Receipt: `CommandComposition.Conflict` seals the deterministic `GestureConflict` through the composition-bound evidence sink immediately before `Freeze` returns `CommandFault.GestureConflict`; execution receipts begin only after a conflict-free deck exists.
 - Packages: Thinktecture.Runtime.Extensions, Avalonia, LanguageExt.Core, BCL inbox
 - Growth: one `CommandIntent` row absorbs a new verb across every derived surface and one `CommandPayload` case absorbs a new argument shape; zero new surface.
 - Boundary: the locked row shape — intent key, availability delegate with `DegradationLevel` input, `Option<KeyGesture>`, surface predicate — deletes menu registries, toolbar registries, palette registries, hotkey tables, and deep-link maps in one stroke; the intent key is simultaneously the localization string key the `label` resolver consumes and the icon catalog key, so a label column and an icon column are the deleted forms; the `chord` delegate is the host-agnostic Cmd/Ctrl column transform, so duplicate per-platform gesture rows are the rejected form; `Execute` delegates bind host work at composition and no case body names a host API outside its own row.
@@ -24,14 +24,34 @@ Rasm.AppUi runs one command rail: a single `CommandIntent` row table is the only
 ```csharp signature
 public sealed record CommandIntent(
     string Key,
+    CommandScope Scope,
     Seq<Capability> Requires,
     Func<CommandIntent.Availability, bool> When,
     Option<KeyGesture> Gesture,
     Func<SurfaceHost, bool> Surfaces,
     Func<CommandPayload, IO<Unit>> Execute) {
-    public readonly record struct Availability(DegradationLevel Level, bool Valid, int Selected, bool Busy);
+    public readonly record struct Availability(DegradationLevel Level, bool Valid, SelectionSnapshot Selection, bool Busy);
 
     public bool Admits(Availability input) => Requires.ForAll(input.Level.Permits) && When(input);
+}
+
+[SmartEnum<string>]
+public sealed partial class CommandScope {
+    public static readonly CommandScope Global = new("global");
+    public static readonly CommandScope Screen = new("screen");
+    public static readonly CommandScope Viewport = new("viewport");
+    public static readonly CommandScope Dialog = new("dialog");
+}
+
+[ComplexValueObject]
+public readonly partial struct SelectionSnapshot {
+    public int Count { get; }
+    public FrozenSet<string> Kinds { get; }
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int count, ref FrozenSet<string> kinds) =>
+        validationError = count >= kinds.Count && (count > 0 || kinds.Count == 0)
+            ? validationError
+            : new ValidationError($"selection count {count} cannot carry {kinds.Count} kinds");
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -55,15 +75,19 @@ public abstract partial record CommandFault : Expected {
         : CommandFault($"command/duplicate: {Detail}", AppUiFaultBand.Command.Code(0));
     public sealed record UnknownIntent(string Key)
         : CommandFault($"command/unknown-intent: {Key}", AppUiFaultBand.Command.Code(1));
+    public sealed record GestureConflict(string Detail)
+        : CommandFault($"command/gesture-conflict: {Detail}", AppUiFaultBand.Command.Code(2));
+    public sealed record PayloadRejected(string Detail)
+        : CommandFault($"command/payload: {Detail}", AppUiFaultBand.Command.Code(3));
 }
 
-public sealed record GestureConflict(string Gesture, Seq<string> Keys);
+public sealed record GestureConflict(CommandScope Scope, string Gesture, Seq<string> Keys);
 
-public sealed record CommandDeck(
-    FrozenDictionary<string, CommandIntent> Rows,
-    FrozenDictionary<string, string> Index,
+public sealed record CommandComposition(
+    SurfaceHost Surface,
     string SurfaceKey,
     Func<KeyGesture, KeyGesture> Chord,
+    Func<string, string> Label,
     IObservable<CommandIntent.Availability> Inputs,
     Func<CommandIntent.Availability> Snapshot,
     IScheduler Scheduler,
@@ -71,39 +95,54 @@ public sealed record CommandDeck(
     CorrelationId Correlation,
     TenantContext Tenant,
     ReceiptSinkPort Sink,
-    JsonSerializerOptions Wire) {
-    public const string ConflictKind = "hotkey-conflict";
+    Func<GestureConflict, Unit> Conflict,
+    JsonSerializerOptions Wire);
+
+public sealed record CommandDeck(
+    FrozenDictionary<string, CommandIntent> Rows,
+    FrozenDictionary<string, string> Index,
+    CommandComposition Composition) {
+    public string SurfaceKey => Composition.SurfaceKey;
+    public Func<KeyGesture, KeyGesture> Chord => Composition.Chord;
+    public IObservable<CommandIntent.Availability> Inputs => Composition.Inputs;
+    public Func<CommandIntent.Availability> Snapshot => Composition.Snapshot;
+    public IScheduler Scheduler => Composition.Scheduler;
+    public TimeProvider Time => Composition.Time;
+    public CorrelationId Correlation => Composition.Correlation;
+    public TenantContext Tenant => Composition.Tenant;
+    public ReceiptSinkPort Sink => Composition.Sink;
+    public JsonSerializerOptions Wire => Composition.Wire;
 
     public static Fin<CommandDeck> Freeze(
-        SurfaceHost surface, string surfaceKey, Func<KeyGesture, KeyGesture> chord, Func<string, string> label,
-        IObservable<CommandIntent.Availability> inputs, Func<CommandIntent.Availability> snapshot,
-        IScheduler scheduler, TimeProvider time, CorrelationId correlation, TenantContext tenant, ReceiptSinkPort sink,
-        JsonSerializerOptions wire, params ReadOnlySpan<CommandIntent> rows) =>
-        Admitted(toSeq(rows.ToArray()).Filter(row => row.Surfaces(surface)), label)
+        CommandComposition composition,
+        params ReadOnlySpan<CommandIntent> rows) =>
+        Admitted(toSeq(rows.ToArray()).Filter(row => row.Surfaces(composition.Surface)), composition.Label)
             .Map(admitted => new CommandDeck(
                 admitted.Map(static row => KeyValuePair.Create(row.Key, row)).ToFrozenDictionary(StringComparer.Ordinal),
-                admitted.Map(row => KeyValuePair.Create(label(row.Key).ToLowerInvariant(), row.Key)).ToFrozenDictionary(StringComparer.Ordinal),
-                surfaceKey, chord, inputs, snapshot, scheduler, time, correlation, tenant, sink, wire));
+                admitted.Map(row => KeyValuePair.Create(composition.Label(row.Key).ToLowerInvariant(), row.Key)).ToFrozenDictionary(StringComparer.Ordinal),
+                composition))
+            .Bind(deck => deck.GestureConflicts().HeadOrNone().Match(
+                Some: conflict => (deck.SealConflict(conflict), Fin.Fail<CommandDeck>(new CommandFault.GestureConflict(
+                    $"{conflict.Scope.Key}:{conflict.Gesture}:{string.Join(',', conflict.Keys)}"))).Item2,
+                None: () => Fin.Succ(deck)));
+
+    public Unit SealConflict(GestureConflict conflict) => Composition.Conflict(conflict);
 
     public Seq<GestureConflict> GestureConflicts() =>
         toSeq(Rows.Values)
-            .Bind(row => row.Gesture.Map(Chord).ToSeq().Map(gesture => (Gesture: gesture, row.Key)))
-            .GroupBy(static bound => bound.Gesture)
+            .Bind(row => row.Gesture.Map(Chord).ToSeq().Map(gesture => (row.Scope, Gesture: gesture, row.Key)))
+            .GroupBy(static bound => (bound.Scope, bound.Gesture))
             .AsIterable()
-            .Map(static group => new GestureConflict(group.Key.ToString(), toSeq(group).Map(static bound => bound.Key)))
+            .Map(static group => new GestureConflict(
+                group.Key.Scope,
+                group.Key.Gesture.ToString(),
+                toSeq(group).Map(static bound => bound.Key).Order(StringComparer.Ordinal).ToSeq()))
             .Filter(static conflict => conflict.Keys.Length > 1)
+            .OrderBy(static conflict => conflict.Scope.Key, StringComparer.Ordinal)
+            .ThenBy(static conflict => conflict.Gesture, StringComparer.Ordinal)
             .ToSeq();
 
-    // The freeze-time conflict evidence SEALS: each conflict rides the sink as one ConflictKind envelope,
-    // so the mount transaction's conflict claim is a receipt, never an unsunk data fold.
-    public IO<Unit> SealConflicts() =>
-        GestureConflicts()
-            .TraverseM(conflict => Sink.Send(Correlation, Tenant, "Rasm.AppUi", ConflictKind,
-                JsonSerializer.SerializeToElement(conflict, Wire)))
-            .As()
-            .Map(static _ => unit);
-
-    static Fin<Seq<CommandIntent>> Admitted(Seq<CommandIntent> rows, Func<string, string> label) =>
+    private static Fin<Seq<CommandIntent>> Admitted(Seq<CommandIntent> rows, Func<string, string> label) =>
         rows.Map(static row => row.Key).Distinct().Length == rows.Length
             && rows.Map(row => label(row.Key).ToLowerInvariant()).Distinct().Length == rows.Length
             ? Fin<Seq<CommandIntent>>.Succ(rows)
@@ -125,19 +164,31 @@ public static class CommandGate {
     public static IObservable<CommandIntent.Availability> Observe(
         IObservable<DegradationLevel> level,
         IObservable<bool> valid,
-        IObservable<int> selected,
+        IObservable<SelectionSnapshot> selected,
         IObservable<bool> busy) =>
         Observable.CombineLatest(
             level.StartWith(DegradationLevel.Full),
-            valid.StartWith(true),
-            selected.StartWith(0),
+            valid.StartWith(false),
+            selected.StartWith(SelectionSnapshot.Create(0, Array.Empty<string>().ToFrozenSet(StringComparer.Ordinal))),
             busy.StartWith(false),
             static (current, admit, count, running) => new CommandIntent.Availability(current, admit, count, running))
-        .DistinctUntilChanged();
+        .DistinctUntilChanged()
+        .Catch(Observable.Return(new CommandIntent.Availability(
+            DegradationLevel.Full,
+            false,
+            SelectionSnapshot.Create(0, Array.Empty<string>().ToFrozenSet(StringComparer.Ordinal)),
+            false)))
+        .Replay(1)
+        .RefCount();
 
     extension(CommandIntent row) {
         public IObservable<bool> CanExecute(IObservable<CommandIntent.Availability> inputs) =>
-            inputs.Select(row.Admits).DistinctUntilChanged();
+            inputs.Select(row.Admits)
+                .Catch(Observable.Return(false))
+                .StartWith(false)
+                .DistinctUntilChanged()
+                .Replay(1)
+                .RefCount();
     }
 }
 ```
@@ -164,7 +215,7 @@ public abstract partial record CommandOutcome {
     private CommandOutcome() { }
     public sealed record Completed : CommandOutcome;
     public sealed record Cancelled : CommandOutcome;
-    public sealed record Rejected : CommandOutcome;
+    public sealed record Rejected(string Detail, int Code) : CommandOutcome;
     public sealed record Faulted(string Detail, int Code) : CommandOutcome;
 }
 
@@ -205,7 +256,7 @@ public static class CommandExecution {
 
         public Fin<CombinedReactiveCommand<CommandPayload, CommandReceipt>> Combine(params ReadOnlySpan<string> keys) =>
             toSeq(keys.ToArray())
-                .Traverse(key => deck.Rows.TryGetValue(key, out var row)
+                .Traverse(key => deck.Rows.TryGetValue(key, out CommandIntent? row)
                     ? Fin<ReactiveCommand<CommandPayload, CommandReceipt>>.Succ(row.Materialize(deck))
                     : Fin<ReactiveCommand<CommandPayload, CommandReceipt>>.Fail(new CommandFault.UnknownIntent(key)))
                 .As()
@@ -229,17 +280,35 @@ public static class CommandExecution {
 
 ## [05]-[PALETTE_AND_REMOTE]
 
-- Owner: `CommandProjections` — one polymorphic derivation fold, one span-ranked palette search over the frozen index, one remote admission entry.
-- Entry: `public IO<CommandReceipt> Invoke(string key, JsonElement payload)` — the single remote, deep-link, and journal-replay route; an unknown key or an inadmissible row seals a `Rejected` receipt with zero elapsed.
+- Owner: `CommandProjections` — one polymorphic derivation fold, one span-ranked palette search over the frozen index, one remote admission entry; `PaletteProvider` — the closed search-provider row family making the palette the one federated query surface; `PaletteHit` — the typed ranked result row every provider contributes.
+- Entry: `public IO<CommandReceipt> Invoke(string key, JsonElement payload)` — the single remote, deep-link, and journal-replay route; an unknown key or an inadmissible row seals a `Rejected` receipt with zero elapsed; `public static Seq<PaletteHit> Federate(Seq<PaletteProvider> providers, string query)` — one merged rank fold over every provider row, the command provider deriving from the frozen deck through `Provider`.
 - Auto: `Project` is the one derivation — menu rows, toolbar rows, tray rows, access keys, and deep-link rows are each one shape function over it, zero per-surface registries; host-mutating rows bind `Execute` through the abstract `DocumentEdit.Commit` surface-host port the app root binds to the live host so `DocumentTransaction` undo scope and redraw batching stay host-owned, the `Fin`-railed `DocumentReceipt` projects into the receipt payload, and the wire ExecuteTransaction response mirrors that receipt field-for-field as settled parity.
 - Receipt: remote and replay invocations seal the same `CommandReceipt` family as interactive execution — one evidence stream for every caller modality.
 - Packages: LanguageExt.Core, BCL inbox
-- Growth: one shape function absorbs a new derived surface and one table row absorbs a new remote verb; zero new surface.
-- Boundary: ReactiveUI MessageBus is the named rejected form — decoupled invocation is an intent key through the one table; a palette-specific command registry is the second rejected form, absorbed by `Search` over the freeze-built index; label normalization is a property of the frozen index owner — `Search` folds the query to lowercase once through `MemoryExtensions.ToLowerInvariant` so the exact and fuzzy branches share one normalized comparison domain and equivalent queries differing only by case return identical keys and rank order, a search-local normalization rule beside the index admission being the rejected form; `Search` and its `Score` kernel are the page's one language-owned boundary capsule carrying statement forms for the alternate-lookup probe and the span walk; intent keys cross every boundary as ordinal strings.
+- Growth: one shape function absorbs a new derived surface and one table row absorbs a new remote verb; a new searchable domain — routes and screens, model elements through Bim-owned receipt rows, BCF issues, notebook cells — is one `PaletteProvider` row bound at composition, so the palette federates every queryable plane without a second search engine; zero new surface.
+- Boundary: ReactiveUI MessageBus is the named rejected form — decoupled invocation is an intent key through the one table; a palette-specific command registry is the second rejected form, absorbed by `Search` over the freeze-built index; the palette is the one federated query surface — every provider contributes typed `PaletteHit` rows into one merged rank fold, the command provider derives from the deck, an element provider consumes Bim-owned `ElementSet` receipt rows (queries enter as receipts, never an AppUi query engine — the `ARCHITECTURE.md` Bim-receipt boundary), and a provider-local result vocabulary beside `PaletteHit` is the rejected form; a hit's activation routes by its `Kind` — a command hit raises `Invoke`, a route hit raises the navigation verb, an element or issue hit raises its reveal intent row — so federation adds providers, never a second invocation path; label normalization is a property of the frozen index owner — `Search` folds the query to lowercase once through `MemoryExtensions.ToLowerInvariant` so the exact and fuzzy branches share one normalized comparison domain and equivalent queries differing only by case return identical keys and rank order, a search-local normalization rule beside the index admission being the rejected form; `Search` and its `Score` kernel are the page's one language-owned boundary capsule carrying statement forms for the alternate-lookup probe and the span walk; intent keys cross every boundary as ordinal strings.
 
 ```csharp signature
+// The federated palette vocabulary: every searchable plane contributes typed ranked rows through one
+// provider shape — commands derive from the deck, elements arrive as Bim-owned receipt rows, routes,
+// issues, and notebook cells each bind one row at composition.
+public sealed record PaletteHit(string Key, string Label, int Rank);
+
+public sealed record PaletteProvider(string Kind, Func<string, Seq<PaletteHit>> Query);
+
 public static class CommandProjections {
+    public static Seq<PaletteHit> Federate(Seq<PaletteProvider> providers, string query) =>
+        toSeq(providers.Bind(provider => provider.Query(query).Map(hit => (provider.Kind, Hit: hit)))
+            .OrderBy(static row => row.Hit.Rank)
+            .ThenBy(static row => row.Kind, StringComparer.Ordinal)
+            .ThenBy(static row => row.Hit.Key, StringComparer.Ordinal)
+            .Map(static row => row.Hit));
+
     extension(CommandDeck deck) {
+        // The command provider: the deck's span-ranked Search projected onto the shared hit shape.
+        public PaletteProvider Provider(Func<string, string> label) =>
+            new("command", query => deck.Search(query).Map(found => new PaletteHit(found.Key, label(found.Key), found.Rank)));
+
         public Seq<T> Project<T>(Func<CommandIntent, T> shape) =>
             toSeq(deck.Rows.Values).Map(shape);
 
@@ -248,32 +317,48 @@ public static class CommandProjections {
             // the fuzzy walk both read the same casing the freeze-built index admitted.
             Span<char> folded = query.Length <= 128 ? stackalloc char[query.Length] : new char[query.Length];
             ignore(query.ToLowerInvariant(folded));
-            var lookup = deck.Index.GetAlternateLookup<ReadOnlySpan<char>>();
-            if (lookup.TryGetValue(folded, out var exact)) { return [(exact, 0)]; }
-            var ranked = new List<(string Key, int Rank)>();
-            foreach (var entry in deck.Index) {
-                var rank = Score(entry.Key.AsSpan(), folded);
+            FrozenDictionary<string, string>.AlternateLookup<ReadOnlySpan<char>> lookup = deck.Index.GetAlternateLookup<ReadOnlySpan<char>>();
+            if (lookup.TryGetValue(folded, out string? exact)) { return [(exact, 0)]; }
+            List<(string Key, int Rank)> ranked = [];
+            foreach (KeyValuePair<string, string> entry in deck.Index) {
+                Option<int> rank = Score(entry.Key.AsSpan(), folded);
                 if (rank is { IsSome: true, Case: int hit }) { ranked.Add((entry.Value, hit)); }
             }
-            return toSeq(ranked.OrderBy(static found => found.Rank));
+            return toSeq(ranked
+                .OrderBy(static found => found.Rank)
+                .ThenBy(static found => found.Key, StringComparer.Ordinal));
         }
 
         public IO<CommandReceipt> Invoke(string key, JsonElement payload) =>
-            deck.Rows.TryGetValue(key, out var row) && row.Admits(deck.Snapshot())
-                ? IO.lift(() => payload.Deserialize<CommandPayload>(deck.Wire) ?? new CommandPayload.None())
-                    .Bind(decoded => row.Run(decoded, deck))
-                : deck.Seal(key, new CommandOutcome.Rejected(), Duration.Zero, string.Empty);
+            deck.Rows.TryGetValue(key, out CommandIntent? row) && row.Admits(deck.Snapshot())
+                ? Try.lift(() => payload.Deserialize<CommandPayload>(deck.Wire))
+                    .Run()
+                    .Bind(decoded => Optional(decoded).ToFin(new CommandFault.PayloadRejected(key)))
+                    .Match(
+                        Succ: decoded => row.Run(decoded, deck),
+                        Fail: failure => deck.Seal(
+                            key,
+                            new CommandOutcome.Rejected(failure.Message, failure.Code),
+                            Duration.Zero,
+                            string.Empty))
+                : deck.Seal(
+                    key,
+                    new CommandOutcome.Rejected(
+                        $"command unavailable or unknown: {key}",
+                        AppUiFaultBand.Command.Code(1)),
+                    Duration.Zero,
+                    string.Empty);
     }
 
     // Both spans arrive pre-normalized — label from the freeze-built index, query from Search's fold —
     // so the walk is a pure ordinal subsequence rank with no per-char case work.
-    static Option<int> Score(ReadOnlySpan<char> label, ReadOnlySpan<char> query) {
-        var cursor = 0;
-        var spread = 0;
-        for (var at = 0; at < label.Length && cursor < query.Length; at++) {
-            var match = label[at] == query[cursor];
-            cursor += match ? 1 : 0;
+    private static Option<int> Score(ReadOnlySpan<char> label, ReadOnlySpan<char> query) {
+        int cursor = 0;
+        int spread = 0;
+        for (int at = 0; at < label.Length && cursor < query.Length; at++) {
+            bool match = label[at] == query[cursor];
             spread += match ? at - cursor : 0;
+            cursor += match ? 1 : 0;
         }
         return cursor == query.Length ? Some(spread) : None;
     }
@@ -306,7 +391,7 @@ flowchart LR
 - Growth: one wire member row per new receipt field and one kind literal per new payload or outcome case; zero new surface.
 - Boundary: shapes transcribe the camelCase emission of the suite wire law — intent keys cross as ordinal strings, the level field crosses as the degradation smart-enum string key, elapsed crosses as ISO-8601 duration text, correlation crosses as a guid string, gesture crosses as its parse-round-trip text, and payload and outcome discriminate on the locked kind literals; the receipt binds as the payload type parameter on the envelope wire record from the suite wire law; `CommandGateWire` transcribes the per-row `CanExecute` gate verdict — the frozen name `CommandAvailabilityWire` is `Rasm.AppHost/Observability` health.md's `DegradationLevel` command-availability snapshot, a different carrier this palette wire never shadows.
 
-```ts contract
+```ts signature
 type CommandPayloadWire =
   | { readonly kind: "none" }
   | { readonly kind: "single"; readonly id: string }
@@ -316,10 +401,10 @@ type CommandPayloadWire =
 type CommandOutcomeWire =
   | { readonly kind: "completed" }
   | { readonly kind: "cancelled" }
-  | { readonly kind: "rejected" }
+  | { readonly kind: "rejected"; readonly detail: string; readonly code: number }
   | { readonly kind: "faulted"; readonly detail: string; readonly code: number };
 
-interface CommandIntentWire { readonly key: string; readonly gesture: string | null; }
+interface CommandIntentWire { readonly key: string; readonly scope: "global" | "screen" | "viewport" | "dialog"; readonly requires: readonly string[]; readonly gesture: string | null; }
 interface CommandGateWire { readonly key: string; readonly available: boolean; readonly level: string; }
 interface CommandInvocationWire { readonly key: string; readonly payload: CommandPayloadWire; }
 interface CommandReceiptWire { readonly key: string; readonly surface: string; readonly elapsed: string; readonly outcome: CommandOutcomeWire; readonly payloadDigest: string; readonly correlation: string; }

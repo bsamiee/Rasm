@@ -1,6 +1,6 @@
 # [APPUI_TABLES_HIERARCHY]
 
-Tabular and hierarchical projection for the Rasm.AppUi grid rail: one `TableColumnRow` metadata family drives column generation, sort comparers, filter admission, group descriptors, edit admission, clipboard projection, and export; the `TableProjection` union folds flat, tree, grouped, paged, and windowed shapes into one virtualized `TreeRow` stream on the free `DataGrid`; the `TableViewState` snapshot keeps collection-view state explicit; and the `TableCommit` row bridges grid edits onto the CommandIntent rail, `StoreOp.Upsert` persistence, and `DocumentTransaction` host routing. Export delivery is the `Document/export.md` `VisualDestination` union through `ExportDelivery.Deliver` — the tables fold shapes text, never mints a second delivery vocabulary. Live-data change-set streams, screen-state snapshot rows, density and typography tokens, the AppHost `DataClassification` taxonomy, and the Persistence Sep lane arrive as settled vocabulary.
+Tabular and hierarchical projection for the Rasm.AppUi grid rail: one `TableColumnRow` metadata family drives column generation, sort comparers, filter admission, group descriptors, edit admission, clipboard projection, and export; the `TableProjection` union folds flat, tree, grouped, paged, and windowed shapes into one virtualized `TreeRow` stream on the free `DataGrid` with a `PivotSpec` cross-tab snapshot projection beside it; the `TableViewState` snapshot keeps collection-view state explicit; and the `TableCommit` row bridges grid edits onto the CommandIntent rail, `StoreOp.Upsert` persistence, and `DocumentTransaction` host routing. Export delivery is the `Document/export.md` `VisualDestination` union through `ExportDelivery.Deliver` — the tables fold shapes text, never mints a second delivery vocabulary. Live-data change-set streams, screen-state snapshot rows, density and typography tokens, the AppHost `DataClassification` taxonomy, and the Persistence Sep lane arrive as settled vocabulary.
 
 ## [01]-[INDEX]
 
@@ -11,53 +11,89 @@ Tabular and hierarchical projection for the Rasm.AppUi grid rail: one `TableColu
 
 ## [02]-[GRID_SUBSTRATE]
 
-- Owner: `TableColumnRow<TRow>` — the one row-model metadata record; `TableSurface` attaches the column and filter folds as one extension block; `TableCellKind` closes the cell vocabulary.
-- Cases: `Text`, `CheckBox`, `Template`.
-- Entry: `DataGridColumn Column()`.
+- Owner: `TableColumnRow<TRow>` — the one row-model metadata record; `TableSurface` attaches the column and filter folds as one extension block; `TableCellKind` `[SmartEnum<string>]` closes the cell vocabulary with its construction as a delegate column.
+- Cases: `Text`, `CheckBox`, `Numeric`, `Temporal`, `Progress`, `Template` — numeric and temporal rows carry cell semantics (tabular-figure role, invariant instant format) the theme classes read off the kind key, progress rows are template-backed meters, and a seventh kind is one row with its construction delegate.
+- Entry: `Option<DataGridColumn> Column(Func<DataClassification, DataTemplate> redacted)` — invisible rows materialize no column.
 - Auto: one row family derives columns, sort comparers, group descriptors, quick-filter admission, edit admission, clipboard projection, and export admission — seven concerns, one owner; `AutoGenerateColumns` stays false and `Columns` is populated by the `Column()` fold; the `Sort` comparer column lands as `CustomSortComparer` beside `SortMemberPath` so value-object cells order by domain comparer rather than display text, and the `Cell` binding doubles as `ClipboardContentBinding` on bound columns so the grid's own `Ctrl+C` copy under `DataGridClipboardCopyMode.IncludeHeader` and the export fold project one column vocabulary.
-- Packages: Avalonia.Controls.DataGrid; Avalonia; LanguageExt.Core.
-- Growth: one column row per field; a sizing, visibility, or classification change is one policy value; zero new surface.
-- Boundary: a classified row rides the AppHost `DataClassification` consequence — its cells render the redacted presentation template from theme tokens and the column never enters filter or export admission; row height and cell spacing arrive as density-token values, and `Numeric` columns consume the tabular-figure typography role; per-column control subclasses are the deleted form.
+- Packages: Avalonia.Controls.DataGrid; Avalonia; Thinktecture.Runtime.Extensions; LanguageExt.Core.
+- Growth: one column row per field; a new cell kind is one `TableCellKind` row with its construction delegate; a sizing, visibility, or classification change is one policy value; zero new surface.
+- Boundary: classification governs EVERY materialization channel — a classified column materializes ONLY the redacted presentation template (theme-token-resolved through the `redacted` fold), read-only, unsortable, with no `Binding` and no `ClipboardContentBinding`, so display and the grid's own `Ctrl+C` copy structurally cannot carry the source cell value, and the column never enters filter or export admission; row height and cell spacing arrive as density-token values; per-column control subclasses are the deleted form.
 
 ```csharp signature
-public enum TableCellKind { Text, CheckBox, Template }
+// Cell construction is the kind row's delegate column — Build receives the row scalars and returns the
+// materialized column, so a new kind never grows the Column() dispatch.
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class TableCellKind {
+    public static readonly TableCellKind Text = new("text", static (header, width, cell, editable, _) =>
+        new DataGridTextColumn { Header = header, Width = width, Binding = cell, ClipboardContentBinding = cell, IsReadOnly = !editable });
+    public static readonly TableCellKind CheckBox = new("check-box", static (header, width, cell, editable, _) =>
+        new DataGridCheckBoxColumn { Header = header, Width = width, Binding = cell, ClipboardContentBinding = cell, IsReadOnly = !editable });
+    public static readonly TableCellKind Numeric = new("numeric", static (header, width, cell, editable, _) =>
+        new DataGridTextColumn { Header = header, Width = width, Binding = cell, ClipboardContentBinding = cell, IsReadOnly = !editable });
+    public static readonly TableCellKind Temporal = new("temporal", static (header, width, cell, editable, _) =>
+        new DataGridTextColumn { Header = header, Width = width, Binding = cell, ClipboardContentBinding = cell, IsReadOnly = true });
+    public static readonly TableCellKind Progress = new("progress", static (header, width, _, _, template) =>
+        new DataGridTemplateColumn { Header = header, Width = width, CellTemplate = template.IfNoneUnsafe((DataTemplate?)null), IsReadOnly = true });
+    public static readonly TableCellKind Template = new("template", static (header, width, _, editable, template) =>
+        new DataGridTemplateColumn { Header = header, Width = width, CellTemplate = template.IfNoneUnsafe((DataTemplate?)null), IsReadOnly = !editable });
+
+    [UseDelegateFromConstructor]
+    public partial DataGridColumn Build(string header, DataGridLength width, BindingBase cell, bool editable, Option<DataTemplate> template);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record TableColumnAccess<TRow> {
+    private TableColumnAccess() { }
+    public sealed record Plain(BindingBase Cell, Func<TRow, string> Export, bool Editable, Option<DataTemplate> Template = default) : TableColumnAccess<TRow>;
+    public sealed record Classified(DataClassification Classification) : TableColumnAccess<TRow>;
+}
 
 public sealed record TableColumnRow<TRow>(
     string Key,
     string Header,
     TableCellKind Kind,
-    BindingBase Cell,
-    Func<TRow, string> Export,
+    TableColumnAccess<TRow> Access,
     DataGridLength Width,
     bool Sortable,
-    bool Editable,
-    bool Numeric,
     bool Visible,
-    Option<IComparer> Sort = default,
-    Option<DataClassification> Classification = default,
-    Option<DataTemplate> Template = default);
+    Option<IComparer> Sort = default);
 
 public static class TableSurface {
     extension<TRow>(TableColumnRow<TRow> row) {
-        public DataGridColumn Column() {
-            DataGridColumn column = (row.Kind, row.Template) switch {
-                (TableCellKind.Template, { IsSome: true, Case: DataTemplate template }) =>
-                    new DataGridTemplateColumn { Header = row.Header, Width = row.Width, CellTemplate = template, IsReadOnly = !row.Editable },
-                (TableCellKind.CheckBox, _) =>
-                    new DataGridCheckBoxColumn { Header = row.Header, Width = row.Width, Binding = row.Cell, ClipboardContentBinding = row.Cell, IsReadOnly = !row.Editable },
-                _ =>
-                    new DataGridTextColumn { Header = row.Header, Width = row.Width, Binding = row.Cell, ClipboardContentBinding = row.Cell, IsReadOnly = !row.Editable },
-            };
-            column.CanUserSort = row.Sortable;
-            row.Sort.Iter(comparer => column.CustomSortComparer = comparer);
-            return column;
-        }
+        // Classification wins before any kind dispatch: the redacted template is the ONLY materialization
+        // of a classified column — no binding, no clipboard projection, no sort.
+        public Option<DataGridColumn> Column(Func<DataClassification, DataTemplate> redacted) =>
+            !row.Visible
+                ? None
+                : row.Access.Switch(
+                    state: row,
+                    plain: static (columnRow, access) => Some(fun(() => {
+                        DataGridColumn column = columnRow.Kind.Build(columnRow.Header, columnRow.Width, access.Cell, access.Editable, access.Template);
+                        column.CanUserSort = columnRow.Sortable;
+                        column.SortMemberPath = columnRow.Key;
+                        columnRow.Sort.Iter(comparer => column.CustomSortComparer = comparer);
+                        return column;
+                    })()),
+                    classified: (columnRow, access) => Some<DataGridColumn>(new DataGridTemplateColumn {
+                        Header = columnRow.Header,
+                        Width = columnRow.Width,
+                        CellTemplate = redacted(access.Classification),
+                        IsReadOnly = true,
+                        CanUserSort = false,
+                    }));
+
+        public Option<string> Project(TRow item) => row.Access.Switch(
+            state: item,
+            plain: static (value, access) => Some(access.Export(value)),
+            classified: static (_, _) => Option<string>.None);
     }
 
     extension<TRow>(Seq<TableColumnRow<TRow>> rows) {
         public Func<object, bool> Matches(string text) =>
             item => item is TreeRow<TRow> tree && rows.Exists(column =>
-                column.Visible && column.Classification.IsNone && column.Export(tree.Item).Contains(text, StringComparison.OrdinalIgnoreCase));
+                column.Visible && column.Project(tree.Item).Exists(value => value.Contains(text, StringComparison.OrdinalIgnoreCase)));
     }
 }
 ```
@@ -132,12 +168,17 @@ public readonly record struct TreeRow<TRow>(TRow Item, int Level, bool HasChildr
     public static TreeRow<TRow> Leaf(TRow item) => new(item, Level: 0, HasChildren: false, IsExpanded: false);
 }
 
-public sealed record ExpansionState<TKey>(BehaviorSubject<Set<TKey>> Cell) where TKey : notnull {
+public sealed record ExpansionState<TKey>(BehaviorSubject<Set<TKey>> Cell) : IDisposable where TKey : notnull {
     public static ExpansionState<TKey> Of(Seq<TKey> expanded) => new(new BehaviorSubject<Set<TKey>>(toSet(expanded)));
 
     public bool IsExpanded(TKey key) => Cell.Value.Contains(key);
 
     public Unit Toggle(TKey key) => fun(() => Cell.OnNext(Cell.Value.Contains(key) ? Cell.Value.Remove(key) : Cell.Value.Add(key)))();
+
+    public void Dispose() {
+        Cell.OnCompleted();
+        Cell.Dispose();
+    }
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -152,7 +193,10 @@ public abstract partial record TableProjection<TRow, TKey> where TRow : notnull 
 
     public sealed record Paged(IObservable<PageRequest> Pages) : TableProjection<TRow, TKey>;
 
-    public sealed record Virtualized(IObservable<VirtualRequest> Window) : TableProjection<TRow, TKey>;
+    public sealed record Virtualized(
+        VirtualWindow<TRow, TKey> Owner,
+        IObservable<ViewportRange> Viewport,
+        Func<Seq<TKey>> Order) : TableProjection<TRow, TKey>;
 }
 
 public static class ProjectionFold {
@@ -166,18 +210,39 @@ public static class ProjectionFold {
                     .Transform(static node => new TreeRow<TRow>(node.Item, node.Depth, node.HasChildren, node.Expanded)),
                 grouped: static (s, _) => s.source.Transform(TreeRow<TRow>.Leaf),
                 paged: static (s, paged) => s.source.Page(paged.Pages).Transform(TreeRow<TRow>.Leaf),
-                virtualized: static (s, virtualized) => VirtualWindowSpec.FixedRow switch {
-                    var spec => new VirtualWindow<TRow, TKey>(spec, new ExtentLedger<TKey>())
-                        .Realize(s.source, virtualized.Window.Select(request => spec.Range(request.StartIndex * spec.FixedItemExtent, request.Size * spec.FixedItemExtent)), s.key)
-                        .Transform(static realized => TreeRow<TRow>.Leaf(realized.Item)),
-                });
+                virtualized: static (s, virtualized) => virtualized.Owner
+                    .Realize(new OrderedChangeSet<TRow, TKey>(s.source, virtualized.Order), virtualized.Viewport, s.key)
+                    .Transform(static realized => TreeRow<TRow>.Leaf(realized.Item)));
+    }
+}
+```
+
+```csharp signature
+// Cross-tab pivot: the two-axis aggregate SNAPSHOT projection — row axis crosses column axis into an
+// aggregate cell matrix whose column roster derives from the data, feeding dynamic TableColumnRow
+// generation and the same one delivery fold; a spreadsheet round-trip to pivot elsewhere is the deleted
+// form. Live cases stay on the TableProjection union; the pivot re-folds per snapshot by construction.
+public sealed record PivotSpec<TRow>(
+    Func<TRow, string> RowAxis,
+    Func<TRow, string> ColumnAxis,
+    Func<Seq<TRow>, double> Cell);
+
+public static class PivotFold {
+    public static (Seq<string> Columns, Seq<(string RowKey, Seq<double> Cells)> Rows) Cross<TRow>(
+        PivotSpec<TRow> spec, Seq<TRow> items) {
+        Seq<string> columns = items.Map(spec.ColumnAxis).Distinct().OrderBy(identity, StringComparer.Ordinal).ToSeq();
+        return (columns, toSeq(items.GroupBy(spec.RowAxis).OrderBy(static group => group.Key, StringComparer.Ordinal)
+            .Select(group => (
+                RowKey: group.Key,
+                Cells: columns.Map(column => spec.Cell(toSeq(group).Filter(row => spec.ColumnAxis(row) == column)))))));
     }
 }
 ```
 
 [FLATTEN_LAW]:
 - One stream: every case lands as `IChangeSet<TreeRow<TRow>, TKey>`; the grid binds one flat collection, so the one `VirtualWindow` fabric windows every projection.
-- One flatten owner: the `TreeFlattened` recursion is the `Shell/virtualization` `HierarchyFlatten` bridge, not a tables-local fold — the column-metadata family and the sibling-order comparer stay tables-owned while windowing delegates to the one fabric.
+- One flatten owner: the `TreeFlattened` recursion is the `Shell/virtualization` `HierarchyFlatten` bridge, not a tables-local fold — the column-metadata family stays tables-owned, the sibling-order comparer threads as the bridge's optional order argument, and windowing delegates to the one fabric.
+- Pivot: the cross-tab is a snapshot projection over the materialized item set — quantity-takeoff and status matrices are `PivotSpec` values whose cell fold reuses the aggregation vocabulary, exported through the same `Delimited` shaping and `ExportDelivery.Deliver` fold.
 - Tree order: view sort descriptors stay empty on a tree projection; sibling order is the case's `Order` comparer threaded into `HierarchyFlatten.Flatten` — sorting flat indent rows is the deleted form.
 - Lazy children: `LoadChildren` materializes a child stream on first expansion; loaded children merge into the upstream keyed cache the shared flatten reads, never a side collection.
 - Grouped: a grouped projection folds identity at the change-set altitude; its `GroupColumnKey` lands on the snapshot's group field so the collection view owns group materialization.
@@ -185,7 +250,7 @@ public static class ProjectionFold {
 ## [05]-[GRID_COMMIT]
 
 - Owner: `TableCommit<TRow>` — the one edit-commit row; `TableExportSpec` — the pure text-shaping policy row whose delivery is the `Document/export.md` `VisualDestination` union; `CommitSurface` bridges grid edit events to the intent rail, folds rows to delimited text, and delivers through the one `ExportDelivery.Deliver` fold.
-- Entry: `IDisposable Attach(DataGrid grid, Action<string, TRow> invoke)`; `IO<string> Export(VisualRuntime runtime, TableExportSpec spec, Seq<TRow> items, VisualDestination destination)`.
+- Entry: `IDisposable Attach(DataGrid grid, Action<string, TRow> invoke, Action<Error> fault)`; `IO<string> Export(VisualRuntime runtime, TableExportSpec spec, Seq<TRow> items, VisualDestination destination)`.
 - Auto: every commit and export executes as a CommandIntent, so availability gating, re-entrancy suppression, and `CommandReceipt` emission arrive with zero local receipt code; a delivery-case change breaks the one `VisualDestination` dispatch at compile time, never a table-local sibling family.
 - Receipt: the CommandReceipt rail carries intent key, surface, elapsed, outcome, and `CorrelationId`; host-routed commits project the `DocumentTransaction` receipt into the same rail; `TelemetryRow` contributes the commit-outcome and export-volume instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: Avalonia.Controls.DataGrid; System.Reactive; Thinktecture.Runtime.Extensions; LanguageExt.Core.
@@ -211,30 +276,36 @@ public static class CommitSurface {
 
     extension<TRow>(TableCommit<TRow> commit) {
         public Func<TRow, CancellationToken, ValueTask<Fin<Unit>>> Execution =>
-            (row, token) => commit.Gate(row) switch {
-                { IsSucc: true, Case: TRow valid } => commit.Persist(valid, token),
-                var failed => ValueTask.FromResult<Fin<Unit>>((Error)failed.Case!),
-            };
+            (row, token) => commit.Gate(row).Match(
+                Succ: valid => commit.Persist(valid, token),
+                Fail: error => ValueTask.FromResult(Fin.Fail<Unit>(error)));
 
-        public IDisposable Attach(DataGrid grid, Action<string, TRow> invoke) => Observable
+        // RowEditEnding is the cancellable guard hook: a failing gate vetoes the commit AT the event via
+        // e.Cancel, so an inadmissible row never leaves edit mode — the observe-then-fail-later shape that
+        // let the grid commit an invalid row is the deleted form.
+        public IDisposable Attach(DataGrid grid, Action<string, TRow> invoke, Action<Error> fault) => Observable
             .FromEventPattern<EventHandler<DataGridRowEditEndingEventArgs>, DataGridRowEditEndingEventArgs>(handler => grid.RowEditEnding += handler, handler => grid.RowEditEnding -= handler)
             .Where(static pattern => pattern.EventArgs.EditAction is DataGridEditAction.Commit)
-            .Select(static pattern => pattern.EventArgs.Row.DataContext)
-            .Where(static context => context is TreeRow<TRow>)
-            .Select(static context => ((TreeRow<TRow>)context!).Item)
-            .Subscribe(item => invoke(commit.IntentKey, item));
+            .Subscribe(pattern => {
+                if (pattern.EventArgs.Row.DataContext is not TreeRow<TRow> tree) { return; }
+                commit.Gate(tree.Item).Match(
+                    Succ: valid => invoke(commit.IntentKey, valid),
+                    Fail: error => { pattern.EventArgs.Cancel = true; fault(error); });
+            });
     }
 
     extension<TRow>(Seq<TableColumnRow<TRow>> rows) {
         public Seq<TableColumnRow<TRow>> Admitted(TableExportSpec spec) =>
-            rows.Filter(row => spec.ColumnKeys.Contains(row.Key) && row.Classification.IsNone);
+            rows.Filter(row => spec.ColumnKeys.Contains(row.Key) && row.Access is TableColumnAccess<TRow>.Plain);
 
         // RFC-4180: a field containing the delimiter, a quote, CR, or LF wraps in quotes with interior
         // quotes doubled — a bare string.Join over raw cell values is the deleted form.
         public string Delimited(TableExportSpec spec, Seq<TRow> items) =>
-            string.Join(Environment.NewLine,
+            string.Join("\r\n",
                 (spec.HeaderRow ? string.Join(spec.Delimiter, rows.Admitted(spec).Map(row => Quote(row.Header, spec.Delimiter))).Cons(Seq<string>()) : Seq<string>())
-                + items.Map(item => string.Join(spec.Delimiter, rows.Admitted(spec).Map(row => Quote(row.Export(item), spec.Delimiter)))));
+                + items.Map(item => string.Join(spec.Delimiter, rows.Admitted(spec)
+                    .Map(row => row.Project(item).Map(value => Quote(value, spec.Delimiter)))
+                    .Somes())));
 
         public IO<string> Export(VisualRuntime runtime, TableExportSpec spec, Seq<TRow> items, VisualDestination destination) =>
             ExportDelivery.Deliver(runtime, destination, Encoding.UTF8.GetBytes(rows.Delimited(spec, items)));
@@ -257,7 +328,7 @@ flowchart LR
 ```
 
 [COMMIT_LAW]:
-- Commit rail: `BeginEdit`, `CommitEdit`, and `CancelEdit` drive the programmatic edit lifecycle; only a committing row passes the `EditAction` filter into the gate.
+- Commit rail: `BeginEdit`, `CommitEdit`, and `CancelEdit` drive the programmatic edit lifecycle; only a committing row passes the `EditAction` filter into the gate, and a failing gate vetoes the commit at the cancellable `RowEditEnding` hook via `e.Cancel`.
 - Gate altitude: `Gate` receives the screen validation seam's folded `Fin` rail; a failing gate aborts before `Persist` and surfaces on the screen fault state.
 - Persistence split: the `Persist` column is the host-agnostic parameter: store rows, host-object rows, and fake-deterministic rows differ only in the bound delegate.
 - Clipboard: `TableExportSpec.Tsv` fixes `Delimiter` at tab with `HeaderRow` true and the folded text rides the input rail's typed clipboard row — a transport policy over the one shaping fold, never a destination case.

@@ -13,7 +13,7 @@ The coordination rail is the openBIM issue board: `Issue` composes one AppUi `Vi
 
 - Owner: `IssueStatus` `[SmartEnum<string>]` the coordination lifecycle whose rows carry the cross-filter `Bit` ordinal AND the `BcfStatus` correspondence as columns; `Issue` the board issue record; `IssueBinding` the topic-to-viewpoint binding; `IssueFault` the typed fault family on the `AppUiFaultBand.Issue` registry row (6510).
 - Cases: `IssueStatus` = open, in-progress, resolved, closed, reopened; `IssueFault` = Text | TopicMalformed | ViewpointUnbound | CommentConflict.
-- Entry: `public static Fin<Issue> FromTopic(BcfTopic topic, ClockPolicy clocks)` — projects a `Rasm.Bim` BCF topic consumed at the boundary into a board issue binding its viewpoints onto the AppUi `Viewpoint` receipt; `public BcfTopic ToTopic()` — `with`-updates the carried source row (board-edited columns only) or mints a core-column topic for a board-authored issue, never a second BCF schema.
+- Entry: `public static Fin<Issue> FromTopic(BcfTopic topic, ClockPolicy clocks)` — ADMITS the `Rasm.Bim` BCF topic at the boundary before consuming it: a blank title or non-guid identity fails `IssueFault.TopicMalformed`, a comment referencing a viewpoint guid absent from the topic's viewpoint set fails `IssueFault.ViewpointUnbound`, and only an admitted topic projects into a board issue binding its viewpoints onto the AppUi `Viewpoint` receipt — every advertised fault case has a producing boundary path; `public BcfTopic ToTopic()` — `with`-updates the carried source row (board-edited columns only) or mints a core-column topic for a board-authored issue, never a second BCF schema.
 - Auto: each issue carries the BCF topic identity (the GUID, title, status, type, priority, author, and creation instant) plus its bound `Viewpoint` set, its comment projection, and the consumed source row so the widened `BcfTopic` columns the board never edits (description, assignment, stage, due date, labels, provenance, references, snippet, files, status label) survive the round-trip untouched and a coordination issue is one unit the board renders; the status correspondence is ROW DATA — each `IssueStatus` row carries its `BcfStatus` column, `FromBcf` is the `Items`-derived frozen index over that column, and `ToTopic` reads `Status.Bcf` directly, so the board lifecycle and the BCF status are one vocabulary with zero hand-enumerated mapping switches; each BCF viewpoint binds onto the AppUi `Viewpoint` through `ViewpointCodec.FromBcf` so the issue's saved view rides the one portable view-state receipt the viewport, the markup, and the reality-capture overlay share — the issue mints no second camera-snapshot shape; the snapshot tile is the viewpoint's rendered thumbnail through the visuals capture lane so the board shows the issue's view at a glance.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Bim (project)
 - Growth: a new issue field is one `Issue` member; a new lifecycle state is one `IssueStatus` row carrying its bit and BCF columns; a new fault is one `IssueFault` case (one `detail` ordinal on the 6510 row); zero new surface.
@@ -50,8 +50,10 @@ public sealed partial class IssueStatus {
     private static readonly Lazy<FrozenDictionary<Rasm.Bim.Coordination.BcfStatus, IssueStatus>> ByBcf =
         new(static () => Items.ToFrozenDictionary(static row => row.Bcf));
 
-    public static IssueStatus FromBcf(Rasm.Bim.Coordination.BcfStatus status) =>
-        ByBcf.Value.TryGetValue(status, out IssueStatus? row) ? row : Reopened;
+    public static Fin<IssueStatus> FromBcf(Rasm.Bim.Coordination.BcfStatus status) =>
+        ByBcf.Value.TryGetValue(status, out IssueStatus? row)
+            ? Fin.Succ(row)
+            : Fin.Fail<IssueStatus>(new IssueFault.TopicMalformed($"unknown BCF status {status}"));
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -65,7 +67,7 @@ public sealed record CommentEntry(
     bool Resolved,
     Instant Date,
     Option<Instant> ModifiedAt = default,
-    string ModifiedBy = "",
+    Option<string> ModifiedBy = default,
     Option<ulong> Editor = default);
 
 // Source is the consumed contract row kept once at the boundary: the widened BcfTopic columns the
@@ -83,14 +85,27 @@ public sealed record Issue(
     Seq<CommentEntry> Comments,
     Option<string> SnapshotKey,
     Option<Rasm.Bim.Coordination.BcfTopic> Source = default) {
+    // Boundary admission: the foreign topic is admitted or rejected BEFORE its fields are consumed —
+    // every advertised fault case has a producing path here, so the Fin is never an unconditional Succ.
     public static Fin<Issue> FromTopic(Rasm.Bim.Coordination.BcfTopic topic, ClockPolicy clocks) =>
-        Fin.Succ(new Issue(
-            topic.Guid, topic.Title, IssueStatus.FromBcf(topic.Status), topic.TopicType, topic.Priority,
+        from _identity in System.Guid.TryParse(topic.Guid, out _) && !string.IsNullOrWhiteSpace(topic.Title)
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new IssueFault.TopicMalformed($"topic {topic.Guid}: blank title or non-guid identity"))
+        from status in IssueStatus.FromBcf(topic.Status)
+        from _bindings in topic.Comments
+            .Filter(static c => c.ViewpointGuid.IsSome)
+            .TraverseM(c => c.ViewpointGuid
+                .Filter(guid => topic.Viewpoints.Exists(vp => vp.Guid == guid)).IsSome
+                    ? Fin.Succ(unit)
+                    : Fin.Fail<Unit>(new IssueFault.ViewpointUnbound($"comment {c.Guid}: viewpoint {c.ViewpointGuid} absent from topic")))
+            .As()
+        select new Issue(
+            topic.Guid, topic.Title, status, topic.TopicType, topic.Priority,
             topic.Author, topic.CreationDate,
             topic.Viewpoints.Map(vp => new IssueBinding(vp.Guid, ViewpointCodec.FromBcf(vp.Guid, vp, clocks))),
             topic.Comments.Map(static c => new CommentEntry(c.Guid, c.Author, c.Text, c.ViewpointGuid, false, c.Date, c.ModifiedDate, c.ModifiedAuthor)),
             topic.Viewpoints.Find(static vp => vp.Snapshot.IsSome).Map(static vp => vp.Guid),
-            Some(topic)));
+            Some(topic));
 
     // Board-edited columns land as a with-update on the carried source row; each viewpoint re-encodes
     // over its guid-matched source row so the widened viewpoint columns survive; StatusLabel clears
@@ -141,19 +156,19 @@ public static class CommentLens {
     // ONE write verb: the merge authority's own row state discriminates add-versus-edit, and the
     // mutation rides IntentLedger.Commit — durable-first, live apply through the replay dispatch.
     public static IO<Fin<Unit>> Put(CollabDoc doc, IntentLedger ledger, string topicGuid, CommentEntry entry, ClockPolicy clocks) =>
-        IO.lift(() => Has(doc, topicGuid, entry.CommentId)).Bind(probe => probe.Match(
-            Succ: exists => ledger.Commit(doc, exists
-                    ? new EditIntent.CommentEdit(doc.Key, System.Guid.Parse(entry.CommentId), topicGuid, entry.Text, entry.Author, clocks.Now)
-                    : new EditIntent.CommentAdd(doc.Key, System.Guid.Parse(entry.CommentId), topicGuid, entry.Text, entry.Author, entry.ViewpointGuid, clocks.Now),
+        IO.lift(() => CommentId(entry.CommentId).Bind(id => Has(doc, topicGuid, id).Map(exists => (id, exists)))).Bind(probe => probe.Match(
+            Succ: admitted => ledger.Commit(doc, admitted.exists
+                    ? new EditIntent.CommentEdit(doc.Key, admitted.id, topicGuid, entry.Text, entry.Author, clocks.Now)
+                    : new EditIntent.CommentAdd(doc.Key, admitted.id, topicGuid, entry.Text, entry.Author, entry.ViewpointGuid, clocks.Now),
                 BoardOrigin),
             Fail: static error => IO.pure(Fin.Fail<Unit>(error))));
 
     // Resolve gates on row existence: a resolve of a GUID the thread never held would mint an orphan
     // row replay cannot rehydrate, so a missing comment fails the rail before the durable projection.
     public static IO<Fin<Unit>> Resolve(CollabDoc doc, IntentLedger ledger, string topicGuid, string commentId, ClockPolicy clocks) =>
-        IO.lift(() => Has(doc, topicGuid, commentId)).Bind(probe => probe.Match(
-            Succ: exists => exists
-                ? ledger.Commit(doc, new EditIntent.CommentResolve(doc.Key, System.Guid.Parse(commentId), topicGuid, clocks.Now), BoardOrigin)
+        IO.lift(() => CommentId(commentId).Bind(id => Has(doc, topicGuid, id).Map(exists => (id, exists)))).Bind(probe => probe.Match(
+            Succ: admitted => admitted.exists
+                ? ledger.Commit(doc, new EditIntent.CommentResolve(doc.Key, admitted.id, topicGuid, clocks.Now), BoardOrigin)
                 : IO.pure(Fin.Fail<Unit>(new IssueFault.CommentConflict($"resolve: no comment row {commentId}"))),
             Fail: static error => IO.pure(Fin.Fail<Unit>(error))));
 
@@ -161,17 +176,19 @@ public static class CommentLens {
         Thread(doc, topicGuid).Bind(thread => CollabDoc.Lift(() => ReadEntries(thread)));
 
     public static Seq<Rasm.Bim.Coordination.BcfComment> Materialize(Seq<CommentEntry> comments) =>
-        comments.OrderBy(static entry => entry.Date, Comparer<Instant>.Default)
+        toSeq(comments.OrderBy(static entry => entry.Date))
             .Map(static entry => new Rasm.Bim.Coordination.BcfComment(
-                entry.CommentId, entry.Author, entry.Text, entry.ViewpointGuid, entry.Date, entry.ModifiedAt, entry.ModifiedBy))
-            .ToSeq();
+                entry.CommentId, entry.Author, entry.Text, entry.ViewpointGuid, entry.Date, entry.ModifiedAt, entry.ModifiedBy));
 
     // Existence probes ride Keys() — zero transient container handles minted for a yes/no answer.
-    static Fin<bool> Has(CollabDoc doc, string topicGuid, string commentId) =>
+    static Fin<bool> Has(CollabDoc doc, string topicGuid, Guid commentId) =>
         Thread(doc, topicGuid).Bind(thread =>
-            CollabDoc.Lift(() => thread.Keys().Contains(KeyOf(commentId))));
+            CollabDoc.Lift(() => thread.Keys().Contains(commentId.ToString("N"))));
 
-    static string KeyOf(string commentId) => System.Guid.Parse(commentId).ToString("N");
+    static Fin<Guid> CommentId(string value) =>
+        System.Guid.TryParse(value, out Guid id)
+            ? Fin.Succ(id)
+            : Fin.Fail<Guid>(new IssueFault.CommentConflict($"comment identity {value} is not a GUID"));
 
     static Seq<CommentEntry> ReadEntries(LoroMap thread) =>
         thread.Keys().AsIterable()
@@ -192,7 +209,7 @@ public static class CommentLens {
             new CommentEntry(
                 System.Guid.ParseExact(key, "N").ToString(), author, body,
                 Str(row, "viewpoint"), Flag(row, "resolved"), at,
-                Stamp(row, "edited-at"), Str(row, "edited-by").IfNone(string.Empty),
+                Stamp(row, "edited-at"), Str(row, "edited-by"),
                 Optional(thread.GetLastEditor(key))));
 
     static Option<string> Str(LoroMap row, string key) =>
@@ -210,10 +227,10 @@ public static class CommentLens {
 
 - Owner: `IssueTile` the dashboard-tile projection of an issue; `IssueFilter` the cross-filter status bitset.
 - Entry: `public static Seq<IssueTile> Project(IssueBoard board, IssueFilter filter)` — projects the board's issues onto the dashboard tile family under the status cross-filter; the tile list is the dashboard's issue lane, never a second list owner; `public static IssueFilter Of(params ReadOnlySpan<IssueStatus> rows)` — the bitset builder folding status rows through their own `Bit` column, arity absorbed by the span.
-- Auto: each issue projects onto one dashboard tile carrying its title, status, priority, author, and snapshot key so the board's issues render as the dashboard tile lane; the status cross-filter is the dashboard bitset brushing so selecting a status in one tile brushes the issue list exactly as the chart dashboard cross-filters — the bit position is the `IssueStatus.Bit` row column, never a hand-mapped ordinal switch; the snapshot tile renders the issue's bound viewpoint thumbnail through the visuals capture lane so the dashboard shows each issue's view without a second render owner.
+- Auto: each issue projects onto one typed tile row carrying its title, status, priority, author, and snapshot key — the board's ISSUE-LANE row vocabulary; the lane MOUNTS in a dashboard as one `Charts/dashboards.md#DASHBOARD_TILES` `DashboardTile.Custom` cell, and a board status brush pushes the status keys as brushed tags into the dashboard's one `FilterState` so the issue lane participates in the board-wide `CrossFilter` fold rather than minting a second brush protocol; `IssueFilter` is the board-local status bitset — the surviving sibling beside the dashboards `DimensionIndex` on a genuinely distinct discriminant: a fixed five-row status vocabulary folded by `IssueStatus.Bit` columns, not a row-ordinal index over unbounded data; the snapshot tile renders the issue's bound viewpoint thumbnail through the visuals capture lane so the dashboard shows each issue's view without a second render owner.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new tile field is one `IssueTile` member; a new filter axis is one `IssueFilter` bitset column; zero new surface.
-- Boundary: the issue list rides the `charts-dashboards` dashboard tile family with the cross-filter bitset brushing so the board reuses the dashboard owner and a second tile or list owner is the deleted form; the status filter is the dashboard bitset so a per-tile filter flag is the rejected form; the snapshot tile renders through the visuals capture lane so the board mints no second render owner — the tile is the issue's bound `Viewpoint` rendered through the settled capture row.
+- Boundary: the issue lane enters a dashboard as one `DashboardTile.Custom` cell and brushes through the dashboards `FilterState` tag set — a parallel tile placement engine or a second brush protocol beside the dashboards `CrossFilter` is the deleted form, while `IssueFilter` survives on its named discriminant (fixed status vocabulary versus row-ordinal data index); the status filter derives its bits from the `IssueStatus.Bit` row column, never a hand-mapped ordinal switch, so a per-tile filter flag is the rejected form; the snapshot tile renders through the visuals capture lane so the board mints no second render owner — the tile is the issue's bound `Viewpoint` rendered through the settled capture row.
 
 ```csharp signature
 public readonly record struct IssueFilter(uint StatusMask) {
@@ -264,7 +281,3 @@ public sealed record IssueBoard(string Key, Seq<Issue> Issues) {
             .Map(issues => this with { Issues = issues.ToSeq() });
 }
 ```
-
-## [06]-[RESEARCH]
-
-- [BCF_TOPIC_SEAM]: the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfComment`/`BcfViewpoint` record member set the board consumes at the boundary is the finalized `Rasm.Bim.Coordination` surface — the topic core columns (GUID/title/status/type/priority/author/creation-instant) plus the trailing-defaulted widened columns (description, assignment, stage, due date, labels, index, provenance, server id, reference links, related topics, document references, snippet, header files, `StatusLabel`) the carried source row preserves, the comment GUID/author/text/viewpoint-guid/date/`ModifiedDate`/`ModifiedAuthor` columns, and the viewpoint `BcfCamera` `Perspective`/`Orthogonal` union, `SelectedGlobalIds`, `VisibilityExceptions`/`DefaultVisibility` pair, `Snapshot`, `Coloring`, and `ClippingPlanes` columns anchored on IFC GlobalIds, with the closed five-state `BcfStatus` enum riding the `IssueStatus.Bcf` row column; the `BcfViewpoint`-to-AppUi-`Viewpoint` projection (the `BcfCamera` position-direction-up-to-`ViewCamera` eye-target-up correspondence with per-arm `FieldOfViewDeg`/`ViewToWorldScale` scalars, and the `SelectedGlobalIds`/`VisibilityExceptions` sets under the `DefaultVisibility` convention) is the one `Render/pipeline.md#VIEWPOINT_CODEC` `ViewpointCodec.FromBcf`/`ToBcf` over the consumed contract — the board folds each topic through that single codec and re-mints no second viewpoint mapping; the exact `Rasm.Bim` BCF record column spellings and namespace are the package-edge surface composed through the codec, never re-minted.

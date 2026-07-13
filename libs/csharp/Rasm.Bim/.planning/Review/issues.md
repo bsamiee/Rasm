@@ -35,7 +35,7 @@ using Vector3 = System.Numerics.Vector3;
 using static LanguageExt.Prelude;
 
 // The BCF/coordination DOMAIN owner namespace — the `coordination` sub-domain the ARCHITECTURE seams name
-// and AppUi `Editing/issues` consumes as `Rasm.Bim.Coordination.BcfTopic`/`BcfComment`/`BcfViewpoint`/`BcfStatus`;
+// and AppUi `Collab/issues` consumes as `Rasm.Bim.Coordination.BcfTopic`/`BcfComment`/`BcfViewpoint`/`BcfStatus`;
 // the codemap `Review/Coordination.cs`/`Review/Issues.cs` files emit this namespace, not folder-derived `Review`.
 namespace Rasm.Bim.Coordination;
 

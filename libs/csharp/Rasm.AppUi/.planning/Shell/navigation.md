@@ -31,6 +31,8 @@ public abstract partial record NavFault : Expected {
         : NavFault($"nav/verb: {Verb}", AppUiFaultBand.Nav.Code(2));
     public sealed record UnknownRoute(string Key)
         : NavFault($"nav/route: {Key}", AppUiFaultBand.Nav.Code(3));
+    public sealed record CheckpointRejected(string Detail)
+        : NavFault($"nav/checkpoint: {Detail}", AppUiFaultBand.Nav.Code(4));
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -76,6 +78,8 @@ public abstract partial record NavRequest {
         .ToArray();
 }
 
+public readonly record struct RouteRestoreFact(string Key, bool Resolved);
+
 public sealed class ShellRoot(
     FrozenDictionary<string, Func<IScreen, IRoutableViewModel>> routes,
     Func<IRoutableViewModel, IO<Unit>> presentModal) : ReactiveObject, IScreen {
@@ -100,56 +104,84 @@ public sealed class ShellRoot(
             state: this,
             push: static (s, c) => s.Forward(s.Router.Navigate, c.RouteKey),
             pop: static (s, _) => s.Back(),
-            replace: static (s, c) => s.Back().Bind(_ => s.Forward(s.Router.Navigate, c.RouteKey)),
+            replace: static (s, c) => s.Swap(c.RouteKey),
             reset: static (s, c) => s.Forward(s.Router.NavigateAndReset, c.RouteKey),
             modal: static (s, c) => s.Resolved(c.RouteKey).Bind(s.PresentModal));
+
+    // Replace is ONE stack write — pop-plus-push as a single NavigationStack assignment, so no
+    // intermediate back transition renders and the router observes exactly one change.
+    private IO<Unit> Swap(string key) =>
+        Resolved(key).Map(vm => ignore(Router.NavigationStack = [.. Router.NavigationStack.SkipLast(1), vm]));
 
     // The ONE route-admission outcome: navigation lifts it into IO, the dock factory consumes the Fin
     // directly, so an unknown key is the same NavFault.UnknownRoute evidence on every ingress path.
     public Fin<IRoutableViewModel> Resolve(string key) =>
-        Routes.TryGetValue(key, out var make)
+        Routes.TryGetValue(key, out Func<IScreen, IRoutableViewModel>? make)
             ? Fin.Succ(make(this))
             : Fin.Fail<IRoutableViewModel>(new NavFault.UnknownRoute(key));
+
+    // Workspace restore is stack manipulation, never command replay: saved keys materialize, the
+    // stack sets ONCE, and an unresolvable key folds to the fallback row with a receipt — first-run,
+    // restore, and upgrade are one total fold over (saved keys × route index).
+    public Fin<Seq<RouteRestoreFact>> Restore(Seq<string> saved, string fallback) =>
+        Resolve(fallback).Bind(fallbackScreen => {
+            Seq<string> requested = saved.IsEmpty ? Seq(fallback) : saved;
+            Seq<(RouteRestoreFact Fact, IRoutableViewModel Screen)> resolved = requested
+                .Map(key => Resolve(key).Match(
+                    Succ: screen => (new RouteRestoreFact(key, true), screen),
+                    Fail: _ => (new RouteRestoreFact(key, false), fallbackScreen)))
+                .Strict();
+            Router.NavigationStack = [.. resolved.Map(static row => row.Screen)];
+            return Fin.Succ(resolved.Map(static row => row.Fact));
+        });
 
     private IO<IRoutableViewModel> Resolved(string key) =>
         Resolve(key).Match(Succ: IO.pure, Fail: IO.fail<IRoutableViewModel>);
 
     private IO<Unit> Forward(ReactiveCommand<IRoutableViewModel, IRoutableViewModel> verb, string key) =>
-        Resolved(key).Bind(vm => IO.liftAsync(async () => { await verb.Execute(vm); return unit; }));
+        Resolved(key).Bind(vm => IO.lift(async _ => { await verb.Execute(vm).ConfigureAwait(true); return unit; }));
 
     private IO<Unit> Back() =>
-        IO.liftAsync(async () => { await Router.NavigateBack.Execute(); return unit; });
+        IO.lift(async _ => { await Router.NavigateBack.Execute().ConfigureAwait(true); return unit; });
 }
 ```
 
 ## [03]-[DOCK_LAYOUTS]
 
 - Owner: `DockableRow` registration row; `ShellDockFactory` boundary capsule over the Dock model graph; `ShellPolicy` policy anchor; `LayoutCheckpoint` versioned blob record; `LayoutPersistence` port-delegate record; `LayoutLedger` checkpoint, restore, telemetry, and registration fold surface.
-- Entry: `public static IO<Option<LayoutCheckpoint>> Flush(ClockPolicy clocks, LayoutPersistence port, Atom<Option<string>> last)` — `IO` carries the serialize-hash-persist effect; the unchanged-hash skip rides `Option<T>`.
-- Auto: the cadence, drain, support, and telemetry rows register once at composition — flush fires on the `Every` cadence and again on the drain row inside `DrainBand.Interaction` at `ShellPolicy.DrainRank`, the support capture reads the latest blob, the telemetry row contributes the layout-flush instruments inward, and boot restore runs once from the fault-spine probe consequence; zero UI timers.
-- Receipt: `Flush` yields `Option<LayoutCheckpoint>` — Some on a persisted blob, None on the unchanged-hash skip; the checkpoint record is the restore evidence and the support artifact body.
+- Entry: `public static IO<Option<LayoutCheckpoint>> Flush(ClockPolicy clocks, LayoutPersistence port, Atom<Option<string>> last)` — `IO` carries the capture-hash-persist effect over BOTH workspace rails, the dock payload and the router route-stack; the unchanged-hash skip rides `Option<T>` and its content key folds payload plus stack, so a navigation-only change still checkpoints.
+- Auto: the cadence, drain, support, and telemetry rows register once at composition — flush fires on the `Every` cadence and again on the drain row inside `DrainBand.Interaction` at `ShellPolicy.DrainRank`, the support capture reads the latest blob, the telemetry row contributes the layout-flush instruments inward, and boot restore runs once from the fault-spine probe consequence, re-materializing the dock graph and setting the router stack through `ShellRoot.Restore` in one pass — an unresolvable saved route key folds to the fallback row with a `RouteRestoreFact` receipt, so first-run, restore, and upgrade are one total fold; zero UI timers.
+- Receipt: `Flush` yields `Option<LayoutCheckpoint>` — Some on a persisted blob, None on the unchanged-hash skip; the checkpoint record is the restore evidence and the support artifact body; `RouteRestoreFact` rows are the per-key restore evidence.
 - Packages: Dock.Avalonia, Dock.Model.ReactiveUI, Dock.Serializer.SystemTextJson, NodaTime, LanguageExt.Core, Rasm.AppHost (project), BCL inbox
-- Growth: a new dockable is one `DockableRow` row registered from the screen catalog, a new cadence, rank, retention, proportion, drop-selector, or external-surface bound is one policy value on `ShellPolicy`, and a new layout instrument is one `InstrumentRow` on `LayoutLedger.TelemetryRow`; zero new surface.
+- Growth: a new dockable is one `DockableRow` row registered from the screen catalog with its title resolving through the catalog title cell, a new cadence, rank, retention, proportion, drop-selector, or external-surface bound is one policy value on `ShellPolicy`, and a new layout instrument is one `InstrumentRow` on `LayoutLedger.TelemetryRow`; zero new surface.
 - Boundary: `ShellDockFactory` is the named boundary capsule for the statement carve-out — the Dock model graph is mutable host-owned state assembled only through `Factory` create entrypoints, and view-layer mutation of dock structure is the rejected form; `DockControl` binds `Build`'s root through `Layout` with `InitializeLayout` and `InitializeFactory` false so the factory owns initialization, the dock chrome variant resolves through the `IDockThemeManager` bound at composition from the theme-token variant subscription so dock-owned brushes flip with the one theme resolution and a per-dock brush literal is the deleted form, floating hosts ride `HostWindowFactory` with `EnableManagedWindowLayer` under the `FloatingWindows` gate, and rows where `ShellPolicy.ExternalSurface` holds register the embedded host root through `DockControl.RegisterExternalDockSurface(IExternalDockSurface)` (the surface exposes `DockControl? DockControl { get; set; }` and `Control SurfaceControl { get; }`, paired with `bool UnregisterExternalDockSurface(IExternalDockSurface)` at teardown) so a docked panel drags across the host boundary while `GlobalDockTarget` and the `DockSelectorMode`-typed selector drive the `DockControl.ShowSelector(DockSelectorMode mode)`/`HideSelector()` drop overlay under the `ShellPolicy.DropSelector` gate — `DockSelectorMode` is the three-member `Documents | Tools | All` domain, and a per-host drag-handler fork is the rejected form; dockable `Context` resolves through the same `ShellRoot.Resolve` admission as navigation — `Build` traverses the rows on the `Fin` rail so a stale `DockableRow.RouteKey` yields the identical `NavFault.UnknownRoute` evidence, a direct route-index access is the deleted form, a dockable is a screen, and a second viewmodel system is the deleted pattern; the `Serialize` and `Restore` delegates bind the concrete `DockSerializer` from `Dock.Serializer.SystemTextJson` at composition — `DockSerializer()` constructs the default `ObservableCollection<>`-list reflection resolver, or `DockSerializer(IJsonTypeInfoResolver)` takes the source-generated `DockSystemTextJsonContext` the `[assembly: DockJsonSourceGenerationAttribute]` analyzer emits for AOT-safe metadata; its `IDockSerializer` contract `Serialize<T>(T)->string`, `Deserialize<T>(string)->T?`, `Load<T>(Stream)->T?`, `Save<T>(Stream, T)` carries the package-owned `JsonSerializerOptions` (`ReferenceHandler.Preserve`, `WhenWritingNull`, `AllowNamedFloatingPointLiterals`, the `JsonConverterFactoryList` `IList<T>` factory) and the `DockModelPolymorphicTypeResolver` that resolves `IDockable`/`IDock`/`IRootDock`/`IDockWindow`/`IDocumentTemplate`/`IToolTemplate` by `$type`, so a hand-rolled `IDockSerializer` or a replacement `JsonSerializerOptions` set is the rejected form; the payload crosses the Persistence port as an opaque versioned blob — the serializer round-trips dockable identity by `Id` so structure survives restore, file I/O is caller-side `Load<T>(Stream)`/`Save<T>(Stream, T)` construction since no file-path overload ships, AppUi issues no store queries, the `ContentHash` delegate carries the Persistence snapshot hash vocabulary, and the persist route prunes to `RetainedCheckpoints` generations; crash offer consumes the fault-spine crashes — a `HostCrashMarker` case gates the confirm route while a clean boot restores the warm blob silently; multi-window coordination and session restore ride the same blob; the dashboard-board snapshot is `Charts/dashboards#STREAM_BINDING`'s `BoardState`, which round-trips through the same concrete `DockSerializer` bound here — the dock graph and the board arrangement-plus-brush are two independent blobs over one serializer; the checkpoint row shares the health-probe deadline bound, so a flush past it is the dispatcher-starvation signal; the drain row ranks after the screens teardown row inside `DrainBand.Interaction`, so the flushed layout captures post-suspension state; pin, auto-hide, float, and close states are `DockableRow` policy values rendered through `PinnedDockControl`/`ToolPinnedControl`, never control state.
 
 ```csharp signature
-public sealed record DockableRow(
-    string RouteKey,
-    string Title,
-    bool IsTool,
-    bool CanFloat,
-    bool CanPin,
-    bool CanClose,
-    int Rank);
+[SmartEnum<string>]
+public sealed partial class DockRole {
+    public static readonly DockRole Document = new("document");
+    public static readonly DockRole Tool = new("tool");
+}
 
-public sealed class ShellDockFactory(ShellRoot shell, Seq<DockableRow> rows, Func<IDockThemeManager> themeManager) : Factory {
+[SmartEnum<string>]
+public sealed partial class DockCapability {
+    public static readonly DockCapability Float = new("float");
+    public static readonly DockCapability Pin = new("pin");
+    public static readonly DockCapability Close = new("close");
+}
+
+public sealed record DockableRow(string RouteKey, DockRole Role, FrozenSet<DockCapability> Capabilities, int Rank);
+
+// Dock-tab titles resolve through the ONE screen-catalog title cell bound at composition — a second
+// title cell on the dock row is the deleted split-brain, so a rename lands everywhere at once.
+public sealed class ShellDockFactory(ShellRoot shell, Seq<DockableRow> rows, Func<string, string> title, Func<IDockThemeManager> themeManager) : Factory {
     public IDockThemeManager ThemeManager() => themeManager();
 
     // Dockable Context rides the one ShellRoot.Resolve admission: a stale RouteKey aborts Build on the
     // Fin rail with NavFault.UnknownRoute — the route index is never indexed directly.
     public Fin<RootDock> Build() =>
-        from tools in Mounted(rows.Filter(static r => r.IsTool))
-        from documents in Mounted(rows.Filter(static r => !r.IsTool))
+        from tools in Mounted(rows.Filter(static row => row.Role == DockRole.Tool))
+        from documents in Mounted(rows.Filter(static row => row.Role == DockRole.Document))
         select Assemble(tools, documents);
 
     private Fin<Seq<IDockable>> Mounted(Seq<DockableRow> side) =>
@@ -157,26 +189,26 @@ public sealed class ShellDockFactory(ShellRoot shell, Seq<DockableRow> rows, Fun
 
     private Fin<IDockable> Dockable(DockableRow row) =>
         shell.Resolve(row.RouteKey).Map(context => {
-            var dockable = row.IsTool ? (DockableBase)CreateTool() : (DockableBase)CreateDocument();
+            DockableBase dockable = row.Role == DockRole.Tool ? (DockableBase)CreateTool() : (DockableBase)CreateDocument();
             dockable.Id = row.RouteKey;
-            dockable.Title = row.Title;
+            dockable.Title = title(row.RouteKey);
             dockable.Context = context;
-            dockable.CanFloat = row.CanFloat;
-            dockable.CanPin = row.CanPin;
-            dockable.CanClose = row.CanClose;
+            dockable.CanFloat = row.Capabilities.Contains(DockCapability.Float);
+            dockable.CanPin = row.Capabilities.Contains(DockCapability.Pin);
+            dockable.CanClose = row.Capabilities.Contains(DockCapability.Close);
             return (IDockable)dockable;
         });
 
     private RootDock Assemble(Seq<IDockable> tools, Seq<IDockable> documents) {
-        var toolDock = CreateToolDock();
+        IToolDock toolDock = CreateToolDock();
         toolDock.Proportion = ShellPolicy.ToolDockProportion;
         toolDock.VisibleDockables = CreateList<IDockable>([.. tools]);
-        var documentDock = CreateDocumentDock();
+        IDocumentDock documentDock = CreateDocumentDock();
         documentDock.VisibleDockables = CreateList<IDockable>([.. documents]);
-        var split = CreateProportionalDock();
+        IProportionalDock split = CreateProportionalDock();
         split.Orientation = Orientation.Horizontal;
         split.VisibleDockables = CreateList<IDockable>(toolDock, CreateProportionalDockSplitter(), documentDock);
-        var root = CreateRootDock();
+        IRootDock root = CreateRootDock();
         root.VisibleDockables = CreateList<IDockable>(split);
         root.ActiveDockable = split;
         return root;
@@ -205,36 +237,55 @@ public static class ShellPolicy {
         host is SurfaceHost.RhinoPanel or SurfaceHost.RhinoModal or SurfaceHost.Gh2CompanionWindow;
 }
 
-public sealed record LayoutCheckpoint(int Version, string ContentHash, string Payload, Instant At);
+public sealed record LayoutContent(string Payload, Seq<string> RouteStack);
+
+public sealed record LayoutCheckpoint(int Version, string ContentHash, LayoutContent Content, Instant At);
 
 public sealed record LayoutPersistence(
     Func<string> Serialize,
-    Action<string> Restore,
-    Func<string, string> ContentHash,
+    Func<Seq<string>> RouteStack,
+    Func<LayoutCheckpoint, Fin<Seq<RouteRestoreFact>>> Restore,
+    Func<LayoutContent, string> ContentHash,
+    Func<LayoutCheckpoint, ReadOnlyMemory<byte>> Support,
     Func<LayoutCheckpoint, IO<Unit>> Persist,
     IO<Option<LayoutCheckpoint>> Latest) {
     // The one serializer binding: the generated DockSystemTextJsonContext resolver keeps layout
-    // round-trips AOT-safe, and restore re-inits through the factory so InitializeLayout stays false.
+    // round-trips AOT-safe, restore re-inits through the factory so InitializeLayout stays false, and
+    // the SAME checkpoint restores the router stack through ShellRoot.Restore — one blob, two rails.
     public static LayoutPersistence Bind(
-        DockControl control, ShellDockFactory factory, Func<string, string> contentHash,
+        DockControl control, ShellDockFactory factory, ShellRoot shell, string fallbackRoute,
+        Func<LayoutContent, string> contentHash, Func<LayoutCheckpoint, ReadOnlyMemory<byte>> support,
         Func<LayoutCheckpoint, IO<Unit>> persist, IO<Option<LayoutCheckpoint>> latest) {
-        var serializer = new DockSerializer(new DockSystemTextJsonContext());
+        DockSerializer serializer = new(new DockSystemTextJsonContext());
         return new(
             Serialize: () => serializer.Serialize(control.Layout),
-            Restore: payload => Optional(serializer.Deserialize<RootDock>(payload)).Iter(root => {
-                factory.InitLayout(root);
-                control.Layout = root;
-            }),
+            RouteStack: () => toSeq(shell.Router.NavigationStack).Choose(static vm => Optional(vm.UrlPathSegment).Filter(static key => key.Length > 0)),
+            Restore: checkpoint =>
+                checkpoint.Version != ShellPolicy.LayoutVersion
+                    ? Fin.Fail<Seq<RouteRestoreFact>>(new NavFault.CheckpointRejected($"version:{checkpoint.Version}"))
+                    : !string.Equals(contentHash(checkpoint.Content), checkpoint.ContentHash, StringComparison.Ordinal)
+                        ? Fin.Fail<Seq<RouteRestoreFact>>(new NavFault.CheckpointRejected("content-hash"))
+                        : Optional(serializer.Deserialize<RootDock>(checkpoint.Content.Payload))
+                            .ToFin(new NavFault.CheckpointRejected("dock-payload"))
+                            .Bind(root => shell.Restore(checkpoint.Content.RouteStack, fallbackRoute).Map(facts => {
+                                factory.InitLayout(root);
+                                control.Layout = root;
+                                return facts;
+                            })),
             ContentHash: contentHash,
+            Support: support,
             Persist: persist,
             Latest: latest);
     }
 }
 
 public static class LayoutLedger {
+    // The unchanged-hash skip covers BOTH rails: the content key folds the dock payload AND the route
+    // stack, so a navigation-only change still checkpoints and a byte-identical pair still skips.
     public static IO<Option<LayoutCheckpoint>> Flush(ClockPolicy clocks, LayoutPersistence port, Atom<Option<string>> last) =>
-        IO.lift(port.Serialize)
-            .Map(payload => new LayoutCheckpoint(ShellPolicy.LayoutVersion, port.ContentHash(payload), payload, clocks.Now))
+        IO.lift(() => (Payload: port.Serialize(), Stack: port.RouteStack()))
+            .Map(captured => new LayoutContent(captured.Payload, captured.Stack))
+            .Map(content => new LayoutCheckpoint(ShellPolicy.LayoutVersion, port.ContentHash(content), content, clocks.Now))
             .Bind(next => last.Value == Some(next.ContentHash)
                 ? IO.pure(Option<LayoutCheckpoint>.None)
                 : port.Persist(next).Map(done => (last.Swap(prior => Some(next.ContentHash)), Some(next)).Item2));
@@ -242,15 +293,15 @@ public static class LayoutLedger {
     public static Option<LayoutCheckpoint> Offer(Seq<FaultSource> crashes, Option<LayoutCheckpoint> latest) =>
         crashes.Exists(static fault => fault is FaultSource.HostCrashMarker) ? latest : None;
 
-    public static IO<Unit> Restore(LayoutPersistence port, Seq<FaultSource> crashes, Func<LayoutCheckpoint, IO<bool>> confirm) =>
+    public static IO<Fin<Seq<RouteRestoreFact>>> Restore(LayoutPersistence port, Seq<FaultSource> crashes, Func<LayoutCheckpoint, IO<bool>> confirm) =>
         port.Latest.Bind(latest =>
             Offer(crashes, latest) is { IsSome: true, Case: LayoutCheckpoint offered }
                 ? confirm(offered).Bind(accepted => accepted
-                    ? IO.lift(fun(() => port.Restore(offered.Payload)))
-                    : IO.pure(unit))
+                    ? IO.lift(fun(() => port.Restore(offered)))
+                    : IO.pure(Fin.Succ(Seq<RouteRestoreFact>())))
                 : latest is { IsSome: true, Case: LayoutCheckpoint warm }
-                    ? IO.lift(fun(() => port.Restore(warm.Payload)))
-                    : IO.pure(unit));
+                    ? IO.lift(fun(() => port.Restore(warm)))
+                    : IO.pure(Fin.Succ(Seq<RouteRestoreFact>())));
 
     public static ScheduleEntry CheckpointRow(ClockPolicy clocks, LayoutPersistence port, Atom<Option<string>> last) =>
         new(
@@ -275,7 +326,7 @@ public static class LayoutLedger {
                 Classification: DataClassification.Operational,
                 EstimatedBytes: ShellPolicy.LayoutArtifactBytes,
                 Produce: window => port.Latest.Map(latest =>
-                    ((ReadOnlyMemory<byte>)Encoding.UTF8.GetBytes(latest.Map(static c => c.Payload).IfNone("")), 0)))));
+                    (latest.Map(port.Support).IfNone(ReadOnlyMemory<byte>.Empty), 0)))));
 
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, ShellPolicy.FlushInstrument, ShellPolicy.RestoreInstrument);
@@ -290,6 +341,7 @@ flowchart LR
     LayoutLedger -->|"Flush"| LayoutCheckpoint
     LayoutCheckpoint -->|"Persist"| LayoutPersistence
     LayoutPersistence -->|"Restore"| ShellDockFactory
+    LayoutPersistence -->|"RouteStack restore"| ShellRoot
 ```
 
 ## [04]-[SHELL_CHROME]
@@ -345,14 +397,18 @@ Visibility matrix — the value source for every `Visible` predicate and for `Fl
 - Boundary: `AdaptiveBehavior` and `AspectRatioBehavior` attach the resolved row key at each surface root, so per-view width literals are the deleted pattern; a resolved-tier flip folds one observation into the `AdaptiveLayout.BreakpointInstrument` count keyed by the row `Key` through the one `AppUiTelemetry.Contribute` spine, so responsive-tier transitions are attributable and a layout-local meter is the deleted form; density-aware spacing arrives from the theme token resolve as settled vocabulary and composes orthogonally to breakpoints; the row keys are serializable strings, so the designed-only WebBrowser growth case consumes the same vocabulary with zero live surface.
 
 ```csharp signature
-public sealed record BreakpointRow(string Key, double MinWidth);
+[SmartEnum<string>]
+public sealed partial class BreakpointRow {
+    public static readonly BreakpointRow Compact = new("compact", 0d);
+    public static readonly BreakpointRow Medium = new("medium", 720d);
+    public static readonly BreakpointRow Expanded = new("expanded", 1280d);
+    public static readonly BreakpointRow Ultrawide = new("ultrawide", 2560d);
+
+    public double MinWidth { get; }
+}
 
 public static class AdaptiveLayout {
-    public static readonly Seq<BreakpointRow> Rows = Seq(
-        new BreakpointRow("compact", 0d),
-        new BreakpointRow("medium", 720d),
-        new BreakpointRow("expanded", 1280d),
-        new BreakpointRow("ultrawide", 2560d));
+    public static Seq<BreakpointRow> Rows => toSeq(BreakpointRow.Items).OrderBy(static row => row.MinWidth).ToSeq();
 
     public static BreakpointRow Resolve(double width) =>
         Rows.Fold(Rows[0], (best, row) => row.MinWidth <= width ? row : best);

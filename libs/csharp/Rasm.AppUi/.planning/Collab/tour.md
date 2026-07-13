@@ -11,7 +11,7 @@ The presentation rail is the client-facing design-review deliverable, and it is 
 
 ## [02]-[TOUR_MODEL]
 
-- Owner: `TourStop` `[ComplexValueObject]` the structural-identity stop binding a saved `Viewpoint` with its dwell `Duration`, transition `MotionToken`, and narration; `ReviewTour` `[ValueObject]` the ordered non-empty `Seq<TourStop>` with its tour key; `TourFault` the construction fault rail on the `AppUiFaultBand.Tour` registry row (6520).
+- Owner: `TourStop` `[ComplexValueObject]` the structural-identity stop binding a saved `Viewpoint` with its dwell `Duration`, transition `MotionToken`, and narration; `ReviewTour` the ordered non-empty `Seq<TourStop>` record keyed by `TourKey` `[ValueObject<string>]`; `TourFault` the construction fault rail on the `AppUiFaultBand.Tour` registry row (6520).
 - Cases: a stop binds exactly one `Viewpoint` receipt, one dwell duration, one transition token, and one `Option<NarrationTrack>` (None IS the silent stop) — there is no stop-kind axis because every stop is the same shape; the tour-source variation lives on `TOUR_SOURCE`, never on the stop.
 - Entry: `public static Fin<ReviewTour> Of(string Key, Seq<TourStop> Stops)` — rejects an empty tour at construction so every constructed `ReviewTour` carries at least one stop and the timeline projection is total without an empty-tour guard; the stops keep caller order because tour order is presentation order, never re-sorted.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
@@ -69,7 +69,7 @@ public sealed record ReviewTour(TourKey Key, Seq<TourStop> Stops) {
 ## [03]-[TOUR_PROJECTION]
 
 - Owner: `TourProjection` — the ONE lowering from a `ReviewTour` onto a `Render/animation.md` `Timeline`; `TourFollow` — the two-sided presenter-follow arm over the projected timeline.
-- Entry: `public static Fin<Timeline> ToTimeline(ReviewTour tour, double fps)` — projects the stops onto one camera `Track`: each stop contributes a transition-end keyframe (its camera, eased by its transition token) and a dwell-end keyframe (the same camera, hold), so the animation `Timeline.SampleAt` reproduces dwell-hold plus eased fly-through through the ONE bracketing sampler and `TrackInterp.Pose` — a tour-local `Bracket`/`Walk` sampler, a `lerpCam` delegate, or a second pose-interpolation site is the DELETED form; `public static TourFollow Of(Presence presence, ReviewTour tour, double fps)` — binds the follow arm to the SAME projected timeline both presenter and follower sample.
+- Entry: `public static Fin<Timeline> ToTimeline(ReviewTour tour, double fps, PlaybackMode mode)` — projects the stops onto one camera `Track`: each stop contributes a transition-end keyframe (its camera, eased by its transition token) and a dwell-end keyframe (the same camera, hold), so the animation `Timeline.SampleAt` reproduces dwell-hold plus eased fly-through through the ONE bracketing sampler and `TrackInterp.Pose` — a tour-local `Bracket`/`Walk` sampler, a `lerpCam` delegate, or a second pose-interpolation site is the DELETED form; the `PlaybackMode` is playhead policy, so a presentation runs `Once` while a kiosk loop runs `Loop` with zero tour-local replay logic; `public static TourFollow Of(Presence presence, ReviewTour tour, double fps, PlaybackMode mode)` — binds the follow arm to the SAME projected timeline both presenter and follower sample.
 - Auto: scrub, kinematic playback, and reduced-motion selection all ride the animation owners (`ScrubState`, `Scrub.To`, `ReducedMotion.Select` applied at projection so a reduced-motion tour snaps stops without the spring); the narration at a playhead position reads `StopIndexAt` — a pure offset-table index fold, index math, never interpolation; the offline tour render IS `animation.Walkthrough.Render` over the projected timeline with the moved `Document/export.md` `VisualDestination` and the per-frame narration drawn by the frame delegate through the `NARRATION` shaped rail — the former `WalkthroughTour.Render` clone is deleted, and a flythrough clip rides the walkthrough's capture `ClipEncoder` composition; the presenter's `Publish` writes the playhead as one STRUCTURED `LoroValue.Map` value (`tour` key + `frame` index) on the presence cursor channel — TTL-expiring, broadcast by the presence owner's local-update sink — and a follower's `Follow` applies the remote bytes through `Presence.ApplyRemote`, decodes the playhead, gates on its own tour key so a foreign tour's playhead never drives this viewport, samples the projected timeline at the presenter's frame through the track-owned policy rows, and applies the sampled camera through the caller-bound viewpoint-apply boundary.
 - Receipt: the offline render seals through the animation walkthrough receipt; tour navigation and follower camera application seal the viewpoint-apply receipt the viewport already mints.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
@@ -78,7 +78,7 @@ public sealed record ReviewTour(TourKey Key, Seq<TourStop> Stops) {
 
 ```csharp signature
 public static class TourProjection {
-    public static Fin<Timeline> ToTimeline(ReviewTour tour, double fps) =>
+    public static Fin<Timeline> ToTimeline(ReviewTour tour, double fps, PlaybackMode mode) =>
         tour.Stops
             .Fold((Cursor: Duration.Zero, Frames: Seq<Keyframe<ViewCamera>>()), (state, stop) => (
                 Cursor: state.Cursor + stop.Span,
@@ -87,7 +87,7 @@ public static class TourProjection {
                     .Add(new Keyframe<ViewCamera>(state.Cursor + stop.Span, stop.View.Camera, MotionToken.Instant))))
             switch {
                 var projected => Track.OfCamera(tour.Key.Value, projected.Frames)
-                    .Map(track => new Timeline(tour.Key.Value, Seq(track), fps, PlaybackMode.Once)),
+                    .Map(track => new Timeline(tour.Key.Value, Seq(track), fps, mode)),
             };
 
     // Pure offset-table index fold — narration lookup is index math, never interpolation.
@@ -110,8 +110,8 @@ public sealed record TourFollow(Presence Presence, ReviewTour Tour, Timeline Lin
     public const string TourField = "tour";
     public const string FrameField = "frame";
 
-    public static Fin<TourFollow> Of(Presence presence, ReviewTour tour, double fps) =>
-        TourProjection.ToTimeline(tour, fps).Map(line => new TourFollow(presence, tour, line));
+    public static Fin<TourFollow> Of(Presence presence, ReviewTour tour, double fps, PlaybackMode mode) =>
+        TourProjection.ToTimeline(tour, fps, mode).Map(line => new TourFollow(presence, tour, line));
 
     public Fin<Unit> Publish(long frame) =>
         CollabDoc.Lift(() => {
@@ -177,10 +177,11 @@ public static class NarrationShaper {
             new NarrationRow(TypographyRole.Title, TextStyleRow.Resolve(TypographyRole.Title, chain), track.Title)
                 .Cons(track.Body.Map(body => new NarrationRow(TypographyRole.Body, TextStyleRow.Resolve(TypographyRole.Body, chain), body)).ToSeq());
 
-        public Fin<Unit> Draw(SKCanvas canvas, SKShaper shaper, SKFont font, SKPaint paint, FontChain chain, float x, float y) =>
+        public Fin<Unit> Draw(SKCanvas canvas, RunSpec spec, FaceHandle face, SKFont font, SKPaint paint, FontChain chain, float x, float y) =>
             track.Resolve(chain).Fold(Fin.Succ(y), (cursor, row) =>
                 cursor.Map(at => {
-                    ignore(ShapingSurface.DrawLabel(canvas, shaper, font, paint, row.Text, x, at));
+                    using ShapedRun shaped = ShapingSurface.Shape(row.Text, spec, face, font);
+                    ignore(ShapingSurface.DrawLabel(canvas, shaped, paint, x, at));
                     return at + (float)row.Style.LineHeight;
                 })).Map(static _ => unit);
     }
@@ -190,7 +191,7 @@ public static class NarrationShaper {
 ## [05]-[TOUR_SOURCE]
 
 - Owner: `TourSource` `[Union]` the one closed tour-origin family; `SavedSequence` the ordered saved-viewpoint-key projection; `TopicTour` the BCF-topic-set projection folding a `Rasm.Bim` topic set into stops at the package edge.
-- Cases: `TourSource` = `SavedSequence` | `TopicTour` — a saved sequence orders stored viewpoint keys with their per-stop dwell and transition, a topic tour folds a coordination `BcfTopic` set into stops binding each topic's first viewpoint through the viewpoint codec; one new tour origin is one `TourSource` case the generated total `Switch` breaks at every site.
+- Cases: `TourSource` = `SavedSequence` | `TopicTour` — a saved sequence orders stored viewpoint keys with their per-stop dwell and transition, and a topic tour expands every viewpoint of every coordination topic through the viewpoint codec; one new tour origin is one `TourSource` case the generated total `Switch` breaks at every site.
 - Entry: `public Fin<ReviewTour> Build(Func<string, Fin<Viewpoint>> resolve, ClockPolicy clocks)` — the generated total switch projects each source onto the one `ReviewTour` keyed by the source's own `Key` field; the saved-sequence arm resolves each key to its stored viewpoint, the topic-tour arm folds each `BcfTopic` to a stop through `ViewpointCodec.FromBcf`.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Bim (project)
 - Growth: a new tour origin is one `TourSource` case plus its one `Build` arm; a new BCF mapping rides the existing topic projection; zero new surface.
@@ -211,21 +212,21 @@ public abstract partial record TourSource {
             state: (Resolve: resolve, Clocks: clocks),
             savedSequence: static (ctx, sequence) =>
                 sequence.Stops
-                    .Map(stop => ctx.Resolve(stop.ViewpointKey).Map(view => TourStop.Create(view, stop.Dwell, stop.Transition, stop.Narration)))
-                    .Sequence()
+                    .TraverseM(stop => ctx.Resolve(stop.ViewpointKey).Map(view => TourStop.Create(view, stop.Dwell, stop.Transition, stop.Narration)))
+                    .As()
                     .Bind(stops => ReviewTour.Of(sequence.Key, stops)),
             topicTour: static (ctx, topic) =>
                 topic.Topics
-                    .Filter(static t => !t.Viewpoints.IsEmpty) // a stop REQUIRES a viewpoint; an all-empty set fails ReviewTour.Of below
-                    .Map(t => TourStop.Create(
-                        ViewpointCodec.FromBcf(t.Guid, t.Viewpoints.Head, ctx.Clocks),
-                        MotionToken.SpringGentle.Duration,
-                        MotionToken.Emphasized,
-                        NarrationTrack.Of(t.Title, t.Comments.HeadOrNone().Map(static c => c.Text).Filter(static s => !string.IsNullOrEmpty(s))).ToOption()))
-                    .ToSeq()
-                    switch {
-                        var stops => ReviewTour.Of(topic.Key, stops),
-                    });
+                    .Bind(t => t.Viewpoints.Map(viewpoint => (Topic: t, Viewpoint: viewpoint)))
+                    .TraverseM(row => NarrationTrack
+                        .Of(row.Topic.Title, row.Topic.Comments.HeadOrNone().Map(static comment => comment.Text).Filter(static text => !string.IsNullOrEmpty(text)))
+                        .Map(narration => TourStop.Create(
+                            ViewpointCodec.FromBcf(row.Viewpoint.Guid, row.Viewpoint, ctx.Clocks),
+                            MotionToken.SpringGentle.Duration,
+                            MotionToken.Emphasized,
+                            Some(narration))))
+                    .As()
+                    .Bind(stops => ReviewTour.Of(topic.Key, stops)));
 }
 ```
 

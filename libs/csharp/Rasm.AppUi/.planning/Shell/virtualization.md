@@ -20,14 +20,24 @@ One surface-agnostic virtualization fabric materializes only the visible window 
 - Boundary: `VirtualWindow` is the one windowing owner every list/tree/grid/canvas consumes — a tables-local, notebook-local, dashboard-local, or canvas-local virtualizer is the `[05]-[PROHIBITIONS]` per-surface-virtualizer rejected form, so `Editing/tables` tree-flatten, the notebook cell list, the dashboard tile grid, and the drafting canvas all route here; windowing is incremental over `IChangeSet` so a source insert or remove re-emits one change-set delta, never a full re-realize; the `VirtualRequest`/`VirtualResponse` realized bounds construct the `Editing/tables` `WindowState` snapshot field (`Editing/tables#VIEW_STATE`) so restore re-requests the exact viewport with zero re-query; the scroll offset crosses through the `Avalonia` `ScrollViewer.Offset` at the surface edge and the window owner reads it as a pure value, never owns the scroll control; the `Page` operator serves the discrete-page mode and `Virtualise` the continuous-scroll mode, both folding to one `RealizedItem` stream so a paged grid and a scrolled tree share one realized vocabulary; an unmeasured extent in measured mode faults so a window can never realize against an unknown extent.
 
 ```csharp signature
-public enum ExtentMode { Fixed, Measured }
+[SmartEnum<string>]
+public sealed partial class ExtentMode {
+    public static readonly ExtentMode Fixed = new("fixed");
+    public static readonly ExtentMode Measured = new("measured");
+}
 
 public readonly record struct ViewportRange(double Offset, double Extent, double Overscan) {
-    public (int Start, int Size) Indices(double itemExtent, int total) =>
-        itemExtent <= 0d
-            ? (0, total)
-            : (Math.Max(0, (int)((Offset - Overscan) / itemExtent)),
-               Math.Min(total, (int)Math.Ceiling((Extent + (2d * Overscan)) / itemExtent) + 1));
+    public Fin<(int Start, int Size)> Indices(double itemExtent, int total) =>
+        !double.IsFinite(Offset) || !double.IsFinite(Extent) || !double.IsFinite(Overscan)
+        || Offset < 0d || Extent < 0d || Overscan < 0d
+            ? Fin.Fail<(int, int)>(new VirtualFault.RangeInverted($"{Offset}:{Extent}:{Overscan}"))
+            : itemExtent <= 0d || !double.IsFinite(itemExtent)
+                ? Fin.Fail<(int, int)>(new VirtualFault.ExtentUnmeasured(itemExtent.ToString(CultureInfo.InvariantCulture)))
+                : Fin.Succ((
+                    Math.Min(total, Math.Max(0, (int)((Offset - Overscan) / itemExtent))),
+                    Math.Min(
+                        Math.Max(0, total - Math.Min(total, Math.Max(0, (int)((Offset - Overscan) / itemExtent)))),
+                        (int)Math.Ceiling((Extent + (2d * Overscan)) / itemExtent) + 1)));
 }
 
 public readonly record struct VirtualWindowSpec(double Extent, double Overscan, ExtentMode Mode, double FixedItemExtent) {
@@ -38,6 +48,10 @@ public readonly record struct VirtualWindowSpec(double Extent, double Overscan, 
 }
 
 public readonly record struct RealizedItem<TItem>(TItem Item, int Index, double Offset, double Extent);
+
+public sealed record OrderedChangeSet<TItem, TKey>(
+    IObservable<IChangeSet<TItem, TKey>> Changes,
+    Func<Seq<TKey>> Order) where TItem : notnull where TKey : notnull;
 
 [Union]
 public abstract partial record VirtualFault : Expected, IValidationError<VirtualFault> {
@@ -57,21 +71,24 @@ public sealed record VirtualWindow<TItem, TKey>(VirtualWindowSpec Spec, ExtentLe
     // fresh source from its true count and measured mode seeks unmeasured rows through estimate offsets;
     // Measure is thereafter a point update over an already-registered ordinal.
     public IObservable<IChangeSet<RealizedItem<TItem>, TKey>> Realize(
-        IObservable<IChangeSet<TItem, TKey>> source,
+        OrderedChangeSet<TItem, TKey> source,
         IObservable<ViewportRange> viewport,
         Func<TItem, TKey> key) =>
-        source
-            .Do(changes => Ledger.Admit(changes))
+        source.Changes
+            .Do(changes => Ledger.Admit(changes, source.Order()))
             .Virtualise(viewport
-                .Select(range => new VirtualRequest(Ledger.StartIndex(range, Spec), Ledger.Size(range, Spec)))
+                .SelectMany(range => (Ledger.StartIndex(range, Spec), Ledger.Size(range, Spec)).Apply(
+                    static (start, size) => new VirtualRequest(start, size)).Match(
+                        Succ: static request => Observable.Return(request),
+                        Fail: static error => Observable.Throw<VirtualRequest>(error.ToException())))
                 .DistinctUntilChanged())
-            .Transform((item, k) => new RealizedItem<TItem>(item, Ledger.IndexOf(k), Ledger.OffsetOf(k), Ledger.ExtentOf(k, Spec)));
+            .Transform((item, k) => new RealizedItem<TItem>(item, Ledger.IndexOf(k), Ledger.OffsetOf(k, Spec), Ledger.ExtentOf(k, Spec)));
 }
 ```
 
 [WINDOW_LAW]:
 - One operator: windowing composes `DynamicData.Virtualise`/`Page` — a hand-sliced `Skip`/`Take` over a materialized list is the deleted form.
-- Incremental: a source change emits one `IChangeSet` delta and the window re-realizes only the affected indices.
+- Incremental: measurement updates are Fenwick point updates; a structural source-order change rebuilds the ordinal projection once from the composition-owned ordered snapshot before `Virtualise` emits the affected window.
 - Bounded realization: the realized count is the viewport extent over the item extent plus overscan, so a million-row source realizes a constant window.
 - Recycling: scrolled-out controls park in the `RecycleScope` pool and scrolled-in indices reuse them.
 - Restore: the realized bounds construct the `WindowState` snapshot field so restore re-requests the exact viewport.
@@ -79,11 +96,11 @@ public sealed record VirtualWindow<TItem, TKey>(VirtualWindowSpec Spec, ExtentLe
 ## [03]-[EXTENT_MEASURE]
 
 - Owner: `ExtentLedger<TKey>` the per-key extent and cumulative-offset model; `MeasurePolicy` the fixed-versus-measured extent fold.
-- Entry: `public Unit Admit<TItem>(IChangeSet<TItem, TKey> changes)` — source registration: adds enter at the running estimate, removes retire to zero-extent tombstones, so ordinals and count are live before any measure; `public double OffsetOf(TKey key)` — the cumulative pixel offset of a key from the window top; `public Unit Measure(TKey key, double extent)` — a point delta update over an already-registered ordinal.
+- Entry: `public Unit Admit<TItem>(IChangeSet<TItem, TKey> changes, Seq<TKey> ordered)` — source registration applies keyed changes and then rebuilds the ordinal projection from the composition-owned order snapshot while retaining measured extents; `public double OffsetOf(TKey key, VirtualWindowSpec spec)` — the cumulative pixel offset of a key from the window top; `public Fin<Unit> Measure(TKey key, double extent)` — a validated point delta update over an already-registered ordinal.
 - Auto: in fixed mode the extent is `VirtualWindowSpec.FixedItemExtent` and the offset is index times extent, so the scroll math is exact and O(1); in measured mode each realized row reports its measured extent through `Measure`, the ledger keeps a Fenwick/prefix-sum tree of cumulative extents so `OffsetOf` and the total extent are O(log n), and a not-yet-measured row uses the running average extent as its estimate so the scrollbar is stable before every row measures; the scroll-to-index seek resolves the target offset from the ledger so a programmatic scroll lands exactly.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new extent estimator is one `MeasurePolicy` value; zero new surface.
-- Boundary: extent measurement is the one ledger — a per-surface row-height table is the rejected form, so fixed-height grids and variable-height tree rows share one extent model; the measured-extent tree is O(log n) so a scroll over a million measured rows never re-sums the whole list; prefix sums equal the sum of registered extents across every capacity boundary — the online append initializes each new Fenwick cell to its covered-range sum, so backing-store growth never zeroes an ancestor aggregate and `Seek` selects the same ordinal as a reference cumulative model after growth, a full-list offset rescan being the rejected repair; the not-yet-measured estimate uses the running average so the scrollbar never jumps when a row first measures; the fixed-mode path keeps the scroll math integer-exact (`Editing/tables#SUBSTRATE_LAW` fixed density-token row height), so a fixed grid pays no measurement cost; a measured offset query before any measurement returns the average-estimate offset rather than faulting, so the window realizes before the first measure pass.
+- Boundary: extent measurement is the one ledger — a per-surface row-height table is the rejected form, so fixed-height grids and variable-height tree rows share one extent model; the measured-extent tree is O(log n) so a scroll over a million measured rows never re-sums the whole list; prefix sums equal the sum of registered extents across every capacity boundary — the online append initializes each new Fenwick cell to its covered-range sum, so backing-store growth never zeroes an ancestor aggregate and `Seek` selects the same ordinal as a reference cumulative model after growth, a full-list offset rescan being the rejected repair; the tombstone ordinal space never reaches the window — a sibling retired-count Fenwick rides beside the extent tree and `LiveIndex` projects every raw ordinal onto the live ordinal space `DynamicData.Virtualise` actually windows, so `StartIndex`, `Size`, and `IndexOf` are live positions after any removal and a removal before the viewport can never shift the requested window off its intended rows; the not-yet-measured estimate uses the running average so the scrollbar never jumps when a row first measures; the fixed-mode path keeps the scroll math integer-exact (`Editing/tables#SUBSTRATE_LAW` fixed density-token row height), so a fixed grid pays no measurement cost; a measured offset query before any measurement returns the average-estimate offset rather than faulting, so the window realizes before the first measure pass.
 
 ```csharp signature
 public sealed record MeasurePolicy(ExtentMode Mode, double Estimate) {
@@ -96,6 +113,7 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
     private readonly List<TKey> order = [];
     private readonly List<double> extents = [];
     private double[] fenwick = new double[16]; // 1-based ONLINE Fenwick (BIT): appended cells initialize to their covered-range sum
+    private int[] retiredTree = new int[16]; // sibling 1-based Fenwick over tombstone flags: LiveIndex(raw) = raw - retired-before(raw)
     private double extentSum;
     private int live;
     private int retired;
@@ -105,47 +123,72 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
     // Source registration: adds enter at the running estimate so count, offsets, and seeks are live
     // BEFORE any row measures; removes retire to a zero-extent tombstone (offsets stay exact) and a
     // tombstone-majority compacts the ledger in one rebuild.
-    public Unit Admit<TItem>(IChangeSet<TItem, TKey> changes) where TItem : notnull {
-        foreach (var change in changes) {
+    public Unit Admit<TItem>(IChangeSet<TItem, TKey> changes, Seq<TKey> ordered) where TItem : notnull {
+        foreach (Change<TItem, TKey> change in changes) {
             _ = change.Reason switch {
-                ChangeReason.Add => Append(change.Key, AverageExtent),
+                ChangeReason.Add => ordinals.ContainsKey(change.Key) ? unit : Append(change.Key, AverageExtent),
                 ChangeReason.Remove => Retire(change.Key),
                 _ => unit,
             };
         }
+        Reorder(ordered);
         return unit;
     }
 
+    // DynamicData cache changes do not carry a stable ordinal by themselves. The composition-owned
+    // sorted snapshot is therefore the one ordering authority; structural changes rebuild only the
+    // prefix index while retaining every measured key extent.
+    private void Reorder(Seq<TKey> ordered) {
+        Dictionary<TKey, double> retained = ordered
+            .ToDictionary(
+                static key => key,
+                key => ordinals.TryGetValue(key, out int index) ? extents[index] : AverageExtent);
+        ordinals.Clear();
+        order.Clear();
+        extents.Clear();
+        fenwick = new double[Math.Max(16, retained.Count + 1)];
+        retiredTree = new int[fenwick.Length];
+        (extentSum, live, retired) = (0d, 0, 0);
+        ordered.Iter(key => ignore(Append(key, retained[key])));
+    }
+
     // A measure over a registered ordinal is a point DELTA update; an unseen key appends first.
-    public Unit Measure(TKey key, double extent) =>
-        ordinals.ContainsKey(key) ? Adjust(key, extent) : Append(key, extent);
+    public Fin<Unit> Measure(TKey key, double extent) =>
+        !double.IsFinite(extent) || extent < 0d
+            ? Fin.Fail<Unit>(new VirtualFault.ExtentUnmeasured(extent.ToString(CultureInfo.InvariantCulture)))
+            : Fin.Succ(ordinals.ContainsKey(key) ? Adjust(key, extent) : Append(key, extent));
 
     // ONLINE append law: the new 1-based cell at position p covers (p - lowbit(p), p], so it INITIALIZES
     // to that range's extent sum — a zero-filled or copy-grown cell silently omits every earlier extent
     // it covers, which is the rejected growth form; ancestors past p do not exist yet and each later
     // append initializes itself the same way, so no ancestor loop runs here.
     private Unit Append(TKey key, double extent) {
-        var index = order.Count;
+        int index = order.Count;
         ordinals[key] = index; order.Add(key); extents.Add(extent);
         extentSum += extent; live++;
-        var position = index + 1;
+        int position = index + 1;
         EnsureCapacity(position);
         fenwick[position] = extent + PrefixSum(index) - PrefixSum(position - (position & -position));
+        retiredTree[position] = RetiredBefore(index) - RetiredBefore(position - (position & -position));
         return unit;
     }
 
     private Unit Adjust(TKey key, double extent) {
-        var index = ordinals[key];
-        var delta = extent - extents[index];
+        int index = ordinals[key];
+        double delta = extent - extents[index];
         extents[index] = extent;
         extentSum += delta;
-        for (var at = index + 1; at <= order.Count; at += at & -at) { fenwick[at] += delta; }
+        for (int at = index + 1; at <= order.Count; at += at & -at) { fenwick[at] += delta; }
         return unit;
     }
 
+    // Retire keeps the offset space exact (zero-extent tombstone) AND projects the ordinal space live:
+    // the tombstone flag lands in retiredTree, so every index leaving the ledger is a LIVE position —
+    // the ordinal space DynamicData.Virtualise windows — never a tombstone-shifted raw ordinal.
     private Unit Retire(TKey key) {
-        if (!ordinals.TryGetValue(key, out var index)) { return unit; }
+        if (!ordinals.TryGetValue(key, out int index)) { return unit; }
         ignore(Adjust(key, 0d));
+        for (int at = index + 1; at <= order.Count; at += at & -at) { retiredTree[at]++; }
         ignore(ordinals.Remove(key));
         live--;
         retired++;
@@ -154,44 +197,69 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
     }
 
     private void Compact() {
-        var kept = order.Where(ordinals.ContainsKey).Select(key => (Key: key, Extent: extents[ordinals[key]])).ToList();
+        List<(TKey Key, double Extent)> kept = order.Where(ordinals.ContainsKey).Select(key => (Key: key, Extent: extents[ordinals[key]])).ToList();
         ordinals.Clear(); order.Clear(); extents.Clear();
         fenwick = new double[Math.Max(16, kept.Count + 1)];
+        retiredTree = new int[Math.Max(16, kept.Count + 1)];
         (extentSum, live, retired) = (0d, 0, 0);
         kept.ForEach(row => ignore(Append(row.Key, row.Extent)));
     }
 
     // O(log n) prefix query: cumulative extent of indices [0, index).
     private double PrefixSum(int index) {
-        var sum = 0d;
-        for (var at = index; at > 0; at -= at & -at) { sum += fenwick[at]; }
+        double sum = 0d;
+        for (int at = index; at > 0; at -= at & -at) { sum += fenwick[at]; }
         return sum;
     }
 
-    public double OffsetOf(TKey key) =>
-        ordinals.TryGetValue(key, out var index) ? PrefixSum(index) : 0d;
+    // Tombstones retired in [0, index), then the raw-to-live ordinal projection every window-facing
+    // index rides — VirtualRequest positions and RealizedItem.Index are live-space by construction.
+    private int RetiredBefore(int index) {
+        int count = 0;
+        for (int at = index; at > 0; at -= at & -at) { count += retiredTree[at]; }
+        return count;
+    }
+
+    private int LiveIndex(int raw) => raw - RetiredBefore(raw);
+
+    public double OffsetOf(TKey key, VirtualWindowSpec spec) =>
+        ordinals.TryGetValue(key, out int index)
+            ? spec.Mode == ExtentMode.Fixed ? LiveIndex(index) * spec.FixedItemExtent : PrefixSum(index)
+            : 0d;
 
     public double ExtentOf(TKey key, VirtualWindowSpec spec) =>
         spec.Mode == ExtentMode.Fixed ? spec.FixedItemExtent
-            : ordinals.TryGetValue(key, out var index) && index < extents.Count ? extents[index] : AverageExtent;
+            : ordinals.TryGetValue(key, out int index) && index < extents.Count ? extents[index] : AverageExtent;
 
-    public int IndexOf(TKey key) => ordinals.TryGetValue(key, out var index) ? index : -1;
+    public int IndexOf(TKey key) => ordinals.TryGetValue(key, out int index) ? LiveIndex(index) : -1;
 
-    public int StartIndex(ViewportRange range, VirtualWindowSpec spec) =>
-        spec.Mode == ExtentMode.Fixed ? range.Indices(spec.FixedItemExtent, order.Count).Start : Seek(range.Offset - range.Overscan);
-
-    public int Size(ViewportRange range, VirtualWindowSpec spec) =>
+    public Fin<int> StartIndex(ViewportRange range, VirtualWindowSpec spec) =>
         spec.Mode == ExtentMode.Fixed
-            ? range.Indices(spec.FixedItemExtent, order.Count).Size
-            : Math.Max(1, Seek(range.Offset + range.Extent + range.Overscan) - Seek(range.Offset - range.Overscan) + 1);
+            ? range.Indices(spec.FixedItemExtent, live).Map(static result => result.Start)
+            : !Valid(range)
+                ? Fin.Fail<int>(new VirtualFault.RangeInverted($"{range.Offset}:{range.Extent}:{range.Overscan}"))
+                : Fin.Succ(LiveIndex(Seek(range.Offset - range.Overscan)));
+
+    public Fin<int> Size(ViewportRange range, VirtualWindowSpec spec) =>
+        spec.Mode == ExtentMode.Fixed
+            ? range.Indices(spec.FixedItemExtent, live).Map(static result => result.Size)
+            : !Valid(range)
+                ? Fin.Fail<int>(new VirtualFault.RangeInverted($"{range.Offset}:{range.Extent}:{range.Overscan}"))
+                : live == 0
+                    ? Fin.Succ(0)
+                    : Fin.Succ(Math.Max(1, LiveIndex(Seek(range.Offset + range.Extent + range.Overscan)) - LiveIndex(Seek(range.Offset - range.Overscan)) + 1));
+
+    private static bool Valid(ViewportRange range) =>
+        double.IsFinite(range.Offset) && double.IsFinite(range.Extent) && double.IsFinite(range.Overscan)
+        && range.Offset >= 0d && range.Extent >= 0d && range.Overscan >= 0d;
 
     // O(log n) offset-to-index seek: binary descent over the Fenwick tree itself, never a scan.
     private int Seek(double offset) {
-        var index = 0;
-        var remaining = offset;
-        for (var bit = 1 << System.Numerics.BitOperations.Log2((uint)Math.Max(1, order.Count)); bit > 0; bit >>= 1) {
-            var next = index + bit;
-            if (next <= order.Count && fenwick[next] < remaining) { remaining -= fenwick[next]; index = next; }
+        int index = 0;
+        double remaining = Math.Max(0d, offset);
+        for (int bit = 1 << System.Numerics.BitOperations.Log2((uint)Math.Max(1, order.Count)); bit > 0; bit >>= 1) {
+            int next = index + bit;
+            if (next <= order.Count && fenwick[next] <= remaining) { remaining -= fenwick[next]; index = next; }
         }
         return Math.Clamp(index, 0, Math.Max(0, order.Count - 1));
     }
@@ -200,9 +268,11 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
     // Append initializes them, so copy-growth is sound exactly because Append never trusts a zero cell.
     private void EnsureCapacity(int position) {
         if (position < fenwick.Length) { return; }
-        var grown = new double[Math.Max(fenwick.Length * 2, position + 1)];
+        double[] grown = new double[Math.Max(fenwick.Length * 2, position + 1)];
+        int[] grownRetired = new int[grown.Length];
         fenwick.CopyTo(grown, 0);
-        fenwick = grown;
+        retiredTree.CopyTo(grownRetired, 0);
+        (fenwick, retiredTree) = (grown, grownRetired);
     }
 }
 ```
@@ -210,30 +280,66 @@ public sealed class ExtentLedger<TKey> where TKey : notnull {
 ## [04]-[STICKY_HEADERS]
 
 - Owner: `StickyProjection<TItem, TKey>` the pinned-row-and-group-header projection over the windowed stream; `PinnedRow<TItem>` the sticky item with its pin role.
-- Entry: `public IObservable<Seq<PinnedRow<TItem>>> Pinned(IObservable<IChangeSet<RealizedItem<TItem>, TKey>> window, Func<TItem, Option<string>> groupOf)` — projects the current window's group headers and any pinned rows that scrolled above the viewport top into the pinned overlay set.
-- Auto: a grouped or hierarchical window projects its current top group's header as a pinned row so the header stays visible while the group scrolls, exactly as the `Editing/tables` `LoadingRowGroup` stamps group-header state but as a windowed overlay rather than a per-row style; a tree window pins the current ancestor chain so the parent path stays visible while a deep subtree scrolls; the pinned set re-projects on every window re-emit so the sticky overlay tracks the scroll incrementally.
+- Entry: `public IObservable<Seq<PinnedRow<TItem>>> Pinned(IObservable<ViewportRange> viewport, Func<TItem, Option<string>> groupOf, Func<TItem,TKey> keyOf, Func<TItem,Option<TKey>> parentOf, Func<TItem,int> depthOf, Func<TItem,bool> pinnedOf)` — one overlay fold constructs every `PinRole`: the top visible row's group header, the exact parent-key ancestor chain, and every explicitly pinned row that scrolled above the viewport top.
+- Auto: a grouped or hierarchical window projects its current top group's header as a pinned row so the header stays visible while the group scrolls; a tree window follows `parentOf` from the top visible key through exact realized ancestors retained by overscan, so a shallower sibling or cousin cannot enter the chain by depth alone; explicitly pinned summaries survive the scroll as `PinRole.PinnedSummary` entries once their offset leaves the viewport; the pinned set re-projects on every window or viewport edge.
 - Packages: DynamicData, System.Reactive, LanguageExt.Core
 - Growth: a new pin role is one `PinRole` value; zero new surface.
 - Boundary: sticky headers are a projection over the windowed stream — a second header materialization beside the window is the rejected form, so the group header, the pinned summary row, and the tree-ancestor chain all ride one `PinnedRow` overlay; the pinned set derives from the window's current top item so a pinned header never desyncs from the visible rows; the group key threads from the `Editing/tables` snapshot `Groups` field so header expansion survives restore on the same field; the pinned overlay renders through the `ControlFactory` materialize fold like any other control, so a sticky header mints no second control.
 
 ```csharp signature
-public enum PinRole { GroupHeader, PinnedSummary, TreeAncestor }
+[SmartEnum<string>]
+public sealed partial class PinRole {
+    public static readonly PinRole GroupHeader = new("group-header");
+    public static readonly PinRole PinnedSummary = new("pinned-summary");
+    public static readonly PinRole TreeAncestor = new("tree-ancestor");
+}
 
 public readonly record struct PinnedRow<TItem>(TItem Item, PinRole Role, int Depth, double Offset);
 
 public static class StickyProjection {
     extension<TItem, TKey>(IObservable<IChangeSet<RealizedItem<TItem>, TKey>> window) where TItem : notnull where TKey : notnull {
-        public IObservable<Seq<PinnedRow<TItem>>> Pinned(Func<TItem, Option<string>> groupOf, Func<TItem, int> depthOf) =>
-            window.ToCollection()
-                .Select(realized => realized.OrderBy(static row => row.Offset).ToSeq())
-                .Select(rows => rows.HeadOrNone().Match(
-                    Some: top => Headers(rows, top, groupOf, depthOf),
-                    None: () => Seq<PinnedRow<TItem>>()));
+        public IObservable<Seq<PinnedRow<TItem>>> Pinned(
+            IObservable<ViewportRange> viewport,
+            Func<TItem, Option<string>> groupOf,
+            Func<TItem, TKey> keyOf,
+            Func<TItem, Option<TKey>> parentOf,
+            Func<TItem, int> depthOf,
+            Func<TItem, bool> pinnedOf) =>
+            Observable.CombineLatest(
+                window.ToCollection().Select(realized => toSeq(realized.OrderBy(static row => row.Offset)).Strict()),
+                viewport.DistinctUntilChanged(),
+                (rows, range) => Overlay(rows, range, groupOf, keyOf, parentOf, depthOf, pinnedOf));
 
-        private static Seq<PinnedRow<TItem>> Headers(Seq<RealizedItem<TItem>> rows, RealizedItem<TItem> top, Func<TItem, Option<string>> groupOf, Func<TItem, int> depthOf) =>
-            groupOf(top.Item).Match(
-                Some: _ => Seq(new PinnedRow<TItem>(top.Item, PinRole.GroupHeader, depthOf(top.Item), top.Offset)),
-                None: () => Seq<PinnedRow<TItem>>());
+        // Every PinRole from one fold over the realized window split at the viewport top: the top
+        // visible row's group header, the decreasing-depth ancestor chain above it, and the pinned
+        // summaries that scrolled out — one overlay, zero second header materialization.
+        private static Seq<PinnedRow<TItem>> Overlay(
+            Seq<RealizedItem<TItem>> rows, ViewportRange range,
+            Func<TItem, Option<string>> groupOf, Func<TItem, TKey> keyOf,
+            Func<TItem, Option<TKey>> parentOf, Func<TItem, int> depthOf, Func<TItem, bool> pinnedOf) =>
+            (Above: rows.Filter(row => row.Offset < range.Offset), Visible: rows.Filter(row => row.Offset >= range.Offset)) switch {
+                var split => split.Visible.HeadOrNone().Match(
+                    Some: top =>
+                        Ancestors(split.Above, top.Item, keyOf, parentOf, depthOf)
+                        + groupOf(top.Item).ToSeq().Map(_ => new PinnedRow<TItem>(top.Item, PinRole.GroupHeader, depthOf(top.Item), top.Offset))
+                        + split.Above.Filter(row => pinnedOf(row.Item)).Map(row => new PinnedRow<TItem>(row.Item, PinRole.PinnedSummary, depthOf(row.Item), row.Offset)),
+                    None: () => Seq<PinnedRow<TItem>>()),
+            };
+
+        // The wanted parent key advances only when the exact parent is found, so a shallower sibling
+        // or cousin can never enter the pinned chain merely because its depth decreases.
+        private static Seq<PinnedRow<TItem>> Ancestors(
+            Seq<RealizedItem<TItem>> above,
+            TItem top,
+            Func<TItem, TKey> keyOf,
+            Func<TItem, Option<TKey>> parentOf,
+            Func<TItem, int> depthOf) =>
+            above.Rev().Fold(
+                (Wanted: parentOf(top), Chain: Seq<PinnedRow<TItem>>()),
+                (state, row) => state.Wanted.Exists(parent => EqualityComparer<TKey>.Default.Equals(parent, keyOf(row.Item)))
+                    ? (parentOf(row.Item), state.Chain.Add(new PinnedRow<TItem>(row.Item, PinRole.TreeAncestor, depthOf(row.Item), row.Offset)))
+                    : state)
+            .Chain.Rev().ToSeq();
     }
 }
 ```

@@ -1,6 +1,6 @@
 # [APPUI_RENDER_PATHTRACE]
 
-The path-trace integrator for the infinite viewport: `PathTracePass` accumulates hardware ray-traced global illumination through BVH build-and-refit with ReSTIR reservoirs and progressive denoising, and the integrator shades every scene point FROM the `Rasm.Materials/Appearance` `LayeredBsdf` the `SlabStack` lowering produces and the `SurfaceShade` the `MaterialGraph` sink assembles — never re-deriving lobe math. The page owns the BVH build/refit, the ReSTIR reservoir, the progressive accumulation, the edge-aware denoise, and the LayeredBsdf shading consumption at the PATH_TRACE seam; the render-graph pass-DAG that schedules the path-trace pass lives in `Render/pipeline`, the meshlet bounds the BVH builds over in `Render/meshlets`. The integrator is the consumer end of the `Appearance/bsdf` and `Appearance/graph -> Render` boundary seams. The CPU reference path tracer over the BVH is the correctness oracle; the GPU acceleration-structure dispatch is the SPIKE.
+The path-trace integrator for the infinite viewport: `PathTracePass` accumulates global illumination through BVH build-and-refit with ReSTIR reservoirs and progressive denoising, and the integrator shades every scene point from `Rasm.Materials.Appearance.Bsdf.LayeredBsdf`, the product of `SlabStack` lowering and the `MaterialGraph` sink. The page owns the BVH build/refit, the ReSTIR reservoir, progressive accumulation, edge-aware denoise, and exact `LayeredBsdf.Sample`/`Evaluate` consumption at the `PATH_TRACE` seam; `BsdfProjection` owns the sole oracle-tuple projection into the Materials `ShadingFrame`/`Direction`/`Op` vocabulary. The render-graph pass DAG that schedules the path-trace pass lives in `Render/pipeline`, and the meshlet bounds the BVH builds over live in `Render/meshlets`. The CPU reference path tracer over the BVH is the correctness oracle; GPU acceleration-structure dispatch remains the `SPIKE`.
 
 ## [01]-[INDEX]
 
@@ -10,9 +10,9 @@ The path-trace integrator for the infinite viewport: `PathTracePass` accumulates
 
 ## [02]-[PATH_TRACE]
 
-- Owner: `Bvh` the bounding-volume hierarchy — PAGE-LOCAL and PRIVATE (a measured oracle kernel over wire-decoded meshlet bounds; the kernel spatial engine is the federation broad-phase owner behind the `[PLACEMENT_LAW]`(e) firebreak, its cross-package acceleration crossing stays wire-shaped `SpatialAnswer.Wire` `NodeLinkProjection`, so an AppUi acceleration wire or a second exported BVH is unrepresentable); `Reservoir` the ReSTIR sample reservoir; `PathTracePass` the progressive accumulation pass; `Denoiser` the edge-aware denoise fold.
+- Owner: `Bvh` the bounding-volume hierarchy — PAGE-LOCAL and PRIVATE (a measured oracle kernel over wire-decoded meshlet bounds; the kernel spatial engine is the federation broad-phase owner behind the `[PLACEMENT_LAW]`(e) firebreak, its cross-package acceleration crossing stays wire-shaped `SpatialAnswer.Wire` `NodeLinkProjection`, so an AppUi acceleration wire or a second exported BVH is unrepresentable); `Reservoir` the ReSTIR sample reservoir carried per pixel ON the accumulation target; `SamplePolicy` the light-selection dispatch row; `PathTracePass` the progressive accumulation pass; `Denoiser` the edge-aware denoise fold over the target's own guide plane.
 - Entry: `public Fin<AccumulationTarget> Accumulate(AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed)` — accumulates one progressive sample set onto the running per-pixel mean under the one camera row and returns the ADVANCED `AccumulationTarget` (`Ordinal + sampleBudget`), so two sequential batches against one target produce the weighted mean of both and the next pass reads the total sample count from the same state owner; convergence is the accumulated sample count, never a wall-clock timer.
-- Auto: `Bvh.Build` constructs the hierarchy by a REAL recursive surface-area-heuristic split over the meshlet bounds — children emitted, leaf criterion at four primitives or no cost-improving split; `Refit` is a REAL bottom-up re-bound (leaves re-enclose their moved primitives, interior nodes re-enclose their two children in reverse emission order) and `Maintain` adopts the kernel `[DEGRADATION_REFIT]` shape (`Rasm/.planning/Spatial/index.md`): topology-stable in-place re-bounding plus a deterministic `SahCost` rebuild trigger, so a moving scene refits until quality degrades measurably and then rebuilds deterministically; ReSTIR resampled importance sampling keeps a per-pixel `Reservoir` of light samples from the `LightRig` reused spatially and temporally across frames; the progressive accumulator folds each sample set onto the running mean keyed by the accumulation ordinal and advances that ordinal on the returned target — `AccumulationTarget` is the ONE progression owner (`Of` mints it, `Advanced` weights the next batch, `Reset` serves camera motion) and no second sample counter exists — so a static camera converges frame over frame and the render graph resets the same target on camera motion; the edge-aware denoiser folds the noisy estimate with the geometry-normal and depth guide buffers so an early-frame estimate is presentable before full convergence.
+- Auto: `Bvh.Build` constructs the hierarchy by a REAL recursive surface-area-heuristic split over the meshlet bounds — children emitted, leaf criterion at four primitives or no cost-improving split; `Refit` is a REAL bottom-up re-bound (leaves re-enclose their moved primitives, interior nodes re-enclose their two children in reverse emission order) and `Maintain` adopts the kernel `[DEGRADATION_REFIT]` shape (`Rasm/.planning/Spatial/index.md`): topology-stable in-place re-bounding plus a deterministic `SahCost` rebuild trigger, so a moving scene refits until quality degrades measurably and then rebuilds deterministically; NEE light selection DISPATCHES on the `SamplePolicy` row — `Restir` streams every rig row through the pixel's `Reservoir` (the prior frame's reservoir seeds the stream decayed to `TemporalCap`, the target function is the unshadowed luminance-times-cosine, ONLY the surviving sample pays a shadow ray, and the advanced reservoir writes back to `AccumulationTarget.Reservoirs[pixel]` so temporal reuse is a real state transition), `Uniform` draws one row scaled by count, `Stratified` rotates the row by pixel-plus-ordinal; the progressive accumulator folds each sample set onto the running mean keyed by the accumulation ordinal and advances that ordinal on the returned target — `AccumulationTarget` is the ONE progression owner (`Of` mints it, `Advanced` weights the next batch, `Reset` clears mean, reservoirs, and guides together on camera motion) and no second sample counter exists — so a static camera converges frame over frame and the render graph resets the same target on camera motion; the primary hit writes each pixel's normal/depth guide onto the target's `NormalDepth` plane, and `Denoiser.Resolve` folds the noisy mean with those guides through the 3x3 joint-bilateral weights so an early-frame estimate is presentable before full convergence while the render-hash lane pins the RAW mean.
 - Packages: SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new sampling strategy is one `SamplePolicy` value; a new guide buffer is one `Denoiser` channel; zero new surface.
 - Boundary: convergence is sample-count progressive — the accumulation ordinal is the only progress measure and a fixed-time render is the rejected form, so a path-traced still converges deterministically and the render-hash lane pins a sample count; the BVH refits in place on an animated frame and a full rebuild per frame is the deleted form — the rebuild fires only through the `Maintain` cost trigger; the ray-trace dispatch is the GPU compute surface bound through the `Render/pipeline` render-graph lease — the `SKRuntimeEffect` ray-generation shader and the per-backend acceleration-structure spelling resolve under VIEWPORT_GPU; the CPU reference path tracer over the BVH is the correctness oracle — it now has light to transport (the `LightRig`), so the oracle renders a lit image by construction and comparability with the raster path holds because BOTH integrators read the same rig; the GPU acceleration is the SPIKE; the BVH builds over the Compute-decoded `Render/meshlets` cluster bounds so the integrator re-models no geometry.
@@ -37,7 +37,7 @@ public sealed record Bvh(ImmutableArray<BvhNode> Nodes, ImmutableArray<int> Prim
     // and continuation rays; an explicit stack walk, front-to-back by child hit distance.
     public Option<(int Primitive, double T)> Intersect((double X, double Y, double Z) origin, (double X, double Y, double Z) direction, double tMax) {
         if (Nodes.IsEmpty) { return None; }
-        var best = (Primitive: -1, T: tMax);
+        (int Primitive, double T) best = (Primitive: -1, T: tMax);
         Stack<int> walk = new([0]);
         while (walk.TryPop(out int at)) {
             BvhNode node = Nodes[at];
@@ -86,8 +86,8 @@ public sealed record Bvh(ImmutableArray<BvhNode> Nodes, ImmutableArray<int> Prim
     private static (int Mid, double Cost) SahSplit(Seq<ResidencyMeshletView> meshlets, int[] prims, int start, int count) {
         int axis = LongestAxis(meshlets, prims, start, count);
         Array.Sort(prims, start, count, Comparer<int>.Create((a, b) => Centroid(meshlets[a], axis).CompareTo(Centroid(meshlets[b], axis))));
-        var best = (Mid: start + (count / 2), Cost: double.PositiveInfinity);
-        for (var split = 1; split < count; split++) {
+        (int Mid, double Cost) best = (Mid: start + (count / 2), Cost: double.PositiveInfinity);
+        for (int split = 1; split < count; split++) {
             double cost =
                 (split * Enclose(meshlets, prims, start, split).SurfaceArea())
                 + ((count - split) * Enclose(meshlets, prims, start + split, count - split).SurfaceArea());
@@ -99,14 +99,14 @@ public sealed record Bvh(ImmutableArray<BvhNode> Nodes, ImmutableArray<int> Prim
     // Real enclosing sphere: centroid mean, radius = max(center distance + primitive radius) — a
     // center-sum with a bare max-radius is the deleted form.
     private static BoundingSphere Enclose(Seq<ResidencyMeshletView> meshlets, int[] prims, int start, int count) {
-        var (cx, cy, cz) = (0d, 0d, 0d);
-        for (var at = start; at < start + count; at++) {
+        (double cx, double cy, double cz) = (0d, 0d, 0d);
+        for (int at = start; at < start + count; at++) {
             BoundingSphere b = meshlets[prims[at]].Bounds;
             cx += b.X; cy += b.Y; cz += b.Z;
         }
         (cx, cy, cz) = (cx / count, cy / count, cz / count);
-        var radius = 0d;
-        for (var at = start; at < start + count; at++) {
+        double radius = 0d;
+        for (int at = start; at < start + count; at++) {
             BoundingSphere b = meshlets[prims[at]].Bounds;
             radius = Math.Max(radius, Math.Sqrt(((b.X - cx) * (b.X - cx)) + ((b.Y - cy) * (b.Y - cy)) + ((b.Z - cz) * (b.Z - cz))) + b.Radius);
         }
@@ -114,13 +114,14 @@ public sealed record Bvh(ImmutableArray<BvhNode> Nodes, ImmutableArray<int> Prim
     }
 
     private static int LongestAxis(Seq<ResidencyMeshletView> meshlets, int[] prims, int start, int count) {
-        var (minX, minY, minZ, maxX, maxY, maxZ) = (double.MaxValue, double.MaxValue, double.MaxValue, double.MinValue, double.MinValue, double.MinValue);
-        for (var at = start; at < start + count; at++) {
+        (double minX, double minY, double minZ, double maxX, double maxY, double maxZ) =
+            (double.MaxValue, double.MaxValue, double.MaxValue, double.MinValue, double.MinValue, double.MinValue);
+        for (int at = start; at < start + count; at++) {
             BoundingSphere b = meshlets[prims[at]].Bounds;
             (minX, minY, minZ) = (Math.Min(minX, b.X), Math.Min(minY, b.Y), Math.Min(minZ, b.Z));
             (maxX, maxY, maxZ) = (Math.Max(maxX, b.X), Math.Max(maxY, b.Y), Math.Max(maxZ, b.Z));
         }
-        var (dx, dy, dz) = (maxX - minX, maxY - minY, maxZ - minZ);
+        (double dx, double dy, double dz) = (maxX - minX, maxY - minY, maxZ - minZ);
         return dx >= dy && dx >= dz ? 0 : dy >= dz ? 1 : 2;
     }
 
@@ -131,7 +132,7 @@ public sealed record Bvh(ImmutableArray<BvhNode> Nodes, ImmutableArray<int> Prim
     // re-bounds every leaf from its moved primitives first, then every interior node from its two children.
     public Bvh Refit(Seq<ResidencyMeshletView> moved) {
         BvhNode[] nodes = [.. Nodes];
-        for (var at = nodes.Length - 1; at >= 0; at--) {
+        for (int at = nodes.Length - 1; at >= 0; at--) {
             BvhNode node = nodes[at];
             nodes[at] = node.IsLeaf
                 ? node with { Bounds = EncloseLeaf(moved, node) }
@@ -146,11 +147,11 @@ public sealed record Bvh(ImmutableArray<BvhNode> Nodes, ImmutableArray<int> Prim
     }
 
     private static BoundingSphere EnclosePair(BoundingSphere a, BoundingSphere b) {
-        var d = Math.Sqrt(((b.X - a.X) * (b.X - a.X)) + ((b.Y - a.Y) * (b.Y - a.Y)) + ((b.Z - a.Z) * (b.Z - a.Z)));
+        double d = Math.Sqrt(((b.X - a.X) * (b.X - a.X)) + ((b.Y - a.Y) * (b.Y - a.Y)) + ((b.Z - a.Z) * (b.Z - a.Z)));
         if (d + b.Radius <= a.Radius) { return a; }
         if (d + a.Radius <= b.Radius) { return b; }
-        var radius = (d + a.Radius + b.Radius) / 2d;
-        var t = d <= 0d ? 0d : (radius - a.Radius) / d;
+        double radius = (d + a.Radius + b.Radius) / 2d;
+        double t = d <= 0d ? 0d : (radius - a.Radius) / d;
         return new BoundingSphere(a.X + ((b.X - a.X) * t), a.Y + ((b.Y - a.Y) * t), a.Z + ((b.Z - a.Z) * t), radius);
     }
 
@@ -165,40 +166,96 @@ public sealed record Bvh(ImmutableArray<BvhNode> Nodes, ImmutableArray<int> Prim
         Nodes.Sum(static node => node.IsLeaf ? node.PrimitiveCount * node.Bounds.SurfaceArea() : node.Bounds.SurfaceArea());
 }
 
+// Weighted-reservoir resampled importance sampling state: Update streams one candidate, Decayed caps the
+// temporal history so a stale frame never dominates, and Weight is the unbiased RIS estimator factor
+// WeightSum / (SampleCount * TargetPdf) the chosen sample shades with.
 public readonly record struct Reservoir(double WeightSum, int SampleCount, long ChosenSample, double TargetPdf) {
     public Reservoir Update(long candidate, double weight, double pdf, double random) =>
         (WeightSum + weight) switch {
-            var sum => random < weight / sum
+            var sum => random < weight / Math.Max(sum, 1e-12)
                 ? new Reservoir(sum, SampleCount + 1, candidate, pdf)
                 : new Reservoir(sum, SampleCount + 1, ChosenSample, TargetPdf),
         };
+
+    public Reservoir Decayed(int cap) =>
+        SampleCount <= cap ? this : new Reservoir(WeightSum * ((double)cap / SampleCount), cap, ChosenSample, TargetPdf);
+
+    public double Weight => SampleCount == 0 || TargetPdf <= 0d ? 0d : WeightSum / (SampleCount * TargetPdf);
 }
 
+// The light-selection policy the NEE arm DISPATCHES on — a row is behavior at the integrator, never a label:
+// Restir streams every rig row through the per-pixel reservoir with temporal reuse and shadow-tests only
+// the survivor, Uniform draws one row scaled by count, Stratified rotates the row by (pixel + ordinal).
 [SmartEnum<string>]
 public sealed partial class SamplePolicy {
     public static readonly SamplePolicy Restir = new("restir");
     public static readonly SamplePolicy Uniform = new("uniform");
     public static readonly SamplePolicy Stratified = new("stratified");
+
+    public const int TemporalCap = 20;
 }
 
+// Edge-aware joint-bilateral resolve over the accumulation guides: a 3x3 weighted mean whose weights fold
+// color, normal, and depth distances through the three sigmas, so an early-frame estimate presents smooth
+// while geometry edges hold. Presentation-only — the render-hash lane pins the RAW mean, never this output.
 public sealed record Denoiser(double NormalSigma, double DepthSigma, double ColorSigma) {
     public static readonly Denoiser EdgeAware = new(NormalSigma: 0.1, DepthSigma: 0.05, ColorSigma: 0.4);
+
+    public float[] Resolve(AccumulationTarget film) {
+        float[] output = new float[film.Rgba.Length];
+        for (int py = 0; py < film.Height; py++) {
+            for (int px = 0; px < film.Width; px++) {
+                int at = (py * film.Width) + px;
+                (double r, double g, double b, double w) = (0d, 0d, 0d, 0d);
+                for (int dy = -1; dy <= 1; dy++) {
+                    for (int dx = -1; dx <= 1; dx++) {
+                        int near = (Math.Clamp(py + dy, 0, film.Height - 1) * film.Width) + Math.Clamp(px + dx, 0, film.Width - 1);
+                        double weight = Math.Exp(
+                            -(Gap(film.Rgba, at, near, 3) / (ColorSigma * ColorSigma))
+                            - (Gap(film.NormalDepth, at, near, 3) / (NormalSigma * NormalSigma))
+                            - (Gap(film.NormalDepth, (at * 4) + 3, (near * 4) + 3, 1, raw: true) / (DepthSigma * DepthSigma)));
+                        (r, g, b, w) = (r + (film.Rgba[near * 4] * weight), g + (film.Rgba[(near * 4) + 1] * weight), b + (film.Rgba[(near * 4) + 2] * weight), w + weight);
+                    }
+                }
+                (output[at * 4], output[(at * 4) + 1], output[(at * 4) + 2], output[(at * 4) + 3]) =
+                    ((float)(r / w), (float)(g / w), (float)(b / w), 1f);
+            }
+        }
+        return output;
+    }
+
+    private static double Gap(float[] plane, int a, int b, int components, bool raw = false) {
+        (int baseA, int baseB) = raw ? (a, b) : (a * 4, b * 4);
+        double sum = 0d;
+        for (int c = 0; c < components; c++) { double d = plane[baseA + c] - plane[baseB + c]; sum += d * d; }
+        return sum;
+    }
 }
 
-// The per-pixel running mean and its sample ordinal — the ONE progressive-state owner: Advanced weights
-// the next batch, Reset serves camera motion, and no second sample counter exists anywhere.
-public sealed record AccumulationTarget(int Width, int Height, float[] Rgba, long Ordinal) {
-    public static AccumulationTarget Of(int width, int height) => new(width, height, new float[width * height * 4], 0L);
+// The per-pixel running mean, its sample ordinal, the ReSTIR reservoir array, and the normal/depth guide
+// plane — the ONE progressive-state owner: Advanced weights the next batch, Reset serves camera motion, and
+// reservoirs and guides live HERE so temporal reuse and the edge-aware denoise read the same state the
+// accumulation transition writes; no second sample counter or side buffer exists anywhere.
+public sealed record AccumulationTarget(int Width, int Height, float[] Rgba, Reservoir[] Reservoirs, float[] NormalDepth, long Ordinal) {
+    public static AccumulationTarget Of(int width, int height) =>
+        new(width, height, new float[width * height * 4], new Reservoir[width * height], new float[width * height * 4], 0L);
 
     public AccumulationTarget Advanced(int samples) => this with { Ordinal = Ordinal + samples };
 
     public AccumulationTarget Reset() {
         Array.Clear(Rgba);
+        Array.Clear(Reservoirs);
+        Array.Clear(NormalDepth);
         return this with { Ordinal = 0L };
     }
 }
 
-public sealed record PathTracePass(Bvh Scene, SamplePolicy Sampling, Denoiser Denoise, Func<SurfacePoint, Rasm.Materials.Appearance.LayeredBsdf> MaterialOf) {
+public sealed record PathTracePass(
+    Bvh Scene,
+    SamplePolicy Sampling,
+    Denoiser Denoise,
+    Func<SurfacePoint, Rasm.Materials.Appearance.Bsdf.LayeredBsdf> MaterialOf,
+    BsdfProjection Projection) {
     // Honest integrate-or-gate: an empty scene or a lightless rig gates; the integrate arm traces
     // sampleBudget paths per pixel through the private CPU oracle kernel below and returns the target
     // advanced by exactly the samples it folded into the mean.
@@ -214,21 +271,34 @@ public sealed record PathTracePass(Bvh Scene, SamplePolicy Sampling, Denoiser De
     // the Sun/Emissive/Spot/Area/Ies rows (shadow rays through the same Intersect kernel, throughput via
     // the Materials Evaluate seam) -> ONE BSDF-sampled continuation into the environment. GPU twin stays SPIKE-gated.
     private AccumulationTarget Integrate(AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed) {
-        (double fx, double fy, double fz) = Normalize(camera.TargetX - camera.EyeX, camera.TargetY - camera.EyeY, camera.TargetZ - camera.EyeZ);
-        (double rx, double ry, double rz) = Normalize(Cross(fx, fy, fz, camera.UpX, camera.UpY, camera.UpZ));
+        CameraFrame frame = camera.Frame;
+        (double fx, double fy, double fz) = Normalize(frame.Target.X - frame.Eye.X, frame.Target.Y - frame.Eye.Y, frame.Target.Z - frame.Eye.Z);
+        (double rx, double ry, double rz) = Normalize(Cross(fx, fy, fz, frame.Up.X, frame.Up.Y, frame.Up.Z));
         (double ux, double uy, double uz) = Cross(rx, ry, rz, fx, fy, fz);
-        double half = Math.Tan(double.DegreesToRadians(camera.FieldOfView) / 2d);
         double aspect = target.Width / (double)target.Height;
         for (int py = 0; py < target.Height; py++) {
             for (int px = 0; px < target.Width; px++) {
                 (double r, double g, double b) batch = (0d, 0d, 0d);
                 for (int s = 0; s < sampleBudget; s++) {
                     ulong state = Mix(((ulong)(uint)((py * target.Width) + px) << 32) ^ (ulong)(target.Ordinal + s) ^ (ulong)sampleSeed);
-                    double ndcX = ((px + Next(ref state)) / target.Width * 2d - 1d) * half * aspect;
-                    double ndcY = (1d - ((py + Next(ref state)) / target.Height * 2d)) * half;
-                    (double dx, double dy, double dz) = Normalize(
-                        fx + (ndcX * rx) + (ndcY * ux), fy + (ndcX * ry) + (ndcY * uy), fz + (ndcX * rz) + (ndcY * uz));
-                    (double lr, double lg, double lb) = Radiance((camera.EyeX, camera.EyeY, camera.EyeZ), (dx, dy, dz), rig, ref state);
+                    double screenX = ((px + Next(ref state)) / target.Width * 2d) - 1d;
+                    double screenY = 1d - ((py + Next(ref state)) / target.Height * 2d);
+                    ((double X, double Y, double Z) Origin, (double X, double Y, double Z) Direction) ray = camera.Switch(
+                        state: (Frame: frame, Fx: fx, Fy: fy, Fz: fz, Rx: rx, Ry: ry, Rz: rz, Ux: ux, Uy: uy, Uz: uz, X: screenX, Y: screenY, Aspect: aspect),
+                        perspective: static (basis, lens) => {
+                            double half = Math.Tan(double.DegreesToRadians(lens.FieldOfViewDeg) / 2d);
+                            (double x, double y) = (basis.X * half * basis.Aspect, basis.Y * half);
+                            return (
+                                ((double)basis.Frame.Eye.X, basis.Frame.Eye.Y, basis.Frame.Eye.Z),
+                                Normalize(basis.Fx + (x * basis.Rx) + (y * basis.Ux), basis.Fy + (x * basis.Ry) + (y * basis.Uy), basis.Fz + (x * basis.Rz) + (y * basis.Uz)));
+                        },
+                        orthographic: static (basis, lens) => {
+                            (double x, double y) = (basis.X * lens.ViewHeight * basis.Aspect * 0.5d, basis.Y * lens.ViewHeight * 0.5d);
+                            return (
+                                (basis.Frame.Eye.X + (x * basis.Rx) + (y * basis.Ux), basis.Frame.Eye.Y + (x * basis.Ry) + (y * basis.Uy), basis.Frame.Eye.Z + (x * basis.Rz) + (y * basis.Uz)),
+                                (basis.Fx, basis.Fy, basis.Fz));
+                        });
+                    (double lr, double lg, double lb) = Radiance(ray.Origin, ray.Direction, rig, target, (py * target.Width) + px, ref state);
                     batch = (batch.r + lr, batch.g + lg, batch.b + lb);
                 }
                 long total = target.Ordinal + sampleBudget;
@@ -242,53 +312,91 @@ public sealed record PathTracePass(Bvh Scene, SamplePolicy Sampling, Denoiser De
         return target.Advanced(sampleBudget);
     }
 
-    private (double R, double G, double B) Radiance((double X, double Y, double Z) origin, (double X, double Y, double Z) direction, LightRig rig, ref ulong state) =>
+    private (double R, double G, double B) Radiance((double X, double Y, double Z) origin, (double X, double Y, double Z) direction, LightRig rig, AccumulationTarget film, int pixel, ref ulong state) =>
         Scene.Intersect(origin, direction, double.MaxValue).Match(
             None: () => Environment(rig, direction),
-            Some: hit => Lit(origin, direction, hit, rig, ref state));
+            Some: hit => Lit(origin, direction, hit, rig, film, pixel, ref state));
 
-    private (double R, double G, double B) Lit((double X, double Y, double Z) origin, (double X, double Y, double Z) direction, (int Primitive, double T) hit, LightRig rig, ref ulong state) {
+    // NEE is POLICY-DISPATCHED light selection over the rig, never an unconditional every-light loop: the
+    // primary hit writes the pixel's normal/depth guide, the SamplePolicy row selects the light-sampling
+    // arm, and only the selected candidate pays a shadow ray. The reservoir arm reads and writes
+    // film.Reservoirs[pixel], so temporal reuse is a real state transition on the one progressive owner.
+    private (double R, double G, double B) Lit((double X, double Y, double Z) origin, (double X, double Y, double Z) direction, (int Primitive, double T) hit, LightRig rig, AccumulationTarget film, int pixel, ref ulong state) {
         BoundingSphere sphere = Scene.PrimitiveBounds[hit.Primitive];
         (double hx, double hy, double hz) = (origin.X + (direction.X * hit.T), origin.Y + (direction.Y * hit.T), origin.Z + (direction.Z * hit.T));
         (double nx, double ny, double nz) = Normalize(hx - sphere.X, hy - sphere.Y, hz - sphere.Z);
+        (film.NormalDepth[pixel * 4], film.NormalDepth[(pixel * 4) + 1], film.NormalDepth[(pixel * 4) + 2], film.NormalDepth[(pixel * 4) + 3]) =
+            ((float)nx, (float)ny, (float)nz, (float)hit.T);
         SurfacePoint point = new((hx, hy, hz), FrameOf(nx, ny, nz), (0d, 0d), $"{hit.Primitive}");
-        Rasm.Materials.Appearance.LayeredBsdf bsdf = MaterialOf(point);
+        Rasm.Materials.Appearance.Bsdf.LayeredBsdf bsdf = MaterialOf(point);
         (double X, double Y, double Z) wo = (-direction.X, -direction.Y, -direction.Z);
-        (double r, double g, double b) sum = (0d, 0d, 0d);
-        foreach (LightSource row in rig.Rows) {
-            Option<((double X, double Y, double Z) Wi, (double R, double G, double B) Radiance, double TMax)> arm = row switch {
-                LightSource.Sun sun => Some((sun.Direction, Rgb(sun.Radiance), double.MaxValue)),
-                LightSource.Emissive glow when Toward(point.Position, (glow.X, glow.Y, glow.Z)) is var (wi, distance) =>
-                    Some((wi, Scale(Rgb(glow.Radiance), glow.Area / Math.Max(distance * distance, 1e-6)), distance)),
-                LightSource.Spot spot when Toward(point.Position, (spot.X, spot.Y, spot.Z)) is var (wi, distance) =>
-                    Cone(spot, wi) switch {
-                        <= 0d => None,
-                        var falloff => Some((wi, Scale(Rgb(spot.Radiance), falloff / Math.Max(distance * distance, 1e-6)), distance)),
-                    },
-                LightSource.Area panel when Toward(point.Position, (panel.X, panel.Y, panel.Z)) is var (wi, distance) =>
-                    Math.Max(Dot(panel.Normal, (-wi.X, -wi.Y, -wi.Z)), 0d) switch {
-                        <= 0d => None,
-                        var facing => Some((wi, Scale(Rgb(panel.Radiance), facing * panel.Width * panel.Height / Math.Max(distance * distance, 1e-6)), distance)),
-                    },
-                LightSource.Ies lum when Toward(point.Position, (lum.X, lum.Y, lum.Z)) is var (wi, distance) =>
-                    IesCandela(lum, wi) switch {
-                        <= 0d => None,
-                        var candela => Some((wi, Scale(Rgb(lum.Tint), candela / Math.Max(distance * distance, 1e-6)), distance)),
-                    },
-                _ => None, // Environment folds on miss, never as NEE
-            };
-            sum = arm
-                .Filter(candidate => Scene.Intersect(Offset(point.Position, candidate.Wi), candidate.Wi, candidate.TMax).IsNone)
-                .Bind(candidate => this.Evaluate(point, bsdf, wo, candidate.Wi).ToOption()
-                    .Map(throughput => Scale(Mul(Rgb(throughput), candidate.Radiance), Math.Max(Dot(candidate.Wi, (nx, ny, nz)), 0d))))
-                .Match(Some: lit => (sum.r + lit.R, sum.g + lit.G, sum.b + lit.B), None: () => sum);
-        }
-        return this.Shade(point, bsdf, wo, Next(ref state)).ToOption().Match(
+        (double r, double g, double b) sum = Nee(point, bsdf, wo, (nx, ny, nz), rig, film, pixel, ref state);
+        return this.Shade(point, bsdf, wo, Next(ref state), Next(ref state), Next(ref state)).ToOption().Match(
             Some: bounce => Scene.Intersect(Offset(point.Position, bounce.Wi), bounce.Wi, double.MaxValue).IsNone
-                ? Add(sum, Mul(Rgb(bounce.Throughput), Environment(rig, bounce.Wi)))
+                ? Add(sum, Mul(bounce.Throughput, Environment(rig, bounce.Wi)))
                 : sum, // one-bounce oracle: a second hit terminates; deeper transport is the GPU twin's
             None: () => sum);
     }
+
+    // One candidate derivation serves every policy arm: the unshadowed (direction, radiance, reach) of one
+    // rig row toward the shading point; Environment folds on miss, never as NEE.
+    private static Option<((double X, double Y, double Z) Wi, (double R, double G, double B) Radiance, double TMax)> Candidate(LightSource row, SurfacePoint point) =>
+        row switch {
+            LightSource.Sun sun => Some((sun.Direction, Rgb(sun.Radiance), double.MaxValue)),
+            LightSource.Emissive glow when Toward(point.Position, (glow.X, glow.Y, glow.Z)) is var (wi, distance) =>
+                Some((wi, Scale(Rgb(glow.Radiance), glow.Area / Math.Max(distance * distance, 1e-6)), distance)),
+            LightSource.Spot spot when Toward(point.Position, (spot.X, spot.Y, spot.Z)) is var (wi, distance) =>
+                Cone(spot, wi) switch {
+                    <= 0d => None,
+                    var falloff => Some((wi, Scale(Rgb(spot.Radiance), falloff / Math.Max(distance * distance, 1e-6)), distance)),
+                },
+            LightSource.Area panel when Toward(point.Position, (panel.X, panel.Y, panel.Z)) is var (wi, distance) =>
+                Math.Max(Dot(panel.Normal, (-wi.X, -wi.Y, -wi.Z)), 0d) switch {
+                    <= 0d => None,
+                    var facing => Some((wi, Scale(Rgb(panel.Radiance), facing * panel.Width * panel.Height / Math.Max(distance * distance, 1e-6)), distance)),
+                },
+            LightSource.Ies lum when Toward(point.Position, (lum.X, lum.Y, lum.Z)) is var (wi, distance) =>
+                IesCandela(lum, wi) switch {
+                    <= 0d => None,
+                    var candela => Some((wi, Scale(Rgb(lum.Tint), candela / Math.Max(distance * distance, 1e-6)), distance)),
+                },
+            _ => None,
+        };
+
+    private (double R, double G, double B) Nee(SurfacePoint point, Rasm.Materials.Appearance.Bsdf.LayeredBsdf bsdf, (double X, double Y, double Z) wo, (double X, double Y, double Z) normal, LightRig rig, AccumulationTarget film, int pixel, ref ulong state) {
+        if (rig.Rows.IsEmpty) { return (0d, 0d, 0d); }
+        if (Sampling == SamplePolicy.Restir) { return NeeRestir(point, bsdf, wo, normal, rig, film, pixel, ref state); }
+        int chosen = Sampling == SamplePolicy.Stratified
+            ? (int)((pixel + film.Ordinal) % rig.Rows.Count)
+            : Math.Min((int)(Next(ref state) * rig.Rows.Count), rig.Rows.Count - 1);
+        return Shaded(rig.Rows[chosen], point, bsdf, wo, normal, weight: rig.Rows.Count);
+    }
+
+    // Weighted-reservoir RIS with temporal reuse: the prior frame's reservoir seeds the stream (decayed to
+    // the cap), every rig row streams a candidate weighted by its unshadowed target function, and ONLY the
+    // surviving sample pays the shadow ray, shaded with the reservoir's unbiased Weight — the advanced
+    // reservoir writes back to the pixel's cell so the next frame reuses it.
+    private (double R, double G, double B) NeeRestir(SurfacePoint point, Rasm.Materials.Appearance.Bsdf.LayeredBsdf bsdf, (double X, double Y, double Z) wo, (double X, double Y, double Z) normal, LightRig rig, AccumulationTarget film, int pixel, ref ulong state) {
+        Reservoir reservoir = film.Reservoirs[pixel].Decayed(SamplePolicy.TemporalCap);
+        for (int row = 0; row < rig.Rows.Count; row++) {
+            double target = Candidate(rig.Rows[row], point)
+                .Map(candidate => Luminance(candidate.Radiance) * Math.Max(Dot(candidate.Wi, normal), 0d))
+                .IfNone(0d);
+            reservoir = reservoir.Update(row, target, target, Next(ref state));
+        }
+        film.Reservoirs[pixel] = reservoir;
+        int survivor = (int)Math.Clamp(reservoir.ChosenSample, 0L, rig.Rows.Count - 1L);
+        return Shaded(rig.Rows[survivor], point, bsdf, wo, normal, reservoir.Weight);
+    }
+
+    private (double R, double G, double B) Shaded(LightSource row, SurfacePoint point, Rasm.Materials.Appearance.Bsdf.LayeredBsdf bsdf, (double X, double Y, double Z) wo, (double X, double Y, double Z) normal, double weight) =>
+        Candidate(row, point)
+            .Filter(candidate => Scene.Intersect(Offset(point.Position, candidate.Wi), candidate.Wi, candidate.TMax).IsNone)
+            .Bind(candidate => this.Evaluate(point, bsdf, wo, candidate.Wi).ToOption()
+                .Map(throughput => Scale(Mul(throughput, candidate.Radiance), Math.Max(Dot(candidate.Wi, normal), 0d) * weight)))
+            .IfNone((0d, 0d, 0d));
+
+    private static double Luminance((double R, double G, double B) rgb) => (0.2126 * rgb.R) + (0.7152 * rgb.G) + (0.0722 * rgb.B);
 
     private static (double R, double G, double B) Environment(LightRig rig, (double X, double Y, double Z) direction) =>
         rig.Rows.Fold((R: 0d, G: 0d, B: 0d), (sum, row) => row switch {
@@ -296,11 +404,11 @@ public sealed record PathTracePass(Bvh Scene, SamplePolicy Sampling, Denoiser De
             _ => sum,
         });
 
-    private static ShadingFrame FrameOf(double nx, double ny, double nz) {
+    private static OracleFrame FrameOf(double nx, double ny, double nz) {
         (double tx, double ty, double tz) = Math.Abs(ny) < 0.999
             ? Normalize(Cross(0d, 1d, 0d, nx, ny, nz))
             : (1d, 0d, 0d);
-        return new ShadingFrame((nx, ny, nz), (tx, ty, tz), Cross(nx, ny, nz, tx, ty, tz));
+        return new OracleFrame((nx, ny, nz), (tx, ty, tz), Cross(nx, ny, nz, tx, ty, tz));
     }
 
     private static ((double X, double Y, double Z) Wi, double Distance) Toward((double X, double Y, double Z) from, (double X, double Y, double Z) to) {
@@ -366,12 +474,13 @@ public sealed record PathTracePass(Bvh Scene, SamplePolicy Sampling, Denoiser De
 
 ## [03]-[LIGHT_RIG]
 
-- Owner: `LightSource` `[Union]` — the ONE closed light row family (Environment | Sun | Emissive | Spot | Area | Ies, seed DATA per `[GENERATOR_LAW]`); `PhotometricWeb` the decoded IES/LDT candela table; `LightRig` — the scene light set BOTH integrators read.
+- Owner: `LightSource` `[Union]` — the ONE closed light row family (Environment | Sun | Emissive | Spot | Area | Ies, seed DATA per `[GENERATOR_LAW]`); `PhotometricWeb` the decoded IES/LDT candela table; `LightRig` — the scene light set BOTH integrators read; `SunStudy` the day/date solar-sweep instrument composing the Compute `SunPath` export.
 - Cases: Environment (uniform or HDR-dome radiance), Sun (site-anchored directional), Emissive (mesh-attached area emitter), Spot (inner/outer cone falloff), Area (rectangular panel with emitter-cosine), Ies (manufacturer luminaire shaped by its photometric web) — the AEC luminaire vocabulary both integrators evaluate; IES is the standard architectural photometry format, so a manufacturer fixture is one `Ies` row over decoded web data, never a bespoke emitter kind.
 - Entry: `public static LightSource SunAt(SolarSite site, Instant at)` — the Sun row derives from the Bim `GeoReference` seam plus the NodaTime instant under `ClockPolicy`, its azimuth/altitude COMPOSING the LANDED Compute solar-position export `SolarPosition.At(SolarSite, Instant) -> SunPosition` (the declared `[APPUI_SUN_EXPORT]` package-boundary row on `Analysis/daylight.md` naming the AppUi viewport sun-light) — never a second geodesy or solar-position kernel.
+- Study: `SunStudy` is the temporal solar instrument over the SAME export — `Sweep` composes `SolarPosition.SunPath(site, midnight, step, samples)` into the day's dated sun rows, `Arc` projects the swept positions into one `RenderPass.Overlay` drawing the sun-path arc and analemma, and `DesignDays` carries the equinox/solstice presets — so a rights-to-light or solar-envelope shadow study scrubs an instant across the day (or a date across the year) with the rig's Sun row re-derived per frame through an animation `Parameter` track on the one playhead; a Render-side ephemeris sweep or a second sun-study timeline is the deleted form.
 - Auto: the raster shading path (`Render/shading.md`) and this oracle integrator read the SAME rig — one light rig, two integrators, comparability by construction; the ReSTIR reservoir samples candidates from the rig rows; a reduced-quality tier caps rig evaluation through the governor pass mask, never a second light list.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Compute (project), Rasm.Bim (boundary wire)
-- Growth: a new emitter kind is one `LightSource` case; a new sun site is a `SolarSite` value from the Bim `GeoReference` lowering; zero new surface.
+- Growth: a new emitter kind is one `LightSource` case; a new sun site is a `SolarSite` value from the Bim `GeoReference` lowering; a new statutory study day is one `SunStudy.DesignDays` row; zero new surface.
 - Boundary: the `SolarPosition.At` crossing is a declared `[V9]` ledger row (`Render/pathtrace` <- Compute `Analysis/daylight`); the `GeoReference`-to-`SolarSite` lowering is Bim-owned and arrives as values; the IES/LDT file decode is an asset-boundary admission that lands a validated `PhotometricWeb` value (`Of` rejects unsorted grids and a non-total candela table) so the rig row consumes decoded data and no light row ever parses a file; a Render-side solar ephemeris, a second light vocabulary on any Render page, or a per-integrator light list is the deleted form.
 
 ```csharp signature
@@ -438,58 +547,110 @@ public sealed record LightRig(Seq<LightSource> Rows) {
     public static readonly LightRig DefaultStudio = new(Seq<LightSource>(
         new LightSource.Environment("studio-dome", Color.FromRgb(240, 240, 245), None)));
 }
+
+// The temporal solar instrument over the ONE Compute solar export: Sweep composes SolarPosition.SunPath
+// into dated Sun rows, Arc projects the swept positions into one Overlay pass (the sun-path arc and
+// analemma drawn through the supplied sheet fold), and DesignDays carries the statutory presets — the
+// date/instant scrub rides an animation Parameter track, so the shadow study and a fly-through share the
+// one playhead and no second ephemeris, sweep kernel, or sun-study timeline exists on the Render plane.
+public sealed record SunStudy(SolarSite Site, Color Radiance) {
+    public static readonly Seq<(int Month, int Day)> DesignDays = Seq((3, 20), (6, 21), (9, 22), (12, 21));
+
+    public Seq<(Instant At, LightSource Sun)> Sweep(Instant midnight, Duration step, int samples) =>
+        SolarPosition.SunPath(Site, midnight, step, samples)
+            .Map(row => (row.Instant, (LightSource)new LightSource.Sun($"sun@{row.Instant}", row.Sun.AzimuthDeg, row.Sun.AltitudeDeg, Radiance)));
+
+    public RenderPass Arc(Seq<(Instant At, LightSource Sun)> swept, Func<SKCanvas, Seq<(double AzimuthDeg, double AltitudeDeg)>, Fin<Unit>> draw) =>
+        new RenderPass.Overlay(
+            $"sun-path/{Site}",
+            canvas => draw(canvas, swept.Choose(static row => row.Sun is LightSource.Sun sun ? Some((sun.AzimuthDeg, sun.AltitudeDeg)) : None)));
+}
 ```
 
 ## [04]-[BSDF_SHADING]
 
-- Owner: `SurfacePoint` the per-bounce shading frame; `BsdfShading` the LayeredBsdf-consumption integrator fold over the Materials appearance seam.
-- Entry: `public Fin<(Color Throughput, (double X, double Y, double Z) Wi, double Pdf)> Shade(SurfacePoint point, LayeredBsdf bsdf, (double X, double Y, double Z) wo, double random)` — drives the per-bounce world ray through `ShadingFrame.ToWorld` and the MIS-balanced lobe sample of the one `LayeredBsdf`, returning the throughput, the sampled incident direction, and the sample pdf.
+- Owner: `SurfacePoint` the per-bounce oracle point; `BsdfProjection` the one composition-bound projection into the Materials `ShadingFrame`/`Direction`/`Op` vocabulary; `BsdfShading` the `LayeredBsdf` consumption fold.
+- Entry: `public Fin<((double R, double G, double B) Throughput, (double X, double Y, double Z) Wi, double Pdf)> Shade(SurfacePoint point, LayeredBsdf bsdf, (double X, double Y, double Z) wo, double uLobe, double u0, double u1)` — admits the oracle point and outgoing ray through `BsdfProjection`, invokes the exact five-argument Materials `LayeredBsdf.Sample` rail, transforms the returned local direction through `ShadingFrame.ToWorld`, and applies `|cos(theta)| / pdf` once at the integrator.
 - Auto: the app-platform path tracer consumes the one `LayeredBsdf` the `SlabStack.ToLayered` produces (post-split `Appearance/bsdf#OPENPBR_SLAB`) and the `SurfaceShade` the `MaterialGraph.Evaluate` sink assembles, so the integrator shades every material as a weighting of the closed seven-lobe set with zero per-material code — the OpenPBR slab stack lowers to one `LayeredBsdf` the integrator reads and never re-derives lobe math; the per-bounce world ray drives through `ShadingFrame.ToWorld` and the MIS-balanced lobe sample (`LayeredBsdf.Sample`/`Evaluate`/`Pdf`); the position-free multi-scatter random walk admits as the high-fidelity path over the Kulla-Conty fast path so a rough multi-layer material renders energy-conserving; the `SPECTRAL_REFLECTANCE_GROUNDING` per-wavelength conductor curve admits as the high-fidelity conductor path so a metal renders its spectral tint.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Materials (project)
 - Growth: a new shading path (fast versus high-fidelity) is a `LayeredBsdf` policy the Materials owner carries, never a Render-side lobe; zero new surface — the integrator adds no lobe math.
-- Boundary: the integrator shades FROM the `Rasm.Materials/Appearance` `LayeredBsdf`/`SlabStack`/`SurfaceShade` and never re-derives lobe math (`Appearance/bsdf` line 3 — the renderer shades from `LayeredBsdf` and never re-derives lobe math, the path-tracer at the `Render/pathtrace#PATH_TRACE` seam); the integrator reads the Materials owner at the wire/runtime boundary — `LayeredBsdf.Sample`/`Evaluate`/`Pdf`, the `SlabStack.ToLayered` lowering, and the `MaterialGraph.Evaluate` `SurfaceShade` sink — so a re-minted lobe model, a per-material shading branch, and a Render-side BSDF are the rejected forms; the `SurfaceShade` graph sink is shaded by this path tracer so the consumer end of the `Appearance/graph -> Render` boundary seam reads the assembled shade; the position-free multi-scatter route admits as the high-fidelity path over the Kulla-Conty fast path through a `LayeredBsdf` policy the Materials owner carries, never a Render-side multi-scatter; the spectral conductor curve is the `Rasm.Materials` `SPECTRAL_REFLECTANCE_GROUNDING` per-wavelength reflectance the integrator reads, never a Render-side spectral model; this is the consumer half of the bidirectional `SPECTRAL_REFLECTANCE_GROUNDING`/`BSDF_PAGE_SPLIT` ripple — Render owns the integrator that shades from `LayeredBsdf`/`SurfaceShade`, Materials owns the lobe math and the page split.
+- Boundary: the integrator invokes `Rasm.Materials.Appearance.Bsdf.LayeredBsdf.Sample`/`Evaluate` with the exact Materials `ShadingFrame`, `Direction`, `RgbSpectrum`, and `Op` types and never re-derives lobe math. `BsdfProjection` is the single composition-time boundary from the oracle tuples to those domain values; a Render-side BSDF, host-color throughput, invented method arity, or second conversion site is rejected. `LayeredBsdf.Sample` supplies frame-local direction, value, and balanced PDF, `ShadingFrame.ToWorld` supplies the continuation ray, and the integrator alone applies `|cos(theta)| / pdf`. The `SurfaceShade` graph sink and `SlabStack.ToLayered` remain Materials-owned producers of the same `LayeredBsdf` consumed here.
 
 ```csharp signature
-public readonly record struct ShadingFrame((double X, double Y, double Z) Normal, (double X, double Y, double Z) Tangent, (double X, double Y, double Z) Bitangent) {
-    public (double X, double Y, double Z) ToWorld((double X, double Y, double Z) local) =>
-        (local.X * Tangent.X + local.Y * Bitangent.X + local.Z * Normal.X,
-         local.X * Tangent.Y + local.Y * Bitangent.Y + local.Z * Normal.Y,
-         local.X * Tangent.Z + local.Y * Bitangent.Z + local.Z * Normal.Z);
-}
+public readonly record struct OracleFrame(
+    (double X, double Y, double Z) Normal,
+    (double X, double Y, double Z) Tangent,
+    (double X, double Y, double Z) Bitangent);
 
 public readonly record struct SurfacePoint(
     (double X, double Y, double Z) Position,
-    ShadingFrame Frame,
+    OracleFrame Frame,
     (double U, double V) Uv,
     string MaterialKey);
 
+public sealed record BsdfProjection(
+    Func<SurfacePoint, (double X, double Y, double Z), Fin<(Rasm.Materials.Appearance.Bsdf.ShadingFrame Frame, Rasm.Numerics.Direction Outgoing, Op Key)>> Admit,
+    Func<(double X, double Y, double Z), Context, Op, Fin<Rasm.Numerics.Direction>> DirectionOf);
+
 public static class BsdfShading {
     extension(PathTracePass pass) {
-        public Fin<(Color Throughput, (double X, double Y, double Z) Wi, double Pdf)> Shade(
+        public Fin<((double R, double G, double B) Throughput, (double X, double Y, double Z) Wi, double Pdf)> Shade(
             SurfacePoint point,
-            Rasm.Materials.Appearance.LayeredBsdf bsdf,
+            Rasm.Materials.Appearance.Bsdf.LayeredBsdf bsdf,
             (double X, double Y, double Z) wo,
-            double random) =>
-            bsdf.Sample(point.Frame, wo, random) is { IsSucc: true, Case: var sample }
-                ? Fin.Succ((sample.Throughput, point.Frame.ToWorld(sample.Wi), sample.Pdf))
-                : Fin.Fail<(Color, (double X, double Y, double Z), double)>(new ViewportFault.Text($"path-trace/bsdf-sample:{point.MaterialKey}"));
+            double uLobe,
+            double u0,
+            double u1) =>
+            from boundary in pass.Projection.Admit(point, wo)
+            from sample in bsdf.Sample(boundary.Frame, boundary.Outgoing, uLobe, u0, u1, boundary.Key)
+            from wi in boundary.Frame.ToWorld(sample.Direction, boundary.Key)
+            let throughput = Rgb(sample.Value.Scale(Math.Abs(sample.Direction.CosTheta) / sample.Pdf))
+            select (throughput, (wi.Value.X, wi.Value.Y, wi.Value.Z), sample.Pdf);
 
         // The NEE arm: evaluate the one LayeredBsdf toward a KNOWN light direction — the deterministic
         // counterpart of Shade's sampled arm, same Materials seam, zero Render-side lobe math.
-        public Fin<Color> Evaluate(
+        public Fin<(double R, double G, double B)> Evaluate(
             SurfacePoint point,
-            Rasm.Materials.Appearance.LayeredBsdf bsdf,
+            Rasm.Materials.Appearance.Bsdf.LayeredBsdf bsdf,
             (double X, double Y, double Z) wo,
             (double X, double Y, double Z) wi) =>
-            bsdf.Evaluate(point.Frame, wo, wi) is { IsSucc: true, Case: Color throughput }
-                ? Fin.Succ(throughput)
-                : Fin.Fail<Color>(new ViewportFault.Text($"path-trace/bsdf-eval:{point.MaterialKey}"));
+            from boundary in pass.Projection.Admit(point, wo)
+            from incoming in pass.Projection.DirectionOf(wi, boundary.Frame.Context, boundary.Key)
+            select Rgb(bsdf.Evaluate(boundary.Frame, boundary.Outgoing, incoming));
     }
+
+    private static (double R, double G, double B) Rgb(Rasm.Materials.Appearance.Bsdf.RgbSpectrum spectrum) =>
+        (spectrum.R, spectrum.G, spectrum.B);
 }
 ```
 
 ```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
 flowchart LR
+    accTitle: Path tracing material flow
+    accDescr: Meshlet bounds build the BVH, and the path tracer consumes layered BSDF shading into progressive evidence.
     ResidencyMeshletView --> Bvh
     Bvh --> PathTracePass
     PathTracePass --> Reservoir
@@ -497,9 +658,16 @@ flowchart LR
     PathTracePass -->|Shade| LayeredBsdf
     LayeredBsdf --> SurfaceShade
     SurfaceShade --> PathTracePass
+    linkStyle 1,2,3,4,6 stroke:#FF79C6,color:#F8F8F2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    class Bvh,Denoiser primary
+    class ResidencyMeshletView,Reservoir,LayeredBsdf,SurfaceShade data
+    class PathTracePass boundary
 ```
 
-## [05]-[RESEARCH]
+## [05]-[ACCELERATION_BOUNDARY]
 
-- [VIEWPORT_GPU]: the `SKRuntimeEffect` ray-generation shader and the per-backend acceleration-structure spelling (`GRMtlBackendContext` Metal ray-tracing, `GRVkBackendContext` Vulkan ray-query) resolve under the shared-context lease — the SAH BVH, the ReSTIR reservoir, the progressive accumulation, the edge-aware denoiser, and the LayeredBsdf shading consumption are settled as the CPU reference path tracer (the correctness oracle); the GPU acceleration-structure dispatch is the unverified surface gated on the live host-owned GPU context the `Render/pipeline` lease binds.
-- [BSDF_SEAM]: the `Rasm.Materials/Appearance` `LayeredBsdf.Sample`/`Evaluate`/`Pdf` member surface, the `SlabStack.ToLayered` lowering, and the `MaterialGraph.Evaluate` `SurfaceShade` sink the integrator reads at the wire/runtime boundary — resolved at implementation against the finalized `Rasm.Materials/Appearance` surface (post `OPENPBR_SLAB` and `BSDF_PAGE_SPLIT`); the integrator shading frame, the per-bounce world ray, the MIS-balanced sample, and the high-fidelity multi-scatter/spectral routes are settled, the exact `LayeredBsdf`/`SlabStack`/`SurfaceShade`/`ShadingFrame` member spellings and the `Rasm.Materials.Appearance` namespace are the unverified surface composed at the package edge, never re-minted.
+- [VIEWPORT_GPU]: `Bvh`, `Reservoir`, `AccumulationTarget`, `Denoiser`, and `BsdfProjection` form the deterministic CPU oracle. The `RenderPass.PathTrace` delegate admits acceleration only under the existing `GpuBinding` lease and preserves the same raw accumulation hash, guide planes, reset rule, and `FrameReceipt` evidence.
+- [BSDF_SEAM]: `Rasm.Materials.Appearance.Bsdf.LayeredBsdf.Sample(ShadingFrame, Direction, double, double, double, Op)` returns `Fin<LobeSample>`, `Evaluate(ShadingFrame, Direction, Direction)` returns `RgbSpectrum`, and `ShadingFrame.ToWorld(LocalVector, Op)` returns the world `Direction`. `BsdfProjection` binds oracle tuples into those exact types once; `SlabStack.ToLayered` and `MaterialGraph.Evaluate` remain the upstream producers.

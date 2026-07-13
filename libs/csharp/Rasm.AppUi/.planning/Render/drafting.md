@@ -1,6 +1,6 @@
 # [APPUI_DRAFTING_SHEETS]
 
-The drafting rail produces 2D documentation from 3D geometry: `SheetSet` owns a locale-aware sheet collection with ISO/ANSI/JIS title-block templating, `Viewport2D` frames a 3D model view onto a sheet region by composing the single CAD-grade hidden-line owner `cs:Rasm.Fabrication/Documentation/projection#PROJECTION_HIDDEN_LINE` (the BSP front-to-back visibility kernel) and projecting its world-space visible/hidden/silhouette edge sets to sheet space, `Dimension` and `Annotation` carry the dimensioning and GD&T annotation vocabulary as typed records, and `DraftEmit` renders the composed sheet to DWG/DXF/PDF/SVG through the offscreen document rail and the catalogued entity-writer surface. The page owns the sheet-set and title-block axis, the projection-to-sheet viewport frame, the dimension and GD&T annotation families, and the multi-format emit dispatch; the substrate is SkiaSharp 2D geometry behind the `DrawSource.Owned` capsule and the `SKDocument` PDF export, the write-scoped `ACadSharp` `CadDocument` fold with its two writer rows (`DwgWriter`/`DxfWriter`) for DWG and DXF model-space emit (`.api/api-drafting-export.md`), the locale culture for title-block fields, the `Viewpoint` camera for the projection basis, and the Compute geometry payload for the projected edges. The PDF, SVG, DWG, and DXF emit arms transcribe their writer bodies now; the live host-shared GPU hidden-line depth buffer is the `Render/pipeline.md#RESEARCH` `[VIEWPORT_GPU]` consequence while the Fabrication BSP kernel is the CAD-grade visibility owner this page composes — AppUi mints no second hidden-line kernel and no second CAD writer.
+The drafting rail produces 2D documentation from 3D geometry: `SheetSet` owns a locale-aware sheet collection with ISO/ANSI/JIS title-block templating, `Viewport2D` frames a 3D model view onto a sheet region by composing the single CAD-grade hidden-line owner `cs:Rasm.Fabrication/Documentation/projection#PROJECTION_HIDDEN_LINE` (the BSP front-to-back visibility kernel) and projecting its world-space visible/hidden/silhouette edge sets to sheet space, `Dimension` and `Annotation` carry the dimensioning and GD&T annotation vocabulary as typed records, and `DraftEmit` renders the composed sheet to DWG/DXF/PDF/SVG through the offscreen document rail and the catalogued entity-writer surface. The page owns the sheet-set and title-block axis, the projection-to-sheet viewport frame, the dimension and GD&T annotation families, and the multi-format emit dispatch; the substrate is SkiaSharp 2D geometry behind the `DrawSource.Owned` capsule and the `SKDocument` PDF export, the write-scoped `ACadSharp` `CadDocument` fold with its three writer rows (`DwgWriter`/`DxfWriter`/`SvgWriter`) for DWG, DXF, and SVG model-space emit (`.api/api-drafting-export.md`), the locale culture for title-block fields, the `Viewpoint` camera for the projection basis, and the Compute geometry payload for the projected edges. The PDF, SVG, DWG, and DXF emit arms transcribe their writer bodies now; the live host-shared GPU hidden-line depth buffer is the `Render/pipeline.md#RESEARCH` `[VIEWPORT_GPU]` consequence while the Fabrication BSP kernel is the CAD-grade visibility owner this page composes — AppUi mints no second hidden-line kernel and no second CAD writer.
 
 ## [01]-[INDEX]
 
@@ -14,17 +14,30 @@ The drafting rail produces 2D documentation from 3D geometry: `SheetSet` owns a 
 - Owner: `SheetSize` `[SmartEnum<string>]` the standard sheet-size catalog; `TitleBlock` the locale-aware title-block record; `Sheet` the single sheet with its regions; `SheetSet` the sheet collection.
 - Cases: `SheetSize` = a0…a4 (ISO 216) · ansi-a…ansi-e (ANSI/ASME Y14.1) · jis-b0…jis-b4 (JIS B) — the standard sheet rows carrying width, height, and standard family.
 - Entry: `public static Fin<Sheet> Compose(string key, SheetSize size, TitleBlock title, Seq<SheetRegion> regions, Seq<(string Region, Dimension Value)> dimensions, Seq<Annotation> annotations)` — `Fin` aborts on a region outside the sheet bounds and on a dimension naming an unresolved region; the title-block fields resolve through the locale string vocabulary at emit.
-- Auto: `TitleBlock` carries the standard family so an ISO sheet draws the ISO border-and-zone grid, an ANSI sheet the ANSI title-block layout, and a JIS sheet the JIS layout from one templating fold; the title-block field labels (drawing number, title, scale, date, sheet n-of-m, revision) resolve through `ResolvedLocale.Label` so a localized drawing renders its field labels in the active culture and the date through the NodaTime pattern, never a hardcoded label string.
+- Auto: `SheetSize.Standard` carries the standard family, so ISO, ANSI, and JIS sheets select their border, zone grid, and title-block geometry without duplicating that reconstructible choice on `TitleBlock`. `DraftEmit.TitleLayout` is one templating fold over the standard row's margin, zone, and block values; field labels and dates resolve through `ResolvedLocale`.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: a new sheet size is one `SheetSize` row carrying its dimensions and standard family; a new title-block layout is one `TitleBlockStandard` value; a new field is one `TitleBlock` member; zero new surface.
 - Boundary: sheet dimensions are millimeter row data traced here once — a call-site sheet-dimension literal is the deleted form; the title-block standard drives the border, zone-grid, and field layout from one fold so a per-standard title-block control is the deleted form; field labels and the date format ride `ResolvedLocale` so a `CultureInfo.CurrentCulture` read is the rejected form; sheet regions are placement rectangles in sheet millimeter space and a region outside the sheet bounds faults at compose, never at render; the sheet composes as precomposed vector page folds on the capture vector-print arm (a flow REPORT rides `Document/export.md#FLOW_REPORT`) so the document-pagination concern stays the export owner and the drafting page mints no second pagination.
 
 ```csharp signature
+// Each standard row carries its frame geometry as ROW DATA — border margin, zone-grid divisions, and the
+// title-block anchor rectangle — so the ISO/ANSI/JIS layouts diverge only in values and ONE templating
+// fold (DraftEmit.TitleLayout) draws border, zone grid, block frame, and field cells for every standard.
 [SmartEnum<string>]
 public sealed partial class TitleBlockStandard {
-    public static readonly TitleBlockStandard Iso = new("iso");
-    public static readonly TitleBlockStandard Ansi = new("ansi");
-    public static readonly TitleBlockStandard Jis = new("jis");
+    public static readonly TitleBlockStandard Iso = new("iso", marginMm: 10d, zoneColumns: 8, zoneRows: 6, blockWidthMm: 180d, blockHeightMm: 55d);
+    public static readonly TitleBlockStandard Ansi = new("ansi", marginMm: 12.7d, zoneColumns: 4, zoneRows: 4, blockWidthMm: 165.1d, blockHeightMm: 63.5d);
+    public static readonly TitleBlockStandard Jis = new("jis", marginMm: 10d, zoneColumns: 6, zoneRows: 4, blockWidthMm: 170d, blockHeightMm: 50d);
+
+    public double MarginMm { get; }
+
+    public int ZoneColumns { get; }
+
+    public int ZoneRows { get; }
+
+    public double BlockWidthMm { get; }
+
+    public double BlockHeightMm { get; }
 }
 
 [SmartEnum<string>]
@@ -63,8 +76,7 @@ public sealed record TitleBlock(
     LocalDate Date,
     int SheetNumber,
     int SheetCount,
-    string Revision,
-    TitleBlockStandard Standard) {
+    string Revision) {
     public Seq<(string LabelKey, string Value)> Fields(ResolvedLocale locale) => Seq(
         ("draft.field.number", DrawingNumber),
         ("draft.field.title", locale.Label(TitleKey)),
@@ -101,34 +113,44 @@ public sealed record SheetSet(string Key, Seq<Sheet> Sheets) {
 - Boundary: the projection basis derives from the `Viewpoint` camera so the drafting view and the GPU viewport share one camera shape and a second camera model is the deleted form; the projected geometry is the `MeshSource` boundary projection off the canonical Compute `GeometryPayload` so the page never re-tessellates — the same wire boundary the viewport meshlet build consumes; hidden-line removal is the single CAD-grade owner `cs:Rasm.Fabrication/Documentation/projection#PROJECTION_HIDDEN_LINE` (the BSP front-to-back visibility solver plus the Clipper2 open-path screen clip) composed through the `HiddenLineSeam` in-process delegate column — the in-folder painter depth-sort `HiddenLine` is DROPPED root-up, the two-sided CONSUMPTION seam has Fabrication produce the world-space `(Visible, Hidden, Silhouette)` `Edge3` sets and AppUi own the projection-to-sheet, and a re-minted painter back-to-front sort or a second hidden-line kernel here is the deleted form; the silhouette CONSUMPTION contract is forward-ready: `Viewport2D.Project` already tags the `Silhouette` `Edge3` set as the emphasized `EdgeStyle.Silhouette` (the heavier `0.7`-weight outline row), so when the Fabrication `CSG_WATERTIGHT_SILHOUETTE` arm composes the kernel arrangement to produce exact watertight-solid outlines (vs per-facet silhouettes), the `Viewport2D` silhouette-emphasized style consumes that improved set with zero AppUi change — the seam stays a pure consumption boundary, the silhouette-set deepening lands when the realized `ARRANGEMENT` kernel `.cs` owner is implemented while this consumption contract is forward-ready now (the bidirectional `CSG_SILHOUETTE` ripple counterpart); the GPU depth-buffer hidden-line is the `Render/pipeline.md#RESEARCH` `[VIEWPORT_GPU]` consequence the live render graph rides while the Fabrication BSP kernel is the deterministic CAD-grade producer this page composes today; viewport scale is millimeter-to-millimeter row data and a hardcoded scale factor is the rejected form; the projected segments draw through the `DrawSource.Owned` capsule into the sheet region so the drafting page mints no second Skia-surface owner.
 
 ```csharp signature
-public sealed record ProjectionBasis(
-    bool Perspective,
-    (double X, double Y, double Z) Eye,
-    (double X, double Y, double Z) Direction,
-    (double X, double Y, double Z) Up,
-    double Scale) {
-    public static readonly ProjectionBasis Top = new(false, (0d, 0d, 1d), (0d, 0d, -1d), (0d, 1d, 0d), 1d);
-    public static readonly ProjectionBasis Front = new(false, (0d, -1d, 0d), (0d, 1d, 0d), (0d, 0d, 1d), 1d);
-    public static readonly ProjectionBasis Right = new(false, (1d, 0d, 0d), (-1d, 0d, 0d), (0d, 0d, 1d), 1d);
-    public static readonly ProjectionBasis Iso = new(false, (1d, -1d, 1d), (-1d, 1d, -1d), (0d, 0d, 1d), 1d);
+public sealed record ProjectionBasis(ViewCamera Camera, double Scale) {
+    public static readonly ProjectionBasis Top = Orthographic(
+        new System.Numerics.Vector3(0f, 0f, 1f), new System.Numerics.Vector3(0f, 0f, 0f), System.Numerics.Vector3.UnitY);
+    public static readonly ProjectionBasis Front = Orthographic(
+        new System.Numerics.Vector3(0f, -1f, 0f), new System.Numerics.Vector3(0f, 0f, 0f), System.Numerics.Vector3.UnitZ);
+    public static readonly ProjectionBasis Right = Orthographic(
+        new System.Numerics.Vector3(1f, 0f, 0f), new System.Numerics.Vector3(0f, 0f, 0f), System.Numerics.Vector3.UnitZ);
+    public static readonly ProjectionBasis Iso = Orthographic(
+        new System.Numerics.Vector3(1f, -1f, 1f), new System.Numerics.Vector3(0f, 0f, 0f), System.Numerics.Vector3.UnitZ);
 
     public static ProjectionBasis From(ViewCamera camera, double scale) =>
-        new(camera.Perspective,
-            (camera.EyeX, camera.EyeY, camera.EyeZ),
-            (camera.TargetX - camera.EyeX, camera.TargetY - camera.EyeY, camera.TargetZ - camera.EyeZ),
-            (camera.UpX, camera.UpY, camera.UpZ),
-            scale);
+        new(camera, scale);
 
     public (double X, double Y) Map((double X, double Y, double Z) point) {
-        var (rx, ry) = Screen(point);
+        (double rx, double ry) = Screen(point);
         return (rx * Scale, ry * Scale);
     }
 
     private (double X, double Y) Screen((double X, double Y, double Z) point) {
-        var (ux, uy, uz) = Normalize(Cross(Direction, Up));
-        var (vx, vy, vz) = Up;
-        return ((point.X * ux) + (point.Y * uy) + (point.Z * uz), (point.X * vx) + (point.Y * vy) + (point.Z * vz));
+        CameraFrame frame = Camera.Frame;
+        (double fx, double fy, double fz) = Normalize((frame.Target.X - frame.Eye.X, frame.Target.Y - frame.Eye.Y, frame.Target.Z - frame.Eye.Z));
+        (double rx, double ry, double rz) = Normalize(Cross((fx, fy, fz), (frame.Up.X, frame.Up.Y, frame.Up.Z)));
+        (double ux, double uy, double uz) = Cross((rx, ry, rz), (fx, fy, fz));
+        (double px, double py, double pz) = (point.X - frame.Eye.X, point.Y - frame.Eye.Y, point.Z - frame.Eye.Z);
+        (double x, double y, double z) = (
+            (px * rx) + (py * ry) + (pz * rz),
+            (px * ux) + (py * uy) + (pz * uz),
+            (px * fx) + (py * fy) + (pz * fz));
+        return Camera.Switch(
+            state: (X: x, Y: y, Z: z),
+            perspective: static (projected, lens) => (
+                projected.X / Math.Max(projected.Z * Math.Tan(double.DegreesToRadians(lens.FieldOfViewDeg) / 2d), 1e-9),
+                projected.Y / Math.Max(projected.Z * Math.Tan(double.DegreesToRadians(lens.FieldOfViewDeg) / 2d), 1e-9)),
+            orthographic: static (projected, _) => (projected.X, projected.Y));
     }
+
+    private static ProjectionBasis Orthographic(System.Numerics.Vector3 eye, System.Numerics.Vector3 target, System.Numerics.Vector3 up) =>
+        new(new ViewCamera.Orthographic(new CameraFrame(eye, target, up), 1d), 1d);
 
     private static (double X, double Y, double Z) Cross((double X, double Y, double Z) a, (double X, double Y, double Z) b) =>
         ((a.Y * b.Z) - (a.Z * b.Y), (a.Z * b.X) - (a.X * b.Z), (a.X * b.Y) - (a.Y * b.X));
@@ -174,10 +196,33 @@ public sealed record Viewport2D(string Key, SheetRegion Region, ProjectionBasis 
 
     private Seq<(SKPoint A, SKPoint B, EdgeStyle Style)> Styled(
         Seq<((double X, double Y, double Z) A, (double X, double Y, double Z) B)> edges, EdgeStyle style) =>
-        edges.Map(edge => (Point(edge.A), Point(edge.B), style));
+        edges.Choose(edge => Clip(Point(edge.A), Point(edge.B)).Map(segment => (segment.A, segment.B, style)));
 
     private SKPoint Point((double X, double Y, double Z) world) =>
         Basis.Map(world) switch { var p => new SKPoint((float)(Region.X + p.X), (float)(Region.Y - p.Y)) };
+
+    private Option<(SKPoint A, SKPoint B)> Clip(SKPoint a, SKPoint b) {
+        float minX = (float)Region.X;
+        float minY = (float)Region.Y;
+        float maxX = (float)(Region.X + Region.Width);
+        float maxY = (float)(Region.Y + Region.Height);
+        float dx = b.X - a.X;
+        float dy = b.Y - a.Y;
+        (float Enter, float Exit) interval = (0f, 1f);
+        (float P, float Q)[] planes = [(-dx, a.X - minX), (dx, maxX - a.X), (-dy, a.Y - minY), (dy, maxY - a.Y)];
+        foreach ((float p, float q) in planes) {
+            if (p == 0f && q < 0f) { return None; }
+            if (p == 0f) { continue; }
+            float t = q / p;
+            interval = p < 0f
+                ? (MathF.Max(interval.Enter, t), interval.Exit)
+                : (interval.Enter, MathF.Min(interval.Exit, t));
+            if (interval.Enter > interval.Exit) { return None; }
+        }
+        return Some((
+            new SKPoint(a.X + (interval.Enter * dx), a.Y + (interval.Enter * dy)),
+            new SKPoint(a.X + (interval.Exit * dx), a.Y + (interval.Exit * dy))));
+    }
 }
 ```
 
@@ -246,14 +291,14 @@ public abstract partial record Dimension {
         diametric: static (ctx, d) => Ray(ctx.Project(d.Center), d.Diameter * 0.5d, $"⌀{ctx.Locale.Quantity(d.Measure)}"),
         ordinate:  static (ctx, o) => Elbow(ctx.Project(o.Datum), ctx.Project(o.Point), ctx.Locale.Quantity(o.Measure)));
 
-    static string Label(double measure, Tolerance tolerance, ResolvedLocale locale) =>
+    private static string Label(double measure, Tolerance tolerance, ResolvedLocale locale) =>
         tolerance == Tolerance.None
             ? locale.Quantity(measure)
             : tolerance.Symmetric
                 ? $"{locale.Quantity(measure)} ±{locale.Quantity(tolerance.Plus)}"
                 : $"{locale.Quantity(measure)} +{locale.Quantity(tolerance.Plus)}/-{locale.Quantity(tolerance.Minus)}";
 
-    static Seq<SheetEntity> Span((double X, double Y) a, (double X, double Y) b, double offset, string label) {
+    private static Seq<SheetEntity> Span((double X, double Y) a, (double X, double Y) b, double offset, string label) {
         (double dx, double dy) = (b.X - a.X, b.Y - a.Y);
         double length = Math.Max(Math.Sqrt((dx * dx) + (dy * dy)), double.Epsilon);
         (double nx, double ny) = (-dy / length * offset, dx / length * offset);
@@ -267,10 +312,10 @@ public abstract partial record Dimension {
     }
 
     // The architectural 45° tick at a dimension-line terminus.
-    static SheetEntity Tick((double X, double Y) at, double ux, double uy) =>
+    private static SheetEntity Tick((double X, double Y) at, double ux, double uy) =>
         new SheetEntity.Stroke(EdgeStyle.Marking, (at.X - ((ux - uy) * 1.2d), at.Y - ((uy + ux) * 1.2d)), (at.X + ((ux - uy) * 1.2d), at.Y + ((uy + ux) * 1.2d)));
 
-    static Seq<SheetEntity> Wedge((double X, double Y) vertex, (double X, double Y) a, (double X, double Y) b, string label) {
+    private static Seq<SheetEntity> Wedge((double X, double Y) vertex, (double X, double Y) a, (double X, double Y) b, string label) {
         double radius = Math.Min(Hypot(vertex, a), Hypot(vertex, b)) * 0.6d;
         (double startDeg, double endDeg) = (Deg(vertex, a), Deg(vertex, b));
         return Seq<SheetEntity>(
@@ -280,19 +325,19 @@ public abstract partial record Dimension {
             new SheetEntity.TextRun(label, (vertex.X + radius, vertex.Y - radius), 3d, "annotation"));
     }
 
-    static Seq<SheetEntity> Ray((double X, double Y) center, double reach, string label) => Seq<SheetEntity>(
+    private static Seq<SheetEntity> Ray((double X, double Y) center, double reach, string label) => Seq<SheetEntity>(
         new SheetEntity.Stroke(EdgeStyle.Marking, center, (center.X + reach, center.Y)),
         new SheetEntity.TextRun(label, (center.X + (reach * 0.5d), center.Y - 2d), 3d, "annotation"));
 
-    static Seq<SheetEntity> Elbow((double X, double Y) datum, (double X, double Y) point, string label) => Seq<SheetEntity>(
+    private static Seq<SheetEntity> Elbow((double X, double Y) datum, (double X, double Y) point, string label) => Seq<SheetEntity>(
         new SheetEntity.Stroke(EdgeStyle.Marking, datum, (point.X, datum.Y)),
         new SheetEntity.Stroke(EdgeStyle.Marking, (point.X, datum.Y), point),
         new SheetEntity.TextRun(label, point, 3d, "annotation"));
 
-    static double Hypot((double X, double Y) a, (double X, double Y) b) =>
+    private static double Hypot((double X, double Y) a, (double X, double Y) b) =>
         Math.Sqrt(Math.Pow(b.X - a.X, 2) + Math.Pow(b.Y - a.Y, 2));
 
-    static double Deg((double X, double Y) origin, (double X, double Y) to) =>
+    private static double Deg((double X, double Y) origin, (double X, double Y) to) =>
         Math.Atan2(to.Y - origin.Y, to.X - origin.X) * 180d / Math.PI;
 
     private static double Distance((double X, double Y, double Z) a, (double X, double Y, double Z) b) =>
@@ -336,7 +381,7 @@ public abstract partial record Annotation {
             new SheetEntity.Stroke(EdgeStyle.Marking, w.At, (w.At.X + 8d, w.At.Y)),
             new SheetEntity.Glyph(w.Symbol, (w.At.X + 3d, w.At.Y - 3d), 3d)));
 
-    static Seq<SheetEntity> Box((double X, double Y) at, double width, double height) => Seq<SheetEntity>(
+    private static Seq<SheetEntity> Box((double X, double Y) at, double width, double height) => Seq<SheetEntity>(
         new SheetEntity.Stroke(EdgeStyle.Marking, at, (at.X + width, at.Y)),
         new SheetEntity.Stroke(EdgeStyle.Marking, (at.X + width, at.Y), (at.X + width, at.Y + height)),
         new SheetEntity.Stroke(EdgeStyle.Marking, (at.X + width, at.Y + height), (at.X, at.Y + height)),
@@ -349,11 +394,11 @@ public abstract partial record Annotation {
 - Owner: `DraftFormat` `[SmartEnum<string>]` the emit-format axis; `DraftFault` the fault family; `DraftEmit` the multi-format emit dispatch.
 - Cases: `DraftFormat` = pdf · svg · dwg · dxf under the locked kind literals; `DraftFault` = Text | RegionOutOfBounds | EmptyView | EntityWriterUnavailable — codes derive through the `AppUiFaultBand.Draft` registry row (6140).
 - Entry: `public static IO<RenderReceipt> Emit(VisualRuntime runtime, Sheet sheet, DraftFormat format, ResolvedLocale locale, CadVersionPolicy cadVersion, VisualDestination destination, Func<string, Option<MeshSource>> meshOf, HiddenLineSeam hlr, ShapedTextSeam text)` — `IO` rail; the sheet projects ONCE into the complete `SheetEntity` run — per-region hidden-line strokes, region-basis-projected dimensions, annotations, title-block runs — then every format arm renders that one run and delivers to the destination, the CAD arms threading the one version-policy row to their writer.
-- Auto: the PDF arm composes each sheet as a precomposed vector page fold through the capture `VisualExport` vector-print arm (a paginated REPORT with flow content rides `Document/export.md#FLOW_REPORT` instead) so a multi-sheet set is one PDF; the SVG arm renders the same entity run to an `SKCanvas` recording surface emitted as SVG text through `SKSvgCanvas`, measured and delivered exactly as the CAD arms are; the DWG arm writes the projected `Stroke`/`Sweep`/`TextRun`/`Glyph` entities as model-space `ACadSharp` `Line`/`Arc`/`MText` entities into a `CadDocument` and serializes through `DwgWriter.Write` (`.api/api-drafting-export.md` ENTRYPOINTS 7-8), the DXF arm writes the SAME `CadDocument` entity fold and serializes through `DxfWriter.Write` — ONE document model, TWO writer rows (netDxf is REMOVED per `[V7]`: feed-verified archived upstream; a failed entity class in the standing DXF fidelity probe re-pins it as a recorded exception, never silently) — every `EdgeStyle` row owns a named `Layer` bound to its `LineType` so the CAD layer structure round-trips the style tag, and annotation text lands on the `draft-annotation` layer; every emit lands one `RenderReceipt` of kind drawing carrying the format, the measured elapsed, and the delivered destination.
+- Auto: the PDF arm composes each sheet as a precomposed vector page fold through the capture `VisualExport` vector-print arm (a paginated REPORT with flow content rides `Document/export.md#FLOW_REPORT` instead) so a multi-sheet set is one PDF; the SVG arm rides the SAME `CadDocument` fold through the `ACadSharp.IO.SVG` `SvgWriter` (its `SvgConfiguration.LineWeightRatio` a `CadVersionPolicy` row value) so the layer structure and typed entities carry into the SVG exactly as into DWG/DXF, measured and delivered exactly as the CAD arms are; the DWG arm writes the projected `Stroke`/`Sweep`/`TextRun`/`Glyph` entities as model-space `ACadSharp` `Line`/`Arc`/`MText` entities into a `CadDocument` and serializes through `DwgWriter.Write` (`.api/api-drafting-export.md` ENTRYPOINTS 7-8), the DXF arm writes the SAME `CadDocument` entity fold and serializes through `DxfWriter.Write` — ONE document model, THREE writer rows (`DwgWriter`/`DxfWriter`/`SvgWriter`) (netDxf is REMOVED per `[V7]`: feed-verified archived upstream; a failed entity class in the standing DXF fidelity probe re-pins it as a recorded exception, never silently) — every `EdgeStyle` row owns a named `Layer` bound to its `LineType` so the CAD layer structure round-trips the style tag, and annotation text lands on the `draft-annotation` layer; every emit lands one `RenderReceipt` of kind drawing carrying the format, the measured elapsed, and the delivered destination.
 - Receipt: one `RenderReceipt` of kind drawing per emit; sealed through the visuals encode receipt sink.
 - Packages: SkiaSharp, ACadSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.AppHost (project)
 - Growth: a new emit format is one `DraftFormat` row plus one `Emit` dispatch arm; a new drawn primitive is one `SheetEntity` case that breaks the Skia render and the `CadDocument` fold at compile time so no format can silently drop it; a new line style is one `EdgeStyle` row that mints its CAD layer by construction; zero new surface.
-- Boundary: PDF and SVG ride the settled visuals document and Skia surfaces so the page mints no second exporter — the `SKDocument` PDF and the `SKSvgCanvas` SVG ship today; DWG and DXF BOTH write through the ONE `ACadSharp` `CadDocument` typed-entity fold — `DwgWriter.Write` and `DxfWriter.Write` are two rows on one `DraftEmit` axis, the typed entity constructor then collection `Add` and never a raw group-code write (the `IMPLEMENTATION_LAW` LOCAL_ADMISSION reject), the output DWG/DXF version a `CadVersionPolicy` row and never a hardcoded `AutoCad2018` literal, so the entity-writer bodies transcribe now and only the per-entity property spellings (the `Dimension` style table, the `MText` formatting codes) carry the residual DRAFT_ENTITY verification, with the DXF round-trip fidelity probe (dimensions/hatches/leaders/blocks) the standing `[V7]` obligation; every arm delivers through `ExportDelivery.Deliver` over the one `VisualDestination` union so a drafting-local file write or destination fold is the deleted form, the `Project` fold being the SINGLE projection of a `Sheet`'s viewports, dimensions, annotations, and title-block into the shared `SheetEntity` run all four arms consume so a PDF, SVG, DWG, and DXF of the same sheet carry the identical complete drawing vocabulary; the emit receipt rides the visuals `RenderReceipt` family with the measured elapsed on every arm — a `Duration.Zero` receipt beside a measured sibling is the deleted two-truth form; vector content survives as picture content in PDF, path elements in SVG, and typed CAD entities in DWG/DXF so a drawing rasterizes only where the format demands.
+- Boundary: PDF rides the settled visuals document surface (the `PrintFormat.Pdf` row) so the page mints no second exporter; SVG, DWG, and DXF ALL write through the ONE `ACadSharp` `CadDocument` typed-entity fold — `DwgWriter.Write`, `DxfWriter.Write`, and the `SvgWriter` instance are three rows on one `DraftEmit` axis, and the deleted `SKSvgCanvas` presentation arm was the second-SVG-semantic form, the typed entity constructor then collection `Add` and never a raw group-code write (the `IMPLEMENTATION_LAW` LOCAL_ADMISSION reject), the output DWG/DXF version a `CadVersionPolicy` row and never a hardcoded `AutoCad2018` literal, so the entity-writer bodies transcribe now and only the per-entity property spellings (the `Dimension` style table, the `MText` formatting codes) carry the residual DRAFT_ENTITY verification, with the DXF round-trip fidelity probe (dimensions/hatches/leaders/blocks) the standing `[V7]` obligation; every arm delivers through `ExportDelivery.Deliver` over the one `VisualDestination` union so a drafting-local file write or destination fold is the deleted form, the `Project` fold being the SINGLE projection of a `Sheet`'s viewports, dimensions, annotations, and title-block into the shared `SheetEntity` run all four arms consume so a PDF, SVG, DWG, and DXF of the same sheet carry the identical complete drawing vocabulary; the emit receipt rides the visuals `RenderReceipt` family with the measured elapsed on every arm — a `Duration.Zero` receipt beside a measured sibling is the deleted two-truth form; vector content survives as picture content in PDF, path elements in SVG, and typed CAD entities in DWG/DXF so a drawing rasterizes only where the format demands.
 
 ```csharp signature
 [Union]
@@ -370,14 +415,10 @@ public abstract partial record DraftFault : Expected, IValidationError<DraftFaul
 
 [SmartEnum<string>]
 public sealed partial class DraftFormat {
-    public static readonly DraftFormat Pdf = new("pdf", vector: true, native: true);
-    public static readonly DraftFormat Svg = new("svg", vector: true, native: true);
-    public static readonly DraftFormat Dwg = new("dwg", vector: true, native: false);
-    public static readonly DraftFormat Dxf = new("dxf", vector: true, native: false);
-
-    public bool Vector { get; }
-
-    public bool Native { get; }
+    public static readonly DraftFormat Pdf = new("pdf");
+    public static readonly DraftFormat Svg = new("svg");
+    public static readonly DraftFormat Dwg = new("dwg");
+    public static readonly DraftFormat Dxf = new("dxf");
 }
 
 // The ONE drawn-primitive vocabulary every emit format consumes — viewport edges, dimension linework,
@@ -399,24 +440,25 @@ public sealed record ShapedTextSeam(Func<SKCanvas, string, (double X, double Y),
 public static class DraftEmit {
     public const string Kind = "drawing";
 
+    // TOTAL generated dispatch over the closed format vocabulary — a new DraftFormat row breaks this
+    // Switch at compile time, and no string re-derivation or catch-all writer arm exists.
     public static IO<RenderReceipt> Emit(
         VisualRuntime runtime, Sheet sheet, DraftFormat format, ResolvedLocale locale, CadVersionPolicy cadVersion,
         VisualDestination destination, Func<string, Option<MeshSource>> meshOf, HiddenLineSeam hlr, ShapedTextSeam text) =>
         Project(sheet, locale, meshOf, hlr).Match(
-            Succ: entities => format.Key switch {
-                var key when key == DraftFormat.Pdf.Key =>
-                    VisualExport.Export(runtime, new VisualExportSpec("pdf", sheet.Size.PointWidth, sheet.Size.PointHeight,
-                        Seq((Func<SKCanvas, Fin<Unit>>)(canvas => Render(canvas, entities, text))), destination)),
-                var key when key == DraftFormat.Svg.Key => Svg(runtime, sheet, entities, text, destination),
-                var key when key == DraftFormat.Dwg.Key => CadEmit(runtime, entities, destination, DraftFormat.Dwg, cadVersion, WriteDwg),
-                _ => CadEmit(runtime, entities, destination, DraftFormat.Dxf, cadVersion, WriteDxf),
-            },
+            Succ: entities => format.Switch(
+                state: (Runtime: runtime, Sheet: sheet, Entities: entities, Text: text, Destination: destination, Version: cadVersion),
+                pdf: static s => VisualExport.Export(s.Runtime, new VisualExportSpec(PrintFormat.Pdf, s.Sheet.Size.PointWidth, s.Sheet.Size.PointHeight,
+                    Seq((Func<SKCanvas, Fin<Unit>>)(canvas => Render(canvas, s.Entities, s.Text))), s.Destination)),
+                svg: static s => CadEmit(s.Runtime, s.Entities, s.Destination, DraftFormat.Svg, s.Version, WriteSvg),
+                dwg: static s => CadEmit(s.Runtime, s.Entities, s.Destination, DraftFormat.Dwg, s.Version, WriteDwg),
+                dxf: static s => CadEmit(s.Runtime, s.Entities, s.Destination, DraftFormat.Dxf, s.Version, WriteDxf)),
             Fail: error => IO.fail<RenderReceipt>(error));
 
     // The ONE sheet-to-entity projection: per-region hidden-line strokes (each region its OWN basis and
     // model reference), region-basis-projected dimensions, sheet-space annotations, and the title-block
     // runs — every format consumes this complete fold, so a dropped drawing axis is unrepresentable.
-    static Fin<Seq<SheetEntity>> Project(Sheet sheet, ResolvedLocale locale, Func<string, Option<MeshSource>> meshOf, HiddenLineSeam hlr) =>
+    private static Fin<Seq<SheetEntity>> Project(Sheet sheet, ResolvedLocale locale, Func<string, Option<MeshSource>> meshOf, HiddenLineSeam hlr) =>
         sheet.Regions
             .Map(region => new Viewport2D(region.Key, region, region.Basis, hlr) switch {
                 var view => meshOf(region.ModelKey).Match(
@@ -429,34 +471,47 @@ public static class DraftEmit {
                     .ToFin(new DraftFault.EmptyView($"dimension region {row.Region} unresolved"))
                     .Map(region => row.Value.Entities(world => Mapped(region, world), locale)))
                 .Fold(Fin.Succ(strokes), (rail, dim) => rail.Bind(acc => dim.Map(acc.Concat))))
-            .Map(drawn => drawn + sheet.Annotations.Bind(annotation => annotation.Entities(locale)) + TitleRuns(sheet, locale));
+            .Map(drawn => drawn + sheet.Annotations.Bind(annotation => annotation.Entities(locale)) + TitleLayout(sheet, locale));
 
-    static (double X, double Y) Mapped(SheetRegion region, (double X, double Y, double Z) world) =>
+    private static (double X, double Y) Mapped(SheetRegion region, (double X, double Y, double Z) world) =>
         region.Basis.Map(world) switch { var p => (region.X + p.X, region.Y - p.Y) };
 
-    static Seq<SheetEntity> TitleRuns(Sheet sheet, ResolvedLocale locale) =>
-        sheet.Title.Fields(locale).Map((field, index) => (SheetEntity)new SheetEntity.TextRun(
+    // ONE templating fold over the standard's row values: the sheet border at the row margin, the zone
+    // reference ticks on all four edges, the title-block frame anchored bottom-right, and the
+    // locale-resolved field cells — ISO/ANSI/JIS diverge only in row DATA, never in a per-standard arm.
+    private static Seq<SheetEntity> TitleLayout(Sheet sheet, ResolvedLocale locale) {
+        TitleBlockStandard std = sheet.Size.Standard;
+        (double w, double h, double m) = (sheet.Size.WidthMm, sheet.Size.HeightMm, std.MarginMm);
+        (double bx, double by) = (w - m - std.BlockWidthMm, h - m - std.BlockHeightMm);
+        Seq<SheetEntity> frame = Seq<SheetEntity>(
+            new SheetEntity.Stroke(EdgeStyle.Visible, (m, m), (w - m, m)),
+            new SheetEntity.Stroke(EdgeStyle.Visible, (w - m, m), (w - m, h - m)),
+            new SheetEntity.Stroke(EdgeStyle.Visible, (w - m, h - m), (m, h - m)),
+            new SheetEntity.Stroke(EdgeStyle.Visible, (m, h - m), (m, m)),
+            new SheetEntity.Stroke(EdgeStyle.Visible, (bx, by), (w - m, by)),
+            new SheetEntity.Stroke(EdgeStyle.Visible, (bx, by), (bx, h - m)));
+        Seq<SheetEntity> zones =
+            toSeq(Enumerable.Range(1, std.ZoneColumns - 1)
+                .Select(col => m + (col * ((w - (2d * m)) / std.ZoneColumns)))
+                .SelectMany(x => new SheetEntity[] {
+                    new SheetEntity.Stroke(EdgeStyle.Marking, (x, m), (x, m + 3d)),
+                    new SheetEntity.Stroke(EdgeStyle.Marking, (x, h - m - 3d), (x, h - m)),
+                }))
+            + toSeq(Enumerable.Range(1, std.ZoneRows - 1)
+                .Select(row => m + (row * ((h - (2d * m)) / std.ZoneRows)))
+                .SelectMany(y => new SheetEntity[] {
+                    new SheetEntity.Stroke(EdgeStyle.Marking, (m, y), (m + 3d, y)),
+                    new SheetEntity.Stroke(EdgeStyle.Marking, (w - m - 3d, y), (w - m, y)),
+                }));
+        Seq<SheetEntity> fields = sheet.Title.Fields(locale).Map((field, index) => (SheetEntity)new SheetEntity.TextRun(
             $"{locale.Label(field.LabelKey)}: {field.Value}",
-            (10d, sheet.Size.HeightMm - 10d - (index * 6d)), 3d, "annotation")).ToSeq();
-
-    static IO<RenderReceipt> Svg(VisualRuntime runtime, Sheet sheet, Seq<SheetEntity> entities, ShapedTextSeam text, VisualDestination destination) =>
-        from mark in IO.lift(runtime.Clocks.Mark)
-        from bytes in IO.lift(() => {
-            using MemoryStream sink = new();
-            using (SKCanvas canvas = SKSvgCanvas.Create(new SKRect(0f, 0f, sheet.Size.PointWidth, sheet.Size.PointHeight), sink)) {
-                Render(canvas, entities, text).ThrowIfFail();
-            }
-            return sink.ToArray();
-        })
-        from artifact in ExportDelivery.Deliver(runtime, destination, bytes)
-        from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
-        let receipt = new RenderReceipt(Kind, DraftFormat.Svg.Key, runtime.ContentHash(bytes), bytes.LongLength, elapsed, runtime.Correlation, Optional(artifact), VisualCodec.ColorPolicy.Display.Key)
-        from _ in runtime.Sink(receipt)
-        select receipt;
+            (bx + 3d, by + 5d + (index * ((std.BlockHeightMm - 8d) / 5d))), 3d, "annotation")).ToSeq();
+        return frame + zones + fields;
+    }
 
     // The version policy is ROW-THREADED: the dispatch arm names its DraftFormat and hands the one
     // CadVersionPolicy to its writer row — the receipt format is the dispatching row, never a path sniff.
-    static IO<RenderReceipt> CadEmit(
+    private static IO<RenderReceipt> CadEmit(
         VisualRuntime runtime, Seq<SheetEntity> entities, VisualDestination destination,
         DraftFormat format, CadVersionPolicy version, Func<Seq<SheetEntity>, CadVersionPolicy, byte[]> write) =>
         from mark in IO.lift(runtime.Clocks.Mark)
@@ -467,7 +522,7 @@ public static class DraftEmit {
         from _ in runtime.Sink(receipt)
         select receipt;
 
-    static byte[] WriteDwg(Seq<SheetEntity> entities, CadVersionPolicy version) {
+    private static byte[] WriteDwg(Seq<SheetEntity> entities, CadVersionPolicy version) {
         CadDocument doc = BuildCadDocument(entities);
         doc.Header.Version = version.Dwg;
         using MemoryStream sink = new();
@@ -478,11 +533,11 @@ public static class DraftEmit {
     // ONE CadDocument entity fold both writer rows consume — a DWG and a DXF of one sheet carry identical
     // entities by construction; every EdgeStyle row owns a named layer bound to its linetype so the layer
     // structure round-trips the style tag, and text lands on the annotation layer as MText.
-    static CadDocument BuildCadDocument(Seq<SheetEntity> entities) {
+    private static CadDocument BuildCadDocument(Seq<SheetEntity> entities) {
         CadDocument doc = new();
         LineType dashed = new("DASHED");
         doc.LineTypes.Add(dashed);
-        var layers = EdgeStyle.Items.ToDictionary(
+        Dictionary<string, Layer> layers = EdgeStyle.Items.ToDictionary(
             style => style,
             style => {
                 Layer layer = new($"draft-{style.Key}") { LineType = style.Dashed ? dashed : LineType.Continuous };
@@ -504,8 +559,8 @@ public static class DraftEmit {
     }
 
     // The DXF row: the SAME CadDocument fold as DWG, serialized through DxfWriter — one document model,
-    // two writer rows; the output version is the CadVersionPolicy row, never a literal.
-    static byte[] WriteDxf(Seq<SheetEntity> entities, CadVersionPolicy version) {
+    // three writer rows; the output version is the CadVersionPolicy row, never a literal.
+    private static byte[] WriteDxf(Seq<SheetEntity> entities, CadVersionPolicy version) {
         CadDocument doc = BuildCadDocument(entities);
         doc.Header.Version = version.Dxf;
         using MemoryStream sink = new();
@@ -513,12 +568,25 @@ public static class DraftEmit {
         return sink.ToArray();
     }
 
-    // Output-version policy row — the hardcoded AutoCad2018 literal is the deleted form.
-    public sealed record CadVersionPolicy(ACadVersion Dwg, ACadVersion Dxf, bool BinaryDxf) {
-        public static readonly CadVersionPolicy Default = new(ACadVersion.AC1032, ACadVersion.AC1032, BinaryDxf: false);
+    // The SVG row rides the SAME CadDocument fold through ACadSharp.IO.SVG.SvgWriter — layer structure and
+    // typed entities carry into the SVG exactly as into DWG/DXF, SvgConfiguration reads the policy row's
+    // LineWeightRatio, and the SKSvgCanvas presentation arm is the deleted second-SVG-semantic form.
+    private static byte[] WriteSvg(Seq<SheetEntity> entities, CadVersionPolicy version) {
+        CadDocument doc = BuildCadDocument(entities);
+        using MemoryStream sink = new();
+        SvgWriter writer = new(sink, doc);
+        writer.Configuration.LineWeightRatio = version.SvgLineWeightRatio;
+        writer.Write();
+        return sink.ToArray();
     }
 
-    static Fin<Unit> Render(SKCanvas canvas, Seq<SheetEntity> entities, ShapedTextSeam text) =>
+    // Output-version policy row — the hardcoded AutoCad2018 literal is the deleted form; the SVG line-weight
+    // ratio rides the same row so no writer arm carries a call-site literal.
+    public sealed record CadVersionPolicy(ACadVersion Dwg, ACadVersion Dxf, bool BinaryDxf, double SvgLineWeightRatio) {
+        public static readonly CadVersionPolicy Default = new(ACadVersion.AC1032, ACadVersion.AC1032, BinaryDxf: false, SvgLineWeightRatio: 1d);
+    }
+
+    private static Fin<Unit> Render(SKCanvas canvas, Seq<SheetEntity> entities, ShapedTextSeam text) =>
         entities.Fold(FinSucc(unit), (rail, entity) => rail.Bind(_ => entity.Switch(
             state: (Canvas: canvas, Text: text),
             stroke: static (ctx, s) => Drawn(ctx.Canvas, s),
@@ -526,13 +594,13 @@ public static class DraftEmit {
             textRun: static (ctx, t) => ctx.Text.Draw(ctx.Canvas, t.Value, t.At, t.Height, t.Role),
             glyph: static (ctx, g) => ctx.Text.Draw(ctx.Canvas, g.Symbol, g.At, g.Height, "annotation"))));
 
-    static Fin<Unit> Drawn(SKCanvas canvas, SheetEntity.Stroke stroke) {
+    private static Fin<Unit> Drawn(SKCanvas canvas, SheetEntity.Stroke stroke) {
         using SKPaint paint = Paint(stroke.Style);
         canvas.DrawLine((float)stroke.A.X, (float)stroke.A.Y, (float)stroke.B.X, (float)stroke.B.Y, paint);
         return FinSucc(unit);
     }
 
-    static Fin<Unit> Swept(SKCanvas canvas, SheetEntity.Sweep sweep) {
+    private static Fin<Unit> Swept(SKCanvas canvas, SheetEntity.Sweep sweep) {
         using SKPaint paint = Paint(sweep.Style);
         using SKPath arc = new();
         arc.AddArc(new SKRect(
@@ -543,7 +611,7 @@ public static class DraftEmit {
         return FinSucc(unit);
     }
 
-    static SKPaint Paint(EdgeStyle style) => new() {
+    private static SKPaint Paint(EdgeStyle style) => new() {
         Color = SKColors.Black, StrokeWidth = style.Weight, IsStroke = true,
         PathEffect = style.Dashed ? SKPathEffect.CreateDash([3f, 2f], 0f) : null,
     };
@@ -551,7 +619,32 @@ public static class DraftEmit {
 ```
 
 ```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
 flowchart LR
+    accTitle: Drafting projection and export flow
+    accDescr: Sheet geometry, annotations, and title data project once before PDF, SVG, DWG, or DXF emission.
     SheetSet --> Sheet
     Sheet --> Viewport2D
     Viewport2D --> ProjectionBasis
@@ -560,9 +653,16 @@ flowchart LR
     Sheet --> Annotation
     Sheet --> DraftEmit
     DraftEmit --> RenderReceipt
+    linkStyle 7 stroke:#50FA7B,color:#F8F8F2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    class SheetSet,Sheet,Viewport2D,ProjectionBasis,DraftEmit primary
+    class Dimension,Annotation data
+    class Hlr,RenderReceipt boundary
 ```
 
-## [06]-[RESEARCH]
+## [06]-[CAD_BOUNDARY]
 
-- [DRAFT_ENTITY]: the DWG/DXF model-space entity-writer bodies transcribe now against the catalogued `ACadSharp` `CadDocument`/`Line`/`Arc`/`Layer`/`MText`/`DwgWriter.Write` and `DxfWriter.Write` surfaces (netDxf REMOVED per `[V7]`) (`.api/api-drafting-export.md`); the residual verification is the per-entity property spelling — `ACadSharp` exposes only the `LineType.Continuous`/`ByLayer`/`ByBlock` static singletons (NO `Dashed` singleton), so the dashed layers bind a constructed named `LineType("DASHED")` registered on `doc.LineTypes` whose `Segments` dash pattern resolves at implementation; the `CSMath.XYZ` point constructor, the `Arc` `Center`/`Radius`/`StartAngle`/`EndAngle` member spellings and their radian convention, the `MText` height arity, and the `Dimension`-entity style-table mapping for a native-dimension upgrade of the exploded dimension linework (`Dimension` entity is catalogued PUBLIC_TYPE but its style-table population resolves at implementation) resolve against the installed ACadSharp surface; the projected entity run, the per-`EdgeStyle` layer mapping, the title-block text runs, the `DwgWriter.Write(Stream, CadDocument)` static (its config/notification tail defaulted), and the `SKSvgCanvas.Create(SKRect, Stream)` SVG path are settled.
+- [DRAFT_ENTITY]: one `Seq<SheetEntity>` fold constructs the `ACadSharp` `CadDocument`, `Line`, `Arc`, `Layer`, and `MText` graph consumed by `DwgWriter.Write`, `DxfWriter.Write`, and `SvgWriter.Write`. `EdgeStyle` selects registered line-type and layer data, `CadVersionPolicy` carries DWG/DXF version and SVG line-weight policy, and `DraftFormat.Switch` is total across PDF, SVG, DWG, and DXF.
 - [HIDDEN_LINE_SEAM]: the CAD-grade hidden-line removal is the single Fabrication owner `cs:Rasm.Fabrication/Documentation/projection#PROJECTION_HIDDEN_LINE` (`Hlr.Solve` over the BSP front-to-back visibility tree plus the Clipper2 open-path screen Boolean), composed here through the `HiddenLineSeam` in-process delegate column AppUi binds at composition — a two-sided CONSUMPTION seam where Fabrication produces the world-space `(Visible, Hidden, Silhouette)` `Edge3` sets and AppUi owns the projection-to-sheet; the in-folder painter depth-sort `HiddenLine` is DROPPED root-up, the `MeshSource`-to-`FabricationInput` adapter (the `ProjectionBasis`-to-`ProjectionDir` and `MeshSource`-to-`MeshSpace` projection) binds at the seam delegate where the Fabrication `FabricationInput`/`FabricationPolicy.HiddenLine` shape meets the AppUi `MeshSource`, and a re-minted painter sort here is the rejected form.

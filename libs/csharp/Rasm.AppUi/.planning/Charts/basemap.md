@@ -1,6 +1,6 @@
 # [APPUI_CHARTS_BASEMAP]
 
-The basemap is the tiled 2D geographic plane beside the Wgpu viewport: one Mapsui `MapControl` hosts one `Map` whose layer stack is data rows — a tile basemap row, NTS overlay rows projecting Bim-owned geospatial features, and widget rows — with navigation through the one `Navigator`, feature picking through `GetMapInfo`, and snapshots through the capture encode fold. The page owns the layer row family, the overlay projection, the pick fold, and the CRS ingress law: Bim owns geodesy (`GeoReference`, `GeoFeature.Reproject`, IfcMapConversion lowering) and AppUi reprojects ONLY WGS-84 input through `SphericalMercator` — a local geodesy kernel is the forbidden form. LiveCharts `GeoMap`/`DrawnMap` stays the CHART-projection row on `dashboards.md`; this page is the TILED-basemap owner — disjoint charters.
+The basemap is the tiled 2D geographic plane beside the Wgpu viewport: one Mapsui `MapControl` hosts one `Map` whose layer stack is data rows — a tile basemap row, NTS overlay rows projecting Bim-owned geospatial features, and widget rows — with navigation through the one `Navigator`, feature picking through `GetMapInfo`, snapshots through the capture encode fold, and design-review redlining through the `EditManager` surface committing as `EditIntent.Annotation`. The page owns the layer row family, the overlay projection, the pick and snapshot folds, the redline authoring surface, and the CRS ingress law: Bim owns geodesy (`GeoReference`, `GeoFeature.Reproject`, IfcMapConversion lowering) and AppUi reprojects ONLY WGS-84 input through `SphericalMercator` — a local geodesy kernel is the forbidden form. LiveCharts `GeoMap`/`DrawnMap` stays the CHART-projection row on `dashboards.md`; this page is the TILED-basemap owner — disjoint charters.
 
 ## [01]-[INDEX]
 
@@ -12,9 +12,9 @@ The basemap is the tiled 2D geographic plane beside the Wgpu viewport: one Mapsu
 ## [02]-[MAP_SURFACE]
 
 - Owner: `BasemapLayerRow` [Union] — the closed layer vocabulary; `BasemapSurface` — the one map owner; `MapNav` [Union] — the navigation verb vocabulary.
-- Cases: `BasemapLayerRow` = Tile · Overlay · Widget; `MapNav` = CenterOn · ZoomTo · ZoomToBox · FlyTo · RotateTo.
+- Cases: `BasemapLayerRow` = Tile · Overlay · Widget; `MapNav` = CenterOn · ZoomTo · ZoomToLevel · ZoomToBox · CenterAndZoom · FlyTo · RotateTo — the verified `Navigator` camera surface, one case per move, so a caller composes verbs and never touches the `Navigator` directly.
 - Entry: `public Fin<Map> Build(Seq<BasemapLayerRow> rows)` — one fold from layer rows to the mounted `Map`; `public IO<Unit> Navigate(MapNav verb)` — every camera move discriminates on the verb union through the one `Navigator`.
-- Auto: the tile row defaults to `OpenStreetMap.CreateTileLayer` and any slippy-tile source is one row value; layer z-order is seq order so a stacking change is a row reorder, never an imperative insert; the control binds `Map` through `MapControl.Map` at mount and refreshes through `MapControl.Refresh` on row-set change.
+- Auto: the tile row defaults to `OpenStreetMap.CreateTileLayer` and any slippy-tile source is one row value; the map chrome ships as named widget rows — `ScaleBar` (`ScaleBarWidget`), `ZoomButtons` (`ZoomInOutWidget`), `InfoBox` (`MapInfoWidget`) — screen-anchored on `Map.Widgets`, never world-space features; layer z-order is seq order so a stacking change is a row reorder, never an imperative insert; the control binds `Map` through `MapControl.Map` at mount and a row-set change re-runs `Build`, whose terminal `RefreshGraphics` invalidates the canvas so the new stack draws without a data refetch.
 - Receipt: layer-set changes and navigation verbs contribute through `AppUiTelemetry.Contribute` instrument rows; faults are typed `ChartFault` cases deriving through the `Diagnostics/evidence.md#FAULT_TABLES` `AppUiFaultBand.Chart` row (6200) — the one Charts band shared with dashboards and custom.
 - Packages: Mapsui.Avalonia12, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new basemap source, overlay family, or widget is one `BasemapLayerRow` value; a new camera move is one `MapNav` case; zero new surface.
@@ -29,6 +29,9 @@ public abstract partial record BasemapLayerRow {
     public sealed record Widget(string Key, Func<Mapsui.Widgets.IWidget> Source) : BasemapLayerRow;
 
     public static readonly BasemapLayerRow Osm = new Tile("osm", static () => Mapsui.Tiling.OpenStreetMap.CreateTileLayer());
+    public static readonly BasemapLayerRow ScaleBar = new Widget("scale-bar", static () => new ScaleBarWidget());
+    public static readonly BasemapLayerRow ZoomButtons = new Widget("zoom-buttons", static () => new ZoomInOutWidget());
+    public static readonly BasemapLayerRow InfoBox = new Widget("info-box", static () => new MapInfoWidget());
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -36,23 +39,50 @@ public abstract partial record MapNav {
     private MapNav() { }
     public sealed record CenterOn(MPoint Center) : MapNav;
     public sealed record ZoomTo(double Resolution) : MapNav;
+    public sealed record ZoomToLevel(int Level) : MapNav;
     public sealed record ZoomToBox(MRect Box) : MapNav;
-    public sealed record FlyTo(MPoint Center, double Resolution, long DurationMs) : MapNav;
+    public sealed record CenterAndZoom(MPoint Center, double Resolution) : MapNav;
+    public sealed record FlyTo(MPoint Center, double Resolution, MapFlight Flight) : MapNav;
     public sealed record RotateTo(double Degrees) : MapNav;
 }
 
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class MapFlight {
+    public static readonly MapFlight Direct = new("direct", 0L);
+    public static readonly MapFlight Focus = new("focus", 240L);
+    public static readonly MapFlight Traverse = new("traverse", 480L);
+
+    public long DurationMs { get; }
+}
+
 public sealed record BasemapSurface(MapControl Control) {
-    public Fin<Map> Build(Seq<BasemapLayerRow> rows) =>
-        rows.Fold(Fin.Succ(new Map()), (rail, row) => rail.Bind(map => Mount(map, row)))
-            .Map(map => { Control.Map = map; return map; });
+    public Fin<Map> Build(Seq<BasemapLayerRow> rows) {
+        Map candidate = new();
+        return rows.Fold(Fin.Succ(candidate), (rail, row) => rail.Bind(map => Mount(map, row))).Match(
+            Succ: map => {
+                Map previous = Control.Map;
+                Control.Map = map;
+                Control.RefreshGraphics();
+                previous.Dispose();
+                return Fin.Succ(map);
+            },
+            Fail: error => {
+                candidate.Dispose();
+                return Fin.Fail<Map>(error);
+            });
+    }
 
     public IO<Unit> Navigate(MapNav verb) =>
         IO.lift(() => ignore(verb.Switch(
             state: Control.Map.Navigator,
             centerOn: static (nav, v) => fun(() => nav.CenterOn(v.Center))(),
             zoomTo: static (nav, v) => fun(() => nav.ZoomTo(v.Resolution))(),
+            zoomToLevel: static (nav, v) => fun(() => nav.ZoomToLevel(v.Level))(),
             zoomToBox: static (nav, v) => fun(() => nav.ZoomToBox(v.Box))(),
-            flyTo: static (nav, v) => fun(() => nav.FlyTo(v.Center, v.Resolution, v.DurationMs))(),
+            centerAndZoom: static (nav, v) => fun(() => nav.CenterOnAndZoomTo(v.Center, v.Resolution))(),
+            flyTo: static (nav, v) => fun(() => nav.FlyTo(v.Center, v.Resolution, v.Flight.DurationMs))(),
             rotateTo: static (nav, v) => fun(() => nav.RotateTo(v.Degrees))())));
 
     // Generated total Switch over the closed family — a new BasemapLayerRow case breaks THIS dispatch at
@@ -152,5 +182,97 @@ public static class MapPick {
                 .Bind(feature => Optional(feature["id"] as string)
                     .Bind(id => Optional(info.WorldPosition)
                         .Map(world => new BasemapPickReceipt(id, world.X, world.Y)))));
+
+    // The snapshot lane: GetSnapshot's encoded bytes decode and re-seal through the one capture codec so a
+    // basemap baseline carries the same content-hashed RenderReceipt evidence as every visual.
+    public static IO<RenderReceipt> Snapshot(VisualRuntime runtime, MapControl control, string key) =>
+        from bytes in IO.lift(() => control.GetSnapshot(control.Map.Layers, RenderFormat.Png, quality: 100))
+        from image in VisualCodec.Decode(bytes)
+        from receipt in VisualCodec.Encode(runtime, image, VisualCodec.Png, "basemap", key)
+            .Map(sealed_ => (fun(image.Dispose)(), sealed_).Item2)
+        select receipt;
 }
 ```
+
+## [05]-[REDLINE]
+
+- Owner: `RedlineVerb` [Union] — the closed markup-verb vocabulary; `RedlineSurface` — the one `EditManager` authoring owner; the commit leg projects onto the `Collab/sync.md#DURABLE_INTENT` `EditIntent.Annotation` case, never a basemap-local op union.
+- Cases: `RedlineVerb` = BeginMark · Modify · Delete · Commit · Discard — begin opens an authoring session with the mark kind (point, polyline, polygon), modify and delete ride `EditManager`'s vertex add/drag/rotate interaction, commit seals the session, discard drops it.
+- Entry: `public IO<Fin<Option<EditIntent>>> Drive(RedlineVerb verb)` — every markup gesture discriminates on the verb union; only the `Commit` arm yields `Some(EditIntent.Annotation)`, every other arm yields `None`, so the caller composes one rail and the intent ledger commit stays caller-side (`IntentLedger.Commit` is `Collab/sync.md`'s one transaction rail).
+- Auto: authoring runs on a dedicated redline `MemoryLayer` above the overlay stack — the `EditingWidget` binds the interaction and the `EditManager` mutates only that layer, so overlay and tile rows never receive an authored vertex; commit reads the authored `GeometryFeature` geometry in view coordinates, returns it to WGS-84 through `Apply(MercatorFilter.Inverse)` with the copy re-stamped SRID 4326, and projects the ring through `Geometry.Coordinates` into the `RedlineMark` payload `JsonSerializer.SerializeToElement` carries as the `Annotation` `JsonElement` — the exact symmetric leg `MercatorFilter.Forward` runs at overlay ingress, so the round-trip is one parameterized filter, never a second projection path.
+- Receipt: a committed redline is one `EditIntent.Annotation(DocKey, TargetId, Payload)` row on the single edit-intent union — durable truth rides the Persistence `OpLogEntry` projection per the `[04]-[PROHIBITIONS]` Loro-byte clause, and the redline layer re-renders from the committed intent, never from retained authoring state; commits and discards contribute a `redline.commit` count through `AppUiTelemetry.Contribute`.
+- Packages: Mapsui.Avalonia12 (Mapsui.Nts transitive), Thinktecture.Runtime.Extensions, LanguageExt.Core
+- Growth: a new mark kind is one `BeginMark` kind value; a new markup verb is one `RedlineVerb` case; zero new surface.
+- Boundary: `EditManager`/`EditingWidget` stay inside this section — no Mapsui editing type crosses out, the authored geometry leaves only as the WGS-84 `RedlineMark` payload; the `EditManager` session-member spellings (mode start/stop, the bound edit layer slot) bind through the `drive` delegate at composition under the REDLINE_EDIT_SURFACE research row, exactly as the dashboards `GeoLandFold` binds its unverified swap; a redline over the 3D viewport is `Collab/issues.md`'s BCF markup charter — this section owns only the 2D geographic plane.
+
+```csharp signature
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RedlineShape {
+    private RedlineShape() { }
+    public sealed record Point(double Lon, double Lat) : RedlineShape;
+    public sealed record Path(Seq<(double Lon, double Lat)> Vertices) : RedlineShape;
+    public sealed record Area(Seq<(double Lon, double Lat)> Ring) : RedlineShape;
+}
+
+public sealed record RedlineMark(RedlineShape Shape);
+
+[SmartEnum<string>]
+public sealed partial class RedlineKind {
+    public static readonly RedlineKind Point = new("point");
+    public static readonly RedlineKind Path = new("path");
+    public static readonly RedlineKind Area = new("area");
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RedlineVerb {
+    private RedlineVerb() { }
+    public sealed record BeginMark(RedlineKind Kind) : RedlineVerb;
+    public sealed record Modify : RedlineVerb;
+    public sealed record Delete : RedlineVerb;
+    public sealed record Commit(string DocKey, string TargetId) : RedlineVerb;
+    public sealed record Discard : RedlineVerb;
+}
+
+public sealed record RedlineSurface(
+    EditManager Manager,
+    MemoryLayer Marks,
+    Func<EditManager, RedlineVerb, Fin<Option<GeometryFeature>>> Apply) {
+    public IO<Fin<Option<EditIntent>>> Drive(RedlineVerb verb) =>
+        IO.lift(() => Apply(Manager, verb).Bind(authored => verb.Switch(
+            state: authored,
+            beginMark: static (_, _) => Fin.Succ(Option<EditIntent>.None),
+            modify: static (_, _) => Fin.Succ(Option<EditIntent>.None),
+            delete: static (_, _) => Fin.Succ(Option<EditIntent>.None),
+            commit: static (candidate, commit) => candidate
+                .ToFin(new ChartFault.VisualEmpty("redline: commit has no authored feature"))
+                .Bind(feature => Sealed(commit, feature))
+                .Map(Some),
+            discard: static (_, _) => Fin.Succ(Option<EditIntent>.None))));
+
+    // Inverse leg of the one MercatorFilter: authored view geometry returns to WGS-84 before it crosses
+    // the intent seam, so no EPSG:3857 coordinate ever lands in durable truth.
+    static Fin<EditIntent> Sealed(RedlineVerb.Commit commit, GeometryFeature feature) =>
+        Optional(feature.Geometry)
+            .ToFin(new ChartFault.VisualEmpty("redline: authored feature has no geometry"))
+            .Bind(geometry => fun(() => {
+                NetTopologySuite.Geometries.Geometry wgs84 = geometry.Copy();
+                wgs84.Apply(MercatorFilter.Inverse);
+                wgs84.SRID = 4326;
+                return Shape(wgs84).Map(shape => (EditIntent)new EditIntent.Annotation(
+                    commit.DocKey,
+                    commit.TargetId,
+                    JsonSerializer.SerializeToElement(new RedlineMark(shape))));
+            })());
+
+    static Fin<RedlineShape> Shape(NetTopologySuite.Geometries.Geometry geometry) => geometry switch {
+        NetTopologySuite.Geometries.Point point => Fin.Succ<RedlineShape>(new RedlineShape.Point(point.X, point.Y)),
+        NetTopologySuite.Geometries.LineString line => Fin.Succ<RedlineShape>(new RedlineShape.Path(toSeq(line.Coordinates).Map(static at => (at.X, at.Y)))),
+        NetTopologySuite.Geometries.Polygon area => Fin.Succ<RedlineShape>(new RedlineShape.Area(toSeq(area.ExteriorRing.Coordinates).Map(static at => (at.X, at.Y)))),
+        _ => Fin.Fail<RedlineShape>(new ChartFault.VisualDegenerate($"redline: {geometry.OgcGeometryType} is not an annotation shape")),
+    };
+}
+```
+
+## [06]-[RESEARCH]
+
+- [REDLINE_EDIT_SURFACE]: the `EditManager` session-member spellings the `Drive` delegate binds — the edit-mode start/stop members, the bound edit-layer slot, and the vertex add/drag/rotate verb members — resolve at implementation against the decompiled `Mapsui.Nts` surface; the `EditManager`/`EditingWidget` types, the dedicated redline `MemoryLayer`, the `MercatorFilter.Inverse` return leg, and the `EditIntent.Annotation` commit projection are settled, the session-member spellings inside the delegate are the unverified surface bound at composition.

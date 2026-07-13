@@ -24,14 +24,14 @@ One interaction rail owns gesture mechanics for every admitted surface: keyboard
 public sealed record GesturePolicy(
     KeyModifiers Primary,
     bool WantReturnInPanel,
-    Func<CommandIntent, bool> ScreenScoped) {
-    public static GesturePolicy For(SurfaceHost host) =>
+    Func<bool, Unit> ApplyReturnPolicy) {
+    public static GesturePolicy For(SurfaceHost host, Func<bool, Unit> applyReturnPolicy) =>
         new(
             Primary: host is SurfaceHost.WebBrowser or SurfaceHost.Headless || !OperatingSystem.IsMacOS()
                 ? KeyModifiers.Control
                 : KeyModifiers.Meta,
             WantReturnInPanel: host is SurfaceHost.RhinoPanel,
-            ScreenScoped: static _ => false);
+            ApplyReturnPolicy: applyReturnPolicy);
 
     public KeyGesture Chord(KeyGesture canonical) =>
         (canonical.KeyModifiers & KeyModifiers.Control) != 0
@@ -41,14 +41,13 @@ public sealed record GesturePolicy(
     public FrozenDictionary<KeyGesture, CommandIntent> Bindings(CommandDeck deck) =>
         toSeq(deck.Rows.Values)
             .Bind(row => row.Gesture.Map(gesture => (Gesture: deck.Chord(gesture), Row: row)).ToSeq())
-            .Fold(
-                HashMap<KeyGesture, CommandIntent>(),
-                static (held, pair) => held.Find(pair.Gesture).IsSome ? held : held.Add(pair.Gesture, pair.Row))
-            .AsEnumerable()
+            .Map(static pair => KeyValuePair.Create(pair.Gesture, pair.Row))
             .ToFrozenDictionary(static pair => pair.Key, static pair => pair.Value);
 
     public (Seq<CommandIntent> Global, Seq<CommandIntent> Scoped) Split(Seq<CommandIntent> table) =>
-        (table.Filter(row => !ScreenScoped(row)), table.Filter(ScreenScoped));
+        (table.Filter(static row => row.Scope == CommandScope.Global), table.Filter(static row => row.Scope != CommandScope.Global));
+
+    public Unit Mount() => ApplyReturnPolicy(WantReturnInPanel);
 }
 ```
 
@@ -57,16 +56,14 @@ public sealed record GesturePolicy(
 - Owner: `BehaviorRail` — the static intent-binding surface over the admitted trigger and action rows.
 - Entry: `public static InvokeCommandAction Intent(ICommand command)` — the only action-to-command bridge; the argument is the table-generated ReactiveCommand row resolved by intent key.
 - Packages: Xaml.Behaviors.Avalonia, ReactiveUI, LanguageExt.Core, BCL inbox
-- Growth: a new interaction trigger or action is one admission-table row naming its catalogued type, knob, and timing row; zero new surface; a new rejected binding family is one `RejectViewBinding` faulting arm, never a relaxation of the XAML-only law.
-- Boundary: `FileSystemWatcherTrigger`, `NetworkInformationTrigger`, `HttpRequestAction`, and `WriteTextToFileAction` are the deleted patterns — asset hot reload rides the HotAvalonia Debug loop over immutable avares content, connectivity reads the AppHost degradation fold, outbound requests ride the AppHost hop registry, and file export rides the offscreen-visuals export rows through the Persistence port; `TimerTrigger` rows carry surface-local micro-cadence only and process cadence stays on the AppHost schedule rows; throttle and debounce intervals resolve from the motion timing vocabulary at composition, so behavior rows carry zero literal intervals — `ThrottleAction.Interval` and `DebounceAction.Delay` are `TimeSpan` knobs, `ObservableStreamBehavior.Source` carries the observable, and `PassEventArgsToCommand` sits on the action base; the event-keyed routed-event row materializes as the `EventTriggerBehavior` over its `EventName`/`SourceObject` columns or as the catalogued event-trigger family in `Avalonia.Xaml.Interactions.Events` (`PointerPressedEventTrigger`, `KeyDownEventTrigger`, `TextInputEventTrigger`, and siblings), one trigger per named routed event, never a hand-written event handler; the routed-event row that needs the tunneling/bubbling strategy or an interactive source override rides `RoutedEventTriggerBehavior` (`Avalonia.Xaml.Interactions.Custom`) over its `RoutedEvent`/`RoutingStrategies`/`SourceInteractive` columns, so a strategy-typed routed-event listen is one trigger row and a hand-attached `AddHandler(routedEvent, handler, strategy)` is the deleted form; the ReactiveUI code-behind view-binding expression family — `PropertyBinderImplementation.Bind`/`OneWayBind`/`BindTo` and `IViewFor`/`IViewFor<TViewModel>` runtime property-expression wiring plus `CommandBinder.BindCommand` — is rejected wholesale: view-to-view-model binding is XAML compiled-`{Binding}` and behavior-rail-only, so `Intent` is the single C# binding bridge the rail exposes and the rejection is structural — `RejectViewBinding` is a never-callable surface whose only purpose is to fold the rejected binder symbols into the typed faulting rail rather than a prose caveat, ReactiveUI command flow reaches controls through the XAML `Command` property bound to the table-generated `ReactiveCommand` and never through `BindCommand`, and a `view.OneWayBind(vm, x => x.Prop, v => v.Control.Text)` call site is the deleted form.
+- Growth: a new interaction trigger or action is one admission-table row naming its catalogued type, knob, and timing row; zero new surface.
+- Boundary: the admission table excludes `FileSystemWatcherTrigger`, `NetworkInformationTrigger`, `HttpRequestAction`, and `WriteTextToFileAction`; asset reload, connectivity, outbound requests, and export enter through their owning rails. `TimerTrigger` carries surface-local micro-cadence only, while throttle and debounce intervals resolve from the motion timing vocabulary at composition. `EventTriggerBehavior` and the catalogued routed-event trigger family own event admission, and `RoutedEventTriggerBehavior` carries routing strategy and source overrides. Compiled XAML binding and `BehaviorRail.Intent` are the complete view-binding surface; no ceremonial method names rejected ReactiveUI property binders.
 
 ```csharp signature
 public static class BehaviorRail {
     public static InvokeCommandAction Intent(ICommand command) =>
         new() { Command = command, PassEventArgsToCommand = false };
 
-    public static Fin<T> RejectViewBinding<T>(string member) =>
-        Fin.Fail<T>(new InputDriverFault.BindingRejected($"{member}: binding is XAML compiled-binding and behavior-rail only"));
 }
 ```
 
@@ -138,7 +135,7 @@ public sealed record PanZoomRow(
 - Receipt: admitted payloads raise their command intents and ride the command receipt family — the rail mints no second receipt vocabulary.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Xaml.Behaviors.Avalonia, Avalonia, BCL inbox
 - Growth: a new transfer shape is one union case plus one `ClipboardRow`; zero new surface.
-- Boundary: drag rows ride `ContextDragBehavior`, `ContextDropBehavior`, and `ListReorderDragBehavior`; drop targets enable through `DragDrop.SetAllowDrop(control, true)` with the routed `DragDrop.DragOverEvent`/`DropEvent` handlers attached, and the dropped payload reads from `DragEventArgs.DataTransfer` with the chosen effect set into `DragEventArgs.DragEffects` during `DragOver`, never `DragEventArgs.Data`; the `admitted` predicate column arrives from the dialogs file-filter vocabulary; a paste gates through `GetClipboardFormatsAction` so the present data-format identifiers select the matching `ClipboardRow` before any `Paste` runs and an absent format folds to no-op rather than a failed decode; plain-text paste routes to the focused control and never the payload rail, so the text row is copy-only by law; asset keys ride the icons asset-key vocabulary and table-row keys ride the grid row-model identity; structured copy crosses through one clipboard write keyed by the row `Format` identifiers, riding `Avalonia.Input.Platform.IClipboard.SetDataAsync(IAsyncDataTransfer)` with a `DataTransfer` carrying one `DataTransferItem` per `ClipboardRow` keyed by `DataFormat.CreateBytesApplicationFormat`/`CreateStringApplicationFormat`, each item built through `DataTransferItem.Create<T>(DataFormat<T>, T?)`/`CreateText` or `DataTransferItem.Set<T>(DataFormat<T>, T?)`, the read riding `IClipboard.TryGetDataAsync()` with `ClipboardExtensions.GetDataFormatsAsync` as the present-format gate and `ClipboardExtensions.TryGetTextAsync`/`ClipboardExtensions.TryGetValueAsync<T>(DataFormat<T>)` plus `DataTransferItem.TryGetRaw` as the typed extract, the `IAsyncDataTransfer` handed to `SetDataAsync` left undisposed because Avalonia takes ownership and disposes it once off the clipboard (a caller `using`/`Dispose` on the set transfer is the deleted form), and the legacy `DataObject`/`DataFormats`/`IDataObject` surface obsolete in Avalonia 12; the headless drop harness sequences `DragDrop` calls `DragEnter` → `DragOver` → `Drop` (mirroring `DragLeave` on the abort path) because a `DragOver` without a prior `DragEnter` seeds no drop context and fires no routed handler, and headless input modifiers cross as `RawInputModifiers`, never `KeyModifiers`; host-object drag across the NSView boundary is research-gated on the embed capsule.
+- Boundary: drag rows ride `ContextDragBehavior`, `ContextDropBehavior`, and `ListReorderDragBehavior`; drop targets enable through `DragDrop.SetAllowDrop(control, true)` with the routed `DragDrop.DragOverEvent`/`DropEvent` handlers attached, and the dropped payload reads from `DragEventArgs.DataTransfer` with the chosen effect set into `DragEventArgs.DragEffects` during `DragOver`, never `DragEventArgs.Data`; the `admitted` predicate column arrives from the dialogs file-filter vocabulary; a paste gates through `GetClipboardFormatsAction` so the present data-format identifiers select the matching `ClipboardRow` before any `Paste` runs and an absent format folds to no-op rather than a failed decode; plain-text paste routes to the focused control and never the payload rail, so the text row is copy-only by law; every structured `DragPayload` case owns a `ClipboardRow` round-trip — `Files` rides the standard `text/uri-list` grammar and `HostObjects` the `application/x-rasm-host-objects` GUID row, both fail-closed with one accumulated refusal per malformed entry, so a copy-paste cycle preserves the structured case and a textual coercion of a structured payload is the deleted form; the host-objects CLIPBOARD leg is in-process and live while the cross-NSView host-object DRAG stays research-gated; asset keys ride the icons asset-key vocabulary and table-row keys ride the grid row-model identity; structured copy crosses through one clipboard write keyed by the row `Format` identifiers, riding `Avalonia.Input.Platform.IClipboard.SetDataAsync(IAsyncDataTransfer)` with a `DataTransfer` carrying one `DataTransferItem` per `ClipboardRow` keyed by `DataFormat.CreateBytesApplicationFormat`/`CreateStringApplicationFormat`, each item built through `DataTransferItem.Create<T>(DataFormat<T>, T?)`/`CreateText` or `DataTransferItem.Set<T>(DataFormat<T>, T?)`, the read riding `IClipboard.TryGetDataAsync()` with `ClipboardExtensions.GetDataFormatsAsync` as the present-format gate and `ClipboardExtensions.TryGetTextAsync`/`ClipboardExtensions.TryGetValueAsync<T>(DataFormat<T>)` plus `DataTransferItem.TryGetRaw` as the typed extract, the `IAsyncDataTransfer` handed to `SetDataAsync` left undisposed because Avalonia takes ownership and disposes it once off the clipboard (a caller `using`/`Dispose` on the set transfer is the deleted form), and the legacy `DataObject`/`DataFormats`/`IDataObject` surface obsolete in Avalonia 12; the headless drop harness sequences `DragDrop` calls `DragEnter` → `DragOver` → `Drop` (mirroring `DragLeave` on the abort path) because a `DragOver` without a prior `DragEnter` seeds no drop context and fires no routed handler, and headless input modifiers cross as `RawInputModifiers`, never `KeyModifiers`; host-object drag across the NSView boundary is research-gated on the embed capsule.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -155,13 +152,13 @@ public abstract partial record DragPayload {
 
     public sealed record Image(ReadOnlyMemory<byte> Png) : DragPayload;
 
-    public static string Textual(DragPayload payload) =>
+    public static Option<string> Textual(DragPayload payload) =>
         payload.Switch(
-            tableRows: static rows => rows.Tsv,
-            assetKey: static key => key.Key,
-            hostObjects: static host => string.Join(",", host.Ids),
-            files: static files => string.Join("\n", files.Paths),
-            image: static _ => string.Empty);
+            tableRows: static rows => Some(rows.Tsv),
+            assetKey: static key => Some(key.Key),
+            hostObjects: static _ => None,
+            files: static files => Some(string.Join("\r\n", files.Paths)),
+            image: static _ => None);
 
     public static Validation<Error, DragPayload> Admit(Seq<string> paths, Func<string, bool> admitted) =>
         Refused(paths, admitted) switch {
@@ -177,32 +174,72 @@ public abstract partial record DragPayload {
 
 public sealed record ClipboardRow(
     string Format,
-    Func<DragPayload, Option<ReadOnlyMemory<byte>>> Copy,
-    Func<ReadOnlyMemory<byte>, Validation<Error, DragPayload>> Paste) {
+    Func<DragPayload, JsonSerializerOptions, Option<ReadOnlyMemory<byte>>> Copy,
+    Func<ReadOnlyMemory<byte>, JsonSerializerOptions, Validation<Error, DragPayload>> Paste) {
+    public const int MaxImageBytes = 33_554_432;
+
     public static readonly ClipboardRow Text = new(
         "text/plain",
-        Copy: static payload => Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes(DragPayload.Textual(payload))),
-        Paste: static _ => (Validation<Error, DragPayload>)new InputDriverFault.PasteRejected("plain-text paste unrouted"));
+        Copy: static (payload, wire) => DragPayload.Textual(payload).Map(text => (ReadOnlyMemory<byte>)Encoding.UTF8.GetBytes(text)),
+        Paste: static (bytes, wire) => (Validation<Error, DragPayload>)new InputDriverFault.PasteRejected("plain-text paste unrouted"));
 
-    public static readonly ClipboardRow Tsv = new(
-        "text/tab-separated-values",
-        Copy: static payload => payload is DragPayload.TableRows rows ? Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes(rows.Tsv)) : None,
-        Paste: static bytes => (Validation<Error, DragPayload>)new DragPayload.TableRows(Seq<string>(), Encoding.UTF8.GetString(bytes.Span)));
+    public static readonly ClipboardRow Table = new(
+        "application/x-rasm-table-rows+json",
+        Copy: static (payload, wire) => payload is DragPayload.TableRows rows
+            ? Optional<ReadOnlyMemory<byte>>(JsonSerializer.SerializeToUtf8Bytes(rows, wire))
+            : None,
+        Paste: static (bytes, wire) => Try.lift(() => JsonSerializer.Deserialize<DragPayload.TableRows>(bytes.Span, wire))
+            .Run()
+            .Bind(decoded => Optional(decoded).ToFin(new InputDriverFault.PasteRejected("table rows absent")))
+            .ToValidation());
 
     public static readonly ClipboardRow Png = new(
         "image/png",
-        Copy: static payload => payload is DragPayload.Image image ? Optional(image.Png) : None,
-        Paste: static bytes => bytes.Span is [0x89, 0x50, 0x4E, 0x47, ..]
+        Copy: static (payload, wire) => payload is DragPayload.Image image && image.Png.Length <= MaxImageBytes ? Optional(image.Png) : None,
+        Paste: static (bytes, wire) => bytes.Length <= MaxImageBytes
+            && bytes.Span is [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, ..]
             ? (Validation<Error, DragPayload>)new DragPayload.Image(bytes)
             : (Validation<Error, DragPayload>)new InputDriverFault.PasteRejected("png signature mismatch"));
 
     public static readonly ClipboardRow Asset = new(
         "application/x-rasm-asset-key",
-        Copy: static payload => payload is DragPayload.AssetKey key ? Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes(key.Key)) : None,
-        Paste: static bytes => (Validation<Error, DragPayload>)new DragPayload.AssetKey(Encoding.UTF8.GetString(bytes.Span)));
+        Copy: static (payload, wire) => payload is DragPayload.AssetKey { Key.Length: > 0 } key ? Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes(key.Key)) : None,
+        Paste: static (bytes, wire) => Encoding.UTF8.GetString(bytes.Span) is { Length: > 0 } key
+            ? (Validation<Error, DragPayload>)new DragPayload.AssetKey(key)
+            : (Validation<Error, DragPayload>)new InputDriverFault.PasteRejected("empty asset key"));
+
+    // uri-list is the standard interchange grammar: CRLF-separated absolute URIs, '#' comment lines
+    // skipped; a non-file URI accumulates one refusal per line, so a mixed paste reports every reject.
+    public static readonly ClipboardRow Uris = new(
+        "text/uri-list",
+        Copy: static (payload, wire) => payload is DragPayload.Files files
+            ? files.Paths.Traverse(static path => Uri.TryCreate(path, UriKind.Absolute, out Uri? uri) && uri.IsFile
+                    ? Some(uri.AbsoluteUri)
+                    : Option<string>.None)
+                .Map(uris => (ReadOnlyMemory<byte>)Encoding.UTF8.GetBytes(string.Join("\r\n", uris)))
+            : None,
+        Paste: static (bytes, wire) => toSeq(Encoding.UTF8.GetString(bytes.Span).Split(["\r\n", "\n"], StringSplitOptions.RemoveEmptyEntries))
+            .Filter(static line => !line.StartsWith('#'))
+            .Traverse(static line => Uri.TryCreate(line, UriKind.Absolute, out Uri? uri) && uri.IsFile
+                ? Success<Error, string>(uri.LocalPath)
+                : (Validation<Error, string>)new InputDriverFault.PasteRejected($"non-file uri: {line}"))
+            .As()
+            .Map(static paths => (DragPayload)new DragPayload.Files(paths)));
+
+    // Host-object identity round-trips as comma-joined GUIDs; a malformed token accumulates its own
+    // refusal, so a copy-paste cycle preserves the structured case fail-closed, never a text coercion.
+    public static readonly ClipboardRow Host = new(
+        "application/x-rasm-host-objects",
+        Copy: static (payload, wire) => payload is DragPayload.HostObjects host ? Optional<ReadOnlyMemory<byte>>(Encoding.UTF8.GetBytes(string.Join(",", host.Ids))) : None,
+        Paste: static (bytes, wire) => toSeq(Encoding.UTF8.GetString(bytes.Span).Split(',', StringSplitOptions.RemoveEmptyEntries))
+            .Traverse(static token => Guid.TryParse(token, out Guid id)
+                ? Success<Error, Guid>(id)
+                : (Validation<Error, Guid>)new InputDriverFault.PasteRejected($"malformed host id: {token}"))
+            .As()
+            .Map(static ids => (DragPayload)new DragPayload.HostObjects(ids)));
 
     public static readonly FrozenDictionary<string, ClipboardRow> Rows =
-        new[] { Text, Tsv, Png, Asset }.ToFrozenDictionary(static row => row.Format, static row => row, StringComparer.Ordinal);
+        new[] { Text, Table, Png, Asset, Uris, Host }.ToFrozenDictionary(static row => row.Format, static row => row, StringComparer.Ordinal);
 }
 ```
 
@@ -223,10 +260,16 @@ flowchart LR
 - Auto: every alternative-input device folds onto the one `CommandIntent` table — a SpaceMouse six-degree-of-freedom translation/rotation sample maps to the viewport orbit/pan/zoom intents, a game-controller stick to the same navigation intents, a haptic-surface trigger to a feedback intent, and a MIDI control surface to parameter intents — so a new input modality raises existing verbs and never a parallel command path; device output is the symmetric fold — a controller rumble or a haptic-device pulse consumes the normalized command axes so the same intent that an input device raises a device output can consume, completing the input-output fabric; the continuous-axis sample is normalized to [-1, 1] so a device-specific range never leaks into the intent fold; each device's continuous axes fold through the `Shell/input` pan-zoom canvas algebra (`[04]-[POINTER_GESTURES]`) and discrete events map onto the `CommandIntent` vocabulary.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new input device is one `InputDevice` case reading the shared intent rail; a new output device is one `DeviceOutput` case; a new continuous control is one `DeviceAxis` row; zero new surface — a parallel input framework beside this fabric is the rejected form.
-- Boundary: alternative input folds onto the one command table so a per-device handler is the deleted form — a SpaceMouse, controller, haptic, or MIDI sample raises a `CommandIntent` exactly as a hotkey does, and the one availability algebra gates them all; the `DeviceIntentReport` partition is the ingress evidence — `Raised` rows ride the command receipt family unchanged while `Unmapped` casualties fold into the screen fault state and the `AbsentInstrument`-adjacent device telemetry, so device ingress carries the same admission-and-evidence discipline as the drop and paste rails; the device sample is normalized so the fabric carries no device-specific range literal; device output is the symmetric consequence — the controller-rumble and haptic sinks consume normalized command axes through a `SurfaceSeam`-bound device delegate so no fabric body names a device SDK at a call site, the SDK driver capsules live in `[07]-[DEVICE_DRIVERS]`; the mouse, touch, pen, and keyboard paths stay the pointer-gesture and hotkey owners so the fabric adds only the alternative modalities and re-models no existing input; the fabric union arm carries only the device→intent projection delegate, so the four SDK boundary capsules of `[07]` bind those columns at composition and the fabric body names no SDK member.
+- Boundary: alternative input folds onto the one command table so a per-device handler is the deleted form — a SpaceMouse, controller, haptic, or MIDI sample raises a `CommandIntent` exactly as a hotkey does, and the one availability algebra gates them all; the `DeviceIntentReport` partition is the ingress evidence — `Raised` rows ride the command receipt family unchanged while `Unmapped` casualties fold into the screen fault state and device telemetry; samples normalize to `[-1,1]`, while each `DeviceOutput` case carries its composition-bound channel keys and timing policy, so the drive fold contains no positional channel or duration literal; controller-rumble and haptic sinks consume normalized command axes through device delegates, and SDK capsules live in `[07]-[DEVICE_DRIVERS]`; mouse, touch, pen, and keyboard stay with the pointer-gesture and hotkey owners.
 
 ```csharp signature
-public readonly record struct DeviceAxis(string Channel, double Value);
+[ValueObject<double>]
+public readonly partial struct NormalizedAxis {
+    private static ValidationError? ValidateFactoryArguments(double value) =>
+        double.IsFinite(value) && value is >= -1d and <= 1d ? null : new ValidationError($"axis outside [-1,1]: {value}");
+}
+
+public readonly record struct DeviceAxis(string Channel, NormalizedAxis Value);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record InputDevice {
@@ -243,35 +286,52 @@ public abstract partial record InputDevice {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DeviceOutput {
     private DeviceOutput() { }
-    public sealed record ControllerRumble(string Id, Func<double, double, ushort, IO<Unit>> Rumble) : DeviceOutput;
-    public sealed record HapticRumble(string Id, Func<double, IO<Unit>> Pulse) : DeviceOutput;
+    public sealed record ControllerRumble(
+        string Id,
+        string LowChannel,
+        string HighChannel,
+        ushort DurationMilliseconds,
+        Func<double, double, ushort, IO<Unit>> Rumble) : DeviceOutput;
+    public sealed record HapticRumble(string Id, string StrengthChannel, Func<double, IO<Unit>> Pulse) : DeviceOutput;
 }
 
-public readonly record struct DeviceIntentReport(Seq<CommandIntent> Raised, Seq<InputDriverFault> Unmapped) {
-    public static readonly DeviceIntentReport Empty = new(Seq<CommandIntent>(), Seq<InputDriverFault>());
+public readonly record struct DeviceInvocation(CommandIntent Intent, CommandPayload Payload);
+
+public readonly record struct DeviceIntentReport(Seq<DeviceInvocation> Raised, Seq<InputDriverFault> Unmapped) {
+    public static readonly DeviceIntentReport Empty = new(Seq<DeviceInvocation>(), Seq<InputDriverFault>());
 }
 
 public static class InputFabric {
     public static DeviceIntentReport Map(InputDevice device, Seq<DeviceAxis> sample, CommandDeck deck) =>
-        Keys(device, sample, deck).Fold(
+        Invocations(device, sample).Fold(
             DeviceIntentReport.Empty,
-            (report, key) => deck.Rows.TryGetValue(key, out var row)
-                ? report with { Raised = report.Raised.Add(row) }
-                : report with { Unmapped = report.Unmapped.Add(new InputDriverFault.IntentUnmapped($"{device.Id}:{key}")) });
+            (report, invocation) => deck.Rows.TryGetValue(invocation.Key, out CommandIntent? row)
+                ? report with { Raised = report.Raised.Add(new DeviceInvocation(row, invocation.Payload)) }
+                : report with { Unmapped = report.Unmapped.Add(new InputDriverFault.IntentUnmapped($"{device.Id}:{invocation.Key}")) });
 
-    static Seq<string> Keys(InputDevice device, Seq<DeviceAxis> sample, CommandDeck deck) =>
+    private static Seq<(string Key, CommandPayload Payload)> Invocations(InputDevice device, Seq<DeviceAxis> sample) =>
         device.Switch(
-            state: (Sample: sample, Deck: deck),
-            spaceMouse: static (ctx, s) => s.ToIntents(ctx.Sample),
-            gameController: static (ctx, g) => g.ToIntents(ctx.Sample),
-            hapticSurface: static (ctx, h) => h.ToIntents(ctx.Sample),
-            midiSurface: static (ctx, m) => m.ToParameters(ctx.Sample).Map(static p => p.Key));
+            state: sample,
+            spaceMouse: static (current, source) => source.ToIntents(current).Map(static key => (key, (CommandPayload)new CommandPayload.None())),
+            gameController: static (current, source) => source.ToIntents(current).Map(static key => (key, (CommandPayload)new CommandPayload.None())),
+            hapticSurface: static (current, source) => source.ToIntents(current).Map(static key => (key, (CommandPayload)new CommandPayload.None())),
+            midiSurface: static (current, source) => source.ToParameters(current).Map(static parameter => (
+                parameter.Key,
+                (CommandPayload)new CommandPayload.Text(parameter.Value.ToString("R", CultureInfo.InvariantCulture)))));
 
     public static IO<Unit> Drive(DeviceOutput output, Seq<DeviceAxis> command) =>
         output.Switch(
             state: command,
-            controllerRumble: static (cmd, c) => c.Rumble(cmd is [var lo, ..] ? lo.Value : 0d, cmd is [_, var hi, ..] ? hi.Value : 0d, 200),
-            hapticRumble: static (cmd, h) => h.Pulse(cmd is [var first, ..] ? first.Value : 0d));
+            controllerRumble: (cmd, controller) => controller.Rumble(
+                Value(cmd, controller.LowChannel),
+                Value(cmd, controller.HighChannel),
+                controller.DurationMilliseconds),
+            hapticRumble: static (cmd, haptic) => haptic.Pulse(Value(cmd, haptic.StrengthChannel)));
+
+    private static double Value(Seq<DeviceAxis> command, string channel) =>
+        command.Find(axis => string.Equals(axis.Channel, channel, StringComparison.Ordinal))
+            .Map(static axis => axis.Value.ToValue())
+            .IfNone(0d);
 }
 ```
 
@@ -310,10 +370,23 @@ public sealed record DeviceSession(string Id, InputDevice Device, IObservable<Se
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record DeviceDriver {
     private DeviceDriver() { }
-    public sealed record Hid(int VendorId, int ProductId, Func<DataValue, double> Axis) : DeviceDriver;
-    public sealed record Gamepad(int Index, Deadzone Deadzone) : DeviceDriver;
-    public sealed record Haptic(int Index, Func<double, double, ushort, IO<Unit>> Rumble) : DeviceDriver;
-    public sealed record Midi(string DeviceName, Func<ControlChangeEvent, (string Key, double Value)> Control) : DeviceDriver;
+    public sealed record Hid(
+        DeviceList Devices,
+        int VendorId,
+        int ProductId,
+        Func<HidDevice, Fin<DeviceSession>> Bind) : DeviceDriver;
+    public sealed record Gamepad(
+        Func<IInputContext> Context,
+        int Index,
+        Deadzone Deadzone,
+        Func<IInputContext, IGamepad, Deadzone, Fin<DeviceSession>> Bind) : DeviceDriver;
+    public sealed record Haptic(
+        Sdl Api,
+        int Index,
+        Func<Sdl, int, Fin<DeviceSession>> Bind) : DeviceDriver;
+    public sealed record Midi(
+        string DeviceName,
+        Func<Melanchall.DryWetMidi.Multimedia.InputDevice, Fin<DeviceSession>> Bind) : DeviceDriver;
 }
 
 public static class InputDrivers {
@@ -324,10 +397,22 @@ public static class InputDrivers {
         AppUiTelemetry.Contribute(version, ResolvedInstrument, AbsentInstrument);
 
     public static Fin<DeviceSession> Open(DeviceDriver driver) => driver.Switch(
-        hid: static h => OpenHid(h),
-        gamepad: static g => OpenGamepad(g),
-        haptic: static h => OpenHaptic(h),
-        midi: static m => OpenMidi(m));
+        hid: static source => toSeq(source.Devices.GetHidDevices(source.VendorId, source.ProductId))
+            .HeadOrNone()
+            .ToFin(new InputDriverFault.DeviceAbsent($"hid:{source.VendorId:x4}:{source.ProductId:x4}"))
+            .Bind(source.Bind),
+        gamepad: static source => Try.lift(source.Context).Run()
+            .MapFail(error => new InputDriverFault.OpenRejected(error.Message))
+            .Bind(context => source.Index >= 0 && source.Index < context.Gamepads.Count
+                ? source.Bind(context, context.Gamepads[source.Index], source.Deadzone)
+                : (context.Dispose(), Fin.Fail<DeviceSession>(new InputDriverFault.DeviceAbsent($"gamepad:{source.Index}"))).Item2),
+        haptic: static source => source.Index >= 0 && source.Index < source.Api.NumHaptics()
+            ? source.Bind(source.Api, source.Index)
+            : Fin.Fail<DeviceSession>(new InputDriverFault.DeviceAbsent($"haptic:{source.Index}")),
+        midi: static source => Try.lift(() => Melanchall.DryWetMidi.Multimedia.InputDevice.GetByName(source.DeviceName))
+            .Run()
+            .MapFail(error => new InputDriverFault.DeviceAbsent(error.Message))
+            .Bind(source.Bind));
 }
 ```
 

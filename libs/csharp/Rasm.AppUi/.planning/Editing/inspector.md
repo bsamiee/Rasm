@@ -1,11 +1,11 @@
 # [APPUI_INSPECTOR_EDITING]
 
-Typed property inspection and value editing for product state: one `InspectorPolicy`-driven PropertyGrid admission capsule, eleven ranked `EditorFactory` rows resolving every editable shape, an `EditFault`/`EditReceipt` commit rail with the preview-versus-commit law, the options-inspector composite binding policy records to user-settings writes and `ReloadReceipt` outcomes, a side-by-side conflict projection over Persistence conflict receipts, and grammar-scoped `CodePane` rows with a completion projection. The page owns the editor-row axis, the edit fault and outcome vocabulary, the inspector policy values, and the conflict and completion projections. The spine is bodong.Avalonia.PropertyGrid, Avalonia.Controls.ColorPicker, Avalonia.AvaloniaEdit with AvaloniaEdit.TextMate, ReactiveUI.Validation, UnitsNet, Thinktecture.Runtime.Extensions, NodaTime, System.Reactive, and LanguageExt.Core.
+Typed property inspection and value editing for product state: one `InspectorPolicy`-driven PropertyGrid admission capsule, twelve ranked `EditorFactory` rows resolving every editable shape, an `EditFault`/`EditReceipt` commit rail with the preview-versus-commit law, the options-inspector composite binding policy records to user-settings writes and `ReloadReceipt` outcomes, a side-by-side conflict projection over Persistence conflict receipts, and grammar-scoped `CodePane` rows with a completion projection. The page owns the editor-row axis, the edit fault and outcome vocabulary, the inspector policy values, and the conflict and completion projections. The spine is bodong.Avalonia.PropertyGrid, Avalonia.Controls.ColorPicker, Avalonia.AvaloniaEdit with AvaloniaEdit.TextMate, ReactiveUI.Validation, UnitsNet, Thinktecture.Runtime.Extensions, NodaTime, System.Reactive, and LanguageExt.Core.
 
 ## [01]-[INDEX]
 
 - [01]-[INSPECTOR_SURFACE]: PropertyGrid admission policy, descriptor filters, focus receipts.
-- [02]-[EDITOR_FACTORIES]: Eleven ranked editor rows with total shape match.
+- [02]-[EDITOR_FACTORIES]: Twelve ranked editor rows with total shape match.
 - [03]-[COMMIT_VALIDATION]: Typed admission rail, preview-commit law, edit receipts.
 - [04]-[OPTIONS_INSPECTOR]: Options-to-grid binding, user-settings persist, reload banner.
 - [05]-[CONFLICT_RESOLUTION]: Side-by-side conflict projection with resolution intent keys.
@@ -14,11 +14,11 @@ Typed property inspection and value editing for product state: one `InspectorPol
 ## [02]-[INSPECTOR_SURFACE]
 
 - Owner: `InspectorPolicy` policy record; `InspectorSurface` static boundary capsule.
-- Entry: `Mount(PropertyGrid grid, InspectorPolicy policy, object subject, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink)` — `IDisposable` detacher composed LIFO by the activation scope.
+- Entry: `Mount(PropertyGrid grid, InspectorPolicy policy, object subject, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink, Action<Error> fault)` — `IDisposable` detacher composed LIFO by the activation scope.
 - Receipt: `EditReceipt` focus kind — surface, member path, `Instant`, correlation; `TelemetryRow` contributes the edit-committed and edit-rejected instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: bodong.Avalonia.PropertyGrid, System.Reactive, NodaTime, LanguageExt.Core
 - Growth: one policy value on `InspectorPolicy`; one inspector instrument is one `InstrumentRow` on `InspectorSurface.TelemetryRow`; zero new surface.
-- Boundary: `Mount` is the page's PropertyGrid boundary capsule — the inspected subject enters through `PropertyGridViewModel.Context` (the `object?` subject channel) bound onto the grid's `ViewModel` property (type `PropertyGridViewModel`, field `ViewModelProperty`), not `DataContext` and not a `SelectedObject` placeholder, because the grid inspects arbitrary shapes, and canonical typing re-enters at the editor rows; `LayoutStyle` and `CellEdit` are `InspectorPolicy` values over the catalogued `PropertyGridLayoutStyle { Tree, Inline }` and `CellEditAlignmentType { Default, Stretch, Compact }` domains, so a per-grid layout literal is the deleted form; every grid event is a routed `EventHandler<RoutedEventArgs>` whose args narrow to `CustomPropertyDescriptorFilterEventArgs` (`TargetObject`, `PropertyDescriptor`, settable `IsVisible`) and `PropertyGotFocusEventArgs` (`Context`), so host-API variance lives in the policy's delegate columns (`Admit` descriptor filter, `FocusTarget` member-path projection) and no call site beyond the capsule reads grid event internals; the `CustomNameBlock` event binds the `RenderName` column at `Mount` so property display names resolve through the localization string vocabulary as a name projection, deleting per-grid name-template forks, with the name-block args narrowing research-gated under NAME_BLOCK_ARGS; `OperationIntents` surface operation controls as command-table intent keys and the derivation fold lives with the command table — a per-screen operation registry is deleted; quick-filter, category, and read-only state are policy values, never control state.
+- Boundary: `Mount` is the page's PropertyGrid boundary capsule — the inspected subject binds through the grid's `DataContext` (the control exposes no public `ViewModel` property and `PropertyGridViewModel` is internal to the assembly), so canonical typing re-enters at the editor rows; `LayoutStyle` and `CellEdit` are `InspectorPolicy` values over the catalogued `PropertyGridLayoutStyle { Tree, Inline }` and `CellEditAlignmentType { Default, Stretch, Compact }` domains, so a per-grid layout literal is the deleted form; every grid event is a routed `EventHandler<RoutedEventArgs>` whose args narrow to `CustomPropertyDescriptorFilterEventArgs` (`TargetObject`, `PropertyDescriptor`, settable `IsVisible`) and `PropertyGotFocusEventArgs` (`Context`), so host-API variance lives in the policy's delegate columns (`Admit` descriptor filter, `FocusTarget` member-path projection) and no call site beyond the capsule reads grid event internals; the `CustomNameBlock` event binds the `RenderName` column at `Mount` so property display names resolve through the localization string vocabulary as a name projection, deleting per-grid name-template forks, with the name-block args narrowing research-gated under NAME_BLOCK_ARGS; `OperationIntents` surface operation controls as command-table intent keys and the derivation fold lives with the command table — a per-screen operation registry is deleted; quick-filter, category, and read-only state are policy values, never control state.
 
 ```csharp signature
 public sealed record InspectorPolicy(
@@ -26,34 +26,35 @@ public sealed record InspectorPolicy(
     bool CategoriesVisible,
     bool QuickFilter,
     bool CategoriesExpanded,
-    bool Draft,
     PropertyGridLayoutStyle LayoutStyle,
     CellEditAlignmentType CellEdit,
     string Surface,
-    Seq<string> OperationIntents,
     Action<CustomPropertyDescriptorFilterEventArgs> Admit,
     Func<PropertyGotFocusEventArgs, string> FocusTarget,
-    Func<string, string> RenderName,
     Action<RoutedEventArgs> Rename);
 
 public static partial class InspectorSurface {
-    public static IDisposable Mount(PropertyGrid grid, InspectorPolicy policy, object subject, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink) {
-        grid.ViewModel = new PropertyGridViewModel { Context = subject };
+    public static IDisposable Mount(PropertyGrid grid, InspectorPolicy policy, object subject, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink, Action<Error> fault) {
+        grid.DataContext = subject;
         grid.IsReadOnly = policy.ReadOnly;
         grid.LayoutStyle = policy.LayoutStyle;
         grid.CellEditAlignment = policy.CellEdit;
         grid.IsCategoryVisible = policy.CategoriesVisible;
         grid.IsQuickFilterVisible = policy.QuickFilter;
         grid.AllCategoriesExpanded = policy.CategoriesExpanded;
-        EventHandler<RoutedEventArgs> admit = (_, args) => policy.Admit((CustomPropertyDescriptorFilterEventArgs)args);
-        EventHandler<RoutedEventArgs> focus = (_, args) => sink(new EditReceipt(
-            Kind: EditReceipt.FocusKind,
-            Surface: policy.Surface,
-            Target: policy.FocusTarget((PropertyGotFocusEventArgs)args),
-            Editor: string.Empty,
-            Outcome: new EditOutcome.Observed(),
-            At: clocks.Now,
-            Correlation: correlation));
+        EventHandler<RoutedEventArgs> admit = (_, args) => ignore(args is CustomPropertyDescriptorFilterEventArgs admitted
+            ? fun(() => policy.Admit(admitted))()
+            : fun(() => fault(new EditFault.UnmatchedShape(args.GetType().Name)))());
+        EventHandler<RoutedEventArgs> focus = (_, args) => ignore(args is PropertyGotFocusEventArgs focused
+            ? fun(() => sink(new EditReceipt(
+                Kind: EditReceipt.FocusKind,
+                Surface: policy.Surface,
+                Target: policy.FocusTarget(focused),
+                Editor: string.Empty,
+                Outcome: new EditOutcome.Observed(),
+                At: clocks.Now,
+                Correlation: correlation)))()
+            : fun(() => fault(new EditFault.UnmatchedShape(args.GetType().Name)))());
         EventHandler<RoutedEventArgs> rename = (_, args) => policy.Rename(args);
         grid.CustomPropertyDescriptorFilter += admit;
         grid.PropertyGotFocus += focus;
@@ -75,13 +76,13 @@ public static partial class InspectorSurface {
 
 ## [03]-[EDITOR_FACTORIES]
 
-- Owner: `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `EditorFactory` `[SmartEnum<string>]` eleven rows.
-- Cases: quantity, value-object, optional, color, choice, path, collection, boolean, numeric, text, nested — rank equals declaration order, the match walk takes the first accepting row, and nested is the total fallback for record shapes.
+- Owner: `ComparerAccessors.StringOrdinalIgnoreCase` accessor; `EditorFactory` `[SmartEnum<string>]` twelve rows; `EditorRowFactory` — the ONE public `AbstractCellEditFactory` adapter every custom row rides.
+- Cases: quantity, value-object, optional, temporal, color, choice, path, collection, boolean, numeric, text, nested — rank equals declaration order, the match walk takes the first accepting row, and nested is the total fallback for record shapes.
 - Entry: `Match(Type shape)` — `Option<EditorFactory>` rank walk over `Items`.
-- Auto: generated `Items` ordering and key factories under `[ValidationError<EditFault>]`; the `Accepts` column rides `[UseDelegateFromConstructor]`.
-- Packages: bodong.Avalonia.PropertyGrid, Avalonia.Controls.ColorPicker, UnitsNet, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: one editor row on `EditorFactory` (key, rank, accept predicate, bridge column); zero new surface — per-shape editor controls and per-`[ValueObject]` editor classes are deleted by the value-object and quantity rows.
-- Boundary: the `Bridge` column names the package factory type a stock row registers; `None` rows (quantity, value-object, optional, choice) ride the one row-driven `AbstractCellEditFactory` adapter overriding `ImportPriority` (virtual int, stock default 100), `Accept(object accessToken)`, `HandleNewProperty(PropertyCellContext)` returning `Control?`, `HandlePropertyChanged(PropertyCellContext)` returning bool, and `HandleReadOnlyStateChanged(Control, bool)`, with `SetAndRaise(PropertyCellContext, Control, object?)` driving the undo-scoped command pipeline; generated-owner detection rides `MetadataLookup.Find` over the pin-stable `Thinktecture.Internal` metadata classes — `Metadata.Keyed.SmartEnum`/`Metadata.KeylessSmartEnum` split choice rows from `Metadata.Keyed.ValueObject`/`Metadata.ComplexValueObject` value rows, deleting the interface scan and the `Items` reflection probe; the optional row re-enters `Match` on the wrapped argument and renders absence as a value, never a sentinel; color rows present `PreviewableColorPicker` with the `Palettes` families and HSV models.
+- Auto: generated `Items` ordering and key factories under `[ValidationError<EditFault>]`; the `Accepts` column rides `[UseDelegateFromConstructor]` and the `Present` column is the nullable presenter delegate projected as `Option`.
+- Packages: bodong.Avalonia.PropertyGrid, Avalonia.Controls.ColorPicker, UnitsNet, NodaTime, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
+- Growth: one editor row on `EditorFactory` (key, rank, accept predicate, present column); zero new surface — per-shape editor controls and per-`[ValueObject]` editor classes are deleted by the value-object and quantity rows.
+- Boundary: the built-in concrete factories are INTERNAL to the assembly and never referenced — stock rows (path, collection, boolean, numeric, text, nested) carry an absent `Present` column and fall to the registry's internal built-ins by their own `ImportPriority`, while every present-bearing row (quantity, value-object, optional, temporal, color, choice) rides the ONE public `EditorRowFactory : AbstractCellEditFactory` adapter registered once through `CellEditFactoryService.Default.AddFactory` with `ImportPriority` above the stock default 100 — the adapter overrides `Accept(object accessToken)`, `HandleNewProperty(PropertyCellContext)` returning `Control?`, `HandlePropertyChanged(PropertyCellContext)` returning bool, and `HandleReadOnlyStateChanged(Control, bool)`, with `SetAndRaise(PropertyCellContext, Control, object?)` driving the undo-scoped command pipeline; generated-owner detection rides `MetadataLookup.Find` over the pin-stable `Thinktecture.Internal` metadata classes — `Metadata.Keyed.SmartEnum`/`Metadata.KeylessSmartEnum` split choice rows from `Metadata.Keyed.ValueObject`/`Metadata.ComplexValueObject` value rows, deleting the interface scan and the `Items` reflection probe; the optional row re-enters `Match` on the wrapped argument and renders absence as a value, never a sentinel; the temporal row covers the NodaTime shapes (`Instant`, `LocalDate`, `LocalDateTime`, `Duration`) with admission through the culture-explicit NodaTime patterns on the commit rail; color rows present `PreviewableColorPicker` with the `Palettes` families and HSV models.
 
 ```csharp signature
 
@@ -90,45 +91,81 @@ public static partial class InspectorSurface {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class EditorFactory {
-    public static readonly EditorFactory Quantity = new("quantity", rank: 10, accepts: AcceptQuantity, bridge: None);
-    public static readonly EditorFactory Value = new("value-object", rank: 20, accepts: AcceptValue, bridge: None);
-    public static readonly EditorFactory Optional = new("optional", rank: 30, accepts: AcceptOptional, bridge: None);
-    public static readonly EditorFactory Color = new("color", rank: 40, accepts: AcceptColor, bridge: Some(typeof(ColorCellEditFactory)));
-    public static readonly EditorFactory Choice = new("choice", rank: 50, accepts: AcceptChoice, bridge: None);
-    public static readonly EditorFactory Path = new("path", rank: 60, accepts: AcceptPath, bridge: Some(typeof(PathCellEditFactory)));
-    public static readonly EditorFactory Collection = new("collection", rank: 70, accepts: AcceptCollection, bridge: Some(typeof(CollectionCellEditFactory)));
-    public static readonly EditorFactory Boolean = new("boolean", rank: 80, accepts: AcceptBoolean, bridge: Some(typeof(BooleanCellEditFactory)));
-    public static readonly EditorFactory Numeric = new("numeric", rank: 90, accepts: AcceptNumeric, bridge: Some(typeof(NumericCellEditFactory)));
-    public static readonly EditorFactory Text = new("text", rank: 100, accepts: AcceptText, bridge: Some(typeof(StringCellEditFactory)));
-    public static readonly EditorFactory Nested = new("nested", rank: 110, accepts: AcceptNested, bridge: Some(typeof(ExpandableCellEditFactory)));
+    public static readonly EditorFactory Quantity = new("quantity", rank: 10, accepts: AcceptQuantity, custom: true);
+    public static readonly EditorFactory Value = new("value-object", rank: 20, accepts: static _ => false, custom: true);
+    public static readonly EditorFactory Optional = new("optional", rank: 30, accepts: AcceptOptional, custom: true);
+    public static readonly EditorFactory Temporal = new("temporal", rank: 40, accepts: AcceptTemporal, custom: true);
+    public static readonly EditorFactory Color = new("color", rank: 50, accepts: AcceptColor, custom: true);
+    public static readonly EditorFactory Choice = new("choice", rank: 60, accepts: static shape => shape.IsEnum, custom: true);
+    public static readonly EditorFactory Path = new("path", rank: 70, accepts: AcceptPath, custom: false);
+    public static readonly EditorFactory Collection = new("collection", rank: 80, accepts: AcceptCollection, custom: false);
+    public static readonly EditorFactory Boolean = new("boolean", rank: 90, accepts: AcceptBoolean, custom: false);
+    public static readonly EditorFactory Numeric = new("numeric", rank: 100, accepts: AcceptNumeric, custom: false);
+    public static readonly EditorFactory Text = new("text", rank: 110, accepts: AcceptText, custom: false);
+    public static readonly EditorFactory Nested = new("nested", rank: 120, accepts: AcceptNested, custom: false);
 
     public static readonly Seq<IColorPalette> Palettes = Seq<IColorPalette>(new FluentColorPalette(), new MaterialColorPalette(), new FlatColorPalette());
 
     public int Rank { get; }
-
-    public Option<Type> Bridge { get; }
+    public bool Custom { get; }
 
     [UseDelegateFromConstructor]
     public partial bool Accepts(Type shape);
 
-    public static Option<EditorFactory> Match(Type shape) => Items.AsIterable().Find(row => row.Accepts(shape));
+    public bool Accepts(Type shape, EditorAdapter adapter) =>
+        ReferenceEquals(this, Value)
+            ? adapter.ValueObject(shape)
+            : ReferenceEquals(this, Choice)
+                ? shape.IsEnum || adapter.SmartEnum(shape)
+                : Accepts(shape);
+
+    public static Option<EditorFactory> Match(Type shape, EditorAdapter adapter) =>
+        Items.AsIterable().Find(row => row.Accepts(shape, adapter));
 
     private static readonly FrozenSet<Type> NumericShapes = new[] {
         typeof(byte), typeof(sbyte), typeof(short), typeof(ushort), typeof(int), typeof(uint),
         typeof(long), typeof(ulong), typeof(float), typeof(double), typeof(decimal),
     }.ToFrozenSet();
 
+    private static readonly FrozenSet<Type> TemporalShapes = new[] {
+        typeof(Instant), typeof(LocalDate), typeof(LocalDateTime), typeof(Duration),
+    }.ToFrozenSet();
+
     private static bool AcceptQuantity(Type shape) => typeof(IQuantity).IsAssignableFrom(shape);
-    private static bool AcceptValue(Type shape) => MetadataLookup.Find(shape) is Metadata.Keyed.ValueObject or Metadata.ComplexValueObject;
     private static bool AcceptOptional(Type shape) => shape is { IsGenericType: true } && shape.GetGenericTypeDefinition() == typeof(Option<>);
+    private static bool AcceptTemporal(Type shape) => TemporalShapes.Contains(shape);
     private static bool AcceptColor(Type shape) => shape == typeof(Avalonia.Media.Color);
-    private static bool AcceptChoice(Type shape) => shape.IsEnum || MetadataLookup.Find(shape) is Metadata.Keyed.SmartEnum or Metadata.KeylessSmartEnum;
     private static bool AcceptPath(Type shape) => typeof(FileSystemInfo).IsAssignableFrom(shape);
     private static bool AcceptCollection(Type shape) => shape != typeof(string) && typeof(IEnumerable).IsAssignableFrom(shape);
     private static bool AcceptBoolean(Type shape) => shape == typeof(bool);
     private static bool AcceptNumeric(Type shape) => NumericShapes.Contains(shape);
     private static bool AcceptText(Type shape) => shape == typeof(string);
     private static bool AcceptNested(Type shape) => shape is { IsClass: true, IsAbstract: false };
+}
+
+public sealed record EditorAdapter(
+    Func<Type, bool> ValueObject,
+    Func<Type, bool> SmartEnum,
+    Func<EditorFactory, PropertyCellContext, Option<Control>> Present,
+    Func<EditorFactory, PropertyCellContext, bool> Refresh);
+
+// The ONE public adapter: custom rows resolve through the rank walk and present their control; a stock
+// shape returns false so the registry's internal built-ins take the cell at their own priority.
+public sealed class EditorRowFactory(EditorAdapter adapter) : AbstractCellEditFactory {
+    public override int ImportPriority => 200;
+
+    public override bool Accept(object accessToken) =>
+        accessToken is Type shape && EditorFactory.Match(shape, adapter).Exists(static row => row.Custom);
+
+    public override Control? HandleNewProperty(PropertyCellContext context) =>
+        EditorFactory.Match(context.Property.PropertyType, adapter)
+            .Filter(static row => row.Custom)
+            .Bind(row => adapter.Present(row, context))
+            .IfNoneUnsafe((Control?)null);
+
+    public override bool HandlePropertyChanged(PropertyCellContext context) =>
+        EditorFactory.Match(context.Property.PropertyType, adapter)
+            .Exists(row => row.Custom && adapter.Refresh(row, context));
 }
 ```
 
@@ -190,6 +227,7 @@ public abstract partial record EditOutcome {
     public sealed record Observed : EditOutcome;
     public sealed record Committed(string Editor) : EditOutcome;
     public sealed record Reverted(string Editor) : EditOutcome;
+    public sealed record Redone(string Editor) : EditOutcome;
     public sealed record Rejected(EditFault Fault) : EditOutcome;
     public sealed record HostRouted(CorrelationId Transaction) : EditOutcome;
 }
@@ -212,18 +250,24 @@ public static class EditGate {
     public static Validation<EditFault, TOwner> Admit<TOwner, TRaw, TError>(string target, TRaw raw, IFormatProvider? culture = null)
         where TOwner : IObjectFactory<TOwner, TRaw, TError>
         where TRaw : notnull, allows ref struct
-        where TError : Expected, IValidationError<TError> =>
-        TOwner.Validate(raw, culture, out var owner) is { } fault
+        where TError : Expected, IValidationError<TError> {
+        TError? fault = TOwner.Validate(raw, culture, out TOwner? owner);
+        return fault is not null
             ? (Validation<EditFault, TOwner>)new EditFault.Invariant(target, fault.Message)
-            : (Validation<EditFault, TOwner>)owner!;
+            : owner is TOwner admitted
+                ? (Validation<EditFault, TOwner>)admitted
+                : new EditFault.Invariant(target, "generated factory returned no admitted owner");
+    }
 
-    public static Validation<EditFault, IQuantity> AdmitQuantity(string target, Type shape, string text, IFormatProvider culture) =>
-        Quantity.TryParse(culture, shape, text, out var parsed)
-            ? (Validation<EditFault, IQuantity>)parsed!
+    public static Validation<EditFault, IQuantity> AdmitQuantity(string target, Type shape, string text, IFormatProvider culture) {
+        bool valid = Quantity.TryParse(culture, shape, text, out IQuantity? parsed);
+        return valid && parsed is IQuantity quantity
+            ? (Validation<EditFault, IQuantity>)quantity
             : new EditFault.Parse(target, text);
+    }
 
-    public static Validation<EditFault, EditorFactory> Resolve(Type shape) =>
-        EditorFactory.Match(shape) is { IsSome: true, Case: EditorFactory row }
+    public static Validation<EditFault, EditorFactory> Resolve(Type shape, EditorAdapter adapter) =>
+        EditorFactory.Match(shape, adapter) is { IsSome: true, Case: EditorFactory row }
             ? (Validation<EditFault, EditorFactory>)row
             : new EditFault.UnmatchedShape(shape.Name);
 }
@@ -244,7 +288,8 @@ public static class EditGate {
 public sealed record OptionsInspector<T>(
     string Section,
     ReloadClass Reload,
-    T Snapshot,
+    T Draft,
+    Func<T> Current,
     Func<T, Fin<Unit>> Persist,
     IObservable<ReloadReceipt> Receipts) where T : class;
 
@@ -260,15 +305,17 @@ public static partial class InspectorSurface {
         restartRequired: static row => RestartBanner,
         rejected: static row => RejectedBanner);
 
-    public static IDisposable Attach<T>(PropertyGrid grid, OptionsInspector<T> binding, InspectorPolicy policy, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink, Action<string> banner) where T : class {
-        var mount = Mount(grid, policy, binding.Snapshot, clocks, correlation, sink);
-        var reload = binding.Receipts.Subscribe(receipt => banner(Banner(receipt.Outcome)));
+    public static IDisposable Attach<T>(PropertyGrid grid, OptionsInspector<T> binding, InspectorPolicy policy, ClockPolicy clocks, CorrelationId correlation, Action<EditReceipt> sink, Action<string> banner, Action<Error> fault) where T : class {
+        IDisposable mount = Mount(grid, policy, binding.Draft, clocks, correlation, sink, fault);
+        IDisposable reload = binding.Receipts.Subscribe(
+            receipt => banner(Banner(receipt.Outcome)),
+            raw => fault(EditFault.Create(raw.Message)));
         EventHandler<RoutedEventArgs> committed = (_, _) => sink(new EditReceipt(
             Kind: EditReceipt.OptionsKind,
             Surface: policy.Surface,
             Target: binding.Section,
             Editor: string.Empty,
-            Outcome: binding.Persist(binding.Snapshot) is { IsFail: true, Case: Error error }
+            Outcome: binding.Persist(binding.Current()) is { IsFail: true, Case: Error error }
                 ? new EditOutcome.Rejected(EditFault.Create(error.Message))
                 : new EditOutcome.Committed(string.Empty),
             At: clocks.Now,
@@ -336,7 +383,7 @@ public sealed record ConflictPane<TReceipt>(
         string.Join("\n", Hunks.Map((hunk, index) =>
             hunk.Conflicted
                 ? choices.Find(index).Match(Some: side => hunk.Side(side), None: () => hunk.Local)
-                : hunk.Base));
+                : hunk.Merged));
 }
 
 [SmartEnum<string>]
@@ -348,6 +395,8 @@ public sealed partial class ConflictSide {
 
 public readonly record struct ThreeWayHunk(string Base, string Local, string Remote, bool Conflicted) {
     public string Side(ConflictSide side) => side.Switch(local: _ => Local, remote: _ => Remote, @base: _ => Base);
+
+    public string Merged => Local == Base ? Remote : Remote == Base || Local == Remote ? Local : Base;
 }
 
 public readonly record struct GeometryDiff(
@@ -374,13 +423,13 @@ public static class ThreeWay {
     // absent from base interleave as (None, Some) insertions at their anchor position.
     static Seq<(Option<string> Base, Option<string> Side)> Align(Seq<string> baseLines, Seq<string> side) {
         int[,] lcs = new int[baseLines.Count + 1, side.Count + 1];
-        for (var i = baseLines.Count - 1; i >= 0; i--) {
-            for (var j = side.Count - 1; j >= 0; j--) {
+        for (int i = baseLines.Count - 1; i >= 0; i--) {
+            for (int j = side.Count - 1; j >= 0; j--) {
                 lcs[i, j] = baseLines[i] == side[j] ? lcs[i + 1, j + 1] + 1 : Math.Max(lcs[i + 1, j], lcs[i, j + 1]);
             }
         }
-        var aligned = Seq<(Option<string>, Option<string>)>();
-        var (bi, si) = (0, 0);
+        Seq<(Option<string>, Option<string>)> aligned = Seq<(Option<string>, Option<string>)>();
+        (int bi, int si) = (0, 0);
         while (bi < baseLines.Count && si < side.Count) {
             if (baseLines[bi] == side[si]) { aligned = aligned.Add((Some(baseLines[bi]), Some(side[si]))); bi++; si++; }
             else if (lcs[bi + 1, si] >= lcs[bi, si + 1]) { aligned = aligned.Add((Some(baseLines[bi]), Option<string>.None)); bi++; }
@@ -405,12 +454,12 @@ public static class ThreeWay {
         Seq<(Option<string> Base, Option<string> Side)> remote) {
         Map<int, Seq<string>> localByAnchor = ByAnchor(local);
         Map<int, Seq<string>> remoteByAnchor = ByAnchor(remote);
-        for (var anchor = 0; anchor <= baseLines.Count; anchor++) {
+        for (int anchor = 0; anchor <= baseLines.Count; anchor++) {
             Seq<string> baseRun = anchor < baseLines.Count ? Seq(baseLines[anchor]) : Seq<string>();
             Seq<string> localRun = localByAnchor.Find(anchor).IfNone(baseRun);
             Seq<string> remoteRun = remoteByAnchor.Find(anchor).IfNone(baseRun);
             if (localRun == baseRun && remoteRun == baseRun && baseRun.IsEmpty) { continue; }
-            var conflicted = localRun != baseRun && remoteRun != baseRun && localRun != remoteRun;
+            bool conflicted = localRun != baseRun && remoteRun != baseRun && localRun != remoteRun;
             yield return new ThreeWayHunk(
                 string.Join('\n', baseRun), string.Join('\n', localRun), string.Join('\n', remoteRun), conflicted);
         }
@@ -419,9 +468,9 @@ public static class ThreeWay {
     // Projects an alignment into per-anchor side runs: the run replacing base line N, insertions attached
     // to the anchor they precede, base-count as the trailing-insert anchor.
     static Map<int, Seq<string>> ByAnchor(Seq<(Option<string> Base, Option<string> Side)> aligned) {
-        var runs = Map<int, Seq<string>>();
-        var anchor = 0;
-        var pending = Seq<string>();
+        Map<int, Seq<string>> runs = Map<int, Seq<string>>();
+        int anchor = 0;
+        Seq<string> pending = Seq<string>();
         foreach ((Option<string> baseLine, Option<string> side) in aligned) {
             if (baseLine.IsSome) {
                 runs = runs.AddOrUpdate(anchor, pending + side.ToSeq());
@@ -459,10 +508,10 @@ public sealed record CodePane(
         editor.ShowLineNumbers = LineNumbers;
         editor.WordWrap = false;
         return Try.lift(() => {
-            var session = editor.InstallTextMate(registry);
+            TextMate.Installation session = editor.InstallTextMate(registry);
             session.SetGrammar(GrammarScope);
-            var folding = Folding ? Some(FoldingManager.Install(editor.TextArea)) : Option<FoldingManager>.None;
-            var search = SearchPanel.Install(editor.TextArea);
+            Option<FoldingManager> folding = Folding ? Some(FoldingManager.Install(editor.TextArea)) : Option<FoldingManager>.None;
+            SearchPanel search = SearchPanel.Install(editor);
             return (Session: session, Folding: folding, Search: search);
         }).Run().MapFail(static error => (Error)EditFault.Create(error.Message));
     }
@@ -486,6 +535,7 @@ public sealed record CompletionRow(string Key, string Detail) {
 ## [08]-[RESEARCH]
 
 - [NAME_BLOCK_ARGS]: the `CustomNameBlock` event args type and its property-key and settable-name-control members that the `Rename` delegate narrows to apply the `RenderName` localization projection — the `CustomNameBlock` event surface and the pure `RenderName` string projection are fenced.
+- [CELL_CONTEXT_MEMBERS]: the `PropertyCellContext` member spellings the `EditorRowFactory` adapter reads — the descriptor access the shape match consumes (`Property.PropertyType` as fenced) and the value get/set channel `SetAndRaise` drives — resolve at implementation against the decompiled `Avalonia.PropertyGrid` surface; the twelve-row rank walk, the one-adapter registration through `CellEditFactoryService.Default.AddFactory`, and the stock-row fall-through to the internal built-ins are settled.
 - [RECORD_DRAFT]: immutable policy-record draft route for grid editing — PropertyModels descriptor synthesis against a generated mutable draft partial, with `SetPropertyValue` landing on the draft and commit rebuilding the record.
 - [CODE_FOLDING]: the `FoldingManager.UpdateFoldings(IEnumerable<NewFolding>, int firstErrorOffset)` batch-resync arity and the `NewFolding` field set that re-folds the whole region pass — the `CreateFolding` per-fold mint and `FoldingManager.Install` are fenced.
 - [CODE_ASSIST]: the `CompletionWindow.CompletionList.CompletionData` population chain and the `ICompletionData` projection member set (`Image`, `Text`, `Content`, `Description`, `Priority`, `Complete`) the popup binds, and the `OverloadInsightWindow.Provider`/`IOverloadProvider` member set (`Count`, `SelectedIndex`, `CurrentHeader`, `CurrentContent`) the signature popup binds — the `CompletionWindow` and `OverloadInsightWindow` construction over the text area and `SearchPanel.Install` mount are fenced.

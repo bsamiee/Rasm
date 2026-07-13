@@ -16,6 +16,7 @@ from contextlib import suppress
 from enum import StrEnum
 from itertools import pairwise
 import json
+import os
 from pathlib import Path
 import re
 import shlex
@@ -190,14 +191,14 @@ def _browser_path() -> str | None:
     Returns:
         Path to a pinned chrome-headless-shell binary, or None when none resolves.
     """
-    import os
-
     env = os.environ.get("PUPPETEER_EXECUTABLE_PATH", "")
     if env and ".app/" not in env and Path(env).is_file():
         return env
+    by_revision = lambda p: [int(n) for n in re.findall(r"\d+", p.parts[-3])]  # noqa: E731
     shells = sorted(
-        Path.home().glob(".cache/puppeteer/chrome-headless-shell/*/chrome-headless-shell-*/chrome-headless-shell"),
-        key=lambda p: [int(n) for n in re.findall(r"\d+", p.parts[-3])],
+        Path.home().glob(".cache/puppeteer/chrome-headless-shell/*/chrome-headless-shell-*/chrome-headless-shell"), key=by_revision
+    ) or sorted(
+        Path("/nix/store").glob("*-playwright-browsers/chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell"), key=by_revision
     )
     return str(shells[-1]) if shells else None
 
@@ -210,6 +211,9 @@ PUPPETEER_CONFIG = {
     "args": ["--no-sandbox", "--disable-dev-shm-usage", "--disable-breakpad", "--use-mock-keychain", "--password-store=basic"],
     **({"executablePath": _path} if (_path := _browser_path()) else {}),
 }
+# A stale session env can still carry an .app-bundle pin that puppeteer honors over its cache; the render subprocess drops it so the config
+# executablePath (or a clean renderer error) is the only launch route.
+RENDER_ENV = {k: v for k, v in os.environ.items() if not (k == "PUPPETEER_EXECUTABLE_PATH" and ".app/" in v)}
 THEMED = frozenset({
     "architecture-beta",
     "block",
@@ -969,6 +973,7 @@ def attempt(prefix: tuple[str, ...], cwd: Path | None, diagram: Diagram, workdir
         proc = subprocess.run(
             [*prefix, "-q", "-i", str(src), "-o", str(out), "-c", str(cfg), "-p", str(browser)],
             cwd=cwd,
+            env=RENDER_ENV,
             capture_output=True,
             text=True,
             timeout=RENDER_TIMEOUT,
