@@ -1,14 +1,22 @@
 export const meta = {
   name: 'table-remediation',
   description: 'Repair every Markdown table defect across damaged docs with the derived in-place relief playbook, gate-verified per file',
-  phases: [{ title: 'Repair', detail: 'one agent per 6-file batch; relieve tables in place, verify each file table-clean' }],
+  phases: [
+    { title: 'Discover', detail: 'one agent runs the gate and returns every file carrying a table defect' },
+    { title: 'Repair', detail: 'one agent per 6-file batch; relieve tables in place, verify each file table-clean' },
+  ],
 }
 
 // --- [CONSTANTS] ------------------------------------------------------------------------
 
-// args carries the damaged-file set as absolute paths (launcher computes it fresh from the gate); an empty set no-ops.
-const FILES = Array.isArray(args) ? args : Array.isArray(args?.files) ? args.files : []
+// args optionally pins the file set (array of absolute paths, or {files}); absent, a discovery agent computes it fresh from the gate.
+const PROVIDED = Array.isArray(args) ? args : Array.isArray(args?.files) ? args.files : null
 const BATCH = 6
+
+const DISCOVER = `Compute the fresh set of Markdown files carrying a table defect. Run, from the docgen skill dir:
+cd /Users/bardiasamiee/Documents/99.Github/Rasm/.claude/skills/docgen && uv run scripts/prose_gate.py --json $(fd -e md . /Users/bardiasamiee/Documents/99.Github/Rasm) 2>/dev/null | jq -rs '[.[] | select(.check | startswith("table")) | .file] | unique | sort_by((. | test("\\\\.api/") | not), .) | .[]'
+Each output line is one absolute path (".api" catalogs sorted first, then planning specs). Return every path as {files:[...]}, verbatim and complete — do not sample, truncate, or edit the list.`
+const DISCOVER_SCHEMA = { type: 'object', additionalProperties: false, required: ['files'], properties: { files: { type: 'array', items: { type: 'string' } } } }
 
 const PLAYBOOK = `Repair every Markdown table defect in the files listed below. These are Rasm durable docs — mostly ".api" capability catalogs (a symbol/entrypoint table plus signature fences) and planning specs. The defect is cells cramming full signatures and multi-clause behavior, blowing the 150-column rendered table-width cap. RELIEVE TABLES IN PLACE. Never tear a table down to mega-prose or a bare unlabeled list, and never drop a verified member, signature, or law.
 
@@ -79,6 +87,15 @@ const BATCH_SCHEMA = {
 
 // --- [COMPOSITION] ----------------------------------------------------------------------
 
+phase('Discover')
+let FILES = PROVIDED
+if (!FILES) {
+  const found = await agent(DISCOVER, { label: 'discover', phase: 'Discover', schema: DISCOVER_SCHEMA })
+  FILES = found?.files ?? []
+}
+log(`${FILES.length} damaged files to repair`)
+
+phase('Repair')
 const batches = []
 for (let i = 0; i < FILES.length; i += BATCH) batches.push(FILES.slice(i, i + BATCH))
 log(`${FILES.length} damaged files in ${batches.length} batches of up to ${BATCH}`)
