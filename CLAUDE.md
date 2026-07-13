@@ -1,5 +1,7 @@
 # [CLAUDE_MANIFEST]
 
+[NEVER]: hand-roll a script, sed/awk/regex pass, or ad-hoc programmatic transform to "fix" markdown, prose, comments, tables, or any documentation — doc repair routes ONLY through the owning skill's fix command or a project tool (e.g. the docgen prose gate `fix`); where none exists, the repair is proper manual read-and-rewrite, one edit at a time, never a bespoke script and never laziness.
+
 Read: `README.md` + `tools/assay/README.md`
 
 [REQUIRED]: When working in libs/csharp/ or any .cs file (or spec doc) READ `.editorconfig` + `Directory.Build.props` UNDERSTAND FORMAT STYLING, ERRORS, ANALYZERS, NEVER IGNORE, NEVER USE VAR, NEVER USE INCORRECT NAMESPACING FOR CSHARP; ADHERE TO ALL EDITORCONFIG RULINGS, DO NOT MAKE NONSENSE IN DESIGN DOCS, CODE FENCES, OR REAL CODE THAT WILL INSTANTLY FAIL AND GENERATE ERRORS.

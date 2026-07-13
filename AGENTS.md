@@ -1,5 +1,7 @@
 # [ROOT_AGENTS]
 
+[NEVER]: hand-roll a script, sed/awk/regex pass, or ad-hoc programmatic transform to "fix" markdown, prose, comments, tables, or any documentation — doc repair routes ONLY through the owning skill's fix command or a project tool (e.g. the docgen prose gate `fix`); where none exists, the repair is proper manual read-and-rewrite, one edit at a time, never a bespoke script and never laziness.
+
 ## [01]-[LOAD_ORDER]
 
 [REQUIRED]:
