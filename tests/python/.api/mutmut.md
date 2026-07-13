@@ -11,35 +11,45 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                                          | [KIND]        | [CAPABILITY]                                                                                                         |
-| :-----: | :---------------------------------------------------------------- | :------------ | :------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Config`                                                          | dataclass     | the resolved `[tool.mutmut]` policy; `Config.get()` is the singleton accessor                                        |
-|  [02]   | `SourceFileMutationData`                                          | cache model   | per-file mutant results; `.load()` faults on corrupt/version-skewed/io cache                                         |
-|  [03]   | `status_by_exit_code`                                             | dict          | exit code → status: `killed`/`survived`/`no tests`/`timeout`/`suspicious`/`skipped`/`segfault`/`not checked`/`caught by type check`/`check was interrupted by user` |
-|  [04]   | `walk_mutatable_files` · `orig_function_and_class_names_from_key` | cache walkers | enumerate mutants and decode a mutant key back to its origin function; both live on `mutmut.__main__` |
+| [INDEX] | [SYMBOL]                                 | [KIND]       | [CAPABILITY]                                  |
+| :-----: | :--------------------------------------- | :----------- | :-------------------------------------------- |
+|  [01]   | `Config`                                 | dataclass    | the resolved `[tool.mutmut]` policy singleton |
+|  [02]   | `SourceFileMutationData`                 | cache model  | per-file mutant results the gate reads        |
+|  [03]   | `status_by_exit_code`                    | dict         | exit code to the mutant status vocabulary     |
+|  [04]   | `walk_mutatable_files`                   | cache walker | enumerate mutants over the cache              |
+|  [05]   | `orig_function_and_class_names_from_key` | cache walker | decode a mutant key to its origin function    |
 
-```python contract
+```python signature
 @dataclass
 class Config:
     source_paths: list[Path]; only_mutate: list[str]; do_not_mutate: list[str]; do_not_mutate_patterns: list[str]
     also_copy: list[Path]; pytest_add_cli_args: list[str]; pytest_add_cli_args_test_selection: list[str]
     mutate_only_covered_lines: bool; max_stack_depth: int; debug: bool
     timeout_multiplier: float; timeout_constant: float; type_check_command: list[str]; use_setproctitle: bool
+    @classmethod
+    def get(cls) -> "Config": ...                          # process-wide singleton accessor
+
+# status_by_exit_code value domain — the mutant status vocabulary mutation_gate.py folds into the score
+STATUS = ("killed", "survived", "no tests", "timeout", "suspicious",
+          "skipped", "segfault", "not checked", "caught by type check", "check was interrupted by user")
+
+# walk_mutatable_files and orig_function_and_class_names_from_key both live on mutmut.__main__
 ```
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                           | [KIND]        | [CAPABILITY]                                                                                         |
-| :-----: | :-------------------------------------------------- | :------------ | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `mutmut run [MUTANT_NAMES...] --max-children N`     | CLI run       | stage `mutants/`, mutate, run the pytest selection; `--max-children` is the only concurrency control |
-|  [02]   | `mutmut results --all BOOLEAN`                      | CLI report    | print the per-mutant status roster from the cache                                                    |
-|  [03]   | `mutmut show MUTANT_NAME`                           | CLI diff      | the mutated source diff for one mutant                                                               |
-|  [04]   | `mutmut apply MUTANT_NAME`                          | CLI patch     | apply a survivor's mutation to real source to inspect the escape                                     |
-|  [05]   | `mutmut browse [--show-killed]`                     | CLI TUI       | interactive survivor browser                                                                         |
-|  [06]   | `mutmut tests-for-mutant MUTANT_NAME`               | CLI trace     | the tests that exercised a mutant's covered lines                                                    |
-|  [07]   | `mutmut print-time-estimates` · `export-cicd-stats` | CLI telemetry | worst-case per-mutant time; CI/CD stats JSON export                                                  |
+| [INDEX] | [SURFACE]                                       | [KIND]        | [CAPABILITY]                                       |
+| :-----: | :---------------------------------------------- | :------------ | :------------------------------------------------- |
+|  [01]   | `mutmut run [MUTANT_NAMES...] --max-children N` | CLI run       | stage `mutants/`, mutate, run the pytest selection |
+|  [02]   | `mutmut results --all BOOLEAN`                  | CLI report    | print the per-mutant status roster from the cache  |
+|  [03]   | `mutmut show MUTANT_NAME`                       | CLI diff      | the mutated source diff for one mutant             |
+|  [04]   | `mutmut apply MUTANT_NAME`                      | CLI patch     | apply a survivor's mutation to real source         |
+|  [05]   | `mutmut browse [--show-killed]`                 | CLI TUI       | interactive survivor browser                       |
+|  [06]   | `mutmut tests-for-mutant MUTANT_NAME`           | CLI trace     | the tests that exercised a mutant's covered lines  |
+|  [07]   | `mutmut print-time-estimates`                   | CLI telemetry | worst-case per-mutant time estimate                |
+|  [08]   | `mutmut export-cicd-stats`                      | CLI telemetry | CI/CD stats JSON export                            |
 
-```python contract
+```python signature
 # [tool.mutmut] as the repo carries it — the covered-line map is fed an absolute-keyed coverage side-file.
 source_paths = ["tools/assay"]; do_not_mutate = ["tools/assay/__init__.py", "tools/assay/rails/mutation_gate.py"]
 pytest_add_cli_args_test_selection = ["tests/python/tools/assay"]; mutate_only_covered_lines = True; max_stack_depth = -1

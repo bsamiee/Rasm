@@ -12,21 +12,21 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]           | [KIND] | [CAPABILITY]                                                    |
-| :-----: | :------------------ | :----- | :---------------------------------------------------------------- |
-|  [01]   | `FakeTimeProvider`  | clock  | controllable `TimeProvider`: manual advance, auto-advance, timezone, timers |
+| [INDEX] | [SYMBOL]           | [KIND] | [CAPABILITY]                                                                |
+| :-----: | :----------------- | :----- | :-------------------------------------------------------------------------- |
+|  [01]   | `FakeTimeProvider` | clock  | controllable `TimeProvider`: manual advance, auto-advance, timezone, timers |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                | [KIND]   | [CAPABILITY]                                                 |
-| :-----: | :---------------------------------------------------------- | :------- | :-------------------------------------------------------------- |
-|  [01]   | `new FakeTimeProvider()` / `new FakeTimeProvider(DateTimeOffset startDateTime)` | ctor | fixed epoch start or explicit start instant       |
-|  [02]   | `Advance(TimeSpan delta)` / `SetUtcNow(DateTimeOffset value)` | control | move time forward; due timers fire synchronously on the advancing thread |
-|  [03]   | `AdjustTime(DateTimeOffset value)`                           | control  | shift the clock without firing timers                            |
-|  [04]   | `AutoAdvanceAmount { get; set; }`                            | policy   | every `GetUtcNow()` read advances by the amount; default zero    |
-|  [05]   | `GetUtcNow()` / `GetTimestamp()` / `TimestampFrequency`      | read     | deterministic reads; frequency fixed at `10000000`               |
-|  [06]   | `SetLocalTimeZone(TimeZoneInfo localTimeZone)` / `LocalTimeZone` | policy | timezone-dependent behavior under test                        |
-|  [07]   | `CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)` | timer | fake `ITimer` driven purely by advances     |
+| [INDEX] | [SURFACE]                                                                               | [KIND]  | [CAPABILITY]                                                             |
+| :-----: | :-------------------------------------------------------------------------------------- | :------ | :----------------------------------------------------------------------- |
+|  [01]   | `new FakeTimeProvider()` / `new FakeTimeProvider(DateTimeOffset startDateTime)`         | ctor    | fixed epoch start or explicit start instant                              |
+|  [02]   | `Advance(TimeSpan delta)` / `SetUtcNow(DateTimeOffset value)`                           | control | move time forward; due timers fire synchronously on the advancing thread |
+|  [03]   | `AdjustTime(DateTimeOffset value)`                                                      | control | shift the clock without firing timers                                    |
+|  [04]   | `AutoAdvanceAmount { get; set; }`                                                       | policy  | every `GetUtcNow()` read advances by the amount; default zero            |
+|  [05]   | `GetUtcNow()` / `GetTimestamp()` / `TimestampFrequency`                                 | read    | deterministic reads; frequency fixed at `10000000`                       |
+|  [06]   | `SetLocalTimeZone(TimeZoneInfo localTimeZone)` / `LocalTimeZone`                        | policy  | timezone-dependent behavior under test                                   |
+|  [07]   | `CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)` | timer   | fake `ITimer` driven purely by advances                                  |
 
 ```csharp contract
 public class FakeTimeProvider : TimeProvider {

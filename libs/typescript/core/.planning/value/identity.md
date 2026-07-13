@@ -4,8 +4,8 @@ The app-identity value vocabulary: `AppIdentity` spans the eleven cross-cutting 
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                 | [PUBLIC]        |
-| :-----: | :----------------- | :----------------------------------------------------- | :-------------- |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                  | [PUBLIC]        |
+| :-----: | :----------------- | :------------------------------------------------------ | :-------------- |
 |  [01]   | `PROCESS_IDENTITY` | the eleven-dimension app identity and its brand anchors | `AppIdentity`   |
 |  [02]   | `TENANT_SCOPE`     | the tenancy value and the bidirectional scope key       | `TenantContext` |
 

@@ -48,15 +48,15 @@ class CoverageData:
 |  [07]   | `get_data` / `analysis2` / `get_option` / `set_option`       | method   | reach the live `CoverageData`, per-file analysis, and resolved config                         |
 |  [08]   | `process_startup`                                            | function | the child-process entry the shipped `.pth` invokes when the process env carries the handshake |
 
-| [INDEX] | [KEY]                             | [SCOPE]                            | [CAPABILITY]                                                                                           |
-| :-----: | :-------------------------------- | :--------------------------------- | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | `core = "sysmon"`                 | `[run]`                            | select the `sys.monitoring` core; the C tracer is absent on CPython 3.15 beta                          |
-|  [02]   | `patch = ["subprocess"]`          | `[run]`                            | children auto-measure via `COVERAGE_PROCESS_CONFIG` and the shipped `.pth`; forces parallel data files |
-|  [03]   | `relative_files`                  | `[run]`                            | key data by repo-relative paths so parallel files combine; the mutmut side-file sets it `false`        |
-|  [04]   | `branch` / `source` / `data_file` | `[run]`                            | branch mode, the measured roots, and the store location                                                |
-|  [05]   | `fail_under`                      | `[report]`                         | the total-percentage floor; `show_missing`/`skip_covered` shape the summary                            |
-|  [06]   | `exclude_also`                    | `[report]`                         | extra exclusion regexes added to the built-in defaults                                                 |
-|  [07]   | `output` · `directory`            | `[json]`/`[xml]`/`[lcov]` · `[html]` | per-format report destination under `.artifacts/python/coverage`; html names its key `directory`     |
+| [INDEX] | [KEY]                             | [SCOPE]                              | [CAPABILITY]                                                                                           |
+| :-----: | :-------------------------------- | :----------------------------------- | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | `core = "sysmon"`                 | `[run]`                              | select the `sys.monitoring` core; the C tracer is absent on CPython 3.15 beta                          |
+|  [02]   | `patch = ["subprocess"]`          | `[run]`                              | children auto-measure via `COVERAGE_PROCESS_CONFIG` and the shipped `.pth`; forces parallel data files |
+|  [03]   | `relative_files`                  | `[run]`                              | key data by repo-relative paths so parallel files combine; the mutmut side-file sets it `false`        |
+|  [04]   | `branch` / `source` / `data_file` | `[run]`                              | branch mode, the measured roots, and the store location                                                |
+|  [05]   | `fail_under`                      | `[report]`                           | the total-percentage floor; `show_missing`/`skip_covered` shape the summary                            |
+|  [06]   | `exclude_also`                    | `[report]`                           | extra exclusion regexes added to the built-in defaults                                                 |
+|  [07]   | `output` · `directory`            | `[json]`/`[xml]`/`[lcov]` · `[html]` | per-format report destination under `.artifacts/python/coverage`; html names its key `directory`       |
 
 ```python contract
 def process_startup(*, force: bool = False, slug: str = "default") -> Coverage | None: ...  # reads COVERAGE_PROCESS_START / COVERAGE_PROCESS_CONFIG

@@ -10,27 +10,24 @@ apps/
     └── <new Rhino plugin>/<Plugin>.csproj
 ```
 
-| [INDEX] | [HOST]        | [WHEN_TO_USE]                                                        | [EXAMPLES]                   |
-| :-----: | ------------- | -------------------------------------------------------------------- | ---------------------------- |
-|  [01]   | `grasshopper` | Plugin exposes Grasshopper2 components, parameter ports, IDataAccess | `<new Grasshopper plugin>`   |
-|  [02]   | `rhino`       | Plugin exposes Rhino commands, panels, overlays — no GH components   | `<new Rhino plugin>`         |
+| [INDEX] | [HOST]        | [WHEN_TO_USE]                                                        | [EXAMPLES]                 |
+| :-----: | :------------ | :------------------------------------------------------------------- | :------------------------- |
+|  [01]   | `grasshopper` | Plugin exposes Grasshopper2 components, parameter ports, IDataAccess | `<new Grasshopper plugin>` |
+|  [02]   | `rhino`       | Plugin exposes Rhino commands, panels, overlays — no GH components   | `<new Rhino plugin>`       |
 
 ## [01]-[CSPROJ_CONVENTIONS]
 
 `Directory.Build.props` auto-classifies projects by path:
-
 - `IsGrasshopperPluginProject = true` when the project is under `apps/grasshopper/`
 - `IsRhinoPluginProject = true` when the project is under `apps/rhino/`
 
 Both classifications imply:
-
 - `TargetExt = .rhp` (the Yak artifact)
 - `EnableDynamicLoading = true`
 - RhinoCommon + Eto + (for Grasshopper) Grasshopper2 / GrasshopperIO references resolved from `RhinoWIP.app`
 - `UseWorkspaceLibraries = false` (no LanguageExt prelude auto-import; plugin assemblies stay minimal)
 
 To add a new plugin:
-
 1. Create `apps/<host>/<PluginName>/<PluginName>.csproj` with `<TargetFramework>net10.0</TargetFramework>` and the `RhinoPluginAssemblyGuid` / `RhinoPluginIconResource` properties as needed.
 2. Add the project to `Workspace.slnx` under the matching `/apps/<host>/<PluginName>/` folder.
 3. Add `<YakPackageSlug>` to the project and `tools/yak/<slug>/manifest.yml` so `uv run python -m tools.assay package stage --slug <slug> --version <version>` resolves the artifact through MSBuild.

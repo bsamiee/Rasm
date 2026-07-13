@@ -11,11 +11,11 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]          | [KIND]                                       | [CAPABILITY]                                                          |
-| :-----: | :---------------- | :------------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `S3FileSystem`    | class `AsyncFileSystem` `AbstractFileSystem` | the S3 filesystem; one endpoint, sync facade over an async core       |
-|  [02]   | `S3File`          | class `AbstractBufferedFile`                 | an open object handle; `commit`/`discard` finalize a multipart write  |
-|  [03]   | `protocol`        | class attr `("s3", "s3a")`                   | the registry keys fsspec/`UPath` resolve `s3://` and `s3a://` through |
+| [INDEX] | [SYMBOL]       | [KIND]                                       | [CAPABILITY]                                                          |
+| :-----: | :------------- | :------------------------------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `S3FileSystem` | class `AsyncFileSystem` `AbstractFileSystem` | the S3 filesystem; one endpoint, sync facade over an async core       |
+|  [02]   | `S3File`       | class `AbstractBufferedFile`                 | an open object handle; `commit`/`discard` finalize a multipart write  |
+|  [03]   | `protocol`     | class attr `("s3", "s3a")`                   | the registry keys fsspec/`UPath` resolve `s3://` and `s3a://` through |
 
 ```python contract
 class S3FileSystem(AsyncFileSystem):

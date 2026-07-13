@@ -4,12 +4,12 @@ The one fault-policy owner of the branch: `FaultClass` is the severity-ordered t
 
 ## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                           | [PUBLIC]                        |
-| :-----: | :------------------ | :--------------------------------------------------------------- | :------------------------------ |
-|  [01]   | `CLASS_VOCABULARY`  | the ten-class table, classification fold, dominance lattice      | `FaultClass`                    |
-|  [02]   | `ENRICHER_CONTRACT` | the capture evidence model and the enrichment port               | `FaultCapture`, `FaultEnricher` |
-|  [03]   | `RETRY_BUDGET`      | the budget rows and their compiled gate-modal `Schedule` values  | `Budget`                        |
-|  [04]   | `DEGRADE_LADDER`    | the silence-threshold ladder and its parameterized level fold    | `Degrade`                       |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                          | [PUBLIC]                        |
+| :-----: | :------------------ | :-------------------------------------------------------------- | :------------------------------ |
+|  [01]   | `CLASS_VOCABULARY`  | the ten-class table, classification fold, dominance lattice     | `FaultClass`                    |
+|  [02]   | `ENRICHER_CONTRACT` | the capture evidence model and the enrichment port              | `FaultCapture`, `FaultEnricher` |
+|  [03]   | `RETRY_BUDGET`      | the budget rows and their compiled gate-modal `Schedule` values | `Budget`                        |
+|  [04]   | `DEGRADE_LADDER`    | the silence-threshold ladder and its parameterized level fold   | `Degrade`                       |
 
 ## [02]-[CLASS_VOCABULARY]
 

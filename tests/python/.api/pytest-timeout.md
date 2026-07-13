@@ -13,12 +13,12 @@
 
 The resolved per-item settings and the diagnostic dump the plugin emits on breach.
 
-| [INDEX] | [SYMBOL]                        | [KIND]          | [CAPABILITY]                                                                                         |
-| :-----: | :------------------------------ | :-------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `pytest_timeout.Settings`       | settings tuple  | fields `timeout`, `method`, `func_only`, `disable_debugger_detection` — the resolved per-item policy |
-|  [02]   | `pytest_timeout.DEFAULT_METHOD` | method default  | `signal` where SIGALRM exists, else `thread`                                                         |
-|  [03]   | `pytest_timeout.dump_stacks(terminal)` | diagnostic dump | writes every other thread's traceback at timeout onto the terminal writer passed as `terminal` |
-|  [04]   | `pytest_timeout.is_debugging()` | debugger probe  | suppresses the timer under a detected debugger unless detection is disabled                          |
+| [INDEX] | [SYMBOL]                               | [KIND]          | [CAPABILITY]                                                                                         |
+| :-----: | :------------------------------------- | :-------------- | :--------------------------------------------------------------------------------------------------- |
+|  [01]   | `pytest_timeout.Settings`              | settings tuple  | fields `timeout`, `method`, `func_only`, `disable_debugger_detection` — the resolved per-item policy |
+|  [02]   | `pytest_timeout.DEFAULT_METHOD`        | method default  | `signal` where SIGALRM exists, else `thread`                                                         |
+|  [03]   | `pytest_timeout.dump_stacks(terminal)` | diagnostic dump | writes every other thread's traceback at timeout onto the terminal writer passed as `terminal`       |
+|  [04]   | `pytest_timeout.is_debugging()`        | debugger probe  | suppresses the timer under a detected debugger unless detection is disabled                          |
 
 ```python contract
 class Settings(NamedTuple):

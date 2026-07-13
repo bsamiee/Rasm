@@ -12,25 +12,25 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                                | [KIND]       | [CAPABILITY]                                                       |
-| :-----: | :-------------------------------------------------------- | :----------- | :------------------------------------------------------------------ |
-|  [01]   | `TestApplication`                                          | host         | `CreateBuilderAsync(args, options)` / `CreateServerModeBuilderAsync`; `RunAsync()` |
-|  [02]   | `ITestApplicationBuilder`                                  | builder      | `TestHost`, `TestHostControllers`, `CommandLine`, `Configuration`, `Logging`; `RegisterTestFramework`, `BuildAsync` |
-|  [03]   | `TestApplicationOptions`                                   | options      | `EnableTelemetry` and configuration seed                            |
-|  [04]   | `TestingPlatformBuilderHook` (MSBuild item)                | registration | GUID + `TypeFullName` rows the entry-point generator wires in, ordered by well-known GUID |
+| [INDEX] | [SYMBOL]                                    | [KIND]       | [CAPABILITY]                                                                                                        |
+| :-----: | :------------------------------------------ | :----------- | :------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `TestApplication`                           | host         | `CreateBuilderAsync(args, options)` / `CreateServerModeBuilderAsync`; `RunAsync()`                                  |
+|  [02]   | `ITestApplicationBuilder`                   | builder      | `TestHost`, `TestHostControllers`, `CommandLine`, `Configuration`, `Logging`; `RegisterTestFramework`, `BuildAsync` |
+|  [03]   | `TestApplicationOptions`                    | options      | `EnableTelemetry` and configuration seed                                                                            |
+|  [04]   | `TestingPlatformBuilderHook` (MSBuild item) | registration | GUID + `TypeFullName` rows the entry-point generator wires in, ordered by well-known GUID                           |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                               | [KIND]  | [CAPABILITY]                                                     |
-| :-----: | :----------------------------------------------------------------------- | :------ | :----------------------------------------------------------------- |
-|  [01]   | `--results-directory` / `--report-trx` / `--report-trx-filename`          | CLI     | TRX evidence routing; filename requires `--report-trx`, forbidden with `--list-tests` |
-|  [02]   | `--crashdump` / `--crashdump-type` / `--crashdump-filename`               | CLI     | crash dump capture                                                  |
-|  [03]   | `--hangdump` / `--hangdump-type` / `--hangdump-timeout` / `--hangdump-filename` | CLI | hang dump capture; sub-options demand the master switch          |
-|  [04]   | `--retry-failed-tests <n>` / `--retry-failed-tests-max-percentage` / `--retry-failed-tests-max-tests` | CLI | in-process retry; percentage and count are mutually exclusive |
-|  [05]   | `--filter` / `--list-tests` / `--minimum-expected-tests` / `--maximum-failed-tests` | CLI | selection and run-shape gates                                 |
-|  [06]   | `--diagnostic*` / `--timeout` / `--ignore-exit-code` / `--no-banner` / `--no-progress` | CLI | run diagnostics and output control                          |
-|  [07]   | `TestingPlatformCommandLineArguments` (MSBuild)                           | property | verbatim argument splice into the test process; the estate's coverage gate rides it |
-|  [08]   | `testconfig.json` -> `$(AssemblyName).testconfig.json`                    | config  | file-borne platform options; copied beside the executable at build  |
+| [INDEX] | [SURFACE]                                                                                             | [KIND]   | [CAPABILITY]                                                                          |
+| :-----: | :---------------------------------------------------------------------------------------------------- | :------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `--results-directory` / `--report-trx` / `--report-trx-filename`                                      | CLI      | TRX evidence routing; filename requires `--report-trx`, forbidden with `--list-tests` |
+|  [02]   | `--crashdump` / `--crashdump-type` / `--crashdump-filename`                                           | CLI      | crash dump capture                                                                    |
+|  [03]   | `--hangdump` / `--hangdump-type` / `--hangdump-timeout` / `--hangdump-filename`                       | CLI      | hang dump capture; sub-options demand the master switch                               |
+|  [04]   | `--retry-failed-tests <n>` / `--retry-failed-tests-max-percentage` / `--retry-failed-tests-max-tests` | CLI      | in-process retry; percentage and count are mutually exclusive                         |
+|  [05]   | `--filter` / `--list-tests` / `--minimum-expected-tests` / `--maximum-failed-tests`                   | CLI      | selection and run-shape gates                                                         |
+|  [06]   | `--diagnostic*` / `--timeout` / `--ignore-exit-code` / `--no-banner` / `--no-progress`                | CLI      | run diagnostics and output control                                                    |
+|  [07]   | `TestingPlatformCommandLineArguments` (MSBuild)                                                       | property | verbatim argument splice into the test process; the estate's coverage gate rides it   |
+|  [08]   | `testconfig.json` -> `$(AssemblyName).testconfig.json`                                                | config   | file-borne platform options; copied beside the executable at build                    |
 
 ```csharp contract
 public static class TestApplication {

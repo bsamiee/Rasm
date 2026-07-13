@@ -11,15 +11,15 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]      | [KIND]       | [CAPABILITY]                                                                               |
-| :-----: | :------------ | :----------- | :----------------------------------------------------------------------------------------- |
-|  [01]   | `Snapshot[T]` | generic type | the value a `snapshot()` call stands in for; comparison and containment resolve against it |
-|  [02]   | `SnapshotArg` | type alias   | a `Snapshot[T] \| T` parameter — a helper accepts a live value or a snapshot placeholder   |
-|  [03]   | `Is(value)`   | wrapper      | embeds a runtime value inside a snapshot literal so a dynamic field stays comparable       |
-|  [04]   | `Category`    | Literal alias | the change categories `create`/`fix`/`fix-assert`/`trim`/`update` a run flag activates    |
-|  [05]   | `Format`      | protocol     | the serialization contract `register_format` binds for an external-file suffix             |
-|  [06]   | `HasRepr`     | wrapper      | asserts an object's `repr` inside a snapshot without an equality-comparable value          |
-|  [07]   | `UsageError`  | exception    | raised on a malformed snapshot call or an unmanaged-value misuse                           |
+| [INDEX] | [SYMBOL]      | [KIND]        | [CAPABILITY]                                                                               |
+| :-----: | :------------ | :------------ | :----------------------------------------------------------------------------------------- |
+|  [01]   | `Snapshot[T]` | generic type  | the value a `snapshot()` call stands in for; comparison and containment resolve against it |
+|  [02]   | `SnapshotArg` | type alias    | a `Snapshot[T] \| T` parameter — a helper accepts a live value or a snapshot placeholder   |
+|  [03]   | `Is(value)`   | wrapper       | embeds a runtime value inside a snapshot literal so a dynamic field stays comparable       |
+|  [04]   | `Category`    | Literal alias | the change categories `create`/`fix`/`fix-assert`/`trim`/`update` a run flag activates     |
+|  [05]   | `Format`      | protocol      | the serialization contract `register_format` binds for an external-file suffix             |
+|  [06]   | `HasRepr`     | wrapper       | asserts an object's `repr` inside a snapshot without an equality-comparable value          |
+|  [07]   | `UsageError`  | exception     | raised on a malformed snapshot call or an unmanaged-value misuse                           |
 
 ```python contract
 def snapshot(obj: T = ...) -> T: ...                                    # empty snapshot() records on the create flag

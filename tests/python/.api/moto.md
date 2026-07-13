@@ -11,12 +11,12 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]             | [KIND]                    | [CAPABILITY]                                                                               |
-| :-----: | :------------------- | :------------------------ | :----------------------------------------------------------------------------------------- |
-|  [01]   | `ThreadedMotoServer` | class                     | Werkzeug server on a background thread projecting every backend over HTTP                  |
-|  [02]   | `MockAWS`            | context object            | the object `mock_aws()` returns; `start`/`stop` bracket the intercept window               |
-|  [03]   | `DefaultConfig`      | config mapping            | per-service knobs (`core.reset_boto3_session`, passthrough) forwarded into `mock_aws`      |
-|  [04]   | `DEFAULT_ACCOUNT_ID` | constant `"123456789012"` | the `moto.core` account id backends key under for the static test credentials              |
+| [INDEX] | [SYMBOL]             | [KIND]                    | [CAPABILITY]                                                                          |
+| :-----: | :------------------- | :------------------------ | :------------------------------------------------------------------------------------ |
+|  [01]   | `ThreadedMotoServer` | class                     | Werkzeug server on a background thread projecting every backend over HTTP             |
+|  [02]   | `MockAWS`            | context object            | the object `mock_aws()` returns; `start`/`stop` bracket the intercept window          |
+|  [03]   | `DefaultConfig`      | config mapping            | per-service knobs (`core.reset_boto3_session`, passthrough) forwarded into `mock_aws` |
+|  [04]   | `DEFAULT_ACCOUNT_ID` | constant `"123456789012"` | the `moto.core` account id backends key under for the static test credentials         |
 
 ```python contract
 class ThreadedMotoServer:

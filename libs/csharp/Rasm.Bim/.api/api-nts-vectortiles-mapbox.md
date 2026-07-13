@@ -1,15 +1,8 @@
 # [RASM_BIM_API_NTS_VECTORTILES_MAPBOX]
 
-`NetTopologySuite.IO.VectorTiles.Mapbox` is the protobuf-net wire codec for the
-`NetTopologySuite.IO.VectorTiles` in-memory model (`.api/api-nts-vectortiles`): `MapboxTileWriter`
-encodes a `VectorTileTree` / `VectorTile` to the Mapbox-Vector-Tile (MVT, spec) protobuf —
-either an `{z}/{x}/{y}.mvt` directory pyramid or a single `Stream` — and `MapboxTileReader`
-decodes one MVT `Stream` back to a `VectorTile` of NTS `IFeature` rows. `VectorTileSource` /
-`VectorLayer` are the TileJSON catalog descriptor a renderer reads to discover the pyramid.
-It is the byte-emitting half of the MVT pair the `Semantics/geospatial#GEOSPATIAL_SEAM` web-tile
-leg composes: the `GeoFeature` rows the site model produces are sliced into a `VectorTileTree`
-by the sibling package, then written here to the `.mvt` pyramid MapLibre/Mapbox-GL renders,
-distinct from the 3D-Tiles glTF stack.
+`NetTopologySuite.IO.VectorTiles.Mapbox` is the protobuf-net wire codec for the `NetTopologySuite.IO.VectorTiles` in-memory model (`.api/api-nts-vectortiles`): `MapboxTileWriter` encodes a `VectorTileTree` / `VectorTile` to the Mapbox-Vector-Tile (MVT, spec) protobuf — either an `{z}/{x}/{y}.mvt` directory pyramid or a single `Stream` — and `MapboxTileReader` decodes one MVT `Stream` back to a `VectorTile` of NTS `IFeature` rows. `VectorTileSource` / `VectorLayer` are the TileJSON catalog descriptor a renderer reads to discover the pyramid.
+
+It is the byte-emitting half of the MVT pair the `Semantics/geospatial#GEOSPATIAL_SEAM` web-tile leg composes: the `GeoFeature` rows the site model produces are sliced into a `VectorTileTree` by the sibling package, then written here to the `.mvt` pyramid MapLibre/Mapbox-GL renders, distinct from the 3D-Tiles glTF stack.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -31,12 +24,41 @@ distinct from the 3D-Tiles glTF stack.
 - namespace: `NetTopologySuite.IO.VectorTiles.Mapbox`
 - rail: geometry
 
-| [INDEX] | [SYMBOL]           | [RAIL]   | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                            |
-| :-----: | :----------------- | :------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `MapboxTileReader` | geometry | the MVT decode; ctors `MapboxTileReader()` (EPSG:4326 `GeometryFactory`) / `MapboxTileReader(GeometryFactory)`, `VectorTile Read(Stream, Tile tileDefinition)` / `Read(Stream, Tile, string idAttributeName)` — deserializes the protobuf and de-quantizes each layer's `Extent`-grid integer geometry back to EPSG:4326 against the `Tile` bbox                        |
-|  [02]   | `MapboxTileWriter` | geometry | the MVT encode — a static extension class over `VectorTileTree`/`IEnumerable<VectorTile>`/`VectorTile` (see [03]); `const uint DefaultMinLinealExtent = 1`, `DefaultMinPolygonalExtent = 2`, `const string DefaultIdAttributeName = "id"`                                                                                                                               |
-|  [03]   | `VectorTileSource` | geometry | the TileJSON source descriptor; `string[] tiles` (URL templates), `int minzoom`/`maxzoom`, `double[] bounds`, `string name`/`description`/`attribution`/`format` (`"pbf"`)/`id`/`basename`/`version` (`""`)/`tilejson` (`""`), `VectorLayer[] vector_layers` — the JSON catalog a MapLibre/Mapbox-GL style points its source at (field names are the wire `snake_case`) |
-|  [04]   | `VectorLayer`      | geometry | one TileJSON `vector_layers[]` entry; `int minzoom`/`maxzoom`, `string id`, `string description` — the per-layer zoom advertisement the renderer reads                                                                                                                                                                                                                  |
+| [INDEX] | [SYMBOL]           | [KIND]            | [CAPABILITY]                       |
+| :-----: | :----------------- | :---------------- | :--------------------------------- |
+|  [01]   | `MapboxTileReader` | decode class      | the MVT decode surface             |
+|  [02]   | `MapboxTileWriter` | encode extensions | the MVT encode over the tile model |
+|  [03]   | `VectorTileSource` | TileJSON DTO      | the pyramid source descriptor      |
+|  [04]   | `VectorLayer`      | TileJSON DTO      | one per-layer zoom advertisement   |
+
+```csharp signature
+public sealed class MapboxTileReader {
+    public MapboxTileReader();                                  // EPSG:4326 GeometryFactory
+    public MapboxTileReader(GeometryFactory factory);
+}
+
+// static extension class over the tile model; Write overloads catalogued in [03]-[ENTRYPOINTS]
+public static class MapboxTileWriter {
+    public const uint DefaultMinLinealExtent = 1;
+    public const uint DefaultMinPolygonalExtent = 2;
+    public const string DefaultIdAttributeName = "id";
+}
+
+// TileJSON catalog a MapLibre/Mapbox-GL style points its source at; field names are the wire snake_case
+public sealed class VectorTileSource {
+    public string[] tiles;                                      // URL templates
+    public int minzoom, maxzoom;
+    public double[] bounds;
+    public string name, description, attribution;
+    public string format, id, basename, version, tilejson;      // format "pbf"; version, tilejson default ""
+    public VectorLayer[] vector_layers;
+}
+
+public sealed class VectorLayer {
+    public int minzoom, maxzoom;
+    public string id, description;
+}
+```
 
 ## [03]-[ENTRYPOINTS]
 
@@ -44,23 +66,24 @@ distinct from the 3D-Tiles glTF stack.
 - package: `NetTopologySuite.IO.VectorTiles.Mapbox`
 - namespace: `NetTopologySuite.IO.VectorTiles.Mapbox`
 - rail: geometry
+- call: every `Write` overload takes `(target, uint minLinealExtent, uint minPolygonalExtent, uint extent = 4096, string idAttributeName = "id")` — `extent` is the tile-local integer grid, the two extents cull sub-pixel features, and the `[Obsolete]` overloads omit both cull knobs
 
-| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]                                                                                                        | [CAPABILITY]                                                                                                                                                                                                             |
-| :-----: | :-------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `VectorTileTree.Write`                                          | `(string path, uint minLinealExtent, uint minPolygonalExtent, uint extent = 4096, string idAttributeName = "id")`   | writes the whole pyramid as an `{path}/{z}/{x}/{y}.mvt` directory tree (one file per populated tile); `extent` is the tile-local integer grid resolution, `minLinealExtent`/`minPolygonalExtent` drop sub-pixel features |
-|  [02]   | `IEnumerable<VectorTile>.Write`                                 | `(string path, uint minLinealExtent, uint minPolygonalExtent, uint extent = 4096, string idAttributeName = "id")`   | the same directory-pyramid write driven by an explicit tile sequence                                                                                                                                                     |
-|  [03]   | `VectorTile.Write`                                              | `(Stream stream, uint minLinealExtent, uint minPolygonalExtent, uint extent = 4096, string idAttributeName = "id")` | encodes ONE tile to a `Stream` — the form for a tile server / object-store PUT rather than a filesystem pyramid                                                                                                          |
-|  [04]   | `VectorTileTree.Write` / `VectorTile.Write` (obsolete overload) | `(…, uint extent = 4096[, string idAttributeName = "id"])`                                                          | the `[Obsolete]` overloads WITHOUT the `minLineal`/`minPolygonalExtent` knobs — bind the full-arity forms above                                                                                                          |
+| [INDEX] | [SURFACE]                       | [CAPABILITY]                                     |
+| :-----: | :------------------------------ | :----------------------------------------------- |
+|  [01]   | `VectorTileTree.Write`          | the whole `{z}/{x}/{y}.mvt` directory pyramid    |
+|  [02]   | `IEnumerable<VectorTile>.Write` | the pyramid from an explicit tile sequence       |
+|  [03]   | `VectorTile.Write`              | one tile to a `Stream` for a server or store PUT |
 
 [ENTRYPOINT_SCOPE]: tile decode (`MapboxTileReader`)
 - package: `NetTopologySuite.IO.VectorTiles.Mapbox`
 - namespace: `NetTopologySuite.IO.VectorTiles.Mapbox`
 - rail: geometry
+- call: `Read(Stream stream, Tile tileDefinition[, string idAttributeName]) → VectorTile` — the `Tile(z,x,y)` anchor is mandatory; MVT bytes carry only tile-local integer coordinates, never the geographic frame
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                                                  | [CAPABILITY]                                                                                                                                                             |
-| :-----: | :---------------------- | :---------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `MapboxTileReader.Read` | `(Stream stream, Tile tileDefinition)` → `VectorTile`                         | decodes the MVT protobuf and de-quantizes the integer tile-grid geometry to EPSG:4326 against `tileDefinition`'s bbox (the `Tile(z,x,y)` the stored tile id resolves to) |
-|  [02]   | `MapboxTileReader.Read` | `(Stream stream, Tile tileDefinition, string idAttributeName)` → `VectorTile` | the same decode threading the feature `Id` onto an attribute named `idAttributeName` so the round-tripped `IFeature` carries the MVT feature id                          |
+| [INDEX] | [SURFACE]               | [CAPABILITY]                                                    |
+| :-----: | :---------------------- | :-------------------------------------------------------------- |
+|  [01]   | `MapboxTileReader.Read` | decode one MVT stream against its `Tile` anchor                 |
+|  [02]   | `MapboxTileReader.Read` | the same decode threading the feature id onto `idAttributeName` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

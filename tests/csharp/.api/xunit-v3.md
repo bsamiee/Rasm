@@ -20,7 +20,7 @@ The xunit.v3 family carries the whole C# proof estate: `xunit.v3.assert` is the 
 |  [04]   | `TheoryData<...>` / `TheoryDataRow<...>`                                           | data carrier       | typed theory rows, 16 arities each                                        |
 |  [05]   | `CollectionAttribute` / `CollectionAttribute<T>` / `CollectionDefinitionAttribute` | attribute          | collection grouping and per-collection parallelism opt-out                |
 |  [06]   | `CollectionBehaviorAttribute`                                                      | assembly attribute | assembly parallelism policy: algorithm, max threads, disable              |
-|  [07]   | `IClassFixture<T>` / `ICollectionFixture<T>` / `AssemblyFixtureAttribute` | fixture | class, collection, and assembly fixture tiers |
+|  [07]   | `IClassFixture<T>` / `ICollectionFixture<T>` / `AssemblyFixtureAttribute`          | fixture            | class, collection, and assembly fixture tiers                             |
 |  [08]   | `TraitAttribute` / `TestCaseOrdererAttribute`                                      | attribute          | trait tagging and case ordering                                           |
 |  [09]   | `ITestOutputHelper` / `TestContext`                                                | service            | per-test output sink and ambient test state                               |
 |  [10]   | `Xunit.Sdk.XunitException` family                                                  | exception          | typed assertion failures (`AllException`, `CollectionException`, ...)     |

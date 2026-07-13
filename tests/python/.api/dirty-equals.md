@@ -11,20 +11,20 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                                   | [KIND]            | [CAPABILITY]                                                                        |
-| :-----: | :--------------------------------------------------------- | :---------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `DirtyEquals[T]`                                           | generic base      | the matcher root; `__eq__` asserts a property and `&`/`\|`/`~` compose matchers     |
-|  [02]   | `AnyThing`                                                 | matcher           | matches any value — the total-acceptance leaf for a don't-care field                |
-|  [03]   | `IsOneOf`                                                  | matcher           | matches when the value equals one of the supplied alternatives                      |
-|  [04]   | `IsInstance`                                               | matcher           | matches on type membership; `only_direct_instance=` forbids subclasses              |
-|  [05]   | `IsInt` / `IsFloat` / `IsApprox`                           | numeric matcher   | bound a number by `gt`/`lt`/`ge`/`le`/`exactly` or a `delta` tolerance              |
-|  [06]   | `IsStr` / `IsBytes`                                        | text matcher      | bound length, case, or a `regex` pattern on a string or byte string                 |
-|  [07]   | `IsList` / `IsTuple`                                       | sequence matcher  | match items, `positions`, `length`, and `check_order` on a sequence                 |
-|  [08]   | `IsDict` / `IsPartialDict` / `IsStrictDict`                | mapping matcher   | exact, subset, or key-ordered mapping match from keyword or positional keys         |
-|  [09]   | `IsDatetime` / `IsNow`                                     | temporal matcher  | bound a datetime by `delta`/`approx` with `enforce_tz`; `IsNow` alone carries `tz`  |
-|  [10]   | `IsUUID` / `IsUrl` / `IsIP` / `IsHash`                     | format matcher    | assert a value conforms to a UUID, URL, IP, or hash shape                           |
-|  [11]   | `IsJson`                                                   | decode matcher    | parse a JSON string and match its decoded structure against a nested matcher        |
-|  [12]   | `IsPositive` / `IsNegative` / `IsTrueLike` / `IsFalseLike` | predicate matcher | sign and truthiness predicates over a numeric or coercible value                    |
+| [INDEX] | [SYMBOL]                                                   | [KIND]            | [CAPABILITY]                                                                       |
+| :-----: | :--------------------------------------------------------- | :---------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `DirtyEquals[T]`                                           | generic base      | the matcher root; `__eq__` asserts a property and `&`/`\|`/`~` compose matchers    |
+|  [02]   | `AnyThing`                                                 | matcher           | matches any value — the total-acceptance leaf for a don't-care field               |
+|  [03]   | `IsOneOf`                                                  | matcher           | matches when the value equals one of the supplied alternatives                     |
+|  [04]   | `IsInstance`                                               | matcher           | matches on type membership; `only_direct_instance=` forbids subclasses             |
+|  [05]   | `IsInt` / `IsFloat` / `IsApprox`                           | numeric matcher   | bound a number by `gt`/`lt`/`ge`/`le`/`exactly` or a `delta` tolerance             |
+|  [06]   | `IsStr` / `IsBytes`                                        | text matcher      | bound length, case, or a `regex` pattern on a string or byte string                |
+|  [07]   | `IsList` / `IsTuple`                                       | sequence matcher  | match items, `positions`, `length`, and `check_order` on a sequence                |
+|  [08]   | `IsDict` / `IsPartialDict` / `IsStrictDict`                | mapping matcher   | exact, subset, or key-ordered mapping match from keyword or positional keys        |
+|  [09]   | `IsDatetime` / `IsNow`                                     | temporal matcher  | bound a datetime by `delta`/`approx` with `enforce_tz`; `IsNow` alone carries `tz` |
+|  [10]   | `IsUUID` / `IsUrl` / `IsIP` / `IsHash`                     | format matcher    | assert a value conforms to a UUID, URL, IP, or hash shape                          |
+|  [11]   | `IsJson`                                                   | decode matcher    | parse a JSON string and match its decoded structure against a nested matcher       |
+|  [12]   | `IsPositive` / `IsNegative` / `IsTrueLike` / `IsFalseLike` | predicate matcher | sign and truthiness predicates over a numeric or coercible value                   |
 
 ```python contract
 class DirtyEquals[T]:

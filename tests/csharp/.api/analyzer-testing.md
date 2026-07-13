@@ -12,26 +12,26 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                                        | [KIND]      | [CAPABILITY]                                                        |
-| :-----: | :----------------------------------------------------------------- | :---------- | :--------------------------------------------------------------------- |
-|  [01]   | `CSharpAnalyzerTest<TAnalyzer, TVerifier>`                          | harness     | the C# analyzer run: parse/compilation options, single-analyzer binding |
-|  [02]   | `CSharpAnalyzerVerifier<TAnalyzer, TVerifier>`                      | facade      | static `Diagnostic()` builders and `VerifyAnalyzerAsync`               |
-|  [03]   | `AnalyzerTest<TVerifier>`                                           | base        | `TestCode`, `TestState`, `ExpectedDiagnostics`, `ReferenceAssemblies`, `SolutionTransforms`, `RunAsync` |
-|  [04]   | `SolutionState` / `ProjectState`                                    | state       | `Sources`, `GeneratedSources`, `AdditionalFiles`, `AnalyzerConfigFiles`, `AdditionalReferences` |
-|  [05]   | `DiagnosticResult`                                                  | expectation | fluent `WithSpan/WithLocation/WithArguments/WithSeverity` rows          |
-|  [06]   | `ReferenceAssemblies` / `PackageIdentity`                           | references  | TFM presets (`Net100` -> `Microsoft.NETCore.App.Ref`) + NuGet package resolution |
-|  [07]   | `DefaultVerifier`                                                   | verifier    | the shipped `IVerifier`; xunit-free failure surfacing                   |
-|  [08]   | `TestFileMarkupParser`                                              | markup      | position, span, and named-span markup grammar over `TestCode`           |
+| [INDEX] | [SYMBOL]                                       | [KIND]      | [CAPABILITY]                                                                                            |
+| :-----: | :--------------------------------------------- | :---------- | :------------------------------------------------------------------------------------------------------ |
+|  [01]   | `CSharpAnalyzerTest<TAnalyzer, TVerifier>`     | harness     | the C# analyzer run: parse/compilation options, single-analyzer binding                                 |
+|  [02]   | `CSharpAnalyzerVerifier<TAnalyzer, TVerifier>` | facade      | static `Diagnostic()` builders and `VerifyAnalyzerAsync`                                                |
+|  [03]   | `AnalyzerTest<TVerifier>`                      | base        | `TestCode`, `TestState`, `ExpectedDiagnostics`, `ReferenceAssemblies`, `SolutionTransforms`, `RunAsync` |
+|  [04]   | `SolutionState` / `ProjectState`               | state       | `Sources`, `GeneratedSources`, `AdditionalFiles`, `AnalyzerConfigFiles`, `AdditionalReferences`         |
+|  [05]   | `DiagnosticResult`                             | expectation | fluent `WithSpan/WithLocation/WithArguments/WithSeverity` rows                                          |
+|  [06]   | `ReferenceAssemblies` / `PackageIdentity`      | references  | TFM presets (`Net100` -> `Microsoft.NETCore.App.Ref`) + NuGet package resolution                        |
+|  [07]   | `DefaultVerifier`                              | verifier    | the shipped `IVerifier`; xunit-free failure surfacing                                                   |
+|  [08]   | `TestFileMarkupParser`                         | markup      | position, span, and named-span markup grammar over `TestCode`                                           |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                                | [KIND]      | [CAPABILITY]                                                   |
-| :-----: | :---------------------------------------------------------------------------- | :---------- | :----------------------------------------------------------------- |
-|  [01]   | `new CSharpAnalyzerTest<TAnalyzer, DefaultVerifier> { TestCode = ..., ... }.RunAsync(ct)` | harness | the whole analyzer verification run                    |
-|  [02]   | `test.TestState.Sources.Add((path, content))` / `.AnalyzerConfigFiles.Add(...)` | state     | multi-file solutions, editorconfig-driven rule configuration       |
-|  [03]   | `test.ExpectedDiagnostics.Add(DiagnosticResult.CompilerError("CS...")...)`      | expectation | exact diagnostic set; `CompilerDiagnostics` widens the compiler net |
-|  [04]   | `test.ReferenceAssemblies = new ReferenceAssemblies("net10.0", new PackageIdentity(...), path).AddPackages(...)` | references | compiled-against surface, NuGet-restored per TFM |
-|  [05]   | `TestBehaviors.SkipGeneratedCodeCheck` / `MarkupOptions.TreatPositionIndicatorsAsCode` | policy | harness behavior toggles                                 |
+| [INDEX] | [SURFACE]                                                                                                                                                       | [KIND]         | [CAPABILITY]                                                                                      |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `new CSharpAnalyzerTest<TAnalyzer, DefaultVerifier> { TestCode = ..., ... }.RunAsync(ct)`                                                                       | harness        | the whole analyzer verification run                                                               |
+|  [02]   | `test.TestState.Sources.Add((path, content))` / `.AnalyzerConfigFiles.Add(...)`                                                                                 | state          | multi-file solutions, editorconfig-driven rule configuration                                      |
+|  [03]   | `test.ExpectedDiagnostics.Add(DiagnosticResult.CompilerError("CS...")...)`                                                                                      | expectation    | exact diagnostic set; `CompilerDiagnostics` widens the compiler net                               |
+|  [04]   | `test.ReferenceAssemblies = new ReferenceAssemblies("net10.0", new PackageIdentity(...), path).AddPackages(...)`                                                | references     | compiled-against surface, NuGet-restored per TFM                                                  |
+|  [05]   | `TestBehaviors.SkipGeneratedCodeCheck` / `MarkupOptions.TreatPositionIndicatorsAsCode`                                                                          | policy         | harness behavior toggles                                                                          |
 |  [06]   | `CSharpGeneratorDriver.Create(generator, driverOptions: new GeneratorDriverOptions(IncrementalGeneratorOutputKind.None, trackIncrementalGeneratorSteps: true))` | generator lane | the estate's generator harness — Roslyn-direct, cache-reason assertions over `TrackedOutputSteps` |
 
 ```csharp contract

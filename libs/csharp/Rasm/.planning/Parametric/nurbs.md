@@ -419,16 +419,23 @@ flowchart LR
 
 ## [03]-[DENSITY_BAR]
 
-One owner per axis; capability is a case, row, or member on the owning carrier, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
+One owner per axis; capability is a case, row, or member on the owning carrier, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes, and the per-axis collapse strategy rides the indexed notes below.
 
-| [INDEX] | [AXIS_CONCERN] | [OWNER]                          | [KIND]                                                                                    | [RAIL]                                              | [CASES] |
-| :-----: | :------------- | :------------------------------- | :---------------------------------------------------------------------------------------- | :-------------------------------------------------- | :-----: |
-|  [01]   | Admission      | `NurbsWire` + `Nurbs`            | `[Union]` four wire shapes folded by ONE `Of` (`MODAL_ARITY` — fitting is policy data)    | `Nurbs.Of → Fin<NurbsForm>`                         |    4    |
-|  [1a]   | Carrier        | `NurbsForm`                      | `[Union]` `Curve`/`Surface` over homogeneous SoA columns; evaluation members ON the cases | member rails (`Fin` where post-conditions can fail) |    2    |
-|  [1b]   | Knot algebra   | `KnotVector`                     | normalized-clamped vector + span search + merge; both wire spellings admitted at one seam | `Of → Fin<KnotVector>`                              |    —    |
-|  [1c]   | Engine knobs   | `NurbsPolicy`                    | policy row — GL order · inversion tolerance · G7 projection knobs · #373 closure row      | value (`IValidityEvidence`)                         |    —    |
-|  [1d]   | Fitting rows   | `FitKind`/`FitPolicy`            | generator rows — interpolate/approximate · degree · parameterization · tangents · budget  | data on the fitting wires                           |    2    |
-|  [1e]   | Vocabularies   | `ParametricDirection`/`KnotForm` | `[SmartEnum]` U/V axis rows · clamped/periodic origin rows                                | discriminants                                       |   2·2   |
+| [INDEX] | [AXIS_CONCERN] | [OWNER]                          | [RAIL]                      | [CASES] |
+| :-----: | :------------- | :------------------------------- | :-------------------------- | :-----: |
+|  [01]   | Admission      | `NurbsWire` + `Nurbs`            | `Nurbs.Of → Fin<NurbsForm>` |    4    |
+|  [02]   | Carrier        | `NurbsForm`                      | member `Fin` rails          |    2    |
+|  [03]   | Knot algebra   | `KnotVector`                     | `Of → Fin<KnotVector>`      |    —    |
+|  [04]   | Engine knobs   | `NurbsPolicy`                    | `IValidityEvidence`         |    —    |
+|  [05]   | Fitting rows   | `FitKind`/`FitPolicy`            | fitting-wire data           |    2    |
+|  [06]   | Vocabularies   | `ParametricDirection`/`KnotForm` | discriminants               |   2·2   |
+
+- [01]-[ADMISSION]: `[Union]` four wire shapes folded by ONE `Of` (`MODAL_ARITY` — fitting is policy data).
+- [02]-[CARRIER]: `[Union]` `Curve`/`Surface` over homogeneous SoA columns, evaluation members ON the cases.
+- [03]-[KNOT_ALGEBRA]: normalized-clamped vector, span search, and merge, both wire spellings admitted at one seam.
+- [04]-[ENGINE_KNOBS]: policy row — GL order, inversion tolerance, G7 projection knobs, #373 closure row.
+- [05]-[FITTING_ROWS]: generator rows — interpolate/approximate, degree, parameterization, tangents, budget.
+- [06]-[VOCABULARIES]: `[SmartEnum]` U/V axis rows, clamped/periodic origin rows.
 
 The `NurbsKernel` signature-pinned members are the vendored NURBS-Book transcription targets (basis/De Boor/derivative/insertion/decomposition/elevation, each annotated with its algorithm number); the page's OWN bodies are the composed seams — the quadrature/inversion/projection numeric composition, the admission and normalization law, and the identity projection — exactly the split between owned textbook arithmetic and composed library depth.
 

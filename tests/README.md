@@ -96,23 +96,23 @@ Tool-admission litter rule: a change that admits or reconfigures any tool proves
 
 Every new suite, kit capability, fixture, or corpus asset has exactly one home; extending the canonical owner always beats adding a sibling, and an owner whose shape is no longer the densest is rebuilt ground-up, never accreted around:
 
-| [INDEX] | [ADDITION]               | [HOME]                                                                                   |
-| :-----: | :----------------------- | :--------------------------------------------------------------------------------------- |
-|  [01]   | C# per-package suite     | `tests/csharp/libs/<Package>/`, specs mirroring source paths as `<Source>.spec.cs`       |
-|  [02]   | C# scenario              | `tests/csharp/scenarios`                                                                 |
-|  [03]   | C# kit capability        | `tests/csharp/_testkit` (host-free) or `tests/csharp/_scenariokit` (host-aware)          |
-|  [04]   | C# infra-tool suite      | `tests/csharp/tools/<tool>/`                                                             |
-|  [05]   | C# gated benchmark       | `tests/csharp/_benchmarks` — a gated case is a registry row beside the switcher          |
-|  [06]   | Python per-package suite | `tests/python/libs/<package>/`                                                           |
-|  [07]   | Python kit capability    | the owning module in `tests/python/_testkit`                                             |
-|  [08]   | Python tool suite        | `tests/python/tools/<tool>/`                                                             |
-|  [09]   | Python dev-tool API catalog | `tests/python/.api/`, one catalog per dev-plane package                               |
-|  [10]   | TS unit spec             | beside its source in `libs/typescript`                                                   |
-|  [11]   | TS kit capability        | `tests/typescript/_testkit`                                                              |
-|  [12]   | TS e2e suite             | `tests/typescript/e2e`                                                                   |
-|  [13]   | TS architecture gauge    | `tests/typescript/_architecture` — branch-boundary suites the exports map cannot express |
-|  [14]   | TS dev-tool API catalog  | `tests/typescript/.api/`, one catalog per dev-plane package                              |
-|  [15]   | contract corpus seam     | `tests/contracts/<seam>/` per the corpus law                                             |
+| [INDEX] | [ADDITION]                  | [HOME]                                                                                   |
+| :-----: | :-------------------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | C# per-package suite        | `tests/csharp/libs/<Package>/`, specs mirroring source paths as `<Source>.spec.cs`       |
+|  [02]   | C# scenario                 | `tests/csharp/scenarios`                                                                 |
+|  [03]   | C# kit capability           | `tests/csharp/_testkit` (host-free) or `tests/csharp/_scenariokit` (host-aware)          |
+|  [04]   | C# infra-tool suite         | `tests/csharp/tools/<tool>/`                                                             |
+|  [05]   | C# gated benchmark          | `tests/csharp/_benchmarks` — a gated case is a registry row beside the switcher          |
+|  [06]   | Python per-package suite    | `tests/python/libs/<package>/`                                                           |
+|  [07]   | Python kit capability       | the owning module in `tests/python/_testkit`                                             |
+|  [08]   | Python tool suite           | `tests/python/tools/<tool>/`                                                             |
+|  [09]   | Python dev-tool API catalog | `tests/python/.api/`, one catalog per dev-plane package                                  |
+|  [10]   | TS unit spec                | beside its source in `libs/typescript`                                                   |
+|  [11]   | TS kit capability           | `tests/typescript/_testkit`                                                              |
+|  [12]   | TS e2e suite                | `tests/typescript/e2e`                                                                   |
+|  [13]   | TS architecture gauge       | `tests/typescript/_architecture` — branch-boundary suites the exports map cannot express |
+|  [14]   | TS dev-tool API catalog     | `tests/typescript/.api/`, one catalog per dev-plane package                              |
+|  [15]   | contract corpus seam        | `tests/contracts/<seam>/` per the corpus law                                             |
 
 Per-package mirror law: where the ecosystem separates tests from source, suite homes mirror the production tree — C# shells under `tests/csharp/libs` mirror `libs/csharp`, Python suites under `tests/python/libs` mirror `libs/python`. TS unit specs instead colocate beside source per the vitest idiom, so `tests/typescript/` never hosts unit specs.
 

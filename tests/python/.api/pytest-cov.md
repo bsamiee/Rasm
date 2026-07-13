@@ -11,13 +11,13 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                | [KIND]            | [CAPABILITY]                                                                                  |
-| :-----: | :-------------------------------------- | :---------------- | :-------------------------------------------------------------------------------------------- |
+| [INDEX] | [SYMBOL]                                | [KIND]            | [CAPABILITY]                                                                                                      |
+| :-----: | :-------------------------------------- | :---------------- | :---------------------------------------------------------------------------------------------------------------- |
 |  [01]   | `CovPlugin`                             | plugin            | owns the session lifecycle; instantiates the engine controller and reports after the yielded `pytest_runtestloop` |
-|  [02]   | `TestContextPlugin`                     | plugin            | dynamic-context switcher; labels each line by node and phase when `--cov-context=test`        |
-|  [03]   | `StoreReport`                           | argparse action   | accumulates `--cov-report` type/destination pairs into one report map                         |
-|  [04]   | `Central` / `DistMaster` / `DistWorker` | engine controller | single-process, xdist-controller, and xdist-worker coverage lifecycles under `engine.py`      |
-|  [05]   | `cov`                                   | fixture           | returns the live `coverage.Coverage` object, or `None` when coverage is disabled              |
+|  [02]   | `TestContextPlugin`                     | plugin            | dynamic-context switcher; labels each line by node and phase when `--cov-context=test`                            |
+|  [03]   | `StoreReport`                           | argparse action   | accumulates `--cov-report` type/destination pairs into one report map                                             |
+|  [04]   | `Central` / `DistMaster` / `DistWorker` | engine controller | single-process, xdist-controller, and xdist-worker coverage lifecycles under `engine.py`                          |
+|  [05]   | `cov`                                   | fixture           | returns the live `coverage.Coverage` object, or `None` when coverage is disabled                                  |
 
 ```python contract
 @pytest.fixture
@@ -30,17 +30,17 @@ class TestContextPlugin:
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                       | [KIND]     | [CAPABILITY]                                                                                                |
-| :-----: | :------------------------------ | :--------- | :---------------------------------------------------------------------------------------------------------- |
-|  [01]   | `--cov`                         | CLI option | append a source package or path (`nargs='?'`, multi-allowed); bare `--cov` measures everything              |
+| [INDEX] | [SURFACE]                       | [KIND]     | [CAPABILITY]                                                                                                                  |
+| :-----: | :------------------------------ | :--------- | :---------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `--cov`                         | CLI option | append a source package or path (`nargs='?'`, multi-allowed); bare `--cov` measures everything                                |
 |  [02]   | `--cov-report`                  | CLI option | emit `term`/`term-missing`/`html`/`xml`/`json`/`lcov`/`annotate`/`markdown`/`markdown-append` (`:DEST` suffix, multi-allowed) |
-|  [03]   | `--cov-branch`                  | CLI flag   | enable branch coverage regardless of the config `branch` key                                                |
-|  [04]   | `--cov-context`                 | CLI option | dynamic context source; `test` labels each measured line by node and phase                                  |
-|  [05]   | `--cov-append`                  | CLI flag   | add to existing coverage data instead of erasing at start                                                   |
-|  [06]   | `--cov-config`                  | CLI option | coverage config path; default `.coveragerc`, else coverage discovers `[tool.coverage.*]`                    |
-|  [07]   | `--cov-fail-under`              | CLI option | fail the session when total coverage is below `MIN`; overrides the config `fail_under`                      |
-|  [08]   | `--no-cov` / `--no-cov-on-fail` | CLI flag   | disable coverage entirely / suppress the report when the run has test failures                              |
-|  [09]   | `pytest.mark.no_cover`          | marker     | disable coverage for the marked test                                                                        |
+|  [03]   | `--cov-branch`                  | CLI flag   | enable branch coverage regardless of the config `branch` key                                                                  |
+|  [04]   | `--cov-context`                 | CLI option | dynamic context source; `test` labels each measured line by node and phase                                                    |
+|  [05]   | `--cov-append`                  | CLI flag   | add to existing coverage data instead of erasing at start                                                                     |
+|  [06]   | `--cov-config`                  | CLI option | coverage config path; default `.coveragerc`, else coverage discovers `[tool.coverage.*]`                                      |
+|  [07]   | `--cov-fail-under`              | CLI option | fail the session when total coverage is below `MIN`; overrides the config `fail_under`                                        |
+|  [08]   | `--no-cov` / `--no-cov-on-fail` | CLI flag   | disable coverage entirely / suppress the report when the run has test failures                                                |
+|  [09]   | `pytest.mark.no_cover`          | marker     | disable coverage for the marked test                                                                                          |
 
 ```python contract
 # --cov-report destinations resolve to coverage.py report writers:

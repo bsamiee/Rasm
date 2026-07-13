@@ -9,7 +9,6 @@ Apply when writing or reviewing prose, headings, captions, notes, examples, comm
 ## [02]-[WORDING_PRECEDENCE]
 
 Use the first owner that decides a naming or wording question:
-
 1. Current repository material, manifests, generated contracts, API fields, and actual product or package names.
 2. The active document-type standard for the document being written.
 3. Maintained product names, UI labels, APIs, commands, and support status.
@@ -32,7 +31,6 @@ Durable prose is law for agents that read it with no memory of why it was writte
 [ALTITUDE] — A fact lands at the lowest tier that owns it; a higher tier states only the invariant the fact instantiates. A sentence that can move one tier down without losing governing force over more than one child is at the wrong altitude. Fixing a violation demotes the fact to its owner, then collapses the higher copy — payload dropped during demotion is a defect.
 
 Tier ledger — what each tier carries; everything below its line is a lower tier's property:
-
 - [ROOT_README]: Repo purpose, layer law, and entry routes by concern — never folder inventories, tool rosters, or package facts.
 - [BRANCH_INDEX]: Branch invariants, package-grain topology and seams, and admission law — never a package's member inventory or file names.
 - [FOLDER_INDEX]: Folder charter, sub-domain structure, package-grain seams, and package registries — never file-tier wire truth, signatures, literals, or sibling-doc description.

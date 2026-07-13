@@ -12,27 +12,27 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                                    | [KIND]      | [CAPABILITY]                                                       |
-| :-----: | :------------------------------------------------------------ | :---------- | :------------------------------------------------------------------- |
-|  [01]   | `BenchmarkRunner` / `BenchmarkSwitcher`                        | entry       | typed runs and argv-driven selection returning `Summary`              |
-|  [02]   | `[Benchmark]` + `Params`/`Arguments`/`GlobalSetup`/`IterationSetup` families | attribute | case declaration, parameterization, lifecycle hooks        |
-|  [03]   | `ManualConfig : IConfig`                                       | config      | `AddJob/AddColumn/AddExporter/AddDiagnoser/AddValidator/WithOptions`; settable `ArtifactsPath` |
-|  [04]   | `Job` + `JobExtensions.With*`                                  | job algebra | run/environment/accuracy characteristics; presets `Default`/`ShortRun`/`InProcess`/... |
-|  [05]   | `Summary` / `BenchmarkReport`                                  | report      | per-case `Success`, `ResultStatistics`, measurements, GC stats        |
-|  [06]   | `Statistics`                                                   | model       | `Min/Q1/Median/Mean/Q3/Max/InterquartileRange/StandardError/...` in nanoseconds |
-|  [07]   | `MemoryDiagnoser` / `ExecutionValidator` / `JitOptimizationsValidator` | policy | allocation metrics; failed-execution and unoptimized-assembly refusal |
-|  [08]   | `JsonExporter` / `MarkdownExporter`                            | exporter    | `JsonExporter.Full` emits the `-full` report the gate decodes         |
+| [INDEX] | [SYMBOL]                                                                     | [KIND]      | [CAPABILITY]                                                                                   |
+| :-----: | :--------------------------------------------------------------------------- | :---------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `BenchmarkRunner` / `BenchmarkSwitcher`                                      | entry       | typed runs and argv-driven selection returning `Summary`                                       |
+|  [02]   | `[Benchmark]` + `Params`/`Arguments`/`GlobalSetup`/`IterationSetup` families | attribute   | case declaration, parameterization, lifecycle hooks                                            |
+|  [03]   | `ManualConfig : IConfig`                                                     | config      | `AddJob/AddColumn/AddExporter/AddDiagnoser/AddValidator/WithOptions`; settable `ArtifactsPath` |
+|  [04]   | `Job` + `JobExtensions.With*`                                                | job algebra | run/environment/accuracy characteristics; presets `Default`/`ShortRun`/`InProcess`/...         |
+|  [05]   | `Summary` / `BenchmarkReport`                                                | report      | per-case `Success`, `ResultStatistics`, measurements, GC stats                                 |
+|  [06]   | `Statistics`                                                                 | model       | `Min/Q1/Median/Mean/Q3/Max/InterquartileRange/StandardError/...` in nanoseconds                |
+|  [07]   | `MemoryDiagnoser` / `ExecutionValidator` / `JitOptimizationsValidator`       | policy      | allocation metrics; failed-execution and unoptimized-assembly refusal                          |
+|  [08]   | `JsonExporter` / `MarkdownExporter`                                          | exporter    | `JsonExporter.Full` emits the `-full` report the gate decodes                                  |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                            | [KIND]  | [CAPABILITY]                                                    |
-| :-----: | :----------------------------------------------------------------------- | :------ | :----------------------------------------------------------------- |
-|  [01]   | `BenchmarkSwitcher.FromAssembly(assembly).Run(args, config)`              | session | argv-selected cases under one config                                |
-|  [02]   | `Job.Default.WithId(...).WithMaxWarmupCount(...).WithMaxIterationCount(...)` | job  | ceiling-bounded measurement; out-of-process toolchain by default    |
-|  [03]   | `config.ArtifactsPath = <workspace>/.artifacts/benchmarks/rasm`           | routing | central artifact routing; reports land under `<ArtifactsPath>/results/` |
-|  [04]   | `JsonExporter.Full` / `MemoryDiagnoser.Default`                           | policy  | full-statistics JSON + allocation columns                           |
-|  [05]   | `ExecutionValidator.FailOnError` + `JitOptimizationsValidator.FailOnError` | policy | refuse failed executions and Debug/unoptimized assemblies           |
-|  [06]   | `summary[case].ResultStatistics`                                          | report  | in-memory statistics per case; null when no runs                    |
+| [INDEX] | [SURFACE]                                                                    | [KIND]  | [CAPABILITY]                                                            |
+| :-----: | :--------------------------------------------------------------------------- | :------ | :---------------------------------------------------------------------- |
+|  [01]   | `BenchmarkSwitcher.FromAssembly(assembly).Run(args, config)`                 | session | argv-selected cases under one config                                    |
+|  [02]   | `Job.Default.WithId(...).WithMaxWarmupCount(...).WithMaxIterationCount(...)` | job     | ceiling-bounded measurement; out-of-process toolchain by default        |
+|  [03]   | `config.ArtifactsPath = <workspace>/.artifacts/benchmarks/rasm`              | routing | central artifact routing; reports land under `<ArtifactsPath>/results/` |
+|  [04]   | `JsonExporter.Full` / `MemoryDiagnoser.Default`                              | policy  | full-statistics JSON + allocation columns                               |
+|  [05]   | `ExecutionValidator.FailOnError` + `JitOptimizationsValidator.FailOnError`   | policy  | refuse failed executions and Debug/unoptimized assemblies               |
+|  [06]   | `summary[case].ResultStatistics`                                             | report  | in-memory statistics per case; null when no runs                        |
 
 ```csharp contract
 public sealed class BenchmarkReport {

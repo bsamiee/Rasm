@@ -12,24 +12,24 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                                        | [KIND]         | [CAPABILITY]                                                     |
-| :-----: | :--------------------------------------------------------------- | :------------- | :---------------------------------------------------------------- |
-|  [01]   | `TestingPlatformBuilderHook`                                      | MSBuild item   | registers extension GUID `6C751FC6-00AA-43AD-8265-79C3FED21943` into the generated entry point |
-|  [02]   | `CoverletExtension` / `CoverletExtensionProvider`                 | MTP extension  | controller-process lifetime handler: instrument before start, report after exit |
-|  [03]   | `CoverletMTPSettings` | config | the resolved settings shape; parsing and option providers stay internal |
-|  [04]   | `CoverletTestSessionHandler` / `CoverletInProcessHandler` | test-host side | in-process hit flush on session end |
+| [INDEX] | [SYMBOL]                                                  | [KIND]         | [CAPABILITY]                                                                                   |
+| :-----: | :-------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `TestingPlatformBuilderHook`                              | MSBuild item   | registers extension GUID `6C751FC6-00AA-43AD-8265-79C3FED21943` into the generated entry point |
+|  [02]   | `CoverletExtension` / `CoverletExtensionProvider`         | MTP extension  | controller-process lifetime handler: instrument before start, report after exit                |
+|  [03]   | `CoverletMTPSettings`                                     | config         | the resolved settings shape; parsing and option providers stay internal                        |
+|  [04]   | `CoverletTestSessionHandler` / `CoverletInProcessHandler` | test-host side | in-process hit flush on session end                                                            |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                    | [KIND] | [CAPABILITY]                                                      |
-| :-----: | :------------------------------------------------------------ | :----- | :------------------------------------------------------------------ |
-|  [01]   | `--coverlet`                                                   | CLI    | the activation switch; without it the extension stays idle          |
-|  [02]   | `--coverlet-output-format <fmt>` | CLI | repeatable; `json`, `cobertura` (the settings seed), `lcov`, `opencover`, `teamcity` |
-|  [03]   | `--coverlet-include` / `--coverlet-include-directory` / `--coverlet-exclude` / `--coverlet-exclude-by-file` | CLI | assembly/type filter globs plus file and directory filters, comma-separated |
-|  [04]   | `--coverlet-exclude-by-attribute` / `--coverlet-does-not-return-attribute` / `--coverlet-exclude-assemblies-without-sources` | CLI | attribute exclusion, unreachable-branch attributes, sourceless-assembly policy |
-|  [05]   | `--coverlet-file-prefix`                                       | CLI    | report filename prefix; the report lands in the results directory   |
-|  [06]   | `--coverlet-include-test-assembly` / `--coverlet-single-hit` / `--coverlet-skip-auto-props` | CLI | include-test-assembly is accepted but non-functional (the controller cannot self-instrument); single-hit and auto-prop skip mirror the core knobs |
-|  [07]   | `testconfig.json` `platformOptions.Coverlet` (camelCase keys)  | config | file-borne configuration; precedence CLI > `[app].testconfig.json` > `testconfig.json` > `coverlet.mtp.appsettings.json` > defaults |
+| [INDEX] | [SURFACE]                                                                                                                    | [KIND] | [CAPABILITY]                                                                                                                                      |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------- | :----- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `--coverlet`                                                                                                                 | CLI    | the activation switch; without it the extension stays idle                                                                                        |
+|  [02]   | `--coverlet-output-format <fmt>`                                                                                             | CLI    | repeatable; `json`, `cobertura` (the settings seed), `lcov`, `opencover`, `teamcity`                                                              |
+|  [03]   | `--coverlet-include` / `--coverlet-include-directory` / `--coverlet-exclude` / `--coverlet-exclude-by-file`                  | CLI    | assembly/type filter globs plus file and directory filters, comma-separated                                                                       |
+|  [04]   | `--coverlet-exclude-by-attribute` / `--coverlet-does-not-return-attribute` / `--coverlet-exclude-assemblies-without-sources` | CLI    | attribute exclusion, unreachable-branch attributes, sourceless-assembly policy                                                                    |
+|  [05]   | `--coverlet-file-prefix`                                                                                                     | CLI    | report filename prefix; the report lands in the results directory                                                                                 |
+|  [06]   | `--coverlet-include-test-assembly` / `--coverlet-single-hit` / `--coverlet-skip-auto-props`                                  | CLI    | include-test-assembly is accepted but non-functional (the controller cannot self-instrument); single-hit and auto-prop skip mirror the core knobs |
+|  [07]   | `testconfig.json` `platformOptions.Coverlet` (camelCase keys)                                                                | config | file-borne configuration; precedence CLI > `[app].testconfig.json` > `testconfig.json` > `coverlet.mtp.appsettings.json` > defaults               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
