@@ -38,7 +38,7 @@ const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
 const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
-const BATCH_MAX = 8; // even-split ceiling; editing fidelity degrades past ~8 dense pages per writer under full doctrine reads
+const BATCH_MAX = 10; // packing ceiling; per-sub-folder maps + census legwork carry the navigation, so a writer holds ~10 dense pages without fidelity loss
 const FINDER_PAGES = 8; // landed pages per close-phase finder
 const CODEX = true; // recon/finder lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
@@ -1364,7 +1364,11 @@ const ctxLensPrompt = (L, batch, dossier, reg) =>
             'writers author the same polymorphic surface), `contextNote` (sibling owners/seams composed, folder position, any ' +
             'folder-wide gap routed here), `seams` (every cross-page and cross-package symbol/wire/consumer edge, both endpoints ' +
             'named), and DOMAIN gaps — attributes, sub-kinds, states, relationships, operations the real concept demands that the ' +
-            'page omits — folded into `contextNote` as named gaps. Each worklist entry also carries `files` (what the consumer must ' +
+            'page omits — folded into `contextNote` as named gaps. CROSS-PACKAGE RELEVANCE: for each page also mine what the OTHER ' +
+            'packages hold that is relevant to it — the kernel and sibling-package owners it composes or its concept plainly touches, ' +
+            'the imports and consumer sites, and every ripple target on both ends — as verified anchors in `seams`/`anchors`, so a ' +
+            'writer NAVIGATES (trust, then verify at the anchor) instead of exploring; relevance is fact, never a suggested change. ' +
+            'Each worklist entry also carries `files` (what the consumer must ' +
             'open) and typed `anchors` per the entry form. GROUNDING DOSSIER: write `' +
             dossier +
             '` — Tier-1: the branch ' +
@@ -1395,7 +1399,10 @@ const apiLensPrompt = (L, batch, dossier, reg) =>
             'EXPANSION: a package with a catalog at ANY tier consumed by only ONE page is expansion pressure on its siblings — name ' +
             'the package, its unexploited members in exact spellings, and each candidate page. Discovery has ZERO removal authority: ' +
             'an underutilized catalog is always a buildout target (which owner grows which case/row/field/operation), never removal ' +
-            'evidence. For EACH page return `apiUsed`, `apiUnderutilized` ({catalog, capability}: exact catalog-anchored spelling + ' +
+            'evidence. DEPTH GRADING: a member the page already composes counts as underutilized when the usage is shallow — one ' +
+            'call where the surface carries a family, a default-arg call where the policy axis matters, a scalar use of a batch/' +
+            'stream-capable member; grade used-but-shallow with the same {catalog, capability} rows as unused. For EACH page ' +
+            'return `apiUsed`, `apiUnderutilized` ({catalog, capability}: exact catalog-anchored spelling + ' +
             "integration shape as fact), `stackingInventory` (capability names + the doctrine patterns the page's concept admits, " +
             'stated as inventory fact — never a prescribed design), plus `files` (what the consumer must open) and typed `anchors` ' +
             'per the entry form. Verify every cited member via ' +
