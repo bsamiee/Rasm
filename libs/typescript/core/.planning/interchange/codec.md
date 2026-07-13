@@ -26,7 +26,7 @@ The keyed-decode engine of the interchange plane: ONE closed census of every C#-
 - Boundary: verdict grading over descriptor generations is the contract page's; the proto `GenMessage` suite the census's proto rows bind is `format#PROTO_ENGINE`'s.
 - Packages: `effect` (`Schema`, `Array`).
 
-```typescript
+```typescript signature
 import { Array, type ParseResult, Schema, type Types } from "effect"
 
 const _arms = ["proto", "cbor", "msgpack", "jsonpatch"] as const
@@ -108,15 +108,15 @@ const _wireLiteral: Schema.Literal<Wire.Families> = Schema.Literal(..._families)
 - Law: evidence is data — `evidence` carries the `{ actual, expected }` pair for `stale`, `parity`, and `sequence`; `message` derives from fields and is never stored; classification of a `ParseError` into the family happens exactly once, at the intake seam where frame context exists to name `family` and `reason`.
 - Law: `sequence` never quarantines — a gap has no frame to hold; `overrun` marks a pre-decode ceiling refusal the frame rail mints; engine-internal ceiling throws surface as `ParseError` and classify `malformed` at intake; a truncated size-delimited header triages through `format#PROTO_ENGINE`'s `peek` into `truncated`.
 - Law: the patch arm's per-op error slots classify through `fromSlot` — `TestError` folds to `stale` carrying its `{ actual, expected }` pre-image evidence, `MissingError` to `conflict` naming the vanished path, and the residue to `malformed` — so the OCC refusal and the concurrent-edit divergence read as data on the one rail, and `stale`/`conflict` have exactly one mint site.
-- Law: the intake is bounded with `strategy: "suspend"` — a poison storm backpressures its producer; `octets` arrive as a lazy thunk so the re-encode runs only on the failure path; `attempts` lives on the frame and replay re-enters a successor carrying `attempts + 1` with the original fault intact, so the terminal report names the first cause.
-- Law: the held census is slot-keyed and settles — the slot is `family` plus intake instant, a replay successor overwrites its predecessor's slot, and a delivered or retired frame leaves the census in the same drain, so `census` reads the live poison set exactly and the table cannot grow past the frames still owed a verdict; `release` is the foreign-eviction verb over the same slot.
+- Law: the intake is a bounded `TQueue` with transactional backpressure — a poison storm suspends its producer until replay takes capacity; `octets` arrive as a lazy thunk so the re-encode runs only on the failure path; `attempts` lives on the frame and replay re-enters a successor carrying `attempts + 1` with the original fault intact, so the terminal report names the first cause.
+- Law: the held census is slot-keyed and settles — the service's transactional `TRef<bigint>` mints one collision-free `slot` per intake, replay successors retain that slot, and one STM transaction installs the held row and executes `TQueue.offer` against the bounded intake atomically, so simultaneous same-family frames cannot overwrite one another and a replay take cannot settle a frame before its census row exists. A delivered or retired frame removes the row transactionally, so `census` reads the live poison set exactly and the table cannot grow past the frames still owed a verdict; `release` removes the same slot, and replay rechecks membership immediately before decode so a queued foreign eviction cannot deliver later.
 - Law: replay is generic over every row — the drain takes the family-keyed decode as a parameter, so the service imports no landing and the app root supplies the record it composed from `Wire.decode`; the pump cadence is unbounded `spaced` because the per-frame `attempts` budget is the bound, and the drain suspends on an empty intake rather than polling.
 - Growth: a new failure cause is one `_policy` row; a retention or per-family cap axis is one `_INTAKE` field.
 - Boundary: the wire-crossed `FaultDetail` altitude is `[05]`'s landing — a local rail importing it for a local failure is the altitude defect; availability degradation under a poison storm is `state` vocabulary wired at the app root.
-- Packages: `effect` (`Schema`, `Effect`, `Mailbox`, `Ref`, `HashMap`, `Chunk`, `DateTime`, `Schedule`, `Order`, `Array`, `Either`, `Function`, `Match`, `Option`); `rfc6902/patch` (`MissingError`, `TestError`); `./format.ts` (`Patch`).
+- Packages: `effect` (`Schema`, `Effect`, `STM`, `TMap`, `TQueue`, `TRef`, `HashMap`, `Chunk`, `DateTime`, `Schedule`, `Order`, `Array`, `Either`, `Function`, `Match`, `Option`); `rfc6902/patch` (`MissingError`, `TestError`); `./format.ts` (`Patch`).
 
-```typescript
-import { Chunk, DateTime, Effect, Either, Function, HashMap, Mailbox, Match, Option, Order, Predicate, Ref, Schedule } from "effect"
+```typescript signature
+import { Chunk, DateTime, Effect, Either, Function, HashMap, Match, Option, Order, pipe, Predicate, Schedule, STM, TMap, TQueue, TRef } from "effect"
 import { MissingError, TestError } from "rfc6902/patch"
 import type { Patch } from "./format.ts"
 
@@ -170,6 +170,7 @@ const _INTAKE = { capacity: 256, attempts: 3 } as const
 const _REPLAY: Schedule.Schedule<number> = Schedule.spaced("30 seconds")
 
 class PoisonFrame extends Schema.Class<PoisonFrame>("PoisonFrame")({
+  slot: Schema.BigIntFromSelf,
   family: _wireLiteral,
   octets: Schema.Uint8ArrayFromSelf,
   fault: WireFault,
@@ -183,34 +184,53 @@ class PoisonFrame extends Schema.Class<PoisonFrame>("PoisonFrame")({
 
 class Quarantine extends Effect.Service<Quarantine>()("@rasm/ts/core/Quarantine", {
   scoped: Effect.gen(function* () {
-    const box = yield* Mailbox.make<PoisonFrame>({ capacity: _INTAKE.capacity, strategy: "suspend" })
-    const held = yield* Ref.make(HashMap.empty<string, PoisonFrame>())
-    const slot = (frame: PoisonFrame): string => `${frame.family}:${DateTime.formatIso(frame.at)}`
+    const box = yield* STM.commit(TQueue.bounded<PoisonFrame>(_INTAKE.capacity))
+    const held = yield* STM.commit(TMap.empty<bigint, PoisonFrame>())
+    const serial = yield* STM.commit(TRef.make(0n))
     const admit = (frame: PoisonFrame): Effect.Effect<PoisonFrame> =>
-      box.offer(frame).pipe(
-        Effect.andThen(Ref.update(held, HashMap.set(slot(frame), frame))),
-        Effect.as(frame),
-      )
-    const settled = (frame: PoisonFrame): Effect.Effect<void> => Ref.update(held, HashMap.remove(slot(frame)))
+      STM.commit(STM.gen(function* () {
+        yield* TMap.set(held, frame.slot, frame)
+        yield* TQueue.offer(box, frame)
+        return frame
+      }))
+    const settled = (frame: PoisonFrame): Effect.Effect<void> => STM.commit(TMap.remove(held, frame.slot))
+    const take = STM.commit(STM.gen(function* () {
+      const first = yield* TQueue.take(box)
+      const rest = yield* TQueue.takeAll(box)
+      return Array.prepend(rest, first)
+    }))
     return {
       intake: (family: Wire.Family, octets: Uint8Array, fault: WireFault) =>
-        Effect.flatMap(DateTime.now, (now) => admit(new PoisonFrame({ family, octets, fault, at: now, attempts: 0 }))),
-      census: Ref.get(held).pipe(Effect.map((table) => Array.fromIterable(HashMap.values(table)))),
+        Effect.flatMap(DateTime.now, (now) =>
+          STM.commit(STM.gen(function* () {
+            const slot = yield* TRef.get(serial)
+            yield* TRef.set(serial, slot + 1n)
+            const frame = new PoisonFrame({ slot, family, octets, fault, at: now, attempts: 0 })
+            yield* TMap.set(held, slot, frame)
+            yield* TQueue.offer(box, frame)
+            return frame
+          }))),
+      census: STM.commit(TMap.values(held)),
       release: (frame: PoisonFrame) => settled(frame),
       replayed: <A, R>(
         decode: (family: Wire.Family, octets: Uint8Array) => Effect.Effect<A, WireFault, R>,
         delivered: (value: A) => Effect.Effect<void, never, R>,
         retired: (frame: PoisonFrame) => Effect.Effect<void, never, R>,
       ): Effect.Effect<void, never, R> =>
-        Effect.flatMap(Effect.orDie(box.take), (first) =>
-          Effect.flatMap(box.takeAll, ([rest]) =>
-            Effect.forEach(Chunk.prepend(rest, first), (frame) =>
-              frame.replayable
+        Effect.flatMap(take, (frames) =>
+          Effect.forEach(frames, (frame) =>
+            Effect.flatMap(STM.commit(TMap.has(held, frame.slot)), (pending) =>
+              !pending
+                ? Effect.void
+                : frame.replayable
                 ? decode(frame.family, frame.octets).pipe(Effect.matchEffect({
                     onFailure: () => Effect.asVoid(admit(new PoisonFrame({ ...frame, attempts: frame.attempts + 1 }))),
                     onSuccess: (value) => Effect.andThen(delivered(value), settled(frame)),
                   }))
-                : Effect.andThen(retired(frame), settled(frame)), { concurrency: 1, discard: true }))).pipe(Effect.repeat(_REPLAY), Effect.asVoid),
+                : Effect.andThen(retired(frame), settled(frame))), { concurrency: 1, discard: true })).pipe(
+          Effect.repeat(_REPLAY),
+          Effect.asVoid,
+        ),
     }
   }),
   accessors: true,
@@ -244,17 +264,18 @@ class Quarantine extends Effect.Service<Quarantine>()("@rasm/ts/core/Quarantine"
 ## [04]-[PARITY_VERIFY]
 
 [PARITY_VERIFY]:
-- Owner: `Parity`, the one verify combinator family — `key(payload)` the delegated content mint, `verified(family, expected, payload)` the mint-and-compare gate every content-addressed row shares, `matched(family, actual, expected)` the pure key-pair gate for pre-minted comparisons, `roundtrip(family, schema, octets)` the golden-byte decode-encode-compare proof generic over any byte schema, and `cells(gen, fields)` the reflection walk extracting content-key byte cells off a decoded proto message for field-level parity.
+- Owner: `Parity`, the one verify combinator family — `key(payload)` the delegated content mint, `verified(family, expected, payload)` the mint-and-compare gate every content-addressed row shares, `matched(family, actual, expected)` the pure key-pair gate for pre-minted comparisons, `roundtrip(family, schema, octets)` the golden-byte decode-encode-compare proof generic over any byte schema, and `cells(family, gen, fields)` the reflection walk extracting content-key byte cells off a decoded proto message for field-level parity.
 - Law: the mint is delegated, never local — `Digest.mint("content", payload)` is the branch's one `XxHash128` seed-zero fold with the canonical `:x32` spelling, branded keys compare by bare `===`, and a second mint or normalize step anywhere on a verify path is the cross-language drift defect.
 - Law: the payload is `Digest.Payload` — a whole buffer or a band iterable riding the mint's own chunk-walk modality — so a multi-frame artifact verifies over its held bands with no joined re-hash and a parity miss refuses before any summed allocation exists; the streaming lane is the same single delegation site, never a second verify.
-- Law: a parity miss is evidence, not a crash — the fault holds both keys (or both extents for the byte proof) so the operator report and the quarantine row read the disagreement as data.
-- Law: the reflection walk resolves fields once at composition — `buildPath` addresses each named key cell against the `GenMessage`, `reflect` reads by descriptor with no generated type, and only `Uint8Array` cells survive the filter; verification of the extracted cells is `verified` on the same combinator, so extraction and proof never fork.
+- Law: a parity miss is evidence, not a crash — the fault holds both keys or, for the byte proof, both `{ extent, offset, byte }` observations at the first divergence, so an equal-length mismatch never reports two equal extents as if they explained the failure and the operator report and quarantine row read the disagreement as data.
+- Law: the reflection walk resolves every requested field once at composition — `cells(family, gen, fields)` traverses the complete name roster through `Either.all`, an absent descriptor fails as typed `drift` evidence instead of silently shrinking the proof, `buildPath` addresses each admitted key cell against the `GenMessage`, and `reflect` reads by descriptor with no generated type; the read traverses that same complete roster through a second `Either.all`, so a resolved field whose value is not `Uint8Array` also fails as `drift` instead of disappearing through a filter, and verification of the extracted cells is `verified` on the same combinator, so extraction and proof never fork.
 - Growth: a second content-keyed proto family composes `cells` with its own field roster — one call, zero new walks.
 - Boundary: the `Digest` table, session algebra, and binary key twin are `value/contentKey.ts`'s; the frame rail's whole-artifact verify and the invoke page's descriptor admission compose `verified` and add nothing to it.
-- Packages: `@bufbuild/protobuf` (`buildPath`, `reflect`, `DescField`, `DescMessage`, `Path`); `effect` (`Schema`, `Effect`, `Either`, `Option`, `Array`); `../value/contentKey.ts` (`ContentKey`, `Digest`).
+- Packages: `@bufbuild/protobuf` (`DescField`, `DescMessage`); `@bufbuild/protobuf/reflect` (`buildPath`, `reflect`, `Path`); `effect` (`Schema`, `Effect`, `Either`, `Option`, `Array`); `../value/contentKey.ts` (`ContentKey`, `Digest`).
 
-```typescript
-import { buildPath, type DescField, type DescMessage, type Message, type Path, reflect, type UnknownField } from "@bufbuild/protobuf"
+```typescript signature
+import { type DescField, type DescMessage, type Message, type UnknownField } from "@bufbuild/protobuf"
+import { buildPath, type Path, reflect } from "@bufbuild/protobuf/reflect"
 import { ContentKey, Digest } from "../value/contentKey.ts"
 import { Cbor, Pack, Proto } from "./format.ts"
 
@@ -270,10 +291,10 @@ const Parity: {
     schema: Schema.Schema<A, Uint8Array>,
     octets: Uint8Array,
   ) => Effect.Effect<void, ParseResult.ParseError | WireFault>
-  readonly cells: (gen: DescMessage, fields: ReadonlyArray<string>) => {
+  readonly cells: (family: Wire.Family, gen: DescMessage, fields: ReadonlyArray<string>) => Either.Either<{
     readonly paths: ReadonlyArray<Path>
-    readonly read: (octets: Uint8Array) => Either.Either<ReadonlyArray<Uint8Array>, ParseResult.ParseError>
-  }
+    readonly read: (octets: Uint8Array) => Either.Either<ReadonlyArray<Uint8Array>, ParseResult.ParseError | WireFault>
+  }, WireFault>
 } = {
   key: (payload) => Digest.mint("content", payload),
   matched: (family, actual, expected) =>
@@ -284,22 +305,45 @@ const Parity: {
     Effect.gen(function* () {
       const decoded = yield* Schema.decodeUnknown(schema)(octets)
       const emitted = yield* Schema.encode(schema)(decoded)
-      const identical = emitted.length === octets.length && emitted.every((byte, index) => byte === octets[index])
-      return identical
+      const mismatch = emitted.findIndex((byte, index) => byte !== octets[index])
+      const offset = mismatch === -1 ? Math.min(emitted.length, octets.length) : mismatch
+      return mismatch === -1 && emitted.length === octets.length
         ? undefined
-        : yield* _mismatch(family, emitted.length, octets.length, "<golden-byte-divergence>")
+        : yield* Effect.fail(_mismatch(
+            family,
+            { extent: emitted.length, offset, byte: emitted[offset] },
+            { extent: octets.length, offset, byte: octets[offset] },
+            "<golden-byte-divergence>",
+          ))
     }),
-  cells: (gen, fields) => {
-    const resolved: ReadonlyArray<DescField> = Array.filterMap(fields, (name) =>
-      Array.findFirst(gen.fields, (field) => field.name === name))
-    return {
-      paths: Array.map(resolved, (field) => buildPath(gen).field(field).toPath()),
-      read: (octets) =>
-        Either.map(Schema.decodeUnknownEither(Proto.frame(gen))(octets), (message) =>
-          Array.filterMap(resolved, (field) =>
-            Option.liftPredicate(reflect(gen, message).get(field), (cell): cell is Uint8Array => cell instanceof Uint8Array))),
-    }
-  },
+  cells: (family, gen, fields) =>
+    Either.map(
+      Either.all(Array.map(fields, (name) =>
+        pipe(
+          Array.findFirst(gen.fields, (field) => field.name === name),
+          Either.fromOption(() =>
+            new WireFault({ family, reason: "drift", detail: `<field:${name}>`, evidence: Option.none() })),
+        ))),
+      (resolved: ReadonlyArray<DescField>) => ({
+        paths: Array.map(resolved, (field) => buildPath(gen).field(field).toPath()),
+        read: (octets: Uint8Array) =>
+          Either.flatMap(Schema.decodeUnknownEither(Proto.frame(gen))(octets), (message) =>
+            Either.all(Array.map(resolved, (field) =>
+              pipe(
+                Option.liftPredicate(
+                  reflect(gen, message).get(field),
+                  (cell): cell is Uint8Array => cell instanceof Uint8Array,
+                ),
+                Either.fromOption(() =>
+                  new WireFault({
+                    family,
+                    reason: "drift",
+                    detail: `<field:${field.name}:bytes>`,
+                    evidence: Option.none(),
+                  })),
+              )))),
+      }),
+    ),
 }
 ```
 
@@ -315,7 +359,7 @@ const Parity: {
 - Boundary: merge lawfulness, convergence proofs, and the corpus fixtures binding the op family are `state/merge.ts`'s `Converge` surface; the SI scalar crossed by `QuantityWire` canonicalized once at C# admission and never re-converts here.
 - Packages: `effect` (`Schema`); `./format.ts` (`Pack`); `../value/clock.ts` (`Hlc`); `../state/evidence.ts` (`ReceiptEnvelope`, `ProgressMark`, `Availability`); `../state/commit.ts` (`Commit`); `../state/causal.ts` (`Vector`); `../value/quantity.ts` (`Quantity`); `../value/identity.ts` (`TenantContext`).
 
-```typescript
+```typescript signature
 import { Hlc } from "../value/clock.ts"
 import { TenantContext } from "../value/identity.ts"
 import { Quantity } from "../value/quantity.ts"
@@ -383,15 +427,15 @@ type CrdtOp = typeof CrdtOp.Type
 - Law: the wire ships tagged families untagged — `Schema.tag` demands `_tag` on decode input, so every tagged landing decodes through its `FromWire` twin, `_stamp` minting the discriminant at the seam exactly as `ControlIntent` attaches its own; the stamp overwrites nothing a tagged wire already carries, encode passes through, and the twin rides the owner as a static so one import serves class and wire. Discriminant-attach has exactly these two spellings by structural necessity — `Schema.attachPropertySignature` where the input is a `Struct`, `_stamp` where the landing is a `Schema.Class` the combinator cannot prepend to — one concept, never drift, and a third spelling is the defect.
 - Law: the landing-class roster is a ratified co-located owner family — the census demands every wire-owned decoded shape in this one module, each class is an independent decode owner a later wave consumes directly, and collapsing the roster onto `Wire.*` statics trades one-hop resolution for a cosmetic export count; the charter accepts the wide export tail and the census guard keeps it closed.
 - Law: `Hops` carries four columns — gRPC `code`, `retryable`, `terminal`, and `class`, the `value/fault` classification each hop reason projects — so `FaultDetail` satisfies the branch classification convention structurally and every compiled `Budget` schedule gates it with zero adapter; the code-to-reason projection generates from the table's own `code` column and cannot drift.
-- Law: `FaultDetail` is wire-only altitude — constructed at exactly two sites: the `FaultDetailWire` decode row and the invoke page's transport fold; a third construction site in the branch is the defect the architecture suite audits. `EnricherLive` satisfies the `value/fault` `FaultEnricher` endo-arrow — a capture whose `tag` is not `FaultDetail` passes through untouched, so enrichment degrades to identity and never breaks crash capture; the stamped keys are the `_WIRE_ATTR` vocabulary rows — this enricher's owned `wire.*` axis beside the corpus-wide registry the observe convention page owns — never free string literals at the call site.
+- Law: `FaultDetail` is wire-only altitude — constructed at exactly two sites: the `FaultDetailWire` decode row and the invoke page's transport fold; a third construction site in the branch is the defect the architecture suite audits. `EnricherLive` satisfies the `value/fault` `FaultEnricher` endo-arrow by reading the structured `wire.reason` attribute the crash boundary preserves from a `FaultDetail`; a capture without an admitted reason passes through untouched, so enrichment degrades to identity and never parses message prose. The stamped keys are the `_WIRE_ATTR` vocabulary rows — this enricher's owned `wire.*` axis beside the corpus-wide registry the observe convention page owns — never free string literals at the call site.
 - Law: `Credential.material` is `Schema.Redacted` — the secret never exists raw past the decode transform, rotation compares sealed through `_sameMaterial`, the equivalence `Schema.equivalence` derives from the field's own `Schema.Redacted` declaration so equality has no second spelling beside the schema, and `fingerprint` is the only audit identity a log meets.
 - Law: `GeoFeature`'s WKB band is opaque carriage under the gated `WkbParser` port — geometry materializes only through the port the ui wave satisfies, and the tile algebra (`quadkey`, `parent`, `children`) is total over the zoom-bounded grid refinement.
-- Exemption: `Crs.of`'s `in`-probe key narrowing, the `EnricherLive` reason-token probe (`token in _hops` behind its refinement), and the `Tile.quadkey` bit walk are marked kernels — the checker cannot carry the probe onto the key type, and only immutable values leave.
+- Exemption: `Crs.of`'s `in`-probe key narrowing, the `EnricherLive` structured-reason probe (`token in _hops` behind its refinement), and the `Tile.quadkey` bit walk are marked kernels — the checker cannot carry the probe onto the key type, and only immutable values leave.
 - Growth: a new shell intent, appearance block, BCF axis, or fault evidence field is one case or field mirroring the C# emit; a new landing plane is one owner block here plus its census rows.
 - Boundary: rollout targeting and flag evaluation are the runtime wave's service over this decoded verdict; GLB parsing, kiwi solving, BCF re-location, and OpenPBR rendering are ui-wave consumers of these values.
 - Packages: `effect` (`Schema`, `Effect`, `Layer`, `Context`, `Equivalence`, `Function`, `Predicate`, `Redacted`, `HashMap`, `Option`); `../value/contentKey.ts` (`Digest`); `../value/clock.ts` (`Hlc`); `../value/identity.ts` (`AppIdentity`); `../value/fault.ts` (`FaultClass`, `FaultEnricher`).
 
-```typescript
+```typescript signature
 import { Context, Equivalence, Layer, Redacted } from "effect"
 import { AppIdentity } from "../value/identity.ts"
 import { FaultClass, FaultEnricher } from "../value/fault.ts"
@@ -465,7 +509,6 @@ class Hop extends Schema.Class<Hop>("Hop")({
   elapsed: Schema.DurationFromMillis,
 }) {}
 
-const _SPELLING = /^<[^:>]+:([a-z]+)>/
 const _WIRE_ATTR = { reason: "wire.reason", retryable: "wire.retryable", terminal: "wire.terminal" } as const
 
 class FaultDetail extends Schema.TaggedError<FaultDetail>()("FaultDetail", {
@@ -482,23 +525,21 @@ class FaultDetail extends Schema.TaggedError<FaultDetail>()("FaultDetail", {
     FaultEnricher.of({
       enrich: (capture) =>
         Effect.succeed(
-          capture.tag === "FaultDetail"
-            ? Option.match(
-                Option.filter(
-                  Option.fromNullable(_SPELLING.exec(capture.detail)?.[1]),
-                  (token): token is Hops.Reason => token in _hops,
-                ),
-                {
-                  onNone: () => capture,
-                  onSome: (reason) =>
-                    capture.enriched({
-                      [_WIRE_ATTR.reason]: reason,
-                      [_WIRE_ATTR.retryable]: _hops[reason].retryable,
-                      [_WIRE_ATTR.terminal]: _hops[reason].terminal,
-                    }),
-                },
-              )
-            : capture,
+          Option.match(
+            Option.filter(
+              Option.fromNullable(capture.attributes[_WIRE_ATTR.reason]),
+              (token): token is Hops.Reason => typeof token === "string" && token in _hops,
+            ),
+            {
+              onNone: () => capture,
+              onSome: (reason) =>
+                capture.enriched({
+                  [_WIRE_ATTR.reason]: reason,
+                  [_WIRE_ATTR.retryable]: _hops[reason].retryable,
+                  [_WIRE_ATTR.terminal]: _hops[reason].terminal,
+                }),
+            },
+          ),
         ),
     }),
   )
@@ -837,7 +878,7 @@ const _sameMaterial: Equivalence.Equivalence<Redacted.Redacted<string>> = Schema
 - Boundary: the contract gate service this registry's gated rows require is the contract page's; frame reassembly and the invoke verbs consume `schema`/`stream` and land their own shapes at their homes.
 - Packages: `effect` (`Schema`, `Effect`, `Stream`, `Either`, `Option`); `@bufbuild/protobuf` (`Message`, `UnknownField`); `./format.ts` (`Proto`, `Pack`, `Cbor`).
 
-```typescript
+```typescript signature
 import { Stream } from "effect"
 
 class OpLogEntry extends Schema.Class<OpLogEntry>("OpLogEntry")({
@@ -1022,13 +1063,13 @@ const Wire: Wire.Shape = {
 - Owner: `feed`, the one transition-feed entry, and its policy rows — `_feeds` carries one row per feed family: the coalescing `subject` projection, the transition `alike` equivalence, and the optional `flow` throttle; the combinator composes `Wire.stream`'s framed divert with one keyed transition Mealy — per-subject last-value state, an arrival equivalent to its subject's incumbent drops, a transition emits and replaces — and the declared throttle shapes the surviving flow. The merged `feed` namespace carries the row vocabulary on the entry's own name.
 - Law: the pipeline is spelled once — framed decode, poison divert, keyed dedup, throttle; the per-family variation is three row columns, so the progress and flag feeds that restated this pipeline as sibling pages are two rows here and a third feed is one row.
 - Law: dedup is keyed, never global — the Mealy state maps subject to last emission, so interleaved subjects cannot mask each other's transitions; the state is fold-interior and single-fiber by construction, the ruled form over `Stream.groupByKey`, whose per-subject fiber fan-out re-merges without cross-subject order and buys nothing a last-value map needs.
-- Law: `alike` derives, never restates — `Schema.equivalence` over the landing owner: whole for `FlagVerdict`, the `Schema.pick` projection naming the transition-identity axes for `ProgressMark` (the `stamp`/`tenant` noise axes excluded by rule, or every mark would transition); a hand-written `Equivalence.struct` beside the Schema owner is a second unverified equality truth.
+- Law: `alike` derives, never restates — whole-schema equality for `FlagVerdict`, and `ProgressMark.transition` from the evidence owner for progress (the operation, parent, stage, done, and total transition axes with stamp and tenant transport noise excluded); a parent rebind therefore survives dedup, and a hand-written projection beside either Schema owner is a second unverified equality truth.
 - Law: throttle is a declared token bucket — `cost` prices a whole chunk, `"shape"` delays and never drops; a feed without a `flow` row passes unshapen.
 - Growth: a new feed family is one `_feeds` row; a new flow axis is one field on the row's `flow` record.
 - Boundary: what a consumer folds the deduped feed into — the runtime flag cell, the state progress table — is the consumer's plan; this combinator owns only the wire-to-transition geometry.
 - Packages: `effect` (`Stream`, `Schema`, `Equivalence`, `HashMap`, `Chunk`, `Either`, `Duration`, `Option`).
 
-```typescript
+```typescript signature
 import type { Duration } from "effect"
 
 const _feedKeys = ["ProgressMarkWire", "FlagVerdictWire"] as const
@@ -1046,7 +1087,7 @@ declare namespace feed {
 const _feeds: { readonly [K in feed.Family]: feed.Row<Wire.Decoded<K>> } = {
   ProgressMarkWire: {
     subject: (mark) => mark.operation,
-    alike: Schema.equivalence(Schema.Struct(ProgressMark.fields).pipe(Schema.pick("operation", "stage", "done", "total"))),
+    alike: ProgressMark.transition,
     flow: Option.some({ units: 240, per: "1 second", burst: 60 }),
   },
   FlagVerdictWire: {
@@ -1104,7 +1145,7 @@ const feed = <K extends feed.Family>(
 - Boundary: what the delivered entries fold into is `state`'s plan altitude; durable journal positions are the data wave's.
 - Packages: `effect` (`Stream`, `Order`, `Array`, `Chunk`, `Either`, `Option`).
 
-```typescript
+```typescript signature
 const _bySeq: Order.Order<OpLogEntry> = Order.mapInput(Order.bigint, (entry: OpLogEntry) => entry.seq)
 
 const Gap: {

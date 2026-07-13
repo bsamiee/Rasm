@@ -26,20 +26,20 @@ The local-persistence plane and the one `idb-keyval` site in the branch: a close
 ## [03]-[LANE_SURFACE]
 
 [LANE_SURFACE]:
-- Owner: `Kv`, one `Effect.Service` whose members are domain-generic over the row table — `read(domain, key)` yields `Option<Kv.Value<D>>` with absence as `Option.none`, and `read(domain, keys)` is the batch modality over `getMany`, one transaction answering the whole set positionally; `write(domain, key, value)` encodes then stores, and `write(domain, entries)` is the atomic batch over `setMany` — all entries land or none do, the compensation and hydrate spelling; `mutate(domain, key, step)` runs the read-modify-write inside one IndexedDB transaction with a synchronous `step`, so the transaction never spans an await; `drop(domain, key | keys)` discriminates single from batch on the input shape and deletes atomically; `drain(domain)` is the atomic scan-then-clear — a mid-drain crash leaves the whole queue or empties it, never a half-applied tear; `wipe(domain)` resets one store.
+- Owner: `Kv`, one `Effect.Service` whose members are domain-generic over the row table — `read(domain, key)` yields `Option<Kv.Value<D>>` with absence as `Option.none`, and `read(domain, keys)` is the batch modality over `getMany`, one transaction answering the whole set positionally; `write(domain, key, value)` encodes then stores, and `write(domain, entries)` is the atomic batch over `setMany` — all entries land or none do, the compensation and hydrate spelling; `mutate(domain, key, step)` runs the read-modify-write inside one IndexedDB transaction with a synchronous `step`, so the transaction never spans an await; `drop(domain, key | keys)` discriminates single from batch on the input shape and deletes atomically; `size(domain)` counts keys without decoding values; `drain(domain)` is the atomic scan-then-clear — a mid-drain crash leaves the whole queue or empties it, never a half-applied tear; `wipe(domain)` resets one store.
 - Law: modality follows the input shape — a string is the point call, an array is the batch call, and the batch rows ride the library's own atomic multi-entry transactions (`getMany`, `setMany`, `delMany`); N point round-trips where one batch transaction answers is the named defect the batch modalities delete.
 - Law: every rejection converts at this seam — `Effect.tryPromise` folds the `DOMException` family into `KvFault` rows (`quota` for exceeded storage, `absent` for a host without `indexedDB`, `io` for the remainder) and decode skew folds to `codec` carrying the parse detail; no raw promise or thrown value escapes, and `KvFault.class` projects each reason into the core `FaultClass` vocabulary so budget gates read the one branch taxonomy.
 - Law: the codec seam is the write and read boundary — `Schema.encode` runs before `set`/`setMany`, `Schema.decodeUnknown` after `get`/`getMany` and the drain, and the `mutate` step operates on decoded values with the encode re-applied inside the same transaction closure; a held value failing decode inside `mutate` folds to absence so the synchronous step overwrites the poisoned cell — read and drain alone surface `codec` evidence — and a consumer never meets a stored representation.
 - Law: `mutate` rides `idb-keyval`'s `update` so concurrent writers serialize inside IndexedDB's own transaction — a `read`-then-`write` pair re-spelling it is the torn-write defect; `drain` runs scan-and-clear inside ONE `readwrite` transaction through the `UseStore` closure and `promisifyRequest`, awaiting the transaction itself before any entry is handed out, so a write racing the drain lands wholly before or wholly after it and a cleared queue is a committed fact.
 - Law: an entry failing decode after a drain is `codec` evidence and cannot re-enter the store — the producing writer is the defect site, and the fault carries the detail forensics need.
-- Entry: the service's six members are the whole surface; `R` carries nothing — the store handles are construction facts.
+- Entry: the service's seven members are the whole surface; `R` carries nothing — the store handles are construction facts.
 - Boundary: `@effect/platform`'s `KeyValueStore` Tag stays unbound here by design — its browser binding is Web-Storage-backed and carries no IndexedDB layer, so the durable lane is direct `idb-keyval` under this one owner; the EventLog journal's own IndexedDB database is `[5]`'s and never shares these stores.
-- Packages: `idb-keyval` (`get`, `getMany`, `set`, `setMany`, `update`, `del`, `delMany`, `clear`, `promisifyRequest`, `createStore`); `effect` (`Data`, `Effect`, `Option`, `ParseResult`, `Predicate`, `Schema`); `@rasm/ts/core` (`FaultClass`).
+- Packages: `idb-keyval` (`get`, `getMany`, `set`, `setMany`, `update`, `del`, `delMany`, `clear`, `keys`, `promisifyRequest`, `createStore`); `effect` (`Data`, `Effect`, `Option`, `ParseResult`, `Predicate`, `Schema`); `@rasm/ts/core` (`FaultClass`).
 
 ```typescript
 import { FaultClass } from "@rasm/ts/core"
 import { Data, Effect, Layer, Option, type ParseResult, Predicate, Schema } from "effect"
-import { clear, createStore, del, delMany, get, getMany, promisifyRequest, set, setMany, update, type UseStore } from "idb-keyval"
+import { clear, createStore, del, delMany, get, getMany, keys, promisifyRequest, set, setMany, update, type UseStore } from "idb-keyval"
 
 const _domains = {
   outbox: Schema.Struct({ minted: Schema.DateTimeUtc, band: Schema.Uint8ArrayFromSelf }),
@@ -48,7 +48,7 @@ const _domains = {
     returnTo: Schema.String,
     minted: Schema.DateTimeUtc,
   })),
-  route: Schema.String,
+  route: Schema.String.pipe(Schema.startsWith("?")), // a last-good query is a non-empty search string; an empty query DROPS the key, so corrupted or vacuous rows refuse at decode
   cache: Schema.Uint8ArrayFromSelf,
   mark: Schema.parseJson(Schema.Struct({ at: Schema.DateTimeUtc, note: Schema.String })),
 } as const
@@ -75,6 +75,7 @@ declare namespace Kv {
     }
     readonly mutate: (key: string, step: (held: Option.Option<Value<D>>) => Value<D>) => Effect.Effect<void, KvFault>
     readonly drop: (keys: string | ReadonlyArray<string>) => Effect.Effect<void, KvFault>
+    readonly size: Effect.Effect<number, KvFault>
     readonly drain: Effect.Effect<ReadonlyArray<readonly [string, Value<D>]>, KvFault>
     readonly wipe: Effect.Effect<void, KvFault>
   }
@@ -97,7 +98,7 @@ class KvFault extends Data.TaggedError("KvFault")<{
 }
 
 const _faulted = (domain: Kv.Domain) => (cause: unknown): KvFault =>
-  "indexedDB" in globalThis === false
+  !("indexedDB" in globalThis)
     ? new KvFault({ reason: "absent", domain, detail: String(cause) })
     : cause instanceof DOMException && cause.name === "QuotaExceededError"
       ? new KvFault({ reason: "quota", domain, detail: cause.message })
@@ -126,18 +127,15 @@ const _lane = <A, I>(domain: Kv.Domain, schema: Schema.Schema<A, I>) => {
       ? Effect.flatMap(lift((use) => get<unknown>(input, use)), _admit)
       : Effect.flatMap(lift((use) => getMany<unknown>([...input], use)), Effect.forEach(_admit))
   }
-  function write(key: string, value: A): Effect.Effect<void, KvFault>
-  function write(entries: ReadonlyArray<readonly [string, A]>): Effect.Effect<void, KvFault>
-  function write(input: string | ReadonlyArray<readonly [string, A]>, value?: A) {
-    return Predicate.isString(input)
-      ? encode(value as A).pipe(
+  const write = (...input: readonly [key: string, value: A] | readonly [entries: ReadonlyArray<readonly [string, A]>]) =>
+    input.length === 2
+      ? encode(input[1]).pipe(
           Effect.mapError(_decoded(domain)),
-          Effect.flatMap((encoded) => lift((use) => set(input, encoded, use))),
+          Effect.flatMap((encoded) => lift((use) => set(input[0], encoded, use))),
         )
-      : Effect.forEach(input, ([key, held]) =>
+      : Effect.forEach(input[0], ([key, held]) =>
           Effect.map(Effect.mapError(encode(held), _decoded(domain)), (encoded) => [key, encoded] as [IDBValidKey, unknown]),
         ).pipe(Effect.flatMap((rows) => lift((use) => setMany([...rows], use))))
-  }
   return {
     read,
     write,
@@ -147,13 +145,14 @@ const _lane = <A, I>(domain: Kv.Domain, schema: Schema.Schema<A, I>) => {
       ),
     drop: (keys: string | ReadonlyArray<string>) =>
       Predicate.isString(keys) ? lift((use) => del(keys, use)) : lift((use) => delMany([...keys], use)),
+    size: Effect.map(lift((use) => keys(use)), (held) => held.length),
     drain: lift((use) =>
       use("readwrite", (raw) =>
         promisifyRequest(raw.getAllKeys()).then((keys) =>
           promisifyRequest(raw.getAll()).then((values) => {
             raw.clear()
             return promisifyRequest(raw.transaction).then(() =>
-              keys.map((key, at) => [String(key), values[at] as unknown] as const),
+              keys.map((key, at) => [String(key), values[at]] as const),
             )
           }),
         ),
@@ -176,13 +175,14 @@ const _service = (lanes: { readonly [D in Kv.Domain]: Kv.Lane<D> }) => {
   function read<D extends Kv.Domain>(domain: D, key: string): Effect.Effect<Option.Option<Kv.Value<D>>, KvFault>
   function read<D extends Kv.Domain>(domain: D, keys: ReadonlyArray<string>): Effect.Effect<ReadonlyArray<Option.Option<Kv.Value<D>>>, KvFault>
   function read<D extends Kv.Domain>(domain: D, input: string | ReadonlyArray<string>) {
-    return lanes[domain].read(input as string)
+    return Predicate.isString(input) ? lanes[domain].read(input) : lanes[domain].read(input) // the shape probe selects the lane overload; no cast crosses
   }
-  function write<D extends Kv.Domain>(domain: D, key: string, value: Kv.Value<D>): Effect.Effect<void, KvFault>
-  function write<D extends Kv.Domain>(domain: D, entries: Kv.Entries<D>): Effect.Effect<void, KvFault>
-  function write<D extends Kv.Domain>(domain: D, input: string | Kv.Entries<D>, value?: Kv.Value<D>) {
-    return Predicate.isString(input) ? lanes[domain].write(input, value as Kv.Value<D>) : lanes[domain].write(input)
-  }
+  const write = <D extends Kv.Domain>(
+    domain: D,
+    ...input: readonly [key: string, value: Kv.Value<D>] | readonly [entries: Kv.Entries<D>]
+  ): Effect.Effect<void, KvFault> => input.length === 2
+    ? lanes[domain].write(input[0], input[1])
+    : lanes[domain].write(input[0])
   return {
     read,
     write,
@@ -193,6 +193,7 @@ const _service = (lanes: { readonly [D in Kv.Domain]: Kv.Lane<D> }) => {
     ): Effect.Effect<void, KvFault> => lanes[domain].mutate(key, step),
     drop: (domain: Kv.Domain, keys: string | ReadonlyArray<string>): Effect.Effect<void, KvFault> =>
       lanes[domain].drop(keys),
+    size: (domain: Kv.Domain): Effect.Effect<number, KvFault> => lanes[domain].size,
     drain: <D extends Kv.Domain>(domain: D): Effect.Effect<ReadonlyArray<readonly [string, Kv.Value<D>]>, KvFault> =>
       lanes[domain].drain,
     wipe: (domain: Kv.Domain): Effect.Effect<void, KvFault> => lanes[domain].wipe,
@@ -303,7 +304,7 @@ class Opfs extends Effect.Service<Opfs>()("runtime/browser/Opfs", {
 - Owner: `Overlay` — the browser backing rows the `@effect/experimental` EventLog client requires, assembled once: `Overlay.backing(spec)` merges the IndexedDB journal (`EventJournal.layerIndexedDb`, its own database, never a `[3]` store), the client identity over Web Storage (`EventLog.layerIdentityKvs` satisfied by `BrowserKeyValueStore.layerLocalStorage`), and the `Reactivity` bus; `Overlay.sync(url)` is the self-contained browser sync row (`EventLogRemote.layerWebSocketBrowser` — WebSocket plus Web Crypto E2E, requiring only the built `EventLog`).
 - Law: the event universe is app data — the app declares its `Event`/`EventGroup` families, freezes them with `EventLog.schema`, and composes `EventLog.layer(schema)` plus its group-handler registrations over this page's backings at the root; the lib ships backings and law, never an event vocabulary, so hundreds of apps ride one overlay spelling.
 - Law: overlay, never authority — the journal is append-only capture and the reducers fold local reads; anything durable-critical projects from or mirrors to the data journal through the sync server the edge mounts, and a lane holding sole custody of critical state is the named boundary breach.
-- Law: the sqlite-wasm lane seam — heavier local read models than the reducer folds ride the data-owned OPFS driver on `lane/sqlite`'s wasm profile row: the data folder publishes the wasm `SqlClient` Layer, the app root provides it beneath the app's read models, and this page's `retain`/`budget` verdicts gate whether the lane opens at all (a `critical` verdict or a refused grant demotes the app to the kv/overlay tier); the wasm profile's degradation verdicts — `originScope` tenancy, `singleTab` writer, `reactivityHooks` change delivery — are `lane/sqlite`'s rows, and no `@effect/sql*` import exists in this folder.
+- Law: the wasm-lane seam covers BOTH data-owned browser engines under one gate — heavier local read models than the reducer folds ride the OPFS driver on `lane/sqlite`'s wasm profile row, and the browser-resident analytics arm rides `lane/olap`'s `Olap.wasm` row (range-read Parquet over self-hosted bundles, Arrow receipts to the viewer's query surfaces): the data folder publishes each wasm `SqlClient` Layer, the app root provides it beneath the app's read models at boot, and this page's `retain`/`budget` verdicts gate whether EITHER lane opens at all (a `critical` verdict or a refused grant demotes the app to the kv/overlay tier); the engines' own degradation verdicts — `originScope` tenancy, `singleTab` writer, `reactivityHooks` change delivery — are their lane pages' rows, the bundles precache under `shell#CACHE_ROWS`'s asset posture, and no `@effect/sql*` or engine import exists in this folder.
 - Law: local-first boot order is fixed — `retain` first (durability grant before bytes land), backings next, sync last; a sync row without a journal is unbuildable by the requirement channel, which is the assembly proof.
 - Growth: a second sync transport (a socket-constructor row for a shared worker) is one row beside `sync`; a journal swap (memory for specs) is Layer substitution at the root, never an edit here.
 - Boundary: the server half — storage, encryption at rest, the mountable sync handler — is the data/edge waves' material; compaction and reactivity keys are the app's group declarations.

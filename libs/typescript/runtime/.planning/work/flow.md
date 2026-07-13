@@ -24,7 +24,8 @@ Durable execution as suspend-and-replay: a `Workflow` is a Schema-typed, idempot
 - Packages: `@effect/workflow` (`Activity`); `effect` (`Effect`, `Duration`); `@rasm/ts/core` (`Budget`, `FaultClass`).
 
 ```typescript
-import { Activity, DurableClock, DurableDeferred, Workflow, WorkflowProxy } from "@effect/workflow"
+import { Activity, DurableClock, DurableDeferred, Workflow, WorkflowProxy, WorkflowProxyServer } from "@effect/workflow"
+import type { HttpApi } from "@effect/platform"
 import { Cause, Data, Duration, Effect, Exit, Match, Schema } from "effect"
 import { Budget, FaultClass } from "@rasm/ts/core"
 import { WorkClass } from "./entity.ts"
@@ -72,7 +73,7 @@ const Step = { run: _run }
 - Law: the body binds through `workflow.toLayer((payload, executionId) => body)` and drives through the value's own members — `execute(payload, { discard: true })` for fire-and-forget returning the executionId, `poll` answering the `Result` ADT (`Complete | Suspended`) folded with `Match`, `interrupt`/`resume` for operator control; a suspended run is a durable fact awaiting a `Signal`, never an error.
 - Law: suspension and result-lifting are first-class verbs — `Workflow.suspend` parks the run explicitly where a body reaches a wait-for-world point, `Workflow.intoResult` lifts an effect into the durable `Result` so a sub-computation settles as data, `wrapActivityResult` is the activity-level twin, and `Workflow.provideScope` scopes a resource to the run's own lifetime — each a package member the body composes, never a local control convention.
 - Law: the engine is the `WorkflowEngine` Tag — `layerMemory` in specs, `ClusterWorkflowEngine.layer` composed at `entity#GRID` in production — and a definition naming its engine is the named defect; `suspendedRetrySchedule` takes a `Budget`-compiled schedule so a suspended run's re-check cadence rides the same geometry vocabulary.
-- Receipt: `Flow.Verdict` — the settled projection of a polled `Result`: `settled` with the success value, `suspended` with the execution id, `failed` with the dominant fault class — the shape drive dashboards and the serving plane's status endpoints read.
+- Receipt: `Flow.Verdict` — the settled projection of a polled `Result`: `Settled` with the success value, `Suspended` with the execution id, `Failed` with the dominant fault class, and `Unknown` for the `undefined` a `poll` answers when no run under that execution id exists — the package's own partiality folded into the closed family at the seam, so dashboards and the serving plane's status endpoints never meet a bare `undefined`.
 - Growth: a new workflow is one definition value plus one `toLayer` body; an operator capability (bulk interrupt, drain-before-deploy) is a fold over `poll`/`interrupt` at the composition root.
 - Packages: `@effect/workflow` (`Workflow`, `WorkflowEngine`); `effect` (`Schema`, `Match`, `Effect`).
 
@@ -81,6 +82,7 @@ type FlowVerdict<A> = Data.TaggedEnum<{
   Settled: { readonly value: A }
   Suspended: { readonly executionId: string }
   Failed: { readonly class: FaultClass.Kind }
+  Unknown: { readonly executionId: string }
 }>
 
 interface FlowVerdictDefinition extends Data.TaggedEnum.WithGenerics<1> {
@@ -88,23 +90,25 @@ interface FlowVerdictDefinition extends Data.TaggedEnum.WithGenerics<1> {
 }
 const _Verdict = Data.taggedEnum<FlowVerdictDefinition>()
 
-const _verdict = <A, E>(executionId: string, result: Workflow.Result<A, E>): FlowVerdict<A> =>
-  Match.value(result).pipe(
-    Match.tag("Complete", (complete) =>
-      Exit.match(complete.exit, {
-        onSuccess: (value) => _Verdict.Settled({ value }),
-        onFailure: (cause) => _Verdict.Failed({ class: FaultClass.of(Cause.squash(cause)) }),
-      })),
-    Match.tag("Suspended", () => _Verdict.Suspended({ executionId })),
-    Match.exhaustive,
-  )
+const _verdict = <A, E>(executionId: string, result: Workflow.Result<A, E> | undefined): FlowVerdict<A> =>
+  result === undefined
+    ? _Verdict.Unknown({ executionId }) // poll's own partiality: no run under this id — folded here so no consumer meets undefined
+    : Match.value(result).pipe(
+      Match.tag("Complete", (complete) =>
+        Exit.match(complete.exit, {
+          onSuccess: (value) => _Verdict.Settled({ value }),
+          onFailure: (cause) => _Verdict.Failed({ class: FaultClass.of(Cause.squash(cause)) }),
+        })),
+      Match.tag("Suspended", () => _Verdict.Suspended({ executionId })),
+      Match.exhaustive,
+    )
 ```
 
 ## [04]-[SAGA_FOLD]
 
 [SAGA_FOLD]:
 - Owner: the compensation law — `Workflow.withCompensation(effect, (value, cause) => cleanup)` registers a rollback finalizer on a top-level workflow effect; finalizers run LIFO when the whole workflow fails, each receiving the value its step produced and the cause that killed the run.
-- Law: compensation is top-level only — a finalizer registered inside an activity body is outside the replay log and silently vanishes on resume; the compile-visible discipline is that every `withCompensation` wraps a `Step.run` result at the workflow body, and a rollback that belongs to a sub-step is evidence the sub-step is a workflow of its own.
+- Law: compensation is top-level only — a finalizer registered inside an activity body is outside the replay log and silently vanishes on resume; the compile-visible discipline is that every `withCompensation` wraps a `Step.run` result at the workflow body, and a rollback that belongs to a sub-step is evidence the sub-step is a workflow of its own. Forward and inverse effects retain independent requirement tails, so storage, custody, and transport capabilities compose without a false shared-environment constraint.
 - Law: a compensation body is itself durable — it composes `Step.run` so a crashed rollback resumes; a raw effect as compensation re-runs on replay and is the rejected form.
 - Law: rollback semantics are domain verbs, not deletions — a mail send compensates by recording a suppression, an object put by releasing its reference, a quota grant by returning the lease; the record of truth is append-only, so compensation appends the inverse fact and never erases.
 - Growth: a new rollback concern is one `withCompensation` wrap at the owning workflow; a shared rollback pattern is a function over `Step.run` values, never a second saga surface.
@@ -116,9 +120,9 @@ const _compensated = <A, E, R, R2>(
   rollback: (value: A, cause: Cause.Cause<unknown>) => Effect.Effect<void, never, R2>,
 ) => Workflow.withCompensation(step, rollback)
 
-const _saga = <A, E, R>(
+const _saga = <A, E, R, R2>(
   forward: Effect.Effect<A, E, R>,
-  inverse: (value: A) => Effect.Effect<void, never, R>,
+  inverse: (value: A) => Effect.Effect<void, never, R2>,
 ) => _compensated(forward, (value, cause) => Cause.isInterruptedOnly(cause) ? Effect.void : inverse(value))
 
 const Flow = { compensated: _compensated, saga: _saga, verdict: _verdict }
@@ -129,7 +133,7 @@ const Flow = { compensated: _compensated, saga: _saga, verdict: _verdict }
 [SIGNAL_GATE]:
 - Owner: `Signal` — the external-signal owner and the branch's ONE durable-timer surface. `DurableDeferred.make(name, { success, error })` mints the deferred at the package surface; a workflow suspends on `Signal.hold` (`DurableDeferred.await` under a durable expiry race); the resolving side derives the token — `DurableDeferred.tokenFromPayload({ workflow, payload })` or `tokenFromExecutionId({ workflow, executionId })` — and settles it out-of-band with `succeed`/`fail`/`done`; `Signal` carries only the members the package lacks — the raced hold and the named pause — never renames of what it ships. A verified inbound callback, a human approval, an agent's held-tool release each resolve the same shape.
 - Law: in-band settlement is `DurableDeferred.into(effect, deferred)` — a sibling activity's own result binds to the deferred as it settles, so a gate resolved by a computation inside the run needs no out-of-band token round-trip; the out-of-band `succeed`/`fail` path stays the external-caller arm.
-- Law: the timer is owned once — `Signal.pause({ name, duration })` wraps `DurableClock.sleep({ name, duration, inMemoryThreshold })`, sub-threshold sleeps run in memory and longer ones survive process death at zero resource; `schedule#CADENCE` composes this member for its named pauses and no second `DurableClock` call site exists in the branch.
+- Law: the timer is owned once — `Signal.pause({ name, duration })` wraps `DurableClock.sleep({ name, duration })`; the package's sixty-second threshold keeps short sleeps in memory and persists longer ones, so a caller cannot fork timer policy through a signature knob. `schedule#CADENCE` composes this member for named pauses and no second `DurableClock` call site exists in the branch.
 - Law: expiry is a race arm, not a poll — `Signal.hold` races the deferred against `Signal.pause` of the hold budget through `DurableDeferred.raceAll`, whose persisted winner makes the race replay-deterministic (a bare fiber race settles nondeterministically on resume), folding the elapsed arm into an `expired`-classed fault; a loop that polls for an out-of-band condition is unspellable beside it.
 - Law: the token is a capability — an out-of-band resolver holds only the `Token`, never the workflow value; the serving plane carries tokens through its signed callback vocabulary, and token derivation stays on this side of the seam so the wire never learns payload shape.
 - Boundary: mounting the callback endpoint, verifying its signature, and admitting the caller are serving-plane and security-plane concerns; this owner declares, holds, and settles.
@@ -145,7 +149,7 @@ declare namespace Signal {
 }
 
 const _pause = (options: { readonly name: string; readonly duration: Duration.DurationInput }) =>
-  DurableClock.sleep({ name: options.name, duration: options.duration, inMemoryThreshold: Duration.seconds(60) })
+  DurableClock.sleep({ name: options.name, duration: options.duration })
 
 const _hold = <Success extends Schema.Schema.Any, Error extends Schema.Schema.All>(
   hold: Signal.Hold<Success, Error>,
@@ -168,15 +172,17 @@ const Signal = { hold: _hold, pause: _pause }
 ## [06]-[WIRE_PROXY]
 
 [WIRE_PROXY]:
-- Owner: the wire projection — `WorkflowProxy.toRpcGroup(workflows, { prefix })` and `WorkflowProxy.toHttpApiGroup(name, workflows)` derive execute/poll/interrupt procedure families from a workflow set, so the serving plane mounts durable executions as an ordinary `serve/api#CONTRIBUTION` pairing and the typed client, OpenAPI rows, and derived SDK arrive from the same declaration.
-- Law: the proxy is the ONLY wire existence a workflow has — a hand-written endpoint that executes a workflow re-states the contract and is the rejected form; the served handler set binds through `WorkflowProxyServer` beside the derived group, and operator drive (bulk interrupt, replay) composes the same proxied procedures.
+- Owner: the wire projection — `FlowSurface.contribution(name, flows)` derives the execute/poll/interrupt procedure families from a workflow set as `serve/api#CONTRIBUTION` pairing material: `WorkflowProxy.toRpcGroup(flows)` beside `WorkflowProxyServer.layerRpcHandlers(flows)` is exactly the `Contribution.rpc(group, handlers)` pair, and `WorkflowProxy.toHttpApiGroup(name, flows)` beside the api-reading builder `(api) => WorkflowProxyServer.layerHttpApi(api, name, flows)` is exactly the `Contribution.http(group, handlers)` pair — the typed client, OpenAPI rows, and derived SDK arrive from the same declaration.
+- Law: the proxy is the ONLY wire existence a workflow has — a hand-written endpoint that executes a workflow re-states the contract and is the rejected form, and a bare group projection whose handler binding the app must rediscover is the half-pairing defect; operator drive (bulk interrupt, replay) composes the same proxied procedures.
 - Growth: exposing a new workflow set is one proxy call in the owning contribution; a private workflow simply never enters one.
-- Packages: `@effect/workflow` (`WorkflowProxy`, `WorkflowProxyServer`).
+- Packages: `@effect/workflow` (`WorkflowProxy`, `WorkflowProxyServer`); `@effect/platform` (`HttpApi` — the pairing builder's api parameter).
 
 ```typescript
 const _contribution = <const Flows extends readonly [Workflow.Any, ...ReadonlyArray<Workflow.Any>]>(name: string, flows: Flows) => ({
   rpc: WorkflowProxy.toRpcGroup(flows),
+  rpcHandlers: WorkflowProxyServer.layerRpcHandlers(flows),
   http: WorkflowProxy.toHttpApiGroup(name, flows),
+  httpHandlers: <Api extends HttpApi.HttpApi.Any>(api: Api) => WorkflowProxyServer.layerHttpApi(api, name, flows),
 })
 
 const FlowSurface = { contribution: _contribution }

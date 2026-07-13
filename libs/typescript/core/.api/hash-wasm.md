@@ -9,7 +9,7 @@
 - plane: `plane:runtime` (core W0); folder-local to `core`, catalogued only here.
 - rail: content-identity / cryptographic-digest.
 
-`hash-wasm` exists in the contract floor for exactly ONE consumed capability: the `XxHash128` seed-zero mint that `value/contentKey` wraps as the single `ContentKey`. `interchange/frame`, the `runtime/browser/fetch` decode worker, and `data/object/store` delegate to that mint — a second mint or a non-zero seed is the named cross-language drift defect. The full digest/KDF surface is documented below because the floor OWNS the boundary: a future core identity (a keyed digest, a wire checksum) is a row on the pattern already here, not a new dependency.
+`hash-wasm` is consumed through exactly ONE owner — `value/contentKey`'s `Digest` row table — whose census is: `content` (`createXXHash128(0, 0)`, the cross-language `ContentKey`), `trace` (`createXXHash64(0, 0)`, the short correlation address), `check` (`createCRC32()`, the wire checksum), `proof` (`createBLAKE3(256)`, the Merkle proof-tree digest), the keyed seal mint (`createBLAKE3(256, key)` over a `Redacted` 32-byte key), and the resumable session algebra over `IHasher.save()`/`load()`. Every delegate — `interchange/frame`, the `runtime/browser/fetch` decode worker, `data/object/{store,stream,file}` — imports `Digest`, never this package; a second mint site or a non-zero seed on any content-address row is the named cross-language drift defect. The full package surface is documented below; the digest boundary is the floor's — a future core identity is a row on the pattern already here, not a new dependency — while the KDF family is the security folder's consumer surface: secret derivation never lands on `value/contentKey`, and the digest engine never carries a KDF surface.
 
 ## [01]-[CONTRACT]
 
@@ -61,7 +61,7 @@ declare function sha256(data: IDataType): Promise<string>
 
 ## [03]-[KDF_AND_KEYED]
 
-Password/derivation functions break the digest pattern: they take an options object and carry a return-type discriminant keyed on `outputType`. This is the advanced surface — verify against the object shape, not a positional guess.
+Password/derivation functions break the digest pattern: they take an options object and carry a return-type discriminant keyed on `outputType`. This is the advanced surface — verify against the object shape, not a positional guess. The KDF rows are the security folder's consumer surface; `createHMAC` is the keyed-digest combinator the `Digest` seal row grows onto when a peer contract demands it.
 
 | [INDEX] | [SURFACE]                          | [OPTIONS]             | [RETURN_DISCRIMINANT]                               |
 | :-----: | :--------------------------------- | :-------------------- | :-------------------------------------------------- |
@@ -87,7 +87,7 @@ declare function createHMAC(hash: Promise<IHasher>, key: IDataType): Promise<IHa
 
 ## [04]-[CONTENTKEY_MINT]
 
-The one consumed rail. `value/contentKey` calls `xxhash128(bytes)` with both seed halves defaulted to `0` — the seed-zero mint — and the returned hex IS the canonical `:x32` (32-hex-char) `ContentKey` directly: hash-wasm emits big-endian digest order, byte-identical to the C# `System.IO.Hashing.XxHash128` seed-0 `:x32` rendering with NO normalize step (the frozen corpus vector hashes to `9462a71a5dd13dcfa3b1d6d225fcbe70` from both mints). A hand-rolled byte-order shuffle on this path is a defect, not a compatibility layer. One asymmetry survives at the BYTES level only: `digest("binary")` returns the 16 raw bytes in that same display order — the reverse of the C# destination-buffer little-endian memory dump the corpus manifest records — so raw-buffer parity compares reverse one side, while hex parity is direct. The `tests/contracts` corpus parity drivers (TS readers in `tests/typescript/_testkit`) assert bit-identity against the frozen `ContentHash` corpus.
+The anchor row of the consumed table. `value/contentKey` calls `xxhash128(bytes)` with both seed halves defaulted to `0` — the seed-zero mint — and the returned hex IS the canonical `:x32` (32-hex-char) `ContentKey` directly: hash-wasm emits big-endian digest order, byte-identical to the C# `System.IO.Hashing.XxHash128` seed-0 `:x32` rendering with NO normalize step (the frozen corpus vector hashes to `9462a71a5dd13dcfa3b1d6d225fcbe70` from both mints). A hand-rolled byte-order shuffle on this path is a defect, not a compatibility layer. One asymmetry survives at the BYTES level only: `digest("binary")` returns the 16 raw bytes in that same display order — the reverse of the C# destination-buffer little-endian memory dump the corpus manifest records — so raw-buffer parity compares reverse one side, while hex parity is direct. The `tests/contracts` corpus parity drivers (TS readers in `tests/typescript/_testkit`) assert bit-identity against the frozen `ContentHash` corpus.
 
 - Small payload: `await xxhash128(bytes)` — one call, seed-zero.
 - Large / chunked payload: `createXXHash128(0, 0)` once, then `hasher.init().update(chunk)…digest()` — the WASM compile amortizes; `digest("binary")` returns the raw 16 bytes when the brand wants bytes before hexing.
@@ -103,7 +103,7 @@ The one consumed rail. `value/contentKey` calls `xxhash128(bytes)` with both see
 
 ## [06]-[RAIL_LAW]
 
-- Owns: WASM-backed content digests and KDFs; the seed-zero `XxHash128` mint the whole branch's content identity derives from.
-- Accept: `xxhash128(bytes)` / `createXXHash128(0,0)` for the ContentKey; `IDataType` inputs (prefer `Uint8Array` — a `string` input is UTF-8 encoded first); the streaming `IHasher` for chunked payloads; `createHMAC(createDIGEST(), key)` when a keyed digest is ever needed.
+- Owns: WASM-backed content digests; the seed-zero `XxHash128` mint the whole branch's content identity derives from, plus the `Digest` table's sibling rows (`createXXHash64(0, 0)` trace, `createCRC32()` check, `createBLAKE3(256)` proof) and the keyed `createBLAKE3(256, key)` seal. KDF consumption (`argon2id`, `bcrypt`, `scrypt`, `pbkdf2`) is the security folder's.
+- Accept: `xxhash128(bytes)` / `createXXHash128(0,0)` for the ContentKey; the `Digest` table's sibling factory rows behind `value/contentKey` only; `IDataType` inputs (prefer `Uint8Array` — a `string` input is UTF-8 encoded first); the streaming `IHasher` (`save`/`load` sessions) for chunked payloads; `createHMAC(createDIGEST(), key)` when a peer contract ever demands an HMAC construction.
 - Reject: a non-zero seed on the ContentKey path; a second content-address notion or a non-`xxhash128` content key; re-minting in a delegate folder instead of importing `value/contentKey`; treating any entry as sync — every one is a `Promise`.
 - Boundary: hex output is already the canonical big-endian digest — a byte-order shuffle on the hex path is a defect; `digest("binary")` bytes are display-ordered (the reverse of the C# little-endian destination buffer), and every cross-language parity claim is byte-level against the frozen corpus, never a re-hash comparison.

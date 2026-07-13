@@ -32,7 +32,7 @@ import * as BooleanInstances from "@effect/typeclass/data/Boolean"
 import * as NumberInstances from "@effect/typeclass/data/Number"
 import * as OptionInstances from "@effect/typeclass/data/Option"
 import * as RecordInstances from "@effect/typeclass/data/Record"
-import { Array, Data, Effect, Either, Equal, Equivalence, HashMap, HashSet, Option, type Order, Predicate, Record, STM, TMap, type Types } from "effect"
+import { Array, Data, Effect, Either, Equal, Equivalence, HashMap, HashSet, Option, type Order, Predicate, Record, STM, TMap, TRef, type Types } from "effect"
 
 declare namespace Merge {
   type Posture = { readonly commutative: boolean; readonly idempotent: boolean }
@@ -52,6 +52,11 @@ declare namespace Merge {
       probe: readonly [key: K, holds: (state: S) => boolean] | ((table: HashMap.HashMap<K, S>) => boolean),
     ) => Effect.Effect<void>
   }
+  type Single<S> = {
+    readonly absorb: (state: S) => Effect.Effect<void>
+    readonly read: Effect.Effect<S>
+    readonly settled: (holds: (state: S) => boolean) => Effect.Effect<void>
+  }
   type Shape = {
     readonly instance: <A>(spec: Instance<A>) => Instance<A>
     readonly max: <A>(order: Order.Order<A>) => Instance<A>
@@ -69,7 +74,10 @@ declare namespace Merge {
     readonly fold: <A>(instance: Instance<A>, rows: ReadonlyArray<A>) => Option.Option<A>
     readonly monoid: <A>(instance: Instance<A>) => Option.Option<Monoid.Monoid<A>>
     readonly convergent: <A>(instance: Instance<A>) => boolean
-    readonly cell: <K, S>(instance: Instance<S>) => Effect.Effect<Cell<K, S>>
+    readonly cell: {
+      <K, S>(instance: Instance<S>): Effect.Effect<Cell<K, S>>
+      <S>(instance: Instance<S>, seed: { readonly initial: S }): Effect.Effect<Single<S>>
+    }
   }
 }
 
@@ -92,18 +100,20 @@ const _fromOrder = <A>(order: Order.Order<A>): Equivalence.Equivalence<A> =>
 - Law: `Merge.imap` carries an instance across a wrapper pair — `Semigroup.imap` maps the combine through `to`/`from`, `alike` re-anchors through `Equivalence.mapInput`, `empty` maps through `to` — so a class owner re-lands its interior field-product instance through one iso, and the hand `Semigroup.make` constructor wrap beside a roster instance is the deleted spelling.
 - Law: `Merge.hashMap` is the keyed-map CRDT on the branch's own keyed-state currency — the `HashMap` twin of `union`: present-in-one keeps, present-in-both combines through the row instance, `empty` is the empty map, posture inherits the row's — so a keyed evidence field composes `Merge.struct({ commands: Merge.hashMap(row) })` and a hand-rolled `HashMap.reduce` combine beside the roster is the deleted spelling; its `alike` is the law surface's own keyed-table comparison, so table proofs and instance proofs share one equality.
 - Law: `Merge.struct` is the record CRDT — one instance per field, posture the conjunction of field postures, equivalence and empty composed from the same rows — a record merge is exactly as lawful as its weakest field and the whole matrix reads from one declaration.
-- Exemption: `_mapped` and `_struct` are the reverse-mapped projection kernel — the checker cannot correlate per-key `Instance<S[K]>` rows through `Record.map`, so the scoped assertions live in these two interior functions and nowhere else in the folder.
+- Exemption: `_mapped` and `_struct` are the marked reverse-mapped projection kernel — `Record.map` deliberately homogenizes record values and the checker cannot retain each key's `Instance<S[K]>` correlation through that API, so one input cast and the three exact output rebindings live here, carry the `// BOUNDARY ADAPTER` mark, and no asserted value crosses the kernel.
 - Growth: a new CRDT type is one constructor row here plus its law row at the law surface; the wire op family binds instances per op case at the interchange decode seam, never by forking this algebra.
 
 ```typescript
 const _mapped = <S extends object, R>(
   fields: Merge.Fields<S>,
-  project: (row: Merge.Instance<never>) => R,
-): { readonly [K in keyof S]: R } =>
-  Record.map(
-    fields as Record.ReadonlyRecord<string, Merge.Instance<never>>,
+  project: (row: Merge.Instance<unknown>) => R,
+): { readonly [K in keyof S]: R } => {
+  // BOUNDARY ADAPTER: Record.map homogenizes field values; the mapped-key contract restores the exact key census before the value leaves
+  return Record.map(
+    fields as unknown as Record.ReadonlyRecord<string, Merge.Instance<unknown>>,
     project,
-  ) as { readonly [K in keyof S]: R }
+  ) as unknown as { readonly [K in keyof S]: R }
+}
 
 const _postures = (rows: ReadonlyArray<Merge.Posture>): Merge.Posture => ({
   commutative: Array.every(rows, (row) => row.commutative),
@@ -130,10 +140,10 @@ const _lattice = <A>(bounds: Bounded.Bounded<A>): Merge.Lattice<A> => ({
 })
 
 const _struct = <S extends object>(fields: Merge.Fields<S>): Merge.Instance<Types.Simplify<S>> => ({
-  combine: Semigroup.struct(_mapped(fields, (row) => row.combine)) as Semigroup.Semigroup<Types.Simplify<S>>,
+  combine: Semigroup.struct(_mapped(fields, (row) => row.combine)) as unknown as Semigroup.Semigroup<Types.Simplify<S>>,
   posture: _postures(Record.values(_mapped(fields, (row) => row.posture))),
-  alike: Equivalence.struct(_mapped(fields, (row) => row.alike)) as Equivalence.Equivalence<Types.Simplify<S>>,
-  empty: Option.all(_mapped(fields, (row) => row.empty)) as Option.Option<Types.Simplify<S>>,
+  alike: Equivalence.struct(_mapped(fields, (row) => row.alike)) as unknown as Equivalence.Equivalence<Types.Simplify<S>>,
+  empty: Option.all(_mapped(fields, (row) => row.empty)) as unknown as Option.Option<Types.Simplify<S>>,
 })
 ```
 
@@ -160,7 +170,7 @@ const _monoid = <A>(instance: Merge.Instance<A>): Option.Option<Monoid.Monoid<A>
 
 [LAW_SURFACE]:
 - Owner: `Converge` — the `_LAWS` anchor with its `_OBLIGED` gate record and the `_WITNESSES` record, one gate and one total witness per law over an instance and a three-value sample, so a law is data a harness enumerates, never prose a spec restates; `Breach` is the typed fault carrying the broken law and the sample operands themselves — evidence as data the harness shrinks, rendered only at the reporting edge.
-- Law: obligations derive as one filter of the `_LAWS` anchor through the `_OBLIGED` gates — `associativity` unconditionally, `commutativity`/`idempotence` from the posture, `identity` from `Option.isSome(empty)` — so an instance cannot under-declare its proof surface, a new law is one anchor entry plus one gate row plus one witness row, and `Merge.counter`'s non-idempotent posture routes it around the idempotence law toward the op-identity dedup the engine lane's structural `consolidate` provides.
+- Law: obligations derive as one filter of the `_LAWS` anchor through the `_OBLIGED` gates — `associativity` unconditionally, `commutativity`/`idempotence` from the posture, `identity` from `Option.isSome(empty)` — so an instance cannot under-declare its proof surface, a new law is one anchor entry plus one gate row plus one witness row, and `Merge.counter`'s non-idempotent posture routes it around the idempotence law toward the delivery-uniqueness witness `causal`'s admission provides: redelivered envelopes shed as `Drained` receipt evidence before any op reaches a fold, because the engine lanes compact multiplicities without structural dedup and only an idempotent combine absorbs a duplicate that slips past admission.
 - Law: every witness compares through the instance's own `alike` — the equivalence declared at the instance is the equality the law is proven under, so structural classes, plain records, and branded scalars all prove under one spelling.
 - Law: `Converge.commutes` is the bridge law between instance and fold — for a convergence-legal instance, folding any two permutations of one delivered op set through the caller-supplied run yields equivalent tables; the run parameter is `fold#PLAN_CONTRACT`'s `Fold.run` closed over the instance's plan — `(ops) => Fold.run(plan, ops)` — so instance proofs and replay proofs share one predicate with zero import cycle, and a non-convergent instance answers `false` by construction rather than sampling its way to a lie.
 - Law: `Converge.tables` compares key census and per-key states under the instance's `alike` — the one table comparison every convergence and replay assertion uses; a `JSON.stringify` table diff or reference comparison is the deleted spelling.
@@ -252,43 +262,56 @@ const Converge: Converge.Shape = {
 ## [06]-[MERGE_CELLS]
 
 [MERGE_CELLS]:
-- Owner: `Merge.cell` — the keyed transactional merge table: one `TMap` of per-key state cells whose `absorb` folds a whole row batch through the instance in ONE `STM` commit, so a delta touching several keys lands all-or-nothing, conflicting absorbers re-run automatically, and a reader can never observe half a batch — the multi-cell merge atomicity a `Ref` advanced under a hand permit cannot state.
+- Owner: `Merge.cell` — one input-shaped transactional entry: `cell(instance)` builds the keyed `TMap` table whose `absorb` folds a whole row batch in one commit, while `cell(instance, { initial })` builds the isolated `TRef` twin for one state; both absorb through the same instance, conflicting writers re-run automatically, and readers observe only committed states.
 - Law: `settled` is one wait surface over two modalities discriminated on the probe's shape — the `[key, holds]` pair suspends through `STM.check` until the key's state exists and satisfies the predicate; the bare table predicate snapshots the whole committed census inside the transaction and suspends until it holds, the whole-table stability wait `causal#FRONTIER_TRACKER` composes — wait-until-merged without a poll loop; the transaction re-runs when a participating cell changes, so convergence waits are compose-or-retry, never cadence.
 - Law: the cell composes the instance it is built from — insert (`none -> value`) and update (`some -> combine`) are two arms of one keyed fold inside the transaction, so the live table and the pure `Merge.fold` agree by construction and the cell adds no second merge semantics.
+- Law: the isolated modality carries `absorb(state)`, the transactional `read`, and predicate `settled`; it is the single-state projection of the keyed table, selected by the seed-bearing input shape instead of a `ref` sibling entrypoint.
 - Law: `table` snapshots the whole census in one commit — a consistent read of every cell at one transaction point, the read `fold#PLAN_CONTRACT` tables compare against in convergence assertions.
 - Boundary: a fold maintained incrementally under engine deltas is `fold#MEMORY_LANE`'s handle; the cell owns cross-fiber shared state whose writers are ordinary effects, and choosing between them is the consumer's altitude selection.
 - Growth: a new transactional read is one member composing the same `TMap`; a census-size gate or quorum wait is already the table-probe `settled` spelling, never a new member.
 
 ```typescript
-const _cell = <K, S>(instance: Merge.Instance<S>): Effect.Effect<Merge.Cell<K, S>> =>
-  Effect.gen(function* () {
-    const cells = yield* STM.commit(TMap.empty<K, S>())
-    const settled = (
-      probe: readonly [key: K, holds: (state: S) => boolean] | ((table: HashMap.HashMap<K, S>) => boolean),
-    ): Effect.Effect<void> =>
-      STM.commit(
-        Predicate.isFunction(probe)
-          ? STM.flatMap(TMap.toChunk(cells), (rows) => STM.check(() => probe(HashMap.fromIterable(rows))))
-          : STM.flatMap(TMap.get(cells, probe[0]), (held) =>
-              STM.check(() => Option.match(held, { onNone: () => false, onSome: probe[1] }))),
-      )
-    return {
-      absorb: (rows) =>
-        STM.commit(
-          STM.forEach(rows, ([key, value]) =>
-            STM.gen(function* () {
-              const held = yield* TMap.get(cells, key)
-              yield* TMap.set(cells, key, Option.match(held, {
-                onNone: () => value,
-                onSome: (state) => instance.combine.combine(state, value),
-              }))
-            }), { discard: true }),
-        ),
-      read: (key) => STM.commit(TMap.get(cells, key)),
-      table: Effect.map(STM.commit(TMap.toChunk(cells)), HashMap.fromIterable),
-      settled,
-    }
-  })
+function _cell<K, S>(instance: Merge.Instance<S>): Effect.Effect<Merge.Cell<K, S>>
+function _cell<S>(instance: Merge.Instance<S>, seed: { readonly initial: S }): Effect.Effect<Merge.Single<S>>
+function _cell<K, S>(
+  instance: Merge.Instance<S>,
+  seed?: { readonly initial: S },
+): Effect.Effect<Merge.Cell<K, S> | Merge.Single<S>> {
+  return seed === undefined
+    ? Effect.gen(function* () {
+        const cells = yield* STM.commit(TMap.empty<K, S>())
+        const settled = (
+          probe: readonly [key: K, holds: (state: S) => boolean] | ((table: HashMap.HashMap<K, S>) => boolean),
+        ): Effect.Effect<void> =>
+          STM.commit(
+            Predicate.isFunction(probe)
+              ? STM.flatMap(TMap.toChunk(cells), (rows) => STM.check(() => probe(HashMap.fromIterable(rows))))
+              : STM.flatMap(TMap.get(cells, probe[0]), (held) =>
+                  STM.check(() => Option.match(held, { onNone: () => false, onSome: probe[1] }))),
+          )
+        return {
+          absorb: (rows: ReadonlyArray<readonly [K, S]>) =>
+            STM.commit(
+              STM.forEach(rows, ([key, value]) =>
+                STM.gen(function* () {
+                  const held = yield* TMap.get(cells, key)
+                  yield* TMap.set(cells, key, Option.match(held, {
+                    onNone: () => value,
+                    onSome: (state) => instance.combine.combine(state, value),
+                  }))
+                }), { discard: true }),
+            ),
+          read: (key) => STM.commit(TMap.get(cells, key)),
+          table: Effect.map(STM.commit(TMap.toChunk(cells)), HashMap.fromIterable),
+          settled,
+        }
+      })
+    : Effect.map(STM.commit(TRef.make(seed.initial)), (cell): Merge.Single<S> => ({
+        absorb: (state) => STM.commit(TRef.update(cell, (held) => instance.combine.combine(held, state))),
+        read: STM.commit(TRef.get(cell)),
+        settled: (holds) => STM.commit(STM.flatMap(TRef.get(cell), (held) => STM.check(() => holds(held)))),
+      }))
+}
 
 const Merge: Merge.Shape = {
   instance: (spec) => spec,

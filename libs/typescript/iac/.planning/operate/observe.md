@@ -136,7 +136,7 @@ const _urls = (release: string, namespace: pulumi.Input<string>): Lgtm.Urls => (
 
 [BOARD_APPLY]:
 - Owner: `Boards` — the tier-constructed `grafana.Provider` (`url` from `Lgtm.urls.grafana`, `auth` as the `user:password` form woven from the Doppler read, the transient-fault posture as data — `retries`, `retryStatusCodes`, `retryWait` — and `storeDashboardSha256: true` so dashboard drift diffs by hash instead of full JSON) and the apply fold: one `oss.Folder` roots the app's boards (uid slugged from the spec's app key), `_SOURCES` maps backend rows onto `oss.DataSource` constructions from the `Lgtm` query URLs, each encoded `DashboardModel` becomes one `oss.Dashboard` under the folder, `_alerted` compiles the `Alert.Spec` rows into one `alerting.RuleGroup` plus severity-routed delivery, `_slos` compiles the suite's objectives into `slo.Slo` rows, tenant organizations realize per `spec.tenants` slug, and the machine identity mints once.
-- Law: the alert compile is total over the spec — `_expr` is the one `Sli.$match` fold from SLI case to PromQL, every arm a breach-rate `> factor × budget` verdict joined over the short and long windows with `and` through the `_burned` seam, the multiwindow guard that keeps a burst and a slow burn both honest: the `Ratio` case compiles the good-ratio complement, the `Latency` case the `le`-share complement at the spec's own `ceiling` over the bucket/count series, and the `Saturation`/`Freshness` cases the bool-comparison time shares — each spec becomes one rule whose `datas` pair a Prometheus query node with a `__expr__` threshold node, `for` derives from the severity row's `hold`, and the spec's `annotations`/`slug` ride the rule verbatim — the suite computes policy, this fold only spells it in the provider dialect, and a consumer re-deriving burn thresholds is the forked-discipline defect.
+- Law: the alert compile is total over the spec — `_expr` is the one `Match.valueTags` record fold from SLI case to PromQL, every arm a breach-rate `> factor × budget` verdict joined over the short and long windows with `and` through the `_burned` seam, the multiwindow guard that keeps a burst and a slow burn both honest: the `Ratio` case compiles the good-ratio complement, the `Latency` case the `le`-share complement at the spec's own `ceiling` over the bucket/count series, and the `Saturation`/`Freshness` cases the bool-comparison time shares — each spec becomes one rule whose `datas` pair a Prometheus query node with a `__expr__` threshold node, `for` derives from the severity row's `hold`, and the spec's `annotations`/`slug` ride the rule verbatim — the suite computes policy, this fold only spells it in the provider dialect, and a consumer re-deriving burn thresholds is the forked-discipline defect.
 - Law: delivery routes by severity as data — the `contacts` record carries one receiver row per severity kind (`page`, `ticket`); each present row realizes one `alerting.ContactPoint` and one `NotificationPolicy` matcher route on the `severity` label, so paging posture is data the spec's severity row keys, and `alerting.MuteTiming`/`MessageTemplate` land beside these rows when a paging calendar earns them.
 - Law: SLOs compile from objectives, never from alerts — `_slos` maps the suite's own `Slo.Objective` values (name, target, window, SLI) onto `slo.Slo` rows with the plain error-ratio query, so the alert fold and the SLO fold read one upstream vocabulary and cannot disagree.
 - Law: tenancy is organizations — one `oss.Organization` per `spec.tenants` slug, so a tenant's boards, sources, and permissions scope to its org; the per-tenant folder-and-source apply inside each org is the finalization the tenancy escalation drives.
@@ -146,12 +146,12 @@ const _urls = (release: string, namespace: pulumi.Input<string>): Lgtm.Urls => (
 - Entry: `new Boards("boards", { spec, lgtm, auth, boards, alerts, objectives, contacts }, opts)` inside the k8s arm, `boards`/`alerts`/`objectives` produced by the app's core observe suite call.
 - Growth: a new panel family or board is upstream data; a new severity route is one `contacts` row; a new SLI case is one `_expr` match arm beside its upstream `Sli` case.
 - Boundary: `DashboardModel`/`Alert`/`Slo` shapes are the core observe plane's owners consumed as encoded values; folder placement conventions live here, board content never does; drift interpretation is `operate/policy.md`'s.
-- Packages: `@pulumiverse/grafana` (`Provider`, `oss.Folder`, `oss.DataSource`, `oss.Dashboard`, `oss.Organization`, `oss.ServiceAccount`, `oss.ServiceAccountToken`, `alerting.RuleGroup`, `alerting.ContactPoint`, `alerting.NotificationPolicy`, `slo.Slo`); `@rasm/ts/core` (`DashboardModel`, `Alert`, `Sli`, `Slo`); `effect` (`Array`, `Duration`, `Record`); `../program/spec.ts` (`StackSpec`, `Tier`).
+- Packages: `@pulumiverse/grafana` (`Provider`, `oss.Folder`, `oss.DataSource`, `oss.Dashboard`, `oss.Organization`, `oss.ServiceAccount`, `oss.ServiceAccountToken`, `alerting.RuleGroup`, `alerting.ContactPoint`, `alerting.NotificationPolicy`, `slo.Slo`); `@rasm/ts/core` (`DashboardModel`, `Alert`, `Sli`, `Slo`); `effect` (`Array`, `Duration`, `Match`, `Record`); `../program/spec.ts` (`StackSpec`, `Tier`).
 
 ```typescript
 import * as grafana from "@pulumiverse/grafana"
-import { Sli, type Alert, type DashboardModel, type Slo } from "@rasm/ts/core"
-import { Array, Duration, Record } from "effect"
+import type { Alert, DashboardModel, Sli, Slo } from "@rasm/ts/core"
+import { Array, Duration, Match, Record } from "effect"
 
 declare namespace Boards {
   type Model = typeof DashboardModel.Encoded
@@ -182,7 +182,7 @@ const _burned = (spec: Alert.Spec, breach: (window: Duration.DurationInput) => s
   )
 
 const _expr = (spec: Alert.Spec): string =>
-  Sli.$match(spec.sli, {
+  Match.valueTags(spec.sli, {
     Freshness: ({ horizon, metric }) =>
       _burned(spec, (window) => `avg_over_time((${metric} > bool ${Duration.toSeconds(horizon)})[${_window(window)}:])`),
     Latency: ({ ceiling, metric }) =>
@@ -195,7 +195,7 @@ const _expr = (spec: Alert.Spec): string =>
   })
 
 const _query = (sli: Sli): string =>
-  Sli.$match(sli, {
+  Match.valueTags(sli, {
     Freshness: ({ horizon, metric }) => `avg_over_time((${metric} > bool ${Duration.toSeconds(horizon)})[$__rate_interval:])`,
     Latency: ({ metric, quantile }) => `histogram_quantile(${quantile}, sum by (le) (rate(${metric}_bucket[$__rate_interval])))`,
     Ratio: ({ good, total }) => `sum(rate(${good}[$__rate_interval])) / sum(rate(${total}[$__rate_interval]))`,

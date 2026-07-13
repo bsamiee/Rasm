@@ -1,13 +1,13 @@
 # [RUNTIME_PROBLEM]
 
-The outbound-fault law of the front door: every fault leaving the branch over HTTP renders ITSELF through the `HttpServerRespondable` symbol protocol, and `Problem` — one RFC 9457 owner carrying the body schema, the governed class-to-status record, the total fold from any refused value, and the `Cause` fold — is the value that implements it, so the central error-mapper middleware has no existence: the route seam's net is one `toResponseOrElse` fold where a respondable failure short-circuits into its own response and everything else lifts through the total probe ladder first. The ladder is ordered by evidence specificity and every rung is structural: an existing `Problem` passes untouched, the adopted-verbatim `FaultDetail` tag projects through the upstream rows with its `retryable`/`terminal` facts read off the value, a `ParseError` lands on `malformed` and a `RouteNotFound` on `absent`, and the residue classifies through `FaultClass.of` into the governed record — total, closed, and free of any cross-branch import. Exposure derives from the core `blame` axis so caller-blamed detail crosses outward and system-blamed detail redacts to its title; inbound never touches this module — a problem body is never decoded, reconstructed, or matched on. The module ships on the `./server` exports subpath as `runtime/src/serve/problem.ts`; a new core fault class breaks the record loudly at compile time.
+The outbound-fault law of the front door: every fault leaving the branch over HTTP renders ITSELF through the `HttpServerRespondable` symbol protocol, and `Problem` — one RFC 9457 owner carrying the body schema, the governed class-to-status record, the total fold from any refused value, and the `Cause` fold — is the value that implements it, so the central error-mapper middleware has no existence: the route seam's net is one fold where a respondable failure renders through its own symbol and everything else lifts through the total probe ladder first. The ladder is ordered by evidence specificity and every rung is structural: an existing `Problem` passes untouched, the adopted-verbatim `FaultDetail` tag projects through the upstream rows with its `retryable`/`terminal` facts read off the value, a `ParseError` lands on `malformed` and a `RouteNotFound` on `absent`, and the residue classifies through `FaultClass.of` into the governed record — total, closed, and free of any cross-branch import. Exposure derives from the core `blame` axis so caller-blamed detail crosses outward and system-blamed detail redacts to its title, and the extension band is CLOSED at the schema — the body's `extensions` field is the exact allowlisted record, so a key outside the vocabulary is unrepresentable in a `Problem` value and cannot cross the HTTP boundary from any construction site; inbound never touches this module — a problem body is never decoded, reconstructed, or matched on. The module ships on the `./server` exports subpath as `runtime/src/serve/problem.ts`; a new core fault class breaks the record loudly at compile time.
 
 ## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                                      | [PUBLIC]  |
-| :-----: | :------------------ | :-------------------------------------------------------------------------- | :-------- |
+| :-----: | :------------------ | :--------------------------------------------------------------------------- | :-------- |
 |  [01]   | `STATUS_RECORD`     | the class-to-status governed record, type-slug derivation, grace resolution | interior  |
-|  [02]   | `REDACTION_ROWS`    | blame-derived exposure, the extension allowlist, the redact fold            | interior  |
+|  [02]   | `REDACTION_ROWS`    | blame-derived exposure, the structural extension band, the redact fold      | interior  |
 |  [03]   | `UPSTREAM_ROWS`     | the wire-fault projection over structural `retryable`/`terminal` facts      | interior  |
 |  [04]   | `RESPONDABLE_OWNER` | the RFC 9457 owner, the symbol implementation, the total fold, the seam net | `Problem` |
 
@@ -30,6 +30,8 @@ import { Current } from "./api.ts"
 const _TYPE_BASE = "/problems/"
 
 type _Grade = { readonly status: number; readonly title: string; readonly grace: Option.Option<Duration.Duration> }
+
+const _Status = Schema.Int.pipe(Schema.between(100, 599))
 
 const _rows: { readonly [K in FaultClass.Kind]: _Grade } = {
   absent: { status: 404, title: "resource absent", grace: Option.none() },
@@ -57,20 +59,28 @@ const _retryAfter = (
 
 [REDACTION_ROWS]:
 - Law: exposure derives from blame — `_expose(kind)` is `FaultClass[kind].blame === "caller"`, never a column: a caller-blamed class carries its fault detail outward as actionable repair material, a system-blamed class redacts to the row title so no internal evidence, path, or dependency name leaks through a 5xx body.
-- Law: `_EXPOSED` is the extension allowlist — `tag`, `reason`, and `requestId` are the only fault-derived members a problem body may carry — and `_redact(kind, extensions)` filters against it unconditionally, then empties further on a non-exposing class; a new public member is one tuple entry, and an extension written past the fold is the leak defect the architecture suite audits.
-- Law: `requestId` survives redaction on every class — correlation is the one occurrence datum a system-blamed problem must keep, because the operator resolves the redacted body against telemetry through it — so the redact fold re-admits it after the class gate.
+- Law: the extension band is structural — `_Extensions` is the exact-optional record over `tag`, `reason`, and `requestId`, the `_EXPOSED` tuple anchors the key census, and the guard pair closes tuple and schema against each other in both directions; because the `Problem` class carries this schema as its `extensions` field, a key outside the vocabulary is unrepresentable in any `Problem` value — the allowlist cannot be bypassed at a construction site, and a new public member is one field row plus its tuple entry.
+- Law: `_redact(kind, extensions)` owns the blame gate over the structural band — a non-exposing class empties `tag` and `reason` while `requestId` survives on every class, because correlation is the one occurrence datum a system-blamed problem must keep: the operator resolves the redacted body against telemetry through it.
 - Boundary: which values populate the extensions is `[05]`'s fold; log-side and OTLP-side scrubbing is `emit#REDACTION`'s policy; this cluster fixes only what crosses the HTTP body outward.
 
 ```typescript
 const _EXPOSED = ["tag", "reason", "requestId"] as const
 
+const _Extensions = Schema.Struct({
+  tag: Schema.String,
+  reason: Schema.String,
+  requestId: Schema.String,
+}).pipe(Schema.partialWith({ exact: true }))
+
 const _expose = (kind: FaultClass.Kind): boolean => FaultClass[kind].blame === "caller"
 
-const _redact = (
-  kind: FaultClass.Kind,
-  extensions: { readonly [key: string]: string },
-): { readonly [key: string]: string } =>
-  Record.filter(extensions, (_, key) => key === "requestId" || (_expose(kind) && Array.contains(_EXPOSED, key)))
+const _redact = (kind: FaultClass.Kind, extensions: Problem.Extensions): Problem.Extensions =>
+  _expose(kind)
+    ? extensions
+    : Option.match(Option.fromNullable(extensions.requestId), {
+        onNone: () => ({}),
+        onSome: (requestId) => ({ requestId }),
+      })
 ```
 
 ## [04]-[UPSTREAM_ROWS]
@@ -104,13 +114,13 @@ const _hop = (facts: { readonly retryable: boolean; readonly terminal: boolean }
 ## [05]-[RESPONDABLE_OWNER]
 
 [RESPONDABLE_OWNER]:
-- Owner: `Problem` — a `Schema.Class` carrying exactly the RFC members (`type`, `title`, `status`, `detail`, `instance` as `Option`) plus the allowlisted `extensions` band and the `retry` seconds the grace ladder resolved; the class is the value, the encode anchor, the fold entry, and the self-rendering respondable under one import, and its encoded twin is the wire body verbatim.
+- Owner: `Problem` — a `Schema.Class` carrying exactly the RFC members (`type`, `title`, `status`, `detail`, `instance` as `Option`) plus the CLOSED `extensions` band and the `retry` seconds the grace ladder resolved; the class is the value, the encode anchor, the fold entry, and the self-rendering respondable under one import, and its encoded twin is the wire body verbatim.
 - Law: the symbol implementation IS the egress projection — `Problem` implements `[HttpServerRespondable.symbol]()` as its own `respond`: `Schema`-encoded body under `application/problem+json` at the problem's own `status`, the `retry-after` header stamped exactly when `retry` is inhabited, `instance` and the `requestId` extension stamped from the ambient `Current.Stamp` inside the render so every egress path carries correlation; encoding the branch's own `Problem` failing is a defect (`Effect.orDie`), never a channel member — the fault altitude cannot itself fault.
 - Law: the probe ladder is ordered by evidence specificity — (1) an existing `Problem` passes through; (2) `FaultDetail` by tag probe projects through the upstream rows; (3) `ParseError` lands on `malformed`, `RouteNotFound` on `absent`; (4) the residue classifies through `FaultClass.of`, a fault also carrying a `policy.status` row keeps that status over the class default, detail obeys exposure, the grace hint probes the fault's own `retryAfter` field before the class default, and `tag`/`reason` extensions populate then pass the redact fold in one construction — total over `unknown`, so an over-shared member is structurally impossible downstream.
 - Law: `Problem.fromCause` discriminates in interrupt-first order — `Cause.isInterruptedOnly` folds to the `unavailable` row (the seam only observes an interrupt under shed or shutdown), a typed failure re-enters the ladder, a defect lands on the `defect` row — the same order every telemetry outcome fold uses.
-- Law: the net is self-rendering-first, never a mapper — `Problem.net(cause)` folds the cause once, then resolves the response through `HttpServerRespondable.toResponseOrElse(fault, orElse)`: a failure that implements the symbol renders itself (a folder fault opting in owns its own projection; `Problem` itself is the standing instance), and the orElse arm is the total ladder — so the route seam carries zero recovery arms, the served app's error channel is `never` by construction, and an unmapped fault cannot escape as a naked 500. Declared endpoint faults keep their `HttpApiEndpoint.addError` status at the spec altitude; this net is the floor under everything undeclared.
+- Law: the net is self-rendering-first, never a mapper — `Problem.net(cause)` folds the cause once, then renders: a failure that implements the symbol resolves through `HttpServerRespondable.toResponse` (a folder fault opting in owns its own projection; `Problem` itself is the standing instance), and everything else rides the total ladder into `Problem.respond` — the two arms split on `HttpServerRespondable.isRespondable` because the ladder's render is effectful (it reads the ambient stamp) where the platform's `toResponseOrElse` demands a settled response value — so the route seam carries zero recovery arms, the served app's error channel is `never` by construction, and an unmapped fault cannot escape as a naked 500. Declared endpoint faults keep their `HttpApiEndpoint.addError` status at the spec altitude; this net is the floor under everything undeclared.
 - Boundary: attachment is `route#SEAM_ROWS`'s one composition; log/OTLP emission of the folded cause is `crash#CAPTURE`'s, fed from the same seam; the class table and blame axis are `fault#CLASS_VOCABULARY`'s.
-- Growth: a new probe rung is one arm in `_of` plus its row in `[02]`; a new extension is one populate line under the redact fold.
+- Growth: a new probe rung is one arm in `_of` plus its row in `[02]`; a new extension is one field row under `[03]`'s band plus its populate line.
 - Packages: `effect` (`Schema`, `Option`, `Effect`, `Cause`, `Predicate`); `@effect/platform` (`HttpServerRespondable`, `HttpServerResponse`); `./api.ts` (`Current`).
 
 ```typescript
@@ -118,12 +128,23 @@ const _text = (fault: unknown): string =>
   Predicate.hasProperty(fault, "message") && Predicate.isString(fault.message) ? fault.message : String(fault)
 
 const _field = (fault: unknown, key: string): Option.Option<string> => {
-  const held = Predicate.hasProperty(fault, key) ? (fault as { readonly [k: string]: unknown })[key] : undefined
+  const held = Predicate.hasProperty(fault, key) ? fault[key] : undefined
   return Predicate.isString(held) ? Option.some(held) : Option.none()
 }
 
+const _isFaultDetail = (fault: unknown): fault is {
+  readonly _tag: "FaultDetail"
+  readonly retryable: boolean
+  readonly terminal: boolean
+} =>
+  Predicate.isTagged(fault, "FaultDetail") &&
+  Predicate.hasProperty(fault, "retryable") &&
+  Predicate.isBoolean(fault.retryable) &&
+  Predicate.hasProperty(fault, "terminal") &&
+  Predicate.isBoolean(fault.terminal)
+
 const _statused = (fault: unknown): Option.Option<number> =>
-  Predicate.hasProperty(fault, "policy") && Predicate.hasProperty(fault.policy, "status") && Predicate.isNumber(fault.policy.status)
+  Predicate.hasProperty(fault, "policy") && Predicate.hasProperty(fault.policy, "status") && Schema.is(_Status)(fault.policy.status)
     ? Option.some(fault.policy.status)
     : Option.none()
 
@@ -132,7 +153,7 @@ const _graced = (fault: unknown): Option.Option<Duration.Duration> =>
     ? Option.filter(fault.retryAfter, Duration.isDuration)
     : Option.none()
 
-const _extensions = (kind: FaultClass.Kind, fault: unknown): { readonly [key: string]: string } =>
+const _extensions = (kind: FaultClass.Kind, fault: unknown): Problem.Extensions =>
   _redact(kind, {
     ...Option.match(_field(fault, "_tag"), { onNone: () => ({}), onSome: (tag) => ({ tag }) }),
     ...Option.match(_field(fault, "reason"), { onNone: () => ({}), onSome: (reason) => ({ reason }) }),
@@ -171,7 +192,7 @@ const _projected = (fault: unknown): Problem => {
 const _of = (fault: unknown): Problem =>
   fault instanceof Problem
     ? fault
-    : Predicate.isTagged(fault, "FaultDetail")
+    : _isFaultDetail(fault)
       ? _projected(fault)
       : Predicate.isTagged(fault, "ParseError")
         ? _classed({ class: "malformed", message: "request body refused" })
@@ -182,11 +203,11 @@ const _of = (fault: unknown): Problem =>
 class Problem extends Schema.Class<Problem>("Problem")({
   type: Schema.NonEmptyString,
   title: Schema.NonEmptyString,
-  status: Schema.Int.pipe(Schema.between(100, 599)),
+  status: _Status,
   detail: Schema.String,
   instance: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
-  retry: Schema.optionalWith(Schema.Int, { as: "Option" }),
-  extensions: Schema.Record({ key: Schema.String, value: Schema.String }),
+  retry: Schema.optionalWith(Schema.NonNegativeInt, { as: "Option" }),
+  extensions: _Extensions,
 }) {
   static readonly of: (fault: unknown) => Problem = _of
   static readonly fromCause = <E>(cause: Cause.Cause<E>): Problem =>
@@ -220,12 +241,18 @@ class Problem extends Schema.Class<Problem>("Problem")({
       onNone: () => Problem.respond(Problem.fromCause(cause)),
       onSome: (fault) =>
         HttpServerRespondable.isRespondable(fault)
-          ? HttpServerRespondable.toResponseOrElse(fault, Problem.respond(_of(fault)))
+          ? HttpServerRespondable.toResponse(fault)
           : Problem.respond(_of(fault)),
-    });
+    })
   [HttpServerRespondable.symbol](): Effect.Effect<HttpServerResponse.HttpServerResponse> {
     return Problem.respond(this)
   }
+}
+
+declare namespace Problem {
+  type Extensions = typeof _Extensions.Type
+  type _Band<K extends keyof Extensions = (typeof _EXPOSED)[number]> = K
+  type _Census<K extends (typeof _EXPOSED)[number] = keyof Extensions> = K
 }
 
 // --- [EXPORTS] --------------------------------------------------------------------------

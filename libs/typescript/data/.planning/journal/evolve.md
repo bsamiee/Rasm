@@ -17,13 +17,13 @@ Schema evolution without migrations and its read accelerator in one owner: every
 - Packages: `effect` (types only at this altitude).
 - Growth: a new version of one event is one step pushed onto its chain and `latest` bumped by one — old steps never change, because the versions they lift are already in the log.
 - Law: steps are total pure functions over encoded payloads — `(payload: unknown) => unknown` with no failure channel; partiality has nowhere to hide because the terminal decode re-proves every invariant the current schema states.
-- Law: completeness is positional — a chain of `latest: 4` carries exactly three steps; `_sized` enforces it at plan construction and a mismatch is a defect surfaced synchronously, never a read-time fault.
-- Boundary: `_sized` is the one construction kernel on the page — a roster mismatch dies as the typed `ChainIncomplete` defect at wiring, before any read exists; `Upcast.plan` and `Upcast.chain` are otherwise pure value constructors and no other throw is spellable here.
+- Law: completeness is positional — a chain of `latest: 4` carries exactly three steps; `_sized` proves it at plan construction as a value, `Either.right` the proven chain and `Either.left` the typed `ChainIncomplete`, so a roster mismatch is a wiring fault the composing Layer folds once, never a throw and never a read-time surprise.
+- Boundary: `_sized` is the one construction check on the page — `Upcast.plan` and `Upcast.chain` fold it through `Either.all`, so the constructors are total pure functions into `Either` and no throw, `die`, or defect exit is spellable anywhere on the page.
 - Law: the step transforms the whole encoded member including its `_tag` — a rename across versions is a step that rewrites the tag, and the plan indexes chains by the tag AS WRITTEN, so renamed families keep their history reachable.
 - Boundary: where `Raw` comes from is `journal/append.md`'s row projection; the current family is app material arriving as a `Schema.Union` value.
 
 ```typescript
-import { Data } from "effect"
+import { Data, Either } from "effect"
 
 declare namespace Upcast {
   type Raw = {
@@ -45,32 +45,31 @@ class ChainIncomplete extends Data.TaggedError("ChainIncomplete")<{
   readonly latest: number
 }> {}
 
-const _sized = (tag: string, chain: Upcast.Chain): Upcast.Chain => {
-  if (chain.steps.length !== chain.latest - 1) {
-    throw new ChainIncomplete({ tag, steps: chain.steps.length, latest: chain.latest })
-  }
-  return chain
-}
+const _sized = (tag: string, chain: Upcast.Chain): Either.Either<Upcast.Chain, ChainIncomplete> =>
+  chain.steps.length === chain.latest - 1
+    ? Either.right(chain)
+    : Either.left(new ChainIncomplete({ tag, steps: chain.steps.length, latest: chain.latest }))
 ```
 
 ## [03]-[PLAN_FOLD]
 
-- Owner: `Upcast` — `plan(family, roster)` binds a tagged event family to its chains; `chain(shape, spec)` is the single-shape twin the snapshot row keys by `snapshot_schema_version`; both return decode folds that lift then prove; `Upcast.Column` is the one fused JSON-column codec folder-wide (parse-if-string and decode are ONE schema, never a bare `JSON.parse` beside a decode), and `Upcast.json(shape)` composes it with any owning shape for typed column reads.
+- Owner: `Upcast` — `plan(family, roster)` binds a tagged event family to its chains; `chain(shape, spec)` is the single-shape twin the snapshot row keys by `snapshot_schema_version`; both return `Either.right` the decode fold that lifts then proves, `Either.left` the typed `ChainIncomplete` the wiring Layer folds once; `Upcast.Column` is the one fused JSON-column codec folder-wide (parse-if-string and decode are ONE schema, never a bare `JSON.parse` beside a decode), and `Upcast.json(shape)` composes it with any owning shape for typed column reads.
 - Packages: `effect` (`Effect`, `Array`, `Option`, `Record`, `Schema`, `ParseResult`).
-- Entry: `plan(...).decode(raw)` is the ONLY road from a persisted payload to a live event value — the journal read stream, the projection lanes, and the DSAR fold all compose it; `plan(...).latest(tag)` is what the append surface stamps, so write-version and read-lift share one anchor and cannot drift.
-- Receipt: the decode lands in the family type or fails as `ParseError` on the one admission rail — a lifted payload failing the current schema is exactly a malformed-history finding, routed to quarantine by the consuming lane, never swallowed.
+- Entry: the wiring site folds the constructor's `Either` exactly once into its Layer, and the held `plan.decode(raw)` is then the ONLY road from a persisted payload to a live event value — the journal read stream, the projection lanes, and the DSAR fold all compose it; `plan.latest(tag)` is what the append surface stamps, so write-version and read-lift share one anchor and cannot drift.
+- Receipt: the decode lands in the family type or fails as `ParseError` on the one admission rail — a version outside the closed `1..latest` interval, a lifted payload failing the current schema, and a persisted tag absent from the roster alike are malformed-history findings routed to quarantine by the consuming lane, never swallowed and never a defect exit.
 - Growth: a new tag is one roster entry (`latest: 1`, empty steps); a new version is one step; a family-wide reshape is still per-tag steps — the fold never widens.
 - Law: `Upcast.Column` exists because the spine returns json columns as live objects while the sqlite profiles return TEXT — the dialect difference is one codec every payload-bearing `Result` schema composes as a field, so the miss rides `ParseError` on the one admission rail; a malformed stored text is a projection-time `ParseError` because the column was written by `Schema.encode` and cannot lawfully hold non-JSON.
-- Law: an unknown tag in the log is a defect at read only when the family truly dropped a tag — the sanctioned path for retirement is a tombstone member in the union, so the plan stays total over everything ever written.
-- Law: the lift is `Array.reduce` over `steps.slice(version - 1)` — versions already at `latest` fold through zero steps, so hot reads pay one slice and one decode; no memo table exists because the decode dominates.
-- Law: totality is proven per chain by the test-estate law combinators — every `(tag, version)` pair present in the corpus composes to a decodable value; the page states the obligation as fact.
+- Law: an unknown persisted tag fails the decode as a minted `ParseResult.ParseError` on the same rail every malformed row rides — the read stays typed, the finding quarantines, and the sanctioned retirement path remains the tombstone union member, so a correctly maintained family never reaches that arm and a dropped one degrades to evidence, never to a crash.
+- Law: the lift first admits an integer version inside `1..latest`, then runs `Array.reduce` over `Array.drop(steps, version - 1)` — versions already at `latest` fold through zero steps, invalid coordinates cannot exploit JavaScript slice semantics, and hot reads pay one interval check plus one decode.
+- Law: totality is proven per chain by the test-estate law combinators over `plan.census` — the `(tag, latest)` roster projection the plan carries — so every `(tag, version)` pair present in the corpus composes to a decodable value and the proof reads its coordinates off the plan value itself.
 - Boundary: snapshot bodies ride `chain` with `snapshot_schema_version` as the coordinate; C#-minted wire shapes arrive already decoded through the interchange codec and never re-enter this fold.
 
 ```typescript
-import { Array, Effect, Either, Option, ParseResult, Record, Schema } from "effect"
+import { Array, Effect, Either, Option, ParseResult, Record, Schema, SchemaAST } from "effect"
 
 declare namespace Upcast {
   type Plan<A> = {
+    readonly census: ReadonlyArray<readonly [tag: string, latest: number]>
     readonly latest: (tag: string) => Option.Option<number>
     readonly decode: (raw: Raw) => Effect.Effect<A, ParseResult.ParseError>
   }
@@ -80,14 +79,18 @@ declare namespace Upcast {
   }
 }
 
-const _lift = (chain: Upcast.Chain, version: number, payload: unknown): unknown =>
-  Array.reduce(chain.steps.slice(version - 1), payload, (held, step) => step(held))
+const _lift = (ast: SchemaAST.AST, chain: Upcast.Chain, version: number, payload: unknown): Effect.Effect<unknown, ParseResult.ParseError> =>
+  Number.isSafeInteger(version) && version >= 1 && version <= chain.latest
+    ? Effect.succeed(Array.reduce(Array.drop(chain.steps, version - 1), payload, (held, step) => step(held)))
+    : Effect.fail(new ParseResult.ParseError({
+        issue: new ParseResult.Type(ast, { version, payload }, `<upcast-version:1..${chain.latest}>`),
+      }))
 
 const _Column: Schema.Schema<unknown> = Schema.transformOrFail(Schema.Unknown, Schema.Unknown, {
   strict: true,
   decode: (column, _options, ast) =>
     typeof column === "string"
-      ? Either.try({ try: () => JSON.parse(column) as unknown, catch: () => new ParseResult.Type(ast, column) })
+      ? Either.try({ try: (): unknown => JSON.parse(column), catch: () => new ParseResult.Type(ast, column) })
       : ParseResult.succeed(column),
   encode: (value) => ParseResult.succeed(value),
 })
@@ -96,26 +99,28 @@ const Upcast = {
   Column: _Column,
   json: <A, I>(shape: Schema.Schema<A, I>): Schema.Schema<A, unknown> =>
     Schema.compose(_Column, shape, { strict: false }),
-  plan: <A, I>(family: Schema.Schema<A, I>, roster: Upcast.Roster): Upcast.Plan<A> => {
-    const chains = Record.map(roster, (chain, tag) => _sized(tag, chain))
-    const admit = Schema.decodeUnknown(family)
-    return {
-      latest: (tag) => Option.map(Record.get(chains, tag), (chain) => chain.latest),
-      decode: (raw) =>
-        Option.match(Record.get(chains, raw.tag), {
-          onNone: () => Effect.die(new Error(`<upcast-unknown-tag:${raw.tag}>`)),
-          onSome: (chain) => admit(_lift(chain, raw.version, raw.payload)),
-        }),
-    }
-  },
-  chain: <A, I>(shape: Schema.Schema<A, I>, spec: Upcast.Chain): Upcast.Lift<A> => {
-    const chain = _sized("<snapshot>", spec)
-    const admit = Schema.decodeUnknown(shape)
-    return {
-      latest: chain.latest,
-      decode: (version, payload) => admit(_lift(chain, version, payload)),
-    }
-  },
+  plan: <A, I>(family: Schema.Schema<A, I>, roster: Upcast.Roster): Either.Either<Upcast.Plan<A>, ChainIncomplete> =>
+    Either.map(Either.all(Record.map(roster, (chain, tag) => _sized(tag, chain))), (chains) => {
+      const admit = Schema.decodeUnknown(family)
+      return {
+        census: Array.map(Record.toEntries(chains), ([tag, chain]) => [tag, chain.latest] as const),
+        latest: (tag) => Option.map(Record.get(chains, tag), (chain) => chain.latest),
+        decode: (raw) =>
+          Option.match(Record.get(chains, raw.tag), {
+            // the unplanned tag stays on the one admission rail: a minted ParseError, quarantine-routable like any malformed row
+            onNone: () => Effect.fail(new ParseResult.ParseError({ issue: new ParseResult.Type(family.ast, raw, `<upcast-unknown-tag:${raw.tag}>`) })),
+            onSome: (chain) => Effect.flatMap(_lift(family.ast, chain, raw.version, raw.payload), admit),
+          }),
+      }
+    }),
+  chain: <A, I>(shape: Schema.Schema<A, I>, spec: Upcast.Chain): Either.Either<Upcast.Lift<A>, ChainIncomplete> =>
+    Either.map(_sized("<snapshot>", spec), (chain) => {
+      const admit = Schema.decodeUnknown(shape)
+      return {
+        latest: chain.latest,
+        decode: (version, payload) => Effect.flatMap(_lift(shape.ast, chain, version, payload), admit),
+      }
+    }),
 } as const
 ```
 
@@ -186,7 +191,7 @@ const _save = <S, I>(spec: Snapshot.Spec<S, I>) =>
 
 const _SnapshotRow = Schema.Struct({
   version: Journal.Version,
-  snapshot_schema_version: Schema.Number,
+  snapshot_schema_version: Schema.Int.pipe(Schema.positive()),
   body: Upcast.Column,
 })
 
@@ -212,17 +217,19 @@ const _load = <S, I>(spec: Snapshot.Spec<S, I>) =>
 
 ## [05]-[HYDRATE]
 
-- Owner: the `due` cadence fold plus `hydrate` — snapshot-plus-tail is one load: the option folds to a seed and a `from` window, the journal read stream folds the tail.
+- Owner: the admitted `Snapshot.Cadence` policy, the `due` cadence fold, and `hydrate` — snapshot-plus-tail is one load: the option folds to a seed and a `from` window, the journal read stream folds the tail.
 - Packages: `effect` (`Stream`); `journal/append.md` (`Journal.of(...).read`).
 - Entry: lanes call `Snapshot.due(version, cadence)` after each apply and `bound.save` when it answers true; `Snapshot.hydrate(bound, journal, stream, fold)` is the one state-recovery entry every lane and rebuild composes.
 - Growth: a new cadence shape (byte budget, elapsed time) is a field on the policy row consumed inside `due` — the call sites never change.
-- Law: cadence is data — `{ every: n }` as the modulo row; snapshotting is always safe to skip and safe to repeat, so `due` is a pure fold and no lane coordinates with another.
+- Law: cadence is admitted data — `Snapshot.Cadence` proves a positive integer before the modulo fold; snapshotting is always safe to skip and safe to repeat, so `due` is pure and no lane coordinates with another.
 
 ```typescript
 import { Stream } from "effect"
 
+const _Cadence = Schema.Struct({ every: Schema.Int.pipe(Schema.positive()) })
+
 declare namespace Snapshot {
-  type Cadence = { readonly every: number }
+  type Cadence = typeof _Cadence.Type
   type Bound<S> = {
     readonly save: (stream: StreamKey, state: S, version: number) => Effect.Effect<
       void,
@@ -261,6 +268,7 @@ const _hydrate = <S, A extends Journal.Event>(
 
 const Snapshot = {
   of: <S, I>(spec: Snapshot.Spec<S, I>): Snapshot.Bound<S> => ({ save: _save(spec), load: _load(spec) }),
+  Cadence: _Cadence,
   due: _due,
   hydrate: _hydrate,
   ddl: [_ddl],

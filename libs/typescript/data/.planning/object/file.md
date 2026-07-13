@@ -20,12 +20,12 @@ The filesystem plane and the derivative codec, both over the one content identit
 - Growth: a new intake posture (move-after-intake, verify-only) is an options field; a new source (an archive member walk) is one more lift into the same fold.
 - Law: intake never buffers the file — identity is content-addressed, so the key cannot exist before the last byte is hashed, and intake is therefore TWO bounded streaming passes over the seekable file: `fs.stream(path)` feeds the `Rail` identity fold, then a fresh `fs.stream(path)` feeds the streaming conditional put — constant memory at any size; a `readFile` single-pass intake is the memory defect the rail already bans.
 - Law: temp staging is scoped — `makeTempFileScoped` ties the temp file's deletion to the `Scope`, so an interrupted derivative pass or a failed intake leaks nothing; a hand-managed temp path is the rejected spelling.
-- Law: the watch stream is admission, not truth — a watched drop directory emits candidate paths, each admitted through the same gated intake, and a malformed or duplicate file settles as its intake receipt (412 dedup included) rather than a watcher error.
-- Law: intake watching rides chokidar with the settle guard MANDATORY — `awaitWriteFinish` holds `add`/`change` until size stabilizes so a half-written file is never digested into a wrong content key, `atomic` absorbs editor rename-swap artifacts, selection is `ignored` predicate rows (never glob strings), the `all` listener lifts through `Stream.asyncPush`, and release AWAITS `close()`; platform `FileSystem.watch` survives only for non-intake observation where a raw event suffices.
+- Law: the watch stream is admission, not truth — a watched drop directory emits candidate paths, each admitted through the same gated intake, and every candidate settles as an `Either` element on the success channel: `Either.right` the intake receipt (412 dedup included), `Either.left` the candidate's own `ObjectFault` — so one malformed file never ends the long-lived source, and only watcher transport failure fails the stream itself.
+- Law: intake watching rides chokidar with the settle guard MANDATORY — `awaitWriteFinish` holds `add`/`change` until size stabilizes so a half-written file is never digested into a wrong content key, `atomic` absorbs editor rename-swap artifacts, selection is `ignored` predicate rows (never glob strings), the `all` listener lifts through `Stream.asyncPush`, and release AWAITS `close()`; `poll` and `depth` ride the options row for network mounts and bounded trees, and platform `FileSystem.watch` survives only for non-intake observation where a raw event suffices.
 - Law: direct `node:fs` imports are banned on this plane — capability rides the Tag, the tracing and error rail come with it; chokidar and the platform binding are the only places a filesystem module name exists.
 
 ```typescript
-import { Effect, Stream } from "effect"
+import { Effect, Either, Stream } from "effect"
 import { FileSystem, Path } from "@effect/platform"
 import { watch } from "chokidar"
 import { ContentKey } from "@rasm/ts/core"
@@ -36,6 +36,11 @@ import type { Retain } from "../journal/retain.ts"
 declare namespace Disk {
   type Intake = { readonly key: ContentKey; readonly bytes: number; readonly written: boolean; readonly path: string }
   type Matcher = RegExp | ((path: string) => boolean)
+  type WatchOptions = {
+    readonly ignored?: ReadonlyArray<Matcher>
+    readonly poll?: boolean
+    readonly depth?: number
+  }
 }
 
 const _WATCH = {
@@ -56,12 +61,11 @@ const _intake = (path: string, retention: Retain.Class, owner?: string) =>
       yield* Stream.toReadableStreamEffect(fs.stream(path)),
       identity.bytes,
     )
-    yield* store.refer(identity.key, owner ?? `disk:${path}`, retention)
-    yield* store.classify(identity.key, retention)
+    yield* store.refer(identity.key, owner ?? `disk:${path}`, retention) // the derived retention tag lands with the reference row
     return { key: identity.key, bytes: identity.bytes, written: landed.written, path } satisfies Disk.Intake
   })
 
-const _watch = (dir: string, retention: Retain.Class, ignored?: ReadonlyArray<Disk.Matcher>) =>
+const _watch = (dir: string, retention: Retain.Class, options?: Disk.WatchOptions) =>
   Stream.asyncPush<string, ObjectFault>((emit) =>
     Effect.acquireRelease(
       Effect.sync(() =>
@@ -69,15 +73,23 @@ const _watch = (dir: string, retention: Retain.Class, ignored?: ReadonlyArray<Di
           atomic: true,
           awaitWriteFinish: _WATCH.settle,
           ignoreInitial: false,
-          ...(ignored !== undefined && { ignored: [...ignored] }),
+          ...(options?.ignored !== undefined && { ignored: [...options.ignored] }),
+          ...(options?.poll !== undefined && { usePolling: options.poll }),
+          ...(options?.depth !== undefined && { depth: options.depth }),
         })
           .on("all", (event, path) => {
             if (event === "add" || event === "change") emit.single(path)
           })
           .on("error", (cause) => emit.fail(new ObjectFault({ reason: "io", key: dir, detail: String(cause) })))),
-      (watcher) => Effect.promise(() => watcher.close()),
+      (watcher) => Effect.orDie(Effect.tryPromise({
+        try: () => watcher.close(),
+        catch: (cause) => new ObjectFault({ reason: "io", key: dir, detail: String(cause) }),
+      })),
     ),
-  ).pipe(Stream.mapEffect((path) => _intake(path, retention), { concurrency: _WATCH.flight }))
+  ).pipe(
+    // per-candidate disposition: the intake outcome is an Either element, so one malformed file never ends the watcher
+    Stream.mapEffect((path) => Effect.either(_intake(path, retention)), { concurrency: _WATCH.flight }),
+  )
 
 const _stage = Effect.flatMap(FileSystem.FileSystem, (fs) => fs.makeTempFileScoped())
 
@@ -130,13 +142,14 @@ const _governed = (
 
 ## [04]-[DERIVATIVE_ROWS]
 
-- Owner: the `Derive.Spec` roster row shape and the per-row receipt — a rendition is `{ name, resize, format, options, admit, composite, terminal, placeholder }`, the codec dispatch is `toFormat(row.format, row.options)` with the tile pyramid as the one alternate terminal arm, and the receipt carries sharp's `OutputInfo` provenance plus the dominant color when the row asks.
-- Packages: `sharp` (`clone`, `resize`, `composite`, `toFormat`, `tile`, `toBuffer({ resolveWithObject: true })`, `toFile`, `metadata`, `stats`, `FormatEnum`, `Metadata`, `OverlayOptions`, `TileOptions`, `ResizeOptions`, `OutputOptions`, `OutputInfo`).
+- Owner: the `Derive.Spec` roster row shape and the per-row receipt — a rendition is `{ name, resize, format, options, admit, composite, terminal, keep, placeholder, retention, grant }`, the codec dispatch is `toFormat(row.format, row.options)` with the tile pyramid as the one alternate terminal arm, and the receipt carries sharp's `OutputInfo` provenance plus the dominant color when the row asks.
+- Packages: `sharp` (`clone`, `resize`, `composite`, `toFormat`, `tile`, `toBuffer({ resolveWithObject: true })`, `toFile`, `metadata`, `stats`, `keepIccProfile`, `keepMetadata`, `FormatEnum`, `Metadata`, `OverlayOptions`, `TileOptions`, `ResizeOptions`, `OutputOptions`, `OutputInfo`).
 - Entry: an app declares its rendition roster once (`thumbnail`/`preview`/`master`/`deepzoom` rows) and hands it to the fan-out; format capability gates through `_governed`'s `sharp.format` read at construction so an unbuildable row refuses at boot, never per request.
-- Receipt: `Derive.Receipt` — `{ name, key, grant, info, dominant }` — the row name, the derivative's own content key, its presigned grant, the codec provenance, and the optional placeholder color seeded from `stats().dominant`.
-- Growth: a new rendition is one roster row; a new decision input is an `admit` predicate over the pre-decode `Metadata`, a new overlay is a `composite` row, a new pyramid layout is a `TileOptions` value — never a code path per format.
+- Receipt: `Derive.Receipt` — `{ name, key, grant, info, dominant }` — the row name, the derivative's own content key, its presigned `ObjectStore.Grant`, the codec provenance, and the optional placeholder color seeded from `stats().dominant`.
+- Growth: a new rendition is one roster row; a new decision input is an `admit` predicate over the pre-decode `Metadata`, a new overlay is a `composite` row, a new pyramid layout is a `TileOptions` value, and retention plus grant posture travel on that same row — never a code path per format.
 - Law: `toFormat` is the one codec dispatch — the per-format methods are aliases it generalizes, and a `jpeg()`/`png()`/`webp()` ladder is the named defect; row options carry quality/effort/lossless per codec; the tile row's `terminal` selects the pyramid arm (`layout: dz | iiif | iiif3 | zoomify | google`) whose container lands through the same content-addressed intake.
-- Law: `metadata()` and `stats()` are the decision reads — `metadata()` lifts ONCE per fan-out and every row's `admit` predicate votes on it (an SVG source never reaches a raster row unless its row admits it), pixel analysis feeds the placeholder — never lifted per row.
+- Law: metadata preservation is a roster column — `keep: "icc"` re-attaches the color profile through `keepIccProfile` (the master row), `keep: "all"` carries the full block through `keepMetadata`, and the default strips everything, the public-derivative privacy posture — never a call-site toggle.
+- Law: `metadata()` and `stats()` are the decision reads and each lifts ONCE per fan-out — `metadata()` feeds every row's `admit` vote (an SVG source never reaches a raster row unless its row admits it), `stats()` runs once when any admitted row asks for a placeholder and its `dominant` serves every asking row — a per-row pixel analysis is the named waste.
 - Law: `composite` is a row-driven step — watermarks and badges are `OverlayOptions` rows on the spec chained before the terminal, so branding is roster data, never a second pipeline.
 
 ```typescript
@@ -152,12 +165,15 @@ declare namespace Derive {
     readonly admit?: (source: Metadata) => boolean
     readonly composite?: ReadonlyArray<OverlayOptions>
     readonly terminal?: { readonly tile: TileOptions }
+    readonly keep?: "icc" | "all"
     readonly placeholder?: boolean
+    readonly retention: Retain.Class
+    readonly grant?: ObjectStore.GrantPolicy
   }
   type Receipt = {
     readonly name: string
     readonly key: ContentKey
-    readonly grant: { readonly url: string; readonly expiresAt: DateTime.Utc; readonly key: ContentKey }
+    readonly grant: ObjectStore.Grant
     readonly info: OutputInfo
     readonly dominant: Option.Option<{ readonly r: number; readonly g: number; readonly b: number }>
   }
@@ -173,24 +189,30 @@ declare namespace Derive {
 - Growth: watermarking is a `composite` step on the row's chain read from the spec; a tile-pyramid rendition is a row whose terminal is `tile` — both land inside the fold as row-driven steps.
 - Law: decode once, clone N — the verified source bytes buffer once (`get` already re-minted identity), `metadata()` lifts once and vetoes rows through their `admit` predicates, `sharp(buffer, _GATE)` decodes once, and `clone()` snapshots the decoded pipeline per row; a re-decode, a re-piped stream, or a per-row metadata read is the named waste.
 - Law: derivative identity is the core mint over the ENCODED bytes — each derivative is a first-class object with its own key, its own reference row owned by the source key (so source release cascades), and its own grant; the tile arm stages its pyramid container to a scoped temp path and lands it through the same content-addressed intake; sharp owns codec work only, never addressing or idempotency.
-- Law: the fold is total over `DeriveFault` — stages `gate | decode | encode | grant` carry the failing coordinate; a single row's encode fault fails that row's receipt and the batch policy (abort versus partition) is the caller's accumulation decision, stated at the call.
+- Law: the fold is total over `DeriveFault` — stages `gate | fetch | decode | encode | persist | grant` carry the failing coordinate, and every `ObjectFault` crosses through `DeriveFault.at` at its owning stage; a single row's failure aborts this entrypoint, while an accumulating caller composes `Effect.validate` or `Effect.partition` explicitly.
+- Law: `Derive.pressure` is the plane's saturation read — `sharp.counters()` as one typed effect (`{ queue, process }` in-flight telemetry) the maintenance and doctor surfaces sample, because the derivative fan-out is the process's native-saturation hotspot; its series names ride the core observability convention rows, so the emit plane exports them like every other metric.
 
 ```typescript
-import { Data } from "effect"
+import { Array, Data } from "effect"
 import { GetObjectCommand } from "@aws-sdk/client-s3"
 import type { Sharp } from "sharp"
 
 class DeriveFault extends Data.TaggedError("DeriveFault")<{
-  readonly stage: "gate" | "decode" | "encode" | "grant"
+  readonly stage: "gate" | "fetch" | "decode" | "encode" | "persist" | "grant"
   readonly key: string
   readonly detail: string
-}> {}
+}> {
+  static at(stage: DeriveFault["stage"], key: string): (fault: unknown) => DeriveFault {
+    return (fault) => new DeriveFault({ stage, key, detail: String(fault) })
+  }
+}
 
 const _FAN = { flight: 4 } as const
 
 const _chain = (decoded: Sharp, spec: Derive.Spec) => {
   const shaped = decoded.clone().resize(spec.resize)
-  return spec.composite === undefined ? shaped : shaped.composite([...spec.composite])
+  const layered = spec.composite === undefined ? shaped : shaped.composite([...spec.composite])
+  return spec.keep === "icc" ? layered.keepIccProfile() : spec.keep === "all" ? layered.keepMetadata() : layered
 }
 
 const _encodeBuffer = (decoded: Sharp, spec: Derive.Spec, sourceKey: ContentKey) =>
@@ -200,7 +222,7 @@ const _encodeBuffer = (decoded: Sharp, spec: Derive.Spec, sourceKey: ContentKey)
       try: () => _chain(decoded, spec).toFormat(spec.format, spec.options).toBuffer({ resolveWithObject: true }),
       catch: (defect) => new DeriveFault({ stage: "encode", key: sourceKey, detail: String(defect) }),
     })
-    const landed = yield* store.put(new Uint8Array(encoded.data))
+    const landed = yield* Effect.mapError(store.put(new Uint8Array(encoded.data)), DeriveFault.at("persist", sourceKey))
     return { key: landed.key, info: encoded.info }
   })
 
@@ -213,14 +235,14 @@ const _encodeTile = (decoded: Sharp, spec: Derive.Spec & { readonly terminal: { 
       try: () => _chain(decoded, spec).toFormat(spec.format, spec.options).tile(spec.terminal.tile).toFile(staged),
       catch: (defect) => new DeriveFault({ stage: "encode", key: sourceKey, detail: String(defect) }),
     })
-    const landed = yield* _intake(staged, "operational", `derivative:${sourceKey}`)
+    const landed = yield* Effect.mapError(_intake(staged, spec.retention, `derivative:${sourceKey}`), DeriveFault.at("persist", sourceKey))
     return { key: landed.key, info }
   })
 
 const _fanout = (sourceKey: ContentKey, specs: ReadonlyArray<Derive.Spec>) =>
   Effect.gen(function* () {
     const store = yield* ObjectStore
-    const bytes = yield* store.get(sourceKey)
+    const bytes = yield* Effect.mapError(store.get(sourceKey), DeriveFault.at("fetch", sourceKey))
     const decoded = yield* Effect.try({
       try: () => sharp(Buffer.from(bytes), _GATE).timeout(_DEADLINE),
       catch: (defect) => new DeriveFault({ stage: "decode", key: sourceKey, detail: String(defect) }),
@@ -229,23 +251,38 @@ const _fanout = (sourceKey: ContentKey, specs: ReadonlyArray<Derive.Spec>) =>
       try: () => decoded.metadata(),
       catch: (defect) => new DeriveFault({ stage: "decode", key: sourceKey, detail: String(defect) }),
     })
-    const admitted = specs.filter((spec) => spec.admit === undefined || spec.admit(source))
+    const admitted = Array.filter(specs, (spec) => spec.admit === undefined || spec.admit(source))
+    const dominant = Array.some(admitted, (spec) => spec.placeholder === true)
+      ? Option.some((yield* Effect.tryPromise({
+          // one pixel analysis serves every asking row: stats lifts once per fan-out, exactly like metadata
+          try: () => decoded.clone().stats(),
+          catch: (defect) => new DeriveFault({ stage: "decode", key: sourceKey, detail: String(defect) }),
+        })).dominant)
+      : Option.none<{ readonly r: number; readonly g: number; readonly b: number }>()
     return yield* Effect.forEach(admitted, (spec) =>
       Effect.gen(function* () {
-        const dominant = spec.placeholder === true
-          ? Option.some((yield* Effect.tryPromise({
-              try: () => decoded.clone().stats(),
-              catch: (defect) => new DeriveFault({ stage: "encode", key: sourceKey, detail: String(defect) }),
-            })).dominant)
-          : Option.none<{ readonly r: number; readonly g: number; readonly b: number }>()
         const encoded = spec.terminal === undefined
           ? yield* _encodeBuffer(decoded, spec, sourceKey)
           : yield* Effect.scoped(_encodeTile(decoded, { ...spec, terminal: spec.terminal }, sourceKey))
-        yield* store.refer(encoded.key, `derivative:${sourceKey}`, "operational")
-        const grant = yield* store.grant(encoded.key, new GetObjectCommand({ Bucket: store.bucket, Key: encoded.key }))
-        return { name: spec.name, key: encoded.key, grant, info: encoded.info, dominant } satisfies Derive.Receipt
+        yield* Effect.mapError(
+          store.refer(encoded.key, `derivative:${sourceKey}`, spec.retention),
+          DeriveFault.at("persist", encoded.key),
+        )
+        const grant = yield* Effect.mapError(
+          store.grant(encoded.key, new GetObjectCommand({ Bucket: store.bucket, Key: encoded.key }), spec.grant),
+          DeriveFault.at("grant", encoded.key),
+        )
+        return {
+          name: spec.name,
+          key: encoded.key,
+          grant,
+          info: encoded.info,
+          dominant: spec.placeholder === true ? dominant : Option.none(),
+        } satisfies Derive.Receipt
       }), { concurrency: _FAN.flight })
   }).pipe(Effect.withSpan("data.fanout", { attributes: { source: sourceKey } }))
+
+const _pressure = Effect.sync(() => sharp.counters())
 
 const Disk = {
   intake: _intake,
@@ -258,6 +295,7 @@ const Derive = {
   gate: _GATE,
   governed: _governed,
   fanout: _fanout,
+  pressure: _pressure,
 } as const
 
 // --- [EXPORTS] --------------------------------------------------------------------------

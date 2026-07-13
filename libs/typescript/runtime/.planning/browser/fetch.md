@@ -1,6 +1,6 @@
 # [RUNTIME_FETCH]
 
-The browser byte-transport plane and the folder's kernel-delegating mint site: the browser runtime binding rows (the XHR `HttpClient` — the one transport carrying upload/download progress and forced-arraybuffer responses — the `WebSocket` constructor row, and the worker spawner), the per-class flow-policy rows governing how a response becomes a backpressured `Stream`, the decorated dial every browser egress rides, and the decode-worker pool behind one closed `Schema.TaggedRequest` protocol with every band crossing zero-copy as a declared `Transferable`. The dial composes — never forks — the branch egress law: `net/client`'s `Client.dial` carries lane policy (status admission, transient retry, budget, trace propagation), and this page adds exactly the browser plane on top: the offline gate over `boot#SIGNAL_CELLS`'s cell, the CSRF echo from `route#SESSION_PLANE` on every mutating method, and the streaming modality with its flow rows. The worker composes `core/interchange/frame`'s settled surfaces — `ArtifactFrame.reassembled` for the ordered fold-and-verify, `Residency.envelope` for the plan decode — and delegates its cache-reverify mint to the one core `Digest` content row; a second content-address notion, a main-thread re-decode re-paying the offloaded cost, an untyped `postMessage` arm, or a bare `fetch` is the named defect. `Depot` is the window-side residency scheduler the app composes into the ui wave's declared viewport port at the root, because the browser and ui waves never import each other. The module is `runtime/src/browser/fetch.ts`.
+The browser byte-transport plane and the folder's kernel-delegating mint site: the browser runtime binding rows (the XHR `HttpClient` with forced-arraybuffer responses, the `WebSocket` constructor row, and the worker spawner), the per-class flow-policy rows governing how a response becomes a backpressured `Stream`, the decorated dial every browser egress rides, and the decode-worker pool behind one closed `Schema.TaggedRequest` protocol with every band crossing zero-copy as a declared `Transferable`. The dial composes — never forks — the branch egress law: `net/client`'s `Client.dial` carries lane policy (status admission, transient retry, budget, trace propagation), and this page adds exactly the browser plane on top: the offline gate over `boot#SIGNAL_CELLS`'s cell, the CSRF echo from `route#SESSION_PLANE` on every mutating method, and the streaming modality with its flow rows. The worker composes `core/interchange/frame`'s settled surfaces — `ArtifactFrame.reassembled` for the ordered fold-and-verify, `Residency.envelope` for the plan decode — and delegates its cache-reverify mint to the one core `Digest` content row; a second content-address notion, a main-thread re-decode re-paying the offloaded cost, an untyped `postMessage` arm, or a bare `fetch` is the named defect. `Depot` is the window-side residency scheduler the app composes into the ui wave's declared viewport port at the root, because the browser and ui waves never import each other. The modules are `runtime/src/browser/fetch.ts` and the terminal worker entry `runtime/src/browser/fetch.worker.ts`.
 
 ## [01]-[CLUSTERS]
 
@@ -16,7 +16,7 @@ The browser byte-transport plane and the folder's kernel-delegating mint site: t
 ## [02]-[BINDING_ROWS]
 
 [BINDING_ROWS]:
-- Owner: `Web`, the browser counterpart of `exec#RUNTIME_ROWS` — one `as const` roster of the Layer rows the browser root merges: `client` (`BrowserHttpClient.layerXMLHttpRequest`, the `HttpClient` every `Client.dial` reaches — XHR selected deliberately because it is the one browser transport exposing upload/download progress and arraybuffer responses), `socket` (`BrowserSocket.layerWebSocketConstructor`, the `Socket.WebSocketConstructor` row `net/channel`'s framed transport and `persist#OVERLAY_AND_LANE`'s sync row construct against), `channel(url)` (`BrowserSocket.layerWebSocket`, the ready socket for a fixed peer), and `workers(spawn)` (`BrowserWorker.layer` over the app-supplied spawn factory — the worker script URL is app data, never a lib literal).
+- Owner: `Web`, the browser counterpart of `exec#RUNTIME_ROWS` — one `as const` roster of the Layer rows the browser root merges: `client` (`BrowserHttpClient.layerXMLHttpRequest`, the `HttpClient` every `Client.dial` reaches — XHR selected deliberately for the shipped arraybuffer-response control), `socket` (`BrowserSocket.layerWebSocketConstructor`, the `Socket.WebSocketConstructor` row `net/channel`'s framed transport and `persist#OVERLAY_AND_LANE`'s sync row construct against), `channel(url)` (`BrowserSocket.layerWebSocket`, the ready socket for a fixed peer), and `workers(spawn)` (`BrowserWorker.layer` over the app-supplied spawn factory — the worker script URL is app data, never a lib literal).
 - Law: the rows compose once at `boot#SINGLE_BOOT`'s root — a lane never names a binding fact, domain modules import zero rows, and the per-runtime subpath gate keeps node and bun bindings physically unresolvable from this lane; the OTLP exporter and the config chain dial through the same XHR client, so telemetry egress inherits the browser posture like every other call.
 - Law: the credentials posture is root material — the cookie-carrying dial rides `route#SESSION_PLANE`'s `posture` row configured at the client binding, so no per-call credentials knob exists.
 - Growth: a new browser binding (a shared-worker spawner row, a WebTransport row) is one roster entry consumed at the same root seam.
@@ -30,7 +30,7 @@ import { BrowserHttpClient, BrowserSocket, BrowserWorker } from "@effect/platfor
 import { ContentKey, FaultClass, Residency } from "@rasm/ts/core"
 import { Array, Chunk, Context, Data, type Duration, Effect, HashMap, Layer, Option, Order, type ParseResult, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
 import { Client, type Lapse } from "../net/client.ts"
-import { Connect } from "./boot.ts"
+import { Boot, Connect } from "./boot.ts"
 import { Kv, Opfs } from "./persist.ts"
 import { Vault } from "./route.ts"
 
@@ -102,7 +102,7 @@ class FetchFault extends Data.TaggedError("FetchFault")<{
 - Law: decoration is recoverable from this declaration — a mutating method (`POST`/`PUT`/`PATCH`/`DELETE`) stamps the CSRF echo pair read from `Vault.csrf`, absence stamping nothing (the server refuses, the browser never guesses); the cookie credentials posture rides `[2]`'s root row, so no per-call credentials knob exists.
 - Law: the offline gate reads the one cell — `Connect.online` false short-circuits to the class-carried `offline` fault before any byte moves; the gate is a fast-fail courtesy, not truth (a race with the cell is settled by the transport fault the host rail already types).
 - Law: three fault families, none re-wrapped — this page's `FetchFault` carries only the browser-plane reasons (`offline`, `overrun`); transport and status faults ride the platform's `HttpClientError` untouched, budget expiry rides `net/client`'s `Lapse`, and decode skew rides `ParseError` — every family already routable, each carrying its `FaultClass` projection.
-- RESEARCH: the XHR upload/download progress-event observation members are unverified — the folder catalogue documents `currentXHRResponseType` and `withXHRArrayBuffer` only; the progress modality (a per-transfer progress feed beside `pull`) lands the day the catalogue verifies the member spellings, and until then progress is a stated capability of the `[2]` client row, never settled fence code.
+- Law: no progress modality exists on this surface — the shipped `BrowserHttpClient` declarations expose `layerXMLHttpRequest`, `currentXHRResponseType`, and `withXHRArrayBuffer` and NO upload/download progress observation member, a verified absence; a per-transfer progress feed therefore lands only when the platform binding ships the member, and a hand-attached `XMLHttpRequest.upload` listener beside the owned client is the second-transport defect, never a stopgap.
 - Entry: `Fetch.pull` / `Fetch.send`; `R` carries `HttpClient` outward to the root through the host dial.
 - Receipt: the stated annotations are the seam contract — the streaming modality's error union names every family a consumer meets, readable without the body.
 - Boundary: which requests exist is the consumer's vocabulary over `HttpClientRequest` at full depth; scheduling of artifact pulls is `[6]`'s; parked offline intents are `shell#REPLAY_DRAIN`'s outbox.
@@ -187,13 +187,13 @@ class Fetch extends Effect.Service<Fetch>()("runtime/browser/Fetch", {
 ## [05]-[WIRE_PROTOCOL]
 
 [WIRE_PROTOCOL]:
-- Owner: `Pool` — the `Context.Tag` holding the `Worker.SerializedWorkerPool` over the closed request union, the request classes riding it as statics (`Pool.Assemble`: an artifact's frame bands in, the verified receipt plus octets out; `Pool.Verify`: cache-warmed octets re-proven against their declared key — the browser's own delegated mint site; `Pool.Chart`: residency envelope bytes — manifest or delta — decoded off-thread), `Pool.protocol` (the union the runner checks its handlers against), and `Pool.layer(spawn, size)` (the pool layer over `Web.workers` — the worker script URL is app data, never a lib literal).
+- Owner: `Pool` — the `Context.Tag` holding the `Worker.SerializedWorkerPool` over the closed request union, the request classes riding it as statics (`Pool.Assemble`: an artifact's frame bands in, the verified receipt plus octets out; `Pool.Verify`: cache-warmed octets re-proven against their declared key — the browser's own delegated mint site; `Pool.Chart`: residency envelope bytes — manifest or delta — decoded off-thread), `Pool.protocol` (the union the runner checks its handlers against), and `Pool.layer(spawn)` (the pool layer over `Web.workers`, sized from `Boot.ceilings.workers`; the worker script URL is app data, never a lib literal).
 - Law: every band is a declared transfer — `Transferable.Uint8Array` on the `Assemble`/`Verify` payloads and on the `Assemble` success, so frames move to the worker and assembled octets move back with zero copies, and the marshal plan is recoverable from the request declarations alone.
 - Law: `PoolFault` is `Schema.TaggedError` because it crosses the thread wire — reason rows `parity` (mint mismatch, both keys held as evidence), `sequence` (broken ordinal chain), `overrun` (band over the lane cap), `codec` (frame or manifest decode refusal) — reconstructing as the same tagged class on the window side with its `FaultClass` projection intact, so recovery dispatches one family; the worker folds `core/interchange/codec`'s `WireFault` evidence into these rows at the handler seam, never re-throwing it.
 - Law: request identity is dedup identity — structural `Equal` over the payload fields is what collapses two identical `Verify` calls in one window; the fields carry exactly the coordinate, nothing incidental.
 - Growth: a new offload concern is one request class plus one handler row — the union and the runner's compile-checked record break every site until both exist; a second pool per load profile restates what `Pool.layer`'s size row already carries.
 - Boundary: the frame and manifest byte shapes are `core/interchange/frame`'s; the mint is `core/value/contentKey`'s; the pool executes, never re-models; the protocol law and sizing vocabulary are `proc/worker`'s, instantiated here on the browser rows.
-- Packages: `@effect/platform` (`Worker`, `Transferable`); `@rasm/ts/core` (`ContentKey`, `Residency`, `FaultClass`); `effect` (`Context`, `Layer`, `Option`, `Schema`).
+- Packages: `@effect/platform` (`Transferable`, `Worker`, `WorkerError`); `@rasm/ts/core` (`ContentKey`, `Residency`, `FaultClass`); `effect` (`Context`, `Layer`, `Option`, `Schema`).
 
 ```typescript
 const _REASONS = ["parity", "sequence", "overrun", "codec"] as const
@@ -252,9 +252,13 @@ class Pool extends Context.Tag("runtime/browser/Pool")<Pool, Worker.SerializedWo
   static readonly protocol = _protocol
   static readonly layer = (
     spawn: (id: number) => globalThis.Worker,
-    size: number,
-  ): Layer.Layer<Pool, WorkerError.WorkerError> =>
-    Worker.makePoolSerializedLayer(Pool, { size, concurrency: 1 }).pipe(Layer.provide(Web.workers(spawn)))
+  ): Layer.Layer<Pool, WorkerError.WorkerError, Boot> =>
+    Layer.unwrapEffect(
+      Effect.map(Boot, (spec) =>
+        Worker.makePoolSerializedLayer(Pool, { size: spec.ceilings.workers, concurrency: 1 }).pipe(
+          Layer.provide(Web.workers(spawn)),
+        )),
+    )
 }
 ```
 
@@ -268,7 +272,7 @@ class Pool extends Context.Tag("runtime/browser/Pool")<Pool, Worker.SerializedWo
 - Law: one pass per call — `haul` drives the plan as it stands; the continuous loop is app composition (`ledger.changes` debounced into repeated hauls), so the lib owns the pass and the app owns the cadence.
 - Receipt: `haul` yields `[faults, arrivals]` — arrivals as receipt-plus-octets pairs the app forwards into the ui wave's declared viewport port at the root; the ledger cell is the port's residency read.
 - Boundary: manifest and delta ingress arrive decoded from `Residency.stream` over `[4]`'s feeds; the GLB scene semantics are the ui wave's viewer; this owner schedules and joins.
-- Packages: `effect` (`Array`, `Chunk`, `Effect`, `HashMap`, `Option`, `Order`, `Stream`, `Subscribable`, `SubscriptionRef`); `@rasm/ts/core` (`Residency`, `ContentKey`); `./persist.ts` (`Kv`, `Opfs`).
+- Packages: `effect` (`Array`, `Chunk`, `Effect`, `HashMap`, `Option`, `Order`, `Stream`, `Subscribable`, `SubscriptionRef`); `@effect/platform` (`WorkerError`); `@rasm/ts/core` (`ContentKey`, `Residency`); `./persist.ts` (`Kv`, `Opfs`).
 
 ```typescript
 const _DEGREES = { ample: 6, tight: 2, critical: 1, opaque: 2 } as const
@@ -311,21 +315,20 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
         const budget = yield* opfs.budget
         const _warmed = (order: Residency.Row) =>
           kv.read("cache", order.mesh).pipe(
-            Effect.orElseSucceed(Option.none<Uint8Array>),
+            Effect.catchTag("KvFault", () =>
+              Effect.as(Effect.logWarning("browser cache read unavailable"), Option.none<Uint8Array>())),
             Effect.flatMap(
               Option.match({
                 onNone: () => Effect.succeedNone,
                 onSome: (band) =>
                   pool.executeEffect(new Verify({ key: order.mesh, octets: band })).pipe(
                     Effect.map((receipt) => Option.some([receipt, band] as const)),
-                    Effect.catchAll((fault) =>
-                      Effect.as(
-                        fault._tag === "PoolFault" && fault.reason === "parity"
-                          ? Effect.ignore(kv.drop("cache", order.mesh))
-                          : Effect.void,
-                        Option.none(),
-                      ),
-                    ),
+                    Effect.catchTags({
+                      // a parity refusal alone evicts the poisoned band; transient worker or wire faults forfeit warmth without evicting
+                      PoolFault: (fault) =>
+                        Effect.as(fault.reason === "parity" ? Effect.ignoreLogged(kv.drop("cache", order.mesh)) : Effect.void, Option.none()),
+                      WorkerError: () => Effect.as(Effect.logWarning("browser cache verification unavailable"), Option.none()),
+                    }),
                   ),
               }),
             ),
@@ -339,7 +342,7 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
                   Effect.flatMap((bands) =>
                     pool.executeEffect(new Assemble({ key: order.mesh, frames: Chunk.toReadonlyArray(bands) })),
                   ),
-                  Effect.tap(({ key, octets }) => Effect.ignore(kv.write("cache", key, octets))),
+                  Effect.tap(({ key, octets }) => Effect.ignoreLogged(kv.write("cache", key, octets))),
                   Effect.map(({ extent, key, octets }) => [{ key, extent }, octets] as const),
                 ),
             }),
@@ -358,12 +361,16 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
     }
   }),
 }) {}
+
+// --- [EXPORTS] --------------------------------------------------------------------------
+
+export { Depot, Fetch, FetchFault, Pool, PoolFault, Web }
 ```
 
 ## [07]-[RUNNER_ENTRY]
 
 [RUNNER_ENTRY]:
-- Owner: the worker-side boot module — a separate entry the app's spawn factory names, composing `WorkerRunner.layerSerialized(Pool.protocol, handlers)` under `BrowserWorkerRunner.layer` and launching it as its whole life; the module exports nothing, the structural proof it is terminal. A worker thread is its own process under the boot-edge law, so its `runMain` is the thread's one boot and never a second document boot.
+- Owner: the worker-side boot module `runtime/src/browser/fetch.worker.ts` — its OWN terminal entry, physically separate from the browser module: the app's spawn factory names this script, it composes `WorkerRunner.layerSerialized(Pool.protocol, handlers)` under `BrowserWorkerRunner.layer`, launches that as its whole life, and exports nothing — the empty exports block is the structural proof it is terminal. A worker thread is its own process under the boot-edge law, so its `runMain` is the thread's one boot and never a second document boot; the entry imports only declaration-space owners (`Pool`/`PoolFault` from `./fetch.ts` — the module law keeps every top level inert, so the window graph's services never instantiate in the worker), and a `runMain` or an export block inside `fetch.ts` itself is the mixed-module defect this split forecloses.
 - Law: the handler record is compile-checked against the union — `Assemble` decodes each band through `ArtifactFrame.frame`, drives the settled `ArtifactFrame.reassembled` fold (ordering, join, and the frame-side `Parity` verify all inside the frame page's law), demands exactly one completed artifact (an empty or split reassembly refuses typed), and refuses a key mismatch with the declared key as evidence; `Verify` is the browser's delegated mint — `Digest.mint("content", octets)` over the presented octets compared to the declared key, `parity` with both keys on refusal — one of the branch's three sanctioned content-mint delegation sites; `Chart` decodes the envelope bytes through `Residency.envelope`, yielding the manifest-or-delta arrival.
 - Law: fault folding is total at this seam — a `WireFault` from the frame fold maps `parity`/`sequence`/`overrun` reason-to-reason into `PoolFault` with its evidence stringified and every other codec reason folds to `codec`; the worker never throws across the boundary because the request's failure schema is the only exit.
 - Law: the handlers run one request at a time per worker (`concurrency: 1` at the pool) because reassembly is memory-bound, and the pool's `size` row is the parallelism — worker count, not handler interleaving, scales throughput; the size row arrives from `boot#BUDGET_VALUE`'s `workers` ceiling at composition.
@@ -371,6 +378,7 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
 - Packages: `@effect/platform` (`WorkerRunner`); `@effect/platform-browser` (`BrowserRuntime`, `BrowserWorkerRunner`); `@rasm/ts/core` (`ArtifactFrame`, `Digest`, `Residency`, type `WireFault`); `effect` (`Chunk`, `Effect`, `Either`, `Layer`, `Option`, `Schema`, `Stream`).
 
 ```typescript
+// runtime/src/browser/fetch.worker.ts — the decode-worker terminal entry; its own thread's boot, never part of the browser module
 import { WorkerRunner } from "@effect/platform"
 import { BrowserRuntime, BrowserWorkerRunner } from "@effect/platform-browser"
 import { ArtifactFrame, type ContentKey, Digest, Residency, type WireFault } from "@rasm/ts/core"
@@ -427,5 +435,5 @@ BrowserRuntime.runMain(WorkerRunner.launch(Layer.provide(_handlers, BrowserWorke
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 
-export { Depot, Fetch, FetchFault, Pool, PoolFault, Web }
+export {} // terminal entry: the empty surface is the structural proof
 ```

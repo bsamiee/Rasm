@@ -21,7 +21,7 @@ The decoded evidence vocabularies as one bounded family: `Receipt`/`ReceiptEnvel
 - Growth: a new receipt kind is one tagged case, one `_RANKS` row, and zero envelope edits.
 - Packages: `@effect/typeclass` (`Semigroup`); `effect` (`Schema`, `Array`, `Duration`, `Equivalence`, `HashMap`, `HashSet`, `Number`, `Option`, `Order`); `../value/clock.ts` (`Hlc`); `../value/identity.ts` (`TenantContext`); `../value/contentKey.ts` (`ContentKey`); `../value/fault.ts` (`FaultClass`); `./causal.ts` (`Vector`); `./merge.ts` (`Merge`); `./fold.ts` (`Fold`).
 
-```typescript
+```typescript signature
 import * as Semigroup from "@effect/typeclass/Semigroup"
 import { Array, type Duration, Equivalence, HashMap, HashSet, Number, Option, Order, pipe, Record, Schema } from "effect"
 import { Hlc } from "../value/clock.ts"
@@ -81,11 +81,11 @@ declare namespace Receipt {
 - Owner: `ReceiptEnvelope` — the one decoded evidence owner: `command` (the content-keyed command coordinate — commands are content-addressed), `subject` (the optional target entity key), `stamp`/`tenant` (composed vocabulary), `basis` (the optional `Vector` the receipt observed), `receipt` (the family) — with orders, the merge instance, and the fold plan riding it as statics so one import carries shape, policy, and fold.
 - Law: `ReceiptEnvelope.latest` is `Merge.max` over the lifecycle-then-stamp-then-tag order — LWW at its correct altitude: rank decides (a terminal receipt outranks `Accepted` regardless of clock skew), stamp tie-breaks within a rank, the receipt tag closes the order over distinct kinds at one stamp, and the composed `Order` is the single policy edit-site; a residual tie is a structural duplicate idempotence absorbs, because the AppHost mint is HLC-monotone per authority.
 - Law: `ReceiptEnvelope.plan` keys by `command` — the per-command receipt table is one plan row, so it runs identically as a pure snapshot, a stream trace, a live handle, or a durable projection; `settled` reads terminality from the `_RANKS` row, never a `_tag` ladder.
-- Law: dedup is structural — two decodes of one wire receipt compare equal under the derived equivalence, so idempotent delivery through the engine's `consolidate` costs nothing here.
+- Law: dedup is structural — `ReceiptEnvelope.alike` is the `Schema.equivalence`-derived equality riding the owner as a static, so two decodes of one wire receipt compare equal under the declaration's own proof, idempotent delivery through the engine's `consolidate` costs nothing here, and a hand-written `Equivalence.struct` beside the Schema owner is a second unverified equality truth.
 - Law: correlating receipts with their produced artifacts at live altitude is `fold#DATAFLOW_VERBS`'s `joined` handle over the command key — never a hand walk over two folded tables.
 - Boundary: decode placement and the wire twin are the interchange codec's; `feed#ENTRY_FAMILY` wraps envelopes into feed entries; shells consume the folded table through `fold#MEMORY_LANE` views.
 
-```typescript
+```typescript signature
 class ReceiptEnvelope extends Schema.Class<ReceiptEnvelope>("ReceiptEnvelope")({
   command: ContentKey,
   subject: Schema.optionalWith(ContentKey, { as: "Option" }),
@@ -94,6 +94,7 @@ class ReceiptEnvelope extends Schema.Class<ReceiptEnvelope>("ReceiptEnvelope")({
   basis: Schema.optionalWith(Vector, { as: "Option" }),
   receipt: Receipt,
 }) {
+  static readonly alike: Equivalence.Equivalence<ReceiptEnvelope> = Schema.equivalence(ReceiptEnvelope)
   static readonly byStamp: Order.Order<ReceiptEnvelope> = Order.mapInput(
     Hlc.Order,
     (envelope: ReceiptEnvelope) => envelope.stamp,
@@ -126,11 +127,12 @@ class ReceiptEnvelope extends Schema.Class<ReceiptEnvelope>("ReceiptEnvelope")({
 - Law: units are dimensionless counts — done and total are non-negative integers whose meaning the emitting operation declares; a `{value, unit}` shape never exists here — `value/quantity` owns dimensioned magnitudes — and `total` is optional evidence: unbounded operations emit marks without totals, every dividing read is `Option`-shaped through `Number.divide`, so an unknown total folds to absent fraction, never `NaN`.
 - Law: the state product composes proven rows — `head` (stage paired with its stamp, merged by stamped LWW so the field cannot drift from the clock that justified it), `done` monotone max (a regressing counter is late evidence, not regression), `total` optional max (totals grow as work is discovered), `parent` first-wins, `first`/`last` min/max stamps — and the product's posture derives as the conjunction, so the whole instance is convergence-legal by construction.
 - Law: verdicts are read-time and horizon-parameterized — `fraction` divides through the `Option` rail and clamps to the unit interval; `stalled` measures the last stamp's physical distance from a caller-supplied horizon against a `Duration` policy converted once through `Hlc.delta` — an ambient clock read and a millisecond re-derivation never appear in the fold.
-- Law: `rollup` folds the parent axis — the children index derives from the folded table in exactly one `_children` pass, the recursion walks that index to data depth carrying its visited path, and the subtree aggregate answers `Option.none` where no total is known anywhere in the subtree; a decoded `parent` cycle folds each operation once — a re-entrant key contributes the zero row, so a corrupt parent link degrades to an under-count, never divergence; the live incremental rollup over a churning table is `fold#DATAFLOW_VERBS`'s `grouped`/`closure` lanes, and this read is the bounded snapshot fold.
+- Law: `ProgressMark.transition` is the schema-derived change projection every progress feed composes — `operation`, `parent`, `stage`, `done`, and `total` determine a transition, while `stamp` and `tenant` remain transport coordinates; a parent rebind is observable even when the numerical counters remain equal, so the hierarchy cannot change behind a dedup gate.
+- Law: `rollup` folds the parent axis without double counting — an operation with children is a grouping node whose own counters never add beside its descendants, while a leaf contributes its own `{ done, total }`; every included leaf must carry a total or the subtree result is `Option.none`, and a missing node or parent cycle also returns `Option.none` rather than manufacturing a partial denominator. The children index derives from the folded table in exactly one `_children` pass, the recursion walks that index to data depth carrying its visited path, and the live incremental rollup over a churning table is `fold#DATAFLOW_VERBS`'s `grouped`/`closure` lanes.
 - Growth: a new progress verdict is one read member; a new mark axis (weight, priority) is one field plus one product row.
 - Boundary: the mark's wire twin and its stream projection are the interchange codec's; `feed#ENTRY_FAMILY` wraps marks into feed entries; ui progress surfaces consume fractions, never raw marks.
 
-```typescript
+```typescript signature
 class ProgressMark extends Schema.Class<ProgressMark>("ProgressMark")({
   operation: ContentKey,
   parent: Schema.optionalWith(ContentKey, { as: "Option" }),
@@ -140,6 +142,9 @@ class ProgressMark extends Schema.Class<ProgressMark>("ProgressMark")({
   stamp: Hlc,
   tenant: TenantContext,
 }) {
+  static readonly transition: Equivalence.Equivalence<ProgressMark> = Schema.equivalence(
+    Schema.Struct(ProgressMark.fields).pipe(Schema.pick("operation", "parent", "stage", "done", "total")),
+  )
   static readonly byStamp: Order.Order<ProgressMark> = Order.mapInput(
     Hlc.Order,
     (mark: ProgressMark) => mark.stamp,
@@ -204,23 +209,26 @@ const _weights = (
   children: HashMap.HashMap<ContentKey, ReadonlyArray<ContentKey>>,
   root: ContentKey,
   seen: HashSet.HashSet<ContentKey>,
-): readonly [done: number, total: Option.Option<number>] =>
-  HashSet.has(seen, root)
-    ? [0, Option.none()] as const
-    : Array.reduce(
-        Option.getOrElse(HashMap.get(children, root), (): ReadonlyArray<ContentKey> => []),
-        [
-          Option.match(HashMap.get(table, root), { onNone: () => 0, onSome: (state) => state.done }),
-          Option.flatMap(HashMap.get(table, root), (state) => state.total),
-        ] as readonly [number, Option.Option<number>],
-        (acc, child) =>
-          pipe(_weights(table, children, child, HashSet.add(seen, root)), ([done, total]) => [
-            acc[0] + done,
-            Option.match(acc[1], {
-              onNone: () => total,
-              onSome: (held) => Option.some(held + Option.getOrElse(total, () => 0)),
-            }),
-          ] as const),
+): Option.Option<readonly [done: number, total: number]> =>
+  HashSet.has(seen, root) || !HashMap.has(table, root)
+    ? Option.none()
+    : pipe(
+        HashMap.get(children, root),
+        Option.filter(Array.isNonEmptyReadonlyArray),
+        Option.match({
+          onNone: () => Option.flatMap(HashMap.get(table, root), (state) =>
+            Option.map(state.total, (total) => [state.done, total] as const)),
+          onSome: (descendants) =>
+            Array.reduce(
+              descendants,
+              Option.some<readonly [number, number]>([0, 0]),
+              (acc, child) => Option.zipWith(
+                acc,
+                _weights(table, children, child, HashSet.add(seen, root)),
+                ([done, total], [childDone, childTotal]) => [done + childDone, total + childTotal] as const,
+              ),
+            ),
+        }),
       )
 
 const Progress: Progress.Shape = {
@@ -238,7 +246,7 @@ const Progress: Progress.Shape = {
     ),
   stalled: (state, horizon, patience) => horizon.physical - state.last.physical > Hlc.delta(patience),
   rollup: (table, root) =>
-    pipe(_weights(table, _children(table), root, HashSet.empty()), ([done, total]) => Option.flatMap(total, (units) => Number.divide(done, units))),
+    Option.flatMap(_weights(table, _children(table), root, HashSet.empty()), ([done, total]) => Number.divide(done, total)),
 }
 ```
 
@@ -247,7 +255,7 @@ const Progress: Progress.Shape = {
 [AVAILABILITY_LATTICE]:
 - Owner: `Availability` — the decoded snapshot class: `level`, the per-command verdict `HashMap`, the `since` stamp, and the tenant; `worst` (the snapshot lattice), `admits` (the total gate read), and `plan` (the per-tenant fold) ride it as statics. The serving gate consumes it as an injected value typed against this module — ordinary dependency over a legal import, never a port.
 - Law: the level column is the lawful bounded lattice — `Merge.lattice` over the rank `Bounded` with `full` as `minBound` and `offline` as `maxBound`, the `join` row carried in the field product — so zero health feeds fold to the `full` bottom through the lawful empty, severity is the only comparison, and no consumer compares level names lexically or through a hand ladder; gate policy is the `admits` column, data a total read projects, and `_ROWS` is contract-checked at the expression seam against the `_LEVELS` and `_POSTURES` anchors — a level without its row, an excess row, or an off-vocabulary posture fails at the declaration.
-- Law: verdicts order by restrictiveness — `Available < Gated < Withheld`, `Withheld` tie-broken by level rank — and `_worstVerdict` is `Merge.max` over that order, so merging two sources never loosens a constraint; a verdict carries its evidence, and retry surfacing derives from `Gated.until`, never from prose parsing.
+- Law: verdicts carry one total restrictiveness key — family rank first (`Available < Gated < Withheld`), then `Gated` by bounded-before-unbounded horizon and later `Hlc`, `Withheld` by level rank, and both evidence-bearing cases by reason — and `_worstVerdict` is `Merge.max` over that order, so distinct evidence never compares equal, source arrival order cannot decide a merge, and combining two sources never loosens a constraint; retry surfacing derives from `Gated.until`, never from prose parsing.
 - Law: `Availability.worst` is the `Merge.struct` field product exactly as `Progress._state` and `presence` compose it — level through the bounded lattice join, commands through `Merge.hashMap(_worstVerdict)` per-command worst-wins, `since` by stamp max, tenant first-wins — the posture derives as the field conjunction instead of a literal claim, the class re-lands through one constructor wrap, and the convergence proof rides `Converge` like every sibling instance; a hand-rolled `Semigroup.make` with an inline `HashMap.reduce` beside the roster is the deleted spelling. The convergence domain is one tenant lane — the plan partitions by tenant BEFORE any merge and first-wins carries `self.tenant` through, so a cross-tenant combine is an upstream fold-key defect, never a merge question.
 - Law: `Availability.admits` is total — a command absent from the map answers from the level row's posture through the `_FALLBACKS` lookup, so the gate never meets `undefined`, never re-implements the fallback, and posture-to-verdict stays a keyed row, never a branch ladder.
 - Law: the command map crosses the wire as a keyed object — the protobuf map shape — and `_Commands` respells it into the interior `HashMap` at the field, so the decoded gate keys structurally while the encoded twin stays exactly what the C# mint emits; a pairs-array wire spelling is the shape no proto map produces.
@@ -255,7 +263,7 @@ const Progress: Progress.Shape = {
 - Boundary: the level roster mirrors the C# AppHost health plane one-to-one; roster parity pins at the interchange decode seam; `feed#ENTRY_FAMILY` records level shifts.
 - Growth: a new gate posture is one `_POSTURES` row; a new level is one `_LEVELS` entry plus its `_ROWS` row, and the bounded lattice re-tops in the same edit.
 
-```typescript
+```typescript signature
 const _LEVELS = ["full", "degraded", "readonly", "offline"] as const
 const _POSTURES = ["all", "reads", "none"] as const
 
@@ -304,10 +312,19 @@ const _Commands = Schema.transform(
   },
 )
 
-const _byRestrictiveness: Order.Order<typeof _Verdict.Type> = Order.combine(
-  Order.mapInput(Order.number, (verdict: typeof _Verdict.Type) => _VERDICT_RANKS[verdict._tag]),
-  Order.mapInput(Order.number, (verdict: typeof _Verdict.Type) =>
-    verdict._tag === "Withheld" ? _ROWS[verdict.level].rank : 0),
+const _byRestrictiveness: Order.Order<typeof _Verdict.Type> = Order.mapInput(
+  Order.tuple(Order.number, Order.number, Order.bigint, Order.bigint, Order.number, Order.string),
+  (verdict: typeof _Verdict.Type) => {
+    const until = verdict._tag === "Gated" ? verdict.until : Option.none<Hlc>()
+    return [
+      _VERDICT_RANKS[verdict._tag],
+      Option.isNone(until) ? 1 : 0,
+      Option.match(until, { onNone: () => 0n, onSome: (stamp) => stamp.physical }),
+      Option.match(until, { onNone: () => 0n, onSome: (stamp) => stamp.logical }),
+      verdict._tag === "Withheld" ? _ROWS[verdict.level].rank : 0,
+      verdict._tag === "Available" ? "" : verdict.reason,
+    ] as const
+  },
 )
 
 const _worstVerdict: Merge.Instance<typeof _Verdict.Type> = Merge.max(_byRestrictiveness)

@@ -8,8 +8,8 @@ The durable fact journal: audit evidence and usage metering as rows of ONE polym
 | :-----: | :------------ | :----------------------------------------------------------------------------- |
 |  [01]   | `FACT_FAMILY` | the closed `Fact` union — audit row, meter row, change family, resource table  |
 |  [02]   | `JOURNAL_ROW` | the stream-discriminated ensure, the batch append, retention grooming          |
-|  [03]   | `RAIL`        | the one buffered service — polymorphic record, stamped identity, bounded drain |
-|  [04]   | `RATING`      | rollup as a keyed fold and rating as exact `BigDecimal` policy evaluation      |
+|  [03]   | `RATING`      | rollup as a keyed fold and rating as exact `BigDecimal` policy evaluation      |
+|  [04]   | `RAIL`        | the one buffered service — polymorphic record, stamped identity, bounded drain |
 
 ## [02]-[FACT_FAMILY]
 
@@ -128,34 +128,86 @@ const _retentionOf = (fact: Fact.Value): Retain.Class =>
 const _encode = Schema.encode(Schema.parseJson(_Fact))
 
 const _append = (facts: Array.NonEmptyReadonlyArray<Fact.Value>) =>
-  Effect.flatMap(SqlClient.SqlClient, (sql) =>
-    Effect.flatMap(
-      Effect.forEach(facts, (fact) =>
-        Effect.map(_encode(fact), (payload) => ({
-          stream: fact._tag,
-          app: fact.app,
-          tenant: Option.getOrNull(fact.tenant),
-          retention: _retentionOf(fact),
-          payload,
-        }))),
-      (rows) => sql`INSERT INTO fact_journal ${sql.insert(rows)}`,
-    ))
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient
+    const rows = yield* Effect.forEach(facts, (fact) =>
+      Effect.map(_encode(fact), (payload) => ({
+        stream: fact._tag,
+        app: fact.app,
+        tenant: Option.getOrNull(fact.tenant),
+        retention: _retentionOf(fact),
+        payload,
+      })), { concurrency: "unbounded" })
+    yield* sql`INSERT INTO fact_journal ${sql.insert(rows)}`
+  })
 ```
 
-## [04]-[RAIL]
+## [04]-[RATING]
+
+- Owner: the rollup fold and the rating evaluation — `rollup` is one `HashMap.modifyAt` keyed fold over `(app, tenant, resource)` tuples accumulating `{ count, total }`, and `rate` folds a caller-supplied rating policy over the rolled aggregates into exact per-key cost.
+- Packages: `effect` (`Array`, `BigDecimal`, `Data`, `HashMap`, `Option`).
+- Entry: `Fact.rollup(facts)` over a billing window's meter rows; `Fact.rate(rolled, rating)` at settlement; the at-scale replication of these windows into the OLAP lane is `lane/olap.md`'s ingestion row.
+- Growth: a new charge model (tiered, floor, minimum) is one field on the rating row read inside `rate` — never a second rating function.
+- Law: rates are caller-supplied policy — a `Rating` record keyed by the resource union, each row a `BigDecimal` unit price with its currency — because prices are app policy, never lib constants; the shape closes over the derived union, so a missing rate row is a compile error at the policy literal.
+- Law: cost arithmetic is `BigDecimal` end to end — quantity lifts through `BigDecimal.make(BigInt(n), 0)` (safe: quantities are schema-integral), multiplies against the rate row, and rounds `half-even` at scale 4 exactly once at the terminal — a float never touches money and rounding never happens mid-fold.
+- Law: aggregates merge by the component-wise additive fold — associative by construction, so window rollups fuse across drains and a billing period is a fold over persisted window aggregates.
+
+```typescript
+import { Array, BigDecimal, Data, HashMap, Option } from "effect"
+
+declare namespace Fact {
+  type Key = readonly [app: AppIdentity.Key, tenant: Option.Option<TenantContext.Key>, resource: Resource]
+  type Aggregate = { readonly count: number; readonly total: number }
+  type Rate = { readonly currency: string; readonly per: BigDecimal.BigDecimal }
+  type Rating = { readonly [R in Resource]: Rate }
+  type Cost = { readonly amount: BigDecimal.BigDecimal; readonly currency: string }
+}
+
+const _fused = (left: Fact.Aggregate, right: Fact.Aggregate): Fact.Aggregate => ({
+  count: left.count + right.count,
+  total: left.total + right.total,
+})
+
+const _rollup = (facts: ReadonlyArray<MeterFact>): HashMap.HashMap<Fact.Key, Fact.Aggregate> =>
+  Array.reduce(facts, HashMap.empty<Fact.Key, Fact.Aggregate>(), (held, fact) =>
+    HashMap.modifyAt(held, Data.tuple(fact.app, fact.tenant, fact.resource), (slot) =>
+      Option.some(
+        Option.match(slot, {
+          onNone: (): Fact.Aggregate => ({ count: 1, total: fact.quantity }),
+          onSome: (row) => _fused(row, { count: 1, total: fact.quantity }),
+        }),
+      )))
+
+const _rate = (
+  rolled: HashMap.HashMap<Fact.Key, Fact.Aggregate>,
+  rating: Fact.Rating,
+): HashMap.HashMap<Fact.Key, Fact.Cost> =>
+  HashMap.map(rolled, (aggregate, key) => {
+    const rate = rating[key[2]]
+    return {
+      amount: BigDecimal.round(
+        BigDecimal.multiply(BigDecimal.make(BigInt(aggregate.total), 0), rate.per),
+        { mode: "half-even", scale: 4 },
+      ),
+      currency: rate.currency,
+    }
+  })
+```
+
+## [05]-[RAIL]
 
 - Owner: the `Fact` service — a Layer factory over the app's `AppIdentity` (`Fact.Default(identity)`), holding one bounded intake and one scoped drain fiber; `record` is the ONE entrypoint, modal over its input — an audit draft, a meter charge, or a proven-non-empty batch of either — discriminated on the value, never a sibling per stream.
-- Packages: `effect` (`Effect.Service`, `Queue`, `Stream`, `Chunk`, `Schedule`, `Metric`, `DateTime`, `Option`, `Predicate`); `@rasm/ts/core` (`Convention` — the metric and attribute name rows).
+- Packages: `effect` (`Effect.Service`, `Queue`, `Stream`, `Chunk`, `Schedule`, `Metric`, `DateTime`, `Option`, `Array`, `Schema`); `@rasm/ts/core` (`Convention` — the metric and attribute name rows).
 - Entry: `Fact.record(draft)` for evidence, `Fact.record(charge)` for usage, `Fact.record(batch)` for either in bulk; wiring is `Fact.Default(identity)` provided a scope's `SqlClient` at the root.
 - Growth: a new stamped dimension is one line in the stamp; a new drain posture is one `_FLOW` field; a new fact stream extends the union and the discriminant fold, nothing else.
 - Law: the service stamps what the caller must not control — `app` from the identity, `at` from the clock on the rail, tenancy resolved pinned-first so a single-tenant process overrides the draft's key; construction runs the schema filters, so a malformed draft fails the writer, never the drain.
-- Law: drafts are derived schema projections, never hand-declared patches — `Fact.AuditDraft`/`Fact.Charge` re-anchor on the owning field records through `omit`, so a field added to a fact class flows into its draft with zero second declaration; the draft-kind probe is `Schema.is(_Charge)`, a schema discriminant, and an edge-arriving draft decodes through the same projection before it reaches `record`.
+- Law: drafts are derived schema projections, never hand-declared patches — `Fact.AuditDraft`/`Fact.Charge` re-anchor on the owning field records through `omit("_tag", "app", "at")`, then `Schema.attachPropertySignature` restores the decoded family tag without requiring it on encoded ingress; the family's `Option`-carried tenancy survives untouched, the union stays discriminated even when future members acquire overlapping fields, and an edge-arriving draft decodes through the owning projection before it reaches `record`.
 - Law: the drain never load-sheds — evidence and billing truth suspend under backpressure and retry unbounded; egress quota belongs to the correctness-adjacent replication seams (`lane/olap.md`'s `ingest`), never to this rail.
 - Law: the drain is one pipeline — `Stream.fromQueue` over the intake, `Stream.groupedWithin(width, patience)` so a quiet surface still flushes on latency, the batch appended under an unbounded jittered retry whose delay caps through `Schedule.union` (evidence is never dropped: a dead database suspends the drain, the bounded intake suspends writers, and pressure propagates instead of silently losing billing truth), each deferral logged, the drained count and per-resource usage emitted through the convention counters in the same pass.
 - Law: every audit fact also emits one structured log annotated with the convention's audit rows — observability beside durability; the meter's metric egress is deliberately lossy and bounded — resource tag always, tenant tag only where the resource row's posture admits it — and the journal remains the sole truth for both streams.
 
 ```typescript
-import { Chunk, DateTime, Metric, Option, Queue, Schedule, Stream } from "effect"
+import { Array, Chunk, DateTime, Effect, Metric, Option, Queue, Schedule, Schema, Stream } from "effect"
 import { Convention } from "@rasm/ts/core"
 
 const _FLOW = { intake: 512, patience: "2 seconds", width: 128 } as const
@@ -195,15 +247,13 @@ const _emitted = (fact: Fact.Value): Effect.Effect<void> =>
       )
     : _metered(fact)
 
-const _AuditDraft = Schema.Struct({
-  ...Schema.Struct(AuditFact.fields).omit("_tag", "app", "at", "tenant").fields,
-  tenant: Schema.optional(TenantContext.fields.tenant),
-})
+const _AuditDraft = Schema.Struct(AuditFact.fields).omit("_tag", "app", "at").pipe(
+  Schema.attachPropertySignature("_tag", "AuditFact"),
+)
 
-const _Charge = Schema.Struct({
-  ...Schema.Struct(MeterFact.fields).omit("_tag", "app", "at", "tenant").fields,
-  tenant: Schema.optional(TenantContext.fields.tenant),
-})
+const _Charge = Schema.Struct(MeterFact.fields).omit("_tag", "app", "at").pipe(
+  Schema.attachPropertySignature("_tag", "MeterFact"),
+)
 
 class Fact extends Effect.Service<Fact>()("data/Fact", {
   scoped: (identity: AppIdentity) =>
@@ -220,7 +270,7 @@ class Fact extends Effect.Service<Fact>()("data/Fact", {
                     Effect.logError("fact drain deferred").pipe(Effect.annotateLogs({ count: rows.length, fault: fault._tag }))),
                   Effect.retry(_RETRY),
                   Effect.andThen(Metric.incrementBy(_drained, rows.length)),
-                  Effect.andThen(Effect.forEach(rows, _emitted, { discard: true })),
+                  Effect.andThen(Effect.forEach(rows, _emitted, { concurrency: "inherit", discard: true })),
                 )
               : Effect.void
           }),
@@ -229,15 +279,32 @@ class Fact extends Effect.Service<Fact>()("data/Fact", {
       const stamped = (draft: Fact.Draft): Effect.Effect<void> =>
         Effect.gen(function* () {
           const at = yield* DateTime.now
-          const tenant = Option.orElse(identity.tenant, () => Option.fromNullable(draft.tenant))
-          const fact: Fact.Value = Schema.is(_Charge)(draft)
-            ? new MeterFact({ ...draft, app: identity.app, at, tenant })
-            : new AuditFact({ ...draft, app: identity.app, at, tenant })
+          const tenant = Option.orElse(identity.tenant, () => draft.tenant)
+          const fact: Fact.Value = draft._tag === "MeterFact"
+            ? new MeterFact({
+                app: identity.app,
+                at,
+                quantity: draft.quantity,
+                resource: draft.resource,
+                surface: draft.surface,
+                tenant,
+              })
+            : new AuditFact({
+                action: draft.action,
+                actor: draft.actor,
+                app: identity.app,
+                at,
+                change: draft.change,
+                retention: draft.retention,
+                target: draft.target,
+                tenant,
+                trace: draft.trace,
+              })
           yield* Queue.offer(intake, fact)
         })
       return {
         record: (input: Fact.Draft | Array.NonEmptyReadonlyArray<Fact.Draft>): Effect.Effect<void> =>
-          Effect.forEach(Array.ensure(input), stamped, { discard: true }),
+          Effect.forEach(Array.ensure(input), stamped, { concurrency: 1, discard: true }),
       }
     }),
   accessors: true,
@@ -255,58 +322,6 @@ declare namespace Fact {
   type Charge = typeof _Charge.Type
   type Draft = AuditDraft | Charge
 }
-```
-
-## [05]-[RATING]
-
-- Owner: the rollup fold and the rating evaluation — `rollup` is one `HashMap.modifyAt` keyed fold over `(app, tenant, resource)` tuples accumulating `{ count, total }`, and `rate` folds a caller-supplied rating policy over the rolled aggregates into exact per-key cost.
-- Packages: `effect` (`Array`, `BigDecimal`, `Data`, `HashMap`, `Option`).
-- Entry: `Fact.rollup(facts)` over a billing window's meter rows; `Fact.rate(rolled, rating)` at settlement; the at-scale replication of these windows into the OLAP lane is `lane/olap.md`'s ingestion row.
-- Growth: a new charge model (tiered, floor, minimum) is one field on the rating row read inside `rate` — never a second rating function.
-- Law: rates are caller-supplied policy — a `Rating` record keyed by the resource union, each row a `BigDecimal` unit price with its currency — because prices are app policy, never lib constants; the shape closes over the derived union, so a missing rate row is a compile error at the policy literal.
-- Law: cost arithmetic is `BigDecimal` end to end — quantity lifts through `BigDecimal.make(BigInt(n), 0)` (safe: quantities are schema-integral), multiplies against the rate row, and rounds `half-even` at scale 4 exactly once at the terminal — a float never touches money and rounding never happens mid-fold.
-- Law: aggregates merge by the component-wise additive fold — associative by construction, so window rollups fuse across drains and a billing period is a fold over persisted window aggregates.
-
-```typescript
-import { BigDecimal, Data, HashMap } from "effect"
-
-declare namespace Fact {
-  type Key = readonly [app: AppIdentity.Key, tenant: Option.Option<TenantContext.Key>, resource: Resource]
-  type Aggregate = { readonly count: number; readonly total: number }
-  type Rate = { readonly currency: string; readonly per: BigDecimal.BigDecimal }
-  type Rating = { readonly [R in Resource]: Rate }
-  type Cost = { readonly amount: BigDecimal.BigDecimal; readonly currency: string }
-}
-
-const _fused = (left: Fact.Aggregate, right: Fact.Aggregate): Fact.Aggregate => ({
-  count: left.count + right.count,
-  total: left.total + right.total,
-})
-
-const _rollup = (facts: ReadonlyArray<MeterFact>): HashMap.HashMap<Fact.Key, Fact.Aggregate> =>
-  Array.reduce(facts, HashMap.empty<Fact.Key, Fact.Aggregate>(), (held, fact) =>
-    HashMap.modifyAt(held, Data.tuple(fact.app, fact.tenant, fact.resource), (slot) =>
-      Option.some(
-        Option.match(slot, {
-          onNone: (): Fact.Aggregate => ({ count: 1, total: fact.quantity }),
-          onSome: (row) => _fused(row, { count: 1, total: fact.quantity }),
-        }),
-      )))
-
-const _rate = (
-  rolled: HashMap.HashMap<Fact.Key, Fact.Aggregate>,
-  rating: Fact.Rating,
-): HashMap.HashMap<Fact.Key, Fact.Cost> =>
-  HashMap.map(rolled, (aggregate, key) => {
-    const rate = rating[key[2]]
-    return {
-      amount: BigDecimal.round(
-        BigDecimal.multiply(BigDecimal.make(BigInt(aggregate.total), 0), rate.per),
-        { mode: "half-even", scale: 4 },
-      ),
-      currency: rate.currency,
-    }
-  })
 
 // --- [EXPORTS] --------------------------------------------------------------------------
 

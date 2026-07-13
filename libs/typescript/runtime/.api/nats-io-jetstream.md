@@ -51,7 +51,7 @@
 |  [09]   | `msg.nak(millis?)` / `msg.working()`            | redelivery     | redelivery request; `working()` heartbeats ack-wait                 |
 |  [10]   | `msg.term(reason?)`                             | poison         | terminal reject for unprocessable poison                            |
 
-- [02]-[PUBLISH_OPTS]: `{ msgID, expect?: { lastMsgID, lastSequence, lastSubjectSequence, streamName } }`.
+- [02]-[PUBLISH_OPTS]: `{ msgID, expect?: { lastMsgID, lastSequence, lastSubjectSequence, lastSubjectSequenceSubject, streamName } }` — `lastSubjectSequenceSubject` redirects the `lastSubjectSequence` constraint onto an alternative (wildcardable) subject; the typed `lastSubjectSequenceValue` member maps to no publish header and is dead surface.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -100,7 +100,7 @@ declare function orderByWithFractionalIndex<T, Ve>(valueExtractor: (v: V) => Ve,
 
 ## [03]-[INTEGRATION]
 
-[STACK: `D2` + `effect/Data` + `Schema` (`.api/effect.md`)] — identical to the d2ts altitude: the collection element is a `Data.TaggedEnum` op decoded by a `Schema`; `map`/`filter` bodies match on `_tag` via `effect/Match`; `Equal.equals`/`Hash` make `consolidate`/`distinct` structural so equal ops collapse — idempotence. `state` folds this in core `effect`; d2mini is the in-memory engine under it.
+[STACK: `D2` + `effect/Data` + `Schema` (`.api/effect.md`)] — identical to the d2ts altitude: the collection element is a `Data.TaggedEnum` op decoded by a `Schema`; `map`/`filter` bodies match on `_tag` via `effect/Match`. The engine never consults `Equal`/`Hash`: keyed `consolidate` requires string/number keys and compares object VALUES by reference (WeakMap object IDs), the unkeyed lane hashes a replacer-serialized form (`bigint`/`symbol`/`Map`/`Set` stringified before murmur), and `groupBy` serializes its group key with bare `JSON.stringify` — a `bigint` group dimension throws, an `undefined` member aliases two groups — so redelivery idempotence lives in the fold's own instance combine or upstream delivery dedup, never in engine consolidation. `state` folds this in core `effect`; d2mini is the in-memory engine under it.
 
 [STACK: `reduce`/`groupBy` + `@effect/typeclass` (`.api/effect-typeclass.md`)] — the keyed fold is a Semigroup applied incrementally; `state/merge` declares the merge as one lawful `Semigroup` and `state/fold` applies it through `reduce` at the in-memory altitude exactly as d2ts applies it at the durable one. The same reducer law is shared across both altitudes.
 

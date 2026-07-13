@@ -97,6 +97,7 @@
 
 [ENTRYPOINT_SCOPE]: binary codec — the wire ingress/egress every `codec/*` page runs
 - rail: proto codec
+- import: whole-message codecs from `@bufbuild/protobuf`; the `sizeDelimited*` family from `@bufbuild/protobuf/wire`
 - the canonical entries are `fromBinary`/`toBinary` (whole message) and the `sizeDelimited*` family (length-prefixed frames). `BinaryReader`/`BinaryWriter` are the sub-message primitives; `codec` pages compose the high-level entries, never the low-level reader unless authoring a custom field.
 - the `sizeDelimited*` family walks an `AsyncIterable<Uint8Array>`; `sizeDelimitedPeek` returns `{ size, offset, eof:false }` for a complete varint header or `{ size:null, offset:null, eof:true }` when the varint is incomplete.
 

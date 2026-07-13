@@ -18,7 +18,8 @@ The one clock owner of the branch: `Hlc` is the hybrid-logical stamp — one `Sc
 - Law: the value space is unbounded-monotone — the brands bound only `>= 0n`, so `tick` and `receive` are total folds with no mid-domain range throw; the u64 ceiling is a wire-layout fact enforced by the `FromBytes` encode seam alone.
 - Law: `Hlc.Order` is physical-then-logical lexicographic ascending — the one causal comparison every fold, sort, and max shares; the member name mirrors the ecosystem's canonical-instance convention (`Duration.Order`, `DateTime.Order`).
 - Law: `tick(local, now)` is the send/local-event fold — a wall reading beyond `physical` resets `logical` to zero, otherwise `logical` advances by one; `receive(local, remote, now)` is the merge fold — the greatest physical wins and `logical` advances past whichever operands share it — so a merged stamp never regresses under `Hlc.Order` and causality survives clock skew.
-- Law: `physicalOf(instant)` and `delta(span)` are the single unit site — epoch milliseconds, zero-clamped so a pre-epoch wall reading folds to the genesis physical instead of a mid-domain throw, pinned by the parity vectors; a C#-proven different epoch encoding repairs as these two bodies with zero call-site edits, which is why no other module in the branch converts time into the physical half.
+- Law: `physicalOf(instant)` and `delta(span)` are the single unit site — epoch milliseconds, both zero-clamped under one clamp law, while `delta` converts through `Duration.toNanos` and saturates an infinite or over-u64 span at the byte layout's `_U64` ceiling; negative and `NaN` inputs decode to zero in the `Duration` algebra, finite sub-millisecond spans truncate on the bigint division, and every `Duration.DurationInput` path is total without a `BigInt(Infinity)` throw. `Uncertainty.around` therefore cannot smuggle a signed or non-finite span past the physical axis, and no other module converts time into the physical half.
+- Law: `alike` is the class-derived `Schema.equivalence` — stamp deduplication and trace comparison consume the same structural relation as decode and law derivation.
 - Law: `genesis` is the zero stamp — the fold seed for empty causality chains and the identity every replay starts from.
 - Law: interior mints ride `Schema.decodeSync` over proven inputs — zero literals, `+ 1n` on a non-negative brand, zero-clamped epoch reads — so the throw path is structurally unreachable and the mint stays inside the trusted-construction channel `new Hlc` completes.
 - Growth: a new clock fold (bounded-drift tick, batch merge) is one static composing the existing folds; a new stamp field is a wire-shape question for the interchange codec, never a widening here.
@@ -38,7 +39,7 @@ The one clock owner of the branch: `Hlc` is the hybrid-logical stamp — one `Sc
 
 ```typescript
 import * as Semigroup from "@effect/typeclass/Semigroup"
-import { DateTime, Duration, Option, Order, ParseResult, Schema, type Types } from "effect"
+import { DateTime, Duration, Option, Order, ParseResult, pipe, Schema, type Types } from "effect"
 
 const _Physical = Schema.BigIntFromSelf.pipe(Schema.nonNegativeBigInt(), Schema.brand("HlcPhysical"))
 const _Logical = Schema.BigIntFromSelf.pipe(Schema.nonNegativeBigInt(), Schema.brand("HlcLogical"))
@@ -52,11 +53,13 @@ const _FLOOR = _logical(0n)
 const _succ = (held: typeof _Logical.Type): typeof _Logical.Type => _logical(held + 1n)
 
 const _unpacked = (bytes: Uint8Array): { readonly physical: bigint; readonly logical: bigint } => {
+  // BOUNDARY ADAPTER: DataView reads are the platform-forced statement seam; the value detaches immutable
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   return { physical: view.getBigUint64(0, true), logical: view.getBigUint64(8, true) }
 }
 
 const _packed = (stamp: { readonly physical: bigint; readonly logical: bigint }): Uint8Array => {
+  // BOUNDARY ADAPTER: DataView writes are the platform-forced statement seam; the buffer detaches immutable
   const view = new DataView(new ArrayBuffer(16))
   view.setBigUint64(0, stamp.physical, true)
   view.setBigUint64(8, stamp.logical, true)
@@ -67,6 +70,7 @@ class Hlc extends Schema.Class<Hlc>("Hlc")({
   physical: _Physical,
   logical: _Logical,
 }) {
+  static readonly alike = Schema.equivalence(Hlc)
   static readonly Order: Order.Order<Hlc> = Order.combine(
     Order.mapInput(Order.bigint, (stamp: Hlc) => stamp.physical),
     Order.mapInput(Order.bigint, (stamp: Hlc) => stamp.logical),
@@ -81,7 +85,11 @@ class Hlc extends Schema.Class<Hlc>("Hlc")({
         : ParseResult.succeed(_packed(stamp)),
   })
   static readonly physicalOf = (instant: DateTime.Utc): Hlc.Physical => _physical(BigInt(Math.max(DateTime.toEpochMillis(instant), 0)))
-  static readonly delta = (span: Duration.DurationInput): Hlc.Physical => _physical(BigInt(Math.trunc(Duration.toMillis(span))))
+  static readonly delta = (span: Duration.DurationInput): Hlc.Physical =>
+    _physical(Option.match(Duration.toNanos(span), {
+      onNone: () => _U64,
+      onSome: (nanos) => pipe(nanos / 1_000_000n, (millis) => (millis > _U64 ? _U64 : millis)),
+    }))
   static readonly tick = (local: Hlc, now: Hlc.Physical): Hlc =>
     now > local.physical
       ? new Hlc({ physical: now, logical: _FLOOR })
@@ -125,6 +133,7 @@ declare namespace Hlc {
 - Law: `hull(head, ...rest)` is the instance's `combineMany` projection — the join is identity-free (no lawful empty window exists), so the witnessed head is the first parameter and plurality is the variadic tail: one arity serves the binary join and the batch aggregation fold, and a forged sentinel window is unspellable; `meet(left, right)` is the dual bounds product (`max` earliest, `min` latest) folded to `Option` because disjoint windows share no instant — the agreement window `state/causal` narrows definite claims through.
 - Law: `precedes(left, right)` is the three-verdict fold — `"before"`, `"after"`, `"indeterminate"` on overlap — and `contains(self, at)` answers point membership for watermark and frontier reads; both project the one composed physical `Order` through `Order.lessThan`/`Order.between`, so no comparison policy is restated inline, and the verdict union is a pure type anchor (`Uncertainty.Precedence`) because only the type plane reads it — `state/causal` dispatches on the literal and a definite order is claimed only when the windows prove it.
 - Law: construction rides `around`/`spanning` and the interior mint proves its own inputs — clamped subtraction and checked addition stay non-negative — while the class carries `earliest <= latest` as its own filter, so decode, `new`, and `make` all prove the window, an inverted wire window fails admission as a `ParseError`, and `width` is total on every channel.
+- Law: `alike` is the class-derived `Schema.equivalence` — window joins, deduplication, and convergence witnesses share the declaration's structural relation.
 - Growth: a new verdict consumer is a `state` fold over `Precedence`; a new window operation (widen-by-grade) is one static composing the existing bounds or projecting the instance.
 - Boundary: happened-before over stamps (physical+logical) is `Hlc.Order`'s total comparison; windows answer the honest wall-clock question only, and `state/causal` decides when each applies.
 - Packages: `effect` (`Schema`, `Duration`, `Order`, `Option`); `@effect/typeclass` (`Semigroup`).
@@ -156,6 +165,7 @@ class Uncertainty extends Schema.Class<Uncertainty>("Uncertainty")(
     latest: Hlc.fields.physical,
   }).pipe(Schema.filter((window) => window.earliest <= window.latest)),
 ) {
+  static readonly alike = Schema.equivalence(Uncertainty)
   static readonly grades: Uncertainty.Grades = { ..._grades, kinds: _kinds }
   static readonly Semigroup: Semigroup.Semigroup<Uncertainty> = Semigroup.imap(
     Semigroup.struct({ earliest: Semigroup.min(_axis), latest: Semigroup.max(_axis) }), // the join semilattice: field rows are shipped extremum atoms over the one Order

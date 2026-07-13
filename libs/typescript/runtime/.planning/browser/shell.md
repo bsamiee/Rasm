@@ -15,10 +15,10 @@ The PWA shell plane: the web-app manifest as a typed VALUE the app constructs an
 ## [02]-[MANIFEST_VALUE]
 
 [MANIFEST_VALUE]:
-- Owner: `Manifest`, one `Schema.Class` — `name`, `shortName`, `description`, `startUrl`, `scope`, `display` (the closed display-mode literal), `themeColor`/`backgroundColor` (`Option`-carried), and `icons` as a `Schema.NonEmptyArray` of icon rows — with every dialect spelling divergence handled as a field-level `Schema.fromKey` rename, so `shortName` encodes as `short_name`, `startUrl` as `start_url`, and no parallel wire interface exists.
+- Owner: `Manifest`, one `Schema.Class` spanning identity/localization, launch/display, install presentation, common actions, inbound sharing, protocol/file handling, and related-app integration. Required identity and installability stay direct fields; optional dialect members are `Option`-carried; repeated cases are arrays of embedded schemas; every wire spelling divergence uses field-level `Schema.fromKey`, so no parallel JSON interface exists.
 - Law: the manifest is app DATA constructed at build — the app builds a `Manifest` value from its own identity and `Manifest.json` (the fused `Schema.parseJson` twin riding the owner as a static) encodes it to the `.webmanifest` string the build emits beside the precache; hydration and serving are the app build's, the shape law is this owner's.
 - Law: non-emptiness is a type fact — an installable manifest without icons is unconstructible, so the PWA install criteria fail at compile time, never at an audit.
-- Growth: a new manifest member (screenshots, shortcuts, share_target) is one field row with its rename; a new display mode is one literal on the axis.
+- Growth: a new manifest member is one field or embedded-schema field on `Manifest`; a new display or orientation posture is one literal on its existing axis.
 - Boundary: cache identity and precache emission are `[3]`'s build rows; this owner carries only the manifest contract.
 - Packages: `effect` (`Schema`, `Option`).
 
@@ -27,27 +27,118 @@ import { FaultClass } from "@rasm/ts/core"
 import { Data, DateTime, Effect, Option, Record, Ref, Schema, Stream, Subscribable, SubscriptionRef } from "effect"
 import type { RuntimeCaching, StrategyName } from "workbox-build"
 import { Workbox, type WorkboxLifecycleWaitingEvent } from "workbox-window"
-import { Connect } from "./boot.ts"
+import { Boot, Connect } from "./boot.ts"
 import { Kv, type KvFault } from "./persist.ts"
 
 const _Icon = Schema.Struct({
   src: Schema.NonEmptyString,
   sizes: Schema.NonEmptyString,
   type: Schema.NonEmptyString,
-  purpose: Schema.optionalWith(Schema.Literal("any", "maskable", "monochrome"), { as: "Option" }),
+  purpose: Schema.optionalWith(
+    Schema.String.pipe(Schema.pattern(/^(?:any|maskable|monochrome)(?: (?:any|maskable|monochrome))*$/)),
+    { as: "Option" },
+  ),
+})
+
+const _Screenshot = Schema.Struct({
+  src: Schema.NonEmptyString,
+  sizes: Schema.NonEmptyString,
+  type: Schema.NonEmptyString,
+  label: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  formFactor: Schema.optionalWith(Schema.Literal("wide", "narrow"), { as: "Option" }).pipe(Schema.fromKey("form_factor")),
+})
+
+const _Shortcut = Schema.Struct({
+  name: Schema.NonEmptyString,
+  shortName: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }).pipe(Schema.fromKey("short_name")),
+  description: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  url: Schema.NonEmptyString,
+  icons: Schema.optionalWith(Schema.Array(_Icon), { as: "Option" }),
+})
+
+const _ShareParams = Schema.Struct({
+  title: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  text: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  url: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  files: Schema.optionalWith(Schema.Array(Schema.Struct({
+    name: Schema.NonEmptyString,
+    accept: Schema.NonEmptyArray(Schema.NonEmptyString),
+  })), { as: "Option" }),
+})
+
+const _ShareTarget = Schema.Union(
+  Schema.Struct({
+    action: Schema.NonEmptyString,
+    method: Schema.Literal("GET"),
+    enctype: Schema.Literal("application/x-www-form-urlencoded"),
+    params: _ShareParams,
+  }),
+  Schema.Struct({
+    action: Schema.NonEmptyString,
+    method: Schema.Literal("POST"),
+    enctype: Schema.Literal("application/x-www-form-urlencoded", "multipart/form-data"),
+    params: _ShareParams,
+  }),
+)
+
+const _FileHandler = Schema.Struct({
+  action: Schema.NonEmptyString,
+  accept: Schema.Record({ key: Schema.NonEmptyString, value: Schema.NonEmptyArray(Schema.NonEmptyString) }),
+  launchType: Schema.optionalWith(Schema.Literal("single-client", "multiple-clients"), { as: "Option" }).pipe(Schema.fromKey("launch_type")),
 })
 
 class Manifest extends Schema.Class<Manifest>("Manifest")({
+  id: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
   name: Schema.NonEmptyString,
   shortName: Schema.propertySignature(Schema.NonEmptyString).pipe(Schema.fromKey("short_name")),
   description: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  lang: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  dir: Schema.optionalWith(Schema.Literal("auto", "ltr", "rtl"), { as: "Option" }),
   startUrl: Schema.propertySignature(Schema.NonEmptyString).pipe(Schema.fromKey("start_url")),
   scope: Schema.NonEmptyString,
   display: Schema.Literal("standalone", "browser", "minimal-ui", "fullscreen"),
+  displayOverride: Schema.optionalWith(Schema.NonEmptyArray(Schema.Literal(
+    "standalone",
+    "browser",
+    "minimal-ui",
+    "fullscreen",
+    "window-controls-overlay",
+    "borderless",
+    "tabbed",
+    "picture-in-picture",
+  )), { as: "Option" }).pipe(Schema.fromKey("display_override")),
+  orientation: Schema.optionalWith(Schema.Literal("any", "natural", "landscape", "landscape-primary", "landscape-secondary", "portrait", "portrait-primary", "portrait-secondary"), { as: "Option" }),
   themeColor: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }).pipe(Schema.fromKey("theme_color")),
   backgroundColor: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }).pipe(Schema.fromKey("background_color")),
   icons: Schema.NonEmptyArray(_Icon),
+  categories: Schema.optionalWith(Schema.Array(Schema.NonEmptyString), { as: "Option" }),
+  screenshots: Schema.optionalWith(Schema.Array(_Screenshot), { as: "Option" }),
+  shortcuts: Schema.optionalWith(Schema.Array(_Shortcut), { as: "Option" }),
+  launchHandler: Schema.optionalWith(Schema.Struct({
+    clientMode: Schema.propertySignature(Schema.Literal("auto", "navigate-existing", "focus-existing", "navigate-new")).pipe(Schema.fromKey("client_mode")),
+  }), { as: "Option" }).pipe(Schema.fromKey("launch_handler")),
+  shareTarget: Schema.optionalWith(_ShareTarget, { as: "Option" }).pipe(Schema.fromKey("share_target")),
+  protocolHandlers: Schema.optionalWith(Schema.Array(Schema.Struct({
+    protocol: Schema.NonEmptyString,
+    url: Schema.NonEmptyString,
+  })), { as: "Option" }).pipe(Schema.fromKey("protocol_handlers")),
+  fileHandlers: Schema.optionalWith(Schema.Array(_FileHandler), { as: "Option" }).pipe(Schema.fromKey("file_handlers")),
+  relatedApplications: Schema.optionalWith(Schema.Array(Schema.Struct({
+    platform: Schema.NonEmptyString,
+    url: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+    id: Schema.optionalWith(Schema.NonEmptyString, { as: "Option" }),
+  })), { as: "Option" }).pipe(Schema.fromKey("related_applications")),
+  preferRelatedApplications: Schema.optionalWith(Schema.Boolean, { as: "Option" }).pipe(Schema.fromKey("prefer_related_applications")),
+  scopeExtensions: Schema.optionalWith(Schema.Array(Schema.Struct({ origin: Schema.NonEmptyString })), { as: "Option" }).pipe(Schema.fromKey("scope_extensions")),
+  noteTaking: Schema.optionalWith(Schema.Struct({
+    newNoteUrl: Schema.propertySignature(Schema.NonEmptyString).pipe(Schema.fromKey("new_note_url")),
+  }), { as: "Option" }).pipe(Schema.fromKey("note_taking")),
 }) {
+  static readonly Icon = _Icon
+  static readonly Screenshot = _Screenshot
+  static readonly Shortcut = _Shortcut
+  static readonly ShareTarget = _ShareTarget
+  static readonly FileHandler = _FileHandler
   static readonly json: Schema.SchemaClass<Manifest, string> = Schema.parseJson(Manifest)
 }
 ```
@@ -115,6 +206,7 @@ const _Report = Schema.Union(
 type _Signal = { readonly tag: (typeof _TAGS)[number] | "controlling"; readonly update: boolean }
 
 const _lifecycle = (wb: Workbox): Stream.Stream<_Signal> =>
+  // BOUNDARY ADAPTER: the Workbox event target is the platform-forced statement seam — one listener per lifecycle tag, all released on scope close
   Stream.asyncScoped((emit) =>
     Effect.acquireRelease(
       Effect.sync(() =>
@@ -145,7 +237,7 @@ const _lifecycle = (wb: Workbox): Stream.Stream<_Signal> =>
 - Law: the fingerprint stamps identity — `mark` derives from the core `AppIdentity` build block at the composition root, so a build bump mints fresh cache names and a stale worker cannot serve mixed generations; the precache side inherits the same identity through `Sw.build`'s `cacheId`.
 - Law: a cache behavior is a row, never a branch — the `sync` column names a replayable lane's SW-side queue, the `range` column arms `rangeRequests` plus its `cacheableResponse` admission for the large byte bands partial-content readers seek into, and the `race` column pairs `networkTimeoutSeconds` with `Sw.build`'s `navigationPreload` so the network-first HTML route races the cache.
 - Law: `Sw.build` never sets `skipWaiting` — the update lands through `[3]`'s apply handshake so a refresh is user intent, never a mid-session takeover; `cleanupOutdatedCaches` and `clientsClaim` stay armed because generation hygiene has no user ceremony.
-- RESEARCH: the `BroadcastCacheUpdateOptions` member spellings behind `RuntimeCaching.options.broadcastUpdate` are unverified; the cache-update announce column lands on the row table only after the folder catalogue documents them.
+- Law: the wasm engine bundles the data wave's browser lanes self-host — the `lane/sqlite` OPFS driver and the `lane/olap` `Olap.wasm` arm — ride the `asset` row's hashed-static posture, so bundle custody is precache identity under the same fingerprint and no engine bundle dials a third-party CDN; whether a lane OPENS is `persist#STORAGE_RESIDENCY`'s verdict, never a cache fact.
 - Growth: a new cache posture is one `_lanes` row; a new strategy grade is one `_STRATEGIES` entry — the row type breaks until both align.
 - Packages: `workbox-build` (type-only `RuntimeCaching`, `StrategyName`); `effect` (`Option`, `Record`).
 
@@ -209,24 +301,26 @@ const _build = (spec: { readonly mark: string; readonly shell: string }): {
 ## [05]-[REPLAY_DRAIN]
 
 [REPLAY_DRAIN]:
-- Owner: the outbox lane on the same service — `queue(band)` appends one durable entry (minted instant plus the caller's already-encoded payload band) into `persist#DOMAIN_ROWS`'s `outbox` domain under a monotonic key; `relayed(relay)` is the single drain fold: every wake source — `Connect.redials`, the worker's `Replayed` reports, and the one-shot `Connect.wake` registration at construction — merges into one stream, each wake drains the outbox atomically and hands every entry to the app-supplied `relay` leg in minted order, and every refused entry re-enqueues in ONE atomic batch write so nothing drops silently and a mid-compensation crash re-enqueues all or none.
+- Owner: the outbox lane on the same service — `queue(band)` appends one durable entry (minted instant plus the caller's already-encoded payload band) into `persist#DOMAIN_ROWS`'s `outbox` domain under a monotonic key, reads the store's key count, and requests the background wake when `Boot.ceilings.outbox` is reached; `relayed(relay)` is the single drain fold: every wake source — `Connect.redials`, the worker's `Replayed` reports, and the one-shot `Connect.wake` registration at construction — merges into one stream, each wake drains the outbox atomically and hands every entry to the app-supplied `relay` leg in minted order, and every refused entry re-enqueues in ONE atomic batch write so nothing drops silently and a mid-compensation crash re-enqueues all or none.
 - Law: the element is opaque here — the outbox row is `Kv.Value<"outbox">` (minted, band); the producing rail encoded the band and the relay leg decodes it, so this fold never inspects payloads and the wire vocabulary stays with its owner.
 - Law: one queue, two altitudes — failed same-origin fetches replay inside the SW through the `workbox-background-sync` queue the cache rows configure; app-level intents replay here through the window drain; the `Replayed` report is the seam where the SW's drain completion wakes the window's, so the two altitudes converge without sharing storage.
 - Law: the drain is serial and self-quenching — `relay` runs per entry with the fold awaiting each, the refused set gathers through `Effect.partition` (the atomic drain already cleared the store, so the batch re-write is the compensation), a storage fault folds the whole wake to a no-op the next wake redrives, and a wake arriving mid-drain queues behind the running fold rather than starting a second.
+- Law: the outbox ceiling is pressure, never data loss — reaching the app budget requests the owned background wake and preserves every row; the ceiling never evicts, truncates, or rejects an intent, while the serial drain remains the only remover.
 - Boundary: what the band contains and where `relay` dials is the composing app's selection over `fetch#DIAL_SURFACE`; this cluster owns durability, ordering, and wake fan-in only.
-- Packages: `effect` (`DateTime`, `Effect`, `Ref`, `Stream`); `./boot.ts` (`Connect`); `./persist.ts` (`Kv`).
+- Packages: `effect` (`DateTime`, `Effect`, `Ref`, `Stream`); `./boot.ts` (`Boot`, `Connect`); `./persist.ts` (`Kv`).
 
 ```typescript
 class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
   scoped: (script: string) =>
     Effect.gen(function* () {
+      const boot = yield* Boot
       const connect = yield* Connect
       const kv = yield* Kv
       const _phase = yield* SubscriptionRef.make<SwLifecycle>(SwLifecycle.Unregistered())
       const carried = "serviceWorker" in globalThis.navigator
       const wb = yield* Effect.acquireRelease(
         Effect.sync(() => new Workbox(script)),
-        (held) => (carried ? Effect.ignore(Effect.tryPromise(() => held.update())) : Effect.void),
+        (held) => (carried ? Effect.ignoreLogged(Effect.tryPromise(() => held.update())) : Effect.void),
       )
       const reports = yield* Stream.asyncScoped<unknown>((emit) =>
         Effect.acquireRelease(
@@ -262,11 +356,17 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
           const minted = yield* DateTime.now
           const turn = yield* Ref.getAndUpdate(counter, (n) => n + 1)
           yield* kv.write("outbox", `${DateTime.toEpochMillis(minted)}:${String(turn).padStart(8, "0")}`, { minted, band })
+          const depth = yield* kv.size("outbox")
+          yield* Effect.when(Effect.asVoid(connect.wake("rasm-outbox")), () => depth >= boot.ceilings.outbox)
         })
       const relayed = <E, R>(relay: (entry: Kv.Value<"outbox">) => Effect.Effect<void, E, R>) =>
-        Stream.merge(
-          connect.redials,
-          Stream.as(Stream.filter(reports, (report) => report._tag === "Replayed"), undefined),
+        Stream.mergeAll(
+          [
+            connect.redials,
+            Stream.as(Stream.filter(reports, (report) => report._tag === "Replayed"), undefined),
+            Stream.fromEffect(Effect.asVoid(connect.wake("rasm-outbox"))),
+          ],
+          { concurrency: "unbounded" },
         ).pipe(
           Stream.runForEach(() =>
             kv.drain("outbox").pipe(
@@ -275,7 +375,7 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
                   Effect.partition(held, ([key, entry]) => Effect.mapError(relay(entry), () => [key, entry] as const), {
                     concurrency: 1,
                   }),
-                  ([refused]) => (refused.length === 0 ? Effect.void : Effect.ignore(kv.write("outbox", refused))),
+                  ([refused]) => (refused.length === 0 ? Effect.void : kv.write("outbox", refused)), // a failed re-enqueue reaches the wake fold's logged discard, never a silent swallow
                 ),
               ),
               Effect.ignoreLogged,
@@ -283,7 +383,6 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
           ),
           Effect.forkScoped,
         )
-      yield* Effect.ignore(connect.wake("rasm-outbox"))
       const phase: Subscribable.Subscribable<SwLifecycle> = _phase
       return {
         phase,
@@ -404,7 +503,7 @@ class Install extends Effect.Service<Install>()("runtime/browser/Install", {
     const ask: Effect.Effect<InstallStance, InstallFault> = Effect.gen(function* () {
       const slot = yield* SubscriptionRef.modify(held, (taken) => [taken, Option.none<_PromptEvent>()] as const)
       const prompt = yield* Option.match(slot, {
-        onNone: () => new InstallFault({ reason: "unavailable", detail: "<no-captured-prompt>" }),
+        onNone: () => Effect.fail(new InstallFault({ reason: "unavailable", detail: "<no-captured-prompt>" })),
         onSome: Effect.succeed,
       })
       const choice = yield* Effect.tryPromise({

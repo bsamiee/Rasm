@@ -34,7 +34,7 @@ import {
   ATTR_ERROR_TYPE, ATTR_EXCEPTION_MESSAGE, ATTR_EXCEPTION_STACKTRACE, ATTR_EXCEPTION_TYPE, EVENT_EXCEPTION,
 } from "@opentelemetry/semantic-conventions"
 import {
-  Array, Cause, Chunk, Context, Duration, Effect, Layer, Option, Order, Predicate, Record, Schedule, Schema, type Types,
+  Array, Cause, Chunk, Context, Duration, Effect, Layer, Metric, Option, Order, Predicate, Record, Schedule, Schema, type Types,
 } from "effect"
 import { Refined } from "./schema.ts"
 
@@ -151,9 +151,10 @@ const FaultClass: FaultClass.Shape = {
 - Law: the attribute band carries the OpenTelemetry scalar algebra — finite `number`, `string`, or `boolean` — so a boolean fact (a wire retryability column, a flag verdict) enters the band AS a boolean and enrichment never stringifies typed evidence; identifier-grade context rides it per occurrence, while bounded metric dimensions derive from `class` and `blame` columns. The deprecated `exception.escaped` key is banned: this floor captures only escaping faults, so the flag carries zero information and the vocabulary omits it.
 - Law: the two type keys carry two truths — `forensic` writes the bounded class column into `ATTR_ERROR_TYPE` (the low-cardinality dimension backends group on) and the free-form runtime exception type into `ATTR_EXCEPTION_TYPE` — so the well-known pair never duplicates one unbounded string; `FaultCapture.Forensic` anchors the `ATTR_EXCEPTION_*`/`ATTR_ERROR_TYPE` vocabulary and `FaultCapture.event` anchors `EVENT_EXCEPTION`, so a misspelled forensic key is a compile error while the band stays open for context beyond the vocabulary, and `observe/convention` still owns attribute-space naming for its own projections.
 - Law: band merging is one instance, never a per-site combine — `getSemigroupUnion(Semigroup.last())` declares the last-write-wins keyed merge once, `Monoid.fromSemigroup` names the empty band as its lawful identity, and `enriched` and `forensic` both project the one instance so enrichment stages fold with no emptiness guard.
+- Law: `FaultCapture.aspect(metric, input)` is the definition-time signal weave — one transformer maps the capture into the metric's admitted update through `Metric.mapInput`, then composes `Effect.withSpan(EVENT_EXCEPTION)` and `Effect.withMetric` around the capture-producing effect, so crash owners instrument their declaration once and every invocation inherits the same span and metric policy without a call-site wrapper.
 - Growth: a new evidence field is one `Evidence` schema field; a new well-known key is one `Forensic` row; a second enrichment stage is a Layer composing the same Tag, never a second port.
 - Boundary: which captures reach the enricher, redaction-at-capture, and OTLP egress encoding are the runtime telemetry owners' policies; reconstruction internals are the interchange codec's; this floor declares the shapes, the key vocabulary, and the seam.
-- Packages: `effect` (`Schema`, `Context`, `Effect`, `Layer`, `Option`); `@effect/typeclass` (`Monoid`, `Semigroup`, `data/Record`); `@opentelemetry/semantic-conventions` (`ATTR_EXCEPTION_*`, `ATTR_ERROR_TYPE`, `EVENT_EXCEPTION`); `schema#REFINED_FLOOR` (`Refined.Guid`).
+- Packages: `effect` (`Schema`, `Context`, `Effect`, `Layer`, `Metric`, `Option`); `@effect/typeclass` (`Monoid`, `Semigroup`, `data/Record`); `@opentelemetry/semantic-conventions` (`ATTR_EXCEPTION_*`, `ATTR_ERROR_TYPE`, `EVENT_EXCEPTION`); `schema#REFINED_FLOOR` (`Refined.Guid`).
 
 ```typescript signature
 const _FORENSIC = {
@@ -185,6 +186,9 @@ class FaultCapture extends Schema.Class<FaultCapture>("FaultCapture")({
   at: Schema.DateTimeUtcFromSelf,
   attributes: Schema.Record({ key: Schema.String, value: _Attribute }),
 }) {
+  static readonly aspect = <Type, In, Out>(metric: Metric.Metric<Type, In, Out>, input: (capture: FaultCapture) => In) =>
+    <E, R>(self: Effect.Effect<FaultCapture, E, R>) =>
+      self.pipe(Effect.withSpan(EVENT_EXCEPTION), Effect.withMetric(Metric.mapInput(metric, input)))
   static readonly Evidence: typeof _Evidence = _Evidence
   static readonly Forensic: typeof _FORENSIC = _FORENSIC
   static readonly event: typeof EVENT_EXCEPTION = EVENT_EXCEPTION

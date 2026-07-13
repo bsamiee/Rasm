@@ -7,11 +7,11 @@ The remote-origin filesystem plane: ONE origin-addressed surface owning every no
 | [INDEX] | [CLUSTER]          | [OWNS]                                                                                |
 | :-----: | :----------------- | :------------------------------------------------------------------------------------ |
 |  [01]   | `ORIGIN_ROWS`      | the `Origin` class, the scheme capability-flag table, the reason-discriminated fault  |
-|  [02]   | `SESSION_ROWS`     | the tagged session family, the per-scheme scoped brackets, the pooled origin reuse    |
-|  [03]   | `OP_SURFACE`       | the polymorphic verb set — stat/list/read/write/copy/move/remove/mkdir, flag degrade  |
+|  [02]   | `SESSION_ROWS`     | the tagged session family, per-scheme scoped brackets, pooled reuse, the flag probe   |
+|  [03]   | `OP_SURFACE`       | the polymorphic verb set — stat/list/read/write/copy/move/remove/mkdir/lock, degrade  |
 |  [04]   | `TRANSFER_ENGINES` | the resume policy rows — rsync delta, offset, chunked-parallel — and the intake fold  |
 |  [05]   | `SYNC_ENGINE`      | persisted listings, comparator rows, the diff-apply-recover fold                      |
-|  [06]   | `WATCH_ROWS`       | the watch strategy rows — local settle-guard, ssh exec-push, universal poll           |
+|  [06]   | `WATCH_ROWS`       | the watch strategy rows — ssh exec-push, universal poll; local intake stays owned     |
 |  [07]   | `EXEC`             | remote command execution — typed channels, exit disposition, the local `Command` twin |
 
 ## [02]-[ORIGIN_ROWS]
@@ -101,16 +101,17 @@ class Origin extends Schema.Class<Origin>("Origin")({
 
 ## [03]-[SESSION_ROWS]
 
-- Owner: `Session` — one closed `Data.taggedEnum` family (`Ssh | Ftp | Dav | Bucket | Local`) every op narrows through `$match`, so a client cast is unspellable; the per-scheme session brackets — the ssh2 connect-on-`ready`/`end()`-on-release bracket with the SFTP subsystem lift, the `basic-ftp` `access` dial, the `webdav` client mint — `_session`, the one scheme-dispatched acquire; and `Remote.sessions`, the bounded pooled reuse over `lane/cache.md`'s `CacheLane.origins` keyed by the structural `OriginKey` whose `scheme` field selects the bracket from the key alone.
-- Packages: `ssh2` (`Client` — `connect`, `sftp`, `end`; events `ready`/`error`; config auth/trust/keepalive rows; `sock` jump-host injection); `basic-ftp` (`Client`, `access`, `close`); `webdav` (`createClient`, `AuthType`); `lane/cache.md` (`CacheLane.origins`, `OriginKey`); `effect` (`Effect`, `Data`, `Redacted`, `Scope`).
-- Entry: an operation leases its session through the keyed pool — `KeyedPool.get` under the caller's `Scope` — so the FTP one-transfer-per-control-connection law and SSH connection reuse are both pool facts; `Stores`-style consumers never construct a session directly, and the `Bucket`/`Local` cases are free values because their capability arrives from the `ObjectStore`/`FileSystem` requirement channel, never a connection.
+- Owner: `Session` — one closed `Data.taggedEnum` family (`Ssh | Ftp | Dav | Bucket | Local`) every op narrows through `$match`, so a client cast is unspellable; the per-scheme session brackets — the ssh2 connect-on-`ready`/`end()`-on-release bracket with the SFTP subsystem lift, the `basic-ftp` `access` dial, the `webdav` client mint — `_session`, the one scheme-dispatched acquire; and `Remote.sessions`, the one acquisition surface that pools network control sessions through `lane/cache.md`'s `CacheLane.origins` while minting connectionless `Bucket` and `Local` values directly.
+- Packages: `ssh2` (`Client` — `connect`, `sftp`, `end`; events `ready`/`error`; config auth/trust/keepalive rows; `sock` jump-host injection); `basic-ftp` (`Client`, `access`, `close`); `webdav` (`createClient`, `AuthType`); `lane/cache.md` (`CacheLane.origins`, `OriginKey`); `effect` (`Effect`, `Data`, `KeyedPool.get`, `Redacted`, `Scope`).
+- Entry: an operation calls `sessions.get(origin)` — network origins lease through `KeyedPool.get` under the caller's `Scope`, so the FTP one-transfer-per-control-connection law and SSH connection reuse are pool facts; `file:` and `s3:` origins mint free values because their capability arrives from the `FileSystem`/`ObjectStore` requirement channel and no inert pool key exists.
 - Growth: an auth posture (agent, keyboard-interactive, custom `authHandler`) is an `Auth` field flowing into the connect config; a bastion chain is the prior hop's `forwardOut` duplex entering the next `connect` through `sock` — config data, never topology code.
 - Law: sessions are scoped brackets — ssh resolves on `ready`, fails typed on `error`, releases through `end()`; ftp dials through `access` alone (the split connect/login members are probes) and releases through `close()`; a bare client with ad-hoc listeners in domain code is the rejected spelling.
-- Law: credentials are `Redacted` config rows — password, private key, passphrase never appear as literals; host trust rides `hostVerifier` where the deployment pins keys; TLS on the ftp row is the `secure` config value (`true` explicit, `"implicit"` wrapped), never a scheme fork beyond the `ftps:` port default.
+- Law: credentials are `Redacted` config rows — password, private key, passphrase never appear as literals; host trust rides `hostVerifier` where the deployment pins keys; TLS on the ftp row is the `Auth.secure` config value (`true` explicit upgrade, `"implicit"` wrapped, scheme-derived by default and overridable only as ruled config for a plaintext-only origin), never a scheme fork beyond the `ftps:` port default.
+- Law: capability discovery narrows the flag row at acquire — `Remote.probe` reads `getDAVCompliance` on the DAV arm (class `"2"` proves the lock row) and `features()` on the FTP arm (`REST` proves offset resume), folding server truth over the scheme's static flags and carrying the `getQuota` capacity fact as an `Option` — a flag a server refuses therefore narrows by data before any op dispatches, never by a caller branch.
 - Boundary: the ssh2 and basic-ftp surfaces are callback/Promise boundary kernels — every listener registration and promise lives inside these brackets, and above them only `Stream`/`Sink`/typed effects exist.
 
 ```typescript
-import { Effect, Redacted, type Scope } from "effect"
+import { Effect, KeyedPool, Option, Redacted, type Scope } from "effect"
 import { Client as SshClient, type SFTPWrapper } from "ssh2"
 import { Client as FtpClient } from "basic-ftp"
 import { AuthType, createClient, type WebDAVClient } from "webdav"
@@ -122,6 +123,7 @@ declare namespace Remote {
     readonly privateKey?: Redacted.Redacted
     readonly passphrase?: Redacted.Redacted
     readonly agent?: string
+    readonly secure?: boolean | "implicit"
     readonly readyTimeout?: number
     readonly keepaliveInterval?: number
   }
@@ -133,6 +135,9 @@ declare namespace Remote {
     Local: {}
   }>
   type End = { readonly origin: Origin; readonly session: Session }
+  type Sessions = {
+    readonly get: (origin: Origin) => Effect.Effect<Session, RemoteFault, Scope.Scope>
+  }
 }
 
 const _Session = Data.taggedEnum<Remote.Session>()
@@ -179,7 +184,8 @@ const _ftp = (origin: Origin, auth: Remote.Auth): Effect.Effect<FtpClient, Remot
           port: origin.port,
           user: origin.username,
           password: auth.password === undefined ? undefined : Redacted.value(auth.password),
-          secure: origin.scheme === "ftps" ? "implicit" : true,
+          // the scheme derives the TLS row — ftps wraps implicit, ftp upgrades explicit — and auth.secure overrides for the plaintext-only origin, a ruled config value
+          secure: auth.secure ?? (origin.scheme === "ftps" ? "implicit" : true),
         })
         return client
       },
@@ -210,12 +216,58 @@ const _session = (origin: Origin, auth: Remote.Auth): Effect.Effect<Remote.Sessi
     s3: () => Effect.succeed(_Session.Bucket()),
   } satisfies { readonly [S in Remote.Scheme]: () => Effect.Effect<Remote.Session, RemoteFault, Scope.Scope> })[origin.scheme]()
 
-const _sessions = (auth: (key: OriginKey) => Remote.Auth) =>
-  CacheLane.origins((key: OriginKey) =>
-    Effect.flatMap(
-      Effect.orDie(Origin.parse(`${key.scheme}://${key.username}@${key.host}:${key.port}/`)),
-      (origin) => _session(origin, auth(key)),
-    ))
+const _sessions = (auth: (key: OriginKey) => Remote.Auth): Effect.Effect<Remote.Sessions, never, Scope.Scope> =>
+  Effect.map(
+    CacheLane.origins((key: OriginKey) =>
+      Effect.flatMap(
+        Effect.mapError(
+          Origin.parse(`${key.scheme}://${key.username}@${key.host}:${key.port}/`),
+          (fault) => new RemoteFault({ reason: "connect", origin: key.host, detail: String(fault) }),
+        ),
+        (origin) => _session(origin, auth(key)),
+      )),
+    (pool) => ({
+      get: (origin) =>
+        origin.scheme === "file" || origin.scheme === "s3"
+          ? _session(origin, {})
+          : KeyedPool.get(pool, origin.key),
+    }),
+  )
+
+declare namespace Remote {
+  type Probed = {
+    // server truth widens the static literal row: every flag stays present, its value proven live
+    readonly flags: { readonly [F in keyof Flags]: boolean }
+    readonly quota: Option.Option<{ readonly used: number; readonly available: Option.Option<number> }>
+  }
+}
+
+const _probe = (origin: Origin, session: Remote.Session): Effect.Effect<Remote.Probed, RemoteFault> =>
+  _Session.$match(session, {
+    Dav: ({ client }) =>
+      Effect.zipWith(
+        Effect.tryPromise({ try: () => client.getDAVCompliance(origin.path), catch: _fault(origin, "op") }),
+        Effect.tryPromise({ try: () => client.getQuota(), catch: _fault(origin, "op") }),
+        (compliance, quota): Remote.Probed => ({
+          flags: { ...origin.flags, lock: compliance.compliance.includes("2") },
+          quota: Option.map(Option.fromNullable(quota), (held) => ({
+            used: typeof held.used === "number" ? held.used : 0,
+            available: typeof held.available === "number" ? Option.some(held.available) : Option.none(),
+          })),
+        }),
+      ),
+    Ftp: ({ client }) =>
+      Effect.map(
+        Effect.tryPromise({ try: () => client.features(), catch: _fault(origin, "op") }),
+        (features): Remote.Probed => ({
+          flags: { ...origin.flags, offsetResume: features.has("REST") },
+          quota: Option.none(),
+        }),
+      ),
+    Ssh: () => Effect.succeed<Remote.Probed>({ flags: origin.flags, quota: Option.none() }),
+    Bucket: () => Effect.succeed<Remote.Probed>({ flags: origin.flags, quota: Option.none() }),
+    Local: () => Effect.succeed<Remote.Probed>({ flags: origin.flags, quota: Option.none() }),
+  })
 ```
 
 ## [04]-[OP_SURFACE]
@@ -223,7 +275,8 @@ const _sessions = (auth: (key: OriginKey) => Remote.Auth) =>
 - Owner: the polymorphic verb set — `stat`, `list`, `read` (→ backpressured `Stream`), `write` (← `Sink`, offset-positioned when resuming), `copy`, `move`, `remove`, `mkdir` — each ONE entry dispatching through `Session.$match` with flag-driven degrade arms; and `Remote.intake`, the content-addressed landing that runs any remote read through the SAME identity fold as local disk.
 - Packages: `@effect/platform-node` (`NodeStream.fromReadable`, `NodeSink.fromWritable` — the only stream seams); `ssh2` (SFTP `stat`, `readdir`, `createReadStream`, `createWriteStream`, `rename`, `unlink`, `mkdir`, `rmdir`); `webdav` (`stat`, `getDirectoryContents`, `createReadStream`, `createWriteStream`, `copyFile`, `moveFile`, `deleteFile`, `createDirectory`); `basic-ftp` (`list`, `size`, `lastMod`, `downloadTo`, `uploadFrom`, `appendFrom`, `rename`, `remove`, `removeDir`, `ensureDir`); `@aws-sdk/client-s3` (`paginateListObjectsV2` — the bucket census walk); `object/stream.md` (`Rail.bytes`, `Rail.chunked`, `Rail.identity`, `Rail.range`), `object/store.md` (`ObjectStore`).
 - Entry: `Remote.read(origin, session)` yields `Stream<Uint8Array, RemoteFault>` on every scheme; `Remote.intake(origin, session, retention)` is the one cloud-ingestion entry — read, cut, digest, conditional put, reference row, retention tag — identical receipts to `Disk.intake`.
-- Growth: a new verb is one dispatch surface with per-row arms; a per-server capability discovery (`getDAVCompliance`, `features`) is a probe that narrows the flag row at session acquire, never a caller branch.
+- Growth: a new verb is one dispatch surface with per-row arms; per-server capability discovery is `[3]`'s `Remote.probe`, narrowing the flag row before the arms dispatch, never a caller branch.
+- Law: `lock`/`unlock` realize the flag row's `lock` column — RFC 4918 tokens on the DAV arm coordinating against concurrent DAV writers, a typed refusal everywhere else (the bucket arm names why: the conditional put already owns write races) — so a `lock: true` flag is load-bearing capability, never decorative data.
 - Law: reads and writes are backpressured lifts — SFTP and DAV node streams cross through `NodeStream.fromReadable`/`NodeSink.fromWritable`, the FTP arm bridges its `Writable`-consuming transfer through one relay duplex inside the boundary; no raw `.on("data")` consumption exists past the adapter.
 - Law: degrade is structural — `copy` on a row without `serverCopy` (or across hosts) composes `read` into `write`; `move` without `serverMove` composes `copy` then `remove`; `remove` discriminates file-versus-directory on the `stat` verdict, never a caller flag; a caller cannot observe which arm ran except through the receipt.
 - Law: the `s3:` arms honor content addressing — reads ride `Rail.range`, the server-side copy rides `rekey` against the probed ETag, byte ingress rides `Remote.intake`, and deletion rides the object plane's reference release; a raw bucket sink, a unilateral bucket delete, or a bucket-source `move` refuses typed BEFORE any byte moves — re-parenting a content object is a ledger verb, and a copy-then-refuse partial mutation is unspellable because the refusal guards the whole verb.
@@ -231,7 +284,7 @@ const _sessions = (auth: (key: OriginKey) => Remote.Auth) =>
 - Boundary: the SFTP callback verbs (`stat`, `readdir`, `mkdir`, `rmdir`, `unlink`, `rename`) are the page's callback kernels — each wraps one `Effect.async` settle and nothing else; timestamp normalization to ISO text lives inside those kernels.
 
 ```typescript
-import { Chunk, Option, Sink, Stream } from "effect"
+import { Chunk, DateTime, Number, Sink, Stream } from "effect"
 import { FileSystem } from "@effect/platform"
 import { NodeSink, NodeStream } from "@effect/platform-node"
 import { PassThrough } from "node:stream"
@@ -245,9 +298,9 @@ declare namespace Remote {
   type Stat = {
     readonly path: string
     readonly bytes: number
-    readonly modified: string
+    readonly modified: Option.Option<string>
     readonly kind: "file" | "directory"
-    readonly etag?: string | undefined
+    readonly etag: Option.Option<string>
   }
 }
 
@@ -309,7 +362,19 @@ const _write = (origin: Origin, session: Remote.Session, at?: number) =>
         return NodeSink.fromWritable(() => relay, _fault(origin, "transfer"))
       }),
     Dav: ({ client }) =>
-      Effect.succeed(NodeSink.fromWritable(() => client.createWriteStream(origin.path), _fault(origin, "op"))),
+      at === undefined
+        ? Effect.succeed(NodeSink.fromWritable(() => client.createWriteStream(origin.path), _fault(origin, "op")))
+        : Effect.succeed(
+            // the DAV resume arm: a bounded tail collects and lands as one ranged PATCH — partialUpdateFileContents is the davRange row's write half
+            Sink.mapEffect(Sink.collectAll<Uint8Array>(), (held) => {
+              const parts = Chunk.toReadonlyArray(held)
+              const span = Number.sumAll(parts.map((part) => part.byteLength))
+              return Effect.tryPromise({
+                try: () => client.partialUpdateFileContents(origin.path, at, at + span - 1, Buffer.concat(parts)),
+                catch: _fault(origin, "transfer"),
+              })
+            }),
+          ),
     Bucket: () =>
       Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<bucket:write-rides-intake>" })),
     Local: () =>
@@ -326,8 +391,9 @@ const _stat = (origin: Origin, session: Remote.Session): Effect.Effect<Remote.St
               ? resume(Effect.succeed({
                   path: origin.path,
                   bytes: held.size,
-                  modified: new Date(held.mtime * 1000).toISOString(),
+                  modified: Option.some(new Date(held.mtime * 1000).toISOString()),
                   kind: held.isDirectory() ? "directory" as const : "file" as const,
+                  etag: Option.none(),
                 }))
               : resume(Effect.fail(_fault(origin, "op")(cause))))
         })),
@@ -336,7 +402,7 @@ const _stat = (origin: Origin, session: Remote.Session): Effect.Effect<Remote.St
         try: async () => {
           const bytes = await client.size(origin.path)
           const modified = await client.lastMod(origin.path)
-          return { path: origin.path, bytes, modified: modified.toISOString(), kind: "file" as const }
+          return { path: origin.path, bytes, modified: Option.some(modified.toISOString()), kind: "file" as const, etag: Option.none() }
         },
         catch: _fault(origin, "op"),
       }),
@@ -348,9 +414,9 @@ const _stat = (origin: Origin, session: Remote.Session): Effect.Effect<Remote.St
           return {
             path: origin.path,
             bytes: row.size,
-            modified: row.lastmod,
+            modified: Option.fromNullable(row.lastmod),
             kind: row.type === "directory" ? "directory" as const : "file" as const,
-            etag: row.etag ?? undefined,
+            etag: Option.fromNullable(row.etag),
           }
         }),
     Bucket: () =>
@@ -358,7 +424,13 @@ const _stat = (origin: Origin, session: Remote.Session): Effect.Effect<Remote.St
         Effect.flatMap(ObjectStore, (store) =>
           Effect.map(
             Effect.mapError(store.head(key), (fault) => new RemoteFault({ reason: "op", origin: origin.host, detail: fault.detail })),
-            (head) => ({ path: origin.path, bytes: head.bytes, modified: head.modified, kind: "file" as const, etag: head.etag }),
+            (head) => ({
+              path: origin.path,
+              bytes: head.bytes,
+              modified: Option.map(head.modified, DateTime.formatIso),
+              kind: "file" as const,
+              etag: head.etag,
+            }),
           ))),
     Local: () =>
       Effect.flatMap(FileSystem.FileSystem, (fs) =>
@@ -367,8 +439,9 @@ const _stat = (origin: Origin, session: Remote.Session): Effect.Effect<Remote.St
           (info) => ({
             path: origin.path,
             bytes: Number(info.size),
-            modified: Option.match(info.mtime, { onNone: () => "", onSome: (time) => time.toISOString() }),
+            modified: Option.map(info.mtime, (time) => time.toISOString()),
             kind: info.type === "Directory" ? "directory" as const : "file" as const,
+            etag: Option.none(),
           }))),
   })
 
@@ -382,8 +455,9 @@ const _list = (origin: Origin, session: Remote.Session): Effect.Effect<ReadonlyA
               ? resume(Effect.succeed(entries.map((entry) => ({
                   path: `${origin.path}/${entry.filename}`,
                   bytes: entry.attrs.size,
-                  modified: new Date(entry.attrs.mtime * 1000).toISOString(),
+                  modified: Option.some(new Date(entry.attrs.mtime * 1000).toISOString()),
                   kind: entry.attrs.isDirectory() ? "directory" as const : "file" as const,
+                  etag: Option.none(),
                 }))))
               : resume(Effect.fail(_fault(origin, "op")(cause))))
         })),
@@ -393,8 +467,9 @@ const _list = (origin: Origin, session: Remote.Session): Effect.Effect<ReadonlyA
         (entries) => entries.map((entry) => ({
           path: `${origin.path}/${entry.name}`,
           bytes: entry.size,
-          modified: entry.rawModifiedAt,
+          modified: Option.fromNullable(entry.rawModifiedAt),
           kind: entry.isDirectory ? "directory" as const : "file" as const,
+          etag: Option.none(),
         }))),
     Dav: ({ client }) =>
       Effect.map(
@@ -402,9 +477,9 @@ const _list = (origin: Origin, session: Remote.Session): Effect.Effect<ReadonlyA
         (held) => ("data" in held ? held.data : held).map((row) => ({
           path: row.filename,
           bytes: row.size,
-          modified: row.lastmod,
+          modified: Option.fromNullable(row.lastmod),
           kind: row.type === "directory" ? "directory" as const : "file" as const,
-          etag: row.etag ?? undefined,
+          etag: Option.fromNullable(row.etag),
         }))),
     Bucket: () =>
       Effect.flatMap(ObjectStore, (store) =>
@@ -414,17 +489,17 @@ const _list = (origin: Origin, session: Remote.Session): Effect.Effect<ReadonlyA
               paginateListObjectsV2({ client: store.client }, { Bucket: store.bucket, Prefix: origin.path.slice(1) }),
               (cause) => new RemoteFault({ reason: "op", origin: origin.host, detail: String(cause) }),
             ).pipe(
-              Stream.mapConcat((page) =>
-                (page.Contents ?? []).flatMap((entry): ReadonlyArray<Remote.Stat> =>
-                  entry.Key === undefined
-                    ? []
-                    : [{
+              Stream.mapConcatEffect((page) =>
+                Effect.forEach(page.Contents ?? [], (entry) =>
+                  entry.Key === undefined || entry.Size === undefined
+                    ? Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<incomplete-list-entry>" }))
+                    : Effect.succeed<Remote.Stat>({
                         path: `/${entry.Key}`,
-                        bytes: entry.Size ?? 0,
-                        modified: entry.LastModified?.toISOString() ?? "",
-                        kind: "file" as const,
-                        etag: entry.ETag ?? undefined,
-                      }])),
+                        bytes: entry.Size,
+                        modified: Option.map(Option.fromNullable(entry.LastModified), (time) => time.toISOString()),
+                        kind: "file",
+                        etag: Option.fromNullable(entry.ETag),
+                      }))),
             ),
           ),
           Chunk.toReadonlyArray,
@@ -437,8 +512,9 @@ const _list = (origin: Origin, session: Remote.Session): Effect.Effect<ReadonlyA
               Effect.map(fs.stat(`${origin.path}/${name}`), (info) => ({
                 path: `${origin.path}/${name}`,
                 bytes: Number(info.size),
-                modified: Option.match(info.mtime, { onNone: () => "", onSome: (time) => time.toISOString() }),
+                modified: Option.map(info.mtime, (time) => time.toISOString()),
                 kind: info.type === "Directory" ? "directory" as const : "file" as const,
+                etag: Option.none(),
               })))),
           _fault(origin, "op"),
         )),
@@ -508,7 +584,7 @@ const _copy = (from: Remote.End, to: Remote.End): Effect.Effect<void, RemoteFaul
             Effect.flatMap(ObjectStore, (store) =>
               Effect.asVoid(
                 Effect.mapError(
-                  Effect.flatMap(store.head(source), (head) => store.rekey(source, head.etag, target)),
+                  store.rekey(source, target),
                   (fault) => new RemoteFault({ reason: "op", origin: to.origin.host, detail: fault.detail }),
                 )))),
         Local: () =>
@@ -554,20 +630,41 @@ const _intake = (origin: Origin, session: Remote.Session, retention: Retain.Clas
         )),
       identity.bytes,
     )
-    yield* store.refer(identity.key, `remote:${origin.scheme}://${origin.host}${origin.path}`, retention)
-    yield* store.classify(identity.key, retention)
+    yield* store.refer(identity.key, `remote:${origin.scheme}://${origin.host}${origin.path}`, retention) // the derived retention tag lands with the reference row
     return { key: identity.key, bytes: identity.bytes, written: landed.written, origin }
+  })
+
+const _lock = (origin: Origin, session: Remote.Session): Effect.Effect<{ readonly token: string }, RemoteFault> =>
+  _Session.$match(session, {
+    Dav: ({ client }) =>
+      Effect.map(
+        Effect.tryPromise({ try: () => client.lock(origin.path), catch: _fault(origin, "op") }),
+        (held) => ({ token: held.token }),
+      ),
+    Ssh: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<lock:unsupported>" })),
+    Ftp: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<lock:unsupported>" })),
+    Bucket: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<lock:conditional-put-owns-races>" })),
+    Local: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<lock:unsupported>" })),
+  })
+
+const _unlock = (origin: Origin, session: Remote.Session, token: string): Effect.Effect<void, RemoteFault> =>
+  _Session.$match(session, {
+    Dav: ({ client }) => Effect.tryPromise({ try: () => client.unlock(origin.path, token), catch: _fault(origin, "op") }),
+    Ssh: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<unlock:unsupported>" })),
+    Ftp: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<unlock:unsupported>" })),
+    Bucket: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<unlock:unsupported>" })),
+    Local: () => Effect.fail(new RemoteFault({ reason: "op", origin: origin.host, detail: "<unlock:unsupported>" })),
   })
 ```
 
 ## [05]-[TRANSFER_ENGINES]
 
-- Owner: the `_ENGINES` policy rows — `rsyncDelta` (the preferred resumable/delta lane over the external binary), `sftpOffset` (byte-offset resume from the target's `stat` size into a positioned write), `chunkedParallel` (`fastGet`/`fastPut` with the mined tuning defaults), `ftpOffset` (`startAt`/`appendFrom` arithmetic riding the same offset arm), `davRange` (ranged read resume, the same arm) — and `Remote.transfer(from, to, policy?)`, the one end-to-end move whose engine selection is flag-derived data and whose `step` hook feeds the fact stream's meter row.
+- Owner: the `_ENGINES` policy rows — `rsyncDelta` (the primary resumable/delta lane over the external binary), `sftpOffset` (byte-offset resume from the target's `stat` size into a positioned write), `chunkedParallel` (`fastGet`/`fastPut` with the mined tuning defaults), `ftpOffset` (`startAt`/`appendFrom` arithmetic riding the same offset arm), `davRange` (ranged read resume, the same arm) — and `Remote.transfer(from, to, policy?)`, the one end-to-end move whose engine selection is flag-derived data and whose `step` hook feeds the fact stream's meter row.
 - Packages: `@effect/platform` (`Command.make`, `Command.exitCode` — the external `rsync`/`scp`/`ssh` engine; `stdin: Sink`/`stdout: Stream` process shape); `ssh2` (SFTP `fastGet`/`fastPut` — `concurrency`/`chunkSize`/`step`; `stat`, `open`, `read`, `write`, `close`); `basic-ftp` (`downloadTo(destination, path, startAt)`, `appendFrom`, `uploadFrom` slice options).
-- Entry: `Remote.transfer(from, to)` derives the engine — rsync where both ends speak ssh and carry the binary, chunked-parallel where a local file lands on a parallel-capable row, offset arithmetic elsewhere — and an explicit `policy.engine` pins a row; `policy.step(progress)` observes transferred bytes per chunk.
-- Growth: an engine tuning posture is a `_TUNE` override on the call; a new engine (a provider's accelerated transfer) is one row with its selection predicate.
+- Entry: `Remote.transfer(from, to)` derives the engine through `_engineOf` — rsync where both ends speak ssh and carry the binary, chunked-parallel where a local file lands on a parallel-capable row, the target scheme's own offset row elsewhere (`ftpOffset`, `davRange`, `sftpOffset`) — an explicit `policy.engine` pins a row, execution dispatches on the row's `resumes` column so every declared row is reachable, and `policy.step(progress)` observes transferred bytes per chunk (the ftp arm bridges it through a bracketed `trackProgress`).
+- Growth: an engine tuning posture is a `_TUNE` override on the call; a new engine (a provider's accelerated transfer) is one row with its selection predicate and `resumes` column — the dispatch inherits it.
 - Law: rsync flags are the sealed resume contract — `--partial --append-verify --inplace --checksum` gives delta transfer, interrupt resume, and integrity in one engine; the command is a `Command` value whose `exitCode` folds into the typed rail and whose cancellation rides the `Scope`.
-- Law: resume is arithmetic where rsync is absent — the offset arm `stat`s the target, opens the positioned write (`flags: "r+"`, `appendFrom` on ftp), and streams the source from the verified byte; a full re-transfer where an offset resume was possible is the named defect.
+- Law: resume is arithmetic where rsync is absent — `resume: true` probes the target, propagates a missing or unreadable-target fault unchanged, opens the positioned write (`flags: "r+"`, `appendFrom` on ftp), and streams the source from the verified byte; the default restart writes from byte zero without manufacturing absence through `Effect.option`.
 - Law: the mined tuning defaults are policy values — `concurrency: 64`, `chunkSize: 32768` arrived from the wrapper ecosystem's measured defaults and live in `_TUNE`, never inline literals.
 
 ```typescript
@@ -625,24 +722,49 @@ const _fastPut = (to: Remote.End, local: string, step?: (progress: Remote.Progre
     Local: () => Effect.fail(new RemoteFault({ reason: "transfer", origin: to.origin.host, detail: "<local:transfer-is-copy>" })),
   })
 
+const _metered = (session: Remote.Session, step: ((progress: Remote.Progress) => void) | undefined) =>
+  <A, E, R>(work: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+    step === undefined
+      ? work
+      : _Session.$match(session, {
+          // trackProgress is client-global on the ftp control connection: bracketed on, handler detached on release
+          Ftp: ({ client }) =>
+            Effect.acquireUseRelease(
+              Effect.sync(() => client.trackProgress((info) => step({ total: info.bytesOverall, transferred: info.bytes }))),
+              () => work,
+              () => Effect.sync(() => client.trackProgress()),
+            ),
+          Ssh: () => work,
+          Dav: () => work,
+          Bucket: () => work,
+          Local: () => work,
+        })
+
+const _engineOf = (from: Remote.End, to: Remote.End): Remote.Engine =>
+  from.origin.flags.exec && to.origin.flags.exec
+    ? "rsyncDelta"
+    : from.origin.scheme === "file" && to.origin.flags.parallel
+      ? "chunkedParallel"
+      : to.origin.scheme === "ftp" || to.origin.scheme === "ftps"
+        ? "ftpOffset"
+        : to.origin.scheme === "webdav"
+          ? "davRange"
+          : "sftpOffset"
+
 const _transfer = (
   from: Remote.End,
   to: Remote.End,
-  policy?: { readonly engine?: Remote.Engine; readonly step?: (progress: Remote.Progress) => void },
+  policy?: { readonly engine?: Remote.Engine; readonly resume?: boolean; readonly step?: (progress: Remote.Progress) => void },
 ) => {
-  const selected = policy?.engine
-    ?? (from.origin.flags.exec && to.origin.flags.exec
-      ? "rsyncDelta"
-      : from.origin.scheme === "file" && to.origin.flags.parallel
-        ? "chunkedParallel"
-        : "sftpOffset")
-  return selected === "rsyncDelta"
+  const selected = policy?.engine ?? _engineOf(from, to)
+  const resumes = _ENGINES[selected].resumes
+  return resumes === "delta"
     ? Effect.asVoid(_rsync(from.origin, to.origin))
-    : selected === "chunkedParallel"
+    : resumes === "chunk"
       ? _fastPut(to, from.origin.path, policy?.step)
-      : Effect.flatMap(Effect.option(_stat(to.origin, to.session)), (held) => {
-          const offset = Option.match(held, { onNone: () => 0, onSome: (stat) => stat.bytes })
-          return _piped(from, to, offset > 0 ? offset : undefined)
+      : Effect.flatMap(policy?.resume === true ? Effect.map(_stat(to.origin, to.session), (stat) => stat.bytes) : Effect.succeed(0), (offset) => {
+          // the offset family probes only under the resume policy; a missing or unreadable target remains typed instead of being rewritten to byte zero
+          return _metered(to.session, policy?.step)(_piped(from, to, offset > 0 ? offset : undefined))
         })
 }
 ```
@@ -651,13 +773,14 @@ const _transfer = (
 
 - Owner: the bisync fold — persisted per-side listings in the `sync_listing` relation, the `_COMPARE` comparator rows (`sizeModtime` default, `checksum`, `sizeOnly`), the per-side delta census, the reconcile fold producing typed `SyncAction` rows, apply-through-`transfer`, and resync recovery after interrupt.
 - Packages: `@effect/sql` (`SqlSchema`, `sql.insert`); `lane/capability.md` (`Capability.Ensure` — the listing relation rides the same DDL split); `journal/append.md` (`Journal.Version` — the number-or-string codec the BIGINT `bytes` column decodes through on the spine wire); composition over `[4]`/`[5]` values.
-- Entry: `Remote.sync(pair, left, right, comparator?)` — census both ends, delta each side against its persisted listing, reconcile (a change on one side transfers to the other, a removal propagates, changes on both sides surface as `Conflict` rows the caller routes), apply, then persist the fresh listings in one transaction.
-- Growth: a comparator is one row; a conflict policy (prefer-left, prefer-newer, surface) is a caller fold over the returned `Conflict` rows; a third replica is pairwise composition, never a widened engine.
-- Law: listings are the resume substrate — an interrupted sync re-runs against the persisted listings and the already-applied transfers land as no-ops (the intake fold's 412 law where the target is the object plane, size+mtime equality elsewhere); dropping the pair's `sync_listing` rows IS resync — both sides re-census from live truth when the history is untrusted.
+- Entry: `Remote.sync(pair, left, right, comparator?)` — census both ends, delta each side against its persisted listing, reconcile (a change on one side transfers to the other, a removal propagates, ANY concurrent change on both sides — modify against modify, and a removal racing a modification alike — surfaces as a `Conflict` row the caller routes), apply, then persist the settled listings in one transaction.
+- Growth: a comparator is one row; a conflict policy (`leftWins`, `newerWins`, `surface`) is a caller fold over the returned `Conflict` rows; a third replica is pairwise composition, never a widened engine.
+- Law: a `Conflict` performs no transfer and no removal, and its path persists with its PRIOR listing row on both sides — the unresolved delta re-surfaces on every subsequent run until the caller rules it, so an unrouted conflict can never silently become a propagated winner.
+- Law: listings are the resume substrate — an interrupted sync re-runs against persisted `{ path, kind, bytes, modified, etag }` rows and the already-applied transfers land as no-ops; `modified` and `etag` remain `Option` from provider read through SQL re-admission, and checksum comparison falls back to size-plus-modified only when either side lacks an ETag, never to null, empty-string, or zero sentinels.
 - Law: the comparator is a policy row, never a fork — `sizeModtime` reads the census, `checksum` compares content evidence (`etag` where the backend mints one, the content-addressed intake fold's key where it does not), `sizeOnly` serves append-only trees; the row travels on the pair.
 
 ```typescript
-import { HashSet } from "effect"
+import { Equal, HashSet } from "effect"
 import { SqlClient, SqlSchema } from "@effect/sql"
 import type { Capability } from "../lane/capability.ts"
 import { Journal } from "../journal/append.ts"
@@ -666,20 +789,24 @@ const _listingDdl: Capability.Ensure = {
   relation: "sync_listing",
   pg: `CREATE TABLE IF NOT EXISTS sync_listing (
     pair TEXT NOT NULL, side TEXT NOT NULL, path TEXT NOT NULL,
-    bytes BIGINT NOT NULL, modified TEXT NOT NULL, etag TEXT,
+    bytes BIGINT NOT NULL, kind TEXT NOT NULL, modified TEXT, etag TEXT,
     listed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (pair, side, path));`,
   sqlite: `CREATE TABLE IF NOT EXISTS sync_listing (
     pair TEXT NOT NULL, side TEXT NOT NULL, path TEXT NOT NULL,
-    bytes INTEGER NOT NULL, modified TEXT NOT NULL, etag TEXT,
+    bytes INTEGER NOT NULL, kind TEXT NOT NULL, modified TEXT, etag TEXT,
     listed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     PRIMARY KEY (pair, side, path));`,
 }
 
 const _COMPARE = {
-  sizeModtime: (left: Remote.Stat, right: Remote.Stat) => left.bytes !== right.bytes || left.modified !== right.modified,
+  sizeModtime: (left: Remote.Stat, right: Remote.Stat) => left.bytes !== right.bytes || !Equal.equals(left.modified, right.modified),
   sizeOnly: (left: Remote.Stat, right: Remote.Stat) => left.bytes !== right.bytes,
-  checksum: (left: Remote.Stat, right: Remote.Stat) => left.etag === undefined || left.etag !== right.etag,
+  checksum: (left: Remote.Stat, right: Remote.Stat) =>
+    Option.match(Option.zipWith(left.etag, right.etag, (leftEtag, rightEtag) => leftEtag !== rightEtag), {
+      onNone: () => left.bytes !== right.bytes || !Equal.equals(left.modified, right.modified),
+      onSome: (changed) => changed,
+    }),
 } as const
 
 declare namespace Remote {
@@ -695,13 +822,19 @@ declare namespace Remote {
 
 const _SyncAction = Data.taggedEnum<Remote.SyncAction>()
 
-const _ListingRow = Schema.Struct({ path: Schema.String, bytes: Journal.Version, modified: Schema.String, etag: Schema.NullOr(Schema.String) })
+const _ListingRow = Schema.Struct({
+  path: Schema.String,
+  bytes: Journal.Version,
+  kind: Schema.Literal("file", "directory"),
+  modified: Schema.NullOr(Schema.String),
+  etag: Schema.NullOr(Schema.String),
+})
 
 const _held = (sql: SqlClient.SqlClient) =>
   SqlSchema.findAll({
     Request: Schema.Struct({ pair: Schema.String, side: Schema.Literal("left", "right") }),
     Result: _ListingRow,
-    execute: (side) => sql`SELECT path, bytes, modified, etag FROM sync_listing WHERE pair = ${side.pair} AND side = ${side.side}`,
+    execute: (side) => sql`SELECT path, bytes, kind, modified, etag FROM sync_listing WHERE pair = ${side.pair} AND side = ${side.side}`,
   })
 
 const _persist = (sql: SqlClient.SqlClient, pair: string, side: "left" | "right", census: ReadonlyArray<Remote.Stat>) =>
@@ -710,14 +843,26 @@ const _persist = (sql: SqlClient.SqlClient, pair: string, side: "left" | "right"
     census.length === 0
       ? Effect.void
       : sql`INSERT INTO sync_listing ${sql.insert(census.map((row) => ({
-          pair, side, path: row.path, bytes: row.bytes, modified: row.modified, etag: row.etag ?? null,
+          pair,
+          side,
+          path: row.path,
+          bytes: row.bytes,
+          kind: row.kind,
+          modified: Option.getOrElse(row.modified, () => null),
+          etag: Option.getOrElse(row.etag, () => null),
         })))}`,
   )
 
 const _snapshot = (rows: ReadonlyArray<typeof _ListingRow.Type>): HashMap.HashMap<string, Remote.Stat> =>
   HashMap.fromIterable(rows.map((row) => [
     row.path,
-    { path: row.path, bytes: row.bytes, modified: row.modified, etag: row.etag ?? undefined } satisfies Remote.Stat,
+    {
+      path: row.path,
+      bytes: row.bytes,
+      kind: row.kind,
+      modified: Option.fromNullable(row.modified),
+      etag: Option.fromNullable(row.etag),
+    } satisfies Remote.Stat,
   ] as const))
 
 const _delta = (
@@ -738,6 +883,11 @@ const _delta = (
   }
 }
 
+type _SideState = "touched" | "removed" | "silent"
+
+const _stateOf = (side: { readonly touched: HashSet.HashSet<string>; readonly removed: HashSet.HashSet<string> }, path: string): _SideState =>
+  HashSet.has(side.touched, path) ? "touched" : HashSet.has(side.removed, path) ? "removed" : "silent"
+
 const _reconcile = (
   left: { readonly touched: HashSet.HashSet<string>; readonly removed: HashSet.HashSet<string> },
   right: { readonly touched: HashSet.HashSet<string>; readonly removed: HashSet.HashSet<string> },
@@ -745,32 +895,47 @@ const _reconcile = (
   [...HashSet.union(
     HashSet.union(left.touched, right.touched),
     HashSet.union(left.removed, right.removed),
-  )].map((path) => {
-    const leftTouched = HashSet.has(left.touched, path)
-    const rightTouched = HashSet.has(right.touched, path)
-    return leftTouched && rightTouched
-      ? _SyncAction.Conflict({ path })
-      : leftTouched
-        ? _SyncAction.CopyRight({ path })
-        : rightTouched
-          ? _SyncAction.CopyLeft({ path })
-          : HashSet.has(left.removed, path)
-            ? _SyncAction.RemoveRight({ path })
-            : _SyncAction.RemoveLeft({ path })
+  )].flatMap((path): ReadonlyArray<Remote.SyncAction> => {
+    const l = _stateOf(left, path)
+    const r = _stateOf(right, path)
+    // ANY change on both sides is a conflict — touched/touched, touched/removed, and removed/touched alike — so a remove racing a modify can neither overwrite nor resurrect
+    return l === "touched" && r === "silent"
+      ? [_SyncAction.CopyRight({ path })]
+      : l === "silent" && r === "touched"
+        ? [_SyncAction.CopyLeft({ path })]
+        : l === "removed" && r === "silent"
+          ? [_SyncAction.RemoveRight({ path })]
+          : l === "silent" && r === "removed"
+            ? [_SyncAction.RemoveLeft({ path })]
+            : l === "removed" && r === "removed"
+              ? [] // both sides already agree: nothing to propagate
+              : [_SyncAction.Conflict({ path })]
   })
 
 const _end = (side: Remote.End, path: string): Remote.End => ({ origin: side.origin.at(path), session: side.session })
+
+const _settled = (
+  conflicted: HashSet.HashSet<string>,
+  prior: HashMap.HashMap<string, Remote.Stat>,
+  fresh: ReadonlyArray<Remote.Stat>,
+): ReadonlyArray<Remote.Stat> => [
+  // a conflict path keeps its PRIOR listing row, so the unresolved delta re-surfaces on every run until the caller rules it
+  ...fresh.filter((row) => !HashSet.has(conflicted, row.path)),
+  ...[...conflicted].flatMap((path) => Option.match(HashMap.get(prior, path), { onNone: () => [], onSome: (row) => [row] })),
+]
 
 const _sync = (pair: string, left: Remote.End, right: Remote.End, comparator: Remote.Comparator = "sizeModtime") =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient
     const listings = _held(sql)
     const compare = _COMPARE[comparator]
+    const priorLeft = _snapshot(yield* listings({ pair, side: "left" }))
+    const priorRight = _snapshot(yield* listings({ pair, side: "right" }))
     const leftCensus = yield* _list(left.origin, left.session)
     const rightCensus = yield* _list(right.origin, right.session)
     const actions = _reconcile(
-      _delta(compare, _snapshot(yield* listings({ pair, side: "left" })), leftCensus),
-      _delta(compare, _snapshot(yield* listings({ pair, side: "right" })), rightCensus),
+      _delta(compare, priorLeft, leftCensus),
+      _delta(compare, priorRight, rightCensus),
     )
     yield* Effect.forEach(actions, (action) =>
       _SyncAction.$match(action, {
@@ -780,8 +945,9 @@ const _sync = (pair: string, left: Remote.End, right: Remote.End, comparator: Re
         RemoveRight: ({ path }) => _remove(right.origin.at(path), right.session),
         Conflict: () => Effect.void,
       }), { discard: true })
-    const settledLeft = yield* _list(left.origin, left.session)
-    const settledRight = yield* _list(right.origin, right.session)
+    const conflicted = HashSet.fromIterable(actions.filter(_SyncAction.$is("Conflict")).map((action) => action.path))
+    const settledLeft = _settled(conflicted, priorLeft, yield* _list(left.origin, left.session))
+    const settledRight = _settled(conflicted, priorRight, yield* _list(right.origin, right.session))
     yield* sql.withTransaction(Effect.zipRight(
       _persist(sql, pair, "left", settledLeft),
       _persist(sql, pair, "right", settledRight),
@@ -792,11 +958,11 @@ const _sync = (pair: string, left: Remote.End, right: Remote.End, comparator: Re
 
 ## [07]-[WATCH_ROWS]
 
-- Owner: the watch strategy rows — `local` (the chokidar settle-guarded intake arm `object/file.md` owns; it never dispatches here), `execPush` (`inotifywait -m -r` over an ssh exec channel, the lowest-latency remote arm), `poll` (`Schedule`-driven census diff, the universal default) — and `Remote.watch(origin, session, strategy?)` dispatching on `origin.flags.exec`.
-- Packages: `ssh2` (`exec` — the push channel); `@effect/platform-node` (`NodeStream.fromReadable`); `effect` (`Stream.splitLines`, `Schedule`, `HashMap`); the local intake arm delegates to `object/file.md`'s `Disk.watch`.
+- Owner: the watch strategy rows — `execPush` (`inotifywait -m -r` over an ssh exec channel, the lowest-latency remote arm) and `poll` (`Schedule`-driven census diff, the universal default) — and `Remote.watch(origin, session, strategy?)` dispatching on `origin.flags.exec`; intake-grade LOCAL watching is `object/file.md`'s `Disk.watch` and is not a row here — a `file:` origin on this surface polls its census like any push-less row, the non-intake observation posture.
+- Packages: `ssh2` (`exec` — the push channel); `@effect/platform-node` (`NodeStream.fromReadable`); `effect` (`Stream.splitLines`, `Schedule`, `HashMap`).
 - Entry: a mirrored drop tree on a VPS rides `execPush` where the host carries a notify tool; a DAV or FTP origin rides `poll` diffing `etag`/`size`/`modified` snapshots; each emission is a `Remote.Change` the consumer routes into `Remote.intake` or the sync fold.
 - Growth: a new strategy is one row with its selection predicate; the poll cadence and the push-tool roster are policy values.
-- Law: strategy is capability-derived — `exec` rows push through the notify tool, everything else polls, and intake-grade local watching stays on the chokidar arm its owner legislates; the consumer subscribes ONE change stream regardless, so strategy is invisible past the dispatch.
+- Law: strategy is capability-derived — `exec` rows push through the notify tool, everything else polls; the consumer subscribes ONE change stream regardless, so strategy is invisible past the dispatch.
 - Law: the poll arm is diff-exact — each cycle's census diffs against the held snapshot by the same comparator rows the sync engine reads, emitting `add`/`change`/`remove` with no phantom events on unchanged trees; a lost push connection re-arms through `Stream.retry` and one full poll cycle reconciles anything missed.
 
 ```typescript
@@ -804,14 +970,17 @@ import { HashMap, Schedule } from "effect"
 
 declare namespace Remote {
   type Change = { readonly path: string; readonly kind: "add" | "change" | "remove" }
-  type WatchStrategy = "local" | "execPush" | "poll"
+  type WatchStrategy = "execPush" | "poll"
 }
 
 const _POLL = { cadence: "30 seconds" } as const
 
 const _execPush = (origin: Origin, session: Remote.Session): Stream.Stream<Remote.Change, RemoteFault, CommandExecutor.CommandExecutor | Scope.Scope> =>
   Stream.unwrap(
-    _exec(origin, session, `inotifywait -m -r --format '%e|%w%f' ${origin.path}`).pipe(
+    _exec(origin, session, {
+      file: "inotifywait",
+      args: ["-m", "-r", "--format", "%e|%w%f", origin.path],
+    }).pipe(
       Effect.map((channel) =>
         channel.stdout.pipe(
           Stream.decodeText(),
@@ -862,17 +1031,18 @@ const _watch = (
 
 ## [08]-[EXEC]
 
-- Owner: `Remote.exec` — command execution as ONE typed surface over the session family: the ssh2 exec channel with `stdout`/`stderr` as backpressured `Stream`s, `stdin` as a `Sink`, `exit` as a typed effect resolved from the channel's `exit` event; the `Local` arm rides `@effect/platform` `Command.start` so host tooling answers the identical `Executed` shape; every other row refuses typed per its `exec` flag.
+- Owner: `Remote.exec` — command execution as ONE typed surface over the session family: `Remote.Invocation { file, args }` is the sole ingress, the ssh2 boundary shell-quotes each atom once, and the local arm passes the same atoms directly to `Command.make`; `stdout`/`stderr` remain backpressured `Stream`s, `stdin` remains a `Sink`, and `exit` remains a typed effect.
 - Packages: `ssh2` (`exec` — channel `Duplex`, `exit` event); `@effect/platform-node` (`NodeStream.fromReadable`, `NodeSink.fromWritable`); `@effect/platform` (`Command.make`, `Command.start` — the local arm's process shape).
 - Entry: VPS interaction is exec plus SFTP against the provisioned address — a deployment probe, a remote build step, the `execPush` watch tool all ride this one surface; provisioning, DNS, firewall, and snapshot lifecycle stay on the deploy plane and never enter this lane.
 - Growth: a PTY session is the `shell` sibling over the same channel lift; a jump-host exec is the same call over a `sock`-chained session.
-- Law: the exit disposition is typed — a non-zero exit is data on the result, never an exception; a channel-level failure is the `exec` fault reason; the consumer folds both.
+- Law: command structure survives every arm — callers cannot inject a `sh -c` program or interpolate a path into command text; only the SSH boundary renders argv into a POSIX command using single-quote isolation, while the local boundary executes `file` plus `args` without a shell. A non-zero exit is data on the result, never an exception; a channel-level failure is the `exec` fault reason.
 - Boundary: the exec callback and the `exit` listener are the channel's boundary kernel — the last statement flow on the page.
 
 ```typescript
 import { CommandExecutor } from "@effect/platform"
 
 declare namespace Remote {
+  type Invocation = { readonly file: string; readonly args: ReadonlyArray<string> }
   type Executed = {
     readonly stdin: Sink.Sink<void, Uint8Array, never, RemoteFault>
     readonly stdout: Stream.Stream<Uint8Array, RemoteFault>
@@ -881,15 +1051,18 @@ declare namespace Remote {
   }
 }
 
+const _shell = (invocation: Remote.Invocation): string =>
+  [invocation.file, ...invocation.args].map((part) => `'${part.replaceAll("'", "'\"'\"'")}'`).join(" ")
+
 const _exec = (
   origin: Origin,
   session: Remote.Session,
-  command: string,
+  invocation: Remote.Invocation,
 ): Effect.Effect<Remote.Executed, RemoteFault, CommandExecutor.CommandExecutor | Scope.Scope> =>
   _Session.$match(session, {
     Ssh: ({ client }) =>
       Effect.async<Remote.Executed, RemoteFault>((resume) => {
-        client.exec(command, (cause, channel) => {
+        client.exec(_shell(invocation), (cause, channel) => {
           if (cause !== undefined && cause !== null) {
             resume(Effect.fail(new RemoteFault({ reason: "exec", origin: origin.host, detail: String(cause) })))
             return
@@ -914,7 +1087,7 @@ const _exec = (
       }),
     Local: () =>
       Effect.map(
-        Effect.mapError(Command.start(Command.make("sh", "-c", command)), _fault(origin, "exec")),
+        Effect.mapError(Command.start(Command.make(invocation.file, ...invocation.args)), _fault(origin, "exec")),
         (process): Remote.Executed => ({
           stdin: Sink.mapError(process.stdin, _fault(origin, "exec")),
           stdout: Stream.mapError(process.stdout, _fault(origin, "exec")),
@@ -936,6 +1109,7 @@ const Remote = {
   ddl: [_listingDdl],
   session: _session,
   sessions: _sessions,
+  probe: _probe,
   stat: _stat,
   list: _list,
   read: _read,
@@ -944,6 +1118,8 @@ const Remote = {
   remove: _remove,
   copy: _copy,
   move: _move,
+  lock: _lock,
+  unlock: _unlock,
   intake: _intake,
   transfer: _transfer,
   sync: _sync,

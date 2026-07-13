@@ -5,7 +5,7 @@ The serving assembly: routes are Layers under `HttpLayerRouter` — the app-asse
 ## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]       | [OWNS]                                                                             | [PUBLIC]           |
-| :-----: | :-------------- | :--------------------------------------------------------------------------------- | :----------------- |
+| :-----: | :-------------- | :---------------------------------------------------------------------------------- | :----------------- |
 |  [01]   | `SEAM_ROWS`     | the one middleware composition: mark, ambient rows, trace, shield, respondable net | `Seam`             |
 |  [02]   | `LAYER_ROUTES`  | api/docs/health/tus/mount route Layers, the webhook intake row                     | `Router`, `Intake` |
 |  [03]   | `CEREMONY_ROWS` | oauth redirect pair, webauthn enroll/assert, refresh/logout, cookie application    | `Ceremony`         |
@@ -23,15 +23,15 @@ The serving assembly: routes are Layers under `HttpLayerRouter` — the app-asse
 
 ```typescript
 import {
-  type Cookies, FileSystem, type HttpApi, type HttpApiGroup, HttpApiScalar, type HttpApp, HttpLayerRouter, HttpMultiplex,
-  HttpServerRequest, HttpServerResponse, Path,
+  type Cookies, Etag, FileSystem, type HttpApi, type HttpApiGroup, HttpApiScalar, type HttpApp, HttpLayerRouter, HttpMultiplex,
+  type HttpPlatform, HttpServerRequest, HttpServerResponse, Path,
 } from "@effect/platform"
 import { type RpcGroup, RpcServer } from "@effect/rpc"
-import { DateTime, Duration, Effect, Layer, Option, Redacted, Schema } from "effect"
-import { Cookie, Departed, type MacKey, OAuth, Token, type Verified, Verify, WebAuthn } from "@rasm/ts/security"
+import { Context, DateTime, Duration, Effect, Layer, Option, Redacted, Schema } from "effect"
+import { Cookie, CookieSpec, Departed, type MacKey, OAuth, Token, type Verified, Verify, WebAuthn } from "@rasm/ts/security"
 import { Rail } from "@rasm/ts/data"
 import { Life } from "../proc/life.ts"
-import { Current } from "./api.ts"
+import { Current, type GateFault, type Principal } from "./api.ts"
 import { Mount } from "./live.ts"
 import { Problem } from "./problem.ts"
 
@@ -70,18 +70,21 @@ const Seam = { guard: _guard, shield: _SHIELD } as const
 ## [03]-[LAYER_ROUTES]
 
 [LAYER_ROUTES]:
-- Owner: `Router` — the route-Layer vocabulary the app root merges: `Router.api(api)` mounts the assembled `HttpApi` through `HttpLayerRouter.addHttpApi(api, { openapiPath })` with `HttpApiScalar.layerHttpLayerRouter` beside it so the derived document and the reference UI ride the same router; `Router.rpc(group, prefix)` mounts a contributed RPC group beside the raw routes through `RpcServer.toHttpApp(group)` — the `HttpApp` value form, so one router serves api, RPC, and raw rows without a second server; `Router.health` mounts the probe trio from `life#PROBE_ROUTES`'s anchor — `Life.route(kind)` is the path, `Life.report(kind)` the body encoded through the `Life.Report` schema, `pass`/`warn` encode 200 and `fail` encodes 503, so the path and the verdict never exist twice; `Router.mounts` folds `Effect.serviceOption(Mount)` and mounts the provided foreign-protocol app at its prefix — presence-as-data, an unwired port serves nothing and never crashes.
-- Law: the tus rail mounts as dispatchers, never re-frames — `Router.rail(spec)` builds the data rail (`Rail.of(spec)`) and routes every method under the spec's route prefix into the rail's own dispatchers: the node engine drives `rail.node(req, res)` through the binding's raw adapters (`NodeHttpServerRequest.toIncomingMessage`/`toServerResponse`), the fetch engine drives `rail.web(request)` through `BunHttpServerRequest.toRequest` or the web-handler assembly where the request is already fetch-shaped — the raw lift is the runtime row's own adapter, composed where the boot module mounts the rail, so this module still names no binding; offset semantics, staging custody, and the finalize fold stay the data rail's, and the maintenance cadence schedules `rail.groom` beside the mount.
-- Law: `Intake` is the held-octet webhook row — the raw body is read ONCE as bytes and held, the spec's named signature header lifts from the request as `Option`, `verify.verify(dialect, octets, header, mac, tolerance)` runs the security wave's dialect fold over exactly those octets, and only a `Verified` receipt releases the enqueue through the app-declared ingress port — byte identity end to end, so re-serialization drift between verify and enqueue is unspellable; verification failure folds to the security fault's own class and the seam's net renders it.
-- RESEARCH: the raw-octet body member on `HttpServerRequest` (the `HttpIncomingMessage` byte accessor the `_octets` lift reads) is unverified until the branch catalogue rows its spelling; the held-octet fold and the `Verify` seam are settled, the accessor member is the research item. The catch-all method literal on `HttpLayerRouter.add` the mount and rail rows pass is the second research item — the per-method row set is the settled fallback.
+- Owner: `Router` — the route-Layer vocabulary the app root merges: `Router.api(api)` mounts the assembled `HttpApi` through `HttpLayerRouter.addHttpApi(api, { openapiPath })` with `HttpApiScalar.layerHttpLayerRouter` beside it so the derived document and the reference UI ride the same router; `Router.rpc(group, prefix)` mounts a contributed RPC group beside the raw routes through `RpcServer.toHttpApp(group)` — the `HttpApp` value form, so one router serves api, RPC, and raw rows without a second server; `Router.health` mounts the probe trio from `life#PROBE_ROUTES`'s anchor — `Life.route(kind)` is the path, `Life.report(kind)` the body encoded through the `Life.Report` schema, `pass`/`warn` encode 200 and `fail` encodes 503, so the path and the verdict never exist twice; `Router.mounts` folds `Effect.serviceOption(Mount)` and mounts every provided foreign-protocol row at its prefix under the `"*"` catch-all method literal — presence-as-data, an unwired port serves nothing and never crashes.
+- Law: the tus rail mounts as dispatchers, never re-frames — `Router.rail(spec)` builds the data rail (`Rail.of(spec)`) and delegates its value to `Router.RailMount`, the host-lift port whose selected runtime row routes every method under the spec's route prefix into the rail's own dispatchers: the node engine drives `rail.node(req, res)` through `NodeHttpServerRequest.toIncomingMessage`/`toServerResponse`, the fetch engine drives `rail.web(request)` through `BunHttpServerRequest.toRequest` or the web-handler assembly where the request is already fetch-shaped. The same adapter schedules `rail.groom` through the lifecycle plane, so offset semantics, staging custody, finalize, and grooming stay the data rail's while this module names no binding.
+- Law: `Intake` is the held-octet webhook row — the raw body reads ONCE as bytes through the platform's own `arrayBuffer` accessor (`HttpIncomingMessage`'s byte member, lifted to `Uint8Array` at the seam) and is held, the spec's named signature header lifts from the request as `Option`, `verify.verify(dialect, octets, header, mac, tolerance)` runs the security wave's dialect fold over exactly those octets, and only a `Verified` receipt releases the enqueue through the app-declared ingress port — byte identity end to end, so re-serialization drift between verify and enqueue is unspellable; verification failure folds to the security fault's own class and the seam's net renders it.
 - Boundary: which groups the api value carries is the app's assembly under `api#CONTRIBUTION`; the `Mount` Tag is `live#MOUNT_PORT`'s; the rail spec's cut policy and staging band are `data`'s.
 - Growth: a new served surface is one route-Layer member composing an owning-page value; a second foreign protocol is a second `Mount` Layer at a different prefix, zero edits here.
 - Packages: `@effect/platform` (`HttpLayerRouter`, `HttpApiScalar`, `HttpServerResponse`); `@rasm/ts/data` (`Rail`); `@rasm/ts/security` (`Verify`); `../proc/life.ts` (`Life`); `./live.ts` (`Mount`).
 
 ```typescript
-declare const _octets: (
+const _octets = (
   request: HttpServerRequest.HttpServerRequest,
-) => Effect.Effect<Uint8Array, Problem>
+): Effect.Effect<Uint8Array, Problem> =>
+  Effect.mapError(
+    Effect.map(request.arrayBuffer, (buffer) => new Uint8Array(buffer)),
+    (fault) => Problem.of(fault),
+  )
 
 const _health: Layer.Layer<never, never, Life | HttpLayerRouter.HttpRouter> = Layer.mergeAll(
   ...(["started", "ready", "live"] as const).map((kind) =>
@@ -94,7 +97,7 @@ const _health: Layer.Layer<never, never, Life | HttpLayerRouter.HttpRouter> = La
 const _mounts: Layer.Layer<never, never, HttpLayerRouter.HttpRouter> = Layer.unwrapEffect(
   Effect.map(Effect.serviceOption(Mount), Option.match({
     onNone: () => Layer.empty,
-    onSome: (mount) => HttpLayerRouter.add("ALL", `${mount.prefix}/*`, () => mount.app),
+    onSome: (mounts) => Layer.mergeAll(...mounts.map((mount) => HttpLayerRouter.add("*", `${mount.prefix}/*`, () => mount.app))),
   })),
 )
 
@@ -127,14 +130,26 @@ const Intake = { of: _intake } as const
 ## [04]-[CEREMONY_ROWS]
 
 [CEREMONY_ROWS]:
-- Owner: `Ceremony` — the HTTP lift of the security wave's authentication round-trips, four route pairs under one prefix: `authorize` redirects to `OAuth.authorize`'s minted URL (302, the state stash already held); `callback` decodes the provider's `code`/`state` query, exchanges through `OAuth.callback` into a `TokenPair`, and lands the session as cookies; `enroll`/`assert` serve the webauthn halves — the options POST returns the RP-minted challenge JSON, the finish POST verifies through `WebAuthn.enrollFinish`/`assertFinish` and lands the session; `refresh` rotates through `Token.refresh` reading the path-scoped refresh cookie; `logout` revokes and writes the clearing set.
-- Law: cookie application is one fold — `_cookied(response, framed)` reduces the security wave's `Cookies.Cookie` set through `HttpServerResponse.setCookie(name, value, options)`, so the security attribute policy table decides every attribute and no route names `httpOnly`, `sameSite`, or a path; the CSRF pair verifies through `Cookie.verify` on the mutating ceremonies before any state changes.
-- Law: ceremonies own HTTP shape only — redirect codes, query decode, cookie reads, and status; establishing, rotating, verifying, and framing are the security wave's (`OAuth`, `WebAuthn`, `Token`, `Cookie`), so a ceremony handler is a decode, one security call, and one egress fold, and a security fault renders itself through the seam's net at its own class status. The `:provider` segment admits through the security vocabulary itself — `_Provider` decodes the param record against `Departed.fields.kind`, so `OAuth.authorize`/`callback` receive a proven `Provider.Kind` and an unrostered provider dies at the seam as a decode refusal, never inside the ceremony.
-- RESEARCH: the passkey response-body admission — one Schema pair decoding the POSTed registration and authentication response JSON into the `RegistrationResponseJSON`/`AuthenticationResponseJSON` parameters `WebAuthn.enrollFinish`/`assertFinish` take — is unverified until the security catalogue rows it; the route pair and the cookie fold are settled, the admission schema spelling is the research item and the browser collection half is the ui wave's.
-- Growth: a new ceremony (an OTP pair, a device-code flow) is one route pair composing its security owner; a new cookie role reframes through the same fold with zero route edits.
-- Packages: `@effect/platform` (`HttpLayerRouter`, `HttpServerRequest`, `HttpServerResponse`, `Cookies`); `@rasm/ts/security` (`OAuth`, `WebAuthn`, `Token`, `Cookie`, `Departed` — the provider-kind decode anchor); `effect` (`Schema`, `Redacted`).
+- Owner: `Ceremony` — one `Context.Tag` carrying the application-owned identity projection for raw ceremony routes and the non-OIDC OAuth subject resolver, plus the HTTP lift of the security wave's authentication round-trips under the fixed `/auth` cookie path: `authorize` redirects to `OAuth.authorize`'s minted URL (302, the state stash already held); `callback` decodes the provider's `code`/`state` query, exchanges through `OAuth.callback` into a `TokenPair`, and lands the session as cookies; `enroll`/`assert` each serve an `options` POST returning the RP-minted challenge JSON and a finish POST verifying through `WebAuthn.enrollFinish`/`assertFinish`; `refresh` rotates through `Token.refresh` reading the path-scoped refresh cookie under its `CookieSpec` name; `logout` revokes the authenticated session before writing the clearing set.
+- Law: every mutating ceremony passes the CSRF gate BEFORE any state changes — the `_csrfed` fold reads the `CookieSpec.csrf` cookie and the `x-csrf-token` header and runs `Cookie.verify`'s constant-time double-submit compare, so the webauthn finish pair, `refresh`, and `logout` are unreachable from ambient cookies alone; the oauth `callback` is exempt because its `state` round-trip is that flow's own anti-forgery evidence, and cookie names read from the security `CookieSpec` table, never a route literal.
+- Law: cookie application is one fold — `_cookied(response, framed)` reduces the security wave's `Cookies.Cookie` set through `HttpServerResponse.setCookie(name, value, options)`, so the security attribute policy table decides every attribute and no route names `httpOnly`, `sameSite`, or a path.
+- Law: ceremonies own HTTP shape only — redirect codes, query decode, body admission, cookie reads, and status; establishing, rotating, verifying, and framing are the security wave's (`OAuth`, `WebAuthn`, `Token`, `Cookie`), while `Ceremony.identity` projects the authenticated `Principal` from the application's chosen raw-route credential lift and `Ceremony.resolveSubject` handles only providers without OIDC subject evidence. A handler is a decode, one security call, and one egress fold, and a security fault renders itself through the seam's net at its own class status. The `:provider` segment admits through the security vocabulary itself — `_Provider` decodes the param record against `Departed.fields.kind`, so `OAuth.authorize`/`callback` receive a proven `Provider.Kind` and an unrostered provider dies at the seam as a decode refusal, never inside the ceremony.
+- Law: the passkey finish bodies admit through one Schema pair mirroring the verified `@simplewebauthn/server` wire shapes — `_Enroll` decodes the POSTed registration response (`id`, `rawId`, the attestation `response` block, optional attachment, extension outputs, `type: "public-key"`) into the `RegistrationResponseJSON` parameter `WebAuthn.enrollFinish` takes, `_Assert` the assertion twin for `assertFinish` — raw JSON crosses the decode seam exactly once and the browser collection half stays the ui wave's.
+- Growth: a new ceremony (an OTP pair, a device-code flow) is one route pair under `_AUTH` composing its security owner; a new cookie role reframes through the same fold with zero route edits.
+- Packages: `@effect/platform` (`HttpLayerRouter`, `HttpServerRequest`, `HttpServerResponse`, `Cookies`); `@rasm/ts/security` (`OAuth`, `WebAuthn`, `Token`, `Cookie`, `CookieSpec`, `Departed` — the provider-kind decode anchor); `effect` (`Context`, `Schema`, `Redacted`).
 
 ```typescript
+const _CSRF_HEADER = "x-csrf-token"
+
+const _csrfed: Effect.Effect<void, Problem, Cookie | HttpServerRequest.HttpServerRequest> = Effect.gen(function* () {
+  const request = yield* HttpServerRequest.HttpServerRequest
+  const cookie = yield* Cookie
+  yield* cookie.verify(
+    Option.fromNullable(request.cookies[CookieSpec.csrf.name]),
+    Option.fromNullable(request.headers[_CSRF_HEADER]),
+  ).pipe(Effect.mapError((fault) => Problem.of(fault)))
+})
+
 const _cookied = (
   response: HttpServerResponse.HttpServerResponse,
   framed: ReadonlyArray<Cookies.Cookie>,
@@ -146,85 +161,162 @@ const _Callback = Schema.Struct({ code: Schema.NonEmptyString, state: Schema.Non
 
 const _Provider = Schema.Struct({ provider: Departed.fields.kind })
 
-declare const _asserted: Effect.Effect<
-  { readonly subject: Parameters<WebAuthn["assertFinish"]>[0]; readonly response: Parameters<WebAuthn["assertFinish"]>[1] },
+const _Base64Url = Schema.NonEmptyString.pipe(Schema.pattern(/^[A-Za-z0-9_-]+$/))
+
+const _Extensions = Schema.Struct({
+  appid: Schema.optionalWith(Schema.Boolean, { exact: true }),
+  credProps: Schema.optionalWith(Schema.Struct({ rk: Schema.optionalWith(Schema.Boolean, { exact: true }) }), { exact: true }),
+  hmacCreateSecret: Schema.optionalWith(Schema.Boolean, { exact: true }),
+})
+
+const _Transports = Schema.mutable(Schema.Array(Schema.Literal("ble", "cable", "hybrid", "internal", "nfc", "smart-card", "usb")))
+
+const _Enroll = Schema.Struct({
+  id: _Base64Url,
+  rawId: _Base64Url,
+  response: Schema.Struct({
+    clientDataJSON: _Base64Url,
+    attestationObject: _Base64Url,
+    authenticatorData: Schema.optionalWith(_Base64Url, { exact: true }),
+    transports: Schema.optionalWith(_Transports, { exact: true }),
+    publicKeyAlgorithm: Schema.optionalWith(Schema.Int, { exact: true }),
+    publicKey: Schema.optionalWith(_Base64Url, { exact: true }),
+  }),
+  authenticatorAttachment: Schema.optionalWith(Schema.Literal("cross-platform", "platform"), { exact: true }),
+  clientExtensionResults: _Extensions,
+  type: Schema.Literal("public-key"),
+})
+
+const _Assert = Schema.Struct({
+  id: _Base64Url,
+  rawId: _Base64Url,
+  response: Schema.Struct({
+    clientDataJSON: _Base64Url,
+    authenticatorData: _Base64Url,
+    signature: _Base64Url,
+    userHandle: Schema.optionalWith(_Base64Url, { exact: true }),
+  }),
+  authenticatorAttachment: Schema.optionalWith(Schema.Literal("cross-platform", "platform"), { exact: true }),
+  clientExtensionResults: _Extensions,
+  type: Schema.Literal("public-key"),
+})
+
+const _EnrollOptions = Schema.Struct({ userName: Schema.NonEmptyString })
+
+class Ceremony extends Context.Tag("runtime/serve/Ceremony")<Ceremony, {
+  readonly identity: Effect.Effect<Principal.Shape, GateFault, HttpServerRequest.HttpServerRequest>
+  readonly resolveSubject: Parameters<OAuth["callback"]>[3]
+}>() {
+  static readonly of = () => _ceremony()
+}
+
+const _principal = Effect.flatMap(Ceremony, (ceremony) => ceremony.identity).pipe(Effect.mapError(Problem.of))
+
+const _subject = Effect.map(_principal, (principal) => principal.subject)
+
+const _cleared: Effect.Effect<
+  ReadonlyArray<Cookies.Cookie>,
   Problem,
-  HttpServerRequest.HttpServerRequest
->
+  Ceremony | Token | Cookie | HttpServerRequest.HttpServerRequest
+> =
+  Effect.gen(function* () {
+    const principal = yield* _principal
+    const token = yield* Token
+    const cookie = yield* Cookie
+    yield* Option.match(principal.session, {
+      onNone: () => Effect.void,
+      onSome: (session) => token.revoke(session).pipe(Effect.mapError(Problem.of)),
+    })
+    return yield* cookie.clear()
+  })
 
-declare const _enrolled: Effect.Effect<
-  { readonly subject: Parameters<WebAuthn["enrollFinish"]>[0]; readonly response: Parameters<WebAuthn["enrollFinish"]>[1] },
-  Problem,
-  HttpServerRequest.HttpServerRequest
->
+const _AUTH = "/auth"
 
-declare const _cleared: Effect.Effect<ReadonlyArray<Cookies.Cookie>, Problem, Token | Cookie>
-
-declare const _subjectOf: Parameters<OAuth["callback"]>[3]
-
-const _ceremony = (base: `/${string}`) =>
+const _ceremony = () =>
   Layer.mergeAll(
-    HttpLayerRouter.add("GET", `${base}/authorize/:provider`, () =>
+    HttpLayerRouter.add("GET", `${_AUTH}/authorize/:provider`, () =>
       Effect.gen(function* () {
         const oauth = yield* OAuth
         const { provider } = yield* Effect.flatMap(HttpLayerRouter.params, Schema.decodeUnknown(_Provider))
         const target = yield* oauth.authorize(provider)
         return HttpServerResponse.empty({ status: 302 }).pipe(HttpServerResponse.setHeader("location", target.href))
       })),
-    HttpLayerRouter.add("GET", `${base}/callback/:provider`, () =>
+    HttpLayerRouter.add("GET", `${_AUTH}/callback/:provider`, () =>
       Effect.gen(function* () {
         const oauth = yield* OAuth
         const cookie = yield* Cookie
         const query = yield* HttpServerRequest.schemaSearchParams(_Callback)
         const { provider } = yield* Effect.flatMap(HttpLayerRouter.params, Schema.decodeUnknown(_Provider))
-        const pair = yield* oauth.callback(provider, query.code, query.state, _subjectOf)
+        const ceremony = yield* Ceremony
+        const pair = yield* oauth.callback(provider, query.code, query.state, ceremony.resolveSubject)
         const framed = yield* cookie.frame(pair)
         const csrf = yield* cookie.csrf()
         return yield* _cookied(HttpServerResponse.empty({ status: 302 }).pipe(HttpServerResponse.setHeader("location", "/")), [...framed, csrf])
       })),
-    HttpLayerRouter.add("POST", `${base}/webauthn/enroll`, () =>
+    HttpLayerRouter.add("POST", `${_AUTH}/webauthn/enroll/options`, () =>
       Effect.gen(function* () {
+        yield* _csrfed
+        const webauthn = yield* WebAuthn
+        const subject = yield* _subject
+        const request = yield* HttpServerRequest.schemaBodyJson(_EnrollOptions).pipe(Effect.mapError((fault) => Problem.of(fault)))
+        const options = yield* webauthn.enrollStart(subject, request.userName)
+        return yield* HttpServerResponse.json(options).pipe(Effect.orDie)
+      })),
+    HttpLayerRouter.add("POST", `${_AUTH}/webauthn/enroll`, () =>
+      Effect.gen(function* () {
+        yield* _csrfed
         const webauthn = yield* WebAuthn
         const cookie = yield* Cookie
-        const { subject, response } = yield* _enrolled
+        const subject = yield* _subject
+        const response = yield* HttpServerRequest.schemaBodyJson(_Enroll).pipe(Effect.mapError((fault) => Problem.of(fault)))
         const pair = yield* webauthn.enrollFinish(subject, response)
         const framed = yield* cookie.frame(pair)
         return yield* _cookied(HttpServerResponse.empty({ status: 204 }), framed)
       })),
-    HttpLayerRouter.add("POST", `${base}/webauthn/assert`, () =>
+    HttpLayerRouter.add("POST", `${_AUTH}/webauthn/assert/options`, () =>
       Effect.gen(function* () {
+        yield* _csrfed
+        const webauthn = yield* WebAuthn
+        const subject = yield* _subject
+        const options = yield* webauthn.assertStart(subject)
+        return yield* HttpServerResponse.json(options).pipe(Effect.orDie)
+      })),
+    HttpLayerRouter.add("POST", `${_AUTH}/webauthn/assert`, () =>
+      Effect.gen(function* () {
+        yield* _csrfed
         const webauthn = yield* WebAuthn
         const cookie = yield* Cookie
-        const { subject, response } = yield* _asserted
+        const subject = yield* _subject
+        const response = yield* HttpServerRequest.schemaBodyJson(_Assert).pipe(Effect.mapError((fault) => Problem.of(fault)))
         const pair = yield* webauthn.assertFinish(subject, response)
         const framed = yield* cookie.frame(pair)
         return yield* _cookied(HttpServerResponse.empty({ status: 204 }), framed)
       })),
-    HttpLayerRouter.add("POST", `${base}/logout`, () =>
-      Effect.flatMap(_cleared, (framed) => _cookied(HttpServerResponse.empty({ status: 204 }), framed))),
-    HttpLayerRouter.add("POST", `${base}/refresh`, () =>
+    HttpLayerRouter.add("POST", `${_AUTH}/logout`, () =>
+      Effect.zipRight(_csrfed, Effect.flatMap(_cleared, (framed) => _cookied(HttpServerResponse.empty({ status: 204 }), framed)))),
+    HttpLayerRouter.add("POST", `${_AUTH}/refresh`, () =>
       Effect.gen(function* () {
+        yield* _csrfed
         const request = yield* HttpServerRequest.HttpServerRequest
         const cookie = yield* Cookie
         const token = yield* Token
-        const presented = Option.fromNullable(request.cookies["__Secure-refresh"])
+        const presented = Option.fromNullable(request.cookies[CookieSpec.refresh.name])
         const pair = yield* token.refresh(Redacted.make(Option.getOrElse(presented, () => "")))
         const framed = yield* cookie.frame(pair)
         return yield* _cookied(HttpServerResponse.empty({ status: 204 }), framed)
       })),
   )
 
-const Ceremony = { of: _ceremony, cookied: _cookied } as const
 ```
 
 ## [05]-[ASSET_ROWS]
 
 [ASSET_ROWS]:
 - Owner: `Router.assets` — the SPA/static row as one request fold: resolve the request path under the asset root through the `Path` capability, serve the file when it exists, fall back to the SPA entry for every path-shaped miss (client-rendered routes hydrate from one entry), and stamp the cache row the fingerprint predicate selects.
-- Law: `_CACHE` is the cache-header table and `_FINGERPRINT` the predicate — a content-hashed filename is immutable for a year because its identity IS its content, the entry document and every un-fingerprinted path are `no-cache` because they are the mutable pointers INTO immutable content — two rows, total over every asset, with the `Etag.Generator` the runtime server Layer already carries revalidating the mutable row for free.
+- Law: `_CACHE` is the cache-header table and `_FINGERPRINT` the predicate — a content-hashed filename is immutable for a year because its identity IS its content, the entry document and every un-fingerprinted path are `no-cache` because they are the mutable pointers INTO immutable content — two rows, total over every asset. The supplied `Etag.Generator` derives the selected file validator, the fold answers an exact `if-none-match` hit with `304`, and both the hit and body response carry the same `etag` and cache row.
 - Law: traversal is structurally refused — the request path resolves under the root and the fold asserts the resolved target still carries the root as its prefix, so an encoded, normalized, or absolute escape lands outside the prefix and serves the SPA entry, never a distinct error that maps the filesystem for a probe.
 - Boundary: what the assets ARE (app shell, prerender output, the self-hosted wasm bundles the ui wave serves beside the shell) is the ui wave's; this row owns only serving them byte-identical.
-- Packages: `@effect/platform` (`FileSystem`, `Path`, `HttpServerRequest`, `HttpServerResponse`, `Etag`).
+- Packages: `@effect/platform` (`FileSystem`, `Path`, `HttpPlatform`, `HttpServerRequest`, `HttpServerResponse`, `Etag`).
 
 ```typescript
 const _CACHE = {
@@ -237,7 +329,7 @@ const _FINGERPRINT = /-[0-9a-f]{8,}\.[a-z0-9]+$/
 const _assets = (options: { readonly root: string; readonly entry: string }): Effect.Effect<
   HttpServerResponse.HttpServerResponse,
   never,
-  FileSystem.FileSystem | Path.Path | HttpServerRequest.HttpServerRequest
+  Etag.Generator | FileSystem.FileSystem | HttpPlatform.HttpPlatform | Path.Path | HttpServerRequest.HttpServerRequest
 > =>
   Effect.gen(function* () {
     const request = yield* HttpServerRequest.HttpServerRequest
@@ -250,13 +342,20 @@ const _assets = (options: { readonly root: string; readonly entry: string }): Ef
     const held = yield* fs.exists(target).pipe(Effect.orElseSucceed(() => false))
     const chosen = held && clean !== "/" ? target : path.join(options.root, options.entry)
     const cache = _FINGERPRINT.test(chosen) ? _CACHE.immutable : _CACHE.entry
-    return yield* HttpServerResponse.file(chosen).pipe(
-      Effect.map(HttpServerResponse.setHeaders({ "cache-control": cache })),
-      Effect.orElse(() =>
-        HttpServerResponse.file(path.join(options.root, options.entry)).pipe(
-          Effect.map(HttpServerResponse.setHeaders({ "cache-control": _CACHE.entry })),
-          Effect.orDie,
-        )),
+    const generator = yield* Etag.Generator
+    const served = (file: string, policy: string) =>
+      Effect.gen(function* () {
+        const info = yield* fs.stat(file)
+        const tag = Etag.toString(yield* generator.fromFileInfo(info))
+        return request.headers["if-none-match"] === tag
+          ? HttpServerResponse.empty({ status: 304 }).pipe(HttpServerResponse.setHeaders({ "cache-control": policy, etag: tag }))
+          : yield* HttpServerResponse.file(file).pipe(
+              Effect.map(HttpServerResponse.setHeaders({ "cache-control": policy, etag: tag })),
+            )
+      })
+    return yield* served(chosen, cache).pipe(
+      Effect.orElse(() => served(path.join(options.root, options.entry), _CACHE.entry)),
+      Effect.orDie,
     )
   })
 ```
@@ -272,11 +371,20 @@ const _assets = (options: { readonly root: string; readonly entry: string }): Ef
 - Packages: `@effect/platform` (`HttpLayerRouter`, `HttpMultiplex`); `effect` (`Layer`).
 
 ```typescript
-declare const _routes: Layer.Layer<never, never, HttpLayerRouter.HttpRouter | Life>
+type _Rail = Effect.Effect.Success<ReturnType<typeof Rail.of>>
 
-declare const _rail: (
-  spec: Rail.Spec,
-) => Layer.Layer<never, never, HttpLayerRouter.HttpRouter | Effect.Effect.Context<ReturnType<typeof Rail.of>>>
+class _RailMount extends Context.Tag("runtime/serve/Router/RailMount")<_RailMount, {
+  readonly layer: (spec: Rail.Spec, rail: _Rail) => Layer.Layer<never, never, HttpLayerRouter.HttpRouter | Life>
+}>() {}
+
+const _rail = (spec: Rail.Spec) =>
+  Layer.unwrapEffect(
+    Effect.gen(function* () {
+      const mount = yield* _RailMount
+      const rail = yield* Rail.of(spec)
+      return mount.layer(spec, rail)
+    }),
+  )
 
 const _hosts = (apps: {
   readonly api: HttpApp.Default
@@ -295,6 +403,7 @@ const Router = {
   hosts: _hosts,
   mounts: _mounts,
   rail: _rail,
+  RailMount: _RailMount,
   rpc: <G extends RpcGroup.RpcGroup.Any>(group: G, prefix: `/${string}`) =>
     Layer.unwrapEffect(
       Effect.map(RpcServer.toHttpApp(group), (app) => HttpLayerRouter.add("POST", prefix, () => app)),

@@ -8,7 +8,7 @@ The latency lane, correctness-neutral by law: a cache node vanishing costs a col
 | :-----: | :------------- | :--------------------------------------------------------------------------------- |
 |  [01]   | `TIER_ROWS`    | the escalation table — Tier-0 rows, the gated external row, the banned policies    |
 |  [02]   | `KEYED_FLIGHT` | the memo tier, the keyed single-flight row, the request-dedup plane                |
-|  [03]   | `PERSISTED`    | the restart-surviving cache over the KeyValueStore port                            |
+|  [03]   | `PERSISTED`    | the restart-surviving cache — the mint, the store assembly, the tenant partition   |
 |  [04]   | `POOLS`        | reference-counted handles, keyed resource maps, the bounded origin-connection pool |
 
 ## [02]-[TIER_ROWS]
@@ -24,8 +24,8 @@ The latency lane, correctness-neutral by law: a cache node vanishing costs a col
 const _tiers = {
   memo: { row: "CacheLane.memo — Effect.cached/cachedWithTTL/cachedFunction", boundary: "in-process", trigger: "pure recompute avoidance" },
   keyed: { row: "Cache.make", boundary: "in-process, capacity-bounded", trigger: "keyed lookups with stampede risk" },
-  request: { row: "Request.makeCache + Layer.setRequestCache", boundary: "fiber tree", trigger: "N+1 dedup across one request graph" },
-  persisted: { row: "PersistedCache.make over Persistence, tenant-prefixed store", boundary: "restart-surviving, single node", trigger: "expensive lookups worth keeping warm" },
+  request: { row: "CacheLane.dedup — Request.makeCache + Layer.setRequestCache", boundary: "fiber tree", trigger: "N+1 dedup across one request graph" },
+  persisted: { row: "CacheLane.persisted over CacheLane.store", boundary: "restart-surviving, single node", trigger: "expensive lookups worth keeping warm" },
   pooled: { row: "RcRef / RcMap", boundary: "in-process resource lifetime", trigger: "shared scoped resources, one live instance per key" },
   bounded: { row: "CacheLane.origins — KeyedPool.makeWithTTL", boundary: "in-process, min/max sized", trigger: "bounded reuse of expensive connections — the remote-origin transfer lanes" },
   external: { row: "Valkey behind KeyValueStore", boundary: "cross-process", trigger: "GATED — replica coherence or invalidation fan-out only" },
@@ -42,7 +42,7 @@ declare namespace CacheLane {
 ## [03]-[KEYED_FLIGHT]
 
 - Owner: `CacheLane.memo` — the ONE memo entry whose modality is the input shape: a bare effect caches whole (`Effect.cached`, or `cachedWithTTL` when a cadence rides the call), a unary function memoizes per-argument (`Effect.cachedFunction`, structural key equality); and `CacheLane.dedup(options)` — the request-cache Layer that turns fiber-tree request graphs into deduplicated batched loads. The keyed single-flight row is `Cache.make` consumed at the package surface directly — a rename-forward alias adds no domain value and is refused here.
-- Packages: `effect` (`Cache`, `Effect.cached`, `Effect.cachedWithTTL`, `Effect.cachedFunction`, `Request`, `Layer`, `Duration`).
+- Packages: `effect` (`Cache`, `Effect.cached`, `Effect.cachedWithTTL`, `Effect.cachedFunction`, `Request.makeCache`, `Layer.setRequestCache`, `Duration`).
 - Entry: a read surface with stampede exposure mints `Cache.make` once at construction and yields `cache.get(key)` thereafter; a pure recompute memoizes through `memo`; the projection and retrieval read paths compose `dedup` at the root so their `RequestResolver`-batched loads share one cache per request graph — the resolver machinery is the SQL tier's, the cache Layer is this row.
 - Receipt: `cacheStats` — hits, misses, size — read on demand and emitted through the fact stream's meter row by the composition that owns the cache; the lane never self-reports.
 - Growth: a new cached surface is one mint with its own spec; a per-key TTL posture is the spec's `timeToLive` fold over the exit, never a second cache kind.
@@ -67,22 +67,24 @@ const _dedup = (options: { readonly capacity: number; readonly timeToLive: Durat
 
 ## [04]-[PERSISTED]
 
-- Owner: `CacheLane.persisted` — `PersistedCache.make` published as the restart-surviving row, backed by the `Persistence` result store, which itself rides the `KeyValueStore` port — memory in specs, filesystem on a single node, and the gated external engine when the escalation trigger fires, all by Layer swap — plus `CacheLane.scoped(prefix)`, the tenant-partition transformer every multi-app deployment MUST interpose.
-- Packages: `@effect/experimental` (`PersistedCache.make`, `Persistence.layerResultKeyValueStore`, `Persistence.layerResultMemory`); `@effect/platform` (`KeyValueStore.layerMemory`, `KeyValueStore.layerFileSystem`, `KeyValueStore.prefix`); `effect` (`Duration`, `Layer`).
-- Entry: an expensive schema-keyed lookup (a rendered derivative index, a resolved capability report) mints `persisted` with its request schema; the backing Layer composes at the root per deployment posture, and a scope-owning composition interposes `scoped(scopeKey)` between the cache and its store.
-- Growth: a new backing is one Layer row behind the same port; the gated Valkey admission is exactly this — a `KeyValueStore` implementation over the external engine composed at the root, with this page unchanged.
-- Law: persisted bands are tenant-partitioned by construction — `scoped(scopeKey)` rewrites the `KeyValueStore` behind the cache through `KeyValueStore.prefix`, so two apps sharing one physical store cannot collide keys and one app's cached report can never serve another; an unprefixed shared store under a multi-tenant `PersistedCache` is the named cross-tenant leak.
+- Owner: `CacheLane.persisted(spec)` — the ONE restart-surviving mint: `PersistedCache.make` with the lane's in-memory front tier folded in as policy defaults (`inMemoryCapacity`/`inMemoryTTL`), so every persisted band fronts its store with a hot tier unless the spec overrides it; `CacheLane.store(kvs, prefix)` — the ONE backing assembly composing `Persistence.layerResultKeyValueStore` over the selected `KeyValueStore` row with the tenant partition interposed structurally; and `CacheLane.scoped(prefix)` — the raw prefix transformer for compositions that own their store wiring. `CacheLane.backing.memory` remains the explicit process-local test or isolated-single-app row and never backs a shared tenant surface.
+- Packages: `@effect/experimental` (`PersistedCache.make`, `Persistence.layerResultKeyValueStore`, `Persistence.layerResultMemory`); `@effect/platform` (`KeyValueStore.layerMemory`, `KeyValueStore.layerFileSystem`, `KeyValueStore.prefix`); `effect` (`Duration`, `Effect`, `Layer`).
+- Entry: an expensive schema-keyed lookup (a rendered derivative index, a resolved capability report) mints `persisted` with its request schema; the root composes `store(backing.storeFile(dir), scopeKey)` per deployment posture, and the gated Valkey admission is a `KeyValueStore` implementation handed to the same `store` call, with this page unchanged.
+- Growth: a new backing is one Layer row behind the same port; a front-tier posture is a spec override, never a second cache kind.
+- Law: persisted bands are tenant-partitioned by construction — `store` requires the partition and rewrites the `KeyValueStore` behind the persistence tier through `KeyValueStore.prefix` BEFORE the result store exists, so two apps sharing one physical store cannot collide keys and one app's cached report can never serve another; omission is not a signature modality, and an isolated caller states its own constant partition explicitly.
 - Law: durability equals the injected store's — the cache never promises more than its backing; a persisted entry lost with its node is a recompute, which is the lane's lawful failure mode.
 - Law: the persisted cache is an overlay, never a record of truth — nothing reads it as authority, and dropping the backing store costs warm-up latency only; the journal boundary law of the folder applies unchanged.
-- Law: keys are schema-typed persistables — the request schema owns identity and serialization, so a cache key is never a hand-built string and a shape change invalidates structurally.
+- Law: keys are schema-typed persistables — the request schema owns identity and serialization (`Schema.TaggedRequest` under `PrimaryKey`), success and failure both encode through the key's own result schemas so a persisted failure replays typed, and `timeToLive(request, exit)` folds both dispositions so hits and misses age separately; a cache key is never a hand-built string, and a shape change invalidates structurally.
 
 ```typescript
 import { Persistence, PersistedCache } from "@effect/experimental"
 import { KeyValueStore } from "@effect/platform"
+import type { Schema } from "effect"
+
+const _FRONT = { inMemoryCapacity: 256, inMemoryTTL: Duration.minutes(1) } as const
 
 const _backing = {
   memory: Persistence.layerResultMemory,
-  keyValue: Persistence.layerResultKeyValueStore,
   storeMemory: KeyValueStore.layerMemory,
   storeFile: (directory: string) => KeyValueStore.layerFileSystem(directory),
 } as const
@@ -92,6 +94,22 @@ const _scoped = (prefix: string): Layer.Layer<KeyValueStore.KeyValueStore, never
     KeyValueStore.KeyValueStore,
     Effect.map(KeyValueStore.KeyValueStore, (store) => KeyValueStore.prefix(store, prefix)),
   )
+
+const _store = <E, R>(
+  kvs: Layer.Layer<KeyValueStore.KeyValueStore, E, R>,
+  prefix: string,
+): Layer.Layer<Persistence.ResultPersistence, E, R> =>
+  Persistence.layerResultKeyValueStore.pipe(
+    Layer.provide(_scoped(prefix).pipe(Layer.provide(kvs))),
+  )
+
+const _persisted = <K extends Persistence.ResultPersistence.KeyAny, R>(spec: {
+  readonly storeId: string
+  readonly lookup: (key: K) => Effect.Effect<Schema.WithResult.Success<K>, Schema.WithResult.Failure<K>, R>
+  readonly timeToLive: (...args: Persistence.ResultPersistence.TimeToLiveArgs<K>) => Duration.DurationInput
+  readonly inMemoryCapacity?: number
+  readonly inMemoryTTL?: Duration.DurationInput
+}) => PersistedCache.make({ ..._FRONT, ...spec })
 ```
 
 ## [05]-[POOLS]
@@ -99,7 +117,7 @@ const _scoped = (prefix: string): Layer.Layer<KeyValueStore.KeyValueStore, never
 - Owner: the resource rows — `RcRef.make` for one shared scoped resource and `RcMap.make` for keyed single-instance families, both consumed at the package surface directly (a rename-forward alias is refused) — plus `CacheLane.origins`, the ONE bounded keyed-pool mint: min/max-sized, TTL-expiring connection reuse keyed by a structural origin coordinate, the row every remote-origin transfer lane (`object/remote.md`'s SFTP/FTP/DAV clients) rides.
 - Packages: `effect` (`RcRef.make`, `RcMap.make`, `RcMap.get`, `RcMap.invalidate`, `KeyedPool.makeWithTTL`, `KeyedPool.get`, `Duration`, `Scope`, `Data`).
 - Entry: the OLAP lane's engine instance and the per-scope warm surfaces ride `RcRef`/`RcMap` (`RcMap.get(map, key)` acquires-or-shares under the caller's `Scope`, `RcMap.invalidate(map, key)` evicts on rotation or poison); the remote-origin lane mints `origins(acquire, policy?)` keyed by the `Data`-classed `OriginKey` so structural equality pools connections and `KeyedPool.get` leases a live client per transfer under the caller's `Scope`.
-- Growth: a pool sizing posture is a policy-row override; a keyed family with complex identity keys by a `Data`-classed value, structural equality carried by construction; `OriginKey` carries the scheme beside the wire coordinate so one pool arbitrates every protocol's sessions and the remote plane's acquire dispatches on the key alone.
+- Growth: a pool sizing posture is a policy-row override; a keyed family with complex identity keys by a `Data`-classed value, structural equality carried by construction; `OriginKey<Scheme>` carries the caller's closed scheme vocabulary beside the wire coordinate so one pool arbitrates every protocol's sessions and the remote plane's acquire dispatches on the key alone.
 - Law: `RcMap` and `KeyedPool` divide by cardinality — `RcMap` shares ONE live instance per key among concurrent holders, `KeyedPool` holds up to N instances per key for exclusive leases; a protocol whose control connection carries one transfer at a time (the FTP law) is exactly why the origin row is the pool, never the map.
 - Law: lifetime is reference-counted or pool-owned, never manual — the resource releases when the last scope closes plus the idle window, so a leak is unspellable and a hot handle survives bursts without churn.
 - Law: this row pools RESOURCES, the `Stores` map pools LAYERS — the tenancy store map stays the scope-family owner, and this lane's maps hold engine sessions and warm clients beneath it; the echo is deliberate, the owners distinct.
@@ -109,15 +127,15 @@ import { Data, KeyedPool, type Scope } from "effect"
 
 const _ORIGIN_POOL = { min: 0, max: 4, ttl: Duration.minutes(5) } as const
 
-class OriginKey extends Data.Class<{
-  readonly scheme: string
+class OriginKey<Scheme extends string = string> extends Data.Class<{
+  readonly scheme: Scheme
   readonly host: string
   readonly port: number
   readonly username: string
 }> {}
 
-const _origins = <A, E, R>(
-  acquire: (key: OriginKey) => Effect.Effect<A, E, R | Scope.Scope>,
+const _origins = <Scheme extends string, A, E, R>(
+  acquire: (key: OriginKey<Scheme>) => Effect.Effect<A, E, R | Scope.Scope>,
   policy?: Partial<{ readonly min: number; readonly max: number; readonly ttl: Duration.DurationInput }>,
 ) =>
   KeyedPool.makeWithTTL({
@@ -131,6 +149,8 @@ const CacheLane = {
   tiers: _tiers,
   memo: _memo,
   dedup: _dedup,
+  persisted: _persisted,
+  store: _store,
   backing: _backing,
   scoped: _scoped,
   origins: _origins,

@@ -15,7 +15,7 @@ The app-identity value vocabulary: `AppIdentity` spans the eleven cross-cutting 
 - Law: the brands are interior anchors reached only through the owner — `AppIdentity.fields.app` composes into sibling field records, `AppIdentity.Key` names the type — so `AppKey` has one spelling, one refinement, one edit site branch-wide.
 - Law: `AppKey` is a DNS-safe lowercase slug (2..64, leading letter); `TenantKey` the same alphabet with a digit-or-letter head; `NamespaceKey` the `AppKey` alphabet under its own brand — a namespace is never an app key; `BuildVersion` is semver; `BuildCommit` is 7..40 lowercase hex; `HostPrint` is a non-empty fingerprint of at most 128 characters minted by the host at boot; `RegionKey` and `ZoneKey` are lowercase slugs of at most 32; `ClusterKey` shares the `AppKey` alphabet — each refinement flows into derived arbitraries and config contracts unchanged.
 - Law: `environment` and `ring` are closed ORDERED vocabularies, never free strings — `development`/`test`/`staging`/`production` in trust order, `canary`/`beta`/`stable` in exposure order, both tuple-anchored so wire order and non-emptiness are stated once — and the sequence carries derived surfaces, never a consumer re-walk: `byTrust`/`byExposure` derive `Order` instances from tuple position, `reaches(floor)` answers the at-least-tier gate (`production` reaches `staging`), `admits(frontier)` answers progressive exposure (a `canary` deployment admits a feature whose rollout frontier is `beta`; a `stable` one does not), and the `environments`/`rings` statics expose the tuples so a dashboard or config validator walks the owner; a new tier or rung is one tuple entry plus the literal it derives, and `ring` defaults to `stable` at the declaration because a deployment without progressive delivery is fully exposed and no consumer distinguishes absent from stable.
-- Law: consumers derive, the floor never encodes their vocabulary — `convention#IDENTITY_PROJECTION` maps this value into attribute space, the runtime boot stamps it, data store scopes partition on the tenancy projection — so a convention rename lands in the consumer's vocabulary, never here, and the Resource identity spine reads settled `instance`/`namespace`/`environment` fields instead of re-minting dimensions at the projection.
+- Law: consumers derive, the floor never encodes their vocabulary — `convention#IDENTITY_PROJECTION` maps this value into attribute space, the runtime boot stamps it, data store scopes partition on the tenancy projection — so a convention rename lands in the consumer's vocabulary, never here, and the Resource identity spine reads settled `instance`/`namespace`/`environment` fields instead of re-minting dimensions at the projection; `alike` is the class-derived `Schema.equivalence` used for identity deduplication and keyed policy comparison.
 - Law: `scoped(tenant)` projects the process identity into a `TenantContext` — the one hop from process altitude to scope altitude — and `label` is the diagnostic projection (`app@version`) log and crash rows stamp.
 - Law: absence is `Option` admitted by `Schema.optionalWith(..., { as: "Option" })` — the encoded side omits the key, the interior never meets `undefined`; a dimension the owner can settle (`ring`) is a declaration default, never an `Option` every consumer re-folds.
 - Growth: a new identity dimension (shard, cloud provider) is one field plus its interior brand or vocabulary row, with its `convention#IDENTITY_PROJECTION` line landing in the same edit; a new derived surface is one consumer-side projection over the value.
@@ -64,6 +64,7 @@ class AppIdentity extends Schema.Class<AppIdentity>("AppIdentity")({
   zone: Schema.optionalWith(_Zone, { as: "Option" }),
   cluster: Schema.optionalWith(_Cluster, { as: "Option" }),
 }) {
+  static readonly alike = Schema.equivalence(AppIdentity)
   static readonly environments: typeof _environments = _environments
   static readonly rings: typeof _rings = _rings
   static readonly byTrust: Order.Order<AppIdentity.Environment> = Order.mapInput(
@@ -107,6 +108,7 @@ declare namespace AppIdentity {
 
 - Owner: `TenantContext`, a `Schema.Class` of `app` plus `tenant` — the exact `(appKey, tenancy)` pair the data folder keys its per-tenant store Layers on and `security` aligns its `app.current_tenant` claims with — carrying structural `Equal` from the declaration so contexts key `LayerMap` and `HashMap` slots with zero ceremony.
 - Law: `scope` is the derived partition key — the branded `app/tenant` spelling — computed from fields already proven by their own patterns, so the interior mint is total and the one scope spelling can never disagree with its parts.
+- Law: `alike` is the class-derived `Schema.equivalence` — tenancy deduplication and keyed scope comparisons consume the same structural relation as every decode-derived projection.
 - Law: direction is a modality of one owner — `FromScope` is the single bidirectional transform: decode recovers `(app, tenant)` from a bare scope through `Schema.TemplateLiteralParser` (the split is unambiguous because both key alphabets forbid `/`, and each part re-proves its own brand), encode re-emits the parts as the template — so the data wave's per-scope family recovers a `ScopeKey`'s coordinates as a decode, never a hand split, and no free inverse export exists beside the mint.
 - Law: the decode boundary owns admission — the interchange codec decodes the C#-minted tenancy into this class at its field record; interior construction rides `AppIdentity.scoped` or `new TenantContext` over already-branded parts — one name, one owning side, both paths landing the identical value.
 - Law: tenancy never travels as a bare string past a seam — a signature taking `TenantContext.Key` or `TenantContext` is the only spelling, so a tenant-confused cross-partition read fails at compile time.
@@ -121,6 +123,7 @@ class TenantContext extends Schema.Class<TenantContext>("TenantContext")({
   app: _AppKey,
   tenant: _TenantKey,
 }) {
+  static readonly alike = Schema.equivalence(TenantContext)
   static readonly FromScope: Schema.Schema<TenantContext, `${string}/${string}`> = Schema.transform(
     _ScopeParts,
     Schema.typeSchema(TenantContext),
