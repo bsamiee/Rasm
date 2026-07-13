@@ -18,7 +18,7 @@ The vocabulary spine of the four-signal plane: every attribute key, metric name,
 - Law: stable-tier names are the default import — API-frozen, safe inside durable dashboards, SLO policy rows, and cross-language wire parity; an incubating name enters only through the `_incubating` alias table, whose Rasm-stable keys absorb a minor-release rename at one seam while the constant-valued rows keep the break compile-visible.
 - Law: the incubating table spans the two planes its consumers own — the RUM plane (`browser.*`, `device.*`, `session.*`, `network.connection.type` for the vital and crash signals) and the infra-correlation plane (`cloud.*`, `container.*`, `host.*`, `process.runtime.*`, `k8s.*` for the runtime resource and the iac correlation queries) — so an enrichment consumer composes rows, never a second import of the incubating entry.
 - Law: bounded attribute values import as `*_VALUE_*` rows and dispatch as discriminated values — the `_value` table carries the closed nine-method HTTP family (the spec's `_OTHER` residue row included, so a foreign verb folds to a bounded value instead of an open string) beside the database row, `Convention.Method` derives the method union by template extraction over the table's own keys, and a `Match` arm or vocabulary lookup keys on the row, never on a free string.
-- Law: the deprecated `SEMATTRS_*`/`SEMRESATTRS_*` enum-object spelling is banned — one vocabulary, one flat-constant form; a row referencing the legacy objects is the drift defect.
+- Law: the deprecated `SEMATTRS_*`/`SEMRESATTRS_*` enum-object spelling is banned — one vocabulary, one flat-constant form; a row referencing the legacy objects is the drift defect. A member-level `@deprecated` constant (`ATTR_EXCEPTION_ESCAPED`) earns no row on the same ground.
 - Law: the data stores never reach these rows for emission — `@effect/sql` stamps its own `db.*` spans — so the `db` rows here exist for `board#QUERY` construction only, and an emission-side re-stamp is the duplication defect.
 - Growth: a new convention is one row in the owning family table — attribute, metric, event, or value — never a new export, file, or parallel constant.
 
@@ -28,7 +28,6 @@ import {
   ATTR_DB_SYSTEM_NAME,
   ATTR_DEPLOYMENT_ENVIRONMENT_NAME,
   ATTR_ERROR_TYPE,
-  ATTR_EXCEPTION_ESCAPED,
   ATTR_EXCEPTION_MESSAGE,
   ATTR_EXCEPTION_STACKTRACE,
   ATTR_EXCEPTION_TYPE,
@@ -70,6 +69,7 @@ import {
   ATTR_DEVICE_MODEL_IDENTIFIER,
   ATTR_HOST_ARCH,
   ATTR_HOST_NAME,
+  ATTR_K8S_CLUSTER_NAME,
   ATTR_K8S_DEPLOYMENT_NAME,
   ATTR_K8S_NAMESPACE_NAME,
   ATTR_K8S_NODE_NAME,
@@ -87,7 +87,6 @@ const _attr = {
   dbSystem: ATTR_DB_SYSTEM_NAME,
   deploymentEnvironment: ATTR_DEPLOYMENT_ENVIRONMENT_NAME,
   errorType: ATTR_ERROR_TYPE,
-  exceptionEscaped: ATTR_EXCEPTION_ESCAPED,
   exceptionMessage: ATTR_EXCEPTION_MESSAGE,
   exceptionStacktrace: ATTR_EXCEPTION_STACKTRACE,
   exceptionType: ATTR_EXCEPTION_TYPE,
@@ -118,6 +117,7 @@ const _incubating = {
   deviceModel: ATTR_DEVICE_MODEL_IDENTIFIER,
   hostArch: ATTR_HOST_ARCH,
   hostName: ATTR_HOST_NAME,
+  k8sCluster: ATTR_K8S_CLUSTER_NAME,
   k8sDeployment: ATTR_K8S_DEPLOYMENT_NAME,
   k8sNamespace: ATTR_K8S_NAMESPACE_NAME,
   k8sNode: ATTR_K8S_NODE_NAME,
@@ -205,8 +205,8 @@ const _event = {
 
 [IDENTITY_PROJECTION]:
 - Owner: the assembled `Convention` export — row families as properties, the `identity` projection as the one operation, companion types on the merged namespace, contract guards riding the hub so a malformed row fails at this declaration with zero widening of the interior anchors.
-- Law: `Convention.identity` is the single nine-dimension `AppIdentity -> Identity` correspondence — `service.name` carries the app key, `service.version` the build version, `service.instance.id` the boot-minted instance guid, `deployment.environment.name` the environment tier, `host.name` the host print through the incubating alias row, and `rasm.ring` the exposure rung, while `service.namespace`, `cloud.region`, and `rasm.tenant` stamp only when the identity pins the dimension: a multi-tenant process emits no resource-level tenant and per-fact tenancy rides the audit/meter streams — and every identity-bearing surface (the runtime OTLP `Resource`, the fact stamps on the runtime signal streams, the dashboard identity on `board#MODEL`) derives from this one projection, so a per-app telemetry fork is structurally impossible.
-- Law: a dimension is projected only once the identity value settles it — the projection line lands in the same edit that adds the identity field, never ahead of it — so the projection reads settled `instance`/`namespace`/`environment`/`ring`/`region` values and never re-mints a dimension the floor owns; an absent `Option` dimension is omission, never a sentinel, so a backend filter never matches an empty string.
+- Law: `Convention.identity` is the single eleven-dimension `AppIdentity -> Identity` correspondence — `service.name` carries the app key, `service.version` the build version, `service.instance.id` the boot-minted instance guid, `deployment.environment.name` the environment tier, `host.name` the host print through the incubating alias row, and `rasm.ring` the exposure rung, while `service.namespace`, `cloud.region`, `cloud.availability_zone`, `k8s.cluster.name`, and `rasm.tenant` stamp only when the identity pins the dimension: a multi-tenant process emits no resource-level tenant and per-fact tenancy rides the audit/meter streams — and every identity-bearing surface (the runtime OTLP `Resource`, the fact stamps on the runtime signal streams, the dashboard identity on `board#MODEL`) derives from this one projection, so a per-app telemetry fork is structurally impossible.
+- Law: a dimension is projected only once the identity value settles it — the projection line lands in the same edit that adds the identity field, never ahead of it — so the projection reads settled `instance`/`namespace`/`environment`/`ring`/`region`/`zone`/`cluster` values and never re-mints a dimension the floor owns; an absent `Option` dimension is omission, never a sentinel, so a backend filter never matches an empty string.
 - Boundary: `AppIdentity` is `value/identity`'s value — this page projects it into attribute space and owns nothing about its construction.
 - Entry: `Convention.identity(identity)` — the one operation; row families read as properties (`Convention.attr.httpRoute`, `Convention.metric.meterUsage`, `Convention.event.exception`, `Convention.value.methodGet`).
 - Growth: a new identity dimension is one projection line plus its `_rasm` row.
@@ -230,6 +230,14 @@ const _identity = (identity: AppIdentity): Convention.Identity => ({
     onNone: () => ({}),
     onSome: (region) => ({ [_incubating.cloudRegion]: region }),
   }),
+  ...Option.match(identity.zone, {
+    onNone: () => ({}),
+    onSome: (zone) => ({ [_incubating.cloudZone]: zone }),
+  }),
+  ...Option.match(identity.cluster, {
+    onNone: () => ({}),
+    onSome: (cluster) => ({ [_incubating.k8sCluster]: cluster }),
+  }),
   ...Option.match(identity.tenant, {
     onNone: () => ({}),
     onSome: (tenant) => ({ [_rasm.tenant]: tenant }),
@@ -249,7 +257,7 @@ declare namespace Convention {
   type Attributes = { readonly [key: string]: Value }
   type Identity = Types.Simplify<
     & { readonly [K in (typeof _attr)["deploymentEnvironment" | "serviceInstance" | "serviceName" | "serviceVersion"] | (typeof _incubating)["hostName"] | (typeof _rasm)["ring"]]: string }
-    & { readonly [K in (typeof _attr)["serviceNamespace"] | (typeof _incubating)["cloudRegion"] | (typeof _rasm)["tenant"]]?: string }
+    & { readonly [K in (typeof _attr)["serviceNamespace"] | (typeof _incubating)["cloudRegion" | "cloudZone" | "k8sCluster"] | (typeof _rasm)["tenant"]]?: string }
   >
   type Shape = Types.Simplify<{
     readonly attr: typeof _attr

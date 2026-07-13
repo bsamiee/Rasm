@@ -39,6 +39,7 @@ data/
 ```text seams
 read/fold      ←  typescript:core/state       # [SHAPE]: Fold.Plan (key/lift/merge) bound at three staleness budgets
 object/store   ⇄  typescript:core/value       # [CONTENT_KEY]: ObjectKey IS ContentKey — a delegating mint site, never a second hash
+lane/tenant    ←  typescript:core/value       # [SHAPE]: TenantContext.scope partition key the per-scope store LayerMap keys on
 lane/tenant    ←  typescript:security/access  # [BOUNDARY]: app.current_tenant RLS + ambient TenantScope read
 lane/tenant    →  typescript:security/authn   # [PORT]: SessionStore/IdentityJournal scope-built Layers
 lane/tenant    →  typescript:security/access  # [PORT]: ClaimStore/RelationStore scope-built Layers

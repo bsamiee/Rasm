@@ -26,6 +26,7 @@ security/
 ## [02]-[SEAMS]
 
 ```text seams
+access/tenant   ←  typescript:core/value      # [SHAPE]: TenantContext bound as the ambient TenantScope principal
 access/tenant   →  typescript:data/lane       # [BOUNDARY]: app.current_tenant RLS contract + ambient TenantScope read
 authn/session   ←  typescript:data/lane       # [PORT]: SessionStore/IdentityJournal satisfied by scope-built Layers
 access/claim    ←  typescript:data/lane       # [PORT]: ClaimStore/RelationStore satisfied by scope-built Layers

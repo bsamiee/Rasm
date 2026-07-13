@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/semantic-conventions`
-- package: `@opentelemetry/semantic-conventions` · version `` · license `Apache-2.0`
+- package: `@opentelemetry/semantic-conventions` · version `1.41.1` · license `Apache-2.0`
 - module: dual — CJS default (`build/src/index.js`, no `"type"` field) + ESM (`build/esm`) + `esnext` (`build/esnext`); `sideEffects: false`, so unused constants tree-shake to zero bytes.
 - exports: TWO subpaths — `.` (STABLE, `build/src/index.d.ts`) and `./incubating` (STABLE + overlay, `build/src/index-incubating.d.ts`). The stable entry is `trace` + `resource` + `stable_attributes` + `stable_metrics` + `stable_events`; incubating adds `experimental_attributes` + `experimental_metrics` + `experimental_events`.
 - asset: TSDECL `build/src/index.d.ts` (restored).
@@ -32,6 +32,11 @@ export declare const ATTR_URL_FULL: "url.full"
 export declare const ATTR_SERVICE_NAME: "service.name"
 export declare const METRIC_HTTP_SERVER_REQUEST_DURATION: "http.server.request.duration"
 export declare const EVENT_EXCEPTION: "exception"
+// The crash forensic vocabulary (stable) — value/fault FaultCapture.Forensic anchors exactly these four:
+export declare const ATTR_ERROR_TYPE: "error.type"
+export declare const ATTR_EXCEPTION_MESSAGE: "exception.message"
+export declare const ATTR_EXCEPTION_STACKTRACE: "exception.stacktrace"
+export declare const ATTR_EXCEPTION_TYPE: "exception.type"
 // A bounded-value attribute exposes its closed set as *_VALUE_* constants — the smart-enum values a Match fold discriminates over:
 export declare const HTTP_REQUEST_METHOD_VALUE_GET: "GET"          // + _POST/_PUT/_DELETE/_HEAD/_OPTIONS/_PATCH/_CONNECT/_TRACE/__OTHER
 export declare const DB_SYSTEM_NAME_VALUE_POSTGRESQL: "postgresql" // + _MYSQL/_MARIADB/_MICROSOFT_SQL_SERVER/…
@@ -47,7 +52,7 @@ The load-bearing decision is which entrypoint a namespace comes from. STABLE (`.
 | :-----: | :------------------------ | :------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------- |
 |  [01]   | STABLE `.`                | `service.*` (name/version/instance.id/namespace), `telemetry.sdk.*`/`telemetry.distro.*`                            | the `Resource` identity spine — `AppIdentity → resource` |
 |  [02]   | STABLE `.`                | `http.request.*`/`http.response.*`/`http.route`, `url.*`, `network.*`, `server.*`/`client.*`, `user_agent.original` | edge ingress + `host/net` client span attrs              |
-|  [03]   | STABLE `.`                | `error.type`, `exception.*` (type/message/stacktrace/escaped), `EVENT_EXCEPTION`, `code.*`, `otel.*`                | `signal/crash` fault capture → `FaultDetail`             |
+|  [03]   | STABLE `.`                | `error.type`, `exception.*` (type/message/stacktrace), `EVENT_EXCEPTION`, `code.*`, `otel.*`                        | `signal/crash` fault capture → `FaultDetail`             |
 |  [04]   | STABLE `.`                | `deployment.environment.name`; `db.*` (`ATTR_DB_*`, `DB_SYSTEM_NAME_VALUE_*`)                                       | env tag on resource; `store` DB-client spans             |
 |  [05]   | INCUBATING `./incubating` | `browser.*` (brands/language/mobile/platform), `device.*`                                                           | `signal/vital` browser RUM enrichment                    |
 |  [06]   | INCUBATING `./incubating` | `host.*`, `process.*`, `container.*`, `k8s.*`, `cloud.*`                                                            | resource infra enrichment; `iac/observe` correlation     |
@@ -58,6 +63,7 @@ The `trace/SemanticAttributes` (`SEMATTRS_*`) and `resource/SemanticResourceAttr
 
 - `SEMATTRS_*` (e.g. `SEMATTRS_DB_SYSTEM = "db.system"`) — deprecated; superseded by `ATTR_DB_SYSTEM` (incubating).
 - `SEMRESATTRS_*` (e.g. `SEMRESATTRS_CLOUD_PROVIDER = "cloud.provider"`) — deprecated; superseded by `ATTR_CLOUD_PROVIDER` (incubating).
+- `ATTR_EXCEPTION_ESCAPED` (`"exception.escaped"`) — member-level `@deprecated` in the stable entry: the spec records only escaping exceptions, so the flag carries zero information; no Rasm row references it.
 - Older constant-object aggregates (`SemanticAttributes`/`SemanticResourceAttributes` namespaces) are the same retired shape — never composed.
 
 ## [05]-[STACKING]
@@ -65,7 +71,7 @@ The `trace/SemanticAttributes` (`SEMATTRS_*`) and `resource/SemanticResourceAttr
 - Stack with `observe/convention` (the primary consumer): the vocabulary spine of the whole plane. `convention.ts` imports the Rasm-relevant `ATTR_*`/`METRIC_*`/`EVENT_*` + `*_VALUE_*` constants (stable by default, incubating behind a churn-absorbing alias row) and re-exports them as typed convention rows; every other `telemetry` node names its fields through these rows, never a string literal. The `*_VALUE_*` families become `Match`-discriminated union values, not free strings.
 - Stack with `.api/effect-opentelemetry.md` `Otlp` export + `Resource`: `otlp/export` stamps convention keys on span/metric/log attributes at egress; `Resource.layer({ serviceName, serviceVersion, attributes })` keys the identity resource with `ATTR_SERVICE_NAME`/`ATTR_SERVICE_VERSION`/`ATTR_SERVICE_INSTANCE_ID` (stable) + `telemetry.sdk.*`, derived from the one `AppIdentity` value. The egress-redaction policy rows scrub PII by attribute key using these constants as the allow/deny vocabulary.
 - Stack with `signal/vital` + `.api/opentelemetry-sdk-trace-web.md` RUM: browser RUM spans name their fields with `browser.*` (incubating) + `http.*`/`url.*` (stable); the `sdk-trace-web` resource-timing folds attach `*_body_size`/network attrs by these keys. `signal/vital` reads native `PerformanceObserver` (zero web-vitals) and stamps convention keys on the vital facts.
-- Stack with `signal/crash` fault capture: crash capture reconstructs `FaultDetail` and names it with `exception.type`/`exception.message`/`exception.stacktrace`/`exception.escaped` + `error.type` (stable) and the `EVENT_EXCEPTION` event name — through the kernel fault-enricher contract, no `wire` import.
+- Stack with `signal/crash` fault capture: crash capture reconstructs `FaultDetail` and names it with `exception.type`/`exception.message`/`exception.stacktrace` + `error.type` (stable) and the `EVENT_EXCEPTION` event name — the `value/fault` `FaultCapture.Forensic` vocabulary — through the kernel fault-enricher contract, no `wire` import.
 - Stack with Rasm-owned vocab that is NOT semconv: the fact-journal audit actor/action/target vocabulary and the meter (app, tenant)-keyed request/compute/storage/token counters (`data` `journal/fact`) are DOMAIN rows Rasm owns, not OTel conventions; they live as `observe/convention` Rasm rows beside the semconv imports. semconv supplies the standard namespaces; the audit/meter fact families are the project's own name space.
 - Stack with cross-language parity — C# `Rasm.AppHost/Observability/Telemetry`: the C# OTLP egress emits the SAME OTel attribute names (the wire is OTel, not this package); parity is name-level against the OpenTelemetry spec, so a Rasm span from either language carries `service.name`/`http.route`/`exception.type` identically. This TS package is the JS-side name source, not a shared artifact.
 

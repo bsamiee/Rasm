@@ -11,11 +11,11 @@ core/
 └── src/
     ├── value/                 # The cross-language value floor: brands, identity, digest, clock, quantity, fault policy
     │   ├── schema.ts          # Refined branded-primitive vocabulary (Guid-v7, OrdinalKey, JsonPointer, Locale) + Ingress decode-budget ceilings
-    │   ├── identity.ts        # AppIdentity four-dimension value + TenantContext with its derived scope key
+    │   ├── identity.ts        # AppIdentity eleven-dimension deployment spine + ordered tier/ring vocabulary + TenantContext bidirectional scope key
     │   ├── contentKey.ts      # ContentKey — XxHash128 seed-zero :x32 digest — and the Digest engine beneath it
     │   ├── clock.ts           # Hlc two-half hybrid-logical stamp under the C# compose-order law + Uncertainty grade windows
     │   ├── quantity.ts        # Quantity — SI-coherent magnitude + seven-axis Dimension vector, canonicalized once at C# admission
-    │   └── fault.ts           # FaultClass ten-class severity vocabulary, FaultCapture/FaultEnricher, the Budget retry ledger
+    │   └── fault.ts           # FaultClass ten-class severity vocabulary, FaultCapture/FaultEnricher, the Budget retry ledger, the Degrade silence ladder
     ├── state/                 # Host-free state algebra: lawful merge, keyed folds, causality, machines, evidence, presence
     │   ├── merge.ts           # Merge.Instance lawful CRDT algebra over @effect/typeclass atoms + the Converge law surface
     │   ├── fold.ts            # Fold.Plan keyed-fold owner, the AsOf time coordinate, the Replay versioned memory lane
@@ -62,7 +62,11 @@ interchange/contract ←  csharp:Rasm.Compute           # [WIRE]: FileDescriptor
 interchange/codec    →  typescript:runtime/proc       # [SHAPE]: FlagVerdict OpenFeature-contract landing the flag service consumes
 state/fold           →  typescript:data/read          # [SHAPE]: Fold.Plan bound at the durable projection altitude
 state/feed           →  typescript:ui/view            # [SHAPE]: Feed.Document column band driving the dynamic grid fold
-value/fault          →  typescript:runtime/net        # [SHAPE]: Budget ledger rows compiled into lane pulses
+value/identity       →  typescript:security/access    # [SHAPE]: TenantContext bound as the ambient TenantScope principal
+value/identity       →  typescript:data/lane          # [SHAPE]: TenantContext.scope partition key the per-scope store LayerMap keys on
+value/identity       →  typescript:runtime/otel       # [SHAPE]: AppIdentity boot identity stamped on the OTLP Resource and crash surface
+value/fault          →  typescript:runtime/net        # [SHAPE]: Budget.schedule lane pulses + the Degrade silence ladder cadence
+value/fault          →  typescript:runtime/otel       # [SHAPE]: FaultCapture/FaultEnricher crash-evidence contract + FaultClass Cause dominance
 observe/convention   →  typescript:runtime/otel       # [SHAPE]: Convention rows stamped at every emission
 observe/board        →  typescript:iac/operate        # [PROJECTION]: DashboardModel.Encoded + Alert.Spec + Slo.Objective realized as grafana rows
 ```

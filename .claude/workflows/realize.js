@@ -29,7 +29,7 @@ export const meta = {
 const SLICE_SIZE = 4;
 const MAX_SLICES = 8;
 const STALL = 300000;
-const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
+const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const CODEX = true;
 const SCRATCH = '.claude/scratch/realize'; // per-lane MCP reports
 
@@ -231,8 +231,9 @@ const INFO_LAW =
     'product: `requested` = your assigned scope, `read` = what you actually full-read, `skipped`/`unverified` = what you did ' +
     'not reach — an honest skip beats a silent one.';
 
+// Codex mapper self-verify (+ native quota twin): neutral register — the second-pass duty carries, the hostile intensifiers do not.
 const SELF_CHECK =
-    'MANDATORY SELF-VERIFY (second pass, before returning): adversarially re-derive every entry from disk — ' +
+    'SELF-VERIFY (second pass, before returning): re-derive every entry from disk — ' +
     're-open each cited anchor and confirm it states what the entry claims, re-verify each member spelling against its ' +
     'catalog, trace each ripple to both endpoints. An entry that fails re-confirmation is corrected or deleted, never ' +
     'returned; a guess, an assumption, a skimmed summary, or a vague/hedged entry is a defect. Completeness is part of ' +
@@ -304,7 +305,10 @@ const codexPrompt = (label, task, schema, o) => {
         '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
             'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
             report +
-            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+            '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
+            report +
+            ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
+            'failure returns through step (4) with the error.',
         '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
             base +
             '-report.json, entries=the length of result["' +

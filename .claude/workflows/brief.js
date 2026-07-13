@@ -9,7 +9,7 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const STALL = 480000;
-const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
+const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const CODEX = true; // survey/strata + deep research lanes run on gpt-5.6-terra via the codex wrapper; false restores native lanes
 const SCRATCH = '.claude/scratch/brief'; // per-lane MCP reports and dossiers
 
@@ -346,7 +346,14 @@ const HARVEST_LAW =
     'would harden, quoted with its path — or "absent" plus the surfaces searched). A brief-local fix never nominates; an empty array is ' +
     'the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
-const preOf = (t, corpus) => {
+// Stance opener forks by executing model: the fable author/passes (and the native survey twin) read the estate hostile
+// register as calibration; the codex-primary survey/deep lanes take the neutral form (a hostile stance makes a codex lane
+// over-probe). Both keep identical substance — the two naivety axes and the full defect-hunt list follow verbatim.
+const STANCE = {
+    claude: 'Your stance is HOSTILE: assume the corpus is naive with illusory depth until disk proves otherwise; ',
+    codex: 'Your stance is investigative: treat the corpus as unverified — depth claimed in prose is confirmed against the fence on disk before it is accepted; ',
+};
+const preOf = (t, corpus, reg) => {
     const L = langOf(t),
         m = mandateFor(t);
     return (
@@ -365,7 +372,8 @@ const preOf = (t, corpus) => {
         '. Verification rail: ' +
         L.verify +
         '. ' +
-        'Your stance is HOSTILE: assume the corpus is naive with illusory depth until disk proves otherwise; NAIVETY is a defect on two axes — ' +
+        STANCE[reg] +
+        'NAIVETY is a defect on two axes — ' +
         'COVERAGE (a thin slice of the owned domain) and APPROACH (enumerated instances where a parameterized generator belongs; rosters are seed ' +
         'DATA). Hunt architectural/flow/logic fundamental-approach problems, underutilized admitted capability, concern mixing, duplicate mechanisms, ' +
         'dead typed carriers, hardcoding, prose-vs-fence splits (a capability claimed in prose but absent from the fence is ILLUSORY), unwired ' +
@@ -409,6 +417,7 @@ const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
     const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
     const report = root + '/' + base + '-report.json';
+    const dossier = root + '/' + base + '-dossier.md'; // writes lanes author this markdown alongside the JSON report
     const model = o.model || 'gpt-5.6-terra';
     const hl = o.hl || { arr: 'entries', group: 'kind' };
     return [
@@ -428,11 +437,31 @@ const codexPrompt = (label, task, schema, o) => {
             'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
             'error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
-        'TASK:\n\n' + task,
-        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
-            'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
-            report +
-            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+        // writes lanes author both the JSON report (final act) and the markdown dossier; the wrapper only verifies both landed.
+        'TASK:\n\n' +
+            task +
+            (o.writes
+                ? '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
+                  report +
+                  ' yourself (this is separate from the dossier the task already has you author).'
+                : ''),
+        o.writes
+            ? '(3) The lane wrote both the JSON report and its markdown dossier itself. Verify with one Bash call: jq -e . ' +
+              report +
+              ' >/dev/null && test -s ' +
+              dossier +
+              '. If the report is missing or invalid, extract the CONTENT text from the tool result envelope {threadId, content} and Write it ' +
+              'to ' +
+              report +
+              ' verbatim (the product JSON, never the envelope), then re-verify; a missing or empty dossier is unrecoverable and returns ' +
+              'through step (4) with that error.'
+            : '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
+              'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
+              report +
+              '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
+              report +
+              ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
+              'failure returns through step (4) with the error.',
         '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
             base +
             '-report.json, entries=the length of result["' +
@@ -690,7 +719,8 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
     const L = langOf(t);
     const name = nameOf(t);
     const out = outOf(t);
-    const pre = preOf(t, corpus);
+    const preCodex = preOf(t, corpus, 'codex'); // survey/deep lanes (codex-primary)
+    const preClaude = preOf(t, corpus, 'claude'); // native fable author + adversarial passes
     const P = L.tag + ':' + name.toLowerCase();
     const laneLabel = (lane) => 'survey:' + L.tag.toLowerCase() + '-' + name.toLowerCase() + ':' + lane;
 
@@ -749,7 +779,7 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
         await parallel([
             ...surveyLanes.map(
                 (l) => () =>
-                    recon(surveyPrompt(pre, dossierOf(laneLabel(l.lane)), l.lane, l.scope), {
+                    recon(surveyPrompt(preCodex, dossierOf(laneLabel(l.lane)), l.lane, l.scope), {
                         label: laneLabel(l.lane),
                         phase: P + ' survey',
                         schema: SURVEY_SCHEMA,
@@ -759,7 +789,7 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
             ),
             ...deepLanes.map(
                 (l) => () =>
-                    recon(deepPrompt(pre, dossierOf(laneLabel(l.lane)), l.lane, l.focus), {
+                    recon(deepPrompt(preCodex, dossierOf(laneLabel(l.lane)), l.lane, l.focus), {
                         label: laneLabel(l.lane),
                         phase: P + ' survey',
                         schema: SURVEY_SCHEMA,
@@ -792,7 +822,7 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
     );
 
     phase(P + ' author');
-    const authored = await agent(authorPrompt(pre, t, out, roster, unmapped), {
+    const authored = await agent(authorPrompt(preClaude, t, out, roster, unmapped), {
         label: 'author:' + name.toLowerCase(),
         phase: P + ' author',
         effort: 'high',
@@ -809,7 +839,7 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
     const PASS_LABELS = ['architecture', 'capability', 'roster', 'cold-read'];
     let lastPass = null;
     for (let i = 0; i < 4; i++) {
-        const p = await agent(passPrompts(pre, authored.brief)[i], {
+        const p = await agent(passPrompts(preClaude, authored.brief)[i], {
             label: 'pass:' + PASS_LABELS[i],
             phase: P + ' refine',
             effort: 'high',

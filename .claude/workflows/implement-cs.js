@@ -24,14 +24,14 @@ const IMPL_FAN = 3; // max implement agents fanned per folder, and only over dis
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the no-shrinkage progress gate (no remaining shrinkage -> stop) is the real bound
-const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
+const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
 const ROOT = 'libs/csharp';
 const SHARED_API = 'libs/csharp/.api';
 const CENTRAL = 'Directory.Packages.props';
 const DEFAULT_TARGETS = ['libs/csharp/Rasm.AppHost', 'libs/csharp/Rasm.Compute', 'libs/csharp/Rasm.AppUi', 'libs/csharp/Rasm.Persistence'];
 const CODEX = true;
-const CODEX_DIR = '.claude/scratch/implement-cs'; // per-lane MCP reports
+const SCRATCH = '.claude/scratch/implement-cs'; // per-lane report files
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -682,7 +682,7 @@ const laneLaw = (schema, o) =>
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 const codexPrompt = (label, task, schema, o) => {
-    const base = CODEX_DIR + '/' + fileTag(label);
+    const base = SCRATCH + '/' + fileTag(label);
     const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
     const report = root + '/' + base + '-report.json';
     const model = o.model || 'gpt-5.6-terra';
@@ -703,17 +703,32 @@ const codexPrompt = (label, task, schema, o) => {
             'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
             'error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
-        'TASK:\n\n' + task,
-        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
-            'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
-            report +
-            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+        // writes lanes author their own report (final act) — the sandbox admits it; the wrapper only verifies.
+        'TASK:\n\n' +
+            task +
+            (o.writes
+                ? '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
+                  report +
+                  ' yourself.'
+                : ''),
+        o.writes
+            ? '(3) The lane wrote the report itself. Verify with one Bash call: jq -e . ' +
+              report +
+              ' >/dev/null. If the file is missing or invalid, extract the CONTENT text from the tool result envelope {threadId, content} ' +
+              'and Write it to that path verbatim (the product JSON, never the envelope), then re-verify.'
+            : '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
+              'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
+              report +
+              '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
+              report +
+              ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
+              'failure returns through step (4) with the error.',
         o.receipt(base),
     ].join('\n\n');
 };
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
-    agent(task + o.nativeTail(CODEX_DIR + '/' + fileTag(o.label) + '-report.json'), {
+    agent(task + o.nativeTail(SCRATCH + '/' + fileTag(o.label) + '-report.json'), {
         label: o.label,
         phase: o.phase,
         model: o.nativeModel || twinOf(o.model),
@@ -980,14 +995,15 @@ const implementPrompt = (folder, seq, report, note) =>
             (note ? '\n' + note : ''),
     ].join('\n');
 
+// critiquePrompt feeds the sol codex lane (+ native fable twin): neutral stance — hostile register degrades codex, safe for the twin; the hostile pass is redteam (native).
 const critiquePrompt = (folder, seq, report) =>
     [
         DOCTRINE,
         '',
         'TASK: DOCTRINAL-CONFORMANCE AUDIT + CHARTER-COMPLETENESS + FIX IN PLACE across `' +
             folder +
-            '`. You are an ULTRA-HARSH, UNAGREEABLE auditor: ' +
-            'assume a violation exists in every fence until you prove otherwise, and "good enough" is rejected. The cards realized this turn (read each ' +
+            '`. Verify every fence against the doctrine before accepting it — a fence is unproven until checked, and ' +
+            'confident-looking prose is not evidence it conforms. The cards realized this turn (read each ' +
             'FULL body from `' +
             folder +
             '/IDEAS.md` + `' +
@@ -1192,7 +1208,8 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
 
 const doctrinePrompt = (rows) =>
     'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` FIRST — it ' +
-    'owns the corpus admission and page-shape law; obey it over any restatement. Load the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; ' +
+    'owns the corpus admission and page-shape law; obey it over any restatement. Load the `docgen` skill AND the ' +
+    '`skill-writer` skill via the Skill tool BEFORE any durable edit; ' +
     'load `mermaid-diagramming` before touching any diagram. ' +
     "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
     JSON.stringify(rows) +

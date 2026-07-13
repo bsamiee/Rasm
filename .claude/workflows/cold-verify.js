@@ -28,7 +28,7 @@ export const meta = {
 
 const SLICES = 4;
 const STALL = 300000;
-const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
+const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const CODEX = true; // verifier fan lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 const SCRATCH = '.claude/scratch/cold-verify'; // per-workflow MCP reports
 
@@ -208,14 +208,19 @@ const FIXLOG = {
 
 // --- [SHARED_BLOCKS]
 
-const CTX = (c) =>
+// reg selects the register by the EXECUTING model: 'codex' neutral for a codex verify lane, the default hostile
+// estate register for a native-first lane (plan, resolver) it sharpens; only the stance clause forks.
+const CTX = (c, reg) =>
     'Rasm monorepo, planning phase. The campaign over ' +
     c.root +
     ' is LANDED; ' +
     c.doc +
     ' at the repo ' +
-    'root is the binding ruling it executed. This pass earns the cold close: the corpus is presumed defective until an ' +
-    'attack finds nothing. All .md prose follows docs/standards/style-guide.md — declarative agent-facing law, no ' +
+    'root is the binding ruling it executed. ' +
+    (reg === 'codex'
+        ? 'This pass earns the cold close by verifying the corpus against that ruling before accepting any claim it makes about itself. '
+        : 'This pass earns the cold close: the corpus is presumed defective until an attack finds nothing. ') +
+    'All .md prose follows docs/standards/style-guide.md — declarative agent-facing law, no ' +
     'provenance, no process narration, no hedges. Never run git commit.';
 
 const HUNT =
@@ -244,11 +249,11 @@ const EVIDENCE_LAW =
     'a silent one.';
 
 const SELF_CHECK =
-    'MANDATORY SELF-VERIFY (second pass, before returning): attack your OWN findings — re-open every ' +
-    'cited anchor and try to REFUTE each finding from disk; a finding that fails re-confirmation is deleted, one that ' +
+    'MANDATORY SELF-VERIFY (second pass, before returning): re-derive your OWN findings — re-open every ' +
+    'cited anchor and try to refute each finding from disk; a finding that fails re-confirmation is deleted, one that ' +
     'survives carries exact anchors and concrete evidence. A vague finding — no precise anchor, hedged appears/seems ' +
     'wording, a class without a demonstrated instance — is a defect. Then re-read your scope once more hunting what the ' +
-    'first pass skimmed past; a clean verdict is asserted only after this second hostile pass returns empty.';
+    'first pass skimmed past; a clean verdict is asserted only after this second pass returns empty.';
 
 const LAWS_READ =
     'LAWS — read `docs/laws/` before any durable edit (README + topology + patterns + scars; short registry pages): a ' +
@@ -313,7 +318,10 @@ const codexPrompt = (label, task, schema, o) => {
         '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
             'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
             report +
-            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+            '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
+            report +
+            ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
+            'failure returns through step (4) with the error.',
         '(4) Parse the tool result text only to compute the receipt. Return ok=true, report=' +
             base +
             '-report.json, entries=the length of result["' +
@@ -394,14 +402,14 @@ const lanes = await parallel(
         const verifyTasks = slices.map(
             (pages, i) => () =>
                 recon(
-                    CTX(c) +
+                    CTX(c, 'codex') +
                         '\n\n' +
                         HUNT +
                         '\n\n' +
                         EVIDENCE_LAW +
                         '\n\n' +
                         SELF_CHECK +
-                        '\n\nTASK: HOSTILE READ-ONLY VERIFY, ' +
+                        '\n\nTASK: READ-ONLY VERIFY, ' +
                         'slice ' +
                         i +
                         '. Read ' +
@@ -410,21 +418,21 @@ const lanes = await parallel(
                         'touches your pages. Then read each of these pages IN FULL plus every .api catalog its fences cite: ' +
                         JSON.stringify(pages) +
                         '. Verify each ruling landed PROPERLY — integrated as if always designed that way, at the ' +
-                        'ruled band/signature/charter, frozen names byte-identical — and attack past the ruling: the floor law means a ' +
+                        'ruled band/signature/charter, frozen names byte-identical — and verify past the ruling: the floor law means a ' +
                         'page that merely met its disposition without depth is a naive finding. Return typed anchored findings.',
                     { label: 'verify:' + tag + ':s' + i, phase: 'Verify', schema: FINDINGS, scope: pages, hl: { arr: 'findings', group: 'class' } },
                 ),
         );
         verifyTasks.push(() =>
             recon(
-                CTX(c) +
+                CTX(c, 'codex') +
                     '\n\n' +
                     HUNT +
                     '\n\n' +
                     EVIDENCE_LAW +
                     '\n\n' +
                     SELF_CHECK +
-                    '\n\nTASK: HOSTILE READ-ONLY GOVERNANCE VERIFY. Read ' +
+                    '\n\nTASK: READ-ONLY GOVERNANCE VERIFY. Read ' +
                     c.doc +
                     ' IN FULL, then audit the governance surface end to end: ' +
                     JSON.stringify(gov) +
@@ -440,7 +448,7 @@ const lanes = await parallel(
         BRANCHES.forEach((branch) =>
             verifyTasks.push(() =>
                 recon(
-                    CTX(c) +
+                    CTX(c, 'codex') +
                         '\n\n' +
                         HUNT +
                         '\n\n' +
@@ -448,7 +456,7 @@ const lanes = await parallel(
                         '\n\n' +
                         SELF_CHECK +
                         '\n\nTASK: ' +
-                        'HOSTILE READ-ONLY CROSS-LIBS RIPPLE VERIFY over ' +
+                        'READ-ONLY CROSS-LIBS RIPPLE VERIFY over ' +
                         branch +
                         ' (its branch .planning core, its .api tier, and ' +
                         'every package folder inside it EXCEPT ' +

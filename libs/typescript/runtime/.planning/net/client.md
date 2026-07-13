@@ -15,10 +15,10 @@ Outbound HTTP policy is one lane table, composed once, inherited everywhere: eve
 
 [LANE_ROWS]:
 - Owner: the interior `_lanes` anchor — `live` (interactive calls), `batch` (bulk and export egress), `feed` (long-lived streaming responses) — each row carrying `kind` (the `core/value/fault#RETRY_BUDGET` ledger row the lane's durations read), `budget` (`Option<Duration>` — the ledger row's `total` on the settled lanes, stated absence on `feed` because the connection outlives any deadline), `hops` (the redirect ceiling, zero on `feed`), and `break` (`Option<Breaker.Policy>` — the circuit row the guard reads; stated absence on `feed` because the reconnect pulse already paces re-dials).
-- Law: the pulse compiles from the ledger row's axes — `exponential(base, factor)` → `jittered` → `resetAfter(reset)` → `intersect(recurs(attempts))` → `upTo(window)` — without the ledger's class gate, because `HttpClient.retryTransient` already gates transience at the transport altitude; the compile is one interior function over `Budget[kind]`, so tuning a lane is editing the ledger row and every consumer of that lane inherits the edit at once.
+- Law: the pulse is the ledger owner's own compile — `Budget.schedule(kind, Function.constTrue)` hands the lane the shared compiled base with the class gate stood down, because `HttpClient.retryTransient` already gates transience at the transport altitude; no lane re-spells the compile chain, so tuning a lane is editing the ledger row and every consumer of that lane inherits the edit at once.
 - Law: the row guard closes the member set and the table grows by evidence — `_Rows` proves every lane carries the full policy complement, the anchor itself is the lane set, and a genuinely new egress contract (a webhook lane, a hedged lane) is one row plus zero new surface.
 - Boundary: proxy is transport residency, not per-call policy — the lane table carries no proxy knob, the browser lane has none by construction, and the dispatcher rows in `[5]` own residency.
-- Packages: `effect` (`Schedule`, `Duration`, `Option`), `@rasm/ts/core` (`Budget`).
+- Packages: `effect` (`Duration`, `Function`, `Option`), `@rasm/ts/core` (`Budget`).
 
 ## [03]-[BREAK_STATE]
 
@@ -108,20 +108,12 @@ const Breaker = { guard: _guard } as const
 - Boundary: the client binding is the runtime row's (`exec#RUNTIME_ROWS`); OTLP export composes the `batch` lane so telemetry egress inherits the same posture as every other call — an exporter with a private client is the named fork.
 - Entry: `Client.dial(lane, request[, shape])`; `R` carries `HttpClient` (plus `Scope` on the response modality) to the root.
 - Receipt: the overload annotations are the whole seam contract — fault union and requirement set readable without opening the body.
-- Packages: `@effect/platform` (`HttpClient`, `HttpClientRequest`, `HttpClientResponse`), `effect` (`Data`, `Effect`, `Option`, `Schedule`).
+- Packages: `@effect/platform` (`HttpClient`, `HttpClientRequest`, `HttpClientResponse`), `effect` (`Data`, `Effect`, `Function`, `Option`).
 
 ```typescript
 import { HttpClient, type HttpClientError, type HttpClientRequest, HttpClientResponse } from "@effect/platform"
-import { Clock, Context, Data, Duration, Effect, MutableHashMap, Option, type ParseResult, Ref, Schedule, type Schema, type Scope, pipe } from "effect"
+import { Clock, Context, Data, Duration, Effect, Function, MutableHashMap, Option, type ParseResult, Ref, type Schema, type Scope, pipe } from "effect"
 import { Budget, type FaultClass } from "@rasm/ts/core"
-
-const _pulse = (kind: Budget.Kind): Schedule.Schedule<unknown> =>
-  Schedule.exponential(Budget[kind].base, Budget[kind].factor).pipe(
-    Schedule.jittered,
-    Schedule.resetAfter(Budget[kind].reset),
-    Schedule.intersect(Schedule.recurs(Budget[kind].attempts)),
-    Schedule.upTo(Budget[kind].window),
-  )
 
 const _lanes = {
   live: { kind: "pulse", budget: Option.some(Budget.pulse.total), hops: 2, break: Option.some({ trip: 8, cool: Duration.seconds(30), probes: 1 }) },
@@ -144,7 +136,7 @@ const _tempered = (lane: Client.Lane) => (client: HttpClient.HttpClient): HttpCl
   client.pipe(
     HttpClient.filterStatusOk,
     HttpClient.followRedirects(_lanes[lane].hops),
-    HttpClient.retryTransient({ schedule: _pulse(_lanes[lane].kind) }),
+    HttpClient.retryTransient({ schedule: Budget.schedule(_lanes[lane].kind, Function.constTrue) }),
     HttpClient.withTracerPropagation(true),
   )
 

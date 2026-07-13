@@ -27,7 +27,7 @@ const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this ma
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
-const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
+const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
 const SCRATCH = '.claude/scratch/reframe'; // frame-recon report files + critique fixlogs
 const CODEX = true; // frame-recon + critique lanes run on gpt-5.6 via the codex wrapper; false restores native lanes (terra->opus, sol->fable)
@@ -376,19 +376,33 @@ const CONTEXT = (L) =>
     'prose + comments to carry the intent, invariant, seam, and rationale the code fences alone cannot hold. This run rebuilds ' +
     'PROSE and STRUCTURE only.';
 
-const STANCE =
-    'STANCE — every pass is hostile: author, critique, and red-team alike. The pages under review were framed by ANOTHER ' +
-    'engineer and are under adversarial review; hold every page`s framing poisoned, drifted, or noise-bloated until it survives ' +
-    'a real attack; the burden of proof is on the page, never on you. "Already clean", "good enough", and a prior clean verdict ' +
-    'are rejected self-assessments. Dense, confident, official-looking prose is the PRIME suspect: a page that reads as ' +
-    'authoritative is exactly the one a future rebuild anchors to hardest, so disbelieve its framing and verify every structural ' +
-    'choice against the file kind`s template and the docgen register. NAIVETY is a defect on two axes. COVERAGE — the pass worked ' +
-    'a thin slice: short pages, page tops, the first screen of long fences, while deep sections, bottom-half fences, and table ' +
-    'cells kept their frame. APPROACH — enumerated spot-fixes where one rule owns the space: a recurring hedge, restatement, ' +
-    'frame, or divider defect is a FAMILY swept corpus-wide with one rule, the found instances mere pointers to it. Every ' +
-    'enumerated defect list in these prompts is a FLOOR hunted past, never the complete set. NO CHURN: an edit requires a named ' +
-    'violated register law or template rule and the concrete line that breaks it; a clean verdict earned by an attack that finds ' +
-    'nothing is a first-class result, proven by adding nothing — a reviewer forced to edit invents defects.';
+// reg selects the register by the EXECUTING model: 'codex' neutral+de-conflicted for a codex lane (frame, sol
+// critique), 'claude' the hostile estate register a native lane (writer, red-team) reads as sharpening. Substance is
+// identical — two naivety axes, floor-hunted-past, no-churn, verify-against-template — only the phrasing forks.
+const STANCE = (reg) =>
+    reg === 'codex'
+        ? 'REVIEW POSTURE — the pages were framed by ANOTHER engineer and are unverified: verify every structural choice against ' +
+          'the file kind`s template and the docgen register before accepting it; a prior clean verdict or confident, ' +
+          'official-looking prose is not evidence — a page that reads as authoritative is exactly the one a future rebuild ' +
+          'anchors to hardest, so check its framing rather than trust it. NAIVETY is a defect on two axes. COVERAGE — the pass ' +
+          'worked a thin slice: short pages, page tops, the first screen of long fences, while deep sections, bottom-half ' +
+          'fences, and table cells kept their frame. APPROACH — enumerated spot-fixes where one rule owns the space: a recurring ' +
+          'hedge, restatement, frame, or divider defect is a FAMILY swept corpus-wide with one rule, the found instances mere ' +
+          'pointers to it. Every enumerated defect list in these prompts is a floor hunted past, never the complete set. NO ' +
+          'CHURN: an edit requires a named violated register law or template rule and the concrete line that breaks it; a clean ' +
+          'verdict from a check that finds nothing is a first-class result, proven by adding nothing.'
+        : 'STANCE — every pass is hostile: author, critique, and red-team alike. The pages under review were framed by ANOTHER ' +
+          'engineer and are under adversarial review; hold every page`s framing poisoned, drifted, or noise-bloated until it survives ' +
+          'a real attack; the burden of proof is on the page, never on you. "Already clean", "good enough", and a prior clean verdict ' +
+          'are rejected self-assessments. Dense, confident, official-looking prose is the PRIME suspect: a page that reads as ' +
+          'authoritative is exactly the one a future rebuild anchors to hardest, so disbelieve its framing and verify every structural ' +
+          'choice against the file kind`s template and the docgen register. NAIVETY is a defect on two axes. COVERAGE — the pass worked ' +
+          'a thin slice: short pages, page tops, the first screen of long fences, while deep sections, bottom-half fences, and table ' +
+          'cells kept their frame. APPROACH — enumerated spot-fixes where one rule owns the space: a recurring hedge, restatement, ' +
+          'frame, or divider defect is a FAMILY swept corpus-wide with one rule, the found instances mere pointers to it. Every ' +
+          'enumerated defect list in these prompts is a FLOOR hunted past, never the complete set. NO CHURN: an edit requires a named ' +
+          'violated register law or template rule and the concrete line that breaks it; a clean verdict earned by an attack that finds ' +
+          'nothing is a first-class result, proven by adding nothing — a reviewer forced to edit invents defects.';
 
 const TERRITORY = (L) =>
     'TERRITORY — reframe rebuilds PROSE and STRUCTURE, never code. UNTOUCHED (a change here is a defect the next stage reverts): ' +
@@ -489,7 +503,7 @@ const ANTI_ANCHOR =
     'spine, or a pre-authored diagram ANCHORS and WEAKENS the writer and is your defect — the writer rules every rebuild.';
 
 const SELF_CHECK =
-    'MANDATORY SELF-VERIFY (second pass, before returning): adversarially re-derive every finding from disk — re-open each ' +
+    'MANDATORY SELF-VERIFY (second pass, before returning): re-derive every finding from disk — re-open each ' +
     'cited anchor and confirm it states what the finding claims, trace each seam to both endpoints. A finding that fails ' +
     're-confirmation is corrected or deleted, never returned; a guess, a skimmed summary, or a vague/hedged finding is a defect. ' +
     'Completeness is part of correctness: after the re-read, hunt once more for the frame the first pass missed.';
@@ -606,11 +620,25 @@ const codexPrompt = (label, task, schema, o) => {
             'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
             'error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
-        'TASK:\n\n' + task,
-        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
-            'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
-            report +
-            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+        'TASK:\n\n' +
+            task +
+            (o.writes
+                ? '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
+                  report +
+                  ' yourself.'
+                : ''),
+        o.writes
+            ? '(3) The lane wrote the report itself. Verify with one Bash call: jq -e . ' +
+              report +
+              ' >/dev/null. If the file is missing or invalid, extract the CONTENT text from the tool result envelope {threadId, content} ' +
+              'and Write it to that path verbatim (the product JSON, never the envelope), then re-verify.'
+            : '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
+              'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
+              report +
+              '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
+              report +
+              ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
+              'failure returns through step (4) with the error.',
         '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
             base +
             '-report.json, entries=the length of result["' +
@@ -707,7 +735,7 @@ const planPrompt = () =>
 const framePrompt = (L, u) =>
     [
         CONTEXT(L),
-        STANCE,
+        STANCE('codex'),
         TERRITORY(L),
         FRAME_LAW,
         DIVIDERS(L),
@@ -715,14 +743,14 @@ const framePrompt = (L, u) =>
         SELF_CHECK,
         ANTI_ANCHOR,
         READ_FIRST(L, u),
-        'TASK: HOSTILE READ-ONLY FRAME RECON over EVERY design page under `' +
+        'TASK: READ-ONLY FRAME RECON over EVERY design page under `' +
             u.planning +
             '` plus the owning-package `' +
             u.context_root +
             '/README.md` and `' +
             u.context_root +
-            '/ARCHITECTURE.md` (investigate, do NOT edit; read-only is the only concession — the hunt is as adversarial as every ' +
-            'writing pass). Map the FRAME defects as findings, each graded and anchored: (imported-frame) a page wearing another ' +
+            '/ARCHITECTURE.md` (investigate, do NOT edit; read-only is the only concession). Map the FRAME defects as findings, ' +
+            'each graded and anchored: (imported-frame) a page wearing another ' +
             'corpus`s styling or shape; (template-drift) a README/ARCHITECTURE/spec page whose structure diverges from its docgen ' +
             'template, its heading census wrong; (text-seam) a cross-page/package seam drawn as ASCII art, a text tree, or a prose ' +
             'adjacency list where one mermaid diagram belongs; (dead-prose) narration, restatement, no-op or superseded prose ' +
@@ -739,7 +767,7 @@ const framePrompt = (L, u) =>
 const writerPrompt = (L, u, framed, unmapped) =>
     [
         CONTEXT(L),
-        STANCE,
+        STANCE('claude'),
         TERRITORY(L),
         FRAME_LAW,
         DOCGEN_LAW,
@@ -772,7 +800,7 @@ const writerPrompt = (L, u, framed, unmapped) =>
 const critiquePrompt = (L, u, framed, unmapped, nav) =>
     [
         CONTEXT(L),
-        STANCE,
+        STANCE('codex'),
         TERRITORY(L),
         FRAME_LAW,
         DOCGEN_LAW,
@@ -787,7 +815,7 @@ const critiquePrompt = (L, u, framed, unmapped, nav) =>
             'FIRST, never what you conclude): ' +
             JSON.stringify(nav),
         GIT_GROUND,
-        'TASK: HOSTILE PREDICATE-POSITIVE CONFORMANCE AUDIT; fix EACH page in place across `' +
+        'TASK: PREDICATE-POSITIVE CONFORMANCE AUDIT; fix EACH page in place across `' +
             u.planning +
             '` plus the README.md + ARCHITECTURE.md. FORM YOUR OWN DEFECT LIST FIRST — read each page cold from CURRENT disk and ' +
             'derive your findings before consulting NAVIGATION. Verify each required law HOLDS and cite the clause; every miss is ' +
@@ -811,7 +839,7 @@ const critiquePrompt = (L, u, framed, unmapped, nav) =>
 const redteamPrompt = (L, u, framed, unmapped, nav, crit) =>
     [
         CONTEXT(L),
-        STANCE,
+        STANCE('claude'),
         TERRITORY(L),
         FRAME_LAW,
         DOCGEN_LAW,

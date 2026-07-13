@@ -28,7 +28,7 @@ const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 480000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
-const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
+const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const SCRATCH = '.claude/scratch/finalize'; // per-folder grounding dossiers: shared-context extracts, facts only
 const CODEX = true; // census lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
@@ -428,7 +428,10 @@ const codexPrompt = (label, task, schema, o) => {
             'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute ' +
             'path: ' +
             report +
-            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+            '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
+            report +
+            ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
+            'failure returns through step (4) with the error.',
         '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
             base +
             '-report.json, entries=the length of result["' +
@@ -553,11 +556,13 @@ const censusPrompt = (page, folder, root, dossier) =>
             ' — never memory. Sibling folders are being corrected concurrently: judge CURRENT disk only ' +
             '— a defect already fixed on disk is not a finding. Return the correction census, one finding per defect (a finding ' +
             "may anchor outside your page or folder — your folder's fixer owns every finding you return); `kind` classifies it: `underutilized` (a catalog capability the " +
-            'page concept admits but no fence exploits — name the concrete member and where it integrates), `handrolled` (page logic re-deriving what ' +
+            'page concept admits but no fence exploits — ESPECIALLY the shared rail/Effect substrate the .api roster shows composed by few or no ' +
+            'pages; name the concrete member and where it integrates), `handrolled` (page logic re-deriving what ' +
             'an admitted package/API owns), `phantom_forgotten` (a cited member/type/seam that does not exist AND intent evidence stands — name the ' +
             'evidence; the fix realizes it), `phantom_lie` (cited, nonexistent, no intent evidence — the fix deletes it), `splitbrain` (one concern ' +
             'spelled two ways / dual paradigms on one rail), `differentiation` (parallel shapes/entries/name families one polymorphic owner should ' +
-            'carry), `naive` (mini fields, capability-thin owners, enumerated rosters where a generator belongs), `flow` (rail breaches, dead ends, ' +
+            'carry — including a concept this page models that a sibling page or folder also models, the cross-folder duplicate routed to the ' +
+            'one canonical owner), `naive` (mini fields, capability-thin owners, enumerated rosters where a generator belongs), `flow` (rail breaches, dead ends, ' +
             'unreachable cases, admission done twice or never), `stale` (references to renamed/moved/dead owners). ' +
             'An empty census is EARNED by the full read, never a first-pass concession.',
     ].join('\n\n');

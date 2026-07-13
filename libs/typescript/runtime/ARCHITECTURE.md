@@ -16,13 +16,13 @@ runtime/
     │   ├── life.ts            # Life — ranked lifecycle/health rows on severed fibers folded into one graded receipt
     │   └── worker.ts          # The off-thread protocol: Schema.TaggedRequest union, zero-copy crossings, one pool
     ├── net/                   # Outbound transport and the fanout/replay port
-    │   ├── client.ts          # The outbound HTTP lane table — status admission, retry pulses compiled from core Budget rows
+    │   ├── client.ts          # The outbound HTTP lane table — status admission, retry pulses from the core Budget.schedule owner
     │   ├── channel.ts         # Framed long-lived byte channels: socket duplex under a closed frame vocabulary + SSE feeds
     │   ├── pubsub.ts          # Fanout — engine-blind broadcast/replay/blob port; local, cross-tab, and NATS JetStream rows over one Broker
     │   └── coordinate.ts      # Accord — engine-blind lease/elect/CAS port; NATS KV revision row + browser Web Locks row
     ├── otel/                  # The OTLP wire: export/ingest, crash capture, browser RUM
     │   ├── emit.ts            # Export.live(policy) — the one OTLP egress Layer + collector ingress, with the Redaction scrub
-    │   ├── crash.ts           # The total Cause→fatal-emission fold through Convention rows and the core fault enrichers
+    │   ├── crash.ts           # The total Cause→fatal-emission fold through the core FaultCapture forensic band and fault enrichers
     │   └── vital.ts           # Six RUM vital rows over one scoped PerformanceObserver bridge
     ├── serve/                 # The one public front door
     │   ├── api.ts             # The assembly law: domains export HttpApiGroup/RpcGroup data; the APP assembles exactly one HttpApi
@@ -54,7 +54,10 @@ runtime/
 
 ```text seams
 proc/flag      ←  typescript:core/interchange  # [SHAPE]: FlagVerdict OpenFeature-contract landing
-net/client     ←  typescript:core/value        # [SHAPE]: Budget ledger rows compiled into lane pulses
+net/client     ←  typescript:core/value        # [SHAPE]: Budget.schedule lane pulses under the transport transience gate
+net/channel    ←  typescript:core/value        # [SHAPE]: Budget.schedule("feed") reconnect envelope + Degrade silence cadence
+otel/crash     ←  typescript:core/value        # [SHAPE]: FaultCapture/FaultEnricher crash-evidence contract + FaultClass Cause dominance
+otel/emit      ←  typescript:core/value        # [SHAPE]: AppIdentity boot identity stamped on the OTLP Resource
 otel/emit      ←  typescript:core/observe      # [SHAPE]: Convention rows stamped at every emission
 otel/emit      ←  csharp:Rasm.AppHost          # [TRANSPORT]: OTLP export alignment at the shared collector
 serve/route    ←  typescript:security/crypt    # [BOUNDARY]: Intake held-octets verify seam

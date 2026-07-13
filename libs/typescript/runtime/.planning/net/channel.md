@@ -23,7 +23,7 @@ Framed stream transport is the second half of the branch net plane: where `clien
 ```typescript
 import { Sse } from "@effect/experimental"
 import { type HttpClient, HttpClientRequest, MsgPack, Ndjson, Socket } from "@effect/platform"
-import { type Channel, type Chunk, Context, Data, Duration, Effect, Layer, Option, type ParseResult, Ref, Schedule, type Schema, Stream, pipe } from "effect"
+import { type Channel, type Chunk, Context, Data, Duration, Effect, Layer, Option, type ParseResult, Ref, type Schema, Stream, pipe } from "effect"
 import { Budget, Degrade, type FaultClass } from "@rasm/ts/core"
 import { Client } from "./client.ts"
 
@@ -62,8 +62,8 @@ const Duplex = { framed: _framed } as const
 [FEED_SEAM]:
 - Owner: `Feed` — the server-sent-event ingress port every SSE consumer in the branch shares (`flag#GATE_SERVICE` is the standing consumer; the serving edge composes the same codec's `Sse.encoder` for the mirror side). `Feed.open(origin)` yields the live event stream: the session dials the `feed` client lane (no total budget), reads the response body as bytes, and decodes frames by piping the body through `Sse.makeChannel({ bufferSize })` — `Sse.Event | Sse.Retry` is the closed frame family, so the line protocol is package capability, never a hand parser.
 - Law: the reattach cursor is a fold, not a cell convention — every `Sse.Event` carrying an `id` advances the cursor, and a reconnect stamps it as the `last-event-id` request header, so an outage backfills by event id; the cursor lives in the session's own `Ref`, invisible to consumers.
-- Law: the server drives its own reconnect cadence — a `Sse.Retry` frame settles into the session's cadence cell and the next re-dial sleeps the held hint ahead of the pulse delay, so reconnection is one fold over two evidence sources: the `feed` budget row's compiled pulse (`core/value/fault#RETRY_BUDGET`) owns the backoff envelope, the Retry hint composes ahead of it as the server's stated floor, and exhaustion mints `FeedFault` with the origin as evidence — the one fault consumers see, classed `unavailable` so the ledger gate re-drives a composing consumer.
-- Law: silence is laddered, never polled — `Feed.cadence` folds an observed quiet span through `Degrade.level` to the rung's probe cadence a long-lived consumer schedules; the ladder folds the span it is handed, the consumer owns the measurement.
+- Law: the server drives its own reconnect cadence — a `Sse.Retry` frame settles into the session's cadence cell and the next re-dial sleeps the held hint ahead of the pulse delay, so reconnection is one fold over two evidence sources: `Budget.schedule("feed")` — the ledger owner's gate-modal compile, attempts, reset, jitter, and elapsed window intact — owns the backoff envelope under its `FaultClass.retryable` default gate (every retry-channel error is `FeedFault`, classed `unavailable`, so the gate passes by classification), the Retry hint composes ahead of it as the server's stated floor, and exhaustion mints `FeedFault` with the origin as evidence — the one fault consumers see.
+- Law: silence is laddered, never polled — `Feed.cadence` is the one-hop `Degrade.cadence` fold from an observed quiet span to the rung's probe cadence a long-lived consumer schedules; the ladder folds the span it is handed, the consumer owns the measurement, and no consumer indexes a degradation row to reconstruct cadence.
 - Law: the `Sse.Retry` frame is two evidence fields — `duration` (already a `Duration.Duration`, read directly into the cadence cell) and `lastEventId` (a server-stamped cursor that advances reattach exactly as an event `id` does), so a `retry:` frame carrying a last-id both floors the next delay and moves the resume point.
 - Law: the feed is transport only — it emits decoded `Sse.Event` frames and owns no payload vocabulary; the consumer's own Schema decodes `event.data` at its seam, so one feed serves every event dialect.
 - Boundary: the serving mirror — `Sse.encoder` framing an outbound event stream over an HTTP response — is the edge wave's mount; this page owns the codec direction law so the dialect has one owner.
@@ -88,8 +88,7 @@ class Feed extends Context.Tag("runtime/Feed")<Feed, {
       open: (origin) => Stream.provideContext(_session(origin), context),
     })),
   )
-  static readonly cadence = (silence: Duration.DurationInput): Duration.Duration =>
-    Degrade[Degrade.level(silence)].cadence
+  static readonly cadence = (silence: Duration.DurationInput): Duration.Duration => Degrade.cadence(silence)
 }
 
 declare namespace Feed {
@@ -116,12 +115,6 @@ const _pulled = (
     ),
   ).pipe(Stream.mapError(() => new FeedFault({ origin: origin.href })))
 
-const _PULSE = Schedule.exponential(Budget.feed.base, Budget.feed.factor).pipe(
-  Schedule.jittered,
-  Schedule.resetAfter(Budget.feed.reset),
-  Schedule.intersect(Schedule.recurs(Budget.feed.attempts)),
-)
-
 const _session = (origin: URL): Stream.Stream<Sse.Event, FeedFault, HttpClient.HttpClient> =>
   Stream.unwrap(
     Effect.gen(function* () {
@@ -143,7 +136,7 @@ const _session = (origin: URL): Stream.Stream<Sse.Event, FeedFault, HttpClient.H
             : Ref.update(cursor, (held) => Option.orElse(Option.fromNullable(frame.id), () => held))),
         Stream.filter((frame): frame is Sse.Event => frame._tag === "Event"),
       )
-      return attempt.pipe(Stream.retry(_PULSE))
+      return attempt.pipe(Stream.retry(Budget.schedule("feed")))
     }),
   )
 

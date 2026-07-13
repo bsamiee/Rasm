@@ -23,10 +23,10 @@ const CAP = 14;
 const SURVEY_PAGE_CAP = 12;
 const STAGGER_MS = 1500;
 const STALL = 300000;
-const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
-const SOL_STALL = 1500000; // sol critique holds one long blocking MCP call at the operator-default tier (xhigh, 1200s ceiling); stall detection must outlast it
+const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
+const SOL_STALL = 1500000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
 const CODEX = true; // survey + critique lanes ride codex wrappers (terra; sol for critique); false restores native lanes
-const CODEX_DIR = '.claude/scratch/ideate'; // per-lane MCP reports
+const SCRATCH = '.claude/scratch/ideate'; // per-lane report files
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -228,7 +228,7 @@ const INFO_LAW =
     'full-read, `skipped`/`unverified` = what you did not reach — an honest skip beats a silent one.';
 
 const SELF_CHECK =
-    'MANDATORY SELF-VERIFY (second pass, before returning): adversarially re-derive every entry from disk — re-open each cited ' +
+    'SELF-VERIFY (second pass, before returning): re-derive every entry from disk — re-open each cited ' +
     'anchor and confirm it states what the entry claims, re-verify each member spelling against its catalog, trace each cross-folder seam to both ' +
     'endpoints. An entry that fails re-confirmation is corrected or deleted, never returned; a guess, an assumption, a skimmed summary, or a ' +
     'vague/hedged entry is a defect. Completeness is part of correctness: after the re-read, hunt once more for what the first pass missed — an ' +
@@ -277,7 +277,8 @@ const nameOf = (f) => f.split('/').pop() || f;
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content to the lane
 // report, and returns mechanical orchestration data. Lane law rides developer-instructions (role split — recon law
 // for read-only survey lanes, fix law for the in-place critique lane); the prompt carries only the task; the output
-// contract sits LAST.
+// contract sits LAST. surveyPrompt/critiquePrompt feed codex-primary lanes and carry a neutral register (a hostile
+// stance makes codex over-probe); the native fable ideatePrompt/redteamPrompt keep the estate register — same substance.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const laneLaw = (schema, o) =>
     (o.fix
@@ -298,7 +299,7 @@ const laneLaw = (schema, o) =>
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 const codexPrompt = (label, task, schema, o) => {
-    const base = CODEX_DIR + '/' + fileTag(label);
+    const base = SCRATCH + '/' + fileTag(label);
     const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
     const report = root + '/' + base + '-report.json';
     const model = o.model || 'gpt-5.6-terra';
@@ -320,11 +321,26 @@ const codexPrompt = (label, task, schema, o) => {
             'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
             'error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
-        'TASK:\n\n' + task,
-        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
-            'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
-            report +
-            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+        // writes lanes (sol critique) author their own report (final act) — the sandbox admits it; the wrapper only verifies.
+        'TASK:\n\n' +
+            task +
+            (o.writes
+                ? '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
+                  report +
+                  ' yourself.'
+                : ''),
+        o.writes
+            ? '(3) The lane wrote the report itself. Verify with one Bash call: jq -e . ' +
+              report +
+              ' >/dev/null. If the file is missing or invalid, extract the CONTENT text from the tool result envelope {threadId, content} ' +
+              'and Write it to that path verbatim (the product JSON, never the envelope), then re-verify.'
+            : '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
+              'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
+              report +
+              '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
+              report +
+              ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
+              'failure returns through step (4) with the error.',
         '(4) Parse the tool result text only to compute result["' +
             hl.arr +
             '"].length' +
@@ -348,7 +364,7 @@ const nativeLane = (task, o) =>
     agent(
         task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
-            CODEX_DIR +
+            SCRATCH +
             '/' +
             fileTag(o.label) +
             '-report.json (Write tool, absolute path under the repo root): ' +
@@ -400,7 +416,7 @@ const surveyPrompt = (folder, slice) =>
             'REAL domain needs beyond the realized set — research the domain, never guess — each named with concrete verified members, never a phantom; ' +
             '`stacking` = an admitted .api capability no page or card exploits, carrying verified members and the page whose concept admits it; ' +
             '`cross-folder` = a contextual seam where a card should Ripple to a sibling owner, anchored on both endpoints; `existing-card` = a current pool ' +
-            'card and its state. `summary` carries stacking guidance plus a hostile weak/strong call per page. The map is an initial pointer for downstream ' +
+            'card and its state. `summary` carries stacking guidance plus a weak/strong call per page. The map is an initial pointer for downstream ' +
             'stages, never a ceiling.' +
             (slice ? '\n' + slice : ''),
     ].join('\n');
@@ -452,9 +468,9 @@ const critiquePrompt = (folder) =>
         'TASK: MECHANICAL LINE-BY-LINE CRITIQUE + FIX IN PLACE of every card in ' +
             folder +
             '/IDEAS.md + ' +
-            'TASKLOG.md — hold the pool naive until it proves otherwise. Audit card by card and pull the pool UP: denser/sharper theses, fuller ' +
+            'TASKLOG.md — treat the pool as unverified until checked. Audit card by card and pull the pool UP: denser/sharper theses, fuller ' +
             'domain-completeness (is a genuinely-deferred capability still missing?), better anchors, richer and correct Ripple refs, polymorphic/AOP ' +
-            'framing in Capability/Shape. Attack both naivety axes: widen COVERAGE thin-slices to the full concept; rewrite APPROACH roster-cards so the ' +
+            'framing in Capability/Shape. Address both naivety axes: widen COVERAGE thin-slices to the full concept; rewrite APPROACH roster-cards so the ' +
             'roster is seed data feeding one parameterized generator. Check every member a card cites against both .api tiers — correct or delete ' +
             'phantoms; card any admitted capability the pool ignores. These checks are a floor — hunt past them. A cross-folder Ripple asymmetry is ' +
             'repaired at BOTH ends NOW per the RIPPLE + CURRENT-STATE laws. EDIT the card files. Return the card-log listing every file you edited ' +
@@ -491,7 +507,8 @@ const redteamPrompt = (folder, critRep) =>
     ].join('\n');
 const doctrinePrompt = (rows) =>
     'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` FIRST — it ' +
-    'owns the corpus admission and page-shape law; obey it over any restatement. Load the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; ' +
+    'owns the corpus admission and page-shape law; obey it over any restatement. Load the `docgen` skill AND the ' +
+    '`skill-writer` skill via the Skill tool BEFORE any durable edit; ' +
     'load `mermaid-diagramming` before touching any diagram. ' +
     "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
     JSON.stringify(rows) +

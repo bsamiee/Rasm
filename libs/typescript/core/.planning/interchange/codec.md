@@ -493,8 +493,8 @@ class FaultDetail extends Schema.TaggedError<FaultDetail>()("FaultDetail", {
                   onSome: (reason) =>
                     capture.enriched({
                       [_WIRE_ATTR.reason]: reason,
-                      [_WIRE_ATTR.retryable]: String(_hops[reason].retryable),
-                      [_WIRE_ATTR.terminal]: String(_hops[reason].terminal),
+                      [_WIRE_ATTR.retryable]: _hops[reason].retryable,
+                      [_WIRE_ATTR.terminal]: _hops[reason].terminal,
                     }),
                 },
               )

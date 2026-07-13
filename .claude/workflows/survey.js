@@ -46,11 +46,11 @@ const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const EXEC_STALL = 480000;
-const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
+const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const MAP_SLICE = 5; // planning pages per mapper
 const CATALOG_BATCH = 2; // admitted packages per catalog writer
 const CODEX = true; // scout/research/map lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
-const CODEX_DIR = '.claude/scratch/survey'; // per-lane MCP reports
+const SCRATCH = '.claude/scratch/survey'; // per-lane report files
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -499,7 +499,7 @@ const laneLaw = (schema, o) =>
 // One core builder for both codex lanes; only step (4) differs — codexPrompt returns a thin receipt, codexInline
 // relays the product JSON verbatim (scout's payload is small orchestration input that fans Research and slices Map).
 const codexSteps = (label, task, schema, o, step4) => {
-    const base = CODEX_DIR + '/' + fileTag(label);
+    const base = SCRATCH + '/' + fileTag(label);
     const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
     const report = root + '/' + base + '-report.json';
     return [
@@ -516,11 +516,15 @@ const codexSteps = (label, task, schema, o, step4) => {
             'error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' + task,
+        // read-only lanes: the wrapper writes the product; a jq gate catches a dropped tail before the receipt asserts ok.
         '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
             'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute ' +
             'path: ' +
             report +
-            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+            '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
+            report +
+            ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
+            'failure returns through step (4) with the error.',
         step4(base, report),
     ].join('\n\n');
 };
@@ -562,7 +566,7 @@ const nativeLane = (task, o) =>
     agent(
         task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
-            CODEX_DIR +
+            SCRATCH +
             '/' +
             fileTag(o.label) +
             '-report.json (Write tool, absolute path under the repo root): ' +
@@ -730,18 +734,20 @@ const lane = async (t) => {
     const tag = t.split('/').pop();
 
     // --- [SCOUT]
+    // Scout/research/map are codex-primary lanes: their task text is neutral-register (a hostile stance makes codex
+    // over-probe); the native fable admit/catalog/integrate builders keep the estate register — same substance.
     const scoutPrompt = [
         CTX(t, L),
         MEMBER_TRUTH(L),
         ADDITION_LAW,
-        'TASK: HOSTILE READ-ONLY SCOUT (investigate, do NOT edit). Map ' +
+        'TASK: READ-ONLY SCOUT (investigate, do NOT edit). Map ' +
             t +
             ' against real disk, never memory: `ls`/`fd` the ' +
             'folder tree and BOTH .api tiers, then FULL-read the README, the project/registry surface, every folder-tier catalog, every ' +
             'design page under ' +
             t +
             "/.planning/, the substrate-tier catalogs the folder references, and the folder's central " +
-            'manifest rows. Return: `domain` (1-2 sentences); `packages` (every admitted package with version and a hostile role call); ' +
+            'manifest rows. Return: `domain` (1-2 sentences); `packages` (every admitted package with version and a candid role call); ' +
             '`handRolls` (each capability the design pages implement by hand that a real ecosystem package owns, with a verified ' +
             'page-section evidence pointer); `pages` (the real listing of every design page); `facets` — 4 to 8 non-overlapping research ' +
             "directions that together cover the folder's highest-value package gaps, judged against the bleeding-edge state of the art " +
@@ -791,7 +797,7 @@ const lane = async (t) => {
                                 (fc.mandate ? ' · mandate=' + fc.mandate : '') +
                                 '. Find the best-in-class MODERN package(s) that close this gap ' +
                                 'for the folder domain. The facet is your initial pointer, never a ceiling: re-derive the landscape yourself and sweep the ' +
-                                'full space it names — the first-found candidate is the presumed-naive pick until the real alternatives are attacked and ' +
+                                'full space it names — the first-found candidate is provisional until the real alternatives are compared and ' +
                                 'the strongest named. Reject a thin-slice package covering one corner when a full-space owner exists; prefer one ' +
                                 "parameterized owner over a roster of point solutions. The folder's scout-verified HAND-ROLL CENSUS — capability the " +
                                 'design pages implement by hand that a real package owns — is: ' +

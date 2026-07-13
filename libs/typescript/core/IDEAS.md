@@ -16,7 +16,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
-(none)
+[C1]-[QUEUED]: One generative vocabulary-table owner for the value floor.
+- Capability: a declaration-time generator deriving the kinds tuple, literal schema, guard pair, positional `Order`, and assembled `Shape` from one row-table declaration.
+- Shape: a `value`-tier owner the six re-spelled assembly grammars (`FaultClass`, `Budget`, `Degrade`, `Uncertainty.grades`, `Availability._ROWS`, `WireFault._policy`) become declarations of.
+- Unlocks: the next vocabulary is one row-table declaration; the position-to-`Order` projection has one spelling branch-wide.
+- Anchors: `fault.md#CLASS_VOCABULARY` assembly grammar; `clock.md` `Uncertainty`; `evidence.md` `Availability`; `codec.md` `WireFault._policy`; the derivation vocabulary-table owner form.
+- Tension: the three-altitude fault law keeps the tables distinct — the generator shares machinery without merging vocabularies; the stated-annotation export gate constrains a generic assembled-owner annotation.
 
 ## [02]-[CLOSED]
 

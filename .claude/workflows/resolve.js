@@ -35,7 +35,7 @@ const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this ma
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
-const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
+const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
 const CENSUS_PAGES = 10; // pages per census lane; a folder past it splits so each lane returns a bounded entry set on the wire
 const SCRATCH = '.claude/scratch/resolve'; // census products, verdict reports, apply fixlogs, per-folder seam ledgers
@@ -507,11 +507,25 @@ const codexPrompt = (label, task, schema, o) => {
             'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
             'error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
-        'TASK:\n\n' + task,
-        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
-            'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
-            report +
-            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+        'TASK:\n\n' +
+            task +
+            (o.writes
+                ? '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
+                  report +
+                  ' yourself.'
+                : ''),
+        o.writes
+            ? '(3) The lane wrote the report itself. Verify with one Bash call: jq -e . ' +
+              report +
+              ' >/dev/null. If the file is missing or invalid, extract the CONTENT text from the tool result envelope {threadId, content} ' +
+              'and Write it to that path verbatim (the product JSON, never the envelope), then re-verify.'
+            : '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
+              'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
+              report +
+              '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
+              report +
+              ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
+              'failure returns through step (4) with the error.',
         '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
             base +
             '-report.json, entries=the length of result["' +
@@ -606,7 +620,10 @@ const censusCodexPrompt = (label, task, o) => {
         '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
             'Write that CONTENT text (the census product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
             report +
-            '. Do not normalize, reformat, or summarize it before writing.',
+            '. Do not normalize, reformat, or summarize it before writing. Then verify with one Bash call: jq -e . ' +
+            report +
+            ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
+            'failure returns the empty product through step (4).',
         '(4) Parse the tool result content JSON and return it VERBATIM as YOUR final message — the object with keys ' +
             'entries, coverage, summary matching the output schema. On a second tool error return entries [], an empty coverage ' +
             '(all four arrays []), and summary equal to the error text VERBATIM.',
@@ -675,19 +692,32 @@ const navOf = (logs) => {
 // law first, folder-variable material second, the stage task + output contract LAST.
 const CONTEXT = (L) => 'Rasm monorepo — ' + L.corpus + '. ' + L.strata + ' ' + L.stackFloor;
 
-const STANCE = (L) =>
-    'STANCE — every pass is hostile: author, critique, and red-team alike. The pages under review were authored by ANOTHER ' +
-    'engineer and are under adversarial review; hold every fence and every research row naive, shallow, or illusory until it ' +
-    'survives a real attack; the burden of proof is on the code, never on you. "Mature", "already strong", and a prior clean ' +
-    'verdict are rejected self-assessments — most of this corpus is ' +
-    L.slur +
-    '. A research row is a writer epistemic ' +
-    'debt: a member spelling, capability, or behavior the author GUESSED and flagged instead of verifying, so a row that reads ' +
-    'confident is the PRIME suspect — the guessed spelling may be a phantom (' +
-    L.illusion +
-    '). NO CHURN: an edit ' +
-    'requires a named violated law or a landed verdict and the concrete case that breaks it; a clean verdict earned by an attack ' +
-    'that finds nothing is a first-class result, proven by adding nothing.';
+// reg selects the register by the EXECUTING model: 'codex' neutral+de-conflicted for a codex lane (census, catalog/
+// doc verify, sol critique), 'claude' the hostile estate register a native lane (assay verify, apply, red-team) reads
+// as sharpening. Substance is identical — research-row = epistemic debt, confident-row suspect, no-churn — only the
+// phrasing forks; codex drops the corpus-slur priming.
+const STANCE = (L, reg) =>
+    reg === 'codex'
+        ? 'REVIEW POSTURE — the pages and their research rows are unverified work by ANOTHER engineer: verify every fence claim ' +
+          'and every research row against the real domain and the catalogued package surface before accepting it; a prior clean ' +
+          'verdict or confident prose is not evidence. A research row is a writer epistemic debt — a member spelling, capability, ' +
+          'or behavior the author GUESSED and flagged instead of verifying, so a row that reads confident is a prime candidate ' +
+          'for a phantom (' +
+          L.illusion +
+          '). NO CHURN: an edit requires a named violated law or a landed verdict and the concrete case ' +
+          'that breaks it; a clean verdict from a check that finds nothing is a first-class result.'
+        : 'STANCE — every pass is hostile: author, critique, and red-team alike. The pages under review were authored by ANOTHER ' +
+          'engineer and are under adversarial review; hold every fence and every research row naive, shallow, or illusory until it ' +
+          'survives a real attack; the burden of proof is on the code, never on you. "Mature", "already strong", and a prior clean ' +
+          'verdict are rejected self-assessments — most of this corpus is ' +
+          L.slur +
+          '. A research row is a writer epistemic ' +
+          'debt: a member spelling, capability, or behavior the author GUESSED and flagged instead of verifying, so a row that reads ' +
+          'confident is the PRIME suspect — the guessed spelling may be a phantom (' +
+          L.illusion +
+          '). NO CHURN: an edit ' +
+          'requires a named violated law or a landed verdict and the concrete case that breaks it; a clean verdict earned by an attack ' +
+          'that finds nothing is a first-class result, proven by adding nothing.';
 
 const VERIFY = (L) =>
     'VERIFY — cite only members confirmed via ' +
@@ -741,8 +771,11 @@ const PROSE_COMMENTS = (L) =>
     L.docBloat +
     ' bloat.';
 
-const SELF_CHECK =
-    'MANDATORY SELF-VERIFY (second pass, before returning): adversarially re-derive every entry from disk — re-open each cited ' +
+// reg forks only the second-pass intensifier: 'claude' keeps the adversarial framing a native lane sharpens on, 'codex' drops it.
+const SELF_CHECK = (reg) =>
+    'MANDATORY SELF-VERIFY (second pass, before returning): ' +
+    (reg === 'codex' ? 're-derive' : 'adversarially re-derive') +
+    ' every entry from disk — re-open each cited ' +
     'anchor and confirm it states what the entry claims, re-verify each member spelling against its route, trace each seam to ' +
     'both endpoints. An entry that fails re-confirmation is corrected or deleted, never returned; a guess, an assumption, a ' +
     'skimmed summary, or a vague/hedged entry is a defect. Completeness is part of correctness: after the re-read, hunt once ' +
@@ -813,9 +846,9 @@ const discoverPrompt = () =>
 const censusPrompt = (L, pages) =>
     [
         CONTEXT(L),
-        STANCE(L),
-        SELF_CHECK,
-        'TASK: HOSTILE READ-ONLY RESEARCH CENSUS over these ' +
+        STANCE(L, 'codex'),
+        SELF_CHECK('codex'),
+        'TASK: READ-ONLY RESEARCH CENSUS over these ' +
             pages.length +
             ' pages (investigate, do NOT edit): ' +
             JSON.stringify(pages) +
@@ -856,13 +889,17 @@ const censusPrompt = (L, pages) =>
             'confirming the row text on disk; a mis-located or invented entry is a defect.',
     ].join('\n\n');
 
-const verifyPrompt = (L, cluster) =>
+// reg = the EXECUTING branch: 'claude' for the native assay/build/extdoc clusters, 'codex' for the catalog/doc-file
+// codex terra lanes; the stance, self-verify intensifier, and TASK header fork, the route substance is identical.
+const verifyPrompt = (L, cluster, reg) =>
     [
         CONTEXT(L),
-        STANCE(L),
+        STANCE(L, reg),
         VERIFY(L),
-        SELF_CHECK,
-        'TASK: HOSTILE ROUTE VERIFICATION of the research debts in cluster `' +
+        SELF_CHECK(reg),
+        'TASK: ' +
+            (reg === 'codex' ? '' : 'HOSTILE ') +
+            'ROUTE VERIFICATION of the research debts in cluster `' +
             cluster.routeKey +
             '` (family `' +
             cluster.routeFamily +
@@ -890,9 +927,10 @@ const verifyPrompt = (L, cluster) =>
             'confirmed without the route output in `evidence`; an unrun route is `unresolvable`, never an optimistic confirm.',
     ].join('\n\n');
 
-const applyPreamble = (L, folder, scopes) => [
+// reg selects STANCE by the EXECUTING model: apply + red-team run native fable ('claude'), the sol critique runs codex ('codex').
+const applyPreamble = (L, folder, scopes, reg) => [
     CONTEXT(L),
-    STANCE(L),
+    STANCE(L, reg),
     VERIFY(L),
     RIPPLE_LAW,
     CURRENT_STATE,
@@ -902,7 +940,7 @@ const applyPreamble = (L, folder, scopes) => [
 ];
 
 const applyPrompt = (L, folder, entries, verdictReports, scopes) =>
-    applyPreamble(L, folder, scopes)
+    applyPreamble(L, folder, scopes, 'claude')
         .concat([
             'TASK: RESOLVE the research debts of this folder IN PLACE: ' +
                 folder +
@@ -938,7 +976,7 @@ const applyPrompt = (L, folder, entries, verdictReports, scopes) =>
         .join('\n\n');
 
 const critiquePrompt = (L, folder, entries, verdictReports, scopes, nav) =>
-    applyPreamble(L, folder, scopes)
+    applyPreamble(L, folder, scopes, 'codex')
         .concat([
             'NAVIGATION (facts from the apply pass — locations only, no assessments; it changes where you look FIRST, never what ' +
                 'you conclude): ' +
@@ -948,7 +986,7 @@ const critiquePrompt = (L, folder, entries, verdictReports, scopes, nav) =>
                 '. The folder research entries: ' +
                 JSON.stringify(entries),
             GIT_GROUND,
-            'TASK: HOSTILE RESOLUTION-CONFORMANCE AUDIT; fix EACH defect in place for folder ' +
+            'TASK: RESOLUTION-CONFORMANCE AUDIT; fix EACH defect in place for folder ' +
                 folder +
                 '. FORM YOUR OWN DEFECT LIST FIRST — read each touched page cold from CURRENT disk and check it against the ' +
                 'verdict reports before consulting NAVIGATION. Your mandate is PREDICATE-POSITIVE — verify each resolution ' +
@@ -972,7 +1010,7 @@ const critiquePrompt = (L, folder, entries, verdictReports, scopes, nav) =>
         .join('\n\n');
 
 const redteamPrompt = (L, folder, entries, verdictReports, scopes, nav, crit) =>
-    applyPreamble(L, folder, scopes)
+    applyPreamble(L, folder, scopes, 'claude')
         .concat([
             'NAVIGATION (locations only, no assessments): ' + JSON.stringify(nav),
             'VERDICT REPORTS (read IN FULL from disk): ' + JSON.stringify(verdictReports) + '. Folder research entries: ' + JSON.stringify(entries),
@@ -1136,10 +1174,26 @@ const verified = (
             const label = 'verify:' + fileTag(c.routeKey);
             const scope = [...new Set(c.entries.map((e) => e.page))];
             const L = Lof(pkgOf(c.entries[0].page));
-            const task = verifyPrompt(L, c);
+            // Register follows the executing branch: native assay/build/extdoc get the hostile register they sharpen on; codex catalog/doc lanes get neutral.
             const p = NATIVE_FAMILY[c.routeFamily]
-                ? asLane(label, scope, nativeLane(task, { label, phase: 'Verify', schema: VERDICT_SCHEMA, nativeModel: 'opus', stallMs: STALL }))
-                : recon(task, { label, phase: 'Verify', schema: VERDICT_SCHEMA, scope, hl: { arr: 'verdicts', group: 'verdict' } });
+                ? asLane(
+                      label,
+                      scope,
+                      nativeLane(verifyPrompt(L, c, 'claude'), {
+                          label,
+                          phase: 'Verify',
+                          schema: VERDICT_SCHEMA,
+                          nativeModel: 'opus',
+                          stallMs: STALL,
+                      }),
+                  )
+                : recon(verifyPrompt(L, c, 'codex'), {
+                      label,
+                      phase: 'Verify',
+                      schema: VERDICT_SCHEMA,
+                      scope,
+                      hl: { arr: 'verdicts', group: 'verdict' },
+                  });
             return slot(() => p.then((r) => (r ? Object.assign(r, { routeKey: c.routeKey, rows: c.entries }) : null))).catch(() => null);
         }),
     )

@@ -1,77 +1,20 @@
 # [CLAUDE_MANIFEST]
 
-[REQUIRED]: ALWAYS READ `.editorconfig` + `Directory.Build.props` UNDERSTAND FORMAT STYLING, ERRORS, ANALYZERS, NEVER IGNORE, NEVER USE VAR, NEVER USE INCORRECT NAMESPACING FOR CSHARP; ADHERE TO ALL EDITORCONFIG RULINGS, DO NOT MAKE NONSENSE IN DESIGN DOCS, CODE FENCES, OR REAL CODE THAT WILL INSTANTLY FAIL AND GENERATE ERRORS.
-
-BEFORE ANY ACTION IN REPO, LIST ALL ROOT-LEVEL FILES; BE AWARE OF ALL CONFIGS, TOOLING, ETC FOR ANY LANGUAGE OR SOURCE, NEVER IGNORE WHEN RELEVANT.
-
-[COMMENT_DISCIPLINE]: Never tolerate comment spam. Maintain the section organizational style per `[09]-[FILE_ORGANIZATION]` — proper sub-section styling (no trailing dashes) and canonical section labels. Whenever any file is created or edited, aggressively refactor/prune/refine its prose and comments in the same pass (including inside code fences). Comments are RARELY larger than 1-2 lines, framed agent-first, and justified only as critical signal for maintaining/understanding code — never boilerplate or self-explanation. Width, stack, shred, runt, inlining, header-zone, and repair law for comments is global agent law; this repo adds only the `[09]-[FILE_ORGANIZATION]` section grammar and the `libs/` scope below. ALL prose, comments included, follows `docs/standards/style-guide.md`: concise, declarative, active voice, assertive, never hedging or qualifying, always concrete decisions — never ambiguity. Remove noise comments on sight; a comment earns its keep only when it serves agents working the file, never humans. THE SAME STANDARD APPLIES TO ALL `.md` PROSE WITHIN `libs/`.
-
 Read: `README.md` + `tools/assay/README.md`
+
+[REQUIRED]: When working in libs/csharp/ or any .cs file (or spec doc) READ `.editorconfig` + `Directory.Build.props` UNDERSTAND FORMAT STYLING, ERRORS, ANALYZERS, NEVER IGNORE, NEVER USE VAR, NEVER USE INCORRECT NAMESPACING FOR CSHARP; ADHERE TO ALL EDITORCONFIG RULINGS, DO NOT MAKE NONSENSE IN DESIGN DOCS, CODE FENCES, OR REAL CODE THAT WILL INSTANTLY FAIL AND GENERATE ERRORS.
+
+[COMMENT_DISCIPLINE]: Never tolerate comment spam. Maintain the section organizational style per `[09]-[FILE_ORGANIZATION]` — proper sub-section styling (no trailing dashes) and canonical section labels. Whenever any file is created or edited, aggressively refactor/prune/refine its prose and comments in the same pass (including inside code fences). Comments are RARELY larger than 1-2 lines, framed agent-first, and justified only as critical signal for maintaining/understanding code — never boilerplate or self-explanation. Remove noise comments on sight; a comment earns its keep only when it serves agents working the file, never humans. THE SAME STANDARD APPLIES TO ALL `.md` PROSE WITHIN `libs/`.
 
 [CRITICAL]:
 - The project is in a long-term planning phase, working strictly within design/spec-sheets, not code files. List all files in `libs/.planning`, and read them fully: `libs/.planning/planning-targets.md`, `libs/.planning/campaign-method.md`, `libs/.planning/README.md`, `libs/.planning/architecture.md`.
 - [ALWAYS]: Load the `docgen` skill before authoring, editing, reviewing, or rewriting ANY durable markdown in this planning phase — index docs, specs, `.api` catalogs, standards, briefs, tool docs. It owns the register, the defect catalog, the file-kind templates, and the prose gate; work on durable prose without it loaded is a process defect, and every touched doc passes its gate before the turn ends.
 - Work within `libs/` stays task-scoped. Critique and adversarial review run when the user requests them, heavy code or logic benefits from an independent pass, or `libs/.planning/campaign-method.md` explicitly assigns that workflow role.
-- Work in `libs/python/` REQUIRES a full read and UNDERSTANDING of every file within `docs/stacks/python/`, followed to the letter. The same holds for `libs/csharp/` with all files in `docs/stacks/csharp/` including the extended `docs/stacks/csharp/domain` folder files, and for `libs/typescript/` with all files in `docs/stacks/typescript/`.
 - WORKING IN `.md` FILES GRANTS MAXIMUM FREEDOM TO REBUILD ALL DESIGN DOCS/FEATURES/CAPABILITIES ROOT/GROUND-UP WITH NO HESITATION, SECURING THE WORLD-CLASS/BLEEDING-EDGE CAPABILITY BAR, ALL FEATURES ADDED VIA REBUILDING, NEVER TACKING-ON FLAT CODE. Constantly find weak implementations and further opportunities to push code sophistication, density, complexity, and richness whilst collapsing total surface as much as possible, reducing LOC as well, and most importantly ULTRA-stacking all content from the `.api/` folders — the language-specific ones plus the planning-folder-specific `libs/csharp/.api/`, `libs/python/.api/`, `libs/typescript/.api/`, `libs/csharp/<folder>/.api/`, `libs/python/<folder>/.api/`, `libs/typescript/<folder>/.api/`.
 - External libs/packages admitted to the central package managers and each planning folder are AGGRESSIVELY reviewed and judged: remove and replace weak selections with more advanced/bleeding-edge and powerful ones, and ADD more whenever scope/capability/functionality demands. Always centralize to `Directory.Packages.props`, `pnpm-workspace.yaml`, `pyproject.toml`. Update the respective `README.md` of each planning folder when external sources change, and the `.csproj` when the changes are in a csharp planning folder, keeping documentation aligned with new package additions and ensuring the creation of the `.api/` files of any new additions.
 - The universal standard for all languages is: FULL parameterization, no hardcoded values, no fragile logic, no coupling in any way, to other folders, unusual pathing, or fragile logic. UNIVERSAL/MAXIMIALIST polymorphism, and the LEAST POSSIBLE shapes/objects/types/constants, pushing to increase density/richness/complexity over adding flat/spam code. FULL ADT, and stacking the smallest amount with the most possible, AOP (python), interface/graphing/mapping (csharp), FP+ROP+Expression code that is world-class, bleeding-edge, and award winning.
 
-## [01]-[WORKSPACE_LAW]
-
-Rankings, higher = better. Cost reflects actual operator spend (OpenAI is near-free under the operator's deal), not list price. Intelligence is how hard a problem the model takes unsupervised. Taste covers UI/UX, code quality, API design, and copy.
-
-| [INDEX] | [MODEL]       | [COST] | [INTELLIGENCE] | [TASTE] |
-| :-----: | :------------ | :----: | :------------: | :-----: |
-|  [01]   | gpt-5.6-terra |   9    |       7        |    6    |
-|  [02]   | gpt-5.6-sol   |   8    |       8        |    7    |
-|  [03]   | gpt-5.6-luna  |   10   |       5        |    5    |
-|  [04]   | sonnet-5      |   5    |       3        |    6    |
-|  [05]   | opus-4.8      |   4    |       7        |    7    |
-|  [06]   | fable-5       |   2    |       9        |    9    |
-
-How to apply:
-
-- These are defaults, not limits, under standing permission to override: when a cheaper model's output misses the bar, rerun or redo the work with a smarter model without asking. Judge the output, not the price tag. Escalating costs less than shipping mediocre work.
-- Never let cost block the right model for the job. Instead, exploit cheaper options to gather more information and trial approaches before moving the work to a more expensive option.
-- Bulk/mechanical work (clear-spec implementation, data analysis, migrations): gpt-5.6-terra - it's effectively free.
-- Heavy exploration, investigation, and research legs: dispatch to terra before spawning Claude subagents - the transcript stays out of context and the usage is free. Work that must author or edit files dispatches at the write sandbox; the sandbox IS the modality (read/response vs write/edit) and is always pinned explicitly.
-- Complex code authoring and deep planning legs that are self-contained: dispatch to sol - the flagship owns ambiguous, open-ended, high-value work; terra stays the dispatch default for everything else.
-- Codex is a first-class worker, never a bent fallback: hand it ONE self-contained prompt (it inherits none of this conversation), let it drive its own tools to completion, and take its final message as the result - relay a read leg's report, apply a write leg's edits as delivered. Verify load-bearing claims against source before acting; never silently rewrite, re-judge, or wrap its output in extra ceremony.
-- Anything user-facing (UI, copy, API design) needs taste ≥ 7.
-- Reviews of plans/implementations: fable-5 or opus-4.8, optionally a codex leg (terra; sol for the deepest reviews) as an extra independent perspective. A fable agent never delegates to another fable: inline work first, and unavoidable delegation dispatches a single bounded opus (or below) sub-task, never a chain.
-- Delegated agents inherit this table at every depth under the agent-dispatch placement law - writing/judgment at capable tiers, recon to terra, the extra perspective from the other lineage, never self-escalating beyond the brief.
-- Load the codex skill `.claude/skills/codex/SKILL.md` whenever dispatching work to codex - invocation surfaces (`codex` MCP tool, `codex exec`/`codex review`), sandbox, model and effort tiers, MCP grading, sessions, and review modes live there; every dispatch pins sandbox and model explicitly, while effort inherits the operator default (`xhigh` in `~/.codex/config.toml`) and is stated only to deviate.
-- Dispatch effort defaults to xhigh for every model; low/medium serve trivial glue and bulk throughput, max deepens the single hardest leg, and ultra only biases codex to self-decompose into its own subagents - redundant where a workflow already owns the fan-out, multi-minute latency.
-- Claude models (sonnet-5, opus-4.8, fable-5) run via the Agent/Workflow model parameter.
-- [NEVER]: use Haiku.
-- Inside workflows the model parameter takes only Claude models, so a codex leg rides a thin sonnet wrapper making ONE blocking `codex` MCP call, labeled with the real worker (`terra:`/`sol:`/`luna:`/`gemini:`); the wrapper contract, batching economics, and receipt law are the workflow-creator codex-lanes reference, and codex tokens stay invisible to `budget.spent()`.
-
-[WORKFLOW_ENGINE]:
-- Workflows launch by `scriptPath` (the absolute path to `.claude/workflows/<name>.js`), never by registry `name`: name-resolution serves a session-start snapshot and silently runs a stale contract after any in-session workflow edit; `scriptPath` reads the current disk file. After editing a workflow, verify the launch summary echoes the edited contract before trusting the run shape.
-- `ls .claude/workflows/` enumerates the standing engine roster and each script's `meta` block states its own contract — the roster is never restated in prose. `rebuild.js` is the standing hostile rebuild engine over any mix of `libs/` planning targets; `/prime` grounds a planning session before campaign entry.
-- A campaign needing a shape the roster lacks gets a one-off workflow authored via `.claude/skills/workflow-creator` and deleted after landing.
-- Every workflow agent WRITES and is ultra-adversarial; the discovery/critique/red-team/verify role law, the two naivety axes, and the collapse-floor freedom are sealed in `libs/.planning/campaign-method.md`.
-- Workflow runs resume only in the launching session: capture a run ledger (run ID, scriptPath, args, resume command) at every launch; never edit a launched script while its run is resumable; a campaign brief travels as a PATH, so editing the brief means a fresh run, never a resume.
-
-[IMPORTANT]:
-- [ALWAYS]: Hold both forces of the DEPTH-OVER-SURFACE law at once, in every folder, file, and fence. INTERIOR MAXIMALISM: every domain owner models its full domain — every attribute, sub-kind, state, relationship, invariant, and operation the concept carries, every admitted package mined to modern operator depth — no gaps, no underutilized capability, no thin slices. EXTERIOR FOCUS: capability reaches consumers through FEW dense unified entry points — one polymorphic entry per rail discriminating on input shape (single|batch|stream absorbed by input detection, forward and inverse directions on one surface wherever the domain admits an inverse), with policy resolution, routing, retries, telemetry, and lifecycle internalized so a consumer composes outcomes and never orchestrates internals, imports dozens of symbols, or learns provider nuance. Variation lives in input shape, policy values, and table rows — never in parallel exports, knob/ceremony spam, or modality-named siblings. The surface narrows by ABSORPTION, never by omission: flexibility and capability are never reduced to make the surface small.
-- [ALWAYS]: Aggressively rebuild code and planning docs GROUND/ROOT-UP, tear apart any existing patterns to achieve the optimized/advanced code surface density without losing functionality; new functionality is always made as if it was there from the start, never as tacked-on/flat-code spam.
-- [ALWAYS]: Create monorepo code as polymorphic, agnostic, and universal by default, ALWAYS PARAMETERIZE INPUTS/OUTPUTS + INGRESS/EGRESS.
-- [ALWAYS]: Place every C# package on the canonical strata (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP), depending strictly upward; build a host-neutral owner only where a non-Rhino runtime consumes the contract ("universal" is never host-free C#), and keep geometry/mesh/IFC to one owner per runtime meeting at the wire. The package roster and full hierarchy law are `libs/.planning/architecture.md`.
-- [ALWAYS]: Identify canonical object shapes, field names, semantics, and receipts that scale across packages, tools, apps, plugins, sidecars, services, and web consumers.
-- [ALWAYS]: Maintain semantic consistency in naming patterns of files, code functionality, types, classes, and functions — one consistent language/approach regardless of language, with all code behavior following a consistent naming approach.
-- [ALWAYS]: Use one canonical semantic name per bounded concept; arity, filters, provider, and modality live in request shape, case, policy row, or boundary adapter, not parallel names.
-- [ALWAYS]: Extend the canonical owner before adding rails, public surfaces, wrappers, commands, flags, provider selectors, schemas, models, helpers, or files.
-- [ALWAYS]: Treat planned future consumers as real design pressure. Zero current consumers never reduces the capability bar. ALWAYS ASSUME 5X THE COMPLEXITY/DEMANDS ON CODE, NEVER SETTLING FOR SIMPLE/NAIVE SOLUTIONS, NEVER TOLERATE SURFACE LEVEL FUNCTIONALITY. A class carrying 4 fields for a concept that admits 12+ is extended to the full concept in anticipation of all the needs NOW, not later; object proliferation is never the answer.
-- [ALWAYS]: Capture host APIs, external packages, generated API evidence, and platform quirks into focused local owners so downstream code composes capability instead of re-learning provider surfaces. Reference/read files within `.api/` folders, use `Context7`, `nuget mcp`, `exa`, `tavily`, and other MCP's for current/fresh information; NEVER RELY ON TRAINING DATA, NEVER TRUST TRAINING DATA, ALWAYS USE NEWEST/CURRENT INFO FROM REAL SOURCES.
-- [ALWAYS]: Keep boundary mapping at the edge; internal code uses canonical names and shapes.
-- [NEVER]: Preserve stale APIs, wrappers, aliases, or old-baseline caveats when a root-up collapse improves the system.
-- [NEVER]: Split one concern across parallel objects, services, error rails, command families, or compatibility shims.
-- [NEVER]: Create operation families such as `Get`, `GetMany`, `GetBy<Key>`, `List`, or `Search` for one concept when one polymorphic operation can discriminate by input value.
-- [ALWAYS]: Repo-root residency is a closed allowlist owned by `tests/python/_testkit/test_policy.py`: a deliberate new root file adds its allowlist row in the same change; a red root gate resolves by routing tool output under `.cache/`/`.artifacts/` or by reviewed allowlist amendment — never by deleting a legitimate root file to silence the gate.
-
-## [02]-[REQUIRED_STANDARDS]
+## [01]-[REQUIRED_STANDARDS]
 
 Use the route-owned standard for the file being edited:
 
@@ -86,6 +29,7 @@ Use the route-owned standard for the file being edited:
 |  [07]   | Mermaid fences             | `mermaid-diagramming`    |
 |  [08]   | HTML artifacts (`.html`)   | `html-studio`            |
 
+- Work in `libs/python/` REQUIRES a full read and UNDERSTANDING of every file within `docs/stacks/python/`, followed to the letter. The same holds for `libs/csharp/` with all files in `docs/stacks/csharp/` including the extended `docs/stacks/csharp/domain` folder files, and for `libs/typescript/` with all files in `docs/stacks/typescript/`.
 - Each `docs/stacks/<language>` directory is the route-owned production standard for its language: source composes every root page of the directory (`ls docs/stacks/<language>` is the page roster). Specialized C# domains route through `docs/stacks/csharp/domain/README.md`; numerical and scientific Python routes through `docs/stacks/python/algorithms.md` plus the root Python doctrine index.
 - `docs/laws/` is the repo-wide maintenance-law corpus — coupling topology, cross-branch pattern rows, and the scar ledger; substantive passes read it at source (it stays small by law), a diff touching a `topology.md` `[SURFACE]` lands its obligated counterparts in the same change, and durable lessons land ONLY through a run's terminal doctrine stage under the `docs/laws/README.md` admission law, with the `docgen` and `skill-writer` skills loaded.
 
@@ -94,32 +38,7 @@ Use the route-owned standard for the file being edited:
 - html-studio owns single-file interactive HTML pages including their inline-SVG diagrams; mermaid-diagramming owns mermaid fences inside markdown; the dataviz skill owns chart-mark and chart-palette decisions in any medium.
 - Durable artifact pages home at `docs/atlas/` as `<kind>.<scope>[.<slug>].html`; session-scoped pages stay in scratch space and never commit.
 
-## [03]-[NAMING_SCHEMA]
-
-Folders, namespaces, and source files follow each branch language's standard casing; `.planning` design pages are `lowercase.md`.
-
-| [INDEX] | [BRANCH]          | [FOLDER_AND_SOURCE] |
-| :-----: | :---------------- | :------------------ |
-|  [01]   | `libs/csharp`     | `PascalCase`        |
-|  [02]   | `libs/python`     | `snake_case`        |
-|  [03]   | `libs/typescript` | `camelCase`         |
-
-## [04]-[DEPENDENCY_POLICY]
-
-[IMPORTANT]: External libraries, manifests, and host APIs are implementation surfaces.
-- [ALWAYS]: Treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, project files, lockfiles, and equivalent manifests as first-class material.
-- [ALWAYS]: Mine admitted packages to their full useful capability before writing local kernels.
-- [ALWAYS]: Prefer ecosystem libraries that already own the domain concern over lower-level reinvention.
-- [ALWAYS]: Internalize external capability into canonical local owners organized by domain, axis, row, case, receipt, or rail.
-- [ALWAYS]: Keep central package/version/tool ownership centralized in the one owning manifest or tool configuration — no per-package `pyproject.toml`, `package.json`, or `*.props`; assume the newest stable release and pin a package only when it is not yet compatible, removing the pin when compatibility lands.
-- [ALWAYS]: Keep Python dependencies in root `pyproject.toml` as lean unpinned package names by default; add bounds or `python_version` markers only when resolver evidence requires them, prefer the newest viable release, remove constraints as compatibility lands, and keep wheel/floor/gate rationale out of Python docs, design docs, `.api` files, and comments.
-- [ALWAYS]: Keep C# MSBuild, NuGet, and `.csproj` manifests label-grouped by owner, sorted within coherent clusters, and limited to one-line maintenance comments.
-- [ALWAYS]: Put shared C# substrate API catalogues under `libs/csharp/.api/`; package `.api/` folders carry domain catalogues and folder-specific overlays.
-- [NEVER]: Hand-roll functionality provided by admitted dependencies.
-- [NEVER]: Create thin wrappers that rename, forward, or partially expose external APIs without adding domain value.
-- [NEVER]: Encode package versions, provider caveats, or command catalogs outside the owning manifest, package charter, README, or tool owner.
-
-## [05]-[IMPLEMENTATION_CONSTRAINTS]
+## [02]-[IMPLEMENTATION_STANDARDS]
 
 [CRITICAL]:
 - [NEVER]: Use weak, unbounded, or erased types where the language can express the domain precisely.
@@ -140,6 +59,80 @@ Folders, namespaces, and source files follow each branch language's standard cas
 - [ALWAYS]: Collapse repeated mutation/status/count construction into one fact stream with slot/kind metadata when three or more buckets share construction.
 - [ALWAYS]: Keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, extraction, benchmark, or host evidence.
 - [ALWAYS]: Treat analyzer diagnostics as architecture pressure: fix true positives, refine false positives, and avoid suppressions that add ceremony without improving correctness.
+
+[IMPORTANT]:
+- [ALWAYS]: Hold both forces of the DEPTH-OVER-SURFACE law at once, in every folder, file, and fence. INTERIOR MAXIMALISM: every domain owner models its full domain — every attribute, sub-kind, state, relationship, invariant, and operation the concept carries, every admitted package mined to modern operator depth — no gaps, no underutilized capability, no thin slices. EXTERIOR FOCUS: capability reaches consumers through FEW dense unified entry points — one polymorphic entry per rail discriminating on input shape (single|batch|stream absorbed by input detection, forward and inverse directions on one surface wherever the domain admits an inverse), with policy resolution, routing, retries, telemetry, and lifecycle internalized so a consumer composes outcomes and never orchestrates internals, imports dozens of symbols, or learns provider nuance. Variation lives in input shape, policy values, and table rows — never in parallel exports, knob/ceremony spam, or modality-named siblings. The surface narrows by ABSORPTION, never by omission: flexibility and capability are never reduced to make the surface small.
+- [ALWAYS]: Aggressively rebuild code and planning docs GROUND/ROOT-UP, tear apart any existing patterns to achieve the optimized/advanced code surface density without losing functionality; new functionality is always made as if it was there from the start, never as tacked-on/flat-code spam.
+- [ALWAYS]: Create monorepo code as polymorphic, agnostic, and universal by default, ALWAYS PARAMETERIZE INPUTS/OUTPUTS + INGRESS/EGRESS.
+- [ALWAYS]: Place every C# package on the canonical strata (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP), depending strictly upward; build a host-neutral owner only where a non-Rhino runtime consumes the contract ("universal" is never host-free C#), and keep geometry/mesh/IFC to one owner per runtime meeting at the wire. The package roster and full hierarchy law are `libs/.planning/architecture.md`.
+- [ALWAYS]: Identify canonical object shapes, field names, semantics, and receipts that scale across packages, tools, apps, plugins, sidecars, services, and web consumers.
+- [ALWAYS]: Maintain semantic consistency in naming patterns of files, code functionality, types, classes, and functions — one consistent language/approach regardless of language, with all code behavior following a consistent naming approach.
+- [ALWAYS]: Use one canonical semantic name per bounded concept; arity, filters, provider, and modality live in request shape, case, policy row, or boundary adapter, not parallel names.
+- [ALWAYS]: Extend the canonical owner before adding rails, public surfaces, wrappers, commands, flags, provider selectors, schemas, models, helpers, or files.
+- [ALWAYS]: Treat planned future consumers as real design pressure. Zero current consumers never reduces the capability bar. ALWAYS ASSUME 5X THE COMPLEXITY/DEMANDS ON CODE, NEVER SETTLING FOR SIMPLE/NAIVE SOLUTIONS, NEVER TOLERATE SURFACE LEVEL FUNCTIONALITY. A class carrying 4 fields for a concept that admits 12+ is extended to the full concept in anticipation of all the needs NOW, not later; object proliferation is never the answer.
+- [ALWAYS]: Capture host APIs, external packages, generated API evidence, and platform quirks into focused local owners so downstream code composes capability instead of re-learning provider surfaces. Reference/read files within `.api/` folders, use `Context7`, `nuget mcp`, `exa`, `tavily`, and other MCP's for current/fresh information; NEVER RELY ON TRAINING DATA, NEVER TRUST TRAINING DATA, ALWAYS USE NEWEST/CURRENT INFO FROM REAL SOURCES.
+- [ALWAYS]: Keep boundary mapping at the edge; internal code uses canonical names and shapes.
+- [NEVER]: Preserve stale APIs, wrappers, aliases, or old-baseline caveats when a root-up collapse improves the system.
+- [NEVER]: Split one concern across parallel objects, services, error rails, command families, or compatibility shims.
+- [NEVER]: Create operation families such as `Get`, `GetMany`, `GetBy<Key>`, `List`, or `Search` for one concept when one polymorphic operation can discriminate by input value.
+- [ALWAYS]: Repo-root residency is a closed allowlist owned by `tests/python/_testkit/test_policy.py`: a deliberate new root file adds its allowlist row in the same change; a red root gate resolves by routing tool output under `.cache/`/`.artifacts/` or by reviewed allowlist amendment — never by deleting a legitimate root file to silence the gate.
+
+## [03]-[WORKSPACE_LAW]
+
+Rankings, higher = better. Cost reflects actual operator spend (OpenAI is near-free under the operator's deal), not list price. Intelligence is how hard a problem the model takes unsupervised. Taste covers UI/UX, code quality, API design, and copy.
+
+| [INDEX] | [MODEL]       | [COST] | [INTELLIGENCE] | [TASTE] |
+| :-----: | :------------ | :----: | :------------: | :-----: |
+|  [01]   | gpt-5.6-terra |   9    |       7        |    6    |
+|  [02]   | gpt-5.6-sol   |   8    |       8        |    7    |
+|  [03]   | gpt-5.6-luna  |   10   |       5        |    5    |
+|  [04]   | sonnet-5      |   5    |       3        |    6    |
+|  [05]   | opus-4.8      |   4    |       7        |    7    |
+|  [06]   | fable-5       |   2    |       9        |    9    |
+
+How to apply:
+- These are defaults, not limits, under standing permission to override: when a cheaper model's output misses the bar, rerun or redo the work with a smarter model without asking. Judge the output, not the price tag. Escalating costs less than shipping mediocre work.
+- Never let cost block the right model for the job. Instead, exploit cheaper options to gather more information and trial approaches before moving the work to a more expensive option.
+- Bulk/mechanical work (clear-spec implementation, data analysis, migrations): gpt-5.6-terra - it's effectively free.
+- Heavy exploration, investigation, and research legs: dispatch to terra before spawning Claude subagents - the transcript stays out of context and the usage is free. Work that must author or edit files dispatches at the write sandbox; the sandbox IS the modality (read/response vs write/edit) and is always pinned explicitly.
+- Complex code authoring and deep planning legs that are self-contained: dispatch to sol - the flagship owns ambiguous, open-ended, high-value work; terra stays the dispatch default for everything else.
+- Codex is a first-class worker, never a bent fallback: hand it ONE self-contained prompt (it inherits none of this conversation), let it drive its own tools to completion, and take its final message as the result - relay a read leg's report, apply a write leg's edits as delivered. Verify load-bearing claims against source before acting; never silently rewrite, re-judge, or wrap its output in extra ceremony.
+- Anything user-facing (UI, copy, API design) needs taste ≥ 7.
+- Reviews of plans/implementations: fable-5 or opus-4.8, optionally a codex leg (terra; sol for the deepest reviews) as an extra independent perspective. A fable agent never delegates to another fable: inline work first, and unavoidable delegation dispatches a single bounded opus (or below) sub-task, never a chain.
+- Delegated agents inherit this table at every depth under the agent-dispatch placement law - writing/judgment at capable tiers, recon to terra, the extra perspective from the other lineage, never self-escalating beyond the brief.
+- Load the codex skill `.claude/skills/codex/SKILL.md` whenever dispatching work to codex - invocation surfaces (`codex` MCP tool, `codex exec`/`codex review`), sandbox, model and effort tiers, MCP grading, sessions, and review modes live there; every dispatch pins sandbox and model explicitly, while effort inherits the operator default in `~/.codex/config.toml` and is stated only to deviate.
+- Inside workflows the model parameter takes only Claude models, so a codex leg rides a thin sonnet wrapper making ONE blocking `codex` MCP call, labeled with the real worker (`terra:`/`sol:`/`luna:`/`gemini:`); the wrapper contract, batching economics, and receipt law are the workflow-creator codex-lanes reference, and codex tokens stay invisible to `budget.spent()`.
+
+[WORKFLOW_ENGINE]:
+- Workflows launch by `scriptPath` (the absolute path to `.claude/workflows/<name>.js`), never by registry `name`: name-resolution serves a session-start snapshot and silently runs a stale contract after any in-session workflow edit; `scriptPath` reads the current disk file. After editing a workflow, verify the launch summary echoes the edited contract before trusting the run shape.
+- A campaign needing a shape the roster lacks gets a one-off workflow authored via `.claude/skills/workflow-creator` and deleted after landing.
+- Every workflow agent WRITES and is ultra-adversarial; the discovery/critique/red-team/verify role law, the two naivety axes, and the collapse-floor freedom are sealed in `libs/.planning/campaign-method.md`.
+- Workflow runs resume only in the launching session: capture a run ledger (run ID, scriptPath, args, resume command) at every launch; never edit a launched script while its run is resumable; a campaign brief travels as a PATH, so editing the brief means a fresh run, never a resume.
+
+## [04]-[NAMING_SCHEMA]
+
+Folders, namespaces, and source files follow each branch language's standard casing; `.planning` design pages are `lowercase.md`.
+
+| [INDEX] | [BRANCH]          | [FOLDER_AND_SOURCE] |
+| :-----: | :---------------- | :------------------ |
+|  [01]   | `libs/csharp`     | `PascalCase`        |
+|  [02]   | `libs/python`     | `snake_case`        |
+|  [03]   | `libs/typescript` | `camelCase`         |
+
+## [05]-[DEPENDENCY_POLICY]
+
+[IMPORTANT]: External libraries, manifests, and host APIs are implementation surfaces.
+- [ALWAYS]: Treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, project files, lockfiles, and equivalent manifests as first-class material.
+- [ALWAYS]: Mine admitted packages to their full useful capability before writing local kernels.
+- [ALWAYS]: Prefer ecosystem libraries that already own the domain concern over lower-level reinvention.
+- [ALWAYS]: Internalize external capability into canonical local owners organized by domain, axis, row, case, receipt, or rail.
+- [ALWAYS]: Keep central package/version/tool ownership centralized in the one owning manifest or tool configuration — no per-package `pyproject.toml`, `package.json`, or `*.props`; assume the newest stable release and pin a package only when it is not yet compatible, removing the pin when compatibility lands.
+- [ALWAYS]: Keep Python dependencies in root `pyproject.toml` as lean unpinned package names by default; add bounds or `python_version` markers only when resolver evidence requires them, prefer the newest viable release, remove constraints as compatibility lands, and keep wheel/floor/gate rationale out of Python docs, design docs, `.api` files, and comments.
+- [ALWAYS]: Keep C# MSBuild, NuGet, and `.csproj` manifests label-grouped by owner, sorted within coherent clusters, and limited to one-line maintenance comments.
+- [ALWAYS]: Put shared C# substrate API catalogues under `libs/csharp/.api/`; package `.api/` folders carry domain catalogues and folder-specific overlays.
+- [NEVER]: Hand-roll functionality provided by admitted dependencies.
+- [NEVER]: Create thin wrappers that rename, forward, or partially expose external APIs without adding domain value.
+- [NEVER]: Encode package versions, provider caveats, or command catalogs outside the owning manifest, package charter, README, or tool owner.
 
 ## [06]-[BEHAVIOR]
 

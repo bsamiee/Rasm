@@ -25,7 +25,7 @@ export const meta = {
 const SCRATCH = '.claude/scratch/estate';
 const CORE_PAGES = 4;
 const STALL = 300000;
-const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
+const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const CODEX = true; // recon lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
 const TRACKS = {
@@ -178,7 +178,8 @@ const DOCTRINE_SCHEMA = {
 
 const MODEL_LAW =
     'MODEL LAW: you execute every file write and every judgment yourself. Delegate read-only reconnaissance roughly 50/50 between codex ' +
-    '(Bash: codex exec -s read-only --skip-git-repo-check --ignore-user-config -m gpt-5.6-terra -c model_reasoning_effort=xhigh ' +
+    '(Bash: codex exec -s read-only --skip-git-repo-check --ignore-user-config -m gpt-5.6-terra -c model_reasoning_effort=high ' +
+    '-c project_doc_max_bytes=65536 ' +
     '"<self-contained scoped question>" </dev/null 2>/dev/null — synchronous, ' +
     'one bounded question per leg) and opus subagents (Agent tool, model opus, explicit READ-ONLY mandate; fall back to codex if Agent is unavailable). ' +
     'Recon returns facts, locations, inventories, and verified member lists — never instructions, prescriptions, or edits; recon agents use exa/tavily, ' +
@@ -332,8 +333,13 @@ const codexRecon = (task, o) => {
         'LANE LAW:\n\n' + laneLaw(o.schema, o),
         'TASK:\n\n' + task,
         '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text — the ' +
-            'receipt JSON the lane earns by writing its dossier to disk. Parse that content and return it VERBATIM as your ' +
-            'structured output.',
+            'receipt JSON the lane earns by writing its dossier to disk. Parse that content, then verify the dossier landed with ' +
+            'one Bash call: test -s ' +
+            o.product +
+            '. A missing or empty file means the dossier write was lost behind an ok receipt — return ok=false, entries=0, report ' +
+            'and headline empty, and failure="dossier missing or empty at ' +
+            o.product +
+            '"; otherwise return the parsed receipt VERBATIM as your structured output.',
         '(4) On a second tool error return ok=false, entries=0, report and headline empty, and failure equal to the error ' + 'text VERBATIM.',
     ].join('\n\n');
 };
@@ -353,7 +359,15 @@ const nativeLane = (task, o) =>
 const reconLane = (t, name, lane, ph) => {
     const task = reconPrompt(t, name, lane);
     // The estate sweep spans whole test/tool/config trees plus the libs planning corpus — a wider call budget than a bounded page batch.
-    const o = { label: 'recon-' + lane + ':' + name, phase: ph, model: 'gpt-5.6-terra', schema: DOSSIER_RECEIPT, calls: 120, stallMs: STALL };
+    const o = {
+        label: 'recon-' + lane + ':' + name,
+        phase: ph,
+        model: 'gpt-5.6-terra',
+        schema: DOSSIER_RECEIPT,
+        product: dossierPath(name, lane),
+        calls: 120,
+        stallMs: STALL,
+    };
     const dead = () => ({ ok: false, report: dossierPath(name, lane), entries: 0, headline: '', failure: 'lane died' });
     return (
         CODEX
@@ -408,7 +422,8 @@ const passPrompt = (t, name, tier, reconRows) =>
 // infrastructure and monorepo alignment, so its routing weighs toward the constitution, the test/tool READMEs, and the reviewer rules.
 const doctrinePrompt = (rows, residuals) =>
     'TASK: DOCTRINE LANDER — the durable-learning terminal of an estate run over tests/tools/root config across every ' +
-    'language plus the monorepo final track. Read `docs/laws/README.md` FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. ROUTING EMPHASIS (orders where you look first, never overrides the ' +
+    'language plus the monorepo final track. Read `docs/laws/README.md` FIRST — it owns the corpus admission and page-shape ' +
+    'law; obey it over any restatement. ROUTING EMPHASIS (orders where you look first, never overrides the ' +
     'admission bar): an estate run owns test/tool/config infrastructure and monorepo alignment, so its lessons weigh toward ' +
     'the constitution at the acting reader, the tests/tools/root READMEs, and the reviewer rules first. Load the `docgen` ' +
     'skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load `mermaid-diagramming` before ' +

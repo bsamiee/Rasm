@@ -22,9 +22,9 @@ const CAP = 14;
 const BATCH = 4; // .api files per agent — deep enough per file, many agents for parallelism
 const STAGGER_MS = 1500;
 const STALL = 300000;
-const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
+const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const CODEX = true; // catalog rebuild batch lanes run on gpt-5.6-terra via the codex wrapper (workspace-write); false restores native opus lanes
-const CODEX_DIR = '.claude/scratch/rebuild-api'; // per-lane MCP reports
+const SCRATCH = '.claude/scratch/rebuild-api'; // per-lane report files
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -76,6 +76,8 @@ const RECEIPT = {
 
 // --- [DOCTRINE] ------------------------------------------------------------------------
 
+// LAW + rebuildPrompt are the codex-dispatched batch payload: neutral register (hostile-stance/intensifier framing makes a codex
+// lane over-probe for zero depth gain); the two naivety axes, ULTRA-STACKING, and phantom deletion are conserved as substance.
 const LAW = [
     'Rasm monorepo. .api catalogs are agent-facing declarative records of a package useful surface that DESIGN PAGES compose against. CLAUDE.md ' +
         'DEPENDENCY_POLICY: mine each admitted package to its FULL useful capability; prefer ecosystem primitives over reinvention; internalize ' +
@@ -97,8 +99,9 @@ const LAW = [
         '`libs/typescript/.api/` for TypeScript; `libs/csharp/.api/` for C# — the Thinktecture/LanguageExt substrate), so a folder/area catalog ' +
         'documents stacking ONTO those universal rails, not only its sibling-folder ' +
         'libs. The catalog GUIDES the rebuild toward first-class, stacked usage. Reject surface-level member lists.',
-    'ADVERSARIAL LAW: every catalog is naive, shallow, or illusory until it survives attack — dense confident-looking catalogs are the prime ' +
-        'suspect. Naivety is a defect on two orthogonal axes, both intolerable: COVERAGE — the catalog documents a thin slice of its package, the ' +
+    'VERIFICATION LAW: every catalog is unverified until checked against real members — dense, confident-looking catalogs are verified against ' +
+        'the package surface, never trusted on appearance, and are the primary site of illusory capability. Naivety is a defect on two orthogonal ' +
+        'axes, both intolerable: COVERAGE — the catalog documents a thin slice of its package, the ' +
         'obvious members where the real surface carries far more; APPROACH — enumerated hardcoded instances where one parameterized pattern should ' +
         'own the space (a fixed roster of recipes, variants, or styles is seed DATA feeding one documented parameterized pattern, never the ' +
         'mechanism itself). Every defect list and capability-kind list in this prompt is a FLOOR, never the complete set — hunt past it: any ' +
@@ -117,7 +120,7 @@ const LAW = [
     'WRITE-FULLY MANDATE: every correction you identify you MUST make NOW via Edit/Write directly in the .api file — the structured fix-log is a ' +
         'REPORT of edits ALREADY MADE, never a to-do list or would/should hedge; leave nothing behind. `files` lists every catalog you edited; ' +
         '`beyondBatch` lists those outside your assigned batch — empty attests the cross-catalog hunt found nothing, never that it did not run. ' +
-        'Verdict=clean is EARNED by an attack that finds nothing, never conceded on first read — and never invent edits to force a verdict.',
+        'Verdict=clean is EARNED by a review that finds nothing, never conceded on first read — and never invent edits to force a verdict.',
 ].join('\n');
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -177,7 +180,7 @@ const laneLaw = (schema, o) =>
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 const codexPrompt = (label, task, schema, o) => {
-    const base = CODEX_DIR + '/' + fileTag(label);
+    const base = SCRATCH + '/' + fileTag(label);
     const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
     const report = root + '/' + base + '-report.json';
     const model = o.model || 'gpt-5.6-terra';
@@ -198,11 +201,26 @@ const codexPrompt = (label, task, schema, o) => {
             'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
             'error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
-        'TASK:\n\n' + task,
-        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
-            'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
-            report +
-            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+        // batch lanes are workspace-write and author their own report (final act); the wrapper only verifies.
+        'TASK:\n\n' +
+            task +
+            (o.writes
+                ? '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
+                  report +
+                  ' yourself.'
+                : ''),
+        o.writes
+            ? '(3) The lane wrote the report itself. Verify with one Bash call: jq -e . ' +
+              report +
+              ' >/dev/null. If the file is missing or invalid, extract the CONTENT text from the tool result envelope {threadId, content} ' +
+              'and Write it to that path verbatim (the product JSON, never the envelope), then re-verify.'
+            : '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
+              'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
+              report +
+              '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
+              report +
+              ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
+              'failure returns through step (4) with the error.',
         '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
             base +
             '-report.json, entries=the length of result["' +
@@ -221,7 +239,7 @@ const nativeLane = (task, o) =>
     agent(
         task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
-            CODEX_DIR +
+            SCRATCH +
             '/' +
             fileTag(o.label) +
             '-report.json (Write tool, absolute path under the repo root): ' +
@@ -312,7 +330,7 @@ const rebuildPrompt = (files, tier, degraded) =>
         'For EACH file run the same 3-lens write: (1) EXTRACT-FULL — confirm the package and document its full useful ADVANCED surface ' +
             '(combinators/hooks/async mirrors/discriminators/native pipelines — a floor, not the set), not the basic subset; (2) REFINE/REFACTOR — ' +
             'restructure to integration-shaped, documenting how this lib STACKS with the universal-tier rails AND sibling admitted libs into single ' +
-            'dense rails; (3) HARDEN — the terminal, most aggressive review: attack BOTH naivety axes (COVERAGE thin-slice, APPROACH ' +
+            'dense rails; (3) HARDEN — the terminal review: check BOTH naivety axes (COVERAGE thin-slice, APPROACH ' +
             'enumerated-instances-where-one-parameterized-pattern-owns-the-space), then remove every phantom member, wrong floor/marker/target, ' +
             'surface-level framing, missing license/ABI/runtime flag, and un-stacked single-feature framing — a defect list you hunt past — and end ' +
             'with a full cold re-read of each finished catalog. Verify members via `uv run --frozen python -m tools.assay api resolve` (blocked: the ' +
