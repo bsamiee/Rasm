@@ -1,9 +1,9 @@
 export const meta = {
     name: 'rebuild',
     whenToUse:
-        'The standing hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it plans, maps the whole corpus once (opus + terra, per folder), ideates a bigger-ideas worklist, then hostile-implements, critiques, and red-teams every page batch CONCURRENTLY at each owning-language doctrine bar with libs-wide ripple authority, and a read-only finder fan plus one terminal fixer close the run.',
+        'The standing hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it plans, maps every .planning sub-folder with its own opus + terra lens pair, ideates per package as two lanes (corrections census + bigger-ideas worklist), then hostile-implements, critiques, and red-teams every sub-folder-aligned page batch CONCURRENTLY at each owning-language doctrine bar under the own-pass-first input ladder with libs-wide ripple authority, and a read-only finder fan plus one terminal fixer close the run.',
     description:
-        'Language-agnostic rebuild engine over libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets}; empty = no-op; targets may MIX languages — each batch derives its doctrine, both .api tiers, casing, and member-verification rail from its own owning package. Plan (1 opus) expands targets to pages in dependency order under the owning-package charter, seam-cohesive pages adjacent. Map runs ONCE per owning package: an OPUS deep-map lane (architecture, ownership boundaries per page, seams, cross-folder relationships, domain gaps, underutilized capability — INFORMATION anchored to disk, never code) beside a gpt-5.6-terra two-tier .api inventory lane (codex wrapper, verified member + stacking inventory), each writing a per-folder dossier every batch of that package reuses — the corpus is mapped once, not re-mapped per batch. Ideate (1 fable) reads the whole corpus map and authors a per-folder + cross-folder bigger-ideas worklist (extensions, in-place collapses, underutilized-capability wiring especially the Effect/rail substrate, cross-boundary enablement) as ambition/information, never prescriptions or a ceiling. Build runs ALL batches (even-split, max 8 pages) concurrently under one agent-level slot scheduler capped at the runtime concurrency clamp: per batch ONE page-scoped gpt-5.6-terra doctrine-bar quality lens (codex wrapper; product to disk, receipt on the wire; CODEX flag false restores native lanes) then implement (fable), critique (ONE gpt-5.6-sol codex lane per batch, workspace-write, full conformance audit in place with its fixlog to disk), and redteam (fable, terminal — reading the critique fixlog from disk as refutation targets and FOLDING its surviving deferred/index/seam rows into the batch record) chained behind their own batch only. Executors consume the corpus map + inventory + worklist dossiers as READ-AND-EXCEED inputs — spot-verified against current disk, never relitigated, never a ceiling — and STILL run their own hostile cold pass and read the owning-language stack doctrine at source. Handoffs between chain stages carry NAVIGATION FACTS ONLY (files, symbol deltas, seam rows, deferred backlog) — never self-assessment; reviewers derive their own defect list from disk first and receive prior claims strictly as refutation targets. Cross-batch coordination runs through per-batch seam-ledger files in scratch. Every writer holds LIBS-WIDE ripple authority under four non-arbitrary bounds: evidence (anchored ripples only), expand-form (concurrent foreign edits additive; collapse serializes to the fixer), depth (first-order fixed both ends now; second-order recorded to the backlog), and decision/propagation (index docs + central manifests + IDEAS rows single-writer via the terminal fixer; ruled-contract propagation distributed). Close: read-only finder fan per language on gpt-5.6-terra (landed pages + seam-ledger verification + cross-page duplication/collapse + split-brain smoothing + one governance finder per language), typed anchored findings graded substantive|hypothetical written as on-disk reports with thin receipts, stale findings discarded; ONE terminal fable fixer reads every ok report IN FULL from disk (failed-finder territory cold-read first), applies every index row, re-verifies findings as signals, drains the deferred backlog, hunts past everything, and returns the final fixlog. Nothing follows the fixer.',
+        'Language-agnostic rebuild engine over libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets}; empty = no-op; targets may MIX languages — each batch derives its doctrine, both .api tiers, casing, and member-verification rail from its own owning package. Plan (1 opus) expands targets to pages in dependency order under the owning-package charter, seam-cohesive pages adjacent. Map runs ONCE per SUB-FOLDER UNIT (<pkg>/.planning/<sub>; root-level pages pool as one unit): an OPUS deep-map lane (architecture, ownership boundaries per page, seams, cross-folder relationships, domain gaps, underutilized capability — INFORMATION anchored to disk, never code) beside a gpt-5.6-terra two-tier .api inventory lane (codex wrapper, verified member + stacking inventory), each writing a per-unit dossier every batch touching that unit reuses — package-level mapping dilutes depth on a large package and is the rejected form. Ideate runs per owning package as TWO lanes with disjoint charters: a CORRECTIONS CENSUS (opus — drift, phantoms, spelling repairs, wire mismatches, wiring gaps, per sub-folder, deduped and disk-verified; the non-binding fix addendum) and a BIGGER-IDEAS worklist (fable — NEW capabilities, dimensions, modalities, families the domain admits beyond correction, under a value bar that routes correction-shaped entries back to the census; ambition, never prescriptions or a ceiling). Build packs WHOLE sub-folder units into batches (max 8 pages, oversize units split) so batch ownership aligns with the map dossiers, ALL batches concurrent under one agent-level slot scheduler capped at the runtime concurrency clamp: per batch ONE page-scoped gpt-5.6-terra doctrine-bar quality lens (codex wrapper; product to disk, receipt on the wire; CODEX flag false restores native lanes) then implement (fable), critique (ONE gpt-5.6-sol codex lane per batch, workspace-write, full conformance audit in place with its fixlog to disk), and redteam (fable, terminal — reading the critique fixlog from disk as refutation targets and FOLDING its surviving deferred/index/seam rows into the batch record) chained behind their own batch only. Every batch writer works the OWN-PASS-FIRST input ladder: (1) its own blind hostile pass — cold defect list, collapses, naivety kills, body rebuilds derived from disk BEFORE any recon opens, the majority of the diff by mandate (a diff mapping one-to-one onto recon rows fails the tripwire); (2) the unit map dossiers as grounding to verify and exceed; (3) the corrections census rows intersecting its pages as an addendum; (4) the bigger-ideas entries its pages own, realized at the strongest form disk admits. Handoffs between chain stages carry NAVIGATION FACTS ONLY (files, symbol deltas, seam rows, deferred backlog) — never self-assessment; reviewers derive their own defect list from disk first and receive prior claims strictly as refutation targets. Cross-batch coordination runs through per-batch seam-ledger files in scratch. Every writer holds LIBS-WIDE ripple authority under four non-arbitrary bounds: evidence (anchored ripples only), expand-form (concurrent foreign edits additive; collapse serializes to the fixer), depth (first-order fixed both ends now; second-order recorded to the backlog), and decision/propagation (index docs + central manifests + IDEAS rows single-writer via the terminal fixer; ruled-contract propagation distributed). Close: read-only finder fan per language on gpt-5.6-terra (landed pages + seam-ledger verification + cross-page duplication/collapse + split-brain smoothing + one governance finder per language), typed anchored findings graded substantive|hypothetical written as on-disk reports with thin receipts, stale findings discarded; ONE terminal fable fixer reads every ok report IN FULL from disk (failed-finder territory cold-read first), applies every index row, re-verifies findings as signals, drains the deferred backlog AND the unclaimed corrections-census rows, hunts past everything, and returns the final fixlog. Nothing follows the fixer.',
     phases: [
         {
             title: 'Plan',
@@ -12,21 +12,20 @@ export const meta = {
         },
         {
             title: 'Map',
-            detail: 'per owning package, ONCE: an OPUS deep-map lane (architecture, ownership, seams, cross-folder relationships, domain gaps, underutilized capability — information, no code) beside a gpt-5.6-terra two-tier .api inventory lane (codex wrapper), each writing a per-folder dossier every batch of that package reuses',
+            detail: 'per .planning sub-folder unit, ONCE: an OPUS deep-map lane (architecture, ownership, seams, cross-folder relationships, domain gaps, underutilized capability — information, no code) beside a gpt-5.6-terra two-tier .api inventory lane (codex wrapper), each writing a per-unit dossier every batch touching that unit reuses',
             model: 'opus',
         },
         {
             title: 'Ideate',
-            detail: 'one fable reads the corpus map and authors a per-folder + cross-folder bigger-ideas worklist (extensions, in-place collapses, underutilized-capability wiring, cross-boundary enablement) as ambition/information, never prescriptions or a ceiling',
-            model: 'fable',
+            detail: 'per owning package, TWO lanes: a corrections census (opus — the deduped disk-verified fix addendum, per sub-folder) and a bigger-ideas worklist (fable — new capabilities beyond correction under the value bar); disjoint charters, never one merged log',
         },
         {
             title: 'Build',
-            detail: 'all batches concurrent under the agent-level slot cap: per batch ONE gpt-5.6-terra doctrine-bar lens (codex wrapper; product to disk, receipt on the wire) then implement (fable), critique (gpt-5.6-sol codex lane, fixlog to disk), redteam (fable, folding the critique rows forward) chained behind their own batch; executors read the corpus map + worklist as read-and-exceed inputs and still run their own cold pass; navigation-fact handoffs, seam-ledger coordination, libs-wide bounded ripple authority',
+            detail: 'sub-folder-packed batches all concurrent under the agent-level slot cap: per batch ONE gpt-5.6-terra doctrine-bar lens (codex wrapper; product to disk, receipt on the wire) then implement (fable), critique (gpt-5.6-sol codex lane, fixlog to disk), redteam (fable, folding the critique rows forward) chained behind their own batch; every writer works the own-pass-first four-rung input ladder — own blind hostile pass primary, map dossiers grounding, census rows addendum, ideas ambition; navigation-fact handoffs, seam-ledger coordination, libs-wide bounded ripple authority',
         },
         {
             title: 'Close',
-            detail: 'read-only gpt-5.6-terra finder fan (codex wrappers; products to disk, receipts on the wire) per language over landed pages + the seam ledger + cross-page duplication/collapse + split-brain smoothing, plus one governance finder per language; ONE terminal fable fixer reads the reports from disk, applies index rows, resolves findings as signals, drains the deferred backlog, hunts past them, returns the final fixlog',
+            detail: 'read-only gpt-5.6-terra finder fan (codex wrappers; products to disk, receipts on the wire) per language over landed pages + the seam ledger + cross-page duplication/collapse + split-brain smoothing, plus one governance finder per language; ONE terminal fable fixer reads the reports from disk, applies index rows, resolves findings as signals, drains the deferred backlog and the unclaimed census rows, hunts past them, returns the final fixlog',
         },
     ],
 };
@@ -858,6 +857,11 @@ const chunk = (arr, n) => {
 // Even split: ceil(n/max) batches of near-equal size — no runt tail heavying batch 0 and starving the last.
 const evenChunk = (arr, max) => chunk(arr, Math.ceil(arr.length / (Math.ceil(arr.length / max) || 1)));
 const pkgOf = (p) => p.split('/.planning/')[0]; // package = the write-partition key (index docs live at its root)
+// Sub-folder = the map/batch granularity unit: one mapper pair and one batch-ownership seam per `.planning/<sub>`; root-level pages pool as '_root'.
+const subOf = (p) => {
+    const rest = p.split('/.planning/')[1] || '';
+    return rest.includes('/') ? rest.split('/')[0] : '_root';
+};
 const Lof = (pkg) => LANG[langOf(pkg)] || LANG.cs;
 // Scratch paths follow one grammar: SCRATCH + '/' + fileTag(<label>) + '-<artifact>'. Seam ledgers key on the
 // batch tag; dossiers key on their recon lane label; lane reports key on the lane label via codexPrompt.
@@ -1137,18 +1141,36 @@ const HARVEST_LAW =
     'it would harden, quoted with its path — or "absent" plus the surfaces searched). A batch-local fix never nominates; an empty ' +
     'array is the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
-// The Ideate worklist is AMBITION, never a directive: executors read it, exceed it, and still cold-derive their own defect list.
-const WORKLIST = (worklist) =>
-    worklist
-        ? 'BIGGER-IDEAS WORKLIST — `' +
-          worklist +
-          '` carries per-folder AMBITIONS authored from the corpus map: extensions the ' +
-          'domain admits, in-place collapses, underutilized/unused capability to wire in (especially the admitted rail/Effect ' +
-          'substrate), and cross-folder enablement where a capability crosses or aligns package boundaries. Read YOUR folder ' +
-          'section IN FULL. It is INFORMATION and AMBITION, never a prescription, a design, or a ceiling: spot-verify each idea ' +
-          'against current disk, build the STRONGEST form it points toward or a stronger one you see, and pursue capability past ' +
-          'it. An idea disk already realizes, or the doctrine forbids, is dropped; an idea you decline is not a defect. Your own ' +
-          'hostile cold pass runs REGARDLESS — the worklist never substitutes for deriving your own defect list from disk.'
+// The four-input ladder for every batch writer, in binding order: (1) OWN blind hostile pass — the primary product; (2) the map dossiers —
+// two-tier .api stacking + context grounding; (3) the corrections census — additional fixes, never the plan; (4) the bigger-ideas worklist —
+// ambition beyond. OWN_PASS is the ladder's law; CORRECTIONS and IDEAS carry rungs 3 and 4.
+const OWN_PASS =
+    'OWN PASS FIRST — the input ladder is binding, in this order: (1) your own blind hostile pass, (2) the map dossiers, (3) the ' +
+    'corrections census, (4) the bigger-ideas worklist. Rung (1) is the PRIMARY product and the mandate: cold-read every target ' +
+    'page from CURRENT disk and derive your own defect list, collapse targets, naivety kills, body rebuilds, and design rulings ' +
+    'BEFORE opening any recon report, census, or worklist. Rungs (2)-(4) are secondary inputs that ground, extend, and widen YOUR ' +
+    'pass — they never scope it, never substitute for it, never cap it. TRIPWIRE: a pass whose diff maps one-to-one onto the recon ' +
+    'rows has failed this mandate — the recon covers a MINORITY of what the rebuild demands, and the majority of your edits must ' +
+    'come from your own attack: collapses, naivety kills, body rebuilds, and capability closure no report named.';
+
+const CORRECTIONS = (path) =>
+    path
+        ? 'CORRECTIONS CENSUS (ladder rung 3) — `' +
+          path +
+          '` carries the folder-wide fix census consolidated from the map lanes, sectioned per sub-folder: drift, phantoms, ' +
+          'catalog-true spelling repairs, seam and wire mismatches, wiring gaps. ADDITIONAL, never the plan: after your own pass, ' +
+          'land every row that intersects your pages (re-verified on disk — a row disk already resolves is dropped) and leave ' +
+          'foreign rows alone; the terminal fixer drains the remainder. A pass that only lands census rows has failed OWN PASS FIRST.'
+        : '';
+
+const IDEAS = (path) =>
+    path
+        ? 'BIGGER-IDEAS WORKLIST (ladder rung 4) — `' +
+          path +
+          '` carries per-sub-folder capability AMBITIONS: new dimensions, modalities, families, and operations the domain admits ' +
+          'BEYOND correction. Read the entries covering your pages IN FULL, spot-verify each against current disk, and build the ' +
+          'STRONGEST form it points toward or a stronger one you see. An idea disk already realizes, or the doctrine forbids, is ' +
+          'dropped; an idea you decline is not a defect. Ambition and information, never a prescription, a design, or a ceiling.'
         : '';
 
 const readFirst = (L, pkg, dossiers) =>
@@ -1200,9 +1222,10 @@ const readFirst = (L, pkg, dossiers) =>
         .join('\n');
 
 const reconBlock = (roster, unmapped) =>
-    'RECON REPORTS — the lens products are ON DISK as JSON report files; the ' +
-    'receipts below are navigation, never the product. CONSUMPTION: (a) UNMAPPED territory below (a dead lens) gets your own ' +
-    'cold read FIRST — that lens dimension over your pages is yours to derive; (b) read every ok report IN FULL from disk — ' +
+    'RECON REPORTS (ladder rung 2) — the lens products are ON DISK as JSON report files; the ' +
+    'receipts below are navigation, never the product. CONSUMPTION, after your own cold pass per OWN PASS FIRST: (a) UNMAPPED ' +
+    'territory below (a dead lens) gets your own ' +
+    'cold read — that lens dimension over your pages is yours to derive; (b) read every ok report IN FULL from disk — ' +
     'the ctx and api grounding lenses before the bar defect lens; entries overlap across lenses, cluster by page as you ' +
     "read; (c) each entry's anchors are jump coordinates — re-open every anchor behind an edit (MANDATORY); " +
     "navigation-only entries re-verify only when touched; (d) a bar finding's `mechanism`/`owner`/`reject`/`acceptance` are " +
@@ -1232,15 +1255,16 @@ const HUNT =
     '`substantive` (a concrete defect on current disk) or `hypothetical` (real only under an invented, implausible input). ' +
     'Verify cited external members against the .api catalogs; never trust page prose about itself.';
 
-const preamble = (L, batch, dossiers, worklist, scopes, roster, unmapped, reg) =>
-    [CONTEXT(L), REG[reg].stance(L), BUILD_LAW(L), BODY(L), VERIFY(L), RIPPLE_LAW, CURRENT_STATE, PROSE_COMMENTS(L)]
+const preamble = (L, batch, dossiers, ideate, scopes, roster, unmapped, reg) =>
+    [CONTEXT(L), REG[reg].stance(L), OWN_PASS, BUILD_LAW(L), BODY(L), VERIFY(L), RIPPLE_LAW, CURRENT_STATE, PROSE_COMMENTS(L)]
         .concat(L.mechanics ? [L.mechanics] : [])
         .concat([
             readFirst(L, pkgOf(batch[0].page), dossiers),
             LEDGER(scratchBase(pkgOf(batch[0].page), batch[0].i || 0), scopes),
             reconBlock(roster, unmapped),
         ])
-        .concat(worklist ? [WORKLIST(worklist)] : []);
+        .concat(ideate && ideate.fix ? [CORRECTIONS(ideate.fix)] : [])
+        .concat(ideate && ideate.idea ? [IDEAS(ideate.idea)] : []);
 
 // Prompt builders — each task states only its own action; shared checks are referenced by name.
 const planPrompt = () =>
@@ -1267,37 +1291,60 @@ const planPrompt = () =>
             'never re-sorts.',
     ].join('\n\n');
 
-// Ideate: one fable reads the whole corpus map and authors the bigger-ideas worklist dossier — ambition, never prescriptions.
-const ideatePrompt = (langs, mapIndex, worklist) =>
+// Ideate runs per owning package as TWO lanes with disjoint charters: the corrections census (the fix addendum, ladder rung 3) and the
+// bigger-ideas worklist (the ambition, ladder rung 4) — merged into one log they collapse into a fixlog and the ambition dies.
+const correctionsPrompt = (L, pkg, mapIndex, dossier) =>
     [
         ROOT_LAW,
-        'Rasm monorepo — the libs/ planning corpora. Per-language doctrine bars:\n' +
-            langs
-                .map((k) => '- ' + LANG[k].name + ': ' + LANG[k].stack + '/ (the quality bar); admitted substrate ' + LANG[k].deepPkgs + '.')
-                .join('\n'),
-        'TASK: BIGGER-IDEAS WORKLIST AUTHOR — read-only over the corpus; you WRITE exactly one file, the worklist dossier. The Map ' +
-            'phase produced, per owning package, an OPUS deep-map dossier (architecture, ownership, seams, cross-folder relationships, ' +
-            'domain gaps, underutilized capability) and a gpt-5.6-terra two-tier .api inventory dossier (verified members + stacking). ' +
-            'Read EVERY dossier listed below IN FULL: ' +
+        CONTEXT(L),
+        'TASK: CORRECTIONS CENSUS AUTHOR for `' +
+            pkg +
+            '` — read-only over the corpus; you WRITE exactly one file, the census dossier. The Map phase produced per-SUB-FOLDER ' +
+            'deep-map and two-tier .api inventory dossiers; read EVERY dossier listed here IN FULL: ' +
             JSON.stringify(mapIndex),
         'AUTHOR `' +
-            worklist +
-            '` — one markdown dossier, a section per owning folder then a final CROSS-FOLDER section. PER FOLDER, name the bigger ideas ' +
-            'the corpus genuinely admits: capability EXTENSIONS the domain implies, in-place COLLAPSES that densify an owner, ' +
-            'UNDERUTILIZED or UNUSED admitted capability to wire in (especially the rail/Effect substrate the inventory shows composed ' +
-            'by few or no pages), and naive owners to grow. CROSS-FOLDER: for every idea whose value crosses a package boundary, name ' +
-            'BOTH ends — the folder that opens it and the folder(s) that consume, align with, or are enabled by it — plus the seam it ' +
-            'rides; mark ideas that stand alone in isolation.',
-        'FORM: every idea is INFORMATION and AMBITION, never a prescription or a design. Name the owner, the admitted member or domain ' +
-            'concept, the anchor (a `file:line` or catalog coordinate from the dossiers), and WHY it strengthens the corpus — NEVER the ' +
-            'resulting code, a fence sketch, or a ruled shape. The executors read this as ambition they exceed and cold-verify, never a ' +
-            'directive. Ground every idea in a dossier anchor or a verified catalog member; an idea with no anchor is drift, dropped. ' +
-            'An idea that restates what disk already realizes, or merely echoes dossier wording back as ambition, is noise — cull it. ' +
-            "SECOND-PASS CULL (before returning): re-open every idea's anchor on disk; delete any idea whose anchor fails, whose " +
-            'capability disk already realizes, or whose value you cannot state as a concrete extension of a named owner. ' +
-            'Return ONLY the receipt: ok, report = the worklist path (repo-relative), entries = the idea count, a one-line headline, ' +
-            'failure empty.',
+            dossier +
+            '` — one markdown census, a section per sub-folder. Consolidate every CORRECTION the map lanes surfaced or your own ' +
+            'verification finds: drift between surfaces (page vs sibling vs index doc vs manifest vs .api), phantom members, ' +
+            'catalog-true spelling repairs, seam and wire mismatches, contradicted analyzer law, and WIRING GAPS — an uncomposed ' +
+            'admitted member the page concept plainly demands. Each row carries the owning page, the exact `file:line` anchor, the ' +
+            'defect as fact, and the catalog or doctrine coordinate that proves it. DEDUPE across dossiers (one row per defect); ' +
+            'VERIFY each row on current disk before writing it — a row disk already resolves is dropped. FORBIDDEN: new-capability ' +
+            'ambitions (the ideas lane owns them — a row that widens what the package IS gets dropped here, not diluted into a fix), ' +
+            'prescriptions, fence sketches, removal framing.',
         REG.claude.selfCheck,
+        'Return ONLY the receipt: ok, report = the census path (repo-relative), entries = the row count, a one-line headline, failure empty.',
+    ].join('\n\n');
+
+const ideasPrompt = (L, pkg, mapIndex, dossier) =>
+    [
+        ROOT_LAW,
+        CONTEXT(L),
+        'TASK: BIGGER-IDEAS AUTHOR for `' +
+            pkg +
+            '` — read-only over the corpus; you WRITE exactly one file, the ideas dossier. The Map phase produced per-SUB-FOLDER ' +
+            'deep-map and two-tier .api inventory dossiers; read EVERY dossier listed here IN FULL, then the package charter ' +
+            '(ARCHITECTURE.md + README.md + IDEAS.md) and the pages your ideas grow on: ' +
+            JSON.stringify(mapIndex),
+        'AUTHOR `' +
+            dossier +
+            '` — one markdown dossier, a section per sub-folder plus a terminal CROSS-FOLDER section. Every entry is a NEW ' +
+            'capability the domain admits and the corpus lacks: a new dimension, modality, family, case class, operation family, ' +
+            'generator over an enumerated space, or cross-boundary enablement — an extension that widens what the package IS. ' +
+            'Ground each in real domain demand (' +
+            L.gapDomain +
+            ') and the admitted two-tier package depth. VALUE BAR — the census/ideas partition is severity of imagination, not ' +
+            'anchor quality: a stale label, a wrong spelling, a dropped wire column, or a single uncomposed member is a CORRECTION ' +
+            'and belongs to the census lane — drop it here; an entry earns its row by naming capability whose absence a domain ' +
+            'expert would call a gap in the PRODUCT, not a defect in the prose. Name the owner it grows on, the domain or catalog ' +
+            'ground, the anchor, and WHY it widens the package — never the resulting code, a fence sketch, or a ruled shape. ' +
+            'CROSS-FOLDER: for every idea whose value crosses the package boundary, name BOTH ends and the seam it rides.',
+        "SECOND-PASS CULL (before returning): re-open every entry's anchor on disk; delete any entry disk already realizes, any " +
+            'correction in disguise, and any entry whose value you cannot state as a concrete new capability of a named owner. ' +
+            'Boldness is never the cull criterion — the cull removes false and small entries, never ambitious ones; a dossier of ' +
+            'few large ideas beats a dossier of many verified trivia.',
+        REG.claude.selfCheck,
+        'Return ONLY the receipt: ok, report = the dossier path (repo-relative), entries = the idea count, a one-line headline, failure empty.',
     ].join('\n\n');
 
 const ctxLensPrompt = (L, batch, dossier, reg) =>
@@ -1389,8 +1436,8 @@ const barLensPrompt = (L, batch, reg) =>
             'defect, NEVER the resulting code — the implement agent rules every design.',
     ].join('\n\n');
 
-const implementPrompt = (L, batch, dossiers, worklist, scopes, roster, unmapped) =>
-    preamble(L, batch, dossiers, worklist, scopes, roster, unmapped, 'claude')
+const implementPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped) =>
+    preamble(L, batch, dossiers, ideate, scopes, roster, unmapped, 'claude')
         .concat([
             'TASK: HOSTILE IMPLEMENT of these ' +
                 batch.length +
@@ -1408,7 +1455,8 @@ const implementPrompt = (L, batch, dossiers, worklist, scopes, roster, unmapped)
                 '; one polymorphic entrypoint per modality. ' +
                 "COMPOSE the reports' `apiUsed` at full operator depth, STACK every `apiUnderutilized` into the owner, CLOSE every " +
                 'bar finding at its law, and CONFIRM no other admitted catalog is missing. CLOSE the concept capability gaps per BUILD ' +
-                'LAW. ' +
+                'LAW. Then work the remaining ladder rungs: land every CORRECTIONS CENSUS row intersecting your pages, and realize the ' +
+                'BIGGER-IDEAS entries your pages own at the strongest form disk admits. ' +
                 L.modern +
                 '; ' +
                 L.fileOrg +
@@ -1418,8 +1466,8 @@ const implementPrompt = (L, batch, dossiers, worklist, scopes, roster, unmapped)
         ])
         .join('\n\n');
 
-const critiquePrompt = (L, batch, dossiers, worklist, scopes, roster, unmapped, nav, reg) =>
-    preamble(L, batch, dossiers, worklist, scopes, roster, unmapped, reg)
+const critiquePrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, nav, reg) =>
+    preamble(L, batch, dossiers, ideate, scopes, roster, unmapped, reg)
         .concat([
             'NAVIGATION (facts from the pass that landed these pages — locations only, no assessments; it changes where you look ' +
                 'FIRST, never what you conclude): ' +
@@ -1458,8 +1506,8 @@ const critiquePrompt = (L, batch, dossiers, worklist, scopes, roster, unmapped, 
         ])
         .join('\n\n');
 
-const redteamPrompt = (L, batch, dossiers, worklist, scopes, roster, unmapped, nav, crit) =>
-    preamble(L, batch, dossiers, worklist, scopes, roster, unmapped, 'claude')
+const redteamPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, nav, crit) =>
+    preamble(L, batch, dossiers, ideate, scopes, roster, unmapped, 'claude')
         .concat([
             'NAVIGATION (locations only, no assessments): ' + JSON.stringify(nav),
             crit && crit.ok
@@ -1557,7 +1605,7 @@ const govFinderPrompt = (L, pkgs, pages, rows, reg) =>
             'anchored graded findings.',
     ].join('\n\n');
 
-const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orphans, round) =>
+const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orphans, census, round) =>
     [
         ROOT_LAW,
         round
@@ -1607,6 +1655,11 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
             "under the same law, and fold each fixlog's surviving harvest rows into your own `harvest` return, re-verified against " +
             'current disk and deduped): ' +
             JSON.stringify(orphans) +
+            '.\n' +
+            '(2c) CORRECTIONS CENSUS dossiers (the per-package fix census the batch writers consumed as an addendum — read each IN ' +
+            'FULL from disk; the writers landed only the rows intersecting their own pages, so every row NOT already resolved on ' +
+            'current disk is yours: land it at its root or reject it with reason): ' +
+            JSON.stringify(census) +
             '.\n' +
             '(3) FINDER REPORTS — the finder products are ON DISK as JSON report files; the ROSTER receipts below are navigation, ' +
             'never the product. CONSUMPTION PROTOCOL, in order: (a) UNMAPPED scope below is your direct-hunt queue — a failed ' +
@@ -1677,22 +1730,30 @@ if (!PAGES.length) {
 }
 
 phase('Map');
-// Corpus map ONCE per owning package, reused by every batch of that package: an opus deep-map lane (context/seams,
-// native — the 50% opus half) beside a terra two-tier .api inventory lane (codex — the 50% terra half). Products are
-// per-package dossiers + reports on disk; receipts on the wire. Moving ctx/api mapping here drops it from per-batch repetition.
+// Corpus map ONCE per SUB-FOLDER unit, reused by every batch touching that unit: an opus deep-map lane (context/seams, native)
+// beside a terra two-tier .api inventory lane (codex) PER `.planning/<sub>` — package-level mapping dilutes depth ~10x on a large
+// package and starves the batches of per-page grounding. Products are per-unit dossiers + reports on disk; receipts on the wire.
 const PKGS = [...new Set(PAGES.map((p) => pkgOf(p.page)))];
-const pkgMap = {};
+const UNITS = PKGS.flatMap((pkg) => {
+    const pkgPages = PAGES.filter((p) => pkgOf(p.page) === pkg);
+    return [...new Set(pkgPages.map((p) => subOf(p.page)))].map((sub) => ({
+        pkg,
+        sub,
+        pages: pkgPages.filter((p) => subOf(p.page) === sub),
+    }));
+});
+const unitMap = {};
 await Promise.all(
-    PKGS.map(async (pkg) => {
-        const L = Lof(pkg);
-        const pkgPages = PAGES.filter((p) => pkgOf(p.page) === pkg).map((p) => Object.assign({}, p, { i: 0 }));
-        const scope = pkgPages.map((p) => p.page);
-        const tag = pkg.split('/').pop();
+    UNITS.map(async (u) => {
+        const L = Lof(u.pkg);
+        const unitPages = u.pages.map((p) => Object.assign({}, p, { i: 0 }));
+        const scope = unitPages.map((p) => p.page);
+        const tag = u.pkg.split('/').pop() + '.' + u.sub;
         const ctxDossier = dossierPath('map:ctx:' + tag);
         const apiDossier = dossierPath('map:api:' + tag);
         const [ctx, api] = await Promise.all([
             slot(() =>
-                recon((reg) => ctxLensPrompt(L, pkgPages, ctxDossier, reg), {
+                recon((reg) => ctxLensPrompt(L, unitPages, ctxDossier, reg), {
                     label: 'map:ctx:' + tag,
                     phase: 'Map',
                     schema: CTX_SCHEMA,
@@ -1704,7 +1765,7 @@ await Promise.all(
                 }),
             ),
             slot(() =>
-                recon((reg) => apiLensPrompt(L, pkgPages, apiDossier, reg), {
+                recon((reg) => apiLensPrompt(L, unitPages, apiDossier, reg), {
                     label: 'map:api:' + tag,
                     phase: 'Map',
                     schema: API_SCHEMA,
@@ -1714,41 +1775,93 @@ await Promise.all(
                 }),
             ),
         ]);
-        pkgMap[pkg] = { ctx, api, ctxDossier, apiDossier };
+        unitMap[u.pkg + '|' + u.sub] = { ctx, api, ctxDossier, apiDossier };
     }),
 );
-const mapOk = Object.values(pkgMap).filter((m) => (m.ctx && m.ctx.ok) || (m.api && m.api.ok)).length;
-log('Map: ' + PKGS.length + ' package(s) mapped (opus deep-map + terra .api inventory); ' + mapOk + ' with a live dossier');
+const mapOk = Object.values(unitMap).filter((m) => (m.ctx && m.ctx.ok) || (m.api && m.api.ok)).length;
+log('Map: ' + UNITS.length + ' sub-folder unit(s) across ' + PKGS.length + ' package(s) mapped; ' + mapOk + ' with a live dossier');
 
 phase('Ideate');
-// One fable reads the whole corpus map and authors the bigger-ideas worklist dossier — ambition/information the
-// executors exceed and cold-verify, never a directive. Absent (no map dossiers or a dead ideate) the executors run without it.
-const worklistDossier = dossierPath('ideate:worklist');
-const mapIndex = PKGS.map((pkg) => ({
-    folder: pkg,
-    deepMap: (pkgMap[pkg].ctx && pkgMap[pkg].ctx.ok && pkgMap[pkg].ctxDossier) || null,
-    inventory: (pkgMap[pkg].api && pkgMap[pkg].api.ok && pkgMap[pkg].apiDossier) || null,
-})).filter((r) => r.deepMap || r.inventory);
-const ideate = mapIndex.length
-    ? await slot(() =>
-          agent(ideatePrompt(LANGS_IN, mapIndex, worklistDossier), {
-              label: 'ideate',
-              phase: 'Ideate',
-              model: 'fable',
-              effort: 'high',
-              schema: RECEIPT,
-              stallMs: STALL,
-          }),
-      )
-    : null;
-const WORKLIST_PATH = ideate && ideate.ok ? worklistDossier : '';
-log('Ideate: ' + (WORKLIST_PATH ? (ideate.entries || 0) + ' bigger-idea(s) -> ' + WORKLIST_PATH : 'no worklist (map unavailable or ideate failed)'));
+// TWO lanes per owning package with disjoint charters: a corrections census (opus — the fix addendum the batches land as rung 3)
+// and a bigger-ideas worklist (fable — the capability ambition, rung 4). One merged log regresses to a fixlog and the ambition dies.
+// Either lane absent (dead map or dead ideate), the executors run without that rung.
+const pkgIdeate = {};
+await Promise.all(
+    PKGS.map(async (pkg) => {
+        const L = Lof(pkg);
+        const tag = pkg.split('/').pop();
+        const mapIndex = UNITS.filter((u) => u.pkg === pkg)
+            .map((u) => ({
+                sub: u.sub,
+                deepMap: (unitMap[pkg + '|' + u.sub].ctx?.ok && unitMap[pkg + '|' + u.sub].ctxDossier) || null,
+                inventory: (unitMap[pkg + '|' + u.sub].api?.ok && unitMap[pkg + '|' + u.sub].apiDossier) || null,
+            }))
+            .filter((r) => r.deepMap || r.inventory);
+        if (!mapIndex.length) {
+            pkgIdeate[pkg] = { fix: '', idea: '' };
+            return;
+        }
+        const fixDossier = dossierPath('ideate:fix:' + tag);
+        const ideaDossier = dossierPath('ideate:idea:' + tag);
+        const [fix, idea] = await Promise.all([
+            slot(() =>
+                agent(correctionsPrompt(L, pkg, mapIndex, fixDossier), {
+                    label: 'ideate:fix:' + tag,
+                    phase: 'Ideate',
+                    model: 'opus',
+                    effort: 'high',
+                    schema: RECEIPT,
+                    stallMs: STALL,
+                }),
+            ),
+            slot(() =>
+                agent(ideasPrompt(L, pkg, mapIndex, ideaDossier), {
+                    label: 'ideate:idea:' + tag,
+                    phase: 'Ideate',
+                    model: 'fable',
+                    effort: 'high',
+                    schema: RECEIPT,
+                    stallMs: STALL,
+                }),
+            ),
+        ]);
+        pkgIdeate[pkg] = { fix: (fix && fix.ok && fixDossier) || '', idea: (idea && idea.ok && ideaDossier) || '' };
+        log(
+            'Ideate ' +
+                tag +
+                ': ' +
+                (pkgIdeate[pkg].fix ? (fix.entries || 0) + ' correction(s)' : 'no census') +
+                ' + ' +
+                (pkgIdeate[pkg].idea ? (idea.entries || 0) + ' bigger-idea(s)' : 'no ideas'),
+        );
+    }),
+);
+const CENSUS_PATHS = PKGS.map((pkg) => pkgIdeate[pkg] && pkgIdeate[pkg].fix).filter(Boolean);
 
 phase('Build');
-// Lanes keep sub-folder grouping + plan dependency/cohesion order for batch composition; nothing serializes on them —
+// Batch composition packs WHOLE sub-folder units (in plan order) up to BATCH_MAX, splitting only an oversize unit — a batch's
+// ownership seam then aligns with its map dossiers instead of slicing across sub-folders. Nothing serializes on the lanes;
 // the agent-level slot scheduler is the only governor.
-const lanes = [...new Set(PAGES.map((p) => pkgOf(p.page)))].map((pkg) => ({ pkg, pages: PAGES.filter((p) => pkgOf(p.page) === pkg) }));
-const BATCHES = lanes.flatMap((lane) => evenChunk(lane.pages, BATCH_MAX).map((pages, i) => ({ pkg: lane.pkg, i, pages })));
+const packBatches = (units, max) => {
+    const out = [];
+    let cur = [];
+    for (const u of units)
+        for (const seg of u.pages.length > max ? evenChunk(u.pages, max) : [u.pages]) {
+            if (cur.length && cur.length + seg.length > max) {
+                out.push(cur);
+                cur = [];
+            }
+            cur = cur.concat(seg);
+        }
+    if (cur.length) out.push(cur);
+    return out;
+};
+const BATCHES = PKGS.flatMap((pkg) =>
+    packBatches(
+        UNITS.filter((u) => u.pkg === pkg),
+        BATCH_MAX,
+    ).map((pages, i) => ({ pkg, i, pages })),
+);
 const SCOPES = JSON.stringify(BATCHES.map((b) => ({ batch: b.pkg.split('/').pop() + ':b' + b.i, pages: b.pages.map((p) => p.page) })));
 const built = (
     await Promise.all(
@@ -1757,8 +1870,8 @@ const built = (
             const L = Lof(b.pkg);
             const batch = b.pages.map((p) => Object.assign({}, p, { i: b.i }));
             const pageScope = batch.map((p) => p.page);
-            const pm = pkgMap[b.pkg] || {};
-            // ctx + api grounding come from the Map phase (per-package, reused); only the page-scoped bar lens runs per batch.
+            // ctx + api grounding come from the Map phase (per-sub-folder units, reused); only the page-scoped bar lens runs per batch.
+            const pms = [...new Set(batch.map((p) => subOf(p.page)))].map((s) => unitMap[b.pkg + '|' + s]).filter(Boolean);
             const bar = await slot(() =>
                 recon((reg) => barLensPrompt(L, batch, reg), {
                     label: 'recon:bar:' + tag,
@@ -1768,8 +1881,11 @@ const built = (
                     hl: { arr: 'findings', group: 'severity' },
                 }),
             );
-            const roster = [pm.ctx, pm.api, bar].filter(Boolean);
-            // A failed Map lane carries the WHOLE package as scope; intersect with this batch so cold-read stays on its own pages.
+            const roster = pms
+                .flatMap((m) => [m.ctx, m.api])
+                .concat([bar])
+                .filter(Boolean);
+            // A failed Map lane carries its WHOLE unit as scope; intersect with this batch so cold-read stays on its own pages.
             const unmapped = roster
                 .filter((r) => !r.ok)
                 .flatMap((r) => (r.scope || []).filter((sc) => pageScope.includes(sc)).map((sc) => ({ lane: r.lane, scope: sc })));
@@ -1782,9 +1898,13 @@ const built = (
                             .map((r) => r.lane)
                             .join(', '),
                 );
-            const dossiers = [pm.ctx && pm.ctx.ok && pm.ctxDossier, pm.api && pm.api.ok && pm.apiDossier].filter(Boolean).join('`, `');
+            const dossiers = pms
+                .flatMap((m) => [m.ctx && m.ctx.ok && m.ctxDossier, m.api && m.api.ok && m.apiDossier])
+                .filter(Boolean)
+                .join('`, `');
+            const ideate = pkgIdeate[b.pkg] || { fix: '', idea: '' };
             const fix = await slot(() =>
-                agent(implementPrompt(L, batch, dossiers, WORKLIST_PATH, SCOPES, roster, unmapped), {
+                agent(implementPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped), {
                     label: 'impl:' + tag,
                     phase: 'Build',
                     model: 'fable',
@@ -1797,7 +1917,7 @@ const built = (
             // Sol critique: a workspace-write codex lane running the full conformance audit in place;
             // fixlog to disk, receipt on the wire; the redteam reads the fixlog from disk and folds its rows forward.
             const crit = await slot(() =>
-                recon((reg) => critiquePrompt(L, batch, dossiers, WORKLIST_PATH, SCOPES, roster, unmapped, navOf([fix]), reg), {
+                recon((reg) => critiquePrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped, navOf([fix]), reg), {
                     label: 'crit:' + tag,
                     phase: 'Build',
                     schema: REVIEW_SCHEMA,
@@ -1812,7 +1932,7 @@ const built = (
             );
             const critR = crit && crit.ok ? crit : null;
             const rt = await slot(() =>
-                agent(redteamPrompt(L, batch, dossiers, WORKLIST_PATH, SCOPES, roster, unmapped, navOf([fix]), critR), {
+                agent(redteamPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped, navOf([fix]), critR), {
                     label: 'rt:' + tag,
                     phase: 'Build',
                     model: 'fable',
@@ -1918,7 +2038,18 @@ let lastOpen = Infinity;
 for (let round = 0; round < DRAIN_ROUNDS; round++) {
     fixer = await slot(() =>
         agent(
-            fixerPrompt(LANDED_LANGS, round ? [] : found, round ? [] : UNMAPPED, round ? [] : ROWS, residuals, FAILED, LANDED, orphanQueue, round),
+            fixerPrompt(
+                LANDED_LANGS,
+                round ? [] : found,
+                round ? [] : UNMAPPED,
+                round ? [] : ROWS,
+                residuals,
+                FAILED,
+                LANDED,
+                orphanQueue,
+                round ? [] : CENSUS_PATHS,
+                round,
+            ),
             { label: round ? 'fixer:r' + round : 'fixer', phase: 'Close', model: 'fable', effort: 'high', schema: FIXER_SCHEMA, stallMs: STALL },
         ),
     );
