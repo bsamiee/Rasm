@@ -37,7 +37,7 @@ const STAGGER_MS = 1500;
 const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
 const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
-const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
+const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the lane's pinned effort tier; stall detection must outlast it
 const BATCH_MAX = 8; // unit-segment + batch-packing ceiling; per-segment maps + census legwork carry the navigation, so a writer holds a full dense batch
 const FINDER_PAGES = 8; // landed pages per close-phase finder
 const CODEX = true; // recon/finder lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
@@ -1730,7 +1730,7 @@ const built = (
                         REVIEW_SCHEMA,
                         pageScope,
                         { arr: 'files' },
-                        { writes: true, fix: true, model: 'gpt-5.6-sol', nativeModel: 'fable', stallMs: SOL_STALL },
+                        { writes: true, fix: true, model: 'gpt-5.6-sol', codexEffort: 'xhigh', nativeModel: 'fable', stallMs: SOL_STALL },
                     ),
                 ),
             );
