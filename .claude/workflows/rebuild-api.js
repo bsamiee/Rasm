@@ -174,10 +174,15 @@ const chunk = (arr, n) => {
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const laneLaw = (schema, o) =>
     (o.fix
-        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
-          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
-          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
-          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
+        ? '<completion_bar>\nDone is every catalog in your named batch rebuilt to its full integration-shaped depth with its ' +
+          'fix-log entry written — proof-complete, never effort-spent, never early. Complete every named move before yielding; do ' +
+          'not stop at analysis or a partial edit. If the chosen approach resists, pick the next-best one and proceed. Your layer ' +
+          'is rebuild-and-repair: a cross-catalog defect your work exposes is edited in place under the FIX-IT-NOW law and listed ' +
+          'in beyondBatch, never deferred; a package genuinely absent from the admitted set is stated as fact in summary, never ' +
+          'invented — and re-verifying an unchanged catalog or re-reading covered territory adds no evidence; move to the next ' +
+          'deliverable instead.\n</completion_bar>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is ' +
+          'coherent and nothing it carried was lost. Fix what fails before yielding; a check you did not run is never claimed as ' +
+          'run.\n</verification>'
         : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
           'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
           (o.calls || 60) +
@@ -210,8 +215,14 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
-            'error through step (4).',
+            'VERBATIM. ' +
+            (o.writes
+                ? 'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane writes ' +
+                  "its report as its final act — run step (3)'s verification first, and a valid report proceeds to step (4) as success. " +
+                  'Only a missing or invalid report earns ONE identical retry (a second writer over the same catalogs is the last ' +
+                  'resort); a failed retry with no valid report returns the error through step (4).'
+                : 'If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the error ' +
+                  'through step (4).'),
         'LANE LAW:\n\n' + laneLaw(schema, o),
         // batch lanes are workspace-write and author their own report (final act); the wrapper only verifies.
         'TASK:\n\n' +

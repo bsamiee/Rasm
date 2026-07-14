@@ -871,6 +871,8 @@ const SCRATCH =
 
 Dual schema: the PRODUCT schema types the on-disk file; the RECEIPT types the wire. Both strict — every object `additionalProperties: false` with every property required — so one shape serves AJV lanes and codex `--output-schema` alike.
 
+ONE REPRESENTATION PER FACT: a lane authors each fact once. A content lane whose product is a prose dossier returns a thin INDEX receipt (per-scope-key pointers into the dossier's sections plus coverage) — a wire product restating the dossier's content is double-authoring the consumer never reads, and transcript evidence shows consumers pick one twin and orphan the other. The same law binds hand-authored disk twins: a coordination ledger row and its wire `seamsTouched` fold are ONE authored row in two transports, never two derivations. A streaming coordination surface appends per event with an ordering prefix (`seq | origin | stage | TYPE | payload`) — a file written once at the end has failed its coordination purpose, and a consumer of a columnless concurrent file cannot order or trust its rows.
+
 ```js conceptual
 // One anchor = one fact at one coordinate; interpretation never lives in an anchor row. `note` is the shortest literal witness under 20 words,
 // or empty when path+line suffice; an `absence` anchor names where the expected thing was searched and not found.

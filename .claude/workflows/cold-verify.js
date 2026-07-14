@@ -275,7 +275,8 @@ const HARVEST_LAW =
     'HARVEST (required key, usually empty): nominate ONLY findings that generalize beyond this campaign — a collapse pattern ' +
     'reusable across folders, a naivety class no doctrine clause names, a review rule that would have caught a defect BEFORE ' +
     'review, a cross-surface coupling discovered the hard way. Each row: altitude (stacks|reviewer|constitution|planning|readme|' +
-    'laws), lang, claim (the generalized law, one sentence), anchors (file:line evidence), existingClause (the exact doctrine or ' +
+    'laws), lang, claim (the generalized law, one sentence, SYMBOL-FREE — every concrete spelling lives in anchors, so the ' +
+    'lander adjudicates the law without re-deriving its locality), anchors (file:line evidence), existingClause (the exact doctrine or ' +
     'reviewer clause it would harden, quoted with its path — or "absent" plus the surfaces searched). A campaign-local fix never ' +
     'nominates; an empty array is the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 

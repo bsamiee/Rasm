@@ -235,14 +235,20 @@ const INFRA_LAW =
     'the infra is missing outright, admitting new packages through the admission procedure whenever they raise the bar.';
 
 const TIER_LAW = {
-    T1: 'PASS T1 (INITIAL): realize the whole mandate with full write authority — implement, extend, and collapse; this is build work, not cleanup.',
+    T1:
+        'PASS T1 (INITIAL): realize the whole mandate with full write authority — implement, extend, and collapse; this is build work, not ' +
+        'cleanup. CAPABILITY-COMPLETENESS IS MANDATORY: every gauge, fixture algebra, law table, and discovery-driven registration you build ' +
+        'implements what its name and prose promise — a named-but-omitted capability (a lane, marker, or SUT the infra claims but never wires) ' +
+        'is a defect you close NOW, at the same bar as any finding.',
     T2:
         'PASS T2 (CRITIQUE): a cold pass with FULL, EQUAL write authority. Derive your own findings from disk first; every earlier pass output is suspect ' +
         'material to attack, never a boundary or a baseline to defer to. Run the mechanical line-by-line doctrinal-conformance and capability-completeness ' +
         'audit repaired in place — collapse scan, owner choice, knob test, rails, language modernity, capability and illusion — as a floor and hunt past it; ' +
         'every hit is a fix, never a note; extend, expand, and ripple wherever you find value.',
     T3:
-        'PASS T3 (REDTEAM): everything critique does AND the terminal attack — counterfactual on core owners/algebras/dispatch, diff-of-the-next-feature ' +
+        'PASS T3 (REDTEAM): everything critique does AND the terminal attack — a counterfactual on core owners/algebras/dispatch that REBUILDS ' +
+        'with the central assumption removed (name the assumption the current shape stands on, derive the form without it, build the stronger ' +
+        'form in place — "the current shape also works" is never a refutation), diff-of-the-next-feature ' +
         '(the next case, project, or package lands as one row with consumers untouched or loudly broken), long-tail and failure-mode attack, boundary and ' +
         'strata integrity, surface sprawl and phantom members, domain completeness — plus a full cold re-review of every dimension. The estate ends ' +
         'objectively denser and more capable than the prior pass left it.',
@@ -341,8 +347,10 @@ const codexRecon = (task, o) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
-            'error through step (4).',
+            'VERBATIM. If the call errors, do NOT immediately retry: an abandoned workspace-write call usually completes server-side and the ' +
+            'lane writes its dossier as its final act — run step (3) FIRST, and a present, non-empty dossier proceeds to step (4) as success. ' +
+            'Only a missing or empty dossier earns ONE identical retry (a second writer over the same path is the last resort); a failed retry ' +
+            'with no dossier returns the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(o.schema, o),
         'TASK:\n\n' + task,
         '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text — the ' +

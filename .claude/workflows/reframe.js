@@ -523,7 +523,8 @@ const HARVEST_LAW =
     'HARVEST (required key, usually empty): nominate ONLY findings that generalize beyond this unit — a re-framing pattern ' +
     'reusable across folders, a frame-poison class no docgen defect names, a register or template rule that would have caught a ' +
     'defect BEFORE review. Each row: altitude (stacks|reviewer|constitution|planning|readme|laws), lang, claim (the generalized ' +
-    'law, one sentence), anchors (file:line evidence), existingClause (the exact doctrine or template clause it would harden, ' +
+    'law, one sentence, SYMBOL-FREE — every concrete spelling lives in anchors, so the lander adjudicates the law without ' +
+    're-deriving its locality), anchors (file:line evidence), existingClause (the exact doctrine or template clause it would harden, ' +
     'quoted with its path — or "absent" plus the surfaces searched). A unit-local fix never nominates; an empty array is the ' +
     'normal verdict — the doctrine lander refutes weak rows, so nominate substance, never volume.';
 
@@ -545,6 +546,18 @@ const READ_FIRST = (L, u) =>
     'the fence nor either tier verifies is a PHANTOM corrected from the catalogs or deleted). (4) Read EVERY design page under `' +
     u.planning +
     '` IN FULL — never a skim, grep-jump, or section-sample.';
+
+const OWN_PASS = (artifact) =>
+    'OWN PASS FIRST — the input ladder is binding, in order: (1) your own blind cold frame-read, (2) the frame-recon report. ' +
+    'Rung (1) is the PRIMARY product and it is a DISK ARTIFACT, not a reading step: cold-read every target page from CURRENT ' +
+    'disk and WRITE your own frame-defect-and-reframe list to `' +
+    artifact +
+    '` — imported frames, template drift, stale mirrors, twin truths, text seam maps, dead prose, comment-discipline and ' +
+    'divider defects, and every register or template rule each page breaks — BEFORE opening the frame-recon report. The recon ' +
+    'may only ADD rows to that file, each tagged [recon]; reading the pages without writing the list is a failed rung, not a ' +
+    'cold pass. Rung (2) grounds, verifies, and widens YOUR pass — it never scopes, substitutes for, or caps it. TRIPWIRE: a ' +
+    'diff dominated by [recon]-tagged rows has failed — the recon covers a MINORITY of what the reframe demands, and the ' +
+    'majority of your edits must come from your own attack.';
 
 const reconBlock = (framed, unmapped) =>
     'FRAME REPORT — the frame-recon product is ON DISK as a JSON report; the receipt below is navigation, never the product. ' +
@@ -589,12 +602,18 @@ const slot = makeSlots(CAP);
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions;
 // the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
+// Stage-distinct own-pass artifact path — one per unit per consuming stage, so a writer, critique, and red-team never share a file.
+const ownPassArt = (folder, stage) => SCRATCH + '/' + fileTag(folder.split('/').pop()) + '-' + stage + '-ownpass.md';
 const laneLaw = (schema, o) =>
     (o.fix
-        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
-          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
-          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
-          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
+        ? '<completion_bar>\nDone is every page in your named scope worked to its full depth with its fixlog entry written — ' +
+          'proof-complete, never effort-spent, never early. Complete every named move before yielding; do not stop at analysis ' +
+          'or a partial edit. If the chosen approach resists, pick the next-best one and proceed; a move the territory genuinely ' +
+          'admits no edit for returns as a deferred row naming its blocker. Your layer is review-and-repair of the named scope: ' +
+          'a finding outside it lands as a typed deferred/index row, never an edit — and re-verifying unchanged work or ' +
+          're-reading covered territory adds no evidence; move to the next deliverable instead.\n</completion_bar>\n\n' +
+          '<verification>\nAfter editing, re-read each changed file and confirm it is coherent and nothing it carried was lost. ' +
+          'Fix what fails before yielding; a check you did not run is never claimed as run.\n</verification>'
         : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
           'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md) beyond those the task explicitly names.\nBudget: ' +
           'at most ' +
@@ -628,8 +647,14 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
-            'error through step (4).',
+            'VERBATIM. ' +
+            (o.writes
+                ? 'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane writes ' +
+                  "its report as its final act — run step (3)'s verification first, and a valid report proceeds to step (4) as success. " +
+                  'Only a missing or invalid report earns ONE identical retry (a second writer over the same pages is the last resort); ' +
+                  'a failed retry with no valid report returns the error through step (4).'
+                : 'If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the error through ' +
+                  'step (4).'),
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' +
             task +
@@ -778,6 +803,7 @@ const writerPrompt = (L, u, framed, unmapped) =>
     [
         CONTEXT(L),
         STANCE('claude'),
+        OWN_PASS(ownPassArt(u.folder, 'reframe')),
         TERRITORY(L),
         FRAME_LAW,
         DOCGEN_LAW,
@@ -811,6 +837,7 @@ const critiquePrompt = (L, u, framed, unmapped, nav) =>
     [
         CONTEXT(L),
         STANCE('codex'),
+        OWN_PASS(ownPassArt(u.folder, 'crit')),
         TERRITORY(L),
         FRAME_LAW,
         DOCGEN_LAW,
@@ -827,8 +854,8 @@ const critiquePrompt = (L, u, framed, unmapped, nav) =>
         GIT_GROUND,
         'TASK: PREDICATE-POSITIVE CONFORMANCE AUDIT; fix EACH page in place across `' +
             u.planning +
-            '` plus the README.md + ARCHITECTURE.md. FORM YOUR OWN DEFECT LIST FIRST — read each page cold from CURRENT disk and ' +
-            'derive your findings before consulting NAVIGATION. Verify each required law HOLDS and cite the clause; every miss is ' +
+            '` plus the README.md + ARCHITECTURE.md. Your own-pass artifact (OWN PASS FIRST above) precedes NAVIGATION — derive ' +
+            'your findings there before consulting it. Verify each required law HOLDS and cite the clause; every miss is ' +
             'repaired NOW, a fix never a ledger note; a cross-file hit is yours per RIPPLE LAW:\n' +
             '- TEMPLATE CONFORMANCE: every README/ARCHITECTURE/spec/api-catalog/ideas/tasklog page matches its docgen template — ' +
             'heading census, section spine, marker system; a residual imported frame or a heading the template does not carry is ' +
@@ -846,10 +873,11 @@ const critiquePrompt = (L, u, framed, unmapped, nav) =>
             HARVEST_LAW,
     ].join('\n\n');
 
-const redteamPrompt = (L, u, framed, unmapped, nav, crit) =>
+const redteamPrompt = (L, u, framed, unmapped, nav, crit, critReport) =>
     [
         CONTEXT(L),
         STANCE('claude'),
+        OWN_PASS(ownPassArt(u.folder, 'rt')),
         TERRITORY(L),
         FRAME_LAW,
         DOCGEN_LAW,
@@ -861,24 +889,31 @@ const redteamPrompt = (L, u, framed, unmapped, nav, crit) =>
         READ_FIRST(L, u),
         reconBlock(framed, unmapped),
         'NAVIGATION (locations only, no assessments): ' + JSON.stringify(nav),
-        crit && crit.ok
-            ? 'PRIOR CLAIMS (UNVERIFIED): the sol critique fixlog is ON DISK at ' +
-              crit.report +
-              ' — read it IN FULL from disk; its edits and verdicts are refutation targets you judge against CURRENT disk, never ' +
-              'a settled record. FOLD-FORWARD DUTY: its surviving `seamsTouched`, `deltas`, `deferred`, `indexRows`, and ' +
-              '`harvest` rows are folded into YOUR return (re-verified against current disk, deduped) — your fix-log is the ' +
-              'unit`s consolidated record; a dropped critique row is a silent loss.'
-            : 'PRIOR CLAIMS: the critique lane did not land — your cold attack is the only review this unit gets; judge from ' +
-              'CURRENT disk alone.',
+        'PRIOR CLAIMS (UNVERIFIED): the sol critique fixlog ' +
+            (crit && crit.ok
+                ? 'is ON DISK at ' + crit.report
+                : 'wrapper died, but the lane writes its fixlog before any ceiling can kill the call — check ' +
+                  critReport +
+                  ' FIRST; absent or unparseable, your cold attack is the only review this unit gets: judge from CURRENT disk alone. Present') +
+            ' — read it IN FULL from disk; its edits and verdicts are refutation targets you judge against CURRENT disk, never ' +
+            'a settled record. FOLD-FORWARD DUTY: its surviving `seamsTouched`, `deltas`, `deferred`, `indexRows`, and ' +
+            '`harvest` rows fold into YOUR return (re-verified against current disk, deduped) — your fix-log is the unit`s ' +
+            'consolidated record. `harvest` folding is MECHANICAL, never judgment: every critique harvest row you cannot REFUTE ' +
+            'with a disk fact rides your return verbatim — dedupe is the only legal drop, and a refuted row is dropped with its ' +
+            'refuting fact named in `summary`, never silently.',
         GIT_GROUND,
         'TASK: ADVERSARIAL PREDICATE-NEGATIVE RED-TEAM; fix EACH page in place across `' +
             u.planning +
             '` plus the README.md + ARCHITECTURE.md — the LAST and MOST AGGRESSIVE pass. Assume the writer and critique missed ' +
-            'things and their claims above are wrong until disk proves them. FORM YOUR OWN ATTACK FIRST — cold-read each page ' +
-            'from CURRENT disk. Hunt RESIDUAL ANCHORING, the pre-mortem:\n' +
-            '(A) COUNTERFACTUAL — read each page as the COLD REBUILD AGENT that must work from it alone: would it inherit POISON? ' +
-            'Any page still carrying the old frame, another corpus`s styling, a stale mirror, a twin truth, a frozen roster, or a ' +
-            'report/process frame is re-framed denser NOW — a fundamentally cleaner framing, once seen, is BUILT.\n' +
+            'things and their claims above are wrong until disk proves them. Your own-pass attack artifact (OWN PASS FIRST above) ' +
+            'precedes the claims. Hunt RESIDUAL ANCHORING, the pre-mortem:\n' +
+            '(A) COUNTERFACTUAL — a counterfactual REBUILDS the page`s framing with its central assumption removed, never merely ' +
+            'questions it: read each page as the COLD REBUILD AGENT that must work from it alone, name the framing assumption it ' +
+            'stands on (the inherited corpus shape, the frozen member roster, the report/process frame, the prose restating a ' +
+            'diagram), derive the form the page takes WITHOUT it, and where that form is cleaner BUILD IT IN PLACE denser NOW — ' +
+            'a fundamentally cleaner framing once seen is never defended against, and "the current frame also reads fine" is not ' +
+            'a refutation. Any page still carrying the old frame, another corpus`s styling, a stale mirror, a twin truth, a ' +
+            'frozen roster, or a report/process frame would inherit POISON to that cold rebuild and is re-framed.\n' +
             '(B) LONG-TAIL — attack where prior passes fade: deep sections, long pages, bottom-half fences, table cells, the last ' +
             'pages of the tree; the subtle surviving hedge, the still-bloated line, the stale or contradicted fact, the comment ' +
             'that does not earn its place.\n' +
@@ -925,10 +960,11 @@ const fixerPrompt = (langs, rows, backlog, orphans, folders, round) =>
             'each {files, claim} on current disk, fix what holds, reject what disk already resolved): ' +
             JSON.stringify(backlog) +
             '.\n' +
-            '(2b) ORPHANED CRITIQUE FIXLOGS (units whose red-team never landed, so these on-disk fixlogs` deferred/indexRows/' +
-            'seamsTouched/harvest rows were never folded forward — read each IN FULL from disk, drain the deferred/index/seam ' +
-            'rows under the same law, and fold each fixlog`s surviving harvest rows into your own `harvest` return, re-verified ' +
-            'against current disk and deduped): ' +
+            '(2b) CRITIQUE FIXLOGS — every unit critique, folded-forward or orphaned (a live red-team folds judgment-lossy and a ' +
+            'dead one folds nothing); the paths are deterministic, so one absent on disk is skipped with a one-line note in ' +
+            '`summary`, never an error — read each present file IN FULL, drain the deferred/index/seam rows still open under the ' +
+            'same law (a row a red-team already landed disk-resolves and drops), and fold each fixlog`s surviving harvest rows ' +
+            'into your own `harvest` return, re-verified against current disk and deduped: ' +
             JSON.stringify(orphans) +
             '.\n' +
             '(3) OWN HUNT: hunt PAST the row list on your own authority — imported frames, template drift, stale mirrors, twin ' +
@@ -989,9 +1025,11 @@ const processUnit = async (u) => {
             stallMs: STALL,
         }),
     );
-    if (!fix) return { folder: u.folder, pages: u.pages || 0, fix: null, crit: null, rt: null }; // failure isolation: a dead writer skips its reviews
-    // (c) sol critique: a workspace-write codex lane running the predicate-positive conformance audit in place;
-    // fixlog to disk, receipt on the wire; the red-team reads the fixlog from disk and folds its rows forward.
+    if (!fix) return { folder: u.folder, pages: u.pages || 0, fix: null, crit: null, critReport: null, rt: null }; // failure isolation: a dead writer skips its reviews
+    // (c) sol critique: a workspace-write codex lane running the predicate-positive conformance audit in place; fixlog to disk,
+    // receipt on the wire. The report path is DETERMINISTIC, so a dead receipt never severs the fold — the lane writes its fixlog
+    // before the wrapper ceiling can kill the call, and the red-team + terminal drain verify the path on disk instead of trusting ok.
+    const critReport = SCRATCH + '/' + fileTag('crit:' + tag) + '-report.json';
     const crit = await slot(() =>
         recon(critiquePrompt(L, u, framed, unmapped, navOf([fix])), {
             label: 'crit:' + tag,
@@ -1009,7 +1047,7 @@ const processUnit = async (u) => {
     const critR = crit && crit.ok ? crit : null;
     // (d) fable red-team: predicate-negative, folds the critique fixlog forward; terminal stage of the unit chain.
     const rt = await slot(() =>
-        agent(redteamPrompt(L, u, framed, unmapped, navOf([fix]), critR), {
+        agent(redteamPrompt(L, u, framed, unmapped, navOf([fix]), critR, critReport), {
             label: 'rt:' + tag,
             phase: 'Reframe',
             model: 'fable',
@@ -1018,7 +1056,7 @@ const processUnit = async (u) => {
             stallMs: STALL,
         }),
     );
-    return { folder: u.folder, pages: u.pages || 0, fix, crit: critR, rt };
+    return { folder: u.folder, pages: u.pages || 0, fix, crit: critR, critReport, rt };
 };
 
 if (REJECTED.length) log('Rejected targets outside libs/{csharp,python,typescript}: ' + REJECTED.join(', '));
@@ -1052,12 +1090,13 @@ phase('Reframe');
 const done = (await Promise.all(UNITS.map((u) => processUnit(u).catch(() => null)))).filter(Boolean);
 const LANDED = done.filter((d) => d.fix).map((d) => d.folder);
 const FAILED = done.filter((d) => !d.fix).map((d) => d.folder);
-// The critique fixlog lives on disk; the red-team folds its rows into its own return, so aggregation reads
-// fix + rt only. A unit whose red-team died leaves the critique fixlog ORPHANED for the terminal fixer.
+// The critique fixlog lives on disk; the red-team folds its rows into its own return, so aggregation reads fix + rt only.
 const ROWS = done.flatMap((d) => ((d.fix && d.fix.indexRows) || []).concat((d.rt && d.rt.indexRows) || []));
 const SEAM_ROWS = done.flatMap((d) => ((d.fix && d.fix.seamsTouched) || []).concat((d.rt && d.rt.seamsTouched) || []));
 const BACKLOG = done.flatMap((d) => ((d.fix && d.fix.deferred) || []).concat((d.rt && d.rt.deferred) || []));
-const ORPHANS = done.filter((d) => d.crit && !d.rt).map((d) => d.crit.report);
+// EVERY critique fixlog reaches the terminal drain — keyed on the DETERMINISTIC path, never the receipt: a dead wrapper does not
+// erase a written fixlog, a live red-team's fold is judgment-lossy anyway, and rows already landed disk-resolve and drop in the sweep.
+const ORPHANS = done.filter((d) => d.critReport).map((d) => d.critReport);
 const HARVEST_ROWS = done.flatMap((d) => ((d.fix && d.fix.harvest) || []).concat((d.rt && d.rt.harvest) || []));
 log(
     'Reframe: ' +

@@ -601,7 +601,14 @@ const fixPrompt = (folder, pages, roster, uncensused, root) =>
             ' is ' +
             'intentional shared context (verbatim extracts with file:line anchors — facts only): read it and spot-verify what you build on; a missing ' +
             'dossier means you derive that context from the sources directly. Your reconnaissance is the per-page census REPORT FILES. CONSUMPTION, ' +
-            'in order: (a) UNCENSUSED pages below had no surviving census lane — they get your own cold hostile read FIRST, hunting the census kinds ' +
+            'in order: (0) OWN PASS FIRST — cold-read every page of your folder from CURRENT disk and WRITE your own defect list (split-brain, ' +
+            'differentiation, naive owners, phantoms, flow breaks, underutilized capability) to ' +
+            SCRATCH +
+            '/' +
+            fileTag(folder) +
+            '-fix-ownpass.md BEFORE opening any census report or the dossier; those inputs may only ADD [recon]-tagged rows to that file, and a diff ' +
+            'dominated by [recon] rows has FAILED this rung — the fix-it-now law demands the majority of your corrections come from your own read; ' +
+            '(a) UNCENSUSED pages below had no surviving census lane — they get your own cold hostile read FIRST, hunting the census kinds ' +
             'yourself; (b) read every ok census report IN FULL from disk — cluster findings by `claimKey` as you read (the same key across lanes is ' +
             'ONE defect with corroborating evidence, never several priorities) and order work by `severity` then `owner` (shared owners and ' +
             'registries before their consumers); (c) each finding is a SIGNAL: re-open its anchors before editing — anchors behind an edit, cited ' +
@@ -614,6 +621,8 @@ const fixPrompt = (folder, pages, roster, uncensused, root) =>
             'finalization law to EVERY page: unify split-brain onto one paradigm; collapse differentiation and duplication IN PLACE; realize every ' +
             'phantom_forgotten properly and at full depth; delete every phantom_lie; grow naive owners to the real concept; smooth logic flow ' +
             'end-to-end; wire every underutilized capability into its owner; replace hand-rolled logic with the package surface. ' +
+            'CAPABILITY-COMPLETENESS is mandatory: verify every owner body implements what its names and prose promise — a named-but-omitted ' +
+            'capability is a defect closed NOW, properly and at full depth, at the same bar as any census finding, never a phantom left standing. ' +
             'UNCENSUSED: ' +
             JSON.stringify(uncensused) +
             ' CENSUS ROSTER: ' +

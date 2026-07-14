@@ -383,7 +383,8 @@ const HARVEST_LAW =
     'the run and is NEVER nominated. Nominate ONLY a lesson that lands at an altitude this run does NOT own — reviewer (a diff-checkable ' +
     'review rule that would have caught a defect BEFORE review), constitution (a most-sessions CLAUDE.md/AGENTS.md behavioral fact), or laws ' +
     '(a cross-surface coupling or cross-branch pattern discovered the hard way). Each row: altitude (reviewer|constitution|laws), lang, claim ' +
-    '(the generalized law, one sentence), anchors (file:line evidence), existingClause (the exact reviewer/laws/constitution clause it would ' +
+    '(the generalized law, one sentence, SYMBOL-FREE — every concrete spelling lives in anchors, so the lander adjudicates the law without ' +
+    're-deriving its locality), anchors (file:line evidence), existingClause (the exact reviewer/laws/constitution clause it would ' +
     'harden, quoted with its path — or "absent" plus the surfaces searched). A page-local fix never nominates; an empty array is the normal ' +
     'verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
@@ -464,7 +465,9 @@ const authorPrompt = (page) =>
             'dense closed-family ADT chosen by OWNER_CHOOSER; express every cross-cutting concern as a stacked signature+rail-preserving decorator over a ' +
             'thin pure core (FULL AOP); parameterize fully, one polymorphic entrypoint per modality; py3.15-modern only. Make the exemplary snippet AGNOSTIC ' +
             '(neutral names, no domain noun), compiling, ~3-4x denser than ordinary code, showing one owner ready to replace 10+ loose things with the ' +
-            'growth axis visible. A domain/numerics shard COMPOSES the finalized core laws as settled material and never re-opens them. Cut every ' +
+            'growth axis visible. A domain/numerics shard COMPOSES the finalized core laws as settled material and never re-opens them. CAPABILITY-COMPLETENESS IS ' +
+            'MANDATORY, NOT OPTIONAL: the body of every owner the fence teaches implements what its names and prose promise — a named-but-omitted ' +
+            'capability is a defect you close NOW, at the same bar as any other finding. Cut every ' +
             'table-stakes card/snippet; cut every loose 1-2-field type and constant-spam cluster by collapsing it into one owner. Apply the page-craft ' +
             'grammar (narrow index table -> deep cards -> one snippet per region) and the style/comment hygiene. Report what you collapsed (count ' +
             'before->after) in `collapsed`, what capability you extended (each addition + its cited source) in `extended`, and this page`s spotlight snippet ' +
@@ -544,9 +547,11 @@ const redteamPrompt = (page) =>
             page +
             '. Open the .api catalogs it composes, the sibling pages, the README doctrine, the csharp reference, and ' +
             'the style-guide. Attack from every direction and REPAIR every defect in place — no soft-pedalling, a fix never a ledger.',
-        'PRIMARY LENSES, multi-faceted: (A) COUNTERFACTUAL on the page`s core TEACHING shape — is the owner, the algebra (`fold`/derived `frozendict` ' +
-            'table), and the dispatch form categorically the strongest the doctrine admits for THIS concept, or does a denser owner or a DEEPER ' +
-            'substrate/cluster primitive collapse the whole fence? Rebuild to it; never defend the incumbent. (B) ANTICIPATORY_COLLAPSE — compute the DIFF ' +
+        'PRIMARY LENSES, multi-faceted: (A) COUNTERFACTUAL on the page`s core TEACHING shape — a counterfactual REBUILDS the design with its central ' +
+            'assumption removed, never merely questions it: name the assumption the fence stands on (the chosen owner kind, the hand-enumerated space, ' +
+            'the call-site dispatch, the hand-rolled body), derive the form the page takes WITHOUT it — a denser owner, the `fold`/derived `frozendict` ' +
+            'table, a parameterized generator over the enumerated space, a DEEPER substrate/cluster primitive — and where the rebuilt form is stronger, ' +
+            'BUILD IT IN PLACE; never defend the incumbent, and "the current shape also works" is not a refutation. (B) ANTICIPATORY_COLLAPSE — compute the DIFF ' +
             'OF THE NEXT case/dimension/modality: does it land as ONE declaration with every consumer untouched or broken loudly at type-check? If it ' +
             'would touch multiple sites, reshape so the growth axis is a case/row/policy value, and the snippet SHOWS one owner ready to replace 10+ loose ' +
             'things.',

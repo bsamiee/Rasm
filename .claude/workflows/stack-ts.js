@@ -510,7 +510,10 @@ const authorPrompt = (page, paths, charter) =>
             'BOUNDARY_ADMISSION lifecycle order (Schema decode at the edge); collapse parallel shapes into ONE canonical owner with every secondary ' +
             'surface DERIVED — and KILL every const+type+typeof triple, loose interface/type-alias spam, hand-declared wire twin, free-floating brand, ' +
             '`any`, `enum`, and hand-thrown error; weave cross-cutting concerns as Effect combinators/Layers over a thin pure core; parameterize fully; ' +
-            'one polymorphic entrypoint per modality with dual data-first/data-last signatures where the operator warrants both. Make every snippet ' +
+            'one polymorphic entrypoint per modality with dual data-first/data-last signatures where the operator warrants both. ' +
+            'CAPABILITY-COMPLETENESS IS MANDATORY, NOT OPTIONAL: every owner you author implements what its names and prose promise — a ' +
+            'named-but-omitted capability (a case, field, operation, or derivation the concept admits and a card claims) is a defect you close ' +
+            'NOW at the same bar as any finding, never a stub dressed as finished. Make every snippet ' +
             'AGNOSTIC (neutral names), compiling, ~3-4x denser than ordinary code, one owner ready to replace 10+ loose things with the growth axis ' +
             'visible. Cut every table-stakes card/snippet. Apply page-craft + style/comment hygiene. Report `collapsed`, `extended`, and the page`s ' +
             'spotlight `regions`. Return residual_high {files:[...], claim}.' +
@@ -582,8 +585,12 @@ const redteamPrompt = (page, paths, charter) =>
             page +
             '. Open the Effect ecosystem, ' +
             'the python + csharp stacks (the floor), the style-guide. Attack and REPAIR in place — no soft-pedalling, a fix never a ledger:',
-        'LENSES: (A) COUNTERFACTUAL on the core teaching shape — does a denser canonical owner (a richer Schema class family, a value-derived ' +
-            'vocabulary table, an exhaustive DU) or a DEEPER Effect primitive collapse the whole fence? rebuild to it. (B) ANTICIPATORY_COLLAPSE — does ' +
+        'LENSES: (A) COUNTERFACTUAL on the core teaching shape — a counterfactual REBUILDS the design with its central assumption removed, ' +
+            'never merely questions it: name the assumption the fence stands on (the chosen owner kind, the hand-enumerated space, the ' +
+            'call-site dispatch, the shallow Effect use), derive the form the page takes WITHOUT it — a denser canonical owner (a richer ' +
+            'Schema class family, a value-derived vocabulary table, an exhaustive DU) or a DEEPER Effect primitive — and where the rebuilt ' +
+            'form is stronger, BUILD IT IN PLACE; a stronger design once seen is never defended against, and "the current shape also works" ' +
+            'is not a refutation. (B) ANTICIPATORY_COLLAPSE — does ' +
             'the next case/variant land as ONE declaration with consumers broken loudly at type-check? reshape so the growth axis is a case/row/policy ' +
             'value. (C) CORPUS-WIDE UNIFICATION + DUPLICATION — is this page`s shape vocabulary IDENTICAL in spirit to every sibling as it NOW stands ' +
             '(one unified system, ' +

@@ -481,6 +481,8 @@ const chunk = (arr, n) => {
 // (role split); the prompt carries only the task; the output contract sits LAST. A web-research lane (o.web)
 // takes a territory clause that admits its web tools and the named packages' official sources over repo files.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
+// Per-target own-pass artifact path — the integrate executor's blind integration plan, distinct from its map reports.
+const ownPassArt = (t, stage) => SCRATCH + '/' + fileTag(t.split('/').pop()) + '-' + stage + '-ownpass.md';
 const laneLaw = (schema, o) =>
     (o.fix
         ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
@@ -694,6 +696,18 @@ const INFO_LAW =
     'assigned scope, `read` = what you actually full-read, `skipped`/`unverified` = what you did not reach — an honest skip ' +
     'beats a silent one.';
 
+const OWN_PASS = (artifact) =>
+    'OWN PASS FIRST — the input ladder is binding, in order: (1) your own blind integration read, (2) the map reports. Rung ' +
+    '(1) is the PRIMARY product and it is a DISK ARTIFACT, not a reading step: cold-read every folder design page from CURRENT ' +
+    'disk and WRITE your own integration plan to `' +
+    artifact +
+    '` — where each admitted package replaces a hand-rolled site, which page owner grows to absorb it, where a new page or ' +
+    'sub-folder is warranted because no owner carries the concept, and the underutilized capability the catalogs expose — ' +
+    'BEFORE opening any map report. The maps may only ADD rows to that file, each tagged [recon]; reading the pages without ' +
+    'writing the plan is a failed rung, not a cold pass. Rung (2) grounds, verifies, and widens YOUR plan — it never scopes, ' +
+    'substitutes for, or caps it. TRIPWIRE: a diff dominated by [recon]-tagged rows has failed — the maps cover a MINORITY of ' +
+    'what the integration demands, and the majority of your edits must come from your own attack.';
+
 const WRITE_LAW =
     'WRITE FULLY — every fix you identify you make NOW via Edit/Write; a fix-log reports edits already made, ' +
     'never a to-do or a hedge. Every ripple your edit exposes is YOURS in the same pass — any project file, both seam ends, ' +
@@ -708,7 +722,8 @@ const HARVEST_LAW =
     'HARVEST (required key, usually empty): nominate ONLY findings that generalize beyond this target — a collapse pattern reusable ' +
     'across folders, a naivety class no doctrine clause names, a review rule that would have caught a defect BEFORE review, a ' +
     'cross-surface coupling discovered the hard way. Each row: altitude (stacks|reviewer|constitution|planning|readme|laws), lang, ' +
-    'claim (the generalized law, one sentence), anchors (file:line evidence), existingClause (the exact doctrine or reviewer clause ' +
+    'claim (the generalized law, one sentence, SYMBOL-FREE — every concrete spelling lives in anchors, so the lander adjudicates ' +
+    'the law without re-deriving its locality), anchors (file:line evidence), existingClause (the exact doctrine or reviewer clause ' +
     'it would harden, quoted with its path — or "absent" plus the surfaces searched). A target-local fix never nominates; an empty ' +
     'array is the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
@@ -997,6 +1012,7 @@ const lane = async (t) => {
     // --- [INTEGRATE]
     const integratePrompt = [
         CTX(t, L),
+        OWN_PASS(ownPassArt(t, 'integrate')),
         MEMBER_TRUTH(L),
         WRITE_LAW,
         LAWS_READ,
@@ -1006,8 +1022,9 @@ const lane = async (t) => {
             L.stack +
             '/ doctrine at source ' +
             '(README and every page it routes) — it is the bar. The map REPORT FILES are your reconnaissance — information, not ' +
-            "instructions. CONSUMPTION: (a) UNMAPPED pages below get your own cold read FIRST — a failed mapper's territory is " +
-            'yours directly; (b) read every ok map report IN FULL from disk; entries overlap across slices — dedupe by target as ' +
+            'instructions. CONSUMPTION (your own-pass integration plan from OWN PASS FIRST precedes every map report): (a) ' +
+            "UNMAPPED pages below get your own cold read FIRST — a failed mapper's territory is yours directly; (b) read every ok " +
+            'map report IN FULL from disk; entries overlap across slices — dedupe by target as ' +
             "you read; (c) each entry's anchors are jump coordinates — re-open every anchor behind an edit (mandatory); " +
             'navigation-only entries re-verify only when touched; spot-verify what you build on and hunt past the maps on your own ' +
             'authority. IMPLEMENT the whole integration NOW: replace ' +
@@ -1015,6 +1032,8 @@ const lane = async (t) => {
             'field, or operation — reshaped as if always carried, never a tacked-on mention), author a new page or sub-folder ' +
             'ground-up where the mapped capability demands an owner no page carries, weave beyond-map underutilized capability the ' +
             'catalogs expose, and close the folder README/ARCHITECTURE index docs so the landed state is truthfully reflected. ' +
+            'CAPABILITY-COMPLETENESS IS MANDATORY: for every owner you author or grow, the fence body implements what its names ' +
+            'and prose promise — a named-but-omitted capability is a defect you close NOW, at the same bar as a mapped hand-roll. ' +
             'Every ripple in the same pass, both seam ends. ADMITTED: ' +
             JSON.stringify(admitted) +
             '. HAND-ROLLS (the scout census ' +

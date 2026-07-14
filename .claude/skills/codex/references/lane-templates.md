@@ -34,17 +34,17 @@ The exclusion targets aimless probing, not the skill system: a lane whose task m
 
 ## [02]-[WRITE]
 
-Workspace-write fix lane. The role split and output contract carry the recon lane's evidence base; the persistence and post-edit verification blocks are the standing law for every lane that edits durable artifacts in place.
+Workspace-write fix lane. The role split and output contract carry the recon lane's evidence base; the completion-bar and post-edit verification blocks are the standing law for every lane that edits durable artifacts in place — the bar carries the anti-premature force a bare persistence push used to (and pushed past it into scope creep at the high tiers).
 
 `developer-instructions`:
 
 ```text template
-<persistence>
-Complete every named move before yielding; do not stop at analysis or a partial edit. If the chosen approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely admits none.
-</persistence>
+<completion_bar>
+Done is every named move landed to full depth with its product entry written — proof-complete, never effort-spent, never early. Complete every named move before yielding; do not stop at analysis or a partial edit. If the chosen approach resists, pick the next-best one and proceed; a move the territory genuinely admits no edit for returns as a deferred entry naming its blocker. Your layer is <layer>: a finding outside the named scope lands as a typed entry in the product, never an edit — and re-verifying unchanged work adds no evidence; move to the next deliverable instead.
+</completion_bar>
 
 <verification>
-After editing, re-read each changed file and confirm it is coherent and nothing it carried was lost. Fix what fails before yielding.
+After editing, re-read each changed file and confirm it is coherent and nothing it carried was lost. Fix what fails before yielding; a check you did not run is never claimed as run.
 </verification>
 
 <output_contract>

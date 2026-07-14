@@ -479,10 +479,14 @@ const slot = makeSlots(CAP);
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const laneLaw = (schema, o) =>
     (o.fix
-        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
-          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
-          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
-          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
+        ? '<completion_bar>\nDone is every page in your named scope worked to its full depth with its fixlog entry written — ' +
+          'proof-complete, never effort-spent, never early. Complete every named move before yielding; do not stop at analysis ' +
+          'or a partial edit. If the chosen approach resists, pick the next-best one and proceed; a move the territory genuinely ' +
+          'admits no edit for returns as a deferred row naming its blocker. Your layer is review-and-repair of the named scope: a ' +
+          'finding outside it lands as a typed deferred/index row, never an edit — and re-verifying unchanged work or re-reading ' +
+          'covered territory adds no evidence; move to the next deliverable instead.\n</completion_bar>\n\n<verification>\nAfter ' +
+          'editing, re-read each changed file and confirm it is coherent and nothing it carried was lost. Fix what fails before ' +
+          'yielding; a check you did not run is never claimed as run.\n</verification>'
         : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
           'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
           (o.calls || 60) +
@@ -514,8 +518,14 @@ const codexPrompt = (label, task, schema, o) => {
             ', cwd=' +
             JSON.stringify(root) +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
-            'error through step (4).',
+            'VERBATIM. ' +
+            (o.writes
+                ? 'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane ' +
+                  "writes its report as its final act — run step (3)'s verification first, and a valid report proceeds to step " +
+                  '(4) as success. Only a missing or invalid report earns ONE identical retry (a second writer over the same ' +
+                  'pages is the last resort); a failed retry with no valid report returns the error through step (4).'
+                : 'If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the error ' +
+                  'through step (4).'),
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' +
             task +
@@ -799,6 +809,19 @@ const HARVEST_LAW =
     'fix never nominates; an empty array is the normal verdict — the doctrine lander refutes weak rows, so nominate substance, ' +
     'never volume.';
 
+const OWN_PASS = (artifact, later) =>
+    'OWN PASS FIRST — form your own defect list as a DISK ARTIFACT before ' +
+    later +
+    ' opens: cold-read each touched page from CURRENT disk, check it against the verdict reports, and WRITE your own defect ' +
+    'list to `' +
+    artifact +
+    '` BEFORE reading ' +
+    later +
+    ' — false bakes, lost facts, stale survivors, tombstones, vague sharpens, and every doctrine miss the resolution left. ' +
+    'Later inputs may only ADD rows tagged [recon]; reading the pages without writing the list is a failed rung. TRIPWIRE: a ' +
+    'diff whose edits map one-to-one onto [recon] rows has failed — the recon covers a MINORITY of the resolution defects, ' +
+    'and the majority of your edits come from your own attack.';
+
 const GIT_GROUND =
     'DELTA GROUNDING — run `git diff --stat` then `git diff -- <your folder pages and their seam files>` to see exactly what ' +
     'this run changed before judging it; `git status` surfaces new files. The diff is orientation, CURRENT disk is truth — the ' +
@@ -964,8 +987,10 @@ const applyPrompt = (L, folder, entries, verdictReports, scopes) =>
                 'with the real one, wire it through every fence that assumed it, then DELETE the research row entirely. The fact ' +
                 'now lives in the fence; the row is scaffolding and leaves no trace.\n' +
                 '- refuted: CORRECT the assumption at its ROOT — the fence built on the wrong spelling/behavior is rebuilt on the ' +
-                'real one from `evidence` (a denser owner where the correction opens one), every dependent fence realigned, then ' +
-                'DELETE the research row entirely.\n' +
+                'real one from `evidence` (a denser owner where the correction opens one), every dependent fence realigned; ' +
+                'CAPABILITY-COMPLETENESS binds the rebuild — the corrected owner implements what its names and prose promise, a ' +
+                'named-but-omitted capability closed NOW at the same bar as the correction — then DELETE the research row ' +
+                'entirely.\n' +
                 '- unresolvable: SHARPEN the row IN PLACE — rewrite it to the crispest possible question and the most precise ' +
                 'route (the exact member to decompile, the exact catalog to grow, the exact doc to consult), and keep the ' +
                 'settled interim fence explicit. Never leave vague residue; never delete an unresolvable row.\n' +
@@ -987,6 +1012,7 @@ const applyPrompt = (L, folder, entries, verdictReports, scopes) =>
 const critiquePrompt = (L, folder, entries, verdictReports, scopes, nav) =>
     applyPreamble(L, folder, scopes, 'codex')
         .concat([
+            OWN_PASS(scratchBase(folder, 0) + '-crit-ownpass.md', 'NAVIGATION'),
             'NAVIGATION (facts from the apply pass — locations only, no assessments; it changes where you look FIRST, never what ' +
                 'you conclude): ' +
                 JSON.stringify(nav),
@@ -997,9 +1023,8 @@ const critiquePrompt = (L, folder, entries, verdictReports, scopes, nav) =>
             GIT_GROUND,
             'TASK: RESOLUTION-CONFORMANCE AUDIT; fix EACH defect in place for folder ' +
                 folder +
-                '. FORM YOUR OWN DEFECT LIST FIRST — read each touched page cold from CURRENT disk and check it against the ' +
-                'verdict reports before consulting NAVIGATION. Your mandate is PREDICATE-POSITIVE — verify each resolution ' +
-                'actually held:\n' +
+                '. Per OWN PASS FIRST above, your written defect artifact precedes NAVIGATION. Your mandate is ' +
+                'PREDICATE-POSITIVE — verify each resolution actually held:\n' +
                 '- A `confirmed` verdict whose spelling was baked: the baked member appears verbatim in the fence AND matches the ' +
                 'verdict `evidence`; a spelling baked that the verdict did NOT confirm (or that contradicts the evidence) is a ' +
                 'defect — re-derive it and correct.\n' +
@@ -1018,25 +1043,30 @@ const critiquePrompt = (L, folder, entries, verdictReports, scopes, nav) =>
         ])
         .join('\n\n');
 
-const redteamPrompt = (L, folder, entries, verdictReports, scopes, nav, crit) =>
+const redteamPrompt = (L, folder, entries, verdictReports, scopes, nav, critOk, critReport) =>
     applyPreamble(L, folder, scopes, 'claude')
         .concat([
             'NAVIGATION (locations only, no assessments): ' + JSON.stringify(nav),
             'VERDICT REPORTS (read IN FULL from disk): ' + JSON.stringify(verdictReports) + '. Folder research entries: ' + JSON.stringify(entries),
-            crit && crit.ok
-                ? 'PRIOR CLAIMS (UNVERIFIED): the sol critique fixlog is ON DISK at ' +
-                  crit.report +
-                  ' — read it IN FULL from disk; its edits and verdicts are refutation targets you judge against CURRENT disk, ' +
-                  'never a settled record. FOLD-FORWARD DUTY: its surviving `seamsTouched`, `deltas`, `deferred`, `beyondMap`, ' +
-                  '`indexRows`, and `harvest` rows are folded into YOUR return (re-verified against current disk, deduped) — your ' +
-                  'fix-log is the folder consolidated record; a dropped critique row is a silent loss.'
-                : 'PRIOR CLAIMS: the critique lane did not land — your cold attack is the only review this folder gets; judge from ' +
-                  'CURRENT disk alone.',
+            (critOk
+                ? 'PRIOR CLAIMS (UNVERIFIED): the sol critique fixlog is ON DISK at ' + critReport
+                : 'PRIOR CLAIMS (UNVERIFIED): the sol critique wrapper died, but the lane writes its fixlog before any ceiling ' +
+                  'can kill the call — check ' +
+                  critReport +
+                  ' FIRST; absent or unparseable, your cold attack is the only review this folder gets, judged from CURRENT disk ' +
+                  'alone. Present') +
+                ' — read it IN FULL from disk; its edits and verdicts are refutation targets you judge against CURRENT disk, ' +
+                'never a settled record. FOLD-FORWARD DUTY: its surviving `seamsTouched`, `deltas`, `deferred`, `beyondMap`, ' +
+                '`indexRows`, and `harvest` rows are folded into YOUR return (re-verified against current disk, deduped) — your ' +
+                'fix-log is the folder consolidated record. `harvest` folding is MECHANICAL, never judgment: a critique harvest ' +
+                'row you cannot REFUTE with a disk fact rides your return verbatim — dedupe is the only legal drop, and a refuted ' +
+                'row is dropped with its refuting fact named in `summary`, never silently.',
+            OWN_PASS(scratchBase(folder, 0) + '-rt-ownpass.md', 'the PRIOR CLAIMS'),
             GIT_GROUND,
             'TASK: ADVERSARIAL RED-TEAM of the RESOLUTION; fix EACH defect in place for folder ' +
                 folder +
-                '. Assume the apply and critique missed things and their claims are wrong until disk proves them. FORM YOUR OWN ' +
-                'ATTACK FIRST — cold-read each touched page from CURRENT disk before consulting the claims. Your mandate is ' +
+                '. Assume the apply and critique missed things and their claims are wrong until disk proves them. Per OWN PASS ' +
+                'FIRST above, your written attack artifact precedes the claims. Your mandate is ' +
                 'PREDICATE-NEGATIVE — a pre-mortem on the resolution:\n' +
                 '(A) FALSE BAKE — a baked spelling not ACTUALLY proven by its verdict `evidence`: re-run the route in your head ' +
                 'against the evidence; a spelling the evidence does not support is a fresh phantom, reverted to the real member ' +
@@ -1101,10 +1131,11 @@ const fixerPrompt = (langs, rows, backlog, folders, orphans, round) =>
             're-verify each {files, claim} on current disk, fix what holds, reject what disk already resolved): ' +
             JSON.stringify(backlog) +
             '.\n' +
-            '(2b) ORPHANED CRITIQUE FIXLOGS (folders whose red-team never landed, so these on-disk fixlogs seamsTouched/deferred/' +
-            'indexRows/harvest rows were never folded forward — read each IN FULL from disk, drain the seam/deferred/index rows ' +
-            "under the same law, and fold each fixlog's surviving harvest rows into your own `harvest` return, re-verified against " +
-            'current disk and deduped): ' +
+            '(2b) CRITIQUE FIXLOGS (every sol critique fixlog on disk, keyed on its deterministic path — a folder whose red-team ' +
+            'folded its own fixlog already landed those seamsTouched/deferred/indexRows/harvest rows, so re-verification ' +
+            'disk-dedupes them, while a fixlog whose red-team died folds for the first time here — read each IN FULL from disk, ' +
+            'drain the seam/deferred/index rows under the same law, and fold each surviving harvest row into your own `harvest` ' +
+            'return, re-verified against current disk and deduped): ' +
             JSON.stringify(orphans) +
             '.\n' +
             '(3) OWN HUNT: on your own authority, sweep the resolved folders for the resolution-defect classes the chain may have ' +
@@ -1265,8 +1296,11 @@ const built = (
                     }),
                 );
                 const critR = crit && crit.ok ? crit : null;
+                // Deterministic critique-report path from the folder alone — set even when the sol wrapper dies, so the redteam
+                // and the terminal drain reach a written fixlog off the path, never a receipt a dead wrapper never returned.
+                const critReport = SCRATCH + '/' + fileTag('crit:' + folder.split('/').pop()) + '-report.json';
                 const rt = await slot(() =>
-                    agent(redteamPrompt(L, folder, folderEntries, verdictReports, SCOPES, navOf([apply]), critR), {
+                    agent(redteamPrompt(L, folder, folderEntries, verdictReports, SCOPES, navOf([apply]), !!critR, critReport), {
                         label: 'rt:' + folder.split('/').pop(),
                         phase: 'Apply',
                         model: 'fable',
@@ -1275,18 +1309,20 @@ const built = (
                         stallMs: STALL,
                     }),
                 );
-                return { folder, entries: folderEntries, apply, crit: critR, rt };
+                return { folder, entries: folderEntries, apply, crit: critR, critReport, rt };
             })
             .map((p) => p.catch(() => null)),
     )
 ).filter(Boolean);
 const RESOLVED = built.filter((d) => d.apply).map((d) => d.folder);
 const FAILED = built.filter((d) => !d.apply).map((d) => d.folder);
-// The critique fixlog lives on disk; the red-team folds its rows forward, so aggregation reads apply + rt only. A
-// folder whose red-team died leaves the critique fixlog ORPHANED for the fixer.
+// The critique fixlog lives on disk; the red-team folds its rows forward, so aggregation reads apply + rt only.
 const ROWS = built.flatMap((d) => ((d.apply && d.apply.indexRows) || []).concat((d.rt && d.rt.indexRows) || []));
 const BACKLOG = built.flatMap((d) => ((d.apply && d.apply.deferred) || []).concat((d.rt && d.rt.deferred) || []));
-const ORPHANS = built.filter((d) => d.crit && !d.rt).map((d) => d.crit.report);
+// EVERY critique fixlog reaches the fixer — keyed on the DETERMINISTIC path, never the receipt: a dead wrapper does not
+// erase a written fixlog, a live red-team's fold is judgment-lossy anyway, and rows already landed disk-resolve and drop
+// in the fixer's re-verifying sweep.
+const ORPHANS = built.filter((d) => d.critReport).map((d) => d.critReport);
 const HARVEST_ROWS = built.flatMap((d) => ((d.apply && d.apply.harvest) || []).concat((d.rt && d.rt.harvest) || []));
 const BAKED = built.reduce((a, d) => a + ((d.apply && d.apply.baked) || 0), 0);
 const DELETED = built.reduce((a, d) => a + ((d.apply && d.apply.deleted) || 0), 0);

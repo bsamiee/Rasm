@@ -455,7 +455,8 @@ const HARVEST_LAW =
     'the run and is NEVER nominated. Nominate ONLY a lesson that lands at an altitude this run does NOT own — reviewer (a diff-checkable ' +
     'review rule that would have caught a defect BEFORE review), constitution (a most-sessions CLAUDE.md/AGENTS.md behavioral fact), or laws ' +
     '(a cross-surface coupling or cross-branch pattern discovered the hard way). Each row: altitude (reviewer|constitution|laws), lang, claim ' +
-    '(the generalized law, one sentence), anchors (file:line evidence), existingClause (the exact reviewer/laws/constitution clause it would ' +
+    '(the generalized law, one sentence, SYMBOL-FREE — every concrete spelling lives in anchors, so the lander adjudicates the law without ' +
+    're-deriving its locality), anchors (file:line evidence), existingClause (the exact reviewer/laws/constitution clause it would ' +
     'harden, quoted with its path — or "absent" plus the surfaces searched). A page-local fix never nominates; an empty array is the normal ' +
     'verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
@@ -538,7 +539,9 @@ const authorPrompt = (page) =>
             'OWNER_CHOOSER; weave every cross-cutting concern as a definition-time source-gen aspect or a composition-time effect transformer over a thin ' +
             'pure core (two-weave AOP); parameterize fully; one polymorphic entrypoint per modality; C# 14 / net10 to the metal. Make the exemplary snippet ' +
             'AGNOSTIC (neutral names, no project noun), compiling, ~3-4x denser than ordinary code, one owner ready to replace 10+ loose things with the ' +
-            'growth axis visible. Cut every table-stakes card/snippet and every loose type/constant cluster. Apply page-craft + section-order + ' +
+            'growth axis visible. CAPABILITY-COMPLETENESS IS MANDATORY, NOT OPTIONAL: the body of every owner the fence teaches implements what its ' +
+            'names and prose promise — a named-but-omitted capability is a defect you close NOW, at the same bar as any other finding. Cut every ' +
+            'table-stakes card/snippet and every loose type/constant cluster. Apply page-craft + section-order + ' +
             'style/comment hygiene. Report `collapsed` (count before->after), `extended` (each addition + cited source), and the page`s spotlight `regions`. ' +
             'verdict is `rebuilt` unless the page genuinely survived untouched. Return residual_high — {files:[...], claim} for any CROSS-FILE item.',
     ].join('\n');
@@ -592,8 +595,12 @@ const redteamPrompt = (page) =>
             '. Open the admitted substrate catalogs + the ' +
             'host/NuGet surface, the ' +
             'sibling pages, the README doctrine, the python rigor benchmark, the style-guide. Attack and REPAIR in place: (A) COUNTERFACTUAL on the core ' +
-            'shape — does a denser generated owner / `Fold` algebra / data table / DEEPER admitted-substrate primitive collapse the whole fence? ' +
-            'rebuild to it. (B) ANTICIPATORY_COLLAPSE — does the next case/provider land as ONE generated case/row with consumers broken LOUDLY at compile ' +
+            'shape — a counterfactual REBUILDS the design with its central assumption removed, never merely questions it: name the assumption the ' +
+            'fence stands on (the chosen owner kind, the hand-enumerated space, the call-site dispatch, the hand-rolled kernel), derive the form the ' +
+            'page takes WITHOUT it — a denser generated owner / `Fold` algebra / data table / a parameterized generator over the enumerated space / a ' +
+            'DEEPER admitted-substrate primitive — and where the rebuilt form is stronger, BUILD IT IN PLACE; a stronger design once seen is never ' +
+            'defended against, and "the current shape also works" is not a refutation. (B) ANTICIPATORY_COLLAPSE — does the next case/provider land as ' +
+            'ONE generated case/row with consumers broken LOUDLY at compile ' +
             'time? reshape so the growth axis is a case/row/policy value. (C) CORPUS-WIDE DUPLICATION — route any snippet re-demonstrating a region a ' +
             'core/sibling/domain page owns. (D) AOP + SHAPE-BUDGET MAXIMIZATION — push more into source-gen aspects + effect transformers over a thinner ' +
             'pure core; collapse any loose cluster into one generated family. (E) STRATA + SUBSTRATE-DEPTH + PHANTOMS — flat code below the operator depth ' +

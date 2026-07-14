@@ -208,7 +208,16 @@ PUPPETEER_CONFIG = {
     # handler entirely. Throwaway-profile render never touches the macOS keychain: mock-keychain and the basic password store kill the
     # "Chrome Safe Storage" prompt.
     "headless": "shell",
-    "args": ["--no-sandbox", "--disable-dev-shm-usage", "--disable-breakpad", "--use-mock-keychain", "--password-store=basic"],
+    # FontationsFontBackend off routes web-font shaping back through CoreText, shedding the fontations-attributed share of the benign
+    # macOS-26 teardown traps (SIGTRAP in Chromium's Rust region after a successful render; RustyPng has no runtime switch since M142).
+    "args": [
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-breakpad",
+        "--disable-features=FontationsFontBackend",
+        "--use-mock-keychain",
+        "--password-store=basic",
+    ],
     **({"executablePath": _path} if (_path := _browser_path()) else {}),
 }
 # A stale session env can still carry an .app-bundle pin that puppeteer honors over its cache; the render subprocess drops it so the config
