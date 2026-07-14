@@ -39,6 +39,9 @@ const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's
 const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
 const CENSUS_PAGES = 10; // pages per census lane; a folder past it splits so each lane returns a bounded entry set on the wire
 const CODEX = true; // census + catalog/doc verify lanes run on gpt-5.6-terra via the codex wrapper; false restores native lanes
+const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root; every disk path a prompt names resolves here
+const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend, the backoff buys recovery time
+const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -242,64 +245,41 @@ const HARVEST = {
 
 // Required-but-empty arrays are attestations: forced seamsTouched/beyondMap/indexRows/deltas/deferred make
 // "read fully / repair both ends / record the backlog" structurally checkable, never wishful prose.
-const FIXLOG_SCHEMA = {
+// ONE fix-log core serves every writing stage; a stage adds only the keys its charter earns — twin literals drift, one owner never does.
+const LOG_CORE = {
+    files: { type: 'array', items: { type: 'string' } },
+    summary: { type: 'string' },
+    seamsTouched: SEAMS,
+    deltas: DELTAS,
+    deferred: DEFERRED,
+    beyondMap: BEYOND,
+    indexRows: INDEXROWS,
+    harvest: HARVEST,
+};
+const logSchema = (extra) => ({
     type: 'object',
     additionalProperties: false,
-    required: [
-        'files',
-        'verdict',
-        'summary',
-        'baked',
-        'deleted',
-        'sharpened',
-        'seamsTouched',
-        'deltas',
-        'deferred',
-        'beyondMap',
-        'indexRows',
-        'harvest',
-    ],
-    properties: {
-        files: { type: 'array', items: { type: 'string' } },
-        verdict: { type: 'string', enum: ['resolved', 'partial', 'clean'] },
-        baked: { type: 'integer' }, // confirmed spellings baked into fences
-        deleted: { type: 'integer' }, // resolved research rows removed entirely
-        sharpened: { type: 'integer' }, // unresolvable rows rewritten in place
-        summary: { type: 'string' },
-        seamsTouched: SEAMS,
-        deltas: DELTAS,
-        deferred: DEFERRED,
-        beyondMap: BEYOND,
-        indexRows: INDEXROWS,
-        harvest: HARVEST,
-    },
-};
-
-const REVIEW_SCHEMA = {
-    type: 'object',
-    additionalProperties: false,
-    required: ['files', 'verdict', 'summary', 'seamsTouched', 'deltas', 'deferred', 'beyondMap', 'indexRows', 'harvest'],
-    properties: {
-        files: { type: 'array', items: { type: 'string' } },
-        verdict: { type: 'string', enum: ['fixed', 'clean'] },
-        summary: { type: 'string' },
-        seamsTouched: SEAMS,
-        deltas: DELTAS,
-        deferred: DEFERRED,
-        beyondMap: BEYOND,
-        indexRows: INDEXROWS,
-        harvest: HARVEST,
-    },
-};
+    required: Object.keys(LOG_CORE).concat(Object.keys(extra)),
+    properties: Object.assign({}, LOG_CORE, extra),
+});
+// baked/deleted/sharpened are apply-stage-only attestations; the verdict enum forks per stage.
+const FIXLOG_SCHEMA = logSchema({
+    verdict: { type: 'string', enum: ['resolved', 'partial', 'clean'] },
+    baked: { type: 'integer' }, // confirmed spellings baked into fences
+    deleted: { type: 'integer' }, // resolved research rows removed entirely
+    sharpened: { type: 'integer' }, // unresolvable rows rewritten in place
+});
+const REVIEW_SCHEMA = logSchema({ verdict: { type: 'string', enum: ['fixed', 'clean'] } });
 
 // Required-but-possibly-empty `beyond` is an attestation: the fixer's own hunt ran, not only the drained list.
 const FIXER_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['files', 'indexApplied', 'backlogDrained', 'beyond', 'rejected', 'remaining', 'harvest', 'summary'],
+    required: ['files', 'indexApplied', 'backlogDrained', 'beyond', 'rejected', 'remaining', 'harvest', 'tranches', 'summary'],
     properties: {
         files: { type: 'array', items: { type: 'string' } },
         harvest: HARVEST,
+        tranches: { type: 'array', items: { type: 'string' } }, // one checkpoint receipt line per tranche fed this round — a fed tranche absent here is unconsumed
         indexApplied: {
             type: 'array',
             items: {
@@ -473,6 +453,16 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(CAP);
+// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a backoff before each; the
+// final death isolates the lane but NEVER the chain — every downstream stage still runs against current disk.
+const retryLane = async (fn) => {
+    for (let a = 0; a < RETRY_ATTEMPTS; a++) {
+        await sleep(RETRY_BACKOFF);
+        const r = await fn();
+        if (r) return r;
+    }
+    return null;
+};
 
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope content to the lane report, and returns mechanical
 // orchestration data. Lane law rides developer-instructions; the prompt carries only the task; the output contract sits LAST.
@@ -502,7 +492,7 @@ const laneLaw = (schema, o) =>
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
-    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+    const root = ROOT;
     const report = root + '/' + base + '-report.json';
     const model = o.model || 'gpt-5.6-terra';
     return [
@@ -618,7 +608,7 @@ const asLane = (label, scope, p) =>
 // per lane by CENSUS_PAGES so the relayed entry set stays small.
 const censusCodexPrompt = (label, task, o) => {
     const base = SCRATCH + '/' + fileTag(label);
-    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+    const root = ROOT;
     const report = root + '/' + base + '-report.json';
     const model = o.model || 'gpt-5.6-terra';
     return [
@@ -709,7 +699,12 @@ const navOf = (logs) => {
 
 // Every rigor law appears exactly once, here; stages compose subsets. Block order in prompts: stable per-language
 // law first, folder-variable material second, the stage task + output contract LAST.
-const CONTEXT = (L) => 'Rasm monorepo — ' + L.corpus + '. ' + L.strata + ' ' + L.stackFloor;
+const ROOT_LAW =
+    'WORKING ROOT: ' +
+    ROOT +
+    ' — every relative repo path in this brief resolves against this absolute root; read, write, and edit ONLY under it, never ' +
+    'another checkout of the repository.';
+const CONTEXT = (L) => ROOT_LAW + '\n\nRasm monorepo — ' + L.corpus + '. ' + L.strata + ' ' + L.stackFloor;
 
 // reg selects the register by the EXECUTING model: 'codex' neutral+de-conflicted for a codex lane (census, catalog/
 // doc verify, sol critique), 'claude' the hostile estate register a native lane (assay verify, apply, red-team) reads
@@ -776,7 +771,8 @@ const LEDGER = (base, scopes) =>
     'sibling row (then resolve to the stronger form per CURRENT STATE). Before ANY edit outside your folder pages, `ls` `' +
     SCRATCH +
     '/` and read every sibling `*-seams.md` row whose files intersect yours — a RIPPLE_REPAIRED row is work you do NOT redo; a ' +
-    'SEAM_CHANGED row is a contract you compose. Rows are facts with zero adjectives. CONCURRENT FOLDER SCOPES (a counterpart ' +
+    'SEAM_CHANGED row is a contract you compose. Rows are facts with zero adjectives; your returned `seamsTouched` rows ARE ' +
+    'these ledger rows verbatim, never a second derivation. CONCURRENT FOLDER SCOPES (a counterpart ' +
     'inside another live folder scope is recorded in `deferred`, never edited): ' +
     scopes;
 
@@ -1056,11 +1052,10 @@ const redteamPrompt = (L, folder, entries, verdictReports, scopes, nav, critOk, 
                   ' FIRST; absent or unparseable, your cold attack is the only review this folder gets, judged from CURRENT disk ' +
                   'alone. Present') +
                 ' — read it IN FULL from disk; its edits and verdicts are refutation targets you judge against CURRENT disk, ' +
-                'never a settled record. FOLD-FORWARD DUTY: its surviving `seamsTouched`, `deltas`, `deferred`, `beyondMap`, ' +
-                '`indexRows`, and `harvest` rows are folded into YOUR return (re-verified against current disk, deduped) — your ' +
-                'fix-log is the folder consolidated record. `harvest` folding is MECHANICAL, never judgment: a critique harvest ' +
-                'row you cannot REFUTE with a disk fact rides your return verbatim — dedupe is the only legal drop, and a refuted ' +
-                'row is dropped with its refuting fact named in `summary`, never silently.',
+                'never a settled record. FOLD-FORWARD DUTY: its surviving `seamsTouched`, `deltas`, `deferred`, `beyondMap`, and ' +
+                '`indexRows` rows fold into YOUR return (re-verified against current disk, deduped) — your fix-log is the folder ' +
+                'consolidated record. Its `harvest` rows are NOT yours to fold: the doctrine lander sweeps every critique fixlog ' +
+                'from disk directly, so nomination transport never rides a living fold.',
             OWN_PASS(scratchBase(folder, 0) + '-rt-ownpass.md', 'the PRIOR CLAIMS'),
             GIT_GROUND,
             'TASK: ADVERSARIAL RED-TEAM of the RESOLUTION; fix EACH defect in place for folder ' +
@@ -1092,12 +1087,14 @@ const redteamPrompt = (L, folder, entries, verdictReports, scopes, nav, critOk, 
 
 const fixerPrompt = (langs, rows, backlog, folders, orphans, round) =>
     [
+        ROOT_LAW,
         round
             ? 'DRAIN ROUND ' +
               round +
-              ' — every backlog row below was verified STILL-OPEN by the prior round; the index rows and orphan fixlogs are ' +
-              'already consumed. Fix each row at its root NOW; a row you genuinely cannot land carries its named blocker and ' +
-              'owner in `remaining`.'
+              ' — the backlog rows below were verified STILL-OPEN by the prior round; fix each at its root NOW, and a row you ' +
+              'genuinely cannot land carries its named blocker and owner in `remaining`. Every other tranche re-arrives in full ' +
+              'so a dead or partial prior round loses nothing — the checkpoint ledger is the consumption truth: skip every ' +
+              'tranche it receipts, drain the rest.'
             : '',
         'Rasm monorepo — the libs/ planning corpora. Per-language doctrine bars:\n' +
             langs
@@ -1115,39 +1112,60 @@ const fixerPrompt = (langs, rows, backlog, folders, orphans, round) =>
                 )
                 .join('\n'),
         GIT_GROUND,
+        'CHECKPOINT LEDGER: `' +
+            SCRATCH +
+            '/fixer-checkpoint.md` — read it FIRST and skip every tranche it already receipts (an interrupted drain re-enters, ' +
+            'never restarts); append one line per tranche AS EACH COMPLETES (the index-row apply, the backlog block, each ' +
+            'critique fixlog, the own hunt). HARVEST FILE: append each `harvest` nomination to `' +
+            SCRATCH +
+            '/fixer-harvest.jsonl` (one JSON row per line) the moment it is minted — the doctrine lander sweeps the file, so a ' +
+            'killed round loses no nomination; your returned `harvest` carries the same rows. Your returned `tranches` lists the ' +
+            'checkpoint receipt line of every tranche fed this round — a fed tranche absent from that list is unconsumed.',
         "TASK: TERMINAL FIX (WRITER — you are the run's LAST agent, nothing follows you; full write authority over the resolved " +
             'corpus and libs-wide ripple authority with the expand-form bound LIFTED — collapse, rename, and contract are yours ' +
             "now that no sibling writer runs; and you are the run's SOLE writer for the owning-package index docs, IDEAS.md, and " +
             'the central manifests). Resolved folders: ' +
             JSON.stringify(folders) +
-            '.\n' +
-            '(1) INDEX ROWS: apply every reported row below to its owning doc exactly once — dedupe semantically identical rows, ' +
-            'keep each doc section grammar, verify every folder resolved this run is truthfully reflected; a central-manifest row ' +
-            'hand-edits the grouped manifest at the SYMBOL anchor (never a line number); an IDEAS row lands as a fully-specified ' +
-            'card in the named IDEAS.md: ' +
-            JSON.stringify(rows) +
-            '.\n' +
-            '(2) DEFERRED BACKLOG (second-order and cross-folder ripples the apply/red-team writers recorded — drain it: ' +
-            're-verify each {files, claim} on current disk, fix what holds, reject what disk already resolved): ' +
-            JSON.stringify(backlog) +
-            '.\n' +
-            '(2b) CRITIQUE FIXLOGS (every sol critique fixlog on disk, keyed on its deterministic path — a folder whose red-team ' +
-            'folded its own fixlog already landed those seamsTouched/deferred/indexRows/harvest rows, so re-verification ' +
-            'disk-dedupes them, while a fixlog whose red-team died folds for the first time here — read each IN FULL from disk, ' +
-            'drain the seam/deferred/index rows under the same law, and fold each surviving harvest row into your own `harvest` ' +
-            'return, re-verified against current disk and deduped): ' +
-            JSON.stringify(orphans) +
-            '.\n' +
-            '(3) OWN HUNT: on your own authority, sweep the resolved folders for the resolution-defect classes the chain may have ' +
-            'missed — a baked spelling not actually verified, a deleted row whose fact never landed in a fence, a surviving row a ' +
-            'verdict already answered, an empty RESEARCH section or dangling `see [NN]-[RESEARCH]` pointer, an unresolvable row ' +
-            'left vague — and fix each at its root; `beyond` enumerates those fixes, and an empty `beyond` attests your hunt found ' +
-            'nothing, never that it did not run.\n' +
-            'Every ripple an edit exposes is YOURS in the same pass — seam counterparts both ends, consumer sites, index docs, ' +
-            'manifest rows, .api anchors; wire-canonical names stay frozen. Return the final fixlog — `remaining` carries ONLY ' +
-            'rows verified still-open on current disk and genuinely blocked, each claim naming its blocker and owner; a row disk ' +
-            'already resolved is culled with proof in `rejected`, and an empty `remaining` attests the drain closed. ' +
-            HARVEST_LAW,
+            '.\nTRANCHE ORDER IS EXECUTION ORDER — drain the received rows (1, 2, 2b) before the own hunt (3); never demote a ' +
+            'received tranche behind the hunt.\n' +
+            [
+                rows.length
+                    ? '(1) INDEX ROWS: apply every reported row to its owning doc exactly once — dedupe semantically identical rows, ' +
+                      'keep each doc section grammar, verify every folder resolved this run is truthfully reflected; a central-manifest ' +
+                      'row hand-edits the grouped manifest at the SYMBOL anchor (never a line number); an IDEAS row lands as a ' +
+                      'fully-specified card in the named IDEAS.md: ' +
+                      JSON.stringify(rows) +
+                      '.'
+                    : '',
+                backlog.length
+                    ? '(2) DEFERRED BACKLOG (second-order and cross-folder ripples the apply/red-team writers recorded — re-verify ' +
+                      'each {files, claim} on current disk, fix what holds, reject what disk already resolved): ' +
+                      JSON.stringify(backlog) +
+                      '.'
+                    : '',
+                orphans.length
+                    ? '(2b) CRITIQUE FIXLOGS (every sol critique fixlog on disk, keyed on its deterministic path — a folder whose ' +
+                      'red-team folded its own fixlog already landed those seamsTouched/deferred/indexRows rows, so re-verification ' +
+                      'disk-dedupes them, while a fixlog whose red-team died folds for the first time here — read each present file ' +
+                      'IN FULL from disk and drain the seam/deferred/index rows still open under the same law; the fixlog `harvest` ' +
+                      "arrays are the doctrine lander's to sweep, never yours to fold): " +
+                      JSON.stringify(orphans) +
+                      '.'
+                    : '',
+                '(3) OWN HUNT: on your own authority, sweep the resolved folders for the resolution-defect classes the chain may ' +
+                    'have missed — a baked spelling not actually verified, a deleted row whose fact never landed in a fence, a ' +
+                    'surviving row a verdict already answered, an empty RESEARCH section or dangling `see [NN]-[RESEARCH]` pointer, ' +
+                    'an unresolvable row left vague — and fix each at its root; `beyond` enumerates those fixes, and an empty ' +
+                    '`beyond` attests your hunt found nothing, never that it did not run.',
+                'Every ripple an edit exposes is YOURS in the same pass — seam counterparts both ends, consumer sites, index docs, ' +
+                    'manifest rows, .api anchors; wire-canonical names stay frozen. Return the final fixlog — `remaining` carries ' +
+                    'ONLY rows verified still-open on current disk and genuinely blocked, each claim naming its blocker and owner; a ' +
+                    'row disk already resolved is culled with proof in `rejected`, and an empty `remaining` attests the drain ' +
+                    'closed. ' +
+                    HARVEST_LAW,
+            ]
+                .filter(Boolean)
+                .join('\n'),
     ]
         .filter(Boolean)
         .join('\n\n');
@@ -1164,7 +1182,12 @@ phase('Discover');
 const disc = await slot(() =>
     agent(discoverPrompt(), { label: 'discover', phase: 'Discover', model: 'sonnet', effort: 'low', schema: DISCOVER_SCHEMA, stallMs: STALL }),
 );
-const PAGES = [...new Set(((disc && disc.pages) || []).filter(Boolean))];
+// Guard the model-emitted page roster: a discover-emitted path outside a valid libs/{cs,py,ts} route would route as cs by
+// Lof's fallback and dispatch census/apply on a wrong-language page — drop it before any lane fires.
+const RAW_PAGES = [...new Set(((disc && disc.pages) || []).filter(Boolean))];
+const PAGES = RAW_PAGES.filter((p) => langOf(p));
+const STRAY = RAW_PAGES.filter((p) => !langOf(p));
+if (STRAY.length) log('Dropped ' + STRAY.length + ' discover page(s) outside libs/{csharp,python,typescript}: ' + STRAY.join(', '));
 const UNRESOLVED = (disc && disc.unresolved) || [];
 if (UNRESOLVED.length) log('Unresolved targets (mis-scoped or renamed): ' + UNRESOLVED.join(', '));
 if (!PAGES.length) {
@@ -1270,20 +1293,24 @@ const built = (
                 const folderEntries = ENTRIES.filter((e) => pkgOf(e.page) === folder);
                 // Verdict reports covering this folder: any landed verify cluster holding an entry whose page is in the folder.
                 const verdictReports = [...new Set(VERIFIED_OK.filter((v) => v.rows.some((e) => pkgOf(e.page) === folder)).map((v) => v.report))];
-                const apply = await slot(() =>
-                    agent(applyPrompt(L, folder, folderEntries, verdictReports, SCOPES), {
-                        label: 'apply:' + folder.split('/').pop(),
-                        phase: 'Apply',
-                        model: 'fable',
-                        effort: 'high',
-                        schema: FIXLOG_SCHEMA,
-                        stallMs: STALL,
-                    }),
-                );
-                if (!apply) return { folder, entries: folderEntries, apply: null, crit: null, rt: null }; // failure isolation: a dead apply skips its reviews
+                const tag = folder.split('/').pop();
+                const applyOpts = (suffix) => ({
+                    label: 'apply:' + tag + suffix,
+                    phase: 'Apply',
+                    model: 'fable',
+                    effort: 'high',
+                    schema: FIXLOG_SCHEMA,
+                    stallMs: STALL,
+                });
+                const apply =
+                    (await slot(() => agent(applyPrompt(L, folder, folderEntries, verdictReports, SCOPES), applyOpts('')))) ||
+                    (await retryLane(() => slot(() => agent(applyPrompt(L, folder, folderEntries, verdictReports, SCOPES), applyOpts(':a1')))));
+                // CHAIN CONTINUATION: a dead apply never blocks the reviews — the critique's conformance audit and the red-team's
+                // pre-mortem still improve the pages as they stand on disk; navigation simply arrives empty.
+                const nav = navOf(apply ? [apply] : []);
                 const crit = await slot(() =>
-                    recon(critiquePrompt(L, folder, folderEntries, verdictReports, SCOPES, navOf([apply])), {
-                        label: 'crit:' + folder.split('/').pop(),
+                    recon(critiquePrompt(L, folder, folderEntries, verdictReports, SCOPES, nav), {
+                        label: 'crit:' + tag,
                         phase: 'Apply',
                         schema: REVIEW_SCHEMA,
                         writes: true,
@@ -1298,17 +1325,17 @@ const built = (
                 const critR = crit && crit.ok ? crit : null;
                 // Deterministic critique-report path from the folder alone — set even when the sol wrapper dies, so the redteam
                 // and the terminal drain reach a written fixlog off the path, never a receipt a dead wrapper never returned.
-                const critReport = SCRATCH + '/' + fileTag('crit:' + folder.split('/').pop()) + '-report.json';
-                const rt = await slot(() =>
-                    agent(redteamPrompt(L, folder, folderEntries, verdictReports, SCOPES, navOf([apply]), !!critR, critReport), {
-                        label: 'rt:' + folder.split('/').pop(),
-                        phase: 'Apply',
-                        model: 'fable',
-                        effort: 'high',
-                        schema: REVIEW_SCHEMA,
-                        stallMs: STALL,
-                    }),
-                );
+                const critReport = SCRATCH + '/' + fileTag('crit:' + tag) + '-report.json';
+                const rtArgs = redteamPrompt(L, folder, folderEntries, verdictReports, SCOPES, nav, !!critR, critReport);
+                const rtOpts = (suffix) => ({
+                    label: 'rt:' + tag + suffix,
+                    phase: 'Apply',
+                    model: 'fable',
+                    effort: 'high',
+                    schema: REVIEW_SCHEMA,
+                    stallMs: STALL,
+                });
+                const rt = (await slot(() => agent(rtArgs, rtOpts('')))) || (await retryLane(() => slot(() => agent(rtArgs, rtOpts(':a1')))));
                 return { folder, entries: folderEntries, apply, crit: critR, critReport, rt };
             })
             .map((p) => p.catch(() => null)),
@@ -1350,53 +1377,68 @@ if (!RESOLVED.length) {
 
 phase('Close');
 const RESOLVED_LANGS = [...new Set(RESOLVED.map((f) => langOf(f)).filter(Boolean))];
-// Terminal DRAIN LOOP: one serial fable closer per round takes the residual set, verifies every row against live
-// disk, fixes at root, loops until empty; a round without shrinkage stops the loop with the blocked set final.
+// Terminal DRAIN LOOP: one serial fable closer per round verifies every row against live disk, fixes at root, loops until
+// empty; a round without shrinkage stops with the blocked set final. Every round re-receives the FULL tranche set — index
+// rows, orphan fixlogs, and the residual backlog — because the checkpoint ledger receipts consumption, so a dead or partial
+// round loses nothing and a live one skips what it already landed; only the backlog narrows round over round.
 let fixer = null;
 let fixerHarvest = [];
 let residuals = BACKLOG;
-let orphanQueue = ORPHANS;
 let lastOpen = Infinity;
 for (let round = 0; round < DRAIN_ROUNDS; round++) {
-    fixer = await slot(() =>
-        agent(fixerPrompt(RESOLVED_LANGS, round ? [] : ROWS, residuals, RESOLVED, orphanQueue, round), {
-            label: round ? 'fixer:r' + round : 'fixer',
-            phase: 'Close',
-            model: 'fable',
-            effort: 'high',
-            schema: FIXER_SCHEMA,
-            stallMs: STALL,
-        }),
-    );
-    if (!fixer) break; // dead round: the fed-in residual and orphan sets survive to the run return, never zeroed by a lost closer
+    const fire = (suffix) =>
+        slot(() =>
+            agent(fixerPrompt(RESOLVED_LANGS, ROWS, residuals, RESOLVED, ORPHANS, round), {
+                label: (round ? 'fixer:r' + round : 'fixer') + suffix,
+                phase: 'Close',
+                model: 'fable',
+                effort: 'high',
+                schema: FIXER_SCHEMA,
+                stallMs: STALL,
+            }),
+        );
+    fixer = (await fire('')) || (await retryLane(() => fire(':a1')));
+    if (!fixer) break; // dead round after retries: the residual and orphan sets survive to the run return, every disk tranche stays checkpoint-re-enterable
     fixerHarvest = fixerHarvest.concat(fixer.harvest || []);
     const open = fixer.remaining || [];
-    orphanQueue = [];
     residuals = open;
     if (!open.length || open.length >= lastOpen) break;
     lastOpen = open.length;
 }
 const POOLED_HARVEST = HARVEST_ROWS.concat(fixerHarvest);
-// DOCTRINE LANDER: the run durable-learning terminal — pooled harvest nominations adjudicated against the live
-// doctrine surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws.
-const doctrine = POOLED_HARVEST.length
-    ? await slot(() =>
-          agent(
-              'TASK: DOCTRINE LANDER — the durable-learning terminal of a research-resolution run. Read `docs/laws/README.md` ' +
-                  'FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. Load the `docgen` skill AND ' +
-                  'the `skill-writer` skill via the Skill tool BEFORE any durable edit; load `mermaid-diagramming` before touching ' +
-                  "any diagram. NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
-                  JSON.stringify(POOLED_HARVEST) +
-                  '\nADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on ' +
-                  'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
-                  'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
-                  'whose coupling no longer holds, land a coupling this run proved.\n' +
-                  'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
-                  'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-              { label: 'doctrine', phase: 'Close', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
-          ),
-      )
-    : null;
+// DOCTRINE LANDER: the run durable-learning terminal — pooled harvest nominations adjudicated against the live doctrine
+// surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws. A dead fixer still fires it (its
+// nominations live in the incremental harvest file), and critique fixlogs on disk fire it too — the lander is those
+// harvest arrays' ONLY transport, never a living red-team or fixer fold.
+const doctrine =
+    POOLED_HARVEST.length || ORPHANS.length || !fixer
+        ? await slot(() =>
+              agent(
+                  ROOT_LAW +
+                      '\n\nTASK: DOCTRINE LANDER — the durable-learning terminal of a research-resolution run. Read ' +
+                      '`docs/laws/README.md` FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. ' +
+                      'Load the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
+                      "`mermaid-diagramming` before touching any diagram. NOMINATIONS (unverified, biased toward their authors' own " +
+                      'work — refute by default): ' +
+                      JSON.stringify(POOLED_HARVEST) +
+                      '\nAlso sweep `' +
+                      SCRATCH +
+                      '/fixer-harvest.jsonl` (absent = none): rows there missing from NOMINATIONS are nominations too — a killed ' +
+                      'fixer round reaches you only through that file.\n' +
+                      'Also read the `harvest` array of every critique fixlog at these deterministic paths (an absent or invalid ' +
+                      'file skips; no other agent transports these rows): ' +
+                      JSON.stringify(ORPHANS) +
+                      ' — dedupe them against NOMINATIONS and adjudicate them identically.\n' +
+                      'ADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on ' +
+                      'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
+                      'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
+                      'whose coupling no longer holds, land a coupling this run proved.\n' +
+                      'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
+                      'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
+                  { label: 'doctrine', phase: 'Close', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+              ),
+          )
+        : null;
 
 const verdictCounts = {
     total: VERIFIED_OK.reduce((a, v) => a + v.entries, 0),

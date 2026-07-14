@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The standing hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it maps every .planning sub-folder, ideates per package, hostile-rebuilds every page batch concurrently at the owning-language doctrine bar, and closes with a finder fan plus one terminal fixer.',
     description:
-        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan (opus) expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one opus deep-map lane and one gpt-5.6-terra full-source .api + manifest inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — plus one ctx+api feeder pair per strata-legal upstream package (planner-derived from the branch architecture, kernel always present) projecting feeder depth onto the targets; every lane writes a dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (opus, the non-binding fix addendum) and a bigger-ideas worklist (fable, new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a terra doctrine-bar lens, then fable implement, gpt-5.6-sol critique (workspace-write, fixlog to disk), and fable redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Close: a read-only terra finder fan plus one governance finder per language, then ONE terminal fable fixer draining findings, the deferred backlog, and unclaimed census and idea rows in a fixpoint loop, then a doctrine lander adjudicating pooled harvest nominations. Stage law lives in the prompt blocks; CODEX=false restores native lanes throughout.',
+        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan (opus) expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one opus deep-map lane and one gpt-5.6-terra full-source .api + manifest inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — plus one ctx+api feeder pair per strata-legal upstream package (planner-derived from the branch architecture, kernel always present) projecting feeder depth onto the targets; every lane writes a dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (opus, the non-binding fix addendum) and a bigger-ideas worklist (fable, new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a terra doctrine-bar lens, then fable implement, gpt-5.6-sol critique (workspace-write, fixlog to disk), and fable redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Close: a read-only gpt-5.6-sol (medium) finder fan plus one governance finder per language, then ONE terminal fable fixer draining findings, the deferred backlog, and unclaimed census and idea rows in a fixpoint loop, then a doctrine lander adjudicating pooled harvest nominations plus every critique fixlog harvest array from disk. Stage law lives in the prompt blocks; CODEX=false restores native lanes throughout.',
     phases: [
         {
             title: 'Plan',
@@ -25,7 +25,7 @@ export const meta = {
         },
         {
             title: 'Close',
-            detail: 'a read-only terra finder fan plus one governance finder per language over the landed corpus and seam ledger; ONE terminal fable fixer drains findings, backlog, and unclaimed census and idea rows; a doctrine lander adjudicates pooled harvest nominations',
+            detail: 'a read-only sol finder fan plus one governance finder per language over the landed corpus and seam ledger; ONE terminal fable fixer drains findings, backlog, and unclaimed census and idea rows; a doctrine lander adjudicates pooled harvest nominations',
         },
     ],
 };
@@ -40,7 +40,7 @@ const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's
 const SOL_STALL = 3900000; // wrapper stall floor only — the binding ceilings are the session's MCP per-call AND idle-abort env rows; a silent xhigh call dies at the smaller, and the deterministic report path recovers the product
 const BATCH_MAX = 8; // unit-segment + batch-packing ceiling; per-segment maps + census legwork carry the navigation, so a writer holds a full dense batch
 const FINDER_PAGES = 8; // landed pages per close-phase finder
-const CODEX = true; // recon/finder lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
+const CODEX = true; // recon lanes ride the codex wrapper (terra maps, sol-medium finders, sol-xhigh critique); false restores native lanes
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -2054,11 +2054,25 @@ const found = (
                 t.gov
                     ? recon(
                           (reg) => govFinderPrompt(LANG[t.lang], t.pkgs, t.pages, ROWS, t.seams, t.backlog, reg),
-                          ropts('finder:gov:' + t.lang, 'Close', FINDINGS_SCHEMA, t.pkgs, { arr: 'findings', group: 'class' }),
+                          ropts(
+                              'finder:gov:' + t.lang,
+                              'Close',
+                              FINDINGS_SCHEMA,
+                              t.pkgs,
+                              { arr: 'findings', group: 'class' },
+                              { model: 'gpt-5.6-sol', codexEffort: 'medium' },
+                          ),
                       )
                     : recon(
                           (reg) => finderPrompt(LANG[t.lang], t.pages, t.i, t.seams, reg),
-                          ropts('finder:' + t.lang + ':s' + t.i, 'Close', FINDINGS_SCHEMA, t.pages, { arr: 'findings', group: 'class' }),
+                          ropts(
+                              'finder:' + t.lang + ':s' + t.i,
+                              'Close',
+                              FINDINGS_SCHEMA,
+                              t.pages,
+                              { arr: 'findings', group: 'class' },
+                              { model: 'gpt-5.6-sol', codexEffort: 'medium' },
+                          ),
                       ),
             ).catch(() => null),
         ),

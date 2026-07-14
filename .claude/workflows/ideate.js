@@ -26,6 +26,9 @@ const STALL = 300000;
 const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const SOL_STALL = 1500000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
 const CODEX = true; // survey + critique lanes ride codex wrappers (terra; sol for critique); false restores native lanes
+const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root; codex cwd + native terminal lanes resolve relative scratch paths against it
+const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane (ideate, redteam, drain); the count bounds spend, the backoff buys recovery time
+const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -228,6 +231,11 @@ const LAW = [
         'return verdict=clean — a clean verdict is EARNED by an attack that finds nothing, never conceded on first read; never invent cards to look busy.',
 ].join('\n');
 
+const ROOT_LAW =
+    'WORKING ROOT: ' +
+    ROOT +
+    ' — every relative repo path here, scratch report paths included, resolves against this absolute root; read, write, and edit ONLY under it.';
+
 const INFO_LAW =
     'You provide INFORMATION, never prescriptions: exact disk locations and anchors, the current shape at each realized site, seam ' +
     'endpoints on both sides, verified member spellings, gaps. The ideate stage decides what to card; a map entry that tells it what to write ' +
@@ -295,6 +303,16 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(CAP);
+// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a backoff before each
+// attempt sized to a limit reset; the final death isolates the lane, NEVER the chain — every downstream stage runs against disk.
+const retryLane = async (fn) => {
+    for (let a = 0; a < RETRY_ATTEMPTS; a++) {
+        await sleep(RETRY_BACKOFF);
+        const r = await fn();
+        if (r) return r;
+    }
+    return null;
+};
 const nameOf = (f) => f.split('/').pop() || f;
 
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content to the lane report, and returns mechanical
@@ -326,7 +344,7 @@ const laneLaw = (schema, o) =>
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
-    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+    const root = ROOT;
     const report = root + '/' + base + '-report.json';
     const model = o.model || 'gpt-5.6-terra';
     const hl = o.hl || { arr: 'entries', group: 'kind' };
@@ -490,8 +508,7 @@ const ideatePrompt = (folder, roster, unmapped) =>
             'folder NOW where it does not. Match the exact card schema from libs/.planning/README.md and the voice from campaign-method.md. Fix-in-place ' +
             '(write the files, create if absent). Return the card-log listing every file you edited (with `harvest`), sibling folders included. ' +
             HARVEST_LAW +
-            ' UNMAPPED: ' +
-            JSON.stringify(unmapped) +
+            (unmapped.length ? ' UNMAPPED: ' + JSON.stringify(unmapped) : '') +
             ' ROSTER: ' +
             JSON.stringify(roster),
     ].join('\n');
@@ -523,10 +540,10 @@ const redteamPrompt = (folder, critOk, critReport) =>
               ' FIRST; absent or unparseable, your cold attack is the only review this pool gets, judged from CURRENT disk alone. ' +
               'Present') +
             ' — read it IN FULL from disk; its edits and verdicts are refutation targets you judge against CURRENT disk, never a ' +
-            "settled record. Your card-log's `files`/`beyondFolder`/`harvest` are the folder's CONSOLIDATED record: union the " +
-            "critique cardlog's rows (each verified on disk) with your own edits. `harvest` folding is MECHANICAL, never " +
-            'judgment: every critique harvest row you cannot REFUTE with a disk fact rides your return verbatim — dedupe is the ' +
-            'only legal drop, and a refuted row is dropped with its refuting fact named in `summary`, never silently.\n',
+            "settled record. FOLD-FORWARD is OPERATIONAL ONLY: union the critique cardlog's `files` and `beyondFolder` (each " +
+            "re-verified on disk) into your own return so it is the folder's CONSOLIDATED edit record. Its `harvest` is NOT " +
+            "yours to carry — the doctrine lander reads every critique cardlog's nominations directly from its deterministic " +
+            'disk path, so a live fold is never their transport; your `harvest` holds ONLY nominations your own pass mints.\n',
         OWN_PASS(SCRATCH + '/redteam-' + nameOf(folder) + '-ownpass.md', 'PRIOR CLAIMS cardlog'),
         '',
         'TASK: ADVERSARIAL RED-TEAM + FIX IN PLACE of the cards in ' +
@@ -549,13 +566,18 @@ const redteamPrompt = (folder, critOk, critReport) =>
             'wherever it lives. Return the card-log listing every file you edited (with `harvest`), sibling folders included. ' +
             HARVEST_LAW,
     ].join('\n');
-const doctrinePrompt = (rows) =>
-    'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` FIRST — it ' +
+const doctrinePrompt = (rows, orphans) =>
+    ROOT_LAW +
+    '\n\nTASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` FIRST — it ' +
     'owns the corpus admission and page-shape law; obey it over any restatement. Load the `docgen` skill AND the ' +
     '`skill-writer` skill via the Skill tool BEFORE any durable edit; ' +
     'load `mermaid-diagramming` before touching any diagram. ' +
     "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
     JSON.stringify(rows) +
+    '\nAlso read the `harvest` array of every sol critique cardlog at these deterministic paths (an absent or invalid file ' +
+    'skips; no other agent transports these rows — a live fold never carries them): ' +
+    JSON.stringify(orphans) +
+    ' — dedupe them against NOMINATIONS and adjudicate them identically.' +
     '\nADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on CURRENT disk; LAND NOTHING is a ' +
     'first-class verdict.\nTOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row whose ' +
     'coupling no longer holds, land a coupling this run proved.\nGATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched ' +
@@ -601,19 +623,22 @@ const ideateFolder = async (u) => {
                       .join(', ')
                 : ''),
     );
-    const authored = await slot(() =>
-        agent(ideatePrompt(folder, roster, unmapped), {
-            label: 'ideate:' + nameOf(folder),
-            phase: 'Ideate',
-            model: 'fable',
-            schema: CARDLOG_SCHEMA,
-            effort: 'high',
-            stallMs: STALL,
-        }),
-    );
-    if (authored === null) return { folder, logs: {}, ok: false };
-    // Sol critique: a workspace-write codex lane fixing the pool in place; cardlog to disk, receipt
-    // on the wire; the redteam reads it from disk and folds its verified rows into the folder record.
+    // CHAIN CONTINUATION: the ideate writer is critical (primary authoring) — it earns retryLane, but its death isolates the
+    // lane, NEVER the chain: the sol critique (a writer) and the redteam still audit and extend the pool as it stands on disk,
+    // and the ideate log simply arrives absent.
+    const ideateOpts = (suffix) => ({
+        label: 'ideate:' + nameOf(folder) + suffix,
+        phase: 'Ideate',
+        model: 'fable',
+        schema: CARDLOG_SCHEMA,
+        effort: 'high',
+        stallMs: STALL,
+    });
+    const authored =
+        (await slot(() => agent(ideatePrompt(folder, roster, unmapped), ideateOpts('')))) ||
+        (await retryLane(() => slot(() => agent(ideatePrompt(folder, roster, unmapped), ideateOpts(':a1')))));
+    // Sol critique: a workspace-write codex lane fixing the pool in place; cardlog to disk, receipt on the wire; the redteam
+    // folds its verified operational rows and the doctrine lander reads its nominations directly from the deterministic path.
     const crit = await slot(() =>
         recon(critiquePrompt(folder), {
             label: 'crit:' + nameOf(folder),
@@ -628,20 +653,22 @@ const ideateFolder = async (u) => {
             hl: { arr: 'files', group: '' },
         }),
     );
-    // Deterministic critique-report path from the folder alone — set even when the sol wrapper dies, so the redteam and the
-    // terminal drain reach a written cardlog off the path, never a receipt a dead wrapper never returned.
+    // Deterministic critique-report path from the folder alone — set even when the sol wrapper dies, so the redteam, the
+    // terminal drain, and the doctrine lander reach a written cardlog off the path, never a receipt a dead wrapper never returned.
     const critReport = SCRATCH + '/' + fileTag('crit:' + nameOf(folder)) + '-report.json';
-    const rt = await slot(() =>
-        agent(redteamPrompt(folder, !!(crit && crit.ok), critReport), {
-            label: 'redteam:' + nameOf(folder),
-            phase: 'Redteam',
-            model: 'fable',
-            schema: CARDLOG_SCHEMA,
-            effort: 'high',
-            stallMs: STALL,
-        }),
-    );
-    return { folder, logs: { ideate: authored, redteam: rt }, critReport, ok: rt !== null };
+    // The redteam is the terminal review and sole card-status owner — critical, so it too earns retryLane.
+    const rtOpts = (suffix) => ({
+        label: 'redteam:' + nameOf(folder) + suffix,
+        phase: 'Redteam',
+        model: 'fable',
+        schema: CARDLOG_SCHEMA,
+        effort: 'high',
+        stallMs: STALL,
+    });
+    const rt =
+        (await slot(() => agent(redteamPrompt(folder, !!(crit && crit.ok), critReport), rtOpts('')))) ||
+        (await retryLane(() => slot(() => agent(redteamPrompt(folder, !!(crit && crit.ok), critReport), rtOpts(':a1')))));
+    return { folder, logs: { ideate: authored, redteam: rt }, critReport, ok: !!(authored || rt) };
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -658,7 +685,14 @@ const inv = await agent(
         'pages. Return folders sorted by path. Read-only; do not cd.',
     { label: 'discover', phase: 'Survey', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL },
 );
-const FOLDERS = ((inv && inv.folders) || []).filter((u) => u && u.folder);
+// Validate the discovery agent's emitted folder roster against the requested scope before any chain dispatches on it: a
+// hallucinated or out-of-scope path would otherwise spawn a full ideate chain writing card files outside the territory.
+const SWEEP_N = SWEEP.replace(/\/+$/, '');
+const underScope = (f) => /^libs(\/|$)/.test(f) && (SWEEP_N === 'libs' || f === SWEEP_N || f.indexOf(SWEEP_N + '/') === 0);
+const emitted = ((inv && inv.folders) || []).filter((u) => u && u.folder);
+const FOLDERS = emitted.filter((u) => underScope(u.folder));
+const OFF_SCOPE = emitted.filter((u) => !underScope(u.folder)).map((u) => u.folder);
+if (OFF_SCOPE.length) log('Ideate: dropped ' + OFF_SCOPE.length + ' off-scope discovery folder(s): ' + OFF_SCOPE.join(', '));
 log('Ideate discover under ' + SWEEP + ': ' + FOLDERS.length + ' folders');
 
 const done = (await Promise.all(FOLDERS.map((u) => ideateFolder(u)))).filter(Boolean);
@@ -669,17 +703,24 @@ const failed = done.filter((r) => !r.ok).map((r) => r.folder);
 // disk-dedupe in the sweep. No round-based DRAIN LOOP: Ripples land BOTH ends in-pass by the RIPPLE law and CARDLOG
 // carries no {files, claim} backlog, so nothing pools across stages — the single fold-forward drain is the whole terminal.
 const ORPHANS = done.filter((r) => r.critReport).map((r) => r.critReport);
-const drained = ORPHANS.length
-    ? await agent(
-          'TERMINAL DRAIN: every sol critique cardlog on disk, keyed on its deterministic path. A redteam that folded its own ' +
-              'cardlog already landed those rows, so re-verification against the live cards disk-dedupes them; a cardlog whose ' +
-              'redteam died is folded for the first time here — nothing is lost either way. Read each report IN FULL from disk: ' +
-              JSON.stringify(ORPHANS) +
-              '. Re-verify every row against the live card files and return the consolidated union as your cardlog — files, ' +
-              'beyondFolder, harvest, and verdict; a dropped row is a silent loss.',
-          { label: 'drain:orphans', phase: 'Redteam', model: 'fable', effort: 'high', schema: CARDLOG_SCHEMA, stallMs: STALL },
-      )
-    : null;
+// The terminal drain gets retryLane and stays OPERATIONAL: it consolidates the critique cardlogs' `files`/`beyondFolder`
+// (a redteam that died left its critique cardlog unfolded), never their `harvest` — the doctrine lander is the sole nomination
+// transport, reading each critique cardlog from its deterministic path directly, so a dead drain never loses a nomination.
+const fireDrain = (suffix) =>
+    slot(() =>
+        agent(
+            ROOT_LAW +
+                '\n\nTERMINAL DRAIN (operational consolidation): every sol critique cardlog on disk, keyed on its deterministic ' +
+                'path — read each IN FULL (an absent or invalid file skips): ' +
+                JSON.stringify(ORPHANS) +
+                '. Re-verify its `files` and `beyondFolder` against the live card files and return the consolidated union — ' +
+                'files, beyondFolder, verdict. The critique `harvest` is NOT folded here: the doctrine lander reads every ' +
+                "critique cardlog's nominations directly from these same paths, so your `harvest` holds only nominations your " +
+                'own consolidation pass mints (usually none).',
+            { label: 'drain:orphans' + suffix, phase: 'Redteam', model: 'fable', effort: 'high', schema: CARDLOG_SCHEMA, stallMs: STALL },
+        ),
+    );
+const drained = ORPHANS.length ? (await fireDrain('')) || (await retryLane(() => fireDrain(':a1'))) : null;
 const stages = ['ideate', 'redteam']; // the critique cardlog lives on disk; the redteam folds its rows into the folder record
 const folded = drained ? [{ folder: 'orphans', logs: { redteam: drained }, ok: true }] : [];
 const touched = [...new Set(complete.concat(folded).flatMap((r) => stages.flatMap((k) => (r.logs[k] && r.logs[k].files) || [])))];
@@ -706,16 +747,19 @@ log(
 // DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations from every landed cardlog
 // adjudicated against the live docs/laws surfaces; refutation-first, land-nothing legal. Fires only when non-empty.
 const HARVEST_ROWS = complete.concat(folded).flatMap((r) => stages.flatMap((k) => (r.logs[k] && r.logs[k].harvest) || []));
-const doctrine = HARVEST_ROWS.length
-    ? await agent(doctrinePrompt(HARVEST_ROWS), {
-          label: 'doctrine',
-          phase: 'Redteam',
-          model: 'fable',
-          effort: 'high',
-          schema: DOCTRINE_SCHEMA,
-          stallMs: STALL,
-      })
-    : null;
+// The doctrine lander is the ONLY transport for the sol critique cardlogs' nominations — it reads each from its deterministic
+// path directly, so it fires whenever a critique cardlog exists (ORPHANS), even with no wire nominations and a dead drain.
+const doctrine =
+    HARVEST_ROWS.length || ORPHANS.length
+        ? await agent(doctrinePrompt(HARVEST_ROWS, ORPHANS), {
+              label: 'doctrine',
+              phase: 'Redteam',
+              model: 'fable',
+              effort: 'high',
+              schema: DOCTRINE_SCHEMA,
+              stallMs: STALL,
+          })
+        : null;
 return {
     scope: SWEEP,
     folders: FOLDERS.length,

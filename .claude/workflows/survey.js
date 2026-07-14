@@ -454,6 +454,19 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(CAP);
+const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend, the backoff buys recovery time
+const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
+// Bounded re-dispatch for a dead CRITICAL lane (scout, admit, integrate): attempt-counted with a backoff BEFORE each attempt — the
+// backoff releases the slot (and admit's serial window) so siblings run while a limit-dead lane waits. `ok` defaults to non-null; scout
+// passes an ok-field predicate. The final death isolates the lane, never the run — the caller's data-dependency guard stops an empty chain.
+const retryLane = async (fn, ok = (r) => !!r) => {
+    for (let a = 0; a < RETRY_ATTEMPTS; a++) {
+        await sleep(RETRY_BACKOFF);
+        const r = await fn();
+        if (ok(r)) return r;
+    }
+    return null;
+};
 
 // Serial write chains — first lane to arrive goes first; the slot is acquired INSIDE the chained thunk, so a
 // queued lane never holds a slot while waiting its turn.
@@ -484,27 +497,22 @@ const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 // Per-target own-pass artifact path — the integrate executor's blind integration plan, distinct from its map reports.
 const ownPassArt = (t, stage) => SCRATCH + '/' + fileTag(t.split('/').pop()) + '-' + stage + '-ownpass.md';
 const laneLaw = (schema, o) =>
-    (o.fix
-        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
-          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
-          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
-          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
-        : '<context_gathering>\nTerritory: ' +
-          (o.web
-              ? 'the official sources of the packages the task names — the package registry (PyPI/NuGet/npm), the package docs, ' +
-                'and the source repository — for landscape, newest version, license, and maintenance, PLUS the exact repo files the ' +
-                'task cites for cross-check. Use web search and fetch freely over those sources; do not open repo files beyond the ' +
-                'ones the task names, and never open skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).'
-              : 'the exact files and directories the task names. Do not open files outside it, including skill or instruction ' +
-                'files (.claude/, CLAUDE.md, AGENTS.md).') +
-          '\nBudget: at most ' +
-          (o.calls || 60) +
-          ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
-          'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
-          'If something is still uncertain at the budget, proceed and record the residue in the product coverage/unverified field ' +
-          'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
-          'spelling appears verbatim in the cited file or source; anything unconfirmed is recorded as a gap, never asserted.\n' +
-          '</verification>') +
+    '<context_gathering>\nTerritory: ' +
+    (o.web
+        ? 'the official sources of the packages the task names — the package registry (PyPI/NuGet/npm), the package docs, ' +
+          'and the source repository — for landscape, newest version, license, and maintenance, PLUS the exact repo files the ' +
+          'task cites for cross-check. Use web search and fetch freely over those sources; do not open repo files beyond the ' +
+          'ones the task names, and never open skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).'
+        : 'the exact files and directories the task names. Do not open files outside it, including skill or instruction ' +
+          'files (.claude/, CLAUDE.md, AGENTS.md).') +
+    '\nBudget: at most ' +
+    (o.calls || 60) +
+    ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
+    'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
+    'If something is still uncertain at the budget, proceed and record the residue in the product coverage/unverified field ' +
+    'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
+    'spelling appears verbatim in the cited file or source; anything unconfirmed is recorded as a gap, never asserted.\n' +
+    '</verification>' +
     '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
@@ -520,9 +528,7 @@ const codexSteps = (label, task, schema, o, step4) => {
         'DISPATCH ROLE: gpt-5.6-terra performs the complete TASK below through one blocking Codex MCP call. Follow exactly four ' +
             'steps; never perform, edit, judge, soften, summarize, or relay the task yourself.',
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
-        '(2) Call the loaded mcp__codex__codex tool ONCE with model="gpt-5.6-terra", sandbox=' +
-            (o.writes ? '"workspace-write"' : '"read-only"') +
-            ', cwd=' +
+        '(2) Call the loaded mcp__codex__codex tool ONCE with model="gpt-5.6-terra", sandbox="read-only", cwd=' +
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
@@ -781,11 +787,19 @@ const lane = async (t) => {
             'the one-line reason in `failure` and every array empty.',
     ].join('\n\n');
     const scoutOpts = { label: 'scout:' + tag, phase: 'Scout', schema: SCOUT_SCHEMA, calls: 120 };
-    // One bounded re-attempt: a dead or failed scout silently no-ops the whole lane.
+    // A dead or failed scout silently no-ops the whole lane: the failure re-dispatches through the attempt-counted backoff, and the
+    // original failed receipt survives a still-dead retry so the log keeps its reason.
     let scout = await slot(() => scoutLane(scoutPrompt, scoutOpts));
-    if (!(scout && scout.ok)) scout = await slot(() => scoutLane(scoutPrompt, { ...scoutOpts, label: 'scout:' + tag + ':retry' }));
+    if (!(scout && scout.ok))
+        scout =
+            (await retryLane(
+                () => slot(() => scoutLane(scoutPrompt, { ...scoutOpts, label: 'scout:' + tag + ':a1' })),
+                (r) => r && r.ok,
+            )) || scout;
     const facets = ((scout && scout.facets) || []).filter((f) => f && f.id);
-    const pages = ((scout && scout.pages) || []).filter(Boolean);
+    // Scout is a model emitting a path roster the Map stage slices and dispatches on: keep only real in-target paths so a hallucinated
+    // coordinate never mints a mapper over nothing (an out-of-target roster degrades to Integrate's own cold read, never a bad dispatch).
+    const pages = ((scout && scout.pages) || []).filter((p) => p && String(p).indexOf(t + '/') === 0);
     const handRolls = ((scout && scout.handRolls) || []).filter(Boolean);
     log(
         tag +
@@ -916,12 +930,10 @@ const lane = async (t) => {
             JSON.stringify(research),
     ].join('\n\n');
     const admitOpts = { label: 'admit:' + tag, phase: 'Admit', model: 'fable', effort: 'high', schema: ADMIT_SCHEMA, stallMs: EXEC_STALL };
-    // One bounded re-attempt inside the serial window: a dead admit drops the lane's whole admission.
-    const admit = await admitSerial(
-        async () =>
-            (await slot(() => agent(admitPrompt, admitOpts))) ||
-            (await slot(() => agent(admitPrompt, { ...admitOpts, label: 'admit:' + tag + ':retry' }))),
-    );
+    // A dead admit drops the lane's whole admission and severs its catalog/map/integrate: the re-dispatch acquires the serial window
+    // AFRESH each attempt, so the backoff never holds the central-manifest lock — sibling targets admit while a limit-dead lane waits.
+    const admitOnce = (label) => admitSerial(() => slot(() => agent(admitPrompt, { ...admitOpts, label })));
+    const admit = (await admitOnce('admit:' + tag)) || (await retryLane(() => admitOnce('admit:' + tag + ':a1')));
     const admitted = ((admit && admit.admitted) || []).filter((a) => a && a.package);
     log(tag + ' admit: ' + admitted.length + ' admitted, ' + ((admit && admit.skipped) || []).length + ' skipped, green=' + !!(admit && admit.green));
     if (!admitted.length) return { target: t, admitted: 0, green: !!(admit && admit.green), note: (admit && admit.summary) || 'nothing admitted' };
@@ -1046,10 +1058,10 @@ const lane = async (t) => {
             JSON.stringify(maps),
     ].join('\n\n');
     const integrateOpts = { label: 'integrate:' + tag, phase: 'Integrate', model: 'fable', effort: 'high', schema: FIXLOG, stallMs: EXEC_STALL };
-    // One bounded re-attempt: a dead executor leaves the lane admitted but unintegrated.
-    const fix =
-        (await slot(() => agent(integratePrompt, integrateOpts))) ||
-        (await slot(() => agent(integratePrompt, { ...integrateOpts, label: 'integrate:' + tag + ':retry' })));
+    // A dead executor leaves the lane admitted-but-unintegrated (landed catalogs, no design integration): re-dispatch through the
+    // attempt-counted backoff so a usage-limit death recovers on reset instead of losing the whole integration.
+    const integrateOnce = (label) => slot(() => agent(integratePrompt, { ...integrateOpts, label }));
+    const fix = (await integrateOnce('integrate:' + tag)) || (await retryLane(() => integrateOnce('integrate:' + tag + ':a1')));
     return {
         target: t,
         admitted: admitted.length,
