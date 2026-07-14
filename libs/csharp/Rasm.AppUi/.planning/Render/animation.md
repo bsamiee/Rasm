@@ -30,9 +30,11 @@ public abstract partial record AnimationFault : Expected {
         : AnimationFault($"animation/frame: {FrameIndex} — {Detail}", AppUiFaultBand.Animation.Code(1));
     public sealed record ClipEncodeFailed(string Detail)
         : AnimationFault($"animation/clip: {Detail}", AppUiFaultBand.Animation.Code(2));
+    public sealed record RateOutOfDomain(double Fps)
+        : AnimationFault($"animation/frame-rate: {Fps}", AppUiFaultBand.Animation.Code(3));
 }
 
-public readonly record struct Keyframe<T>(Duration At, T Value, MotionToken Easing) {
+public readonly record struct Keyframe<T>(Duration At, T Value, MotionToken Easing) : IComparable<Keyframe<T>> {
     public int CompareTo(Keyframe<T> other) => At.CompareTo(other.At);
 }
 
@@ -62,7 +64,9 @@ public readonly record struct ElementPose(
 public sealed record TrackInterp(Func<Color, Color, double, Color> OkMix) {
     public static double Scalar(double a, double b, double t) => a + ((b - a) * t);
 
-    public static int Stepped(int a, int b, double t) => (int)Math.Round(a + ((b - a) * t));
+    // Stepped HOLD: the sample equals the preceding keyframe value until the next boundary — a rounded
+    // intermediate index would select simulation states no field-index keyframe declared.
+    public static int Stepped(int a, int b, double t) => t >= 1d ? b : a;
 
     // The element twin of the camera Pose row — the SAME slerp discipline, joined per element id; an
     // element absent from the far keyframe holds its present pose, so a partial keyframe steps at the set
@@ -94,10 +98,10 @@ public sealed record TrackInterp(Func<Color, Color, double, Color> OkMix) {
                 state: (From: from, T: state.T),
                 perspective: static (pair, to) => new ViewCamera.Perspective(
                     BlendFrame(pair.From.Frame, to.Frame, pair.T), Scalar(pair.From.FieldOfViewDeg, to.FieldOfViewDeg, pair.T)),
-                orthographic: static (pair, to) => pair.T < 1d ? pair.From : to),
+                orthographic: static (pair, to) => pair.T < 1d ? (ViewCamera)pair.From : to),
             orthographic: static (state, from) => state.To.Switch(
                 state: (From: from, T: state.T),
-                perspective: static (pair, to) => pair.T < 1d ? pair.From : to,
+                perspective: static (pair, to) => pair.T < 1d ? (ViewCamera)pair.From : to,
                 orthographic: static (pair, to) => new ViewCamera.Orthographic(
                     BlendFrame(pair.From.Frame, to.Frame, pair.T), Scalar(pair.From.ViewHeight, to.ViewHeight, pair.T))));
 
@@ -120,14 +124,13 @@ public sealed record TrackInterp(Func<Color, Color, double, Color> OkMix) {
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record Track {
-    private Track() { }
-    public sealed record Parameter(string Key, Seq<Keyframe<double>> Frames) : Track;
-    public sealed record Camera(string Key, Seq<Keyframe<ViewCamera>> Frames) : Track;
-    public sealed record Visibility(string Key, Seq<Keyframe<Seq<VisibilityOverride>>> Frames) : Track;
-    public sealed record FieldIndex(string Key, Seq<Keyframe<int>> Frames) : Track;
-    public sealed record Color(string Key, Seq<Keyframe<Avalonia.Media.Color>> Frames) : Track;
-    public sealed record Transform(string Key, Seq<Keyframe<Seq<ElementPose>>> Frames) : Track;
+public abstract partial record Track(string Key) {
+    public sealed record Parameter(string Key, Seq<Keyframe<double>> Frames) : Track(Key);
+    public sealed record Camera(string Key, Seq<Keyframe<ViewCamera>> Frames) : Track(Key);
+    public sealed record Visibility(string Key, Seq<Keyframe<Seq<VisibilityOverride>>> Frames) : Track(Key);
+    public sealed record FieldIndex(string Key, Seq<Keyframe<int>> Frames) : Track(Key);
+    public sealed record Color(string Key, Seq<Keyframe<Avalonia.Media.Color>> Frames) : Track(Key);
+    public sealed record Transform(string Key, Seq<Keyframe<Seq<ElementPose>>> Frames) : Track(Key);
 
     public static Fin<Track> OfParameter(string Key, Seq<Keyframe<double>> Frames) =>
         Sorted(Key, Frames).Map(sorted => (Track)new Parameter(Key, sorted));
@@ -146,10 +149,6 @@ public abstract partial record Track {
         frames.IsEmpty
             ? Fin<Seq<Keyframe<T>>>.Fail(new AnimationFault.EmptyTrack(key))
             : FinSucc(frames.OrderBy(static frame => frame.At).ToSeq());
-
-    public string Key => Switch(
-        parameter: static p => p.Key, camera: static c => c.Key, visibility: static v => v.Key,
-        fieldIndex: static f => f.Key, color: static c => c.Key, transform: static t => t.Key);
 
     public Duration Duration => Switch(
         parameter: static p => p.Frames.Last.At, camera: static c => c.Frames.Last.At,
@@ -237,6 +236,13 @@ public sealed record TimelineSample(
     Seq<ElementPose> Transforms);
 
 public sealed record Timeline(string Key, Seq<Track> Tracks, double FrameRate, PlaybackMode Mode) {
+    // The ONE timeline ingress: a non-finite or non-positive frame rate rejects at the rail edge, so
+    // every Playhead division and frame count derives from a valid policy value.
+    public static Fin<Timeline> Of(string key, Seq<Track> tracks, double frameRate, PlaybackMode mode) =>
+        double.IsFinite(frameRate) && frameRate > 0d
+            ? Fin.Succ(new Timeline(key, tracks, frameRate, mode))
+            : Fin.Fail<Timeline>(new AnimationFault.RateOutOfDomain(frameRate));
+
     public Duration Total => Tracks.IsEmpty ? Duration.Zero : Tracks.Map(static track => track.Duration).Max();
 
     public Playhead Playhead() => Animation.Playhead.At(FrameRate, Total, Mode);
@@ -268,7 +274,7 @@ public static class SchedulePlayback {
             Some: head => Track.OfVisibility(
                     $"{key}/state",
                     phases.Map(phase => new Keyframe<Seq<VisibilityOverride>>(phase.At - head.At, phase.State, MotionToken.Standard)))
-                .Map(state => new Timeline(key, Seq(state), fps, mode)));
+                .Bind(state => Timeline.Of(key, Seq(state), fps, mode)));
 }
 ```
 
@@ -332,7 +338,8 @@ public static class Walkthrough {
             .Fold(IO.pure((Frames: Seq<SKImage>(), Hashes: Seq<string>(), Bytes: 0L)), (rail, index) => rail.Bind(state =>
                 from sample in IO.pure(timeline.SampleAt(timeline.Playhead().TimeOf(index), interp))
                 from image in IO.lift(() => frame(sample, new SKImageInfo(spec.Width, spec.Height)).ThrowIfFail())
-                from receipt in VisualCodec.Encode(runtime, image, spec.Encode, Kind, $"walkthroughs/{spec.Key}/{index:D6}.{spec.Encode.Key}")
+                from receipt in VisualCodec.Encode(runtime, image, spec.Encode, Kind,
+                    $"walkthroughs/{spec.Key}/{index.ToString("D6", System.Globalization.CultureInfo.InvariantCulture)}.{spec.Encode.Key}")
                 select (
                     spec.Clip.IsSome ? state.Frames.Add(image) : Released(state.Frames, image),
                     state.Hashes.Add(receipt.FrameHash),

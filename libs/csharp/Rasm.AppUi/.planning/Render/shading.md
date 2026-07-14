@@ -1,6 +1,6 @@
 # [APPUI_RENDER_SHADING]
 
-One GPU shader-asset owner with a per-backend pipeline-state cache feeds the path tracer's `SurfaceShade`: `ShaderAsset` caches a compiled shader keyed per `GpuBackend` (`SKRuntimeEffect` for the Skia Ganesh family, `Silk.NET.WebGPU` pipeline-state for the Wgpu family), and `ShaderShade` is the GPU shading pass consuming the `Rasm.Materials/Appearance` `LayeredBsdf` the `Render/pathtrace` integrator shades from. The page owns the shader-asset cache, the per-backend pipeline-state compile, and the GPU shading pass; it shares the one `Wgpu` device the `Render/pipeline` viewport leases through the branch `ONE_WGPU_DEVICE` owner rather than a second GPU device, consumes the Materials `LayeredBsdf -> SurfaceShade` rather than minting an appearance model, and confines its `SKSurface` to the `Offscreen` capsule (the `[05]-[PROHIBITIONS]` per-host-GpuBackend and SKSurface-outside-Offscreen clauses hold). The substrate is `SKRuntimeEffect` (Ganesh runtime shaders), `Silk.NET.WebGPU` pipeline-state (`.api/api-silk-webgpu.md`, `.api/api-silk-webgpu-wgpu.md`), the `Rasm.Materials/Appearance` `LayeredBsdf` seam, the `GpuBackend` target-factory column over `GpuBinding`, Thinktecture.Runtime.Extensions, and LanguageExt rails. The CPU `LayeredBsdf` reference shade is the floor; the GPU shader compile is the SPIKE.
+One GPU shader-asset owner with a per-backend pipeline-state cache feeds the path tracer's `SurfaceShade`: `ShaderAsset` caches a compiled shader keyed per `GpuBackend` (`SKRuntimeEffect` for the Skia Ganesh family, `Silk.NET.WebGPU` pipeline state for the Wgpu family), and `ShaderShade` is the GPU shading pass consuming the `LayeredBsdf` the path-trace integrator also shades from. The page owns shader compilation, retained program lifetime, cache identity, and the GPU shading pass while sharing the viewport's one `Wgpu` device, consuming the Materials appearance model, and confining `SKSurface` ownership to `Offscreen`. `SKRuntimeEffect`, `Silk.NET.WebGPU`, Thinktecture, and LanguageExt supply the substrate; the CPU `LayeredBsdf` evaluation is the reference path.
 
 ## [01]-[INDEX]
 
@@ -9,7 +9,7 @@ One GPU shader-asset owner with a per-backend pipeline-state cache feeds the pat
 
 ## [02]-[SHADER_ASSET]
 
-- Owner: `ShaderAsset` the per-backend compiled-shader cache row; `ShaderSource` the backend-neutral shader source; `WgpuShaderCompiler` the composition-bound wgpu compile capsule with its owned `WgpuPipelineState`; `ShaderReceipt` the compile evidence; `ShaderFault` the fault family — codes derive through the `AppUiFaultBand.Shader` registry row (6110); the hex band is dead.
+- Owner: `ShaderAsset` the per-backend compiled-shader cache row; `ShaderProgram` the closed Ganesh-or-Wgpu retained native program; `ShaderSource` the backend-neutral shader source; `WgpuShaderCompiler` the composition-bound wgpu compile capsule with its owned `WgpuPipelineState`; `ShaderReceipt` the compile evidence; `ShaderFault` the fault family on `AppUiFaultBand.Shader`.
 - Cases: `ShaderFault` = Text | CompileFailed | BackendUnsupported | UniformAbsent — codes derive through the `AppUiFaultBand.Shader` registry row (6110); the hex band is dead.
 - Entry: `public Fin<ShaderAsset> Compile(ShaderSource source, GpuBackend backend)` probes the `(Key, Revision, Backend)` cache before compiling the backend-neutral source. Ganesh compiles through `SKRuntimeEffect.Create`, while Wgpu compiles WGSL into a module and render pipeline whose `Bind(ShadeUniforms)` creates an owned per-draw bind group and whose `Mount(RenderTarget, nint)` records it on the active encoder before release. `public Option<ShaderAsset> Cached(string key, string revision, GpuBackend backend)` exposes the exact probe.
 - Auto: a shader source compiles once per `(Key, Revision, GpuBackend)` cell. The entry probes before native construction, a miss compiles, and a concurrent-race loser disposes its minted handle, so a revision change cannot reuse stale code and a re-shade of the same revision reuses one retained pipeline state. Ganesh binds `SKRuntimeShaderBuilder.Uniforms`; Wgpu binds the current `ShadeUniforms` through `WgpuPipelineState.Bind` and records the resulting group through `Mount`, so neither arm can return success without mounting executable state.
@@ -64,12 +64,12 @@ public sealed record WgpuPipelineState(
 public sealed record WgpuShaderCompiler(Func<ShaderSource, Fin<WgpuPipelineState>> Build);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record ShaderProgram : IDisposable {
+public abstract partial record ShaderProgram {
     private ShaderProgram() { }
     public sealed record Ganesh(SKRuntimeEffect Effect) : ShaderProgram;
     public sealed record Wgpu(WgpuPipelineState State) : ShaderProgram;
 
-    public void Dispose() => Switch(
+    public void Release() => Switch(
         ganesh: static program => program.Effect.Dispose(),
         wgpu: static program => program.State.Dispose());
 }
@@ -79,7 +79,7 @@ public sealed record ShaderAsset(
     GpuBackend Backend,
     ShaderProgram Program,
     Seq<(string Name, ShaderUniformKind Kind)> Uniforms) : IDisposable {
-    public void Dispose() => Program.Dispose();
+    public void Dispose() => Program.Release();
 }
 
 public sealed record ShaderAssetCache(
@@ -93,11 +93,11 @@ public sealed record ShaderAssetCache(
     public Fin<ShaderAsset> Compile(ShaderSource source, GpuBackend backend) =>
         Cached(source.Key, source.Revision, backend).Match(
             Some: Fin<ShaderAsset>.Succ,
-            None: () => backend.Family switch {
-                GpuFamily.SkiaGanesh or GpuFamily.SkiaRaster => CompileGanesh(source, backend),
-                GpuFamily.Wgpu or GpuFamily.WebGpu => CompileWgpu(source, backend),
-                _ => Fin.Fail<ShaderAsset>(new ShaderFault.BackendUnsupported(backend.Key)),
-            });
+            None: () => backend.Family == GpuFamily.SkiaGanesh || backend.Family == GpuFamily.SkiaRaster
+                ? CompileGanesh(source, backend)
+                : backend.Family == GpuFamily.Wgpu || backend.Family == GpuFamily.WebGpu
+                    ? CompileWgpu(source, backend)
+                    : Fin.Fail<ShaderAsset>(new ShaderFault.BackendUnsupported(backend.Key)));
 
     public Option<ShaderAsset> Cached(string key, string revision, GpuBackend backend) =>
         Assets.TryGetValue((key, revision, backend.Key), out ShaderAsset? asset) ? Some(asset) : None;

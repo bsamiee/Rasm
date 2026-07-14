@@ -62,6 +62,7 @@ public static Fin<Receipt> Capture(Func<Fin<Receipt>> native) {
 
 [TERMINAL_COLLAPSE]:
 - Use: `Match`, `IfFail`, `Run`, `RunAsync`, or unsafe extraction only at host, UI, native, command, or wire edges.
+- Law: the collapse member's return shape is carrier-owned — `Try` and `Eff` `Run()` land `Fin<T>` while `IO<T>` `Run()`/`RunAsync()` return the bare value and throw the typed `Error` — so `ThrowIfFail` or a `Fin`-shaped `Bind` on an `IO` terminal is a phantom spelling; an `IO` lane lands on `Fin` by carrying `IO<Fin<T>>` or lifting through `Eff`.
 - Law: reusable domain transforms keep the carrier; `.Value` and the `internal` `SuccValue`/`SuccessValue` accessors are never the exit.
 - Reject: mid-pipeline collapse inside a pure projection; `Option.Match` inside an expression rail.
 
@@ -73,7 +74,7 @@ Traversal is rail policy: the collection shape and the sequencing operator toget
 - Law: `Map<K,V>` over `HashMap<K,V>` only when key order is the operation; `BiMap<A,B>` when bidirectional lookup is the domain constraint, never a pair of maps; `Lst<T>` only for positional mid-sequence insert.
 - Law: conversion arrows are outbound-only — `where F : Natural<F, Seq>` is satisfied by `Arr`, `Iterable`, and `Iterator` but never by `Seq` itself, so a `Seq`-typed input needs a direct branch.
 - Law: `Count`, `AsSpan()`, and `Add` force complete evaluation of a lazy backing; incremental build is `Cons`-then-reverse, never repeated `Add`.
-- Use: `.Strict()` before boundary transfer when lazy traversal would outlive its owner or re-pay O(n) per enumeration over a concat backing.
+- Use: `.Strict()` before boundary transfer when lazy traversal outlives its owner or re-pays O(n) per enumeration over a concat backing.
 - Reject: lazy flow over disposed, borrowed, UI, native, or host-owned resources.
 
 [RAIL_TRAVERSAL]:
@@ -124,7 +125,7 @@ Apply carrier-qualified failure transforms before collapse; a rail transform nev
 [VALIDATION_MONOID]:
 - Law: the failure type is itself the aggregate — `Error` is one error and a thousand at once through `ManyErrors`, so a rail's failure slot never widens to `Seq<Error>` and `Errors.None` is the monoid identity; the closed `Fault` `[Union]` over `Expected` carrying its own `Semigroup` `Combine` is the accumulation carrier shapes.md mints, composed here, never re-declared.
 - Law: `Validation<E,T>` requires an error carrier with an owned combination law — the `Fault` family, `StringM`, or another `Monoid<E>` — never `Validation<Seq<Error>,T>` or `Validation<string,T>`; the missing monoid makes the accumulating shape unmanufacturable, so the carrier choice and the fault family are one decision.
-- Law: the closed-field product accumulates through the tuple `.Apply` surfaces.md owns; this page's region is the open extension set — independent constraints foreign code supplies fold applicatively through `.Traverse`, so the `Validation` `Apply` runs every `Check` and `Error.Combine` unions every fault before the boundary reports, where a `.TraverseM`/`Bind` fold would surface only the first.
+- Law: the closed-field product accumulates through the tuple `.Apply` surfaces.md owns; this page's region is the open extension set — independent constraints foreign code supplies fold applicatively through `.Traverse`, so the `Validation` `Apply` runs every `Check` and `Error.Combine` unions every fault before the boundary reports, where a `.TraverseM`/`Bind` fold surfaces only the first.
 - Law: an `IConstraint<T>` conformance lifts its fault through the implicit `Error → Validation<Error,T>` widening — `value` on success, the bare `Fault` case on failure — so the triple-cast that spells the lift by hand is the deleted ceremony; the floor is held by the owner and minted downstream, the closed family the owner switches and the open set it folds co-existing on one owner.
 - Law: `MapFail` on `Fin` is `Error → Error` pinned; on `Validation` it changes the failure type and requires `Monoid<F1>` — the asymmetry decides which carrier survives accumulation.
 - Reject: building an independent-field product with `from`/`select` inside an accumulating carrier, which silently switches accumulation off; bridging a composite owner through `TryCreate` or a hand-built `out var` ternary where shapes.md's `Admitted` factory bridge plus the composite-refinement `guard` already admit leaf-then-composite; an interface over the closed family, which forfeits `Switch` totality; a `Switch` over the open set, which cannot admit a foreign conformance; a `Bind` fold over the open constraint set, which reports only the first violation where the applicative fold reports all.

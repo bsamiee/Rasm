@@ -1,6 +1,6 @@
 # [APPUI_RENDER_PATHTRACE]
 
-The path-trace integrator for the infinite viewport: `PathTracePass` accumulates global illumination through BVH build-and-refit with ReSTIR reservoirs and progressive denoising, and the integrator shades every scene point from `Rasm.Materials.Appearance.Bsdf.LayeredBsdf`, the product of `SlabStack` lowering and the `MaterialGraph` sink. The page owns the BVH build/refit, the ReSTIR reservoir, progressive accumulation, edge-aware denoise, and exact `LayeredBsdf.Sample`/`Evaluate` consumption at the `PATH_TRACE` seam; `BsdfProjection` owns the sole oracle-tuple projection into the Materials `ShadingFrame`/`Direction`/`Op` vocabulary. The render-graph pass DAG that schedules the path-trace pass lives in `Render/pipeline`, and the meshlet bounds the BVH builds over live in `Render/meshlets`. The CPU reference path tracer over the BVH is the correctness oracle; GPU acceleration-structure dispatch remains the `SPIKE`.
+The path-trace integrator for the infinite viewport: `PathTracePass` accumulates global illumination through BVH build-and-refit with ReSTIR reservoirs and progressive denoising, and the integrator shades every scene point from `Rasm.Materials.Appearance.Bsdf.LayeredBsdf`, the product of `SlabStack` lowering and the `MaterialGraph` sink. The page owns the BVH build/refit, the ReSTIR reservoir, progressive accumulation, edge-aware denoise, and exact `LayeredBsdf.Sample`/`Evaluate` consumption at the `PATH_TRACE` seam; `BsdfProjection` owns the sole oracle-tuple projection into the Materials `ShadingFrame`/`Direction`/`Op` vocabulary. The render graph schedules the pass, meshlet bounds feed the BVH, the CPU integrator is the correctness oracle, and GPU acceleration consumes the same contracts.
 
 ## [01]-[INDEX]
 
@@ -14,7 +14,7 @@ The path-trace integrator for the infinite viewport: `PathTracePass` accumulates
 - Entry: `public Fin<AccumulationTarget> Accumulate(AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed)` — accumulates one progressive sample set onto the running per-pixel mean under the one camera row and returns the ADVANCED `AccumulationTarget` (`Ordinal + sampleBudget`), so two sequential batches against one target produce the weighted mean of both and the next pass reads the total sample count from the same state owner; convergence is the accumulated sample count, never a wall-clock timer.
 - Auto: `Bvh.Build` constructs the hierarchy by a REAL recursive surface-area-heuristic split over the meshlet bounds — children emitted, leaf criterion at four primitives or no cost-improving split; `Refit` is a REAL bottom-up re-bound (leaves re-enclose their moved primitives, interior nodes re-enclose their two children in reverse emission order) and `Maintain` adopts the kernel `[DEGRADATION_REFIT]` shape (`Rasm/.planning/Spatial/index.md`): topology-stable in-place re-bounding plus a deterministic `SahCost` rebuild trigger, so a moving scene refits until quality degrades measurably and then rebuilds deterministically; NEE light selection DISPATCHES on the `SamplePolicy` row — `Restir` streams every rig row through the pixel's `Reservoir` (the prior frame's reservoir seeds the stream decayed to `TemporalCap`, the target function is the unshadowed luminance-times-cosine, ONLY the surviving sample pays a shadow ray, and the advanced reservoir writes back to `AccumulationTarget.Reservoirs[pixel]` so temporal reuse is a real state transition), `Uniform` draws one row scaled by count, `Stratified` rotates the row by pixel-plus-ordinal; the progressive accumulator folds each sample set onto the running mean keyed by the accumulation ordinal and advances that ordinal on the returned target — `AccumulationTarget` is the ONE progression owner (`Of` mints it, `Advanced` weights the next batch, `Reset` clears mean, reservoirs, and guides together on camera motion) and no second sample counter exists — so a static camera converges frame over frame and the render graph resets the same target on camera motion; the primary hit writes each pixel's normal/depth guide onto the target's `NormalDepth` plane, and `Denoiser.Resolve` folds the noisy mean with those guides through the 3x3 joint-bilateral weights so an early-frame estimate is presentable before full convergence while the render-hash lane pins the RAW mean.
 - Packages: SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new sampling strategy is one `SamplePolicy` value; a new guide buffer is one `Denoiser` channel; zero new surface.
+- Growth: a new sampling strategy is one `SamplePolicy` row carrying its `SampleDecision` delegate; a new guide plane extends `AccumulationTarget` and `Denoiser`; zero new surface.
 - Boundary: convergence is sample-count progressive — the accumulation ordinal is the only progress measure and a fixed-time render is the rejected form, so a path-traced still converges deterministically and the render-hash lane pins a sample count; the BVH refits in place on an animated frame and a full rebuild per frame is the deleted form — the rebuild fires only through the `Maintain` cost trigger; the ray-trace dispatch is the GPU compute surface bound through the `Render/pipeline` render-graph lease — the `SKRuntimeEffect` ray-generation shader and the per-backend acceleration-structure spelling resolve under VIEWPORT_GPU; the CPU reference path tracer over the BVH is the correctness oracle — it now has light to transport (the `LightRig`), so the oracle renders a lit image by construction and comparability with the raster path holds because BOTH integrators read the same rig; the GPU acceleration is the SPIKE; the BVH builds over the Compute-decoded `Render/meshlets` cluster bounds so the integrator re-models no geometry.
 
 ```csharp signature
@@ -188,11 +188,23 @@ public readonly record struct Reservoir(double WeightSum, int SampleCount, long 
 // the survivor, Uniform draws one row scaled by count, Stratified rotates the row by (pixel + ordinal).
 [SmartEnum<string>]
 public sealed partial class SamplePolicy {
-    public static readonly SamplePolicy Restir = new("restir");
-    public static readonly SamplePolicy Uniform = new("uniform");
-    public static readonly SamplePolicy Stratified = new("stratified");
+    public static readonly SamplePolicy Restir = new("restir", static (_, _, _, _) => new SampleDecision.ReservoirReuse());
+    public static readonly SamplePolicy Uniform = new("uniform", static (_, _, count, random) =>
+        new SampleDecision.Direct(Math.Min((int)(random * count), count - 1), count));
+    public static readonly SamplePolicy Stratified = new("stratified", static (pixel, ordinal, count, _) =>
+        new SampleDecision.Direct((int)((pixel + ordinal) % count), count));
 
     public const int TemporalCap = 20;
+
+    [UseDelegateFromConstructor]
+    public partial SampleDecision Decide(int pixel, long ordinal, int count, double random);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record SampleDecision {
+    private SampleDecision() { }
+    public sealed record ReservoirReuse : SampleDecision;
+    public sealed record Direct(int Index, double Weight) : SampleDecision;
 }
 
 // Edge-aware joint-bilateral resolve over the accumulation guides: a 3x3 weighted mean whose weights fold
@@ -203,6 +215,8 @@ public sealed record Denoiser(double NormalSigma, double DepthSigma, double Colo
 
     public float[] Resolve(AccumulationTarget film) {
         float[] output = new float[film.Rgba.Length];
+        Span<float> rgba = film.Rgba.Span;
+        Span<float> guides = film.NormalDepth.Span;
         for (int py = 0; py < film.Height; py++) {
             for (int px = 0; px < film.Width; px++) {
                 int at = (py * film.Width) + px;
@@ -211,10 +225,10 @@ public sealed record Denoiser(double NormalSigma, double DepthSigma, double Colo
                     for (int dx = -1; dx <= 1; dx++) {
                         int near = (Math.Clamp(py + dy, 0, film.Height - 1) * film.Width) + Math.Clamp(px + dx, 0, film.Width - 1);
                         double weight = Math.Exp(
-                            -(Gap(film.Rgba, at, near, 3) / (ColorSigma * ColorSigma))
-                            - (Gap(film.NormalDepth, at, near, 3) / (NormalSigma * NormalSigma))
-                            - (Gap(film.NormalDepth, (at * 4) + 3, (near * 4) + 3, 1, raw: true) / (DepthSigma * DepthSigma)));
-                        (r, g, b, w) = (r + (film.Rgba[near * 4] * weight), g + (film.Rgba[(near * 4) + 1] * weight), b + (film.Rgba[(near * 4) + 2] * weight), w + weight);
+                            -(Gap(rgba, at, near, 3) / (ColorSigma * ColorSigma))
+                            - (Gap(guides, at, near, 3) / (NormalSigma * NormalSigma))
+                            - (Gap(guides, (at * 4) + 3, (near * 4) + 3, 1, raw: true) / (DepthSigma * DepthSigma)));
+                        (r, g, b, w) = (r + (rgba[near * 4] * weight), g + (rgba[(near * 4) + 1] * weight), b + (rgba[(near * 4) + 2] * weight), w + weight);
                     }
                 }
                 (output[at * 4], output[(at * 4) + 1], output[(at * 4) + 2], output[(at * 4) + 3]) =
@@ -224,7 +238,7 @@ public sealed record Denoiser(double NormalSigma, double DepthSigma, double Colo
         return output;
     }
 
-    private static double Gap(float[] plane, int a, int b, int components, bool raw = false) {
+    private static double Gap(ReadOnlySpan<float> plane, int a, int b, int components, bool raw = false) {
         (int baseA, int baseB) = raw ? (a, b) : (a * 4, b * 4);
         double sum = 0d;
         for (int c = 0; c < components; c++) { double d = plane[baseA + c] - plane[baseB + c]; sum += d * d; }
@@ -236,16 +250,22 @@ public sealed record Denoiser(double NormalSigma, double DepthSigma, double Colo
 // plane — the ONE progressive-state owner: Advanced weights the next batch, Reset serves camera motion, and
 // reservoirs and guides live HERE so temporal reuse and the edge-aware denoise read the same state the
 // accumulation transition writes; no second sample counter or side buffer exists anywhere.
-public sealed record AccumulationTarget(int Width, int Height, float[] Rgba, Reservoir[] Reservoirs, float[] NormalDepth, long Ordinal) {
+public sealed record AccumulationTarget(
+    int Width,
+    int Height,
+    Memory<float> Rgba,
+    Memory<Reservoir> Reservoirs,
+    Memory<float> NormalDepth,
+    long Ordinal) {
     public static AccumulationTarget Of(int width, int height) =>
         new(width, height, new float[width * height * 4], new Reservoir[width * height], new float[width * height * 4], 0L);
 
     public AccumulationTarget Advanced(int samples) => this with { Ordinal = Ordinal + samples };
 
     public AccumulationTarget Reset() {
-        Array.Clear(Rgba);
-        Array.Clear(Reservoirs);
-        Array.Clear(NormalDepth);
+        Rgba.Span.Clear();
+        Reservoirs.Span.Clear();
+        NormalDepth.Span.Clear();
         return this with { Ordinal = 0L };
     }
 }
@@ -256,20 +276,24 @@ public sealed record PathTracePass(
     Denoiser Denoise,
     Func<SurfacePoint, Rasm.Materials.Appearance.Bsdf.LayeredBsdf> MaterialOf,
     BsdfProjection Projection) {
-    // Honest integrate-or-gate: an empty scene or a lightless rig gates; the integrate arm traces
-    // sampleBudget paths per pixel through the private CPU oracle kernel below and returns the target
-    // advanced by exactly the samples it folded into the mean.
+    // Honest integrate-or-gate: an empty scene, a lightless rig, or a non-positive sample budget gates
+    // — zero divides a fresh target's mean and a negative budget regresses the ordinal, so only positive
+    // batches enter the progressive transition; the integrate arm traces sampleBudget paths per pixel
+    // through the private CPU oracle kernel below and returns the target advanced by exactly the samples
+    // it folded into the mean.
     public Fin<AccumulationTarget> Accumulate(AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed) =>
-        Scene.Nodes.IsEmpty
-            ? Fin.Fail<AccumulationTarget>(new ViewportFault.Text("path-trace/empty-scene: BVH has no nodes"))
-            : rig.Rows.IsEmpty
-                ? Fin.Fail<AccumulationTarget>(new ViewportFault.Text("path-trace/no-light: the rig carries zero LightSource rows"))
-                : Fin.Succ(Integrate(target, camera, rig, sampleBudget, sampleSeed));
+        sampleBudget <= 0
+            ? Fin.Fail<AccumulationTarget>(new ViewportFault.Text($"path-trace/sample-budget: {sampleBudget} is not a positive batch"))
+            : Scene.Nodes.IsEmpty
+                ? Fin.Fail<AccumulationTarget>(new ViewportFault.Text("path-trace/empty-scene: BVH has no nodes"))
+                : rig.Rows.IsEmpty
+                    ? Fin.Fail<AccumulationTarget>(new ViewportFault.Text("path-trace/no-light: the rig carries zero LightSource rows"))
+                    : Fin.Succ(Integrate(target, camera, rig, sampleBudget, sampleSeed));
 
     // Statement-bodied oracle kernel — deterministic per-(pixel, ordinal, seed) sequence so the render-hash
     // lane pins a sample count. Path shape: primary ray -> closest hit (miss folds environment) -> NEE over
     // the Sun/Emissive/Spot/Area/Ies rows (shadow rays through the same Intersect kernel, throughput via
-    // the Materials Evaluate seam) -> ONE BSDF-sampled continuation into the environment. GPU twin stays SPIKE-gated.
+    // the Materials Evaluate seam) -> one BSDF-sampled continuation into the environment.
     private AccumulationTarget Integrate(AccumulationTarget target, ViewCamera camera, LightRig rig, int sampleBudget, long sampleSeed) {
         CameraFrame frame = camera.Frame;
         (double fx, double fy, double fz) = Normalize(frame.Target.X - frame.Eye.X, frame.Target.Y - frame.Eye.Y, frame.Target.Z - frame.Eye.Z);
@@ -303,10 +327,10 @@ public sealed record PathTracePass(
                 }
                 long total = target.Ordinal + sampleBudget;
                 int slot = ((py * target.Width) + px) * 4;
-                target.Rgba[slot + 0] = (float)(((target.Rgba[slot + 0] * target.Ordinal) + batch.r) / total);
-                target.Rgba[slot + 1] = (float)(((target.Rgba[slot + 1] * target.Ordinal) + batch.g) / total);
-                target.Rgba[slot + 2] = (float)(((target.Rgba[slot + 2] * target.Ordinal) + batch.b) / total);
-                target.Rgba[slot + 3] = 1f;
+                target.Rgba.Span[slot + 0] = (float)(((target.Rgba.Span[slot + 0] * target.Ordinal) + batch.r) / total);
+                target.Rgba.Span[slot + 1] = (float)(((target.Rgba.Span[slot + 1] * target.Ordinal) + batch.g) / total);
+                target.Rgba.Span[slot + 2] = (float)(((target.Rgba.Span[slot + 2] * target.Ordinal) + batch.b) / total);
+                target.Rgba.Span[slot + 3] = 1f;
             }
         }
         return target.Advanced(sampleBudget);
@@ -325,7 +349,7 @@ public sealed record PathTracePass(
         BoundingSphere sphere = Scene.PrimitiveBounds[hit.Primitive];
         (double hx, double hy, double hz) = (origin.X + (direction.X * hit.T), origin.Y + (direction.Y * hit.T), origin.Z + (direction.Z * hit.T));
         (double nx, double ny, double nz) = Normalize(hx - sphere.X, hy - sphere.Y, hz - sphere.Z);
-        (film.NormalDepth[pixel * 4], film.NormalDepth[(pixel * 4) + 1], film.NormalDepth[(pixel * 4) + 2], film.NormalDepth[(pixel * 4) + 3]) =
+        (film.NormalDepth.Span[pixel * 4], film.NormalDepth.Span[(pixel * 4) + 1], film.NormalDepth.Span[(pixel * 4) + 2], film.NormalDepth.Span[(pixel * 4) + 3]) =
             ((float)nx, (float)ny, (float)nz, (float)hit.T);
         SurfacePoint point = new((hx, hy, hz), FrameOf(nx, ny, nz), (0d, 0d), $"{hit.Primitive}");
         Rasm.Materials.Appearance.Bsdf.LayeredBsdf bsdf = MaterialOf(point);
@@ -365,28 +389,41 @@ public sealed record PathTracePass(
 
     private (double R, double G, double B) Nee(SurfacePoint point, Rasm.Materials.Appearance.Bsdf.LayeredBsdf bsdf, (double X, double Y, double Z) wo, (double X, double Y, double Z) normal, LightRig rig, AccumulationTarget film, int pixel, ref ulong state) {
         if (rig.Rows.IsEmpty) { return (0d, 0d, 0d); }
-        if (Sampling == SamplePolicy.Restir) { return NeeRestir(point, bsdf, wo, normal, rig, film, pixel, ref state); }
-        int chosen = Sampling == SamplePolicy.Stratified
-            ? (int)((pixel + film.Ordinal) % rig.Rows.Count)
-            : Math.Min((int)(Next(ref state) * rig.Rows.Count), rig.Rows.Count - 1);
-        return Shaded(rig.Rows[chosen], point, bsdf, wo, normal, weight: rig.Rows.Count);
+        SampleDecision decision = Sampling.Decide(pixel, film.Ordinal, rig.Rows.Count, Next(ref state));
+        ((double R, double G, double B) Color, ulong State) resolved = decision.Switch(
+            state: (Owner: this, Point: point, Bsdf: bsdf, Wo: wo, Normal: normal, Rig: rig, Film: film, Pixel: pixel, Random: state),
+            reservoirReuse: static (context, _) => context.Owner.NeeRestir(
+                context.Point, context.Bsdf, context.Wo, context.Normal, context.Rig, context.Film, context.Pixel, context.Random),
+            direct: static (context, direct) => (
+                context.Owner.Shaded(context.Rig.Rows[direct.Index], context.Point, context.Bsdf, context.Wo, context.Normal, direct.Weight),
+                context.Random));
+        state = resolved.State;
+        return resolved.Color;
     }
 
     // Weighted-reservoir RIS with temporal reuse: the prior frame's reservoir seeds the stream (decayed to
     // the cap), every rig row streams a candidate weighted by its unshadowed target function, and ONLY the
     // surviving sample pays the shadow ray, shaded with the reservoir's unbiased Weight — the advanced
     // reservoir writes back to the pixel's cell so the next frame reuses it.
-    private (double R, double G, double B) NeeRestir(SurfacePoint point, Rasm.Materials.Appearance.Bsdf.LayeredBsdf bsdf, (double X, double Y, double Z) wo, (double X, double Y, double Z) normal, LightRig rig, AccumulationTarget film, int pixel, ref ulong state) {
-        Reservoir reservoir = film.Reservoirs[pixel].Decayed(SamplePolicy.TemporalCap);
+    private ((double R, double G, double B) Color, ulong State) NeeRestir(
+        SurfacePoint point,
+        Rasm.Materials.Appearance.Bsdf.LayeredBsdf bsdf,
+        (double X, double Y, double Z) wo,
+        (double X, double Y, double Z) normal,
+        LightRig rig,
+        AccumulationTarget film,
+        int pixel,
+        ulong state) {
+        Reservoir reservoir = film.Reservoirs.Span[pixel].Decayed(SamplePolicy.TemporalCap);
         for (int row = 0; row < rig.Rows.Count; row++) {
             double target = Candidate(rig.Rows[row], point)
                 .Map(candidate => Luminance(candidate.Radiance) * Math.Max(Dot(candidate.Wi, normal), 0d))
                 .IfNone(0d);
             reservoir = reservoir.Update(row, target, target, Next(ref state));
         }
-        film.Reservoirs[pixel] = reservoir;
+        film.Reservoirs.Span[pixel] = reservoir;
         int survivor = (int)Math.Clamp(reservoir.ChosenSample, 0L, rig.Rows.Count - 1L);
-        return Shaded(rig.Rows[survivor], point, bsdf, wo, normal, reservoir.Weight);
+        return (Shaded(rig.Rows[survivor], point, bsdf, wo, normal, reservoir.Weight), state);
     }
 
     private (double R, double G, double B) Shaded(LightSource row, SurfacePoint point, Rasm.Materials.Appearance.Bsdf.LayeredBsdf bsdf, (double X, double Y, double Z) wo, (double X, double Y, double Z) normal, double weight) =>
@@ -481,7 +518,7 @@ public sealed record PathTracePass(
 - Auto: the raster shading path (`Render/shading.md`) and this oracle integrator read the SAME rig — one light rig, two integrators, comparability by construction; the ReSTIR reservoir samples candidates from the rig rows; a reduced-quality tier caps rig evaluation through the governor pass mask, never a second light list.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Compute (project), Rasm.Bim (boundary wire)
 - Growth: a new emitter kind is one `LightSource` case; a new sun site is a `SolarSite` value from the Bim `GeoReference` lowering; a new statutory study day is one `SunStudy.DesignDays` row; zero new surface.
-- Boundary: the `SolarPosition.At` crossing is a declared `[V9]` ledger row (`Render/pathtrace` <- Compute `Analysis/daylight`); the `GeoReference`-to-`SolarSite` lowering is Bim-owned and arrives as values; the IES/LDT file decode is an asset-boundary admission that lands a validated `PhotometricWeb` value (`Of` rejects unsorted grids and a non-total candela table) so the rig row consumes decoded data and no light row ever parses a file; a Render-side solar ephemeris, a second light vocabulary on any Render page, or a per-integrator light list is the deleted form.
+- Boundary: `SolarPosition.At` supplies the solar ephemeris, and Bim lowers `GeoReference` into `SolarSite` values. IES/LDT decode lands a validated `PhotometricWeb`; `Of` rejects unsorted grids and a non-total candela table, so no light row parses a file. Render owns neither a second solar ephemeris nor a second light vocabulary.
 
 ```csharp signature
 // The decoded IES/LDT photometric web: sorted polar/azimuth degree grids plus the candela table

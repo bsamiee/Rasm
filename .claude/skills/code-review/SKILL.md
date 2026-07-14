@@ -28,7 +28,7 @@ coderabbit auth login --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 
-When neither auth route works, stop with the exact auth failure — a manual review is never passed off as CodeRabbit.
+When neither auth route works, stop with the exact auth failure — a manual review is never passed off as CodeRabbit. `coderabbit doctor` is the readiness probe: installation, local storage, authentication, git state, and service connectivity in one check.
 
 ## [02]-[RUN]
 
@@ -36,27 +36,28 @@ When neither auth route works, stop with the exact auth failure — a manual rev
 coderabbit review --agent
 ```
 
-`cr` aliases `coderabbit`. Scope flags select what the review sees:
+`cr` aliases `coderabbit`. Scope and mode flags select what the review sees and how it answers:
 
-| [INDEX] | [FLAG]           | [EFFECT]                                                       |
-| :-----: | :--------------- | :------------------------------------------------------------- |
-|  [01]   | `-t all`         | All changes (default)                                          |
-|  [02]   | `-t committed`   | Committed changes only                                         |
-|  [03]   | `-t uncommitted` | Uncommitted changes only                                       |
-|  [04]   | `--base main`    | Compare against a specific branch                              |
-|  [05]   | `--base-commit`  | Compare against a specific commit hash                         |
-|  [06]   | `--dir <path>`   | Review a directory; must contain an initialized git repository |
-|  [07]   | `--agent`        | Agent-readable review output and fix guidance                  |
+| [INDEX] | [FLAG]            | [EFFECT]                                                                   |
+| :-----: | :---------------- | :------------------------------------------------------------------------- |
+|  [01]   | `-t all`          | All changes (default)                                                      |
+|  [02]   | `-t committed`    | Committed changes only                                                     |
+|  [03]   | `-t uncommitted`  | Uncommitted changes only                                                   |
+|  [04]   | `--base main`     | Compare against a specific branch                                          |
+|  [05]   | `--base-commit`   | Compare against a specific commit hash                                     |
+|  [06]   | `--dir <path>`    | Review a directory; must contain an initialized git repository             |
+|  [07]   | `--agent`         | Structured JSONL findings stream for agent consumption                     |
+|  [08]   | `-c <files...>`   | Additional instruction files for the reviewer (a CLAUDE.md, a policy page) |
+|  [09]   | `review findings` | Re-show the previous review's stored findings without running a new review |
+|  [10]   | `--show-prompts`  | Print the saved AI prompts from the most recent local review               |
 
 Before `--dir`, `git -C <path> rev-parse --is-inside-work-tree` confirms the target is a git repository.
 
+BACKGROUND LAW: a review runs 7-30+ minutes by scope, so it ALWAYS runs as a background task against its stream — never a foreground call holding the session. Scope is the ONLY duration lever (a `-t uncommitted` or `--base-commit`-pinned diff beats an `all` sweep); the `--light` reduced-context policy is never used — full-depth review is the point. The `--agent` stream is the live visibility channel, one JSON object per line: `review_context` (scope proof — verify branch and base before trusting the run), `status` (phase ladder through `reviewing`), `heartbeat` (keep-alive — reset any timeout on receipt, otherwise ignore; a stopped heartbeat is the wedge signal), `finding` (results), `complete`, `error`. A no-change scope exits cleanly with `status: "review_skipped"` and `findings: 0`. After completion, `coderabbit review findings` re-reads the stored findings for the current review context at zero cost.
+
 ## [03]-[RESULTS]
 
-Findings group by severity and land in that order:
-
-- [CRITICAL]: Security vulnerabilities, data-loss risks, crashes.
-- [WARNING]: Bugs, performance issues, anti-patterns.
-- [INFO]: Style issues, suggestions, minor improvements.
+A `finding` event carries `severity` (`critical` | `major` | `minor` | `trivial` | `info`), `fileName`, `codegenInstructions` (the agent-oriented fix channel), `suggestions`, and `comment` (the human-readable form, present when `codegenInstructions` is empty). Consume `codegenInstructions` first and fall back to `comment`; fix in severity order, `critical` and `major` mandatory, and triage each finding against current disk before applying — the review snapshot may predate later commits.
 
 ## [04]-[AUTONOMOUS_CYCLE]
 

@@ -178,7 +178,7 @@ flowchart LR
 - Auto: one composition-owned retained table deletes per-control re-parse, and one `(AssetKey, Color)` image table deletes per-call source reconstruction; capability remains monotone because `Ensure` rechecks the scene graph inside the document lock. `SvgLease.Mutate` returns dirty-region evidence, `Animate` applies pause/seek operations without returning the controller, `Begin` and `End` address SMIL elements under the same lock, and hit testing plus scene access remain lease operations.
 - Packages: Svg.Controls.Skia.Avalonia, SkiaSharp, Avalonia, LanguageExt.Core, BCL inbox
 - Growth: one retained row per asset key; a recolor, scene-build, or animation policy is one `ScenePolicy` row with zero new surface; a new mutation address form is one `Mutate` overload over the catalogued addressed-mutation family.
-- Boundary: `SvgPipeline` is a disposable capability constructed with the resolved `SKFontManager`; its caches, typeface provider, retained documents, retained `SvgSource` instances, and racing duplicate disposal stay internal. `Admit` traps parsing, rejects a null picture, and retains the winning document; `Image` builds each tint source once from the admitted document's `SourceDocument`, and `Dispose` releases every source before every document. `SvgLease` never exports `SKSvg` or `SvgAnimationController`, every document operation locks `document.Sync`, and lease disposal detaches only its animation handler. A process-static cache, `SKFontManager.Default`, caller disposal, URI re-parse, and unlocked scene access are rejected forms.
+- Boundary: `SvgPipeline` is a disposable capability constructed with the resolved `SKFontManager`; its caches, typeface provider, retained documents, retained `SvgSource` instances, and racing duplicate disposal stay internal. `Admit` traps parsing, rejects a null picture, and retains the winning document; `Image` builds each tint source once from the admitted document's catalogued `Model`, and `Dispose` releases every source before every document. `SvgLease` never exports `SKSvg` or `SvgAnimationController`, every document operation locks `document.Sync`, and lease disposal detaches only its animation handler. A process-static cache, `SKFontManager.Default`, caller disposal, URI re-parse, and unlocked scene access are rejected forms.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -197,17 +197,14 @@ public sealed partial class ScenePolicy {
 public sealed class SvgLease(AssetKey key, SKSvg document, Action detach) : IDisposable {
     public AssetKey Key { get; } = key;
 
-    public Fin<SvgSceneMutationResult> Mutate(string id, params ReadOnlySpan<string> changedAttributes) {
-        lock (document.Sync) {
-            return document.TryApplyRetainedSceneMutationByIdAndRender(id, changedAttributes.ToArray(), out SvgSceneMutationResult? dirty) && dirty is not null
+    public Fin<SvgSceneMutationResult> Mutate(string id, params ReadOnlySpan<string> changedAttributes) =>
+        Locked(() => document.TryApplyRetainedSceneMutationByIdAndRender(id, changedAttributes.ToArray(), out SvgSceneMutationResult? dirty) && dirty is not null
                 ? Fin.Succ(dirty)
-                : Fin.Fail<SvgSceneMutationResult>(new AssetFault.MaterializeRejected(id));
-        }
-    }
+                : Fin.Fail<SvgSceneMutationResult>(new AssetFault.MaterializeRejected(id)))
+            .Bind(identity);
 
-    public Option<SvgSceneDocument> Scene() {
-        lock (document.Sync) { return document.HasRetainedSceneGraph ? Optional(document.RetainedSceneGraph) : None; }
-    }
+    public Fin<Option<SvgSceneDocument>> Scene() =>
+        Locked(() => document.HasRetainedSceneGraph ? Optional(document.RetainedSceneGraph) : None);
 
     public Fin<Unit> Animate(Action<SvgAnimationController> operation) =>
         Locked(() => Optional(document.AnimationController)
@@ -221,13 +218,11 @@ public sealed class SvgLease(AssetKey key, SKSvg document, Action detach) : IDis
     public Fin<Unit> End(string id, TimeSpan offset) =>
         Locked(() => fun(() => document.EndAnimationElement(id, offset))());
 
-    public Option<SvgSceneNode> Topmost(SKPoint at) {
-        lock (document.Sync) { return Optional(document.HitTestTopmostSceneNode(at)); }
-    }
+    public Fin<Option<SvgSceneNode>> Topmost(SKPoint at) =>
+        Locked(() => Optional(document.HitTestTopmostSceneNode(at)));
 
-    public Seq<SvgSceneNode> Hits(SKPoint at) {
-        lock (document.Sync) { return toSeq(document.HitTestSceneNodes(at)); }
-    }
+    public Fin<Seq<SvgSceneNode>> Hits(SKPoint at) =>
+        Locked(() => toSeq(document.HitTestSceneNodes(at)));
 
     private Fin<T> Locked<T>(Func<T> operation) =>
         Try.lift(() => { lock (document.Sync) { return operation(); } }).Run()
@@ -270,7 +265,7 @@ public sealed class SvgPipeline(SKFontManager fonts) : IDisposable {
         SvgImage candidate;
         lock (document.Sync) {
             candidate = new SvgImage {
-                Source = SvgSource.LoadFromSvgDocument(document.SourceDocument ?? throw new InvalidDataException($"svg model {key}")),
+                Source = SvgSource.LoadFromSvgDocument(document.Model ?? throw new InvalidDataException($"svg model {key}")),
                 CurrentColor = tint,
             };
         }

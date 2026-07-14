@@ -24,6 +24,7 @@ const STAGGER_MS = 1500;
 const STALL = 300000;
 const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const CODEX = true; // catalog rebuild batch lanes run on gpt-5.6-terra via the codex wrapper (workspace-write); false restores native opus lanes
+const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root: native products mint absolute here, codex lanes take it as cwd
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -169,36 +170,26 @@ const chunk = (arr, n) => {
 
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
-// (role split); the prompt carries only the task; the output contract sits LAST. Catalog rebuild batches
-// EDIT .api files in place, so they are fix lanes (o.fix) in a workspace-write sandbox.
+// (role split); the prompt carries only the task; the output contract sits LAST. Every batch EDITS .api
+// files in place, so every lane is a workspace-write fix lane — the read-only lane shape never runs here.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-const laneLaw = (schema, o) =>
-    (o.fix
-        ? '<completion_bar>\nDone is every catalog in your named batch rebuilt to its full integration-shaped depth with its ' +
-          'fix-log entry written — proof-complete, never effort-spent, never early. Complete every named move before yielding; do ' +
-          'not stop at analysis or a partial edit. If the chosen approach resists, pick the next-best one and proceed. Your layer ' +
-          'is rebuild-and-repair: a cross-catalog defect your work exposes is edited in place under the FIX-IT-NOW law and listed ' +
-          'in beyondBatch, never deferred; a package genuinely absent from the admitted set is stated as fact in summary, never ' +
-          'invented — and re-verifying an unchanged catalog or re-reading covered territory adds no evidence; move to the next ' +
-          'deliverable instead.\n</completion_bar>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is ' +
-          'coherent and nothing it carried was lost. Fix what fails before yielding; a check you did not run is never claimed as ' +
-          'run.\n</verification>'
-        : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
-          'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
-          (o.calls || 60) +
-          ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
-          'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
-          'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
-          'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
-          'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
-          '</verification>') +
+const laneLaw = (schema) =>
+    '<completion_bar>\nDone is every catalog in your named batch rebuilt to its full integration-shaped depth with its ' +
+    'fix-log entry written — proof-complete, never effort-spent, never early. Complete every named move before yielding; do ' +
+    'not stop at analysis or a partial edit. If the chosen approach resists, pick the next-best one and proceed. Your layer ' +
+    'is rebuild-and-repair: a cross-catalog defect your work exposes is edited in place under the FIX-IT-NOW law and listed ' +
+    'in beyondBatch, never deferred; a package genuinely absent from the admitted set is stated as fact in summary, never ' +
+    'invented — and re-verifying an unchanged catalog or re-reading covered territory adds no evidence; move to the next ' +
+    'deliverable instead.\n</completion_bar>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is ' +
+    'coherent and nothing it carried was lost. Fix what fails before yielding; a check you did not run is never claimed as ' +
+    'run.\n</verification>' +
     '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
-    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+    const root = ROOT;
     const report = root + '/' + base + '-report.json';
     const model = o.model || 'gpt-5.6-terra';
     return [
@@ -209,41 +200,26 @@ const codexPrompt = (label, task, schema, o) => {
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
-            '", sandbox=' +
-            (o.writes ? '"workspace-write"' : '"read-only"') +
-            ', cwd=' +
+            '", sandbox="workspace-write", cwd=' +
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
             'VERBATIM. ' +
-            (o.writes
-                ? 'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane writes ' +
-                  "its report as its final act — run step (3)'s verification first, and a valid report proceeds to step (4) as success. " +
-                  'Only a missing or invalid report earns ONE identical retry (a second writer over the same catalogs is the last ' +
-                  'resort); a failed retry with no valid report returns the error through step (4).'
-                : 'If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the error ' +
-                  'through step (4).'),
-        'LANE LAW:\n\n' + laneLaw(schema, o),
+            'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane writes ' +
+            "its report as its final act — run step (3)'s verification first, and a valid report proceeds to step (4) as success. " +
+            'Only a missing or invalid report earns ONE identical retry (a second writer over the same catalogs is the last ' +
+            'resort); a failed retry with no valid report returns the error through step (4).',
+        'LANE LAW:\n\n' + laneLaw(schema),
         // batch lanes are workspace-write and author their own report (final act); the wrapper only verifies.
         'TASK:\n\n' +
             task +
-            (o.writes
-                ? '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
-                  report +
-                  ' yourself.'
-                : ''),
-        o.writes
-            ? '(3) The lane wrote the report itself. Verify with one Bash call: jq -e . ' +
-              report +
-              ' >/dev/null. If the file is missing or invalid, extract the CONTENT text from the tool result envelope {threadId, content} ' +
-              'and Write it to that path verbatim (the product JSON, never the envelope), then re-verify.'
-            : '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
-              'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
-              report +
-              '. Do not normalize, reformat, summarize, or extract the text before writing it. Then verify with one Bash call: jq -e . ' +
-              report +
-              ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
-              'failure returns through step (4) with the error.',
+            '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
+            report +
+            ' yourself.',
+        '(3) The lane wrote the report itself. Verify with one Bash call: jq -e . ' +
+            report +
+            ' >/dev/null. If the file is missing or invalid, extract the CONTENT text from the tool result envelope {threadId, content} ' +
+            'and Write it to that path verbatim (the product JSON, never the envelope), then re-verify.',
         '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
             base +
             '-report.json, entries=the length of result["' +
@@ -257,16 +233,21 @@ const codexPrompt = (label, task, schema, o) => {
 // wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (the batch's assigned files) so
 // a failed lane's territory is exact even when it died.
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
-const nativeLane = (task, o) =>
-    agent(
+const nativeLane = (task, o) => {
+    // Path authority: a native lane may not follow the session cwd, so the product mints ABSOLUTE under ROOT while the
+    // receipt returns the repo-relative form codex lanes report — the aggregation reads one consistent `report` shape.
+    const report = SCRATCH + '/' + fileTag(o.label) + '-report.json';
+    return agent(
         task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
-            SCRATCH +
+            ROOT +
             '/' +
-            fileTag(o.label) +
-            '-report.json (Write tool, absolute path under the repo root): ' +
+            report +
+            ' (Write tool, exactly this absolute path): ' +
             JSON.stringify(o.schema) +
-            ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
+            ' — then return ONLY the receipt: ok, report = ' +
+            report +
+            ' (this repo-relative form, matching codex-lane receipts), entries count, one-line mechanical headline, failure empty.',
         {
             label: o.label,
             phase: o.phase,
@@ -276,6 +257,7 @@ const nativeLane = (task, o) =>
             stallMs: o.stallMs || STALL,
         },
     );
+};
 const recon = (task, o) =>
     (CODEX
         ? agent(codexPrompt(o.label, task, o.schema, o), {
@@ -301,6 +283,7 @@ const rel = (f) => {
     return i > 0 ? String(f).slice(i) : String(f);
 };
 const isSubstrate = (f) => /^libs\/[^/]+\/\.api\//.test(f);
+const isApiPath = (f) => /^libs\/.+\/\.api\/.+\.md$/.test(f); // model-emitted roster guard: only repo-relative libs/**/.api/**.md paths dispatch
 const folderOf = (f) => f.slice(0, f.indexOf('/.api/'));
 const langOf = (f) => f.split('/')[1] || '';
 
@@ -367,8 +350,6 @@ const processBatch = (tier, degraded) => async (w) =>
         phase: tier === 'substrate' ? 'API-Substrate' : 'API-Rebuild',
         schema: FIXLOG_SCHEMA,
         scope: w.files,
-        writes: true,
-        fix: true,
         hl: { arr: 'files' },
     });
 const failedOf = (batches, res) => batches.filter((_, i) => !res[i] || !res[i].ok).flatMap((b) => b.files);
@@ -408,7 +389,9 @@ const inv = await agent(
         'exist, return an empty list. Use find; do not cd.',
     { label: 'discover', phase: 'API-Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL },
 );
-const FILES = [...new Set(((inv && inv.files) || []).filter(Boolean).map(rel))].filter((f) => !/(^|\/)(_tmp|_archive|node_modules)\//.test(f));
+const FILES = [...new Set(((inv && inv.files) || []).filter(Boolean).map(rel))].filter(
+    (f) => isApiPath(f) && !/(^|\/)(_tmp|_archive|node_modules)\//.test(f),
+);
 const T0 = FILES.filter(isSubstrate).sort();
 const T1 = FILES.filter((f) => !isSubstrate(f) && f.includes('/.api/'));
 const LANGS = [...new Set([...T0, ...T1].map(langOf))].sort();

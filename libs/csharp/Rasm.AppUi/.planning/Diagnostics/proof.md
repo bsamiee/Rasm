@@ -16,7 +16,7 @@ Rasm.AppUi proof is one derivation engine: host-agnostic capture rows prove pixe
 - Receipt: a regression divergence is a typed `ProofFault.HashDiverged` whose `Code` derives through the `Diagnostics/evidence.md#FAULT_TABLES` `AppUiFaultBand.Proof` row (6700); a bare `Error.New` on this rail is the deleted form.
 - Packages: SkiaSharp, Avalonia.Headless, Avalonia.Skia, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: one capture row absorbs a new surface lane; one `Scale` value on a row absorbs a new DPI baseline; one `ProofFault` case is one `detail` ordinal under the 6700 row; zero new surface.
-- Boundary: grab delegates bind at composition per surface row and no capture member is named outside its own row — the headless lane rides the `WriteableBitmap? CaptureRenderedFrame(this TopLevel)` and `WriteableBitmap? GetLastRenderedFrame(this TopLevel)` extensions whose `WriteableBitmap` pixels enter the hash fold through `Lock()` over the `ILockedFramebuffer` (`Address`, `RowBytes`, `Size`, `Format`), an un-shown top-level returning a null frame folds to an absent grab rather than a throw, with `UseHeadlessDrawing` false selecting the Skia backend on every hash lane and `SetRenderScaling(this TopLevel, double)` pinning the device scale before the grab (it throws `ArgumentOutOfRangeException` on a non-positive scale, so the row `Scale` stays positive) so the render-hash is scale-attributable; the custom-visual lane is a RECEIPT lane, not a grab lane — `CustomVisual.Materialize(VisualRuntime, CustomVisualData, SKImageInfo, ColorSpaceAxis)` already returns `IO<RenderReceipt>` with the encode and the `FrameHash` inside, so the custom-tile cell feeds that receipt straight into `Regression` keyed by `key@scale×gamut` under its `ColorSpaceAxis` cell (the keyed projection of `VisualCodec.ColorPolicy`), a second `CaptureRow.Grab` contract over the same cell is the deleted duplicate, a wide-gamut custom tile hashes its float or ICC-tagged pixels and never a quantized sRGB shadow, and the render-hash regression attributes a custom-tile pixel drift to the exact kind, scale, and gamut cell; the rhino lane rides the settled host viewport capture port; the desktop in-tree lane renders through `RenderTargetBitmap.Render(Visual)` with `CopyPixels(PixelRect, nint, int, int)` as its pixel projection, or evaluates a live visual onto a leased Skia canvas through `DrawingContextHelper.RenderAsync` where the in-tree row already holds a render lease so the capture composes the visual into the encode fold without a second offscreen surface; `ForceRenderTimerTick` is the only frame-advance verb on the deterministic lane — a debounce or animation that fails under forced ticks has smuggled wall time, and the tick count is a row column so a multi-frame capture is data; `Regression` compares `FrameHash` values from the settled receipt family, so a per-spec screenshot helper is the deleted form and a second baseline store beside the blob lane is the rejected form.
+- Boundary: grab delegates bind at composition per surface row and no capture member is named outside its own row — the headless lane rides the `WriteableBitmap? CaptureRenderedFrame(this TopLevel)` and `WriteableBitmap? GetLastRenderedFrame(this TopLevel)` extensions whose `WriteableBitmap` pixels enter the hash fold through `Lock()` over the `ILockedFramebuffer` (`Address`, `RowBytes`, `Size`, `Format`), an un-shown top-level returning a null frame folds to an absent grab rather than a throw, with `UseHeadlessDrawing` false selecting the Skia backend on every hash lane and `SetRenderScaling(this TopLevel, double)` pinning the device scale before the grab (it throws `ArgumentOutOfRangeException` on a non-positive scale, so the row `Scale` stays positive) so the render-hash is scale-attributable; the custom-visual lane is a RECEIPT lane, not a grab lane — `CustomVisual.Materialize(VisualRuntime, CustomVisualData, SKImageInfo, ColorSpaceAxis)` already returns `IO<Fin<RenderReceipt>>` with the encode and the `FrameHash` inside, so the custom-tile cell binds that rail straight into `Regression` keyed by `key@scale×gamut` under its `ColorSpaceAxis` cell (the keyed projection of `VisualCodec.ColorPolicy`), a second `CaptureRow.Grab` contract over the same cell is the deleted duplicate, a wide-gamut custom tile hashes its float or ICC-tagged pixels and never a quantized sRGB shadow, and the render-hash regression attributes a custom-tile pixel drift to the exact kind, scale, and gamut cell; the rhino lane rides the settled host viewport capture port; the desktop in-tree lane renders through `RenderTargetBitmap.Render(Visual)` with `CopyPixels(PixelRect, nint, int, int)` as its pixel projection, or evaluates a live visual onto a leased Skia canvas through `DrawingContextHelper.RenderAsync` where the in-tree row already holds a render lease so the capture composes the visual into the encode fold without a second offscreen surface; `ForceRenderTimerTick` is the only frame-advance verb on the deterministic lane — a debounce or animation that fails under forced ticks has smuggled wall time, and the tick count is a row column so a multi-frame capture is data; `Regression` compares `FrameHash` values from the settled receipt family, so a per-spec screenshot helper is the deleted form and a second baseline store beside the blob lane is the rejected form.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -37,12 +37,16 @@ public abstract partial record ProofFault : Expected, IValidationError<ProofFaul
         : ProofFault($"proof/session: {Detail}", AppUiFaultBand.Proof.Code(4));
     public sealed record CostRegressed(string Pass, string Baseline, string Actual)
         : ProofFault($"proof/frame-cost: {Pass} regressed {Baseline} -> {Actual}", AppUiFaultBand.Proof.Code(5));
+    public sealed record BaselineAbsent(string Pass)
+        : ProofFault($"proof/frame-cost: {Pass} has no admitted baseline", AppUiFaultBand.Proof.Code(6));
+    public sealed record ReplayShape(int First, int Second)
+        : ProofFault($"proof/replay: receipt counts diverged {First} != {Second}", AppUiFaultBand.Proof.Code(7));
 }
 
 public sealed record CaptureRow(string Key, double Scale, int Ticks, Func<double, Func<IO<Unit>>, IO<SKImage>> Grab) {
+    // ForceRenderTimerTick carries the tick count natively — the per-tick fold is its re-derivation.
     public IO<SKImage> Shoot() =>
-        Grab(Scale, () => Range(0, int.Max(Ticks, 1))
-            .Fold(IO.pure(unit), static (rail, _) => rail.Bind(static _ => IO.lift(AvaloniaHeadlessPlatform.ForceRenderTimerTick))));
+        Grab(Scale, () => IO.lift(() => AvaloniaHeadlessPlatform.ForceRenderTimerTick(int.Max(Ticks, 1))));
 }
 
 public static class Captures {
@@ -52,10 +56,12 @@ public static class Captures {
         row.Shoot().Bind(image =>
             VisualCodec.Encode(runtime, image, VisualCodec.Png, Kind, $"captures/{row.Key}@{row.Scale}x.png"));
 
-    public static Fin<RenderReceipt> Regression(RenderReceipt actual, string baseline) =>
+    // The divergence cell is the RenderHashLane.Cell / custom-twin key@variant-density lane identity,
+    // never the family Kind constant — same-family failures stay attributable to their exact cell.
+    public static Fin<RenderReceipt> Regression(string cell, RenderReceipt actual, string baseline) =>
         actual.FrameHash == baseline
             ? Fin.Succ(actual)
-            : Fin.Fail<RenderReceipt>(new ProofFault.HashDiverged(actual.Kind, actual.FrameHash, baseline));
+            : Fin.Fail<RenderReceipt>(new ProofFault.HashDiverged(cell, actual.FrameHash, baseline));
 }
 ```
 
@@ -105,15 +111,19 @@ public static class ProofEngine {
                 toSeq(ProofCheck.Items).Filter(check => applies(row, check)).Map(check =>
                     new ProofSpec(row.Id, check, cell.Variant, cell.Density, probe(row, check, cell.Variant, cell.Density)))));
 
+    // RunAsync returns the value and THROWS the typed Error on failure; liftAsync re-admits that throw
+    // onto the IO error channel, so the dispatcher hop preserves the ProofFault-coded rail end to end.
     public static IO<EvidenceReceipt> Dispatch(ProofSpec spec) =>
         IO.liftAsync(async () => await HeadlessUnitTestSession
-                .GetOrStartForAssembly(typeof(ProofEngine).Assembly)
-                .Dispatch(() => spec.Run().RunAsync().AsTask(), CancellationToken.None)
-                .ConfigureAwait(false))
-            .Bind(static settled => settled.Match(Succ: IO.pure<EvidenceReceipt>, Fail: IO.fail<EvidenceReceipt>));
+            .GetOrStartForAssembly(typeof(ProofEngine).Assembly)
+            .Dispatch(() => spec.Run().RunAsync().AsTask(), CancellationToken.None)
+            .ConfigureAwait(false));
 
-    public static IO<Seq<CommandReceipt>> Replay(CommandDeck deck, Seq<(string Key, JsonElement Payload)> journal) =>
-        journal.TraverseM(entry => deck.Invoke(entry.Key, entry.Payload)).As();
+    public static IO<Seq<CommandReceipt>> Replay(
+        CommandDeck deck,
+        Seq<(string Key, JsonElement Payload)> journal,
+        Func<IO<Unit>> restore) =>
+        restore().Bind(_ => journal.TraverseM(entry => deck.Invoke(entry.Key, entry.Payload)).As());
 }
 ```
 
@@ -121,10 +131,10 @@ public static class ProofEngine {
 
 - Owner: `ProofLaw` — the law-matrix fence surface composing `ProofEngine` with CsCheck property generators, `Verify.XunitV3` FrameHash equality, and the `VerifyChecks`/`DanglingSnapshots` suite-hygiene gates.
 - Entry: `public static IO<Seq<EvidenceReceipt>> ProofMatrix(...)` — the one entrypoint that owns the singular-cell and full-matrix run by input shape so a per-spec screenshot helper is the deleted form.
-- Auto: `ProofLaw.FrameHashEquality` seals one `key@scale×gamut` cell through `Captures.Shot` then `Verifier.Verify` so a render-hash regression attributes to the exact cell; `ProofLaw.DeterministicCapture` is the CsCheck property that two captures of one lane hash identically (a debounce or animation that smuggles wall time fails it), folding both terminal `Fin` results on the rail so a failed capture fails the property instead of vanishing; `ProofLaw.ReplayDeterminism` replays the journal twice under `FakeTimeProvider.SetUtcNow(UnixEpoch)` and `Verifier.Verify`-equals the two payload-digest seqs; `ProofLaw.FrameCost` compares each `FrameReceipt` pass duration against its baseline under a variance fraction and the `FrameBudget` ceiling, so a pass whose cost regressed past tolerance folds a typed `ProofFault.CostRegressed` — pixel goldens prove what a frame looks like, this lane proves what it costs; `ProofLaw.SuiteHygiene` awaits `VerifyChecks.Run()` once per suite and sweeps `DanglingSnapshots.Run()` in the CI cleanup pass, so a misconfigured verify pipeline and an orphaned `.verified.` golden are suite-gate failures, never silent corpus drift as the render-hash grid grows per catalog row.
+- Auto: `RenderHashGrid` generates cells from the live headless catalog crossed with admitted scale and `VisualCodec.ColorPolicy` data, so a new screen or gamut expands proof without a named roster edit; `ProofLaw.FrameHashEquality` seals one generated cell through `Captures.Shot` then `Verifier.Verify`; `ProofLaw.ReplayDeterminism` restores the same snapshot before each journal run, resets virtual time, rejects unequal receipt counts before pairing, and verifies the complete digest sequence; `ProofLaw.FrameCost` requires a baseline for every pass and compares it against both variance and `FrameBudget`, so a missing baseline cannot bless a new pass implicitly.
 - Packages: Verify.XunitV3, CsCheck, Avalonia.Headless, LanguageExt.Core
 - Growth: one lane cell absorbs a new golden; zero new surface.
-- Boundary: the `RenderHashGrid` FrameHash golden bytes are the C#-host-validated leg of the content-addressed kernel-hasher-keyed ONE_WIRE_FIXTURE_CORPUS — the render-hash lane is the host golden producer the cross-runtime consumers read, never a second golden store; the headless capture lanes are the parity oracle for every `[V6]` fence repair — a repaired fence proves itself here before the campaign closes; gamut cells key by `ColorPolicy` rows (the `Render/capture.md` one gamut/transfer family); the proof fence is a terminal edge, so every `Run`/`RunAsync` lands on `Fin` and its disposition is explicit — `ThrowIfFail` collapses a capture or replay failure into the loud typed `ProofFault`-coded error the runner reports, `IfFail(false)` fails the property, and an assignment reading the inner value straight off the terminal result is the rejected form that neither compiles nor represents failure.
+- Boundary: the `RenderHashGrid` FrameHash golden bytes are the C#-host-validated leg of the content-addressed kernel-hasher-keyed ONE_WIRE_FIXTURE_CORPUS — the render-hash lane is the host golden producer the cross-runtime consumers read, never a second golden store; the headless capture lanes are the parity oracle for every `[V6]` fence repair — a repaired fence proves itself here before the campaign closes; gamut cells key by `ColorPolicy` rows (the `Render/capture.md` one gamut/transfer family); the proof fence is a terminal edge with the CATALOG-TRUE collapse law — `IO<A>.Run()` returns `A` and `RunAsync()` returns `ValueTask<A>`, both THROWING the typed `Error` on failure (only `Eff.Run` lands `Fin`) — so a failing disposition composes BEFORE the terminal: the awaited `RunAsync` throw carries the registry-coded `ProofFault` the runner reports loudly, a property that must survive failure composes `| @catch` to its verdict value before its one `Run()`, and a `ThrowIfFail`/`IfFail` shim applied to the terminal result is the phantom spelling that does not compile.
 
 ```csharp signature
 public readonly record struct RenderHashLane(string Key, double Scale, string Gamut, int Ticks) {
@@ -135,46 +145,64 @@ public readonly record struct RenderHashLane(string Key, double Scale, string Ga
 }
 
 public static class ProofLaw {
-    public static readonly Seq<RenderHashLane> RenderHashGrid = toSeq(
-        from key in Seq("viewport", "custom-tile", "drafting-sheet")
-        from scale in Seq(1.0, 2.0)
-        from gamut in Seq(VisualCodec.ColorPolicy.Display.Key, VisualCodec.ColorPolicy.DisplayP3.Key, VisualCodec.ColorPolicy.Rec2020.Key)
-        select new RenderHashLane(key, scale, gamut, Ticks: 1));
+    public static Seq<RenderHashLane> RenderHashGrid(
+        ScreenCatalog catalog,
+        Seq<double> scales,
+        Seq<VisualCodec.ColorPolicy> gamuts,
+        Func<ScreenCatalogRow, bool> captureable,
+        int ticks) =>
+        catalog.HeadlessLane
+            .Filter(captureable)
+            .Bind(row => scales.Bind(scale => gamuts.Map(gamut => new RenderHashLane(row.Id, scale, gamut.Key, ticks))));
 
     public static async Task SuiteHygiene() {
         await VerifyChecks.Run();
         DanglingSnapshots.Run();
     }
 
+    // IO.RunAsync returns the value and throws the typed Error — the runner's loud failure IS the
+    // ProofFault-coded throw; no Fin shim exists on the IO terminal.
     public static async Task FrameHashEquality(VisualRuntime runtime, RenderHashLane lane, Func<double, Func<IO<Unit>>, IO<SKImage>> grab) {
-        RenderReceipt receipt = (await Captures.Shot(runtime, lane.Row(grab)).RunAsync()).ThrowIfFail();
+        RenderReceipt receipt = await Captures.Shot(runtime, lane.Row(grab)).RunAsync();
         await Verifier.Verify(new { lane.Cell, receipt.FrameHash, receipt.ColorSpace })
             .UniqueForTargetFramework()
             .UseTextForParameters(lane.Cell);
     }
 
-    public static Gen<RenderHashLane> LaneGen => Gen.OneOfConst([.. RenderHashGrid]);
+    public static Gen<RenderHashLane> LaneGen(Seq<RenderHashLane> lanes) => Gen.OneOfConst([.. lanes]);
 
-    public static void DeterministicCapture(VisualRuntime runtime, Func<double, Func<IO<Unit>>, IO<SKImage>> grab) =>
-        LaneGen.Sample(lane =>
-            Captures.Shot(runtime, lane.Row(grab)).Run()
-                .Bind(first => Captures.Shot(runtime, lane.Row(grab)).Run()
-                    .Map(second => first.FrameHash == second.FrameHash))
-                .IfFail(static _ => false));
+    // The whole double-shot composes as ONE IO<bool> with @catch recovery to false, collapsed by a
+    // single terminal Run() — a mid-property Fin shim over Run() is a phantom spelling.
+    public static void DeterministicCapture(VisualRuntime runtime, Seq<RenderHashLane> lanes, Func<double, Func<IO<Unit>>, IO<SKImage>> grab) =>
+        LaneGen(lanes).Sample(lane =>
+            (Captures.Shot(runtime, lane.Row(grab))
+                .Bind(first => Captures.Shot(runtime, lane.Row(grab)).Map(second => first.FrameHash == second.FrameHash))
+                | @catch<IO, bool>(static _ => true, static _ => IO.pure(false))).As().Run());
 
     public static IO<Seq<EvidenceReceipt>> ProofMatrix(ScreenCatalog catalog, Seq<(ThemeVariantRow Variant, DensityRow Density)> grid, Func<ScreenCatalogRow, ProofCheck, bool> applies, Func<ScreenCatalogRow, ProofCheck, ThemeVariantRow, DensityRow, Func<IO<EvidenceReceipt>>> probe) =>
         ProofEngine.Derive(catalog, grid, applies, probe).TraverseM(ProofEngine.Dispatch).As();
 
-    public static async Task ReplayDeterminism(CommandDeck deck, Seq<(string Key, JsonElement Payload)> journal, FakeTimeProvider time) {
-        time.SetUtcNow(DateTimeOffset.UnixEpoch);
-        Seq<CommandReceipt> first = (await ProofEngine.Replay(deck, journal).RunAsync()).ThrowIfFail();
-        time.SetUtcNow(DateTimeOffset.UnixEpoch);
-        Seq<CommandReceipt> second = (await ProofEngine.Replay(deck, journal).RunAsync()).ThrowIfFail();
-        await Verifier.Verify(first.Map(static r => r.PayloadDigest).Zip(second.Map(static r => r.PayloadDigest)));
+    // One composed IO: both replays, both virtual-time resets, and the shape gate ride the rail; the
+    // single terminal RunAsync throws the ProofFault.ReplayShape-coded Error on divergence.
+    public static async Task ReplayDeterminism(
+        CommandDeck deck,
+        Seq<(string Key, JsonElement Payload)> journal,
+        Func<IO<Unit>> restore,
+        FakeTimeProvider time) {
+        Seq<(string First, string Second)> digests = await (
+            from _first in IO.lift(() => { time.SetUtcNow(DateTimeOffset.UnixEpoch); return unit; })
+            from first in ProofEngine.Replay(deck, journal, restore)
+            from _second in IO.lift(() => { time.SetUtcNow(DateTimeOffset.UnixEpoch); return unit; })
+            from second in ProofEngine.Replay(deck, journal, restore)
+            from pairs in first.Count == second.Count
+                ? IO.pure(first.Map(static r => r.PayloadDigest).Zip(second.Map(static r => r.PayloadDigest)).ToSeq())
+                : IO.fail<Seq<(string, string)>>(new ProofFault.ReplayShape(first.Count, second.Count))
+            select pairs).RunAsync();
+        await Verifier.Verify(digests);
     }
 
     // Cost lane: baseline pass durations compare variance-aware, and every pass stays under the frame
-    // budget — a pass past either bound folds its typed fault; a pass with no baseline seeds one.
+    // budget — a pass past either bound folds its typed fault; a missing baseline is an admission fault.
     public static Fin<Seq<(string Pass, Duration Elapsed)>> FrameCost(
         FrameReceipt receipt, HashMap<string, Duration> baseline, FrameBudget budget, double variance) =>
         receipt.Passes.TraverseM(pass =>
@@ -182,6 +210,6 @@ public static class ProofLaw {
                 Some: known => pass.Elapsed <= budget.Frame && pass.Elapsed.TotalTicks <= known.TotalTicks * (1.0 + variance)
                     ? Fin.Succ(pass)
                     : Fin.Fail<(string, Duration)>(new ProofFault.CostRegressed(pass.Pass, known.ToString(), pass.Elapsed.ToString())),
-                None: () => Fin.Succ(pass))).As();
+                None: () => Fin.Fail<(string, Duration)>(new ProofFault.BaselineAbsent(pass.Pass)))).As();
 }
 ```

@@ -44,7 +44,7 @@ public readonly record struct VirtualWindowSpec(double Extent, double Overscan, 
     public static readonly VirtualWindowSpec FixedRow = new(Extent: 0d, Overscan: 256d, Mode: ExtentMode.Fixed, FixedItemExtent: 28d);
     public static readonly VirtualWindowSpec Measured = new(Extent: 0d, Overscan: 256d, Mode: ExtentMode.Measured, FixedItemExtent: 0d);
 
-    public ViewportRange Range(double offset, double extent) => new(offset, extent, Overscan);
+    public ViewportRange Range(double offset) => new(offset, Extent, Overscan);
 }
 
 public readonly record struct RealizedItem<TItem>(TItem Item, int Index, double Offset, double Extent);

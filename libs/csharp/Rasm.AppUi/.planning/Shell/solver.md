@@ -110,8 +110,8 @@ public sealed class VariableEnv {
 ## [03]-[LAYOUT_PRESETS]
 
 - Owner: `LayoutPreset` the `[Union]` of flex/grid-track/auto-layout preset rows; `FlexDirection`, `FlexJustify`, and `FlexAlign` the policy vocabularies whose rows carry their own axis, distribution, and pinning behavior; `LayoutPrograms` the one flow-and-grid generator; `ConstraintProgram` the ordered constraint sequence a preset expands into.
-- Cases: `LayoutPreset` = Flow(FlexDirection, WrapPolicy, FlexJustify, FlexAlign, double Gap) | Grid(Seq<TrackSize> Columns, Seq<TrackSize> Rows, double Gap) | Anchor(Seq<LayoutConstraint> Rules) under the locked kind literals.
-- Entry: `public ConstraintProgram Expand(string panel, Seq<string> children, Func<string, double> extentOf, double available)` — folds a preset over its children into the ordered `ConstraintProgram` of `LayoutConstraint` rows; `extentOf` supplies measured main extents and `available` the wrap width, both read only by the wrap partition; the program carries the edit-variable set and derives the introduction order so the same program re-solves identically on any surface.
+- Cases: `LayoutPreset` = Flow(FlexDirection, WrapPolicy, FlexJustify, FlexAlign, string Gap) | Grid(Seq<TrackSize> Columns, Seq<TrackSize> Rows, string Gap) | Anchor(Seq<LayoutConstraint> Rules) under the locked kind literals — `Gap` is a `Theme/tokens` `Metric` row key resolved at expansion.
+- Entry: `public ConstraintProgram Expand(string panel, Seq<string> children, Func<string, double> extentOf, double available, Func<string, double> metric)` — folds a preset over its children into the ordered `ConstraintProgram` of `LayoutConstraint` rows; `extentOf` supplies measured main extents and `available` the wrap width, both read only by the wrap partition; `metric` resolves the preset's `Gap` metric key against the resolved theme, bound at composition; the program carries the edit-variable set and derives the introduction order so the same program re-solves identically on any surface.
 - Auto: `Stack` IS the degenerate auto-layout — one `LayoutPrograms.Flow` generator derives both, wrap off and `FlexJustify.Start` fixed, so a layout idiom is a parameter row over the generator, never a sibling program builder; `FlexJustify` rows distribute one shared per-rail spread variable by coefficient — `Start`/`End` anchor one end, `Center` equates the lead and trail slack, `SpaceBetween`/`SpaceAround`/`SpaceEvenly` differ only in the `LeadShare`/`TrailShare` coefficients on the shared spread — so six justify modes are one derivation over policy columns; `FlexAlign` rows pin the cross axis through their `Lead`/`Trail`/`Centered` columns, `Stretch` being lead-plus-trail; `Grid` expands fractional/fixed/auto track sizes into `Kiwi` proportional constraints (`fr` tracks share one unit variable via weighted `strong` rows, fixed tracks pin at `required`, auto tracks register `medium` edit rows the measure pass suggests content sizes onto); wrap partitions measured extents greedily into synthetic line owners whose extents bound their children — every rule linear, so the dual-simplex owns the whole layout; `Anchor` is the raw constraint preset for bespoke layouts.
 - Packages: Kiwi, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new layout idiom is one `LayoutPreset` case parameterizing the generator; a new distribution mode is one `FlexJustify` row of coefficients; a new track-size kind is one `TrackSize` case; zero new surface — presets are the only layout-idiom surface.
@@ -222,16 +222,18 @@ public sealed record ConstraintProgram(
 public abstract partial record LayoutPreset {
     private LayoutPreset() { }
 
-    public sealed record Flow(FlexDirection Direction, WrapPolicy Wrap, FlexJustify Justify, FlexAlign Align, double Gap) : LayoutPreset;
-    public sealed record Grid(Seq<TrackSize> Columns, Seq<TrackSize> Rows, double Gap) : LayoutPreset;
+    // Gap is a Theme/tokens Metric row KEY, never a scalar — the metric resolver supplies the resolved
+    // value at expansion, so a preset structurally cannot choose spacing outside the token vocabulary.
+    public sealed record Flow(FlexDirection Direction, WrapPolicy Wrap, FlexJustify Justify, FlexAlign Align, string Gap) : LayoutPreset;
+    public sealed record Grid(Seq<TrackSize> Columns, Seq<TrackSize> Rows, string Gap) : LayoutPreset;
     public sealed record Anchor(Seq<LayoutConstraint> Rules) : LayoutPreset;
 
     // Flow policy rows generate both unwrapped stacks and wrapped rails through one body.
-    public ConstraintProgram Expand(string panel, Seq<string> children, Func<string, double> extentOf, double available) =>
+    public ConstraintProgram Expand(string panel, Seq<string> children, Func<string, double> extentOf, double available, Func<string, double> metric) =>
         Switch(
-            state: (Panel: panel, Children: children, ExtentOf: extentOf, Available: available),
-            flow: static (ctx, f) => LayoutPrograms.Flow(ctx.Panel, ctx.Children, f.Direction, f.Wrap.Enabled, f.Justify, f.Align, f.Gap, ctx.ExtentOf, ctx.Available),
-            grid: static (ctx, g) => LayoutPrograms.Cells(ctx.Panel, ctx.Children, g.Columns, g.Rows, g.Gap),
+            state: (Panel: panel, Children: children, ExtentOf: extentOf, Available: available, Metric: metric),
+            flow: static (ctx, f) => LayoutPrograms.Flow(ctx.Panel, ctx.Children, f.Direction, f.Wrap.Enabled, f.Justify, f.Align, ctx.Metric(f.Gap), ctx.ExtentOf, ctx.Available),
+            grid: static (ctx, g) => LayoutPrograms.Cells(ctx.Panel, ctx.Children, g.Columns, g.Rows, ctx.Metric(g.Gap)),
             anchor: static (ctx, a) => new ConstraintProgram(
                 a.Rules,
                 Seq<(LayoutVar, LayoutStrength)>(),

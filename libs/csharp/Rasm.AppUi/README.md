@@ -30,7 +30,7 @@
 [CHARTS]:
 - [20]-[DASHBOARDS](.planning/Charts/dashboards.md): Chart series and axis rows with downsampled stream binding and brushing.
 - [21]-[CUSTOM](.planning/Charts/custom.md): Custom-visual Skia layout algebra with a keyed color-policy projection.
-- [22]-[BASEMAP](.planning/Charts/basemap.md): Tiled basemap with Bim-owned overlays beside the viewport.
+- [22]-[BASEMAP](.planning/Charts/basemap.md): Tiled basemap with Bim-owned overlays, EditManager redlining, and camera verbs beside the viewport.
 
 [EDITING]:
 - [23]-[INSPECTOR](.planning/Editing/inspector.md): Typed property inspection with ranked editor rows and diff3 conflict hunks.
@@ -42,7 +42,7 @@
 
 [DOCUMENT]:
 - [29]-[NOTEBOOK](.planning/Document/notebook.md): Capability-pinned cells composing the recompute graph with co-edited replay.
-- [30]-[MEDIA](.planning/Document/media.md): Markdown inlines and codec rows on the one surface seam.
+- [30]-[MEDIA](.planning/Document/media.md): Markdown inlines and codec rows materialized for the one `Surfaces.Mount` crossing.
 - [31]-[EXPORT](.planning/Document/export.md): Paginated flow reports with PDF security, an Office arm, and a print arm.
 
 [COLLAB]:
@@ -71,7 +71,7 @@ Product-UI libraries — UI toolkit, GPU rendering, media, drafting exchange, an
 - `Avalonia`
 - `Avalonia.Desktop`
 - `Avalonia.Headless`
-- `Avalonia.Headless.XUnit` — the AppUi test-shell csproj carries this per-test headless session reference.
+- `Avalonia.Headless.XUnit`
 - `Avalonia.Themes.Fluent`
 - `Avalonia.Fonts.Inter`
 - `ReactiveUI`

@@ -13,7 +13,7 @@ The reality-capture rail projects scanned existing-conditions geometry into the 
 ## [02]-[SPLAT_SOURCE]
 
 - Owner: `SplatEllipsoid` the single anisotropic 3D-Gaussian; `SplatSource` the decoded ellipsoid set over the ONE Compute `ResidencyPayload` carrier; `SplatSort` the view-dependent radix-sort fold; `CaptureFault` the typed fault family on the `AppUiFaultBand.Capture` registry row (6130).
-- Cases: `CaptureFault` = Text | PayloadMalformed | SortOverflow | BackendUnsupported | DecodeDeferred — codes derive through the `AppUiFaultBand.Capture` registry row (6130).
+- Cases: `CaptureFault` = Text | PayloadMalformed | SortOverflow | BackendUnsupported | DecodeDeferred | SnapAbsent — codes derive through the `AppUiFaultBand.Capture` registry row (6130).
 - Entry: `public static Fin<SplatSource> Decode(GpuBackend backend, ResidencyPayload payload, ResidencyBudget budget, CaptureDecode decode)` projects a gaussian-splat `ResidencyPayload` into the residency-keyed ellipsoid set under the admission ladder kind → resident count → payload bytes → residency watermark. `CaptureDecode.Decode` returns the `CaptureDecoded.Splats` case from the canonical `Blob`/`Layout` columns; an oversized monolithic payload fails `CaptureFault.DecodeDeferred`, directing the producer to the per-cell `CaptureTileSet.Resident` path.
 - Auto: each ellipsoid carries its mean position, the three scale magnitudes, the rotation quaternion, the spherical-harmonic color coefficients, and the opacity, so a `SplatSource` is the decoded SOG (self-organizing-gaussian) or PLY ellipsoid set the Compute payload streams; `SplatSort` radix-sorts the ellipsoids back-to-front per view by their projected depth so the alpha-composited rasterization composites in order — the 3DGS draw demands depth-sorted ellipsoids and the radix sort is the per-view fold the pass re-runs on a camera change; the ellipsoid bytes stream from the Persistence blob lane through the residency budget exactly as the meshlet tiles do, so a massive splat scene stays VRAM-bounded; the splat tile keys by the PAYLOAD'S OWN `ContentKey` per the single-mint law — a local re-hash over raw component floats is the DELETED form (doubly foreclosed by the kernel one-hasher law: no AppUi-side content-key fold exists beside `ContentHash.Of`), so residency keys the splat tile identically to the meshlet tile.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Compute (project)
@@ -78,14 +78,14 @@ public sealed record SplatSource(
         payload.Kind != ResidencyKind.GaussianSplat
             ? Fin.Fail<SplatSource>(new CaptureFault.PayloadMalformed($"splat/kind:{payload.Kind}"))
             : payload.ResidentCount <= 0
-                ? Fin.Fail<SplatSource>(new CaptureFault.PayloadMalformed($"splat/empty:{payload.ContentKey:x32}"))
+                ? Fin.Fail<SplatSource>(new CaptureFault.PayloadMalformed($"splat/empty:{ResidencyMarshal.KeyHex(payload.ContentKey)}"))
             : payload.EncodedBytes > budget.Watermark
                 ? Fin.Fail<SplatSource>(new CaptureFault.DecodeDeferred($"splat/oversized:{payload.EncodedBytes}b > {budget.Watermark}b"))
                 : decode.Decode(payload).Bind(decoded => decoded is CaptureDecoded.Splats splats
                     ? Fin.Succ(new SplatSource(
                         backend, payload.ContentKey, splats.Ellipsoids, splats.Harmonics,
                         SplatSort.RadixDepth, payload.HarmonicDegree, BoundsOf(payload)))
-                    : Fin.Fail<SplatSource>(new CaptureFault.PayloadMalformed($"splat/decode:{payload.ContentKey:x32}")));
+                    : Fin.Fail<SplatSource>(new CaptureFault.PayloadMalformed($"splat/decode:{ResidencyMarshal.KeyHex(payload.ContentKey)}")));
 
     // REAL LSD radix sort over 32-bit keys DISCRIMINATED by the SplatSort row: RadixDepth quantizes the
     // VIEW-ALIGNED depth (projection onto the camera forward axis) back-to-front across the full key;
@@ -196,7 +196,7 @@ flowchart LR
 - Auto: each point carries its position, the classification byte, the intensity, and the RGB color so a `PointCloudSource` is the decoded scan return set the Compute payload streams; `PointOctree` partitions the points into a spatial octree — level L subdivides the bounding cube into `2^L` divisions per axis, occupied cells only, each node carrying ITS OWN cell bounds, resident count, and coarse-level `SampleStride` — so a massive cloud renders the coarse subsample at distance and the full density up close, pop-free because adjacent levels share locked node boundaries exactly as the meshlet cluster-LOD shares cluster boundaries; the octree nodes key into the residency budget by their Morton cell key and the per-cell payload census streams through `CaptureTileSet.Resident` so a billion-point cloud stays VRAM-bounded by the plan itself and adjacent cells sort near for tile-coherent upload; the classification byte routes through the perceptually-uniform colormap so a class-colored cloud maps through one lightness-monotone scale.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Compute (project)
 - Growth: a new point attribute is one `PointSample` field; a new LOD policy is one octree subsample value; zero new surface.
-- Boundary: the point source projects off the ONE Compute `ResidencyPayload` boundary record — the offline LAZ/scan decode is the Python companion's geometry producer crossing as a Compute payload, so AppUi carries no LAZ-decode package and a `laszip`/`pdal` admission inside `realitycapture/` is the rejected form; the octree LOD is the one massive-cloud residency law and a flat point-array draw is the deleted form; the octree residency rides the `RESIDENCY_BUDGET` owner so the point node and the meshlet tile share one residency manager; the GPU point splatting binds the `RenderTarget` factory through the render-graph lease under CAPTURE_GPU and a CPU octree subsample is the floor for the 2D fallback while the GPU draw is the SPIKE.
+- Boundary: the point source projects off the one Compute `ResidencyPayload` boundary record. Offline LAZ/scan decode crosses as a Compute payload, so AppUi carries no LAZ decoder. Octree LOD and the shared `ResidencyBudget` govern massive clouds; GPU point splatting records through the active render-graph target, and the CPU octree subsample supplies the deterministic 2D fallback.
 
 ```csharp signature
 public readonly record struct PointSample(
@@ -229,12 +229,12 @@ public sealed record PointCloudSource(
         payload.Kind != ResidencyKind.PointSplat
             ? Fin.Fail<PointCloudSource>(new CaptureFault.PayloadMalformed($"point/kind:{payload.Kind}"))
             : payload.ResidentCount <= 0
-                ? Fin.Fail<PointCloudSource>(new CaptureFault.PayloadMalformed($"point/empty:{payload.ContentKey:x32}"))
+                ? Fin.Fail<PointCloudSource>(new CaptureFault.PayloadMalformed($"point/empty:{ResidencyMarshal.KeyHex(payload.ContentKey)}"))
             : payload.EncodedBytes > budget.Watermark
                 ? Fin.Fail<PointCloudSource>(new CaptureFault.DecodeDeferred($"point/oversized:{payload.EncodedBytes}b > {budget.Watermark}b"))
                 : decode.Decode(payload).Bind(decoded => decoded is CaptureDecoded.Points points
                     ? Fin.Succ(Materialized(backend, payload, (points.Samples, points.OctreeDepth)))
-                    : Fin.Fail<PointCloudSource>(new CaptureFault.PayloadMalformed($"point/decode:{payload.ContentKey:x32}")));
+                    : Fin.Fail<PointCloudSource>(new CaptureFault.PayloadMalformed($"point/decode:{ResidencyMarshal.KeyHex(payload.ContentKey)}")));
 
     public Seq<PointOctreeNode> Visible(Frustum frustum, double lodScale) =>
         Octree.Filter(node => frustum.Intersects(node.Bounds) && node.Level <= (int)lodScale);
@@ -277,7 +277,7 @@ public sealed record PointCloudSource(
                 .Select((point, index) => (Point: point, Index: index))
                 .GroupBy(row => Cell(row.Point, ox, oy, oz, cell, divisions))
                 .Select(bucket => new PointOctreeNode(
-                    $"{payload.ContentKey:x32}/{level}/{Morton(bucket.Key)}", level,
+                    $"{ResidencyMarshal.KeyHex(payload.ContentKey)}/{level.ToString(System.Globalization.CultureInfo.InvariantCulture)}/{Morton(bucket.Key).ToString(System.Globalization.CultureInfo.InvariantCulture)}", level,
                     new BoundingSphere(
                         ox + ((bucket.Key.X + 0.5f) * cell), oy + ((bucket.Key.Y + 0.5f) * cell), oz + ((bucket.Key.Z + 0.5f) * cell),
                         cell * 0.8660254f),
@@ -321,12 +321,9 @@ public sealed record PointCloudSource(
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record CapturePass {
-    private CapturePass() { }
-    public sealed record Splat(string Key, SplatSource Source, Func<RenderTarget, SplatSource, Fin<int>> Composite) : CapturePass;
-    public sealed record Point(string Key, PointCloudSource Source, Func<RenderTarget, PointCloudSource, Fin<int>> Splat) : CapturePass;
-
-    public string Key => Switch(splat: static s => s.Key, point: static p => p.Key);
+public abstract partial record CapturePass(string Key) {
+    public sealed record Splat(string Key, SplatSource Source, Func<RenderTarget, SplatSource, Fin<int>> Composite) : CapturePass(Key);
+    public sealed record Point(string Key, PointCloudSource Source, Func<RenderTarget, PointCloudSource, Fin<int>> Splat) : CapturePass(Key);
 
     public RenderPass Pass() => Switch(
         splat: static s => (RenderPass)new RenderPass.Geometry(
@@ -352,10 +349,10 @@ public sealed record CaptureTileSet(
             .Choose(tile => Census.Find(tile.ContentKey))
             .Choose(payload => payload.Kind == ResidencyKind.PointSplat
                 ? Some(PointCloudSource.Decode(Backend, payload, Budget, Decode)
-                    .Map(source => (CapturePass)new CapturePass.Point($"point/{payload.ContentKey:x32}", source, SplatPoints)))
+                    .Map(source => (CapturePass)new CapturePass.Point($"point/{ResidencyMarshal.KeyHex(payload.ContentKey)}", source, SplatPoints)))
                 : payload.Kind == ResidencyKind.GaussianSplat
                     ? Some(SplatSource.Decode(Backend, payload, Budget, Decode)
-                        .Map(source => (CapturePass)new CapturePass.Splat($"splat/{payload.ContentKey:x32}", source, CompositeSplat)))
+                        .Map(source => (CapturePass)new CapturePass.Splat($"splat/{ResidencyMarshal.KeyHex(payload.ContentKey)}", source, CompositeSplat)))
                     : Option<Fin<CapturePass>>.None)
             .TraverseM(identity).As();
 }
@@ -363,12 +360,12 @@ public sealed record CaptureTileSet(
 
 ## [05]-[MEASURE_OVERLAY]
 
-- Owner: `MeasurePoint` the LiDAR-anchored measurable vertex; `MeasureOverlay` the annotation set bound to the `Viewpoint`.
-- Entry: `public Fin<MeasureOverlay> Anchor(MeasurePoint point)` — anchors a measurable vertex onto the capture cloud and folds the running distance and angle evidence; `public Viewpoint Bind(Viewpoint view)` — binds the overlay onto the viewpoint visibility set so a saved capture markup carries its measurements.
-- Auto: each anchor snaps to the nearest LiDAR return so a measurement reads the scanned existing-conditions geometry, not a guessed point; the overlay folds the per-segment distance and per-vertex angle so a polyline measurement reads its total length and its turning angles; the overlay binds onto the `Viewpoint` so a measured markup rides the one portable view-state receipt the BCF codec and the coordination board consume — a capture measurement is a viewpoint annotation, not a second markup model.
+- Owner: `PointCloudSource.Nearest` the leaf-octree spatial query; `MeasurePoint` the content-keyed LiDAR sample identity; `MeasureOverlay` the annotation set bound to the `Viewpoint`.
+- Entry: `public Fin<MeasureOverlay> Anchor(PointCloudSource cloud, (double X, double Y, double Z) requested, UnitsNet.Length tolerance)` — resolves the nearest resident LiDAR return within tolerance before folding distance and angle evidence; `public Viewpoint Bind(Viewpoint view)` — projects the overlay into the viewpoint's `ViewMeasurement` run.
+- Auto: `PointCloudSource.Nearest` prunes the deepest octree cells by bounding sphere, compares their indexed sample runs, and returns the minimum-distance sample within the unit-typed tolerance. `MeasurePoint` preserves the source payload `ContentKey`, sample index, classification, intensity, and color through `PointSample`; `MeasureOverlay` folds segment distance and turning angles, and `Bind` projects source-addressed vertices into the portable `Viewpoint` receipt whose BCF codec emits the segments as `BcfLine` rows.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, UnitsNet
-- Growth: a new measurement kind is one `MeasurePoint` field; zero new surface.
-- Boundary: the overlay anchors onto the LiDAR returns so a measurement is against scanned reality and a free-floating annotation is the deleted form; the overlay binds the `VIEWPOINT_CODEC` `Viewpoint` so the measurable markup rides the one portable view-state receipt and a parallel measurement-snapshot model is the rejected form — the same receipt a coordination issue and a saved camera carry; the distance and angle carry `UnitsNet` `Length` and `Angle` so a measurement reports in the model unit and a raw-double measurement is the deleted form.
+- Growth: a new point attribute extends `PointSample`; a new derived measurement extends `ViewMeasurement`; zero new surface.
+- Boundary: `Anchor` admits only an indexed resident sample within `tolerance`; an absent candidate returns `CaptureFault.SnapAbsent`, and a free-floating coordinate cannot enter `MeasureOverlay`. `Bind` projects onto `Viewpoint.Measurements`, so saved views, BCF lines, the browser wire, and capture review consume one source-addressed measurement identity. Distance and angle carry `UnitsNet.Length` and `UnitsNet.Angle`, and raw-double evidence never crosses the receipt.
 
 ```csharp signature
 public readonly record struct MeasurePoint(UInt128 SourceKey, int SampleIndex, PointSample Sample) {
@@ -385,7 +382,8 @@ public sealed record MeasureOverlay(string Key, Seq<MeasurePoint> Vertices, Seq<
         (double X, double Y, double Z) requested,
         UnitsNet.Length tolerance) =>
         cloud.Nearest(requested, tolerance)
-            .ToFin(new CaptureFault.SnapAbsent($"measure/snap:{Key}:{tolerance.Meters:R}m"))
+            .ToFin(new CaptureFault.SnapAbsent(
+                $"measure/snap:{Key}:{tolerance.Meters.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}m"))
             .Map(point => Vertices.LastOrNone().Match(
                 None: () => this with { Vertices = Vertices.Add(point) },
                 Some: previous => this with {
@@ -463,5 +461,5 @@ public sealed record CaptureClip(string Key, Seq<CaptureFrame> Frames) {
 ## [07]-[CAPTURE_BOUNDARY]
 
 - [CAPTURE_PAYLOAD]: `CaptureDecode` projects the canonical Compute `ResidencyPayload.Blob`/`Layout` pair into `SplatEllipsoid` or `PointSample` runs while retaining `ContentKey`, `Center`, `Radius`, `ResidentCount`, and `HarmonicDegree` from the payload owner. No `SplatPayload`, `PointPayload`, native cast, or invented primitive accessor exists on the AppUi side.
-- [CAPTURE_GPU]: the composition-bound Gaussian-splat and point-splat delegates record against the active `RenderTarget`; bindless tile upload resolves against the live host-shared GPU context. Decode, radix sort, octree LOD, measurable overlay, and capture-frame clip form the CPU floor, while GPU rasterization remains host-probed.
+- [CAPTURE_GPU]: the composition-bound Gaussian-splat and point-splat delegates record against the active `RenderTarget`; bindless tile upload resolves against the host-shared GPU context. Decode, radix sort, octree LOD, source-addressed spatial measurement, and capture-frame playback form the CPU path, while GPU rasterization remains a render-pass delegate under the same target lease.
 - [CAPTURE_DECODE]: offline LAZ/E57/SOG decoding remains the geometry producer's responsibility and crosses to AppUi as the compressed canonical Compute `ResidencyPayload`. The composition root supplies `CaptureDecode` against that payload's declared stream layout; AppUi carries no scan-file decoder and admits no parallel payload carrier.

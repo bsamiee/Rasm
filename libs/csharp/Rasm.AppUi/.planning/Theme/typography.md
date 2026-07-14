@@ -18,10 +18,9 @@ One typographic law serves every AppUi surface: `TypographyRole` is the ten-row 
 - Auto: one role resolve yields retained styles, chart paints, editor fonts, table columns, and shaped Skia labels alike — per-label font, size, weight, and feature setup call sites are deleted.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: a new text appearance is one `TypographyRole` row; zero new surface.
-- Boundary: every size, weight, tracking, line-height, and OpenType-feature literal in AppUi traces to a role row — a bare font value at a call site is the named defect and the deleted pattern; numeric and temporal text arrives pre-formatted through the `ClockPolicy` NodaTime patterns and the `CompositeFormat` rail, and the numeric row guarantees tabular glyph geometry only; uppercase casing applies at presentation from the row flag; wrap behavior is a row column consumed by the metrics policy; the retained rail applies row values through `TextBlock.FontFeatures` (a `FontFeatureCollection`), `TextBlock.LetterSpacing`, `TextBlock.LineHeight`, and `TextBlock.TextTrimming`, and the shaping seam consumes the same tags through `TextShaperOptions.FontFeatures`.
+- Boundary: every size, weight, tracking, line-height, and OpenType-feature literal in AppUi traces to a role row — a bare font value at a call site is the named defect and the deleted pattern; numeric and temporal text arrives pre-formatted through the `ClockPolicy` NodaTime patterns and the `CompositeFormat` rail, and the numeric row guarantees tabular glyph geometry only. Uppercase casing applies at presentation from the row flag, wrap behavior is a row column consumed by the metrics policy, and retained-text composition plus `ShapingSurface.Shape` consume the same feature-tag sequence through boundary adapters; unverified Avalonia feature-member spellings remain absent.
 
 ```csharp signature
-
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -83,6 +82,8 @@ public abstract partial record TypographyFault : Expected {
     private TypographyFault(string detail, int code) : base(detail, code) { }
     public sealed record FaceUnresolved(string Detail) : TypographyFault($"typography/face: {Detail}", AppUiFaultBand.Theme.Code(3));
     public sealed record FaceAdmissionRejected(string Detail) : TypographyFault($"typography/harfbuzz-face: {Detail}", AppUiFaultBand.Theme.Code(4));
+    public sealed record ShapingRejected(string Detail) : TypographyFault($"typography/shape: {Detail}", AppUiFaultBand.Theme.Code(6));
+    public sealed record DrawRejected(string Detail) : TypographyFault($"typography/draw: {Detail}", AppUiFaultBand.Theme.Code(7));
 }
 
 [SmartEnum<string>]
@@ -137,11 +138,11 @@ public static class FontAdmission {
 ## [04]-[SHAPING_RAIL]
 
 - Owner: `RunSpec` — the pinned segment-property row; `FaceHandle` — the once-per-face HarfBuzz admission capsule; `ShapedRun` — the shaped product and single measurement authority; `ShapingSurface` — the one shape-then-draw rail.
-- Entry: `public static ShapedRun Shape(string text, RunSpec spec, FaceHandle face, SKFont raster, params Feature[] features)` — the one shaping fold; `DrawLabel` draws a shaped run onto a caller-leased canvas, and the lease rail lives with the canvas owner.
-- Receipt: the first shaped draw on a profile emits the libHarfBuzzSharp load identity — version, path, RID — as a `NativeAssetFact` riding the evidence union's `NativeAssetIdentity` case through `ReceiptSinkPort`.
+- Entry: `public static Fin<ShapedRun> Shape(string text, RunSpec spec, FaceHandle face, SKFont raster, Seq<string> featureTags, Func<string, Fin<Feature>> admitFeature)` — the one shaping fold; feature tags traverse one composition-bound admission delegate before native shaping, and `DrawLabel` returns `Fin<Unit>` after drawing an admitted shaped run onto a caller-leased canvas.
+- Receipt: the composition prerequisite is the `Shell/hosts.md` `NativeAssets.Identity` probe for libHarfBuzzSharp — version, path, RID — sealed as `NativeAssetFact`; shaping consumes the admitted runtime and mints no duplicate identity receipt.
 - Packages: SkiaSharp.HarfBuzz, SkiaSharp, HarfBuzzSharp.NativeAssets.macOS, HarfBuzzSharp.NativeAssets.Linux, LanguageExt.Core
 - Growth: a new script or feature requirement is one policy value on the role row riding the same shaping call; zero new surface.
-- Boundary: shaping precedes drawing for every Skia-rendered glyph. `FaceHandle.Open` traps font-stream admission onto `Fin`, retains the `SKStreamAsset` for the complete HarfBuzz blob lifetime, and disposes font, face, blob, and stream in reverse ownership order. `ShapingSurface.Shape` drives `Font.Shape(Buffer, Feature[])` over a caller-pinned `RunSpec`, reads the zero-allocation glyph-info and glyph-position spans, projects both horizontal and vertical advances into canvas coordinates, and returns an owned `ShapedRun`. `ShapedRun.Advance` is the sole measurement product, `Clusters` preserves source indices for hit testing and caret placement, and disposing the run releases its `SKTextBlob`. String convenience shaping, unshaped measurement, caller-owned blob disposal, and a HarfBuzz blob outliving its backing stream are rejected forms.
+- Boundary: shaping precedes drawing for every Skia-rendered glyph. `FaceHandle.Open`, `ShapingSurface.Shape`, and `DrawLabel` trap their native boundaries onto the closed `TypographyFault` rail; the handle retains the `SKStreamAsset` for the complete HarfBuzz blob lifetime and disposes font, face, blob, and stream in reverse ownership order; a failed admission releases every owner initialized before the fault inside the constructor's compensation catch, so partial admission never leaks a native owner. `Shape` traverses the role-owned feature tags, drives `Font.Shape(Buffer, Feature[])` over a caller-pinned `RunSpec`, reads the zero-allocation glyph-info and glyph-position spans, projects both horizontal and vertical advances into canvas coordinates, and returns an owned `ShapedRun`. `ShapedRun.Advance` is the sole measurement product, `Clusters` preserves source indices for hit testing and caret placement, and disposing the run releases its `SKTextBlob`. String convenience shaping, unshaped measurement, caller-owned blob disposal, an untyped native exception, and a HarfBuzz blob outliving its backing stream are rejected forms.
 
 ```csharp signature
 public readonly record struct RunSpec(Direction Direction, Script Script, Language Language, ClusterLevel Level);
@@ -153,13 +154,22 @@ public sealed class FaceHandle : IDisposable {
     private readonly Face face;
     private readonly SKStreamAsset stream;
 
+    // Admission is transactional: a throw after any native owner initialized releases the completed
+    // owners in reverse order before the fault surfaces, so a failed Open never leaks stream, blob,
+    // face, or font — instance Dispose is unreachable on a never-returned handle.
     private FaceHandle(SKTypeface typeface) {
-        stream = typeface.OpenStream(out int ttcIndex);
-        blob = stream.ToHarfBuzzBlob();
-        face = new Face(blob, ttcIndex);
-        face.MakeImmutable();
-        Font = new Font(face);
-        Font.SetScale(DesignScale, DesignScale);
+        try {
+            stream = typeface.OpenStream(out int ttcIndex);
+            blob = stream.ToHarfBuzzBlob();
+            face = new Face(blob, ttcIndex);
+            face.MakeImmutable();
+            Font = new Font(face);
+            Font.SetScale(DesignScale, DesignScale);
+        }
+        catch {
+            Font?.Dispose(); face?.Dispose(); blob?.Dispose(); stream?.Dispose();
+            throw;
+        }
     }
 
     public Font Font { get; }
@@ -182,43 +192,55 @@ public sealed class ShapedRun(SKTextBlob blob, SKPoint advance, ImmutableArray<i
 }
 
 public static class ShapingSurface {
-    public static ShapedRun Shape(string text, RunSpec spec, FaceHandle face, SKFont raster, params Feature[] features) {
-        using Buffer buffer = new();
-        buffer.AddUtf16(text);
-        (buffer.Direction, buffer.Script, buffer.Language, buffer.ClusterLevel) = (spec.Direction, spec.Script, spec.Language, spec.Level);
-        face.Font.Shape(buffer, features);
-        ReadOnlySpan<GlyphInfo> infos = buffer.GetGlyphInfoSpan();
-        ReadOnlySpan<GlyphPosition> positions = buffer.GetGlyphPositionSpan();
-        float scale = raster.Size / FaceHandle.DesignScale;
-        using SKTextBlobBuilder builder = new();
-        SKRawRunBuffer<ushort> run = builder.AllocateRawPositionedRun(raster, infos.Length, null);
-        Span<ushort> glyphs = run.Glyphs;
-        Span<SKPoint> points = run.Positions;
-        ImmutableArray<int>.Builder clusters = ImmutableArray.CreateBuilder<int>(infos.Length);
-        SKPoint cursor = SKPoint.Empty;
-        for (int i = 0; i < infos.Length; i++) {                          // Span-backed glyph fill prevents the array-copying property path.
-            glyphs[i] = (ushort)infos[i].Codepoint;
-            points[i] = new SKPoint(cursor.X + (positions[i].XOffset * scale), cursor.Y - (positions[i].YOffset * scale));
-            clusters.Add((int)infos[i].Cluster);
-            cursor = new SKPoint(cursor.X + (positions[i].XAdvance * scale), cursor.Y - (positions[i].YAdvance * scale));
-        }
-        return new ShapedRun(builder.Build(), cursor, clusters.MoveToImmutable());
-    }
+    public static Fin<ShapedRun> Shape(
+        string text,
+        RunSpec spec,
+        FaceHandle face,
+        SKFont raster,
+        Seq<string> featureTags,
+        Func<string, Fin<Feature>> admitFeature) =>
+        featureTags.TraverseM(admitFeature).As()
+            .Bind(features => NativeShape(text, spec, face, raster, features.ToArray()));
 
-    public static Unit DrawLabel(SKCanvas canvas, ShapedRun run, SKPaint paint, float x, float y) =>
-        fun(() => canvas.DrawTextBlob(run.Blob, x, y, paint))();
+    private static Fin<ShapedRun> NativeShape(string text, RunSpec spec, FaceHandle face, SKFont raster, Feature[] features) =>
+        Try.lift(() => {
+            using Buffer buffer = new();
+            buffer.AddUtf16(text);
+            (buffer.Direction, buffer.Script, buffer.Language, buffer.ClusterLevel) = (spec.Direction, spec.Script, spec.Language, spec.Level);
+            face.Font.Shape(buffer, features);
+            ReadOnlySpan<GlyphInfo> infos = buffer.GetGlyphInfoSpan();
+            ReadOnlySpan<GlyphPosition> positions = buffer.GetGlyphPositionSpan();
+            float scale = raster.Size / FaceHandle.DesignScale;
+            using SKTextBlobBuilder builder = new();
+            SKRawRunBuffer<ushort> run = builder.AllocateRawPositionedRun(raster, infos.Length, null);
+            Span<ushort> glyphs = run.Glyphs;
+            Span<SKPoint> points = run.Positions;
+            ImmutableArray<int>.Builder clusters = ImmutableArray.CreateBuilder<int>(infos.Length);
+            SKPoint cursor = SKPoint.Empty;
+            for (int i = 0; i < infos.Length; i++) {                          // Span-backed glyph fill prevents the array-copying property path.
+                glyphs[i] = (ushort)infos[i].Codepoint;
+                points[i] = new SKPoint(cursor.X + (positions[i].XOffset * scale), cursor.Y - (positions[i].YOffset * scale));
+                clusters.Add((int)infos[i].Cluster);
+                cursor = new SKPoint(cursor.X + (positions[i].XAdvance * scale), cursor.Y - (positions[i].YAdvance * scale));
+            }
+            return new ShapedRun(builder.Build(), cursor, clusters.MoveToImmutable());
+        }).Run().MapFail(error => new TypographyFault.ShapingRejected(error.Message));
+
+    public static Fin<Unit> DrawLabel(SKCanvas canvas, ShapedRun run, SKPaint paint, float x, float y) =>
+        Try.lift(() => fun(() => canvas.DrawTextBlob(run.Blob, x, y, paint))()).Run()
+            .MapFail(error => new TypographyFault.DrawRejected(error.Message));
 }
 ```
 
 ## [05]-[MARKDOWN_PROJECTION]
 
 - Owner: `MarkdownProjection`
-- Cases: Heading | Paragraph | Quote | Callout | ListRows | Definitions | Grid | CodeFence | Math | Rule | Opaque — the closed eleven-arm block fold; every arm carries its `SourceSpan`, grids retain header state and cell coordinates/spans, lists retain order and bullet grammar, and code fences retain language plus arguments. `InlineContent` closes text, code, math, break, task, and opaque payload modalities; `InlineStyle` composes strong, emphasis, and strike aspects; `LinkTarget` distinguishes hyperlinks from images.
+- Cases: Heading | Paragraph | Quote | Callout | ListRows | Definitions | Grid | CodeFence | Math | Rule | Opaque — the closed eleven-arm block fold; every arm carries its `SourceSpan`, grids retain header state and cell coordinates/spans, lists retain order and bullet grammar, and code fences retain language plus arguments. `InlineContent` closes text, code, math, break, task, and opaque payload modalities; keyless `InlineStyle` items compose strong, emphasis, and strike capabilities through a frozen set; `LinkTarget` distinguishes hyperlinks from images.
 - Entry: `public static MarkdownDocumentRows Project(string markdown)` — pure fold from document text to role-keyed rows plus the front-matter row; presentation consumes rows, never the AST.
 - Auto: `TrackTrivia` plus `PreciseSourceLocation` make every `MarkdownRow` carry its source `Span`, so an editor round-trip maps a retained row back to its source range with zero second parse; the `UseYamlFrontMatter` and `UseFootnotes` builder rows admit the front-matter and footnote constructs into the pipeline, and the `MarkdownDocumentRows.FrontMatter` and `Footnotes` fields populate live — the front-matter block's raw line text and the label-keyed footnote definitions folded through the one `Runs` inline projection.
 - Packages: Markdig, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new document construct is one `MarkdownRow` case plus one dispatch arm on the same fold; a new extension is one builder row on the one pipeline; zero new surface.
-- Boundary: the pipeline admits only extensions with owned projection arms. Table structure lands as `GridRow` and `GridCell` values rather than nested anonymous sequences; task state, line breaks, code, math, and raw HTML land as distinct `InlineContent` cases; formatting composes through one flags value; and links preserve destination, title, and image modality through `LinkTarget`. `UseMathematics` projects engineering notation without typesetting it, `UseAdvancedExtensions` stays absent because no owner admits its diagram and container grammars, raw HTML becomes explicit opaque evidence rather than empty text, and every unmatched block carries its node identity and span. Retained materialization consumes the closed inline family and never infers modality from boolean combinations or sentinel text.
+- Boundary: the pipeline admits only extensions with owned projection arms. Table structure lands as `GridRow` and `GridCell` values rather than nested anonymous sequences; task state, line breaks, code, math, and raw HTML land as distinct `InlineContent` cases; formatting composes through `FrozenSet<InlineStyle>` membership; and links preserve destination, title, and image modality through `LinkTarget`. `UseMathematics` projects engineering notation without typesetting it, `UseAdvancedExtensions` stays absent because no owner admits its diagram and container grammars, raw HTML becomes explicit opaque evidence rather than empty text, and every unmatched block carries its node identity and span. Retained materialization consumes the closed inline family and never infers modality from boolean combinations or sentinel text.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -252,8 +274,13 @@ public readonly record struct GridRow(bool IsHeader, Seq<GridCell> Cells, Source
 
 public readonly record struct GridCell(int ColumnIndex, int ColumnSpan, int RowSpan, Seq<InlineRun> Runs, SourceSpan Span);
 
-[Flags]
-public enum InlineStyle { None = 0, Strong = 1, Emphasis = 2, Strike = 4 }
+[SmartEnum]
+public sealed partial class InlineStyle {
+    public static readonly InlineStyle Strong = new();
+    public static readonly InlineStyle Emphasis = new();
+    public static readonly InlineStyle Strike = new();
+    public static readonly FrozenSet<InlineStyle> Empty = Array.Empty<InlineStyle>().ToFrozenSet();
+}
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record InlineContent {
@@ -273,7 +300,7 @@ public abstract partial record LinkTarget {
     public sealed record Image(string Destination, Option<string> Title) : LinkTarget;
 }
 
-public readonly record struct InlineRun(InlineContent Content, InlineStyle Style, Option<LinkTarget> Link, SourceSpan Span);
+public readonly record struct InlineRun(InlineContent Content, FrozenSet<InlineStyle> Styles, Option<LinkTarget> Link, SourceSpan Span);
 
 public sealed record MarkdownDocumentRows(Seq<MarkdownRow> Body, Option<string> FrontMatter, HashMap<string, Seq<InlineRun>> Footnotes);
 
@@ -351,28 +378,28 @@ public static class MarkdownProjection {
 
     private static InlineRun Flatten(LeafInline node) =>
         node switch {
-            CodeInline code => new InlineRun(new InlineContent.Code(code.Content), InlineStyle.None, None, code.Span),
-            Markdig.Extensions.Mathematics.MathInline math => new InlineRun(new InlineContent.Math(math.Content.ToString()), InlineStyle.None, None, math.Span),
-            TaskList task => new InlineRun(new InlineContent.Task(task.Checked), InlineStyle.None, None, task.Span),
+            CodeInline code => new InlineRun(new InlineContent.Code(code.Content), InlineStyle.Empty, None, code.Span),
+            Markdig.Extensions.Mathematics.MathInline math => new InlineRun(new InlineContent.Math(math.Content.ToString()), InlineStyle.Empty, None, math.Span),
+            TaskList task => new InlineRun(new InlineContent.Task(task.Checked), InlineStyle.Empty, None, task.Span),
             LiteralInline literal => new InlineRun(
                 Content: new InlineContent.Text(literal.Content.ToString()),
-                Style: Style(literal),
+                Styles: Styles(literal),
                 Link: Link(literal),
                 Span: literal.Span),
-            AutolinkInline auto => new InlineRun(new InlineContent.Text(auto.Url), InlineStyle.None, Some<LinkTarget>(new LinkTarget.Hyperlink(auto.Url, None)), auto.Span),
-            HtmlEntityInline entity => new InlineRun(new InlineContent.Text(entity.Transcoded.ToString()), InlineStyle.None, None, entity.Span),
-            LineBreakInline brk => new InlineRun(new InlineContent.Break(brk.IsHard), InlineStyle.None, None, brk.Span),
-            HtmlInline html => new InlineRun(new InlineContent.Opaque(nameof(HtmlInline)), InlineStyle.None, None, html.Span),
-            _ => new InlineRun(new InlineContent.Opaque(node.GetType().Name), InlineStyle.None, None, node.Span),
+            AutolinkInline auto => new InlineRun(new InlineContent.Text(auto.Url), InlineStyle.Empty, Some<LinkTarget>(new LinkTarget.Hyperlink(auto.Url, None)), auto.Span),
+            HtmlEntityInline entity => new InlineRun(new InlineContent.Text(entity.Transcoded.ToString()), InlineStyle.Empty, None, entity.Span),
+            LineBreakInline brk => new InlineRun(new InlineContent.Break(brk.IsHard), InlineStyle.Empty, None, brk.Span),
+            HtmlInline html => new InlineRun(new InlineContent.Opaque(nameof(HtmlInline)), InlineStyle.Empty, None, html.Span),
+            _ => new InlineRun(new InlineContent.Opaque(node.GetType().Name), InlineStyle.Empty, None, node.Span),
         };
 
-    private static InlineStyle Style(Inline node) =>
-        Ancestry(node).Fold(InlineStyle.None, static (style, ancestor) => ancestor switch {
-            EmphasisInline { DelimiterChar: '*' or '_', DelimiterCount: >= 2 } => style | InlineStyle.Strong,
-            EmphasisInline { DelimiterChar: '*' or '_', DelimiterCount: 1 } => style | InlineStyle.Emphasis,
-            EmphasisInline { DelimiterChar: '~', DelimiterCount: 2 } => style | InlineStyle.Strike,
-            _ => style,
-        });
+    private static FrozenSet<InlineStyle> Styles(Inline node) =>
+        Ancestry(node).Choose(static ancestor => ancestor switch {
+            EmphasisInline { DelimiterChar: '*' or '_', DelimiterCount: >= 2 } => Some(InlineStyle.Strong),
+            EmphasisInline { DelimiterChar: '*' or '_', DelimiterCount: 1 } => Some(InlineStyle.Emphasis),
+            EmphasisInline { DelimiterChar: '~', DelimiterCount: 2 } => Some(InlineStyle.Strike),
+            _ => None,
+        }).ToFrozenSet();
 
     private static Option<LinkTarget> Link(Inline node) =>
         Ancestry(node).Choose(static ancestor => ancestor is LinkInline link

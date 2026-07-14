@@ -11,9 +11,9 @@ The graph canvas is the typed-edit plane's node surface: NodeEditorAvalonia `IDr
 
 ## [02]-[GRAPH_MODEL]
 
-- Owner: `GraphNodeRow` — the typed node row the drawing-node view-model materializes from; `GraphPinRow` — the typed pin row; `GraphCanvas` — the one canvas owner over `DrawingNodeEditor` carrying the `IDrawingNodeFactory` every pin and connector mints through.
-- Entry: `public Fin<IDrawingNode> Materialize(Seq<GraphNodeRow> nodes, Seq<(string From, string To)> edges)` — one two-phase fold from typed rows to the mounted drawing: stage detached through the factory, validate every edge against the settings policy, commit only in the success arm; edge endpoints carry the gate-owned grammar `nodeKey` or `nodeKey/pinKey` so pin identity survives from row to connector; every edit verb (add node, connect, move, delete) discriminates through the editor's own operation surface — `Drawing.Nodes`/`Connectors` mutate only from the staged commit, never mid-validation.
-- Auto: product view-models implement `IDrawingNode`/`INode`/`IConnector`/`IPin`/`IConnectablePin` on ReactiveUI so activation, command, and validation ride the suite's one reactive rail; `IDrawingNodeSettings` is the ONE connection-policy authority — `RequireDirectionalConnections`, `RequireMatchingBusWidth`, `AllowSelfConnections`, `AllowDuplicateConnections` are its data columns, the interactive connector-drag honors them through `DrawingNodeEditor.CanConnectPin`/`ConnectionValidationContext`, and the programmatic gate reads the same row so no second policy source exists; pins and connectors mint through `IDrawingNodeFactory.CreatePin()`/`CreateConnector()` so the engine sees every construction; node templates are `INodeTemplate` rows on the editor's `Templates` host so a new node kind is one template row.
+- Owner: `GraphNodeRow` and `GraphPinRow` are the package-neutral model rows; `GraphEndpoint` and `GraphEdge` preserve node and pin identity; `GraphModelAdapter` binds complete NodeEditorAvalonia model implementations; `GraphCanvas` owns two-phase materialization over one `DrawingNodeEditor`.
+- Entry: `Materialize(Seq<GraphNodeRow> nodes, Seq<GraphEdge> edges)` admits structure, stages every node and connector through `GraphModelAdapter`, and mutates the live drawing only in the success arm; `Reset` performs the same gate and staging before an atomic replacement.
+- Auto: the composition adapter supplies complete `INode`, `IPin`, and `IConnector` implementations, including the package's permission and event surface, so this page never publishes a hollow interface implementation. `IDrawingNodeSettings` remains the one connection-policy authority; `GraphCanvas.Wired` reads its direction and bus-width columns and delegates final connectability to `DrawingNodeEditor.CanConnectPin`, while `GraphAdmission` reads duplicate policy and imposes the stronger dependency-DAG invariant. Node templates remain `INodeTemplate` rows on the editor host.
 - Receipt: every committed structural edit seals an Edit-case `EvidenceReceipt` and projects a typed edit-intent op onto the `Collab/sync.md` durable stream — the graph mints no parallel op union.
 - Packages: NodeEditorAvalonia (+`.Model` transitive-floor pin), ReactiveUI, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new node kind is one `GraphNodeRow` template value; a new pin shape is one `GraphPinRow` value; zero new surface.
@@ -65,11 +65,10 @@ public sealed record GraphCanvas(DrawingNodeEditor Editor, IDrawingNode Drawing,
     // Two-phase apply: every node, pin, and connector mints DETACHED through the factory and validates
     // against the settings policy BEFORE the first Drawing mutation.
     Fin<(Seq<INode> Nodes, Seq<IConnector> Wires)> Staged(Seq<GraphNodeRow> rows, Seq<GraphEdge> edges) =>
-        rows.TraverseM(row => Model.Node(row).Map(node => (row.Key, Node: node))).As()
-            .Bind(materialized => materialized.Fold(Map<string, INode>(), static (index, row) => index.Add(row.Key, row.Node)) switch {
-                Map<string, INode> byKey => edges.TraverseM(edge => Wired(byKey, edge)).As()
-                    .Map(wires => (toSeq(byKey.Values), wires.Strict())),
-            });
+        from materialized in rows.TraverseM(row => Model.Node(row).Map(node => (row.Key, Node: node))).As()
+        let byKey = materialized.Fold(Map<string, INode>(), static (index, row) => index.Add(row.Key, row.Node))
+        from wires in edges.TraverseM(edge => Wired(byKey, edge)).As()
+        select (toSeq(byKey.Values), wires.Strict());
 
     IDrawingNode Commit((Seq<INode> Nodes, Seq<IConnector> Wires) staged) {
         staged.Nodes.Iter(node => Drawing.Nodes?.Add(node));
@@ -80,8 +79,8 @@ public sealed record GraphCanvas(DrawingNodeEditor Editor, IDrawingNode Drawing,
     // The settings row is the one policy authority: self-connection and bus-width checks read its columns,
     // and CanConnectPin is the editor's own connectability gate over the same settings.
     Fin<IConnector> Wired(Map<string, INode> byKey, GraphEdge edge) =>
-        from start in Endpoint(byKey, edge.From, PinDirection.Output).ToFin(new CanvasFault.EndpointUnknown(edge.From.NodeKey))
-        from end in Endpoint(byKey, edge.To, PinDirection.Input).ToFin(new CanvasFault.EndpointUnknown(edge.To.NodeKey))
+        from start in Endpoint(byKey, edge.From, RequiredDirection(PinDirection.Output)).ToFin(new CanvasFault.EndpointUnknown(edge.From.ToString()))
+        from end in Endpoint(byKey, edge.To, RequiredDirection(PinDirection.Input)).ToFin(new CanvasFault.EndpointUnknown(edge.To.ToString()))
         from _bus in !Policy.RequireMatchingBusWidth || Model.BusWidth(start) == Model.BusWidth(end)
             ? Fin.Succ(unit) : Fin.Fail<Unit>(new CanvasFault.PolicyRejected($"bus width {edge.From} -> {edge.To}"))
         from _gate in Editor.CanConnectPin(start) && Editor.CanConnectPin(end)
@@ -92,22 +91,25 @@ public sealed record GraphCanvas(DrawingNodeEditor Editor, IDrawingNode Drawing,
     // Endpoint grammar (GraphAdmission owns it): `nodeKey` or `nodeKey/pinKey` — a pin-qualified endpoint
     // routes to its named pin so pin identity survives end-to-end; an unqualified endpoint routes by
     // direction (first Output on source, first Input on target).
-    Option<IPin> Endpoint(Map<string, INode> byKey, GraphEndpoint endpoint, PinDirection direction) =>
+    Option<IPin> Endpoint(Map<string, INode> byKey, GraphEndpoint endpoint, Option<PinDirection> direction) =>
         byKey.Find(endpoint.NodeKey).Bind(node => Model.Pins(node).Find(pin =>
-            Model.Direction(pin) == direction && endpoint.PinKey.Match(
+            direction.Match(Some: admitted => Model.Direction(pin) == admitted, None: static () => true) && endpoint.PinKey.Match(
                 Some: key => Model.PinKey(pin) == key,
                 None: () => true)));
+
+    Option<PinDirection> RequiredDirection(PinDirection direction) =>
+        Policy.RequireDirectionalConnections ? Some(direction) : Option<PinDirection>.None;
 }
 ```
 
 ## [03]-[ADMISSION_GATE]
 
 - Owner: `CanvasFault` — the typed canvas rail; `GraphAdmission` — the QuikGraph-backed connection-admission gate whose policy column IS the editor `IDrawingNodeSettings` row, never a parallel policy source.
-- Entry: `public Fin<Unit> Admit(Seq<string> nodes, Seq<(string From, string To)> edges)` — the gate rejects a cycle, a dangling endpoint, or a policy-violating duplicate before the editor mutates; `public static Fin<Seq<string>> Order(Seq<string> nodes, Seq<(string From, string To)> edges)` — the evaluation-order projection downstream reads.
+- Entry: `Admit(Seq<GraphNodeRow> nodes, Seq<GraphEdge> edges)` rejects invalid node or pin identities, non-finite positions, non-positive bus widths, dangling nodes, policy-disallowed duplicate edges, and cycles before the editor mutates; `Order` returns topological node keys from the same admitted graph value.
 - Auto: the edge set folds into a QuikGraph `AdjacencyGraph<string, SEdge<string>>` and `IsDirectedAcyclicGraph` is the cycle oracle; topological order reads `TopologicalSort` off the SAME graph value through `Order`, so the notebook dependency projection and any solve-order consumer read one composed fold — a hand-rolled adjacency list or DFS beside QuikGraph is the deleted form; duplicate admission reads `IDrawingNodeSettings.AllowDuplicateConnections` so the gate and the interactive connector-drag answer from one settings row.
 - Packages: QuikGraph (shared tier), Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new admission rule is one gate clause folding on the same graph value; one `CanvasFault` case is one `detail` ordinal under the `AppUiFaultBand.Canvas` row (6330); zero new surface.
-- Boundary: the gate guards STRUCTURE only — recompute scheduling, dirty propagation, and evaluation stay the AppHost `RecomputeGraph`'s (a second incremental-recompute owner is the deleted form, the same law `Document/notebook.md` lands under `[V11]`); every fault derives through the `Diagnostics/evidence.md#FAULT_TABLES` registry.
+- Boundary: the gate guards STRUCTURE only — recompute scheduling, dirty propagation, and evaluation stay the AppHost `RecomputeGraph`'s (a second incremental-recompute owner is the deleted form); every fault derives through the `AppUiFaultBand.Canvas` registry row.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -116,7 +118,7 @@ public abstract partial record CanvasFault : Expected {
     public sealed record CycleRejected(int Nodes, int Edges)
         : CanvasFault($"graph/cycle: {Nodes} nodes and {Edges} edges are not acyclic", AppUiFaultBand.Canvas.Code(0));
     public sealed record EndpointUnknown(string Key)
-        : CanvasFault($"graph/endpoint: {Key} is not a node", AppUiFaultBand.Canvas.Code(1));
+        : CanvasFault($"graph/endpoint: {Key} is not admitted", AppUiFaultBand.Canvas.Code(1));
     public sealed record PolicyRejected(string Detail)
         : CanvasFault($"graph/policy: {Detail}", AppUiFaultBand.Canvas.Code(2));
     public sealed record EchoRejected(string OpId)
@@ -126,20 +128,41 @@ public abstract partial record CanvasFault : Expected {
 }
 
 public sealed record GraphAdmission(IDrawingNodeSettings Policy) {
-    public Fin<Unit> Admit(Seq<GraphNodeRow> nodes, Seq<GraphEdge> edges) {
+    public Fin<Unit> Admit(Seq<GraphNodeRow> nodes, Seq<GraphEdge> edges) =>
+        Admitted(nodes, edges).Map(static _ => unit);
+
+    private Fin<AdjacencyGraph<string, SEdge<string>>> Admitted(Seq<GraphNodeRow> nodes, Seq<GraphEdge> edges) {
         LanguageExt.HashSet<string> known = toHashSet(nodes.Map(static node => node.Key));
-        bool uniqueNodes = known.Count == nodes.Count;
+        bool uniqueNodes = known.Count == nodes.Count && nodes.ForAll(static node =>
+            !string.IsNullOrWhiteSpace(node.Key)
+            && !string.IsNullOrWhiteSpace(node.TemplateKey)
+            && !string.IsNullOrWhiteSpace(node.Title));
         bool validPins = nodes.ForAll(node =>
             node.Pins.Map(static pin => pin.Key).Distinct().Count == node.Pins.Count
-            && node.Pins.ForAll(static pin => pin.BusWidth > 0));
-        if (!uniqueNodes || !validPins) { return Fin.Fail<Unit>(new CanvasFault.ModelRejected("node keys, pin keys, and bus widths must be admitted")); }
-        return edges.Find(edge => !known.Contains(edge.From.NodeKey) || !known.Contains(edge.To.NodeKey))
+            && node.Pins.ForAll(static pin => !string.IsNullOrWhiteSpace(pin.Key)
+                && !string.IsNullOrWhiteSpace(pin.Name)
+                && pin.BusWidth > 0)
+            && double.IsFinite(node.X)
+            && double.IsFinite(node.Y));
+        if (!uniqueNodes || !validPins) { return Fin.Fail<AdjacencyGraph<string, SEdge<string>>>(new CanvasFault.ModelRejected("node keys, pin keys, and bus widths must be admitted")); }
+        return edges.Find(edge => !EndpointKnown(nodes, edge.From, PinDirection.Output) || !EndpointKnown(nodes, edge.To, PinDirection.Input))
             .Match(
-                Some: edge => Fin.Fail<Unit>(new CanvasFault.EndpointUnknown(known.Contains(edge.From.NodeKey) ? edge.To.NodeKey : edge.From.NodeKey)),
-                None: () => (Policy.AllowDuplicateConnections ? None : Duplicate(edges)).Match(
-                    Some: dup => Fin.Fail<Unit>(new CanvasFault.PolicyRejected($"duplicate edge {dup.From} -> {dup.To}")),
-                    None: () => Acyclic(nodes.Map(static node => node.Key), edges)));
+                Some: edge => Fin.Fail<AdjacencyGraph<string, SEdge<string>>>(new CanvasFault.EndpointUnknown(!EndpointKnown(nodes, edge.From, PinDirection.Output) ? edge.From.ToString() : edge.To.ToString())),
+                None: () => !Policy.AllowSelfConnections && edges.Exists(static edge => edge.From.NodeKey == edge.To.NodeKey)
+                    ? Fin.Fail<AdjacencyGraph<string, SEdge<string>>>(new CanvasFault.PolicyRejected("self connection"))
+                    : (Policy.AllowDuplicateConnections ? None : Duplicate(edges)).Match(
+                        Some: dup => Fin.Fail<AdjacencyGraph<string, SEdge<string>>>(new CanvasFault.PolicyRejected($"duplicate edge {dup.From} -> {dup.To}")),
+                        None: () => Graph(nodes.Map(static node => node.Key), edges) is { } graph && graph.IsDirectedAcyclicGraph()
+                            ? Fin.Succ(graph)
+                            : Fin.Fail<AdjacencyGraph<string, SEdge<string>>>(new CanvasFault.CycleRejected(nodes.Count, edges.Count))));
     }
+
+    bool EndpointKnown(Seq<GraphNodeRow> nodes, GraphEndpoint endpoint, PinDirection expected) =>
+        nodes.Find(node => StringComparer.Ordinal.Equals(node.Key, endpoint.NodeKey)).Exists(node =>
+            endpoint.PinKey.Match(
+                Some: pinKey => node.Pins.Exists(pin => StringComparer.Ordinal.Equals(pin.Key, pinKey)
+                    && (!Policy.RequireDirectionalConnections || pin.Direction == expected)),
+                None: () => node.Pins.Exists(pin => !Policy.RequireDirectionalConnections || pin.Direction == expected)));
 
     // Policy column honored as data: the duplicate gate fires only when the settings row disallows repeats;
     // duplicates key on the full pin-qualified endpoint pair, so parallel pins stay distinct edges.
@@ -149,18 +172,10 @@ public sealed record GraphAdmission(IDrawingNodeSettings Policy) {
 
     // Evaluation order off the SAME graph value the cycle oracle reads — one fold, two projections.
     public Fin<Seq<string>> Order(Seq<GraphNodeRow> nodes, Seq<GraphEdge> edges) =>
-        Admit(nodes, edges)
-            .Bind(_ => Graph(nodes.Map(static node => node.Key), edges) is { } graph && graph.IsDirectedAcyclicGraph()
-                ? Fin.Succ(toSeq(graph.TopologicalSort()))
-                : Fin.Fail<Seq<string>>(new CanvasFault.PolicyRejected("order requested on a cyclic graph")));
-
-    static Fin<Unit> Acyclic(Seq<string> nodes, Seq<GraphEdge> edges) =>
-        Graph(nodes, edges).IsDirectedAcyclicGraph()
-            ? Fin.Succ(unit)
-            : Fin.Fail<Unit>(new CanvasFault.CycleRejected(nodes.Count, edges.Count));
+        Admitted(nodes, edges).Map(static graph => toSeq(graph.TopologicalSort()));
 
     static AdjacencyGraph<string, SEdge<string>> Graph(Seq<string> nodes, Seq<GraphEdge> edges) {
-        AdjacencyGraph<string, SEdge<string>> graph = new();
+        AdjacencyGraph<string, SEdge<string>> graph = new(allowParallelEdges: true);
         nodes.Iter(node => graph.AddVertex(node));
         edges.Iter(edge => graph.AddEdge(new SEdge<string>(edge.From.NodeKey, edge.To.NodeKey)));
         return graph;
@@ -172,7 +187,7 @@ public sealed record GraphAdmission(IDrawingNodeSettings Policy) {
 
 - Owner: `GraphCoEdit` — the ONE bidirectional projection between the ReactiveUI graph model and the `Collab/sync.md` `LoroTree` container, carrying BOTH directions: `CommitLocal` outbound, the subscription sink inbound.
 - Entry: `public IO<Fin<Unit>> CommitLocal(CollabDoc doc, string docKey, Seq<GraphNodeRow> nodes, Seq<GraphEdge> edges, GraphOp op, string origin)` — the outbound direction re-admits the post-op topology before the intent rides `IntentLedger.Commit`; `public IO<Fin<Subscription>> Bind(CollabDoc doc, GraphCanvas canvas)` — the inbound direction holds one subscription per canvas and applies remote diffs through the same typed rows.
-- Auto: the graph structure maps onto `LoroTree` — a node is a tree node whose meta map carries the `GraphNodeRow` columns, an edge is a child row on the connection register — and subscriber diffs discriminate `EventTriggerKind.Local`/`Import`/`Checkout` for ECHO SUPPRESSION: a local `CommitLocal` mutation arrives back as its own `Local` diff and is dropped, and a remote `Import` diff applies to the ReactiveUI graph model WITHOUT re-emitting — the feedback loop is the named deleted form, its structural fault `CanvasFault.EchoRejected`; a hierarchy move rides the sync-owned `GraphOp.NodeMove(NodeId, Parent, Index)` case onto the tree's identity-preserving `MovTo`, and a canvas x/y position write is a meta-map column edit riding the same commit leg through the graph arm — its verb row is one `GraphOp` case at the sync owner, never a side channel.
+- Auto: the graph structure maps onto `LoroTree` — a node is a tree node whose meta map carries the `GraphNodeRow` columns, an edge is a child row on the connection register — and subscriber diffs discriminate `EventTriggerKind.Local`/`Import`/`Checkout` for ECHO SUPPRESSION: a local `CommitLocal` mutation arrives back as its own `Local` diff and is dropped, and a remote `Import` diff applies to the ReactiveUI graph model WITHOUT re-emitting — the feedback loop is the named deleted form, its structural fault `CanvasFault.EchoRejected`; a hierarchy move rides the sync-owned `GraphOp.NodeMove(NodeId, Parent, Index)` case onto the tree's identity-preserving `MovTo`, and a canvas x/y position write commits as the sync-owned `GraphOp.NodeAt(NodeId, X, Y)` meta-column write riding the same commit leg through the graph arm, never a side channel.
 - Receipt: durable truth rides `Collab/sync.md`'s typed edit-intent stream (a graph structural op is one row on the single edit-intent union); the live half rides the session-ephemeral Loro wire — this page persists nothing.
 - Packages: LoroCs, ReactiveUI, LanguageExt.Core
 - Growth: a new co-edited column is one meta-map key; a new structural verb is one `GraphOp` case landed at the sync owner; zero new surface.
@@ -193,9 +208,13 @@ public sealed record GraphCoEdit(
     // Outbound: gate the POST-op topology, then ride the ONE transaction rail — durable first, live tree
     // apply through the same IntentApply.Apply arm replay uses; the resulting Local diff is echo-dropped.
     public IO<Fin<Unit>> CommitLocal(CollabDoc doc, string docKey, Seq<GraphNodeRow> nodes, Seq<GraphEdge> edges, GraphOp op, string origin) =>
-        Gate.Admit(nodes, edges).Match(
-            Succ: _ => IntentLedger.Commit(doc, new EditIntent.GraphStructure(docKey, op), origin),
-            Fail: error => IO.pure(Fin.Fail<Unit>(error)));
+        Volatile.Read(ref applying) == 1
+            ? IO.pure(Fin.Fail<Unit>(new CanvasFault.EchoRejected(origin)))
+            : string.IsNullOrWhiteSpace(docKey) || string.IsNullOrWhiteSpace(origin)
+                ? IO.pure(Fin.Fail<Unit>(new CanvasFault.ModelRejected("document key and origin are required")))
+                : Gate.Admit(nodes, edges).Match(
+                Succ: _ => IntentLedger.Commit(doc, new EditIntent.GraphStructure(docKey, op), origin),
+                Fail: error => IO.pure(Fin.Fail<Unit>(error)));
 
     public IO<Fin<Subscription>> Bind(CollabDoc doc, GraphCanvas canvas) =>
         IO.lift(() =>

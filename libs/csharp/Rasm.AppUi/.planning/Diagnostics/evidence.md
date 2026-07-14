@@ -1,10 +1,10 @@
 # [APPUI_DIAGNOSTICS_EVIDENCE]
 
-Rasm.AppUi evidence is one rail: a fifteen-case `EvidenceReceipt` union folds every sibling receipt stream into the HLC-stamped sink envelope, one correlation join projects per-package envelope streams into causal timelines with typed skew bands and a report-block projection the document plane paginates, and the `[FAULT_TABLES]` band registry is the single AppUi fault-code authority every fault union's `Code` derives through. The page owns the evidence union with the package wire context, the join fold, the fault-band registry mirroring the federation `FaultBand` form, and the evidence wire contract — composing AppHost ports and the settled sibling receipt records throughout. Capture lanes, headless derivation, the dev loop, and the quality governor are sibling Diagnostics owners (`proof.md`, `devloop.md`, `governor.md`).
+Rasm.AppUi evidence is one rail: a sixteen-case `EvidenceReceipt` union folds every sibling receipt stream into the HLC-stamped sink envelope, one correlation join projects per-package envelope streams into deterministic uncertainty-grouped timelines with symmetric skew bands and a report-block projection the document plane paginates, and the `[FAULT_TABLES]` band registry is the single AppUi fault-code authority every fault union's `Code` derives through. The page owns the evidence union with the package wire context, the join fold, the fault-band registry mirroring the federation `FaultBand` form, and the evidence wire contract — composing AppHost ports and the settled sibling receipt records throughout. Capture lanes, headless derivation, the dev loop, and the quality governor are sibling Diagnostics owners (`proof.md`, `devloop.md`, `governor.md`).
 
 ## [01]-[INDEX]
 
-- [02]-[RECEIPT_UNION]: Fifteen-case evidence union sealed through the HLC sink envelope.
+- [02]-[RECEIPT_UNION]: Sixteen-case evidence union sealed through the HLC sink envelope.
 - [03]-[CORRELATION_JOIN]: Causal timeline join keyed correlation plus HLC with skew bands; the report-block projection.
 - [04]-[FAULT_TABLES]: The type-enforced AppUi 6xxx band registry with pinned foreign mirror rows.
 - [05]-[TS_PROJECTION]: Evidence and timeline wire shapes for dashboard ingestion.
@@ -12,9 +12,9 @@ Rasm.AppUi evidence is one rail: a fifteen-case `EvidenceReceipt` union folds ev
 ## [02]-[RECEIPT_UNION]
 
 - Owner: `EvidenceReceipt` — the one `[Union]` evidence vocabulary; `EvidenceOps` — the sibling-receipt projection fold; `AppUiWireContext` — the package wire context.
-- Cases: Surface | Focus | Render | Disposal | Edit | Command | NativeAssetIdentity | Theme | Motion | Asset | CollabSync | CollabRevert | Media | Quality | GpuFrame under the locked kind literals surface, focus, render, disposal, edit, command, native-asset, theme, motion, asset, collab-sync, collab-revert, media, quality, gpu-frame.
+- Cases: Surface | Focus | Render | Disposal | Edit | Command | NativeAssetIdentity | Theme | Motion | Asset | LiveData | CollabSync | CollabRevert | Media | Quality | GpuFrame under the locked kind literals surface, focus, render, disposal, edit, command, native-asset, theme, motion, asset, live-data, collab-sync, collab-revert, media, quality, gpu-frame.
 - Entry: `public IO<ReceiptEnvelope> Seal(ReceiptSinkPort sink, CorrelationId correlation, TenantContext tenant)` — `IO` carries the sink effect; the returned envelope is the emission evidence carrying both cross-process primitives, the ambient `TenantContext` threaded from `TenantContext.Current` at composition; the tenant is consumed as settled AppHost vocabulary and never re-minted here; serialization pins to the generated `AppUiWireContext.Default.EvidenceReceipt` type info, so an off-contract options graph is structurally impossible and the `EvidenceFeed` wire crossing is provably schema-stable against its TS decode side.
-- Auto: composition binds the settled sibling delegates onto case constructors — `ScreenRuntime.Disposed` to Disposal, `VisualRuntime.Sink` to Render through `ToEvidence`, the inspector receipt sink to the Edit flatten, the mount transaction and its fact stream to Surface and Focus, the native load-identity probe to NativeAssetIdentity, the `ThemeCell` swap, `ReducedMotion` conformance, and `AssetCatalog` preload sinks to the Theme, Motion, and Asset flattens, the `Collab/sync.md` `LiveWire` merge and `TimeTravel` revert sinks to the CollabSync and CollabRevert flattens, the `Document/media.md` mount sink to the Media flatten, and the `Diagnostics/governor.md` verdict and GPU-timeline sinks to the Quality and GpuFrame flattens — every fold one `ToEvidence` extension, so every existing receipt stream folds into one union with zero new emitters.
+- Auto: composition binds the settled sibling delegates onto case constructors — `ScreenRuntime.Disposed` to Disposal, `VisualRuntime.Sink` to Render through `ToEvidence`, the inspector receipt sink to the Edit flatten, the mount transaction and its fact stream to Surface and Focus, the native load-identity probe to NativeAssetIdentity, the `ThemeCell` swap, `ReducedMotion` conformance, and `AssetCatalog` preload sinks to the Theme, Motion, and Asset flattens, the `Editing/livedata.md` change-audit `ChangeSummary` fold to the LiveData case (adds, updates, removes, refreshes per slot), the `Collab/sync.md` `LiveWire` merge and `TimeTravel` revert sinks to the CollabSync and CollabRevert flattens, the `Document/media.md` mount sink to the Media flatten, and the `Diagnostics/governor.md` verdict and GPU-timeline sinks to the Quality and GpuFrame flattens — every fold one `ToEvidence` extension or one `EvidenceOps` factory (`Focus`, `Disposal`, `NativeAsset`, `LiveData` — the delegate-fed cases whose sources carry no receipt record) bound at composition, so every existing receipt stream folds into one union with zero new emitters.
 - Receipt: the sealed `ReceiptEnvelope` is the emission evidence; its HLC stamp is the only time authority on evidence, so a second stamp field on a case payload is the deleted form; the envelope's `Tenant` field partitions evidence per tenant from the same threaded `TenantContext`, so a per-tenant evidence view derives from the envelope partition rather than a second tenant field on a case payload.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one case row absorbs a new evidence family and one `[JsonSerializable]` row extends the context; zero new surface.
@@ -33,6 +33,7 @@ Rasm.AppUi evidence is one rail: a fifteen-case `EvidenceReceipt` union folds ev
 [JsonDerivedType(typeof(EvidenceReceipt.Theme), "theme")]
 [JsonDerivedType(typeof(EvidenceReceipt.Motion), "motion")]
 [JsonDerivedType(typeof(EvidenceReceipt.Asset), "asset")]
+[JsonDerivedType(typeof(EvidenceReceipt.LiveData), "live-data")]
 [JsonDerivedType(typeof(EvidenceReceipt.CollabSync), "collab-sync")]
 [JsonDerivedType(typeof(EvidenceReceipt.CollabRevert), "collab-revert")]
 [JsonDerivedType(typeof(EvidenceReceipt.Media), "media")]
@@ -40,28 +41,30 @@ Rasm.AppUi evidence is one rail: a fifteen-case `EvidenceReceipt` union folds ev
 [JsonDerivedType(typeof(EvidenceReceipt.GpuFrame), "gpu-frame")]
 public abstract partial record EvidenceReceipt {
     private EvidenceReceipt() { }
-    public sealed record Surface(SurfaceReceipt Receipt) : EvidenceReceipt;
+    public sealed record Surface(string Host, string Descriptor, string? Handle, double Scale, Instant At, CorrelationId Correlation) : EvidenceReceipt;
     public sealed record Focus(string Target, bool Focused) : EvidenceReceipt;
-    public sealed record Render(string Slot, string Format, string FrameHash, long Bytes, Duration Elapsed, string? Destination, string ColorSpace) : EvidenceReceipt;
+    public sealed record Render(string Slot, string Format, string FrameHash, string Bytes, Duration Elapsed, string? Destination, string ColorSpace) : EvidenceReceipt;
     public sealed record Disposal(string ScreenId, Duration Active, int Disposables) : EvidenceReceipt;
     public sealed record Edit(string Slot, string Surface, string Target, string Editor, string Outcome) : EvidenceReceipt;
     public sealed record Command(CommandReceipt Receipt) : EvidenceReceipt;
     public sealed record NativeAssetIdentity(NativeAssetFact Fact) : EvidenceReceipt;
     public sealed record Theme(string Variant, string Density, string Trigger, int ChangedKeys) : EvidenceReceipt;
     public sealed record Motion(string Token, string Resolved, bool Reduced) : EvidenceReceipt;
-    public sealed record Asset(string Key, string AssetKind, string Origin, double Scale, string? ContentHash) : EvidenceReceipt;
-    public sealed record CollabSync(string DocKey, int Deltas, long Bytes, int Pending, bool Applied) : EvidenceReceipt;
+    public sealed record Asset(string Key, string AssetKind, string Origin, double Scale, string ContentHash) : EvidenceReceipt;
+    public sealed record LiveData(string Slot, int Adds, int Updates, int Removes, int Refreshes) : EvidenceReceipt;
+    public sealed record CollabSync(string DocKey, int Deltas, string Bytes, int Pending, bool Applied) : EvidenceReceipt;
     public sealed record CollabRevert(string DocKey, string FrontierDigest, int InverseOps) : EvidenceReceipt;
-    public sealed record Media(string Key, string Codec, string Source, bool Mounted) : EvidenceReceipt;
-    public sealed record Quality(string Tier, int PathTraceSamples, double WatermarkFactor, bool ReduceMotion, int FoveationLevel, double RefreshHz) : EvidenceReceipt;
-    public sealed record GpuFrame(long FrameOrdinal, int Passes, int Unmeasured, long MeasuredNanoseconds) : EvidenceReceipt;
+    public sealed record Media(string Key, string Codec, string Source, string Outcome) : EvidenceReceipt;
+    public sealed record Quality(string Tier, int PathTraceSamples, double WatermarkFactor, string Motion, int FoveationLevel, double RefreshHz) : EvidenceReceipt;
+    public sealed record GpuFrame(string FrameOrdinal, int Passes, int Unmeasured, string MeasuredNanoseconds) : EvidenceReceipt;
 
     public string Kind => Switch(
         surface: static _ => "surface", focus: static _ => "focus", render: static _ => "render",
         disposal: static _ => "disposal", edit: static _ => "edit", command: static _ => "command",
         nativeAssetIdentity: static _ => "native-asset", theme: static _ => "theme", motion: static _ => "motion",
-        asset: static _ => "asset", collabSync: static _ => "collab-sync", collabRevert: static _ => "collab-revert",
-        media: static _ => "media", quality: static _ => "quality", gpuFrame: static _ => "gpu-frame");
+        asset: static _ => "asset", liveData: static _ => "live-data", collabSync: static _ => "collab-sync",
+        collabRevert: static _ => "collab-revert", media: static _ => "media", quality: static _ => "quality",
+        gpuFrame: static _ => "gpu-frame");
 
     public IO<ReceiptEnvelope> Seal(ReceiptSinkPort sink, CorrelationId correlation, TenantContext tenant) =>
         IO.lift(() => JsonSerializer.SerializeToElement(this, AppUiWireContext.Default.EvidenceReceipt))
@@ -69,9 +72,33 @@ public abstract partial record EvidenceReceipt {
 }
 
 public static class EvidenceOps {
+    // The four delegate-fed cases: their sources arrive as composition delegates rather than receipt
+    // records — the mount fact stream's FocusChanged arm, ScreenRuntime.Disposed, the native
+    // load-identity probe, and the livedata change-audit CollectUpdateStats fold — so the canonical
+    // producer is a named factory the composition binds onto those delegates, and a sibling-local
+    // envelope construction is the deleted form.
+    public static EvidenceReceipt Focus(string target, bool focused) =>
+        new EvidenceReceipt.Focus(target, focused);
+
+    public static EvidenceReceipt Disposal(string screenId, Duration active, int disposables) =>
+        new EvidenceReceipt.Disposal(screenId, active, disposables);
+
+    public static EvidenceReceipt NativeAsset(NativeAssetFact fact) =>
+        new EvidenceReceipt.NativeAssetIdentity(fact);
+
+    public static EvidenceReceipt LiveData(string slot, int adds, int updates, int removes, int refreshes) =>
+        new EvidenceReceipt.LiveData(slot, adds, updates, removes, refreshes);
+
+    extension(SurfaceReceipt receipt) {
+        public EvidenceReceipt ToEvidence() => new EvidenceReceipt.Surface(
+            receipt.Host.Key, receipt.Descriptor, receipt.Handle.Match<string?>(
+                Some: static value => value.ToString(System.Globalization.CultureInfo.InvariantCulture), None: static () => null),
+            receipt.Scale, receipt.At, receipt.Correlation);
+    }
+
     extension(RenderReceipt receipt) {
         public EvidenceReceipt ToEvidence() => new EvidenceReceipt.Render(
-            receipt.Kind, receipt.Format, receipt.FrameHash, receipt.Bytes, receipt.Elapsed,
+            receipt.Kind, receipt.Format, receipt.FrameHash, receipt.Bytes.ToString(System.Globalization.CultureInfo.InvariantCulture), receipt.Elapsed,
             receipt.Destination.Case as string, receipt.ColorSpace);
     }
 
@@ -96,13 +123,14 @@ public static class EvidenceOps {
     }
 
     extension(AssetReceipt receipt) {
+        // AssetReceipt.ContentHash is a required string on the landed Theme/assets owner — no Option hop.
         public EvidenceReceipt ToEvidence() => new EvidenceReceipt.Asset(
-            receipt.Key.ToString(), receipt.Kind.Key, receipt.Origin, receipt.Scale, receipt.ContentHash.Case as string);
+            receipt.Key.ToString(), receipt.Kind.Key, receipt.Origin, receipt.Scale, receipt.ContentHash);
     }
 
     extension(CollabSyncReceipt receipt) {
         public EvidenceReceipt ToEvidence() => new EvidenceReceipt.CollabSync(
-            receipt.Key, receipt.Deltas, receipt.Bytes, receipt.Pending, receipt.Applied);
+            receipt.Key, receipt.Deltas, receipt.Bytes.ToString(System.Globalization.CultureInfo.InvariantCulture), receipt.Pending, receipt.Applied);
     }
 
     extension(CollabRevertReceipt receipt) {
@@ -112,19 +140,21 @@ public static class EvidenceOps {
 
     extension(MediaReceipt receipt) {
         public EvidenceReceipt ToEvidence() => new EvidenceReceipt.Media(
-            receipt.Key, receipt.Codec, receipt.Source, receipt.Mounted);
+            receipt.Key, receipt.Codec, receipt.Source, receipt.Outcome.Switch(
+                ready: static _ => "ready",
+                failed: static fault => $"failed:{fault.Fault.Code}"));
     }
 
     extension(QualityVerdict verdict) {
         public EvidenceReceipt ToEvidence() => new EvidenceReceipt.Quality(
-            verdict.Tier.Key, verdict.PathTraceSamples, verdict.WatermarkFactor, verdict.ReduceMotion, verdict.FoveationLevel, verdict.RefreshHz);
+            verdict.Tier.Key, verdict.PathTraceSamples, verdict.WatermarkFactor, verdict.Motion.Key, verdict.FoveationLevel, verdict.RefreshHz);
     }
 
     extension(GpuTimeline timeline) {
         public EvidenceReceipt ToEvidence() => new EvidenceReceipt.GpuFrame(
-            timeline.FrameOrdinal, timeline.Passes.Count,
+            timeline.FrameOrdinal.ToString(System.Globalization.CultureInfo.InvariantCulture), timeline.Passes.Count,
             timeline.Passes.Filter(static pass => pass.Measured.IsNone).Count,
-            timeline.MeasuredGpu.ToTimeSpan().Ticks * 100L);
+            (timeline.MeasuredGpu.ToTimeSpan().Ticks * 100L).ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 }
 
@@ -152,9 +182,9 @@ public partial class AppUiWireContext : JsonSerializerContext;
 
 ## [03]-[CORRELATION_JOIN]
 
-- Owner: `SkewBand` — the HLC uncertainty band; `EvidenceRow` — the ordered timeline row; `EvidenceTimeline` — the causal projection; `EvidenceJoin` — the cross-package fold; `EvidenceReport` — the timeline-to-report-block projection the document plane paginates.
+- Owner: `SkewBand` — the HLC uncertainty band; `EvidenceRow` — the ordered row carrying its overlap-component identity; `EvidenceTimeline` — the deterministic uncertainty projection; `EvidenceJoin` — the cross-package fold; `EvidenceReport` — the timeline-to-report-block projection the document plane paginates.
 - Entry: `public static Seq<EvidenceTimeline> Correlate(Seq<ReceiptEnvelope> envelopes, Option<string> package = default)` — pure fold; the package filter value is the model-result provenance projection over the Compute stream; `public static Seq<ReportBlock> Blocks(EvidenceTimeline timeline)` — projects a timeline into `Document/export.md#FLOW_REPORT` `ReportBlock` rows, so the diagnostics report-PDF is `FlowReport.Render` over this projection and a diagnostics-local PDF writer is the deleted form.
-- Auto: rows order by the HLC pair physical-then-logical with the package name as the deterministic tiebreaker, and every row derives its band from the envelope `SkewBound`, so the timeline surfaces clock-skew uncertainty with zero configuration; the report projection folds each timeline into one heading plus one row table — ordinal, package, kind, physical instant, skew band — so an incident report paginates through the one export owner.
+- Auto: rows order by the HLC pair physical-then-logical with the package name as the deterministic tiebreaker; every row derives the symmetric interval `Physical ± SkewBound`, and the fold assigns transitively overlapping intervals to one `UncertaintyGroup`, so presentation never invents a causal order inside an overlap component; the report projection includes that group identity beside the ordinal, package, kind, physical instant, and skew band.
 - Receipt: `EvidenceTimeline` serializes through the package wire context for dashboard export.
 - Packages: LanguageExt.Core, NodaTime, BCL inbox
 - Growth: one provenance-filter row absorbs a new per-package view; one report column is one projection row; zero new surface.
@@ -163,13 +193,13 @@ public partial class AppUiWireContext : JsonSerializerContext;
 ```csharp signature
 public readonly record struct SkewBand(Instant Earliest, Instant Latest) {
     public static SkewBand Of(ReceiptEnvelope envelope) =>
-        new(envelope.Physical - envelope.SkewBound, envelope.Physical);
+        new(envelope.Physical - envelope.SkewBound, envelope.Physical + envelope.SkewBound);
 
     public bool Overlaps(SkewBand other) =>
         Earliest <= other.Latest && other.Earliest <= Latest;
 }
 
-public sealed record EvidenceRow(int Ordinal, ReceiptEnvelope Envelope, SkewBand Band);
+public sealed record EvidenceRow(int Ordinal, int UncertaintyGroup, ReceiptEnvelope Envelope, SkewBand Band);
 
 public sealed record EvidenceTimeline(CorrelationId Correlation, Seq<EvidenceRow> Rows);
 
@@ -183,9 +213,18 @@ public static class EvidenceJoin {
             .ToSeq();
 
     static Seq<EvidenceRow> Ordered(IEnumerable<ReceiptEnvelope> grouped) =>
-        toSeq(grouped
-            .OrderBy(static envelope => (envelope.Physical, envelope.Logical, envelope.Package))
-            .Select(static (envelope, ordinal) => new EvidenceRow(ordinal, envelope, SkewBand.Of(envelope))));
+        toSeq(grouped.OrderBy(static envelope => (envelope.Physical, envelope.Logical, envelope.Package)))
+            .Fold((Rows: Seq<EvidenceRow>(), Region: Option<SkewBand>.None, Group: -1), (state, envelope) => {
+                SkewBand band = SkewBand.Of(envelope);
+                bool overlaps = state.Region.Exists(region => region.Overlaps(band));
+                int group = overlaps ? state.Group : state.Group + 1;
+                SkewBand region = overlaps
+                    ? state.Region.Map(current => new SkewBand(
+                        current.Earliest <= band.Earliest ? current.Earliest : band.Earliest,
+                        current.Latest >= band.Latest ? current.Latest : band.Latest)).IfNone(band)
+                    : band;
+                return (state.Rows.Add(new EvidenceRow(state.Rows.Count, group, envelope, band)), Some(region), group);
+            }).Rows;
 }
 
 public static class EvidenceReport {
@@ -194,9 +233,9 @@ public static class EvidenceReport {
     public static Seq<ReportBlock> Blocks(EvidenceTimeline timeline) =>
         new ReportBlock.Heading(2, $"correlation {timeline.Correlation}")
             .Cons(Seq<ReportBlock>(new ReportBlock.Table(
-                Seq(Seq("ordinal", "package", "kind", "physical", "band"))
+                Seq(Seq("ordinal", "uncertainty-group", "package", "kind", "physical", "band"))
                     + timeline.Rows.Map(static row => Seq(
-                        row.Ordinal.ToString(), row.Envelope.Package, row.Envelope.Kind,
+                        row.Ordinal.ToString(), row.UncertaintyGroup.ToString(), row.Envelope.Package, row.Envelope.Kind,
                         row.Envelope.Physical.ToString(), $"{row.Band.Earliest}..{row.Band.Latest}")),
                 Header: true)));
 }
@@ -266,6 +305,8 @@ public sealed partial class AppUiFaultBand {
     public static readonly AppUiFaultBand Motion       = new(6630, 10, "MotionFault",      "Theme/motion",          mirror: false);
     // --- [DIAGNOSTICS_67XX]
     public static readonly AppUiFaultBand Proof        = new(6700, 10, "ProofFault",       "Diagnostics/proof",     mirror: false);
+    public static readonly AppUiFaultBand DevLoop      = new(6710, 10, "DevLoopFault",     "Diagnostics/devloop",   mirror: false);
+    public static readonly AppUiFaultBand Governor     = new(6720, 10, "GovernorFault",    "Diagnostics/governor",  mirror: false);
     // --- [FOREIGN_MIRRORS] — disjoint pinned neighborhoods from the live sibling registries; reverse-index rows, no derivation.
     public static readonly AppUiFaultBand AppHostCore     = new(1000, 400, "AppHost core",              "Rasm.AppHost/Runtime/lifecycle", mirror: true);
     public static readonly AppUiFaultBand AecCompute      = new(2200, 600, "AEC + Compute + kernel",    "Rasm.AppHost registry pins",     mirror: true);
@@ -300,37 +341,29 @@ public sealed partial class AppUiFaultBand {
 
 ## [05]-[TS_PROJECTION]
 
-- Owner: `EvidenceReceiptWire`, `SurfaceReceiptWire`, `NativeAssetFactWire`, `SkewBandWire`, `EvidenceRowWire`, `EvidenceTimelineWire` — the evidence wire contract; the command case composes the settled command receipt wire shape.
+- Owner: `EvidenceReceiptWire`, `NativeAssetFactWire`, `SkewBandWire`, `EvidenceRowWire`, `EvidenceTimelineWire` — the evidence wire contract; the command case composes the settled command receipt wire shape.
 - Packages: BCL inbox
 - Growth: one wire member row per new case field and one kind literal per new evidence case; zero new surface.
-- Boundary: shapes transcribe the camelCase Strict emission — kind literals discriminate the union, the surface host crosses as its locked case key, instants cross as ISO-8601 text and durations as round-trip text, the optional destination and the optional surface handle cross as null (`SurfaceReceipt.Handle` is `Option<long>` — the headless host carries none), and the receipt binds as the payload type parameter on the suite envelope wire record; skew bands cross as instant pairs so the dashboard renders uncertainty regions without recomputing the HLC fold; timeline rows carry the envelope whole, so the dashboard decodes each payload against its owning package contract.
+- Boundary: shapes transcribe the camelCase strict emission — kind literals discriminate the union, instants and durations cross as text, and every 64-bit counter or handle crosses as invariant decimal text so JavaScript never rounds evidence identity or byte counts; skew bands cross as instant pairs and timeline rows carry `UncertaintyGroup`, so the dashboard renders server-owned overlap components without recomputing the HLC fold.
 
 ```ts signature
 type EvidenceReceiptWire =
-  | { readonly kind: "surface"; readonly receipt: SurfaceReceiptWire }
+  | { readonly kind: "surface"; readonly host: string; readonly descriptor: string; readonly handle: string | null; readonly scale: number; readonly at: string; readonly correlation: string }
   | { readonly kind: "focus"; readonly target: string; readonly focused: boolean }
-  | { readonly kind: "render"; readonly slot: string; readonly format: string; readonly frameHash: string; readonly bytes: number; readonly elapsed: string; readonly destination: string | null; readonly colorSpace: string }
+  | { readonly kind: "render"; readonly slot: string; readonly format: string; readonly frameHash: string; readonly bytes: string; readonly elapsed: string; readonly destination: string | null; readonly colorSpace: string }
   | { readonly kind: "disposal"; readonly screenId: string; readonly active: string; readonly disposables: number }
   | { readonly kind: "edit"; readonly slot: string; readonly surface: string; readonly target: string; readonly editor: string; readonly outcome: string }
   | { readonly kind: "command"; readonly receipt: CommandReceiptWire }
   | { readonly kind: "native-asset"; readonly fact: NativeAssetFactWire }
   | { readonly kind: "theme"; readonly variant: string; readonly density: string; readonly trigger: string; readonly changedKeys: number }
   | { readonly kind: "motion"; readonly token: string; readonly resolved: string; readonly reduced: boolean }
-  | { readonly kind: "asset"; readonly key: string; readonly assetKind: string; readonly origin: string; readonly scale: number; readonly contentHash: string | null }
-  | { readonly kind: "collab-sync"; readonly docKey: string; readonly deltas: number; readonly bytes: number; readonly pending: number; readonly applied: boolean }
+  | { readonly kind: "asset"; readonly key: string; readonly assetKind: string; readonly origin: string; readonly scale: number; readonly contentHash: string }
+  | { readonly kind: "live-data"; readonly slot: string; readonly adds: number; readonly updates: number; readonly removes: number; readonly refreshes: number }
+  | { readonly kind: "collab-sync"; readonly docKey: string; readonly deltas: number; readonly bytes: string; readonly pending: number; readonly applied: boolean }
   | { readonly kind: "collab-revert"; readonly docKey: string; readonly frontierDigest: string; readonly inverseOps: number }
-  | { readonly kind: "media"; readonly key: string; readonly codec: string; readonly source: string; readonly mounted: boolean }
-  | { readonly kind: "quality"; readonly tier: string; readonly pathTraceSamples: number; readonly watermarkFactor: number; readonly reduceMotion: boolean; readonly foveationLevel: number; readonly refreshHz: number }
-  | { readonly kind: "gpu-frame"; readonly frameOrdinal: number; readonly passes: number; readonly unmeasured: number; readonly measuredNanoseconds: number };
-
-interface SurfaceReceiptWire {
-  readonly host: string;
-  readonly descriptor: string;
-  readonly handle: number | null;
-  readonly scale: number;
-  readonly at: string;
-  readonly correlation: string;
-}
+  | { readonly kind: "media"; readonly key: string; readonly codec: string; readonly source: string; readonly outcome: string }
+  | { readonly kind: "quality"; readonly tier: string; readonly pathTraceSamples: number; readonly watermarkFactor: number; readonly motion: string; readonly foveationLevel: number; readonly refreshHz: number }
+  | { readonly kind: "gpu-frame"; readonly frameOrdinal: string; readonly passes: number; readonly unmeasured: number; readonly measuredNanoseconds: string };
 
 interface NativeAssetFactWire {
   readonly library: string;
@@ -346,6 +379,7 @@ interface SkewBandWire {
 
 interface EvidenceRowWire {
   readonly ordinal: number;
+  readonly uncertaintyGroup: number;
   readonly envelope: ReceiptEnvelopeWire<unknown>;
   readonly band: SkewBandWire;
 }

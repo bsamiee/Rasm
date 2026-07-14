@@ -74,7 +74,14 @@ public sealed partial class PluralCategory {
     public static readonly PluralCategory Other = new("other");
 }
 
-public readonly record struct MessagePattern(string Source, PluralRoute Route, Seq<(PluralCategory Category, string Seed)> Seeds);
+public readonly record struct MessagePattern(string Source, PluralRoute Route, Seq<(PluralCategory Category, string Seed)> Seeds) {
+    // The route participates in admission: the stored ICU pattern must carry the requested route's
+    // keyword, so a cardinal request cannot silently format an ordinal grammar and vice versa.
+    public Fin<MessagePattern> Admitted(string key) =>
+        Source.Contains(Route.Keyword, StringComparison.Ordinal)
+            ? Fin.Succ(this)
+            : Fin.Fail<MessagePattern>(new LocaleFault.FormatRejected($"{key}: pattern lacks the {Route.Key} '{Route.Keyword}' route"));
+}
 
 public static class LocaleStrings {
     public const string BaseName = "Rasm.AppUi.Strings";
@@ -83,7 +90,7 @@ public static class LocaleStrings {
 
     public static string Key(string owner, string member) => $"{owner}.{member}";
 
-    public static string Find(string key, CultureInfo strings) => Table.GetString(key, strings) ?? key;
+    public static string Find(string key, CultureInfo strings) => Table.GetString(key, strings) ?? $"[missing:{key}]";
 
     public static string Expand(string key, CultureInfo strings) => $"[!! {Find(key, strings)} !!]";
 
@@ -127,17 +134,18 @@ public sealed record ResolvedLocale(
     public const string DateText = "D";
     public const string ElapsedText = "H:mm:ss";
 
-    public static Fin<ResolvedLocale> Resolve(LocaleRow row, DateTimeZone zone, Option<string> formatTag = default) =>
+    public static Fin<ResolvedLocale> Resolve(LocaleRow row, DateTimeZone zone, Option<string> formatTag) =>
         Try.lift(() => Compose(row, zone, CultureInfo.GetCultureInfo(formatTag.IfNone(row.FormatTag)))).Run()
             .MapFail(error => new LocaleFault.FormatRejected(error.Message));
 
     public string Label(string key) => Row.Source(key, Strings);
 
     public Fin<string> Plural(string key, long count, PluralRoute route) =>
-        Format(Row.PluralResx(key, route, Strings).Source, ("count", count));
+        Row.PluralResx(key, route, Strings).Admitted(key)
+            .Bind(pattern => Format(() => pattern.Source, ("count", count)));
 
     public Fin<string> Message(string key, params (string Name, object? Value)[] args) =>
-        Format(Row.Source(key, Strings), args);
+        Format(() => Row.Source(key, Strings), args);
 
     public string Stamp(Instant value) => Timestamp.Format(value.InZone(Zone));
 
@@ -151,9 +159,9 @@ public sealed record ResolvedLocale(
 
     public string Quantity(IFormattable value) => value.ToString(null, Formats);
 
-    private Fin<string> Format(string pattern, params (string Name, object? Value)[] args) =>
+    private Fin<string> Format(Func<string> pattern, params (string Name, object? Value)[] args) =>
         Try.lift(() => Formatter.FormatMessage(
-            pattern,
+            pattern(),
             args.Fold(new Dictionary<string, object?>(StringComparer.Ordinal), static (map, arg) => { map[arg.Name] = arg.Value; return map; }),
             Formats)).Run().MapFail(error => new LocaleFault.FormatRejected(error.Message));
 
@@ -207,9 +215,20 @@ public abstract partial record LocaleFault : Expected {
         : LocaleFault($"locale/format: {Detail}", AppUiFaultBand.Locale.Code(3));
     public sealed record PropagationRejected(string Detail)
         : LocaleFault($"locale/propagate: {Detail}", AppUiFaultBand.Locale.Code(4));
+    public sealed record CaptionRejected(string Detail)
+        : LocaleFault($"locale/caption: {Detail}", AppUiFaultBand.Locale.Code(5));
 }
 
-public sealed record LocaleRuntime(Atom<ResolvedLocale> Cell, IDateTimeZoneProvider Zones, Func<ResolvedLocale, Fin<Unit>> Propagate) {
+public sealed class LocaleRuntime(
+    Atom<ResolvedLocale> cell,
+    IDateTimeZoneProvider zones,
+    Func<ResolvedLocale, Fin<Unit>> propagate) {
+    public Atom<ResolvedLocale> Cell { get; } = cell;
+
+    public IDateTimeZoneProvider Zones { get; } = zones;
+
+    public Func<ResolvedLocale, Fin<Unit>> Propagate { get; } = propagate;
+
     public static Fin<LocaleRuntime> Boot(LocalePolicy policy, IDateTimeZoneProvider zones, Func<ResolvedLocale, Fin<Unit>> propagate) =>
         from resolved in Compose(policy, zones)
         from _ in propagate(resolved)
@@ -301,10 +320,10 @@ flowchart LR
 ## [05]-[RTL_MIRRORING]
 
 - Owner: `MirrorPolicy` directional-row policy record; `ShapedAnnotation` the complex-script 3D-annotation shaping projection; `CaptionSource` · `LiveCaption` the live-caption-and-translation owner.
-- Entry: `public bool Mirrors(AssetKey iconKey, LocaleRow row)` uses the asset vocabulary; `ShapedAnnotation` carries the locale's complete `RunSpec`; `public IObservable<CaptionSegment> Stream()` returns VAD-gated, timestamped, language- and confidence-bearing caption evidence.
+- Entry: `public bool Mirrors(AssetKey iconKey, LocaleRow row)` uses the asset vocabulary; `ShapedAnnotation` carries the locale's complete `RunSpec`; `public IObservable<Fin<CaptionSegment>> Stream()` returns exhaustive VAD-segmented, globally timestamped, language- and confidence-bearing caption evidence on the locale fault rail.
 - Packages: Avalonia, System.Reactive, Whisper.net, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a direction-sensitive glyph is one key row on `Directional`; a new caption source is one `CaptionSource` case; zero new surface.
-- Boundary: the surface root inherits the row's typed `FlowDirection`, and only `AssetKey` values in `MirrorPolicy.Directional` rejoin that flow. `ShapedAnnotation` passes the row's `RunSpec` and feature values to typography. `CaptionEngine.Load` traps model admission, `DetectSpeechNoResetAsync` preserves cross-window VAD state, silence never enters transcription, and one processor lives for one observable subscription. `CaptionSegment` retains start, end, detected language, probability, no-speech probability, and token count; the translated source derives its target as `LocaleRow.En`; and dwell cadence composes `MotionToken.Gate(MotionPacing.Pulse, ..., IScheduler)` instead of a seconds literal.
+- Boundary: the surface root inherits the row's typed `FlowDirection`, and only `AssetKey` values in `MirrorPolicy.Directional` rejoin that flow. `ShapedAnnotation` passes the row's `RunSpec` and its `TypographyRole` to typography, so annotation feature tags stay role-owned and one reconciled feature sequence reaches shaping. `CaptionEngine.Load` traps model admission and retains both model factories; each subscription admits one `CaptionSession` on `Fin` with one recognizer and one stateful VAD processor, so concurrent subscribers share immutable model handles but never mutable recognition state. `DetectSpeechNoResetAsync` preserves cross-window VAD state, each speech span slices the loss-bearing PCM window before transcription, and `CaptionSegment` retains stream-global start and end, detected language, probability, no-speech probability, token count, and the resolved dwell duration. `Stream` lifts session-construction failure and terminal Rx failure into `LocaleFault.CaptionRejected`, so `OnError` never becomes a second fault rail. The translated source derives its target as `LocaleRow.En`; `MotionPacing.Serial` delays and concatenates every derived caption while `ObserveOn` marshals that lossless stream, so no pacing operator discards audio ingress.
 
 ```csharp signature
 public sealed record MirrorPolicy(Seq<AssetKey> Directional) {
@@ -314,11 +333,13 @@ public sealed record MirrorPolicy(Seq<AssetKey> Directional) {
         row.Flow == FlowDirection.RightToLeft && Directional.Contains(iconKey);
 }
 
-public readonly record struct ShapedAnnotation(string Text, RunSpec Spec, Seq<string> Features) {
+public readonly record struct ShapedAnnotation(string Text, RunSpec Spec, TypographyRole Role) {
     public static ShapedAnnotation For(string key, ResolvedLocale locale) => Of(locale.Label(key), locale.Row);
 
-    public static ShapedAnnotation Of(string text, LocaleRow row) =>
-        new(text, row.Shaping, row.Flow == FlowDirection.RightToLeft ? Seq("calt", "liga", "rlig") : Seq("calt", "liga"));
+    // Feature tags stay role-owned: shaping traverses Role.Features through the composition-bound
+    // admission, and HarfBuzz applies script-required forms (rlig) from the RunSpec script itself, so a
+    // locale-local feature vocabulary never forks the typography policy axis.
+    public static ShapedAnnotation Of(string text, LocaleRow row) => new(text, row.Shaping, TypographyRole.Caption);
 }
 
 // LiveCaption realizes on Whisper.net — one owner for streaming transcription, Silero VAD segmentation,
@@ -331,26 +352,43 @@ public abstract partial record CaptionSource {
     public sealed record Translated(IObservable<ReadOnlyMemory<float>> Pcm16k) : CaptionSource; // WithTranslate: English target
 }
 
-public sealed record CaptionEngine(WhisperFactory Factory, WhisperVadProcessor Vad) : IDisposable {
+public sealed class CaptionEngine(WhisperFactory factory, WhisperVadFactory vadFactory) : IDisposable {
+    public WhisperFactory Factory { get; } = factory;
+
+    public WhisperVadFactory VadFactory { get; } = vadFactory;
+
     public static Fin<CaptionEngine> Load(string modelPath, string vadModelPath) =>
         File.Exists(modelPath) && File.Exists(vadModelPath)
-            ? Try.lift(() => new CaptionEngine(
-                    WhisperFactory.FromPath(modelPath),
-                    WhisperVadFactory.FromPath(vadModelPath).CreateBuilder().Build()))
+            ? Try.lift(() => WhisperVadFactory.FromPath(vadModelPath) switch {
+                    var vadFactory => new CaptionEngine(
+                        WhisperFactory.FromPath(modelPath),
+                        vadFactory),
+                })
                 .Run().MapFail(error => new LocaleFault.CaptionModelAbsent(error.Message))
             : Fin.Fail<CaptionEngine>(new LocaleFault.CaptionModelAbsent(File.Exists(modelPath) ? vadModelPath : modelPath));
 
     // Model weights arrive offline through WhisperGgmlDownloader.Default.GetGgmlModelAsync /
     // GetGgmlSileroVadModelAsync at provisioning, never at caption time.
-    public WhisperProcessor Processor(CaptionSource source) =>
-        source.Switch(
-            state: Factory,
-            live: static (factory, l) => l.Language.Match(
-                Some: language => factory.CreateBuilder().WithLanguage(language).Build(),
-                None: () => factory.CreateBuilder().WithLanguageDetection().Build()),
-            translated: static (factory, _) => factory.CreateBuilder().WithLanguageDetection().WithTranslate().Build());
+    public Fin<CaptionSession> Session(CaptionSource source) =>
+        Try.lift(() => new CaptionSession(
+            source.Switch(
+                state: Factory,
+                live: static (factory, l) => l.Language.Match(
+                    Some: language => factory.CreateBuilder().WithLanguage(language).Build(),
+                    None: () => factory.CreateBuilder().WithLanguageDetection().Build()),
+                translated: static (factory, _) => factory.CreateBuilder().WithLanguageDetection().WithTranslate().Build()),
+            VadFactory.CreateBuilder().Build()))
+            .Run().MapFail(error => new LocaleFault.CaptionRejected(error.Message));
 
-    public void Dispose() { Vad.Dispose(); Factory.Dispose(); }
+    public void Dispose() { VadFactory.Dispose(); Factory.Dispose(); }
+}
+
+public sealed class CaptionSession(WhisperProcessor processor, WhisperVadProcessor vad) : IDisposable {
+    public WhisperProcessor Processor { get; } = processor;
+
+    public WhisperVadProcessor Vad { get; } = vad;
+
+    public void Dispose() { Vad.Dispose(); Processor.Dispose(); }
 }
 
 public readonly record struct CaptionSegment(
@@ -360,35 +398,78 @@ public readonly record struct CaptionSegment(
     string Language,
     float Probability,
     float NoSpeechProbability,
-    int TokenCount);
+    int TokenCount,
+    Duration Dwell);
 
-public sealed record LiveCaption(CaptionEngine Engine, CaptionSource Source, MotionToken Dwell, IScheduler Scheduler) {
-    // ONE WhisperProcessor per caption session — Observable.Using ties its lifetime to the subscription so
-    // Recognition context persists across windows and disposes with the subscription; Concat serializes
-    // DetectSpeechNoResetAsync and ProcessAsync so the processor and stateful VAD never overlap windows.
-    public IObservable<CaptionSegment> Stream() =>
-        Observable.Using(
-            () => Engine.Processor(Source),
-            processor => Dwell.Gate(new MotionPacing.Pulse(), Pcm(Source)
-                .Select(window => Observable.FromAsync(async ct => {
-                    IReadOnlyList<VadSegmentData> speech = await Engine.Vad.DetectSpeechNoResetAsync(window, ct).ConfigureAwait(false);
-                    if (speech.Count == 0) { return Seq<CaptionSegment>(); }
-                    Seq<CaptionSegment> segments = [];
-                    await foreach (SegmentData segment in processor.ProcessAsync(window, ct)) {
-                        segments = segments.Add(new CaptionSegment(
-                            ShapedAnnotation.Of(segment.Text, Target(Source)),
-                            segment.Start,
-                            segment.End,
-                            segment.Language,
-                            segment.Probability,
-                            segment.NoSpeechProbability,
-                            segment.Tokens.Length));
-                    }
-                    return segments;
-                }))
+public readonly record struct CaptionWindow(ReadOnlyMemory<float> Samples, TimeSpan Offset);
+
+public sealed class LiveCaption(CaptionEngine engine, CaptionSource source, MotionToken dwell, IScheduler scheduler) {
+    public CaptionEngine Engine { get; } = engine;
+
+    public CaptionSource Source { get; } = source;
+
+    public MotionToken Dwell { get; } = dwell;
+
+    public IScheduler Scheduler { get; } = scheduler;
+
+    // One processor retains recognition context for the subscription, and Concat serializes the processor
+    // with the stateful VAD while every source window remains present in stream order.
+    public IObservable<Fin<CaptionSegment>> Stream() =>
+        Observable.Defer(() => Engine.Session(Source).Match(
+            Succ: session => Observable.Using(
+                () => session,
+                Pipeline)
+                .Select(static segment => Fin.Succ(segment))
+                .Catch<Fin<CaptionSegment>, Exception>(error => Observable.Return(
+                    Fin.Fail<CaptionSegment>(new LocaleFault.CaptionRejected(error.Message)))),
+            Fail: error => Observable.Return(Fin.Fail<CaptionSegment>(error))));
+
+    private IObservable<CaptionSegment> Pipeline(CaptionSession session) =>
+        Dwell.Gate(
+            MotionPacing.Serial,
+            Pcm(Source).Scan(
+                (NextOffset: 0L, Window: new CaptionWindow(ReadOnlyMemory<float>.Empty, TimeSpan.Zero)),
+                static (state, samples) => (
+                    NextOffset: state.NextOffset + samples.Length,
+                    Window: new CaptionWindow(samples, TimeSpan.FromSeconds(state.NextOffset / 16_000d))))
+                .Select(state => Observable.FromAsync(async ct =>
+                    Speech(state.Window, await session.Vad.DetectSpeechNoResetAsync(state.Window.Samples, ct).ConfigureAwait(false))))
                 .Concat()
-                .SelectMany(static segments => segments)
-                .Where(static segment => !string.IsNullOrWhiteSpace(segment.Annotation.Text)), Scheduler));
+                .SelectMany(static windows => windows)
+                .Select(window => Observable.FromAsync(ct => Transcribe(session.Processor, window, Target(Source), Dwell.Duration, ct)))
+                .Concat()
+                .SelectMany(static segments => segments),
+            Scheduler)
+            .Where(static segment => !string.IsNullOrWhiteSpace(segment.Annotation.Text))
+            .ObserveOn(Scheduler);
+
+    static Seq<CaptionWindow> Speech(CaptionWindow window, IReadOnlyList<VadSegmentData> speech) =>
+        toSeq(speech).Choose(span =>
+            (Start: Math.Clamp((int)Math.Floor(span.Start.TotalSeconds * 16_000d), 0, window.Samples.Length),
+             End: Math.Clamp((int)Math.Ceiling(span.End.TotalSeconds * 16_000d), 0, window.Samples.Length)) switch {
+                var bounds when bounds.End > bounds.Start => Some(new CaptionWindow(
+                    window.Samples.Slice(bounds.Start, bounds.End - bounds.Start),
+                    window.Offset + span.Start)),
+                _ => None,
+            });
+
+    static async Task<Seq<CaptionSegment>> Transcribe(
+        WhisperProcessor processor,
+        CaptionWindow window,
+        LocaleRow target,
+        Duration dwell,
+        CancellationToken cancellationToken) =>
+        toSeq(await processor.ProcessAsync(window.Samples, cancellationToken)
+            .Select(segment => new CaptionSegment(
+                ShapedAnnotation.Of(segment.Text, target),
+                window.Offset + segment.Start,
+                window.Offset + segment.End,
+                segment.Language,
+                segment.Probability,
+                segment.NoSpeechProbability,
+                segment.Tokens.Length,
+                dwell))
+            .ToArrayAsync(cancellationToken));
 
     static IObservable<ReadOnlyMemory<float>> Pcm(CaptionSource source) =>
         source.Switch(live: static l => l.Pcm16k, translated: static t => t.Pcm16k);

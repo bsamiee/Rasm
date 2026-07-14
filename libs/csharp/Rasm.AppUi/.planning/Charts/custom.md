@@ -1,6 +1,6 @@
 # [APPUI_CUSTOM_VISUALS]
 
-Custom visuals are the package's Skia layout-algebra rail for every diagram and deck.gl-class geo layer LiveCharts structurally cannot supply: `CustomVisual` is the fourteen-row frozen layout catalog (sankey, treemap, waterfall, funnel, parallel-coordinates, radar, network, gantt, sunburst, hexbin, geo-arc, trip, extrusion, terrain) whose every row binds one `VisualPayload` case — the closed payload union where each case carries exactly the axes its kinds consume — and carries a pure layout fold to an `SKPath` plus a pure label fold as its delegate columns, materialized with token-resolved color-managed paint through the one offscreen draw capsule, emitted as an SVG vector twin on demand, and sealed as a per-cell render-hash twin; `ColorSpaceAxis` is the chart-side KEYED PROJECTION of the capture-owned `VisualCodec.ColorPolicy` rows — the one suite gamut/transfer vocabulary lives on `Render/capture.md#ENCODE_IDENTITY`, this axis derives and never diverges. The page owns the custom-visual union, its payload vocabulary, its layout-fold and render-twin algebra, the synthesized live-region peer binding, and the four-row keyed projection the encode identity tags. The package spine is SkiaSharp path geometry behind the `DrawSource.Owned` capsule and the `VisualCodec` encode path; paints, label fonts, automation peers, and capture lanes arrive as settled vocabulary and are never re-minted here.
+Custom visuals are the package's Skia layout-algebra rail for every diagram and deck.gl-class geo layer LiveCharts structurally cannot supply: `CustomVisual` is the fourteen-row frozen layout catalog (sankey, treemap, waterfall, funnel, parallel-coordinates, radar, network, gantt, sunburst, hexbin, geo-arc, trip, extrusion, terrain) whose every row binds one `VisualPayload` case — the closed payload union where each case carries exactly the axes its kinds consume — and carries a pure layout fold to an `SKPath` plus a pure label fold as its delegate columns, materialized with token-resolved color-managed paint through the one offscreen draw capsule, emitted as an SVG vector twin on demand, and sealed as a per-cell render-hash twin; `ColorSpaceAxis` is the chart-side KEYED PROJECTION of the capture-owned `VisualCodec.ColorPolicy` rows, so the axis derives from the suite gamut/transfer vocabulary and never diverges. The page owns the custom-visual union, its payload vocabulary, its layout-fold and render-twin algebra, the synthesized live-region peer binding, and the four-row keyed projection the encode identity tags. The package spine is SkiaSharp path geometry behind the `DrawSource.Owned` capsule and the `VisualCodec` encode path; paints, label fonts, automation peers, and capture lanes arrive as settled vocabulary and are never re-minted here.
 
 ## [01]-[INDEX]
 
@@ -10,18 +10,18 @@ Custom visuals are the package's Skia layout-algebra rail for every diagram and 
 ## [02]-[SKIA_KINDS]
 
 - Owner: `CustomVisual` `[SmartEnum<string>]` — the frozen layout-row catalog whose `Layout` and `Labels` folds are `[UseDelegateFromConstructor]` columns · `VisualPayload` `[Union]` — the closed payload vocabulary · `CustomVisualData` — the envelope · `CustomVisualStyle` — the token-resolved paint-and-label policy · `GeoProjection` — the lon-lat projection rows · `CustomVisuals` — the fold table
-- Cases: Sankey · Treemap · Waterfall · Funnel · ParallelCoordinates · Radar · Network · Gantt · Sunburst · Hexbin · GeoArc · Trip · Extrusion · Terrain — the four flow-diagram kinds plus the five analytical-chart kinds and the five deck.gl-class geo-layer kinds; `VisualPayload` = Flow (sankey) · Weighted (treemap, funnel) · Step (waterfall) · Axes (parallel-coordinates, radar) · Network (network) · Span (gantt) · Wedge (sunburst) · GeoPoint (hexbin, extrusion, terrain) · GeoArcs (geo-arc) · GeoTrips (trip) — each case carries exactly the axes its kinds consume, so an unrelated mandatory sequence is unrepresentable and the kind vocabulary stays the sole owner of payload discrimination; every kind shares one generative structure — a wire key, a payload case, a layout fold, a label fold — so the family is row DATA under `DERIVED_LOGIC`, never fourteen enumerated case records re-spelling one payload
+- Cases: Sankey · Treemap · Waterfall · Funnel · ParallelCoordinates · Radar · Network · Gantt · Sunburst · Hexbin · GeoArc · Trip · Extrusion · Terrain — the four flow-diagram kinds plus the five analytical-chart kinds and the five deck.gl-class geo-layer kinds; `VisualPayload` = Flow (sankey) · Weighted (treemap, funnel) · Step (waterfall) · Axes (parallel-coordinates, radar) · Network (network) · Span (gantt) · Wedge (sunburst) · GeoPoint (hexbin, extrusion) · GeoArcs (geo-arc) · GeoTrips (trip) · Terrain (terrain) — each case carries exactly the axes its kinds consume, so terrain grid topology never hides in an ordered point roster and an unrelated mandatory sequence is unrepresentable; every kind shares one generative structure — a wire key, a payload case, a layout fold, a label fold — so the family is row DATA under `DERIVED_LOGIC`, never fourteen enumerated case records re-spelling one payload
 - Entry: `public IO<Fin<RenderReceipt>> Materialize(VisualRuntime runtime, CustomVisualData data, SKImageInfo info, ColorSpaceAxis space)` — the deferred encode rail retains layout and surface-allocation failures until the composition edge; `public Fin<string> VectorTwin(CustomVisualData data, SKImageInfo info)` — the same fold emitted as SVG path data for the drafting and export codecs; `public static TelemetryContributorPort TelemetryRow(string version)` — the one contribution surface for the rendered and layout-elapsed instruments
-- Auto: each case carries one pure `Func<VisualPayload, SKImageInfo, Fin<SKPath>>` layout fold and one pure `Func<VisualPayload, SKImageInfo, Seq<(string Text, SKPoint At)>>` label fold resolved at declaration, each narrowing its own payload case through `CustomVisuals.Expect` and rejecting a foreign case as the typed `ChartFault.PayloadMismatch` — the sankey fold cubic-bridges weighted ribbons, the treemap fold squarified-rect packs the node weights through the Bruls worst-aspect-ratio row algebra that grows a row while the worst rect aspect ratio improves and flips the layout-row orientation on the shorter box side toward unit aspect, the waterfall fold bridges signed delta columns, the funnel fold trapezoids the descending stage widths, the parallel-coordinates fold polylines each series across min-max-normalized vertical axes, the radar fold closes each series over normalized polar spokes, the network fold draws edges then vertex nodes from the pre-laid vertex positions, the gantt fold rounds-rects each span on its track over the shared time scale, the sunburst fold arcs each wedge inside its PARENT's angular span — child sweep is the value share of the parent total swept from the parent's start, so nesting is structural, never a flat root-share ring — the hexbin fold pointy-top-hexagons the spatial bins the `Bin` fold aggregates, the geo-arc fold quad-bezier great-circle-approximates each arc, the trip fold polylines each path in `At`-ascending order and stamps the moving-head marker through `SKPathMeasure.GetPosition` at the path end, the extrusion fold builds a pseudo-3D column per weighted point, and the terrain fold height-shades a square sample grid — the geo payload cases carry their `GeoProjection` row (`Equirect` or `WebMercator`, each a delegate column) so the projection is a policy value, never a hard-coded formula; `Materialize` marks the clock around the layout fold and folds the elapsed onto the layout-elapsed instrument through `runtime.Measure` distinctly from the encode-elapsed, composing the fold through `DrawSource.Owned.Materialize` so the projected `SKPath` rasters onto an owned `SKImage` and never a host lease; the render-twin derives its `CaptureRow` from the same `Key` and the resolved `(ThemeVariantRow, DensityRow)` cell exactly as `ChartSeriesSpec.Baseline` does, so the proof lane captures the same materialized kind through `CaptureRenderedFrame` and the `FrameHash` baseline derives from one row with no parallel fixture.
+- Auto: each case carries one pure `Func<VisualPayload, SKImageInfo, Fin<SKPath>>` layout fold and one pure `Func<VisualPayload, SKImageInfo, Seq<(string Text, SKPoint At)>>` label fold resolved at declaration, each narrowing its own payload case through `CustomVisuals.Expect` and rejecting a foreign case as the typed `ChartFault.PayloadMismatch` — the sankey fold cubic-bridges weighted ribbons, the treemap fold squarified-rect packs node weights, the waterfall fold bridges signed delta columns, the funnel fold trapezoids descending stage widths, the parallel-coordinates and radar folds normalize their axes, the network fold draws admitted edges and vertices, the gantt fold scales admitted spans by track, and the sunburst fold nests each wedge inside its parent span. The hexbin fold aggregates weights into variable-radius cells, the geo-arc fold maps weight onto quadratic lift, the trip fold retains the `At <= Cursor` prefix and maps trajectory weight onto its moving head, the extrusion fold scales admitted columns, and the terrain fold projects an explicit rows-by-columns height grid. Every geo case carries its `GeoProjection` row; `Materialize` admits key, style, raster extent, and gradient arity before allocation, measures layout separately from encode, composes through `DrawSource.Owned.Materialize`, and aborts when the typography label channel fails. The render twin derives its `CaptureRow` from the same `Key` and resolved `(ThemeVariantRow, DensityRow)` cell as the live materialization.
 - Receipt: every materialize lands one `RenderReceipt` of kind custom-visual carrying the blob artifact key as its destination and the `ColorSpaceAxis` row key as its `ColorSpace` tag; `TelemetryRow` contributes the rendered count and the layout-elapsed duration inward through the AppHost `TelemetryContributorPort`, the layout-fold duration measured around `Layout` distinctly from the encode-elapsed the encode receipt carries, so a slow pack folds onto the layout-elapsed instrument and never blurs into encode cost.
 - Packages: SkiaSharp, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a new diagram or geo-layer kind is ONE catalog row referencing its payload case and folds — no `Key`, `Layout`, or `Labels` dispatch arm exists to extend because all derive from the row; a new payload family is one `VisualPayload` case; a fifteenth kind carries its render-hash baseline by construction of the same fold; a new layout input is one field on the owning payload case, never a parallel data record; zero new surface.
 - Boundary:
   - `CustomVisual` mints zero Skia-surface, encode, placement, or peer owner — the layout fold composes through `DrawSource.Owned.Materialize` (the only Skia-surface owner) exactly as `PreviewRow.Render` does, `VisualCodec.Encode` is the only encode path, `DashboardTile.Custom` places a kind in a board, and the `custom-visual` `AnnouncementRow` synthesized row gives each kind its live-region peer through the one `ControlAutomationPeer` synthesized-peer construction.
   - The projected `SKPath` is using-scoped inside the fold and never outlives the materialize so a layout fault leaks no native handle.
-  - `CustomVisualStyle` is the one paint policy: the fill enters through `SKPaint.SetColor(SKColorF, SKColorSpace)` against the axis working space — the byte `SKColor` path that quantizes before conversion is the deleted form — the optional ramp assigns `SKShader.CreateLinearGradient(SKPoint, SKPoint, SKColorF[], SKColorSpace, SKShaderTileMode)` so a wide-gamut ribbon stays float end-to-end, and the label channel is the style's `DrawLabel` delegate bound at composition to the typography rail's `DrawShapedText` so glyphs raster through HarfBuzz, never a raw `DrawText` loop; `Materialize` draws the label fold's anchors through that one channel after the path.
+  - `CustomVisualStyle` is the one paint policy: the fill enters through `SKPaint.SetColor(SKColorF, SKColorSpace)` against the axis working space — the byte `SKColor` path that quantizes before conversion is the deleted form — the optional ramp assigns `SKShader.CreateLinearGradient(SKPoint, SKPoint, SKColorF[], SKColorSpace, SKShaderTileMode)` so a wide-gamut ribbon stays float end-to-end, and the typed label channel binds `ShapingSurface.Shape` to `ShapingSurface.DrawLabel` at composition and returns `Fin<Unit>` so shaping or draw failure aborts materialization; raw `DrawText` and swallowed label failure are deleted forms.
   - The layout folds are managed Skia geometry only and carry no native, bridge, or live-host probe and cross no TS wire — `CustomVisual`, `CustomVisualData`, `CustomVisuals`, and `ColorSpaceAxis` are host-local desktop-Skia owners with no browser or peer crossing, so the page authors no `TS_PROJECTION` cluster.
-  - A custom-tile dashboard feed crosses only as the already-projected `EvidenceTimeline`/`RenderReceipt` evidence wire on Diagnostics/evidence#TS_PROJECTION and any remote numeric input arrives through the existing Compute Runtime/wire#PROTO_VOCABULARY `Solve` rpc, never a new AppUi wire shape — a custom-visual wire contract is the deleted form.
+  - A custom-tile dashboard feed crosses only as the already-projected `EvidenceTimeline`/`RenderReceipt` wire, and remote numeric input arrives through the existing Compute `Solve` RPC, never a new AppUi wire shape — a custom-visual wire contract is the deleted form.
   - Each materialize folds one observation into the rendered count and the measured layout-fold duration into the layout-elapsed instrument through the one `AppUiTelemetry.Contribute` spine, so a custom-tile render contributes through `TelemetryContributorPort` and a layout-local meter is the deleted form.
   - Boolean path algebra rides `SKPath.Op` — the extrusion column merges its shaft and sheared face through `SKPathOp.Union` into one clean silhouette — and `VectorTwin` emits the fold as `ToSvgPathData` text so a diagram's geometry reaches the drafting and export vector codecs without a raster hop; a hand-rolled winding workaround or a second vector-emit path is the deleted form.
   - A fork of `ChartSeriesSpec` for these kinds, a hand-rolled diagram control, and a second Skia-surface owner are the deleted patterns.
@@ -41,13 +41,21 @@ public abstract partial record VisualPayload {
     public sealed record Wedge(Seq<(string Label, double Value, int Depth, int Parent)> Wedges) : VisualPayload;
     public sealed record GeoPoint(GeoProjection Projection, Seq<(double Lon, double Lat, double Weight)> Points) : VisualPayload;
     public sealed record GeoArcs(GeoProjection Projection, Seq<((double Lon, double Lat) From, (double Lon, double Lat) To, double Weight)> Arcs) : VisualPayload;
-    public sealed record GeoTrips(GeoProjection Projection, Seq<(Seq<(double Lon, double Lat, Instant At)> Path, double Weight)> Trips) : VisualPayload;
+    public sealed record GeoTrips(
+        GeoProjection Projection,
+        Instant Cursor,
+        Seq<(Seq<(double Lon, double Lat, Instant At)> Path, double Weight)> Trips) : VisualPayload;
+    public sealed record Terrain(
+        GeoProjection Projection,
+        int Columns,
+        int Rows,
+        Seq<(double Lon, double Lat, double Height)> Samples) : VisualPayload;
 }
 
 public sealed record CustomVisualData(string Key, VisualPayload Payload, CustomVisualStyle Style);
 
-// The projection is a policy row on the geo payload cases — a hard-coded lon-lat formula inside a fold is
-// the deleted form, and the Web-Mercator row closes the former MapProjection research gap.
+// The projection is a policy row on the geo payload cases; a hard-coded lon-lat formula inside a layout
+// fold is the deleted form.
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -60,7 +68,7 @@ public sealed partial class GeoProjection {
     public partial (float X, float Y) Project(double lon, double lat, SKImageInfo info);
 
     private static (float X, float Y) ProjectWebMercator(double lon, double lat, SKImageInfo info) {
-        double admittedLatitude = double.Clamp(lat, -85.05112878d, 85.05112878d);
+        double admittedLatitude = Math.Clamp(lat, -85.05112878d, 85.05112878d);
         return (
             (float)((lon + 180d) / 360d * info.Width),
             (float)((1d - (Math.Log(Math.Tan((Math.PI / 4d) + (admittedLatitude * Math.PI / 360d))) / Math.PI)) / 2d * info.Height));
@@ -68,13 +76,13 @@ public sealed partial class GeoProjection {
 }
 
 // The paint-and-label policy resolved from TokenRow paints and the typography rail at composition — fill
-// and ramp stay float in the axis working space, DrawLabel is the one shaped-glyph channel.
+// and ramp stay float in the axis working space; DrawLabel binds typography Shape then DrawLabel.
 public sealed record CustomVisualStyle(
     string PaintFamily,
     string LabelRole,
     SKColorF Fill,
     Option<(SKPoint Start, SKPoint End, SKColorF[] Stops)> Ramp,
-    Action<SKCanvas, string, SKPoint> DrawLabel);
+    Func<SKCanvas, string, SKPoint, Fin<Unit>> DrawLabel);
 
 // DERIVED_LOGIC collapse: every kind shares one generative structure — a wire key, a payload case, a
 // layout fold, a label fold — so the family is ONE frozen [SmartEnum<string>] row catalog with the folds
@@ -107,7 +115,7 @@ public sealed partial class CustomVisual {
     // The vector-interchange twin: the same layout fold emitted as SVG path data (`SKPath.ToSvgPathData`)
     // so a diagram's geometry feeds the drafting and export codecs without a raster hop.
     public Fin<string> VectorTwin(CustomVisualData data, SKImageInfo info) =>
-        Layout(data.Payload, info).Map(path => {
+        Admit(data, info).Bind(_ => Layout(data.Payload, info)).Map(path => {
             using SKPath scoped = path;
             return scoped.ToSvgPathData();
         });
@@ -115,7 +123,7 @@ public sealed partial class CustomVisual {
     public IO<Fin<RenderReceipt>> Materialize(VisualRuntime runtime, CustomVisualData data, SKImageInfo info, ColorSpaceAxis space) =>
         from mark in IO.lift(runtime.Clocks.Mark)
         from image in IO.lift(() => new DrawSource.Owned(info.WithColorSpace(space.Working()))
-            .Materialize(canvas => Layout(data.Payload, info).Bind(path => {
+            .Materialize(canvas => Admit(data, info).Bind(_ => Layout(data.Payload, info)).Bind(path => {
                 using SKPath scoped = path;
                 using SKPaint paint = new() { IsAntialias = true, Style = SKPaintStyle.Fill };
                 paint.SetColor(data.Style.Fill, space.Working());
@@ -123,9 +131,12 @@ public sealed partial class CustomVisual {
                     SKShader.CreateLinearGradient(ramp.Start, ramp.End, ramp.Stops, space.Working(), SKShaderTileMode.Clamp));
                 shader.Iter(value => paint.Shader = value);
                 canvas.DrawPath(scoped, paint);
-                Labels(data.Payload, info).Iter(label => data.Style.DrawLabel(canvas, label.Text, label.At));
+                Fin<Unit> labels = Labels(data.Payload, info)
+                    .Traverse(label => data.Style.DrawLabel(canvas, label.Text, label.At))
+                    .As()
+                    .Map(static _ => unit);
                 shader.Iter(static value => value.Dispose());
-                return FinSucc(unit);
+                return labels;
             })))
         from layout in IO.lift(() => runtime.Clocks.Elapsed(mark))
         from _ in runtime.Measure(CustomVisuals.LayoutInstrument, Key, layout)
@@ -135,9 +146,19 @@ public sealed partial class CustomVisual {
             Fail: error => IO.pure(Fin.Fail<RenderReceipt>(error)))
         select receipt;
 
+    private static Fin<Unit> Admit(CustomVisualData data, SKImageInfo info) =>
+        !string.IsNullOrWhiteSpace(data.Key)
+            && !string.IsNullOrWhiteSpace(data.Style.PaintFamily)
+            && !string.IsNullOrWhiteSpace(data.Style.LabelRole)
+            && info.Width > 0
+            && info.Height > 0
+            && data.Style.Ramp.ForAll(static ramp => ramp.Stops.Length >= 2)
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new ChartFault.VisualDegenerate("custom-visual: key, style, image extent, or ramp is invalid"));
+
     public CaptureRow RenderTwin((ThemeVariantRow Variant, DensityRow Density) cell, double scale,
         Func<CustomVisual, (ThemeVariantRow, DensityRow), Func<double, Func<IO<Unit>>, IO<SKImage>>> grab) =>
-        new($"{Key}@{cell.Variant.Key}-{cell.Density.Key}", static host => host is SurfaceHost.Headless, scale, 1, grab(this, cell));
+        new($"{Key}@{cell.Variant.Key}-{cell.Density.Key}", scale, 1, grab(this, cell));
 }
 
 public static class CustomVisuals {
@@ -158,7 +179,11 @@ public static class CustomVisuals {
     // --- [OPERATIONS] — the fourteen layout folds: the row catalog's delegate-column values.
 
     internal static Fin<SKPath> Sankey(VisualPayload payload, SKImageInfo info) =>
-        Expect<VisualPayload.Flow>(payload, "sankey").Map(flow => flow.Flows.Fold(new SKPath(), (path, f) => {
+        Expect<VisualPayload.Flow>(payload, "sankey").Bind(flow =>
+            flow.Nodes.IsEmpty || flow.Flows.Exists(edge =>
+                edge.From < 0 || edge.To < 0 || edge.From >= flow.Nodes.Count || edge.To >= flow.Nodes.Count || !double.IsFinite(edge.Weight) || edge.Weight < 0d)
+                ? Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("sankey: node identity and flow weight must be admitted"))
+                : Fin.Succ(flow.Flows.Fold(new SKPath(), (path, f) => {
             float lane = info.Height / (float)(flow.Nodes.Count + 1);
             float x0 = 0f, x1 = info.Width;
             float y0 = lane * (f.From + 1), y1 = lane * (f.To + 1);
@@ -169,15 +194,20 @@ public static class CustomVisuals {
             path.CubicTo(info.Width * 0.5f, y1 + thickness, info.Width * 0.5f, y0 + thickness, x0, y0 + thickness);
             path.Close();
             return path;
-        }));
+        })));
 
     internal static Fin<SKPath> Treemap(VisualPayload payload, SKImageInfo info) =>
         Expect<VisualPayload.Weighted>(payload, "treemap").Bind(weighted =>
-            Squarify(weighted.Nodes, new SKRect(0f, 0f, info.Width, info.Height)).Map(rects =>
-                rects.Fold(new SKPath(), static (path, rect) => { path.AddRect(rect, SKPathDirection.Clockwise); return path; })));
+            weighted.Nodes.Exists(static node => !double.IsFinite(node.Value) || node.Value <= 0d)
+                ? Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("treemap: every weight must be finite and positive"))
+                : Squarify(weighted.Nodes, new SKRect(0f, 0f, info.Width, info.Height)).Map(rects =>
+                    rects.Fold(new SKPath(), static (path, rect) => { path.AddRect(rect, SKPathDirection.Clockwise); return path; })));
 
     internal static Fin<SKPath> Waterfall(VisualPayload payload, SKImageInfo info) =>
-        Expect<VisualPayload.Step>(payload, "waterfall").Map(step => step.Steps.Fold(
+        Expect<VisualPayload.Step>(payload, "waterfall").Bind(step =>
+            step.Steps.IsEmpty || step.Steps.Exists(static row => !double.IsFinite(row.Delta))
+                ? Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("waterfall: steps must be nonempty and finite"))
+                : Fin.Succ(step.Steps.Fold(
                 (Path: new SKPath(), Cursor: 0d, Index: 0),
                 (state, row) => {
                     float width = info.Width / (float)step.Steps.Count;
@@ -188,16 +218,25 @@ public static class CustomVisuals {
                     state.Path.AddRect(new SKRect(x, Math.Min(top, bottom), x + (width * 0.8f), Math.Max(top, bottom)), SKPathDirection.Clockwise);
                     return (state.Path, Cursor: row.Total ? 0d : state.Cursor + row.Delta, Index: state.Index + 1);
                 })
-            .Path);
+            .Path));
 
     internal static Fin<SKPath> Funnel(VisualPayload payload, SKImageInfo info) =>
-        Expect<VisualPayload.Weighted>(payload, "funnel").Map(weighted => weighted.Nodes.Fold(
+        Expect<VisualPayload.Weighted>(payload, "funnel").Bind(weighted =>
+            weighted.Nodes.IsEmpty || weighted.Nodes.Exists(static node => !double.IsFinite(node.Value) || node.Value <= 0d)
+                ? Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("funnel: stages must be nonempty, finite, and positive"))
+                : Fin.Succ(FunnelPath(weighted, info)));
+
+    private static SKPath FunnelPath(VisualPayload.Weighted weighted, SKImageInfo info) {
+        double maximum = weighted.Nodes.Max(static node => node.Value);
+        return weighted.Nodes.Fold(
                 (Path: new SKPath(), Top: 0f, Index: 0),
                 (state, node) => {
                     float bandHeight = info.Height / (float)weighted.Nodes.Count;
                     float bottom = state.Top + bandHeight;
-                    float topWidth = (float)node.Value * info.Width;
-                    float nextWidth = state.Index + 1 < weighted.Nodes.Count ? (float)weighted.Nodes[state.Index + 1].Value * info.Width : topWidth;
+                    float topWidth = (float)(node.Value / maximum) * info.Width;
+                    float nextWidth = state.Index + 1 < weighted.Nodes.Count
+                        ? (float)(weighted.Nodes[state.Index + 1].Value / maximum) * info.Width
+                        : topWidth;
                     float center = info.Width * 0.5f;
                     state.Path.MoveTo(center - (topWidth * 0.5f), state.Top);
                     state.Path.LineTo(center + (topWidth * 0.5f), state.Top);
@@ -206,7 +245,8 @@ public static class CustomVisuals {
                     state.Path.Close();
                     return (state.Path, Top: bottom, Index: state.Index + 1);
                 })
-            .Path);
+            .Path;
+    }
 
     internal static Fin<SKPath> ParallelCoordinates(VisualPayload payload, SKImageInfo info) =>
         Expect<VisualPayload.Axes>(payload, "parcoords").Bind(axes =>
@@ -255,7 +295,8 @@ public static class CustomVisuals {
         Expect<VisualPayload.Network>(payload, "network").Bind(net =>
             net.Vertices.IsEmpty
                 ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("network: no vertices"))
-                : net.Edges.Exists(edge => edge.From < 0 || edge.To < 0 || edge.From >= net.Vertices.Count || edge.To >= net.Vertices.Count || !double.IsFinite(edge.Weight))
+                : net.Vertices.Exists(static vertex => !double.IsFinite(vertex.X) || !double.IsFinite(vertex.Y))
+                    || net.Edges.Exists(edge => edge.From < 0 || edge.To < 0 || edge.From >= net.Vertices.Count || edge.To >= net.Vertices.Count || !double.IsFinite(edge.Weight))
                     ? Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("network: edge endpoint or weight is invalid"))
                 : Fin.Succ(net.Vertices.Fold(net.Edges.Fold(new SKPath(), (path, edge) => {
                     (double fx, double fy) = net.Vertices[edge.From];
@@ -278,7 +319,8 @@ public static class CustomVisuals {
         double lo = tracked.Spans.Min(static span => span.Start);
         double hi = tracked.Spans.Max(static span => span.End);
         int tracks = tracked.Spans.Max(static span => span.Track) + 1;
-        return hi <= lo || tracks <= 0
+        return hi <= lo || tracks <= 0 || tracked.Spans.Exists(static span =>
+            !double.IsFinite(span.Start) || !double.IsFinite(span.End) || span.End < span.Start || span.Track < 0)
             ? Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("gantt: span or track is invalid"))
             : Fin.Succ(tracked.Spans.Fold(new SKPath(), (path, span) => {
                 float scale = info.Width / (float)(hi - lo);
@@ -295,7 +337,9 @@ public static class CustomVisuals {
         Expect<VisualPayload.Wedge>(payload, "sunburst").Bind(rings =>
             rings.Wedges.IsEmpty
                 ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("sunburst: no wedges"))
-                : Fin.Succ(SunburstArcs(rings.Wedges).Fold(new SKPath(), (path, arc) => {
+                : !ValidWedges(rings.Wedges)
+                    ? Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("sunburst: parent, depth, and value must form an admitted tree"))
+                    : Fin.Succ(SunburstArcs(rings.Wedges).Fold(new SKPath(), (path, arc) => {
                     float cx = info.Width * 0.5f, cy = info.Height * 0.5f;
                     float ringWidth = Math.Min(cx, cy) / (float)(rings.Wedges.Max(static w => w.Depth) + 1);
                     float inner = arc.Depth * ringWidth, outer = inner + ringWidth;
@@ -307,45 +351,74 @@ public static class CustomVisuals {
                     return path;
                 })));
 
+    static bool ValidWedges(Seq<(string Label, double Value, int Depth, int Parent)> wedges) =>
+        wedges.ForAll((wedge, index) =>
+            double.IsFinite(wedge.Value)
+            && wedge.Value > 0d
+            && wedge.Depth >= 0
+            && (wedge.Depth == 0
+                ? wedge.Parent == -1
+                : wedge.Parent >= 0
+                    && wedge.Parent < wedges.Count
+                    && wedge.Parent != index
+                    && wedges[wedge.Parent].Depth == wedge.Depth - 1));
+
     internal static Fin<SKPath> Hexbin(VisualPayload payload, SKImageInfo info) =>
         Expect<VisualPayload.GeoPoint>(payload, "hexbin").Bind(geo =>
             geo.Points.IsEmpty
                 ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("hexbin: no points"))
-                : Fin.Succ(Bin(geo.Points, geo.Projection, info, radiusPx: 18f).Fold(new SKPath(), static (path, cell) => {
-                    using SKPath hexagon = Hexagon(cell.Cx, cell.Cy, cell.Radius);
-                    path.AddPath(hexagon);
-                    return path;
-                })));
+                : geo.Points.Exists(static point => !double.IsFinite(point.Lon) || !double.IsFinite(point.Lat) || !double.IsFinite(point.Weight) || point.Weight <= 0d)
+                    ? Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("hexbin: coordinates and weights must be finite and positive"))
+                    : Fin.Succ(HexbinPath(Bin(geo.Points, geo.Projection, info, radiusPx: 18f))));
 
     internal static Fin<SKPath> GeoArc(VisualPayload payload, SKImageInfo info) =>
         Expect<VisualPayload.GeoArcs>(payload, "geoarc").Bind(geo =>
             geo.Arcs.IsEmpty
                 ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("geoarc: no arcs"))
-                : Fin.Succ(geo.Arcs.Fold(new SKPath(), (path, arc) => {
+                : geo.Arcs.Exists(static arc => !double.IsFinite(arc.From.Lon) || !double.IsFinite(arc.From.Lat)
+                    || !double.IsFinite(arc.To.Lon) || !double.IsFinite(arc.To.Lat)
+                    || !double.IsFinite(arc.Weight) || arc.Weight <= 0d)
+                    ? Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("geoarc: coordinates and weights must be finite and positive"))
+                    : Fin.Succ(GeoArcPath(geo, info)));
+
+    private static SKPath GeoArcPath(VisualPayload.GeoArcs geo, SKImageInfo info) {
+        double maximum = geo.Arcs.Max(static arc => arc.Weight);
+        return geo.Arcs.Fold(new SKPath(), (path, arc) => {
                     (float sx, float sy) = geo.Projection.Project(arc.From.Lon, arc.From.Lat, info);
                     (float ex, float ey) = geo.Projection.Project(arc.To.Lon, arc.To.Lat, info);
-                    float midX = (sx + ex) * 0.5f, midY = Math.Min(sy, ey) - (Math.Abs(ex - sx) * 0.3f);
+                    float lift = Math.Abs(ex - sx) * (float)(0.15d + (0.35d * arc.Weight / maximum));
+                    float midX = (sx + ex) * 0.5f, midY = Math.Min(sy, ey) - lift;
                     path.MoveTo(sx, sy);
                     path.QuadTo(midX, midY, ex, ey);
                     return path;
-                })));
+                });
+    }
 
-    // Time-ordered by law: each leg polylines in At-ascending order and stamps its moving-head marker at
-    // the arc-length end through SKPathMeasure, so a trip reads as motion, never an unordered scribble.
+    // Time-ordered by law: each leg retains samples at or before Cursor, orders by At, and stamps its head
+    // at that visible prefix's arc-length end, so future samples cannot appear before their time.
     internal static Fin<SKPath> Trip(VisualPayload payload, SKImageInfo info) =>
         Expect<VisualPayload.GeoTrips>(payload, "trip").Bind(geo =>
             geo.Trips.IsEmpty
                 ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("trip: no trips"))
-                : Fin.Succ(geo.Trips.Fold(new SKPath(), (path, trip) => {
+                : geo.Trips.Exists(static trip => !double.IsFinite(trip.Weight) || trip.Weight <= 0d || trip.Path.IsEmpty
+                    || trip.Path.Exists(static node => !double.IsFinite(node.Lon) || !double.IsFinite(node.Lat)))
+                    ? Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("trip: every trajectory needs finite coordinates and a positive weight"))
+                    : Fin.Succ(geo.Trips.Fold(new SKPath(), (path, trip) => {
                     using SKPath leg = new();
-                    toSeq(trip.Path.OrderBy(static node => node.At)).Iter((node, index) => {
+                    Seq<(double Lon, double Lat, Instant At)> visible = trip.Path
+                        .Filter(node => node.At <= geo.Cursor)
+                        .OrderBy(static node => node.At)
+                        .ToSeq();
+                    visible.Iter((node, index) => {
                         (float x, float y) = geo.Projection.Project(node.Lon, node.Lat, info);
                         if (index == 0) { leg.MoveTo(x, y); } else { leg.LineTo(x, y); }
                     });
-                    using SKPathMeasure measure = new(leg, false);
-                    path.AddPath(leg);
-                    if (measure.GetPosition(measure.Length, out SKPoint head)) {
-                        path.AddCircle(head.X, head.Y, 3f, SKPathDirection.Clockwise);
+                    if (!visible.IsEmpty) {
+                        using SKPathMeasure measure = new(leg, false);
+                        path.AddPath(leg);
+                        if (measure.GetPosition(measure.Length, out SKPoint head)) {
+                            path.AddCircle(head.X, head.Y, Math.Clamp((float)Math.Sqrt(trip.Weight), 2f, 12f), SKPathDirection.Clockwise);
+                        }
                     }
                     return path;
                 })));
@@ -360,8 +433,9 @@ public static class CustomVisuals {
 
     private static Fin<SKPath> ExtrusionPath(VisualPayload.GeoPoint geo, SKImageInfo info) {
         double maximum = geo.Points.Max(static point => point.Weight);
-        return maximum <= 0d
-            ? Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("extrusion: zero column weight"))
+        return maximum <= 0d || geo.Points.Exists(static point =>
+            !double.IsFinite(point.Lon) || !double.IsFinite(point.Lat) || !double.IsFinite(point.Weight) || point.Weight < 0d)
+            ? Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("extrusion: coordinates and weights must be finite and non-negative"))
             : Fin.Succ(geo.Points.Fold(new SKPath(), (path, column) => {
                 (float x, float y) = geo.Projection.Project(column.Lon, column.Lat, info);
                 float height = (float)(column.Weight / maximum * info.Height * 0.25d);
@@ -374,33 +448,47 @@ public static class CustomVisuals {
                 face.Close();
                 using SKPath shaft = new();
                 shaft.AddRect(new SKRect(x - half, y - height, x + half, y));
-                using SKPath column = face.Op(shaft, SKPathOp.Union);
-                path.AddPath(column);
+                using SKPath silhouette = face.Op(shaft, SKPathOp.Union);
+                path.AddPath(silhouette);
                 return path;
             }));
     }
 
-    // Exact-square admission: a sample count that is not a perfect square >= 4 rejects — the floor-square
-    // acceptance that silently rendered a truncated prefix is the deleted form.
+    // Explicit grid admission: dimensions own topology, and every cell projects its four geographic
+    // samples with normalized height; sequence order never guesses a square grid.
     internal static Fin<SKPath> Terrain(VisualPayload payload, SKImageInfo info) =>
-        Expect<VisualPayload.GeoPoint>(payload, "terrain").Bind(geo =>
-            geo.Points.IsEmpty
+        Expect<VisualPayload.Terrain>(payload, "terrain").Bind(terrain =>
+            terrain.Samples.IsEmpty
                 ? Fin.Fail<SKPath>(new ChartFault.VisualEmpty("terrain: no samples"))
-                : TerrainPath(geo, info));
+                : TerrainPath(terrain, info));
 
-    private static Fin<SKPath> TerrainPath(VisualPayload.GeoPoint geo, SKImageInfo info) {
-        int side = (int)Math.Round(Math.Sqrt(geo.Points.Count));
-        return side < 2 || side * side != geo.Points.Count
-            ? Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("terrain: sample count is not a square grid"))
-            : Fin.Succ(Enumerable.Range(0, side - 1).Aggregate(new SKPath(), (path, row) => {
-                float cell = info.Width / (float)(side - 1);
-                Enumerable.Range(0, side - 1).Iter(column => {
-                    int origin = (row * side) + column;
-                    float z = (float)(geo.Points[origin].Weight * info.Height * 0.2d);
-                    path.AddRect(new SKRect(column * cell, (row * cell) - z, (column + 1) * cell, ((row + 1) * cell) - z));
+    private static Fin<SKPath> TerrainPath(VisualPayload.Terrain terrain, SKImageInfo info) {
+        bool admitted = terrain.Columns >= 2
+            && terrain.Rows >= 2
+            && terrain.Samples.Count == (long)terrain.Columns * terrain.Rows
+            && terrain.Samples.ForAll(static sample =>
+                double.IsFinite(sample.Lon) && double.IsFinite(sample.Lat) && double.IsFinite(sample.Height));
+        if (!admitted) { return Fin.Fail<SKPath>(new ChartFault.VisualDegenerate("terrain: dimensions and samples do not form a finite grid")); }
+        double lo = terrain.Samples.Min(static sample => sample.Height);
+        double hi = terrain.Samples.Max(static sample => sample.Height);
+        double span = Math.Max(hi - lo, double.Epsilon);
+        return Fin.Succ(Enumerable.Range(0, terrain.Rows - 1).Aggregate(new SKPath(), (path, row) => {
+            Enumerable.Range(0, terrain.Columns - 1).Iter(column => {
+                int origin = (row * terrain.Columns) + column;
+                Seq<(double Lon, double Lat, double Height)> cell = Seq(
+                    terrain.Samples[origin],
+                    terrain.Samples[origin + 1],
+                    terrain.Samples[origin + terrain.Columns + 1],
+                    terrain.Samples[origin + terrain.Columns]);
+                cell.Iter((sample, index) => {
+                    (float x, float y) = terrain.Projection.Project(sample.Lon, sample.Lat, info);
+                    float lifted = y - (float)((sample.Height - lo) / span * info.Height * 0.2d);
+                    if (index == 0) { path.MoveTo(x, lifted); } else { path.LineTo(x, lifted); }
                 });
-                return path;
-            }));
+                path.Close();
+            });
+            return path;
+        }));
     }
 
     // --- [OPERATIONS] — the label folds: pure anchor projections the style DrawLabel channel consumes;
@@ -481,16 +569,31 @@ public static class CustomVisuals {
                 }).Arcs;
     }
 
-    static Seq<(float Cx, float Cy, float Radius, int Count)> Bin(
+    static Seq<(float Cx, float Cy, float Radius, double Weight)> Bin(
         Seq<(double Lon, double Lat, double Weight)> points, GeoProjection projection, SKImageInfo info, float radiusPx) {
         float dx = radiusPx * 1.5f, dy = radiusPx * 1.732f;
         return toSeq(points
-            .Map(p => projection.Project(p.Lon, p.Lat, info))
+            .Map(point => {
+                (float X, float Y) projected = projection.Project(point.Lon, point.Lat, info);
+                return (projected.X, projected.Y, point.Weight);
+            })
             .GroupBy(p => ((int)Math.Round(p.X / dx), (int)Math.Round(p.Y / dy)))
             .Select(group => {
-                (float X, float Y, int N) centroid = group.Aggregate((X: 0f, Y: 0f, N: 0), static (acc, p) => (acc.X + p.X, acc.Y + p.Y, acc.N + 1));
-                return (Cx: centroid.X / centroid.N, Cy: centroid.Y / centroid.N, Radius: radiusPx, Count: centroid.N);
+                (float X, float Y, int N, double Weight) centroid = group.Aggregate(
+                    (X: 0f, Y: 0f, N: 0, Weight: 0d),
+                    static (acc, p) => (acc.X + p.X, acc.Y + p.Y, acc.N + 1, acc.Weight + p.Weight));
+                return (Cx: centroid.X / centroid.N, Cy: centroid.Y / centroid.N, Radius: radiusPx, Weight: centroid.Weight);
             }));
+    }
+
+    static SKPath HexbinPath(Seq<(float Cx, float Cy, float Radius, double Weight)> cells) {
+        double maximum = cells.Max(static cell => cell.Weight);
+        return cells.Fold(new SKPath(), (path, cell) => {
+            float radius = cell.Radius * Math.Clamp((float)Math.Sqrt(cell.Weight / maximum), 0.25f, 1f);
+            using SKPath hexagon = Hexagon(cell.Cx, cell.Cy, radius);
+            path.AddPath(hexagon);
+            return path;
+        });
     }
 
     static SKPath Hexagon(float cx, float cy, float radius) {
@@ -553,7 +656,32 @@ public static class CustomVisuals {
 ```
 
 ```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
 flowchart LR
+    accTitle: Custom visual materialization
+    accDescr: A closed visual payload passes through its catalogued layout, owned drawing surface, codec, capture row, and render receipt.
     VisualPayload --> CustomVisualData
     CustomVisualData --> CustomVisual
     CustomVisual -->|Layout| SKPath
@@ -562,24 +690,36 @@ flowchart LR
     SKImage -->|Encode| VisualCodec
     CustomVisual -->|RenderTwin| CaptureRow
     VisualCodec --> RenderReceipt
+    linkStyle 0,3 stroke:#FFB86C,color:#F8F8F2
+    linkStyle 1,2,4,5 stroke:#FF79C6,color:#F8F8F2
+    linkStyle 6 stroke:#8BE9FD,color:#F8F8F2
+    linkStyle 7 stroke:#50FA7B,color:#F8F8F2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    class VisualPayload,SKPath,SKImage data
+    class CustomVisualData,CustomVisual,DrawSource primary
+    class VisualCodec,CaptureRow external
+    class RenderReceipt boundary
 ```
 
-| [INDEX] | [KIND]               | [PAYLOAD_CASE] | [LAYOUT_PRIMITIVE]                              |
-| :-----: | :------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | sankey               | Flow           | cubic ribbon `SKPath.CubicTo`                   |
-|  [02]   | treemap              | Weighted       | squarified `SKPath.AddRect`                     |
-|  [03]   | waterfall            | Step           | bridged column `SKPath.AddRect`                 |
-|  [04]   | funnel               | Weighted       | trapezoid `SKPath.LineTo`                       |
-|  [05]   | parallel-coordinates | Axes           | normalized polyline `SKPath.LineTo`             |
-|  [06]   | radar                | Axes           | polar polygon `SKPath.LineTo`+`Close`           |
-|  [07]   | network              | Network        | edge line + node `SKPath.AddCircle`             |
-|  [08]   | gantt                | Span           | track bar `SKPath.AddRoundRect`                 |
-|  [09]   | sunburst             | Wedge          | parent-nested ring `SKPath.AddArc`+`ArcTo`      |
-|  [10]   | hexbin               | GeoPoint       | binned hexagon `SKPath.LineTo`+`Close`          |
-|  [11]   | geo-arc              | GeoArcs        | great-circle `SKPath.QuadTo`                    |
-|  [12]   | trip                 | GeoTrips       | At-ordered polyline + `SKPathMeasure` head mark |
-|  [13]   | extrusion            | GeoPoint       | pseudo-3D column `SKPath.LineTo`+`AddRect`      |
-|  [14]   | terrain              | GeoPoint       | grid height-shade `SKPath.AddRect`              |
+| [INDEX] | [KIND]               | [PAYLOAD_CASE] | [LAYOUT_PRIMITIVE]                             |
+| :-----: | :------------------- | :------------- | :--------------------------------------------- |
+|  [01]   | sankey               | Flow           | cubic ribbon `SKPath.CubicTo`                  |
+|  [02]   | treemap              | Weighted       | squarified `SKPath.AddRect`                    |
+|  [03]   | waterfall            | Step           | bridged column `SKPath.AddRect`                |
+|  [04]   | funnel               | Weighted       | trapezoid `SKPath.LineTo`                      |
+|  [05]   | parallel-coordinates | Axes           | normalized polyline `SKPath.LineTo`            |
+|  [06]   | radar                | Axes           | polar polygon `SKPath.LineTo`+`Close`          |
+|  [07]   | network              | Network        | edge line + node `SKPath.AddCircle`            |
+|  [08]   | gantt                | Span           | track bar `SKPath.AddRoundRect`                |
+|  [09]   | sunburst             | Wedge          | parent-nested ring `SKPath.AddArc`+`ArcTo`     |
+|  [10]   | hexbin               | GeoPoint       | weighted hexagon `SKPath.LineTo`+`Close`       |
+|  [11]   | geo-arc              | GeoArcs        | weighted screen arc `SKPath.QuadTo`            |
+|  [12]   | trip                 | GeoTrips       | timed polyline + weighted `SKPathMeasure` head |
+|  [13]   | extrusion            | GeoPoint       | pseudo-3D column `SKPath.LineTo`+`AddRect`     |
+|  [14]   | terrain              | Terrain        | projected height-grid `SKPath.LineTo`+`Close`  |
 
 ## [03]-[COLOR_SPACE]
 
@@ -589,10 +729,9 @@ flowchart LR
 - Auto: each row wraps exactly ONE `VisualCodec.ColorPolicy` row and derives every column from it — `Working()` reads the policy's working-space factory, `Surface` its pixel format, `Encode` its matching `EncodeRow` — so the axis cannot diverge from the capture family by construction; a materialize tags its `RenderReceipt.ColorSpace` with the policy key, so a cross-host byte swap is attributable to the exact gamut, never silent.
 - Packages: SkiaSharp, SkiaSharp.NativeAssets.macOS, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new gamut lands as one `ColorPolicy` row on the capture codec FIRST; this axis gains a one-line keyed projection of it only when a chart consumes it; zero new surface.
-- Boundary: `VisualCodec.ColorPolicy` (`Render/capture.md#ENCODE_IDENTITY`) is the single suite-wide gamut/transfer vocabulary and `ColorSpaceAxis` is its chart-side keyed projection — a parallel enum with divergent membership, an axis-local working-space factory, or a per-encode color struct is the deleted form; the working space converts once at projection through `SKImageInfo.WithColorSpace` and `SKColorSpace.Equal` is the only identity test the reproject runs fail-closed against an already-matching space; the per-row transfer and primaries pairs are the capture-owned `ColorPolicy` mechanics this axis merely projects (the table below is that projection view), so the consequence here is one law — a wide-gamut custom visual hashes its float or ICC-tagged pixels, never a quantized sRGB shadow, because the byte `SKColor` path is the deleted form; the gamut row key crosses no TS wire on its own — it tags `RenderReceipt.ColorSpace` which crosses host-local only as the existing evidence wire on Diagnostics/evidence#TS_PROJECTION, so `ColorSpaceAxis` authors no `TS_PROJECTION` cluster.
+- Boundary: `VisualCodec.ColorPolicy` is the single suite-wide gamut/transfer vocabulary and `ColorSpaceAxis` is its chart-side keyed projection — a parallel enum with divergent membership, an axis-local working-space factory, or a per-encode color struct is the deleted form; the working space converts once at projection through `SKImageInfo.WithColorSpace` and `SKColorSpace.Equal` is the only identity test the reproject runs fail-closed against an already-matching space; the per-row transfer and primaries pairs are the capture-owned `ColorPolicy` mechanics this axis merely projects (the table below is that projection view), so the consequence here is one law — a wide-gamut custom visual hashes its float or ICC-tagged pixels, never a quantized sRGB shadow, because the byte `SKColor` path is the deleted form; the gamut row key crosses no TS wire on its own — it tags `RenderReceipt.ColorSpace`, which crosses host-local only as the existing evidence wire, so `ColorSpaceAxis` authors no `TS_PROJECTION` cluster.
 
 ```csharp signature
-
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]

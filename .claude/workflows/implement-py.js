@@ -2,7 +2,7 @@ export const meta = {
     name: 'implement-py',
     whenToUse: 'Realize open IDEAS and TASKLOG cards into design-page code fences across the Python target folders.',
     description:
-        "Realize every open IDEAS/TASKLOG card across the Python target set (libs/python/artifacts, compute, data, geometry, runtime) into deep design-page code FENCES at the docs/stacks/python bar (with docs/stacks/csharp as the ambition floor), repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified members, seam targets) and never verdicts; it runs read-only on gpt-5.6-terra dispatched through a sonnet codex wrapper (CODEX flag; false restores the native opus lane), lands its full navigation-facts product as one JSON report on disk under the workflow scratch dir, and returns only a thin receipt plus the jq-cut structural skeleton (order, pages, ripples, gates) inline; downstream stages read the report IN FULL from disk, and when the skeleton proves page-disjoint card groups, the implement stage fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope same-language counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central pyproject.toml pin row + band marker and the target ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal opus writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest, folded forward through the redteam; the terminal stage is a DRAIN LOOP over the pooled deferred backlog plus every critique fixlog (the redteam fold-forward is lossy even when it lands) that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one fable doctrine lander adjudicates the pooled harvest against the docs/laws admission bar (land-nothing legal) before the run closes. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of the rebuild engine. Python-only. args = a target path string, an array of paths, or empty for the defaults. The language-wide libs/python/.planning is out of scope.",
+        "Realize every open IDEAS/TASKLOG card across the Python target set (libs/python/artifacts, compute, data, geometry, runtime) into deep design-page code FENCES at the docs/stacks/python bar (with docs/stacks/csharp as the ambition floor), repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified members, seam targets) and never verdicts; it runs read-only on gpt-5.6-terra dispatched through a sonnet codex wrapper (CODEX flag; false restores the native opus lane), lands its full navigation-facts product as one JSON report on disk under the workflow scratch dir, and returns only a thin receipt plus the jq-cut structural skeleton (order, pages, ripples, gates) inline; downstream stages read the report IN FULL from disk, and when the skeleton proves page-disjoint card groups, the implement stage fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope same-language counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central pyproject.toml pin row + band marker and the target ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal opus writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest — each stage's rows ride its own return, the critique lane's swept from its fixlog on disk by the doctrine lander (nomination transport never rides a living fold); the terminal stage is a DRAIN LOOP over the pooled deferred backlog plus every critique fixlog (the redteam fold-forward is lossy even when it lands) that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one fable doctrine lander adjudicates the pooled harvest plus every critique fixlog harvest array from disk against the docs/laws admission bar (land-nothing legal) before the run closes. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of the rebuild engine. Python-only. args = a target path string, an array of paths, or empty for the defaults. The language-wide libs/python/.planning is out of scope.",
     phases: [
         {
             title: 'Realize',
@@ -1118,10 +1118,9 @@ const redteamPrompt = (folder, seq, report, critReport, critOk, ownpass) =>
                 : ' (its wrapper receipt died, but the workspace-write lane writes the fixlog before any ceiling can kill the call — CHECK THE ' +
                   'PATH FIRST; absent or unparseable, your cold attack is the only review this folder gets: judge from CURRENT disk alone)') +
             ' — read it IN FULL from disk; its edits and verdicts are refutation targets you judge against CURRENT disk, never a settled ' +
-            'record. FOLD-FORWARD DUTY: its surviving `ripples`, `pins`, `seams`, `deferred`, and `harvest` rows fold into YOUR return ' +
-            "(re-verified against current disk, deduped) — your return is the folder's consolidated record. `harvest` folding is " +
-            'MECHANICAL, never judgment: every critique harvest row you cannot REFUTE with a disk fact rides your return verbatim — ' +
-            'dedupe is the only legal drop, and a refuted row is dropped with its refuting fact named in `summary`, never silently.' +
+            'record. FOLD-FORWARD DUTY: its surviving `ripples`, `pins`, `seams`, and `deferred` rows fold into YOUR return ' +
+            "(re-verified against current disk, deduped) — your return is the folder's consolidated record. Its `harvest` rows are NOT yours to " +
+            'fold: the doctrine lander sweeps every critique fixlog from disk directly — nomination transport never rides a living fold.' +
             '\nThe discovery navigation-facts report at `' +
             report +
             '` (on disk) carries per-card charter hooks and the per-page navigation map — facts with jump-coordinate anchors, never verdicts; ' +
@@ -1209,8 +1208,8 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
                     ? '(1) CRITIQUE FIXLOGS — every sol critique fixlog, folded-forward or orphaned (a live redteam folds judgment-lossy and a ' +
                       'dead one folds nothing); the paths are DETERMINISTIC, so one absent on disk is skipped with a one-line note in `summary`, ' +
                       'never an error. Read each present file IN FULL, apply its pin and seam rows under the same law as the reported rows below, ' +
-                      'drain its surviving seam/deferred/index rows still open (a row a live redteam already landed disk-resolves and drops), and ' +
-                      'fold its surviving harvest rows into your own `harvest` return, each re-verified against CURRENT disk and deduped: ' +
+                      'and drain its surviving seam/deferred/index rows still open (a row a live redteam already landed disk-resolves and drops). ' +
+                      "Its `harvest` rows are the doctrine lander's to sweep, never yours to fold: " +
                       JSON.stringify(orphans) +
                       '.'
                     : '',
@@ -1249,7 +1248,7 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
         .filter(Boolean)
         .join('\n');
 
-const doctrinePrompt = (rows) =>
+const doctrinePrompt = (rows, orphans) =>
     'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` FIRST — it ' +
     'owns the corpus admission and page-shape law; obey it over any restatement. Load the `docgen` skill AND the ' +
     '`skill-writer` skill via the Skill tool BEFORE any durable edit; ' +
@@ -1259,7 +1258,12 @@ const doctrinePrompt = (rows) =>
     '\nAlso sweep `' +
     SCRATCH +
     '/pins-harvest.jsonl` (absent = none): rows there missing from NOMINATIONS are nominations too — a killed terminal-drain round reaches ' +
-    'you only through that file.\nADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on ' +
+    'you only through that file.' +
+    '\nAlso read the `harvest` array of every critique fixlog at these deterministic paths (an absent or invalid file skips; no other agent ' +
+    'transports these rows): ' +
+    JSON.stringify(orphans) +
+    ' — dedupe them against NOMINATIONS and adjudicate them identically.' +
+    '\nADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on ' +
     'CURRENT disk; LAND NOTHING is a ' +
     'first-class verdict.\nTOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row whose ' +
     'coupling no longer holds, land a coupling this run proved.\nGATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched ' +
@@ -1450,13 +1454,14 @@ if (PINS_NEEDED) {
     }
 }
 // DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations adjudicated against the live docs/laws
-// surfaces; refutation-first, land-nothing legal. A DEAD terminal drain still fires it: the killed round's per-round nominations
-// live only in the harvest jsonl the lander sweeps, so it runs whenever nominations exist OR a needed drain died.
+// surfaces; refutation-first, land-nothing legal. A DEAD terminal drain still fires it (the killed round's per-round nominations
+// live only in the harvest jsonl the lander sweeps), and critique fixlogs on disk fire it too — the lander is those arrays' ONLY
+// transport, so a zero-wire-nomination run with a live drain still lands critique nominations.
 const HARVEST_ROWS = done.flatMap((r) => r.logs.flatMap((l) => l.harvest || [])).concat(pinHarvest);
 let doctrine = null;
-if (HARVEST_ROWS.length || (PINS_NEEDED && !pinlog)) {
+if (HARVEST_ROWS.length || ORPHANS.length || (PINS_NEEDED && !pinlog)) {
     phase('Pins');
-    doctrine = await agent(doctrinePrompt(HARVEST_ROWS), {
+    doctrine = await agent(doctrinePrompt(HARVEST_ROWS, ORPHANS), {
         label: 'doctrine',
         phase: 'Pins',
         schema: DOCTRINE_SCHEMA,

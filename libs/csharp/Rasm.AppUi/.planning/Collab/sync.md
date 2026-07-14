@@ -1,20 +1,20 @@
 # [APPUI_COLLAB_SYNC]
 
-One CRDT document is the LIVE merge authority for every co-edited AppUi surface, and one typed edit-intent stream is the DURABLE truth: `CollabDoc` wraps one `LoroDoc` whose nested container forest holds the notebook cells, the issue comment threads, the table rows, the graph structure, and the live-data annotations, owning every attached Rust container handle for its whole activation; `CollabContainer` is the attach-or-create vocabulary over the six container kinds; the durable seam projects AppUi's own domain ops onto Persistence-owned `OpLogEntry`/`SyncOpKind` rows through the `Version/ledger` changefeed — Loro bytes NEVER cross durable truth — and `IntentLedger.Commit` is the ONE live-plus-durable transaction rail every collaborative mutation rides; `Presence` publishes carets through the TTL-expiring ephemeral channel AND per-peer identity through `Awareness`, both applied back from remote bytes through the same owner; and `TimeTravel` checks out, forks, and previews any `Frontiers` cut and commits reverts as inverse edit-intents through the same ledger rail. The document IS the live convergence law, so every collaborative page composes this one owner and holds no merge, last-writer-wins, or fractional-index algebra of its own. The spine is the `LoroCs` UniFFI binding over the Rust eg-walker/Fugue engine (`loro.dylib`, companion-only), the Persistence `Version/ledger` changefeed, the AppHost transport and HLC, the kernel `ContentHash.Of` one-hasher, Thinktecture.Runtime.Extensions, and LanguageExt rails.
+One CRDT document is the LIVE merge authority for every co-edited AppUi surface, and one typed edit-intent stream is the DURABLE truth: `CollabDoc` wraps one `LoroDoc` whose nested container forest holds the notebook cells, issue threads, tables, graph structure, and live-data annotations; the durable seam encodes AppUi intents as Persistence-owned `CrdtOpWire` payloads on the `Version/ledger` `crdt` lane and rehydrates through `ReplayWindow.ForEntity`; `Presence` owns text carets, awareness identity, and viewport presence as disjoint ephemeral channels; and `TimeTravel` commits inverse intents through the same ledger rail. Loro bytes never cross durable truth.
 
 ## [01]-[INDEX]
 
 - [02]-[DOCUMENT_OWNER]: One `LoroDoc`-backed live merge authority; the container-attach vocabulary; the handle-lifetime law.
 - [03]-[DURABLE_INTENT]: The single edit-intent union; the one live+durable commit rail; replay-window cold-load; the session-epoch law.
 - [04]-[LIVE_WIRE]: In-session delta broadcast and single-or-batch import; the snapshot accelerator; the transport topics.
-- [05]-[PRESENCE]: Caret AND awareness over both ephemeral channels; encoding-honest anchors; remote application.
+- [05]-[PRESENCE]: Caret, awareness, and spatial viewport state over three ephemeral channels; encoding-honest anchors; remote application.
 - [06]-[TIME_TRAVEL]: Undo respecting remote ops; checkout, fork, diff preview; the inverse-intent revert through the one commit rail.
 
 ## [02]-[DOCUMENT_OWNER]
 
 - Owner: `CollabDoc` the one `LoroDoc`-backed live merge authority and the container-handle lifetime owner; `CollabDocPolicy` the open-time policy record; `CollabContainer` `[SmartEnum<string>]` the container-kind axis; `CollabFault` the typed fault family on the `AppUiFaultBand.Collab` registry row (6500).
 - Cases: `CollabContainer` = text | map | list | movable-list | tree | counter under the locked kind literals — the six `LoroDoc` container kinds; `CollabFault` = Text | Detached | TimeTraveled | DecodeCorrupt | ImportIncompatible | EpochMismatch | Gated.
-- Entry: `public static CollabDoc Open(string key, Option<CollabDocPolicy> policy = default)` — a fresh auto-committing document under the resolved policy (`SetRecordTimestamp`, the `SetChangeMergeInterval` batching window, the `SetPeerId` session identity); `public Fin<CollabHandle> Attach(CollabContainer kind, string name)` — attaches-or-creates a named root container of that kind, REGISTERS the Rust container handle into the document's owned handle set, and lifts the `LoroDoc.Get<Kind>` outcome onto the `Fin` rail; `public Fin<Subscription> Changes(Subscriber subscriber)` — the document-wide typed-`Diff` feed through `SubscribeRoot`, `EventTriggerKind.Local`/`Import`/`Checkout` routing echo suppression at every UI projection.
+- Entry: `public static CollabDoc Open(string key, Option<CollabDocPolicy> policy = default)` — a fresh auto-committing document under the resolved policy (`SetRecordTimestamp`, the `SetChangeMergeInterval` batching window, the `SetPeerId` session identity); `public Fin<CollabHandle> Attach(CollabContainer kind, string name)` — attaches-or-creates a named root container of that kind, REGISTERS the Rust container handle into the document's owned handle set, and lifts the `LoroDoc.Get<Kind>` outcome onto the `Fin` rail — the LONG-LIVED holder path; `public Fin<A> Use<TContainer, A>(CollabContainer kind, string name, Func<TContainer, Fin<A>> work)` — the SCOPED transient twin: attach, work, release in one expression, so per-edit applies and per-read projections never grow the registered handle set (every `Get<Kind>` call mints a fresh Rust-pointer wrapper); `public Fin<Subscription> Changes(Subscriber subscriber)` — the document-wide typed-`Diff` feed through `SubscribeRoot`, `EventTriggerKind.Local`/`Import`/`Checkout` routing echo suppression at every UI projection.
 - Auto: the document is the live convergence authority — every local edit and every remote replica's session delta flow through the one `LoroDoc`, so a collaborative page holds NO custom last-writer-wins register, fractional-index insertion order, or tombstone set: the notebook cell sequence is a `movable-list` container whose `Mov` reorders by stable id, an issue comment thread is a `map` container keyed by comment GUID, a table is a `movable-list` whose `Mov` is the identity-preserving row reorder, the graph canvas is a `tree` container, and a rich-text cell is a per-cell `text` container whose `Mark` carries inline style spans; the document key prefixes the Persistence content-key namespace so two replicas of one document converge under one identity.
 - Packages: LoroCs, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
 - Growth: a co-edited surface is one `CollabContainer` attach, never a new CRDT; a new fault is one `CollabFault` case (one `detail` ordinal on the 6500 row); a new container kind the binding adds is one `CollabContainer` row; a new open-time knob is one `CollabDocPolicy` field; zero new surface.
@@ -63,21 +63,52 @@ public sealed record CollabDocPolicy(bool RecordTimestamp, Option<long> MergeInt
 
 // Release is registry-owned: disposing the handle unregisters it and frees the Rust pointer; a handle
 // never disposed individually frees in the document sweep — one observable release path either way.
-public sealed record CollabHandle(CollabContainer Kind, string Name, IDisposable Container, Action Release) : IDisposable {
-    public void Dispose() => Release();
+public sealed class CollabHandle : IDisposable {
+    private readonly Action release;
+    private int disposed;
+
+    public CollabHandle(CollabContainer kind, string name, IDisposable container, Action release) {
+        Kind = kind; Name = name; Container = container; this.release = release;
+    }
+
+    public CollabContainer Kind { get; }
+    public string Name { get; }
+    public IDisposable Container { get; }
+    public void Dispose() { if (Interlocked.Exchange(ref disposed, 1) == 0) release(); }
 }
 
-public sealed record CollabDoc(LoroDoc Doc, string Key, Atom<Seq<IDisposable>> Handles) : IDisposable {
+// Capability class, never a value-equal record: the Rust-pointer document, the handle registry atom,
+// and the disposal latch carry identity, not structure — the b0 native-lifetime law.
+public sealed class CollabDoc(LoroDoc doc, string key, Atom<Seq<CollabHandle>> handles) : IDisposable {
+    private int disposed;
+
+    public LoroDoc Doc { get; } = doc;
+    public string Key { get; } = key;
+    public Atom<Seq<CollabHandle>> Handles { get; } = handles;
+
     public static CollabDoc Open(string key, Option<CollabDocPolicy> policy = default) {
         LoroDoc doc = new();
         CollabDocPolicy resolved = policy.IfNone(CollabDocPolicy.Live);
         doc.SetRecordTimestamp(resolved.RecordTimestamp);
         resolved.MergeIntervalMs.Iter(doc.SetChangeMergeInterval);
         resolved.Peer.Iter(doc.SetPeerId);
-        return new CollabDoc(doc, key, Atom(Seq<IDisposable>()));
+        return new CollabDoc(doc, key, Atom(Seq<CollabHandle>()));
     }
 
     public Fin<CollabHandle> Attach(CollabContainer kind, string name) =>
+        Opened(kind, name).Map(container => Registered(kind, name, container));
+
+    // The transient twin of Attach: attach, work, release — per-edit applies and per-read projections
+    // ride THIS scope, so a keystroke or board refresh never grows the registered handle set; every
+    // LoroDoc.Get<Kind> call mints a fresh Rust-pointer wrapper that must free with its scope.
+    public Fin<A> Use<TContainer, A>(CollabContainer kind, string name, Func<TContainer, Fin<A>> work) where TContainer : class, IDisposable =>
+        Opened(kind, name).Bind(container => {
+            using (container) {
+                return container is TContainer typed ? work(typed) : Fin.Fail<A>(new CollabFault.Detached(name));
+            }
+        });
+
+    private Fin<IDisposable> Opened(CollabContainer kind, string name) =>
         Lift(() => kind.Switch<(LoroDoc Doc, string Name), IDisposable>(
             state: (Doc, name),
             text: static (s, _) => s.Doc.GetText(s.Name),
@@ -85,8 +116,7 @@ public sealed record CollabDoc(LoroDoc Doc, string Key, Atom<Seq<IDisposable>> H
             list: static (s, _) => s.Doc.GetList(s.Name),
             movableList: static (s, _) => s.Doc.GetMovableList(s.Name),
             tree: static (s, _) => s.Doc.GetTree(s.Name),
-            counter: static (s, _) => s.Doc.GetCounter(s.Name)))
-        .Map(container => Registered(kind, name, container));
+            counter: static (s, _) => s.Doc.GetCounter(s.Name)));
 
     public Fin<Unit> Commit(string origin) =>
         Lift(() => { Doc.CommitWith(new CommitOptions(Origin: origin, ImmediateRenew: true, Timestamp: null, CommitMsg: null)); return unit; });
@@ -113,16 +143,18 @@ public sealed record CollabDoc(LoroDoc Doc, string Key, Atom<Seq<IDisposable>> H
     }
 
     private CollabHandle Registered(CollabContainer kind, string name, IDisposable container) {
-        ignore(Handles.Swap(held => held.Add(container)));
-        return new CollabHandle(kind, name, container, () => {
-            ignore(Handles.Swap(held => held.Filter(held0 => !ReferenceEquals(held0, container))));
+        CollabHandle handle = new(kind, name, container, () => {
+            ignore(Handles.Swap(held => held.Filter(candidate => !ReferenceEquals(candidate.Container, container))));
             container.Dispose();
         });
+        ignore(Handles.Swap(held => held.Add(handle)));
+        return handle;
     }
 
     public void Dispose() {
+        if (Interlocked.Exchange(ref disposed, 1) != 0) { return; }
         Handles.Value.Iter(static held => held.Dispose());
-        ignore(Handles.Swap(static _ => Seq<IDisposable>()));
+        ignore(Handles.Swap(static _ => Seq<CollabHandle>()));
         Doc.Dispose();
     }
 }
@@ -143,8 +175,8 @@ public sealed record LoroVal(LoroValue Value) : LoroValueLike {
 ## [03]-[DURABLE_INTENT]
 
 - Owner: `EditIntent` — the SINGLE typed edit-intent `[Union]` whose rows the domain planes contribute; `IntentLedger` — the projection onto Persistence-owned rows, the ONE live+durable commit rail, and the replay-window cold-load; `SessionEpoch` — the epoch identity that makes cold-load honest; `TextRunGate` — the producer-side probe gate on the text arm.
-- Cases: `EditIntent` = CellInsert | CellEdit | CellMove | CellDelete | CommentAdd | CommentEdit | CommentResolve | TableRowCommit | GraphStructure | Annotation | TextRun — every collaborative surface's committed edit is ONE row here, never a parallel per-page op union; `history.md`'s `RevertibleOp` stays the LOCAL revert algebra that projects onto this same family; `GraphOp` = NodeAdd | NodeMove | NodeRemove | EdgeAdd | EdgeRemove — each case carrying exactly its own payload, so no arm reads an `Option` a sibling case never populates, and the move arm rides the tree's identity-preserving `MovTo`; `TextRunOp` = Insert | Delete | Mark over unicode-index positions the ledger decode resolves from the Persistence stable-position rows in window order.
-- Entry: `public IO<Fin<Unit>> Project(EditIntent intent)` — encodes the intent onto a Persistence-owned `OpLogEntry` under its `SyncOpKind` row through the `Version/ledger` changefeed (Persistence owns the row types; AppUi projects and decodes), refusing a `TextRun` row with the typed `CollabFault.Gated` while `TextRunGate.Probing` stands; `public IO<Fin<Unit>> Commit(CollabDoc doc, EditIntent intent, string origin)` — the ONE transaction rail: the durable projection lands FIRST, then the live state applies through the SAME `IntentApply.Apply` dispatch replay uses and seals with `doc.Commit(origin)`, so live and replay converge on one register shape by construction and a durable refusal never leaves a committed live divergence; `public IO<Fin<(CollabDoc Doc, SessionEpoch Epoch)>> ColdLoad(Option<CollabDocPolicy> policy = default)` — decodes the per-document replay window from the ledger and replays it into a FRESH `LoroDoc` in log order.
+- Cases: `EditIntent` = CellInsert | CellEdit | CellMove | CellDelete | CommentAdd | CommentEdit | CommentResolve | CommentRoute | TableRowCommit | GraphStructure | Annotation | TextRun — every collaborative surface's committed edit is ONE row here, never a parallel per-page op union; `CommentRoute` projects resolved mention recipients into their mergeable notification inboxes; `history.md`'s `RevertibleOp` stays the LOCAL revert algebra that projects onto this same family; `GraphOp` = NodeAdd | NodeAt | NodeMove | NodeRemove | EdgeAdd | EdgeRemove — each case carrying exactly its own payload, so no arm reads an `Option` a sibling case never populates: `NodeAdd` carries the complete `GraphNodeRow` so cold replay rehydrates template, title, position, and pins, `NodeAt` is the canvas position-commit meta-column write, the move arm rides the tree's identity-preserving `MovTo`, and the edge arms carry pin-qualified `GraphEndpoint` pairs; `TextRunOp` = Insert | Delete | Mark over unicode-index positions the ledger decode resolves from the Persistence stable-position rows in window order.
+- Entry: `public IO<Fin<Unit>> Project(EditIntent intent)` — encodes the intent as the payload of a Persistence-owned `CrdtOpWire` on the `Version/ledger` `crdt` lane; `public IO<Fin<Unit>> Commit(CollabDoc doc, EditIntent intent, string origin)` — appends durably before applying through the same `IntentApply.Apply` dispatch replay uses; `ColdLoad` reads `ReplayWindow.ForEntity` and replays into a fresh `LoroDoc` in ledger order.
 - Auto: cold-load is DETERMINISTIC HYDRATION — no Loro byte is read from durable truth; each decoded intent applies through the same container verbs a live edit uses, so the rehydrated state is a pure function of the ledger window; the SESSION-EPOCH law makes it honest: a rehydrated `LoroDoc`'s version vector is unrelated to any live session's, so a live peer's `Export(Updates(vv))` delta CANNOT import over it (`LoroException.ImportUpdatesThatDependsOnOutdatedVersion`/`DecodeVersionVectorException` are the verified failure surface, folding to `CollabFault.EpochMismatch`) — replay-window rehydration is the cold-START path that SEEDS a session epoch, and a peer joining an ACTIVE session syncs Loro-native session state from a live peer over the AppHost transport (in-session wire, ephemeral, never persisted), never by replaying the log beside a live epoch.
 - Receipt: every projected intent seals a receipt through the `ReceiptSinkPort` envelope carrying the ledger sequence and the intent kind; the replay-window read receipt carries the window bounds and the replayed op count.
 - Packages: LoroCs, Rasm.Persistence (project), Rasm (project), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
@@ -153,7 +185,7 @@ public sealed record LoroVal(LoroValue Value) : LoroValueLike {
   - Durable collaboration is decode/replay at the boundary — the edit-intent op stream is Persistence-owned rows; a Loro-native byte persisted as system-of-record is the DELETED form (the Persistence roster law records LoroCs rejected for the durable wire, bit-parity, and re-seals it).
   - The intent vocabulary has ONE owner — this union; `history.md`'s `RevertibleOp` projects onto it, `notebook.md` and `issues.md` anchor their durable prose here, and a parallel per-page op union is the deleted form.
   - `IntentApply.Apply` is the generated total `Switch` over the closed family — a language `switch` with a `_` arm is the rejected form because closed-family growth must break every dispatch site at compile time, never fall through a generic case; every ADMITTED case, `TextRun` included, reaches the same replay projection its live edit used.
-  - The text arm's gate sits on the PRODUCER, not on replay: durable `TextRun` rows are character-run ops riding the existing `CrdtField.RgaSequence` wire (the Persistence `Version/commits` stable-position sequence case — Persistence-owned wire, stable position identifiers, never Loro binary, zero new Persistence row), the ledger decode resolves stable positions to unicode ordinals in window order, and `IntentLedger.Project` refuses to ADMIT a `TextRun` row with `CollabFault.Gated` until the two-replica concurrent-intra-cell-edit convergence probe flips `TextRunGate` to `Sealed` — a row that reached the ledger always replays, and a permanently failing replay arm dressed as a finished case is the deleted form.
+  - The text arm's gate sits on the producer, not replay: `TextRun` encodes inside the existing Persistence `CrdtOpWire` payload, and the `ReplayWindow.ForEntity` decoder resolves its stable positions in window order; a row that reached the ledger always replays.
   - Persistence results are decode-only — the op-log rows, replay windows, blob receipts, and conflict receipts are Persistence-owned types; no AppUi interface or type crosses down.
 
 ```csharp signature
@@ -166,14 +198,18 @@ public sealed partial class TextRunGate {
     public bool Admits { get; }
 }
 
+// NodeAdd carries the COMPLETE GraphNodeRow so cold replay and remote apply reconstruct template, title,
+// position, and pins — an id-only add cannot rehydrate the canvas; NodeAt is the canvas position-commit
+// verb (a meta-column write, never a side channel); edges carry pin-qualified GraphEndpoint identity.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record GraphOp {
     private GraphOp() { }
-    public sealed record NodeAdd(string NodeId) : GraphOp;
+    public sealed record NodeAdd(GraphNodeRow Row) : GraphOp;
+    public sealed record NodeAt(string NodeId, double X, double Y) : GraphOp;
     public sealed record NodeMove(string NodeId, Option<string> Parent, uint Index) : GraphOp;
     public sealed record NodeRemove(string NodeId) : GraphOp;
-    public sealed record EdgeAdd(string From, string To) : GraphOp;
-    public sealed record EdgeRemove(string From, string To) : GraphOp;
+    public sealed record EdgeAdd(GraphEndpoint From, GraphEndpoint To) : GraphOp;
+    public sealed record EdgeRemove(GraphEndpoint From, GraphEndpoint To) : GraphOp;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -194,6 +230,7 @@ public abstract partial record EditIntent {
     public sealed record CommentAdd(string DocKey, Guid CommentId, string TopicId, string Body, string Author, Option<string> ViewpointGuid, Instant At) : EditIntent;
     public sealed record CommentEdit(string DocKey, Guid CommentId, string TopicId, string Body, string Editor, Instant At) : EditIntent;
     public sealed record CommentResolve(string DocKey, Guid CommentId, string TopicId, Instant At) : EditIntent;
+    public sealed record CommentRoute(string DocKey, Guid CommentId, string TopicId, Seq<ulong> Peers, Instant At) : EditIntent;
     public sealed record TableRowCommit(string DocKey, string RowId, JsonElement Cells) : EditIntent;
     public sealed record GraphStructure(string DocKey, GraphOp Op) : EditIntent;
     public sealed record Annotation(string DocKey, string TargetId, JsonElement Payload) : EditIntent;
@@ -205,7 +242,7 @@ public readonly record struct SessionEpoch(string DocumentKey, Guid Epoch, Insta
 
 public sealed record IntentLedger(
     string DocumentKey,
-    Func<EditIntent, IO<Fin<Unit>>> LedgerAppend,      // composition-bound: encodes onto the Persistence OpLogEntry/SyncOpKind row
+    Func<EditIntent, IO<Fin<Unit>>> LedgerAppend,      // composition-bound: encodes a Persistence CrdtOpWire payload on the crdt lane
     Func<string, IO<Fin<Seq<EditIntent>>>> ReplayWindow, // composition-bound: the Version/ledger windowed read, decoded
     TextRunGate TextGate,
     ClockPolicy Clocks) {
@@ -243,16 +280,17 @@ public static class IntentApply {
     public static Fin<Unit> Apply(CollabDoc doc, EditIntent intent) =>
         intent.Switch(
             state: doc,
-            cellInsert: static (doc, i) => Cells(doc).Bind(cells => Meta(doc, i.CellId).Bind(meta =>
-                After(cells, i.AfterId).Bind(at =>
-                    CollabDoc.Lift(() => { cells.Insert(at, LoroVal.Of(i.CellId)); meta.Insert("kind", LoroVal.Of(i.Kind)); return unit; })))),
-            cellEdit: static (doc, e) => Meta(doc, e.CellId).Bind(meta =>
+            cellInsert: static (doc, i) => WithCells(doc, cells => After(cells, i.AfterId).Bind(at =>
+                    CollabDoc.Lift(() => { cells.Insert(at, LoroVal.Of(i.CellId)); return unit; })))
+                .Bind(_ => WithMeta(doc, i.CellId, meta =>
+                    CollabDoc.Lift(() => { meta.Insert("kind", LoroVal.Of(i.Kind)); return unit; }))),
+            cellEdit: static (doc, e) => WithMeta(doc, e.CellId, meta =>
                 CollabDoc.Lift(() => { meta.Insert("patch", LoroVal.Of(e.Patch.GetRawText())); return unit; })),
-            cellMove: static (doc, m) => Cells(doc).Bind(cells => IndexOf(cells, m.CellId).Bind(from =>
+            cellMove: static (doc, m) => WithCells(doc, cells => IndexOf(cells, m.CellId).Bind(from =>
                 After(cells, m.AfterId).Bind(to => CollabDoc.Lift(() => { cells.Mov(from, to); return unit; })))),
-            cellDelete: static (doc, d) => Cells(doc).Bind(cells => IndexOf(cells, d.CellId).Bind(at =>
+            cellDelete: static (doc, d) => WithCells(doc, cells => IndexOf(cells, d.CellId).Bind(at =>
                 CollabDoc.Lift(() => { cells.Delete(at, 1); return unit; }))),
-            commentAdd: static (doc, c) => Comment(doc, c.TopicId, c.CommentId).Bind(row =>
+            commentAdd: static (doc, c) => WithComment(doc, c.TopicId, c.CommentId, row =>
                 CollabDoc.Lift(() => {
                     row.Insert("author", LoroVal.Of(c.Author));
                     row.Insert("body", LoroVal.Of(c.Body));
@@ -261,43 +299,55 @@ public static class IntentApply {
                     row.Insert("at", LoroVal.Of(c.At.ToUnixTimeMilliseconds()));
                     return unit;
                 })),
-            commentEdit: static (doc, c) => Comment(doc, c.TopicId, c.CommentId).Bind(row =>
+            commentEdit: static (doc, c) => WithComment(doc, c.TopicId, c.CommentId, row =>
                 CollabDoc.Lift(() => {
                     row.Insert("body", LoroVal.Of(c.Body));
                     row.Insert("edited-by", LoroVal.Of(c.Editor));
                     row.Insert("edited-at", LoroVal.Of(c.At.ToUnixTimeMilliseconds()));
                     return unit;
                 })),
-            commentResolve: static (doc, c) => Comment(doc, c.TopicId, c.CommentId).Bind(row =>
+            commentResolve: static (doc, c) => WithComment(doc, c.TopicId, c.CommentId, row =>
                 CollabDoc.Lift(() => { row.Insert("resolved", LoroVal.Of(true)); return unit; })),
-            tableRowCommit: static (doc, r) => Register(doc, "rows").Bind(rows =>
+            commentRoute: static (doc, c) => c.Peers.TraverseM(peer => doc.Use<LoroMap, Unit>(CollabContainer.Map, $"notifications/{peer}", inbox =>
+                CollabDoc.Lift(() => {
+                    inbox.Insert(c.CommentId.ToString("N"), LoroVal.Of(new Dictionary<string, LoroValue> {
+                        ["topic"] = new LoroValue.String(c.TopicId),
+                        ["at"] = new LoroValue.I64(c.At.ToUnixTimeMilliseconds()),
+                    }));
+                    return unit;
+                }))).As().Map(static _ => unit),
+            tableRowCommit: static (doc, r) => doc.Use<LoroMap, Unit>(CollabContainer.Map, "rows", rows =>
                 CollabDoc.Lift(() => { rows.Insert(r.RowId, LoroVal.Of(r.Cells.GetRawText())); return unit; })),
             graphStructure: static (doc, g) => Graph(doc, g.Op),
-            annotation: static (doc, a) => Register(doc, "annotations").Bind(notes =>
+            annotation: static (doc, a) => doc.Use<LoroMap, Unit>(CollabContainer.Map, "annotations", notes =>
                 CollabDoc.Lift(() => { notes.Insert(a.TargetId, LoroVal.Of(a.Payload.GetRawText())); return unit; })),
-            textRun: static (doc, t) => CellText(doc, t.CellId).Bind(text => t.Op.Switch(
+            textRun: static (doc, t) => WithCellText(doc, t.CellId, text => t.Op.Switch(
                 state: text,
                 insert: static (text, op) => CollabDoc.Lift(() => { text.Insert(op.At, op.Text); return unit; }),
                 delete: static (text, op) => CollabDoc.Lift(() => { text.Delete(op.At, op.Len); return unit; }),
                 mark: static (text, op) => CollabDoc.Lift(() => { text.Mark(op.From, op.To, op.Key, LoroVal.Of(op.Value)); return unit; }))));
 
-    internal static Fin<T> As<T>(CollabDoc doc, CollabContainer kind, string name) where T : class =>
-        doc.Attach(kind, name).Bind(handle => handle.Container is T typed
-            ? Fin.Succ(typed)
-            : Fin.Fail<T>(new CollabFault.Detached(name)));
+    // Every apply-path access is SCOPED through CollabDoc.Use: the root wrapper and each nested
+    // EnsureMergeable* handle free with the write, so replay and live edits leak no per-edit handles.
+    static Fin<Unit> WithCells(CollabDoc doc, Func<LoroMovableList, Fin<Unit>> write) =>
+        doc.Use(CollabContainer.MovableList, "cells", write);
 
-    static Fin<LoroMovableList> Cells(CollabDoc doc) => As<LoroMovableList>(doc, CollabContainer.MovableList, "cells");
+    static Fin<Unit> WithMeta(CollabDoc doc, string cellId, Func<LoroMap, Fin<Unit>> write) =>
+        doc.Use<LoroMap, Unit>(CollabContainer.Map, "cells/meta", map =>
+            CollabDoc.Lift(() => map.EnsureMergeableMap(cellId)).Bind(meta => {
+                using (meta) { return write(meta); }
+            }));
 
-    static Fin<LoroMap> Register(CollabDoc doc, string name) => As<LoroMap>(doc, CollabContainer.Map, name);
+    static Fin<Unit> WithCellText(CollabDoc doc, string cellId, Func<LoroText, Fin<Unit>> write) =>
+        WithMeta(doc, cellId, meta => CollabDoc.Lift(() => meta.EnsureMergeableText("source")).Bind(text => {
+            using (text) { return write(text); }
+        }));
 
-    static Fin<LoroMap> Meta(CollabDoc doc, string cellId) =>
-        Register(doc, "cells/meta").Bind(map => CollabDoc.Lift(() => map.EnsureMergeableMap(cellId)));
-
-    static Fin<LoroText> CellText(CollabDoc doc, string cellId) =>
-        Meta(doc, cellId).Bind(meta => CollabDoc.Lift(() => meta.EnsureMergeableText("source")));
-
-    static Fin<LoroMap> Comment(CollabDoc doc, string topicId, Guid commentId) =>
-        Register(doc, $"comments/{topicId}").Bind(map => CollabDoc.Lift(() => map.EnsureMergeableMap(commentId.ToString("N"))));
+    static Fin<Unit> WithComment(CollabDoc doc, string topicId, Guid commentId, Func<LoroMap, Fin<Unit>> write) =>
+        doc.Use<LoroMap, Unit>(CollabContainer.Map, $"comments/{topicId}", map =>
+            CollabDoc.Lift(() => map.EnsureMergeableMap(commentId.ToString("N"))).Bind(row => {
+                using (row) { return write(row); }
+            }));
 
     // Ordinal resolution over the id list: the movable list holds cell-id strings, so an id resolves by
     // ToVec scan; a missing id is a typed fault surfacing the divergent window, never a silent skip.
@@ -313,25 +363,60 @@ public static class IntentApply {
 
     static Fin<Unit> Graph(CollabDoc doc, GraphOp op) => op.Switch(
         state: doc,
-        nodeAdd: static (doc, n) => As<LoroTree>(doc, CollabContainer.Tree, "graph").Bind(tree =>
-            CollabDoc.Lift(() => { tree.GetMeta(tree.Create(new TreeParentId.Root())).Insert("key", LoroVal.Of(n.NodeId)); return unit; })),
+        // The add arm writes EVERY GraphNodeRow column onto the node meta map — key, template, title,
+        // position, and the per-pin columns — so ReadNodes rehydrates the complete row on cold replay.
+        nodeAdd: static (doc, n) => doc.Use<LoroTree, Unit>(CollabContainer.Tree, "graph", tree =>
+            CollabDoc.Lift(() => {
+                using LoroMap meta = tree.GetMeta(tree.Create(new TreeParentId.Root()));
+                meta.Insert("key", LoroVal.Of(n.Row.Key));
+                meta.Insert("template", LoroVal.Of(n.Row.TemplateKey));
+                meta.Insert("title", LoroVal.Of(n.Row.Title));
+                meta.Insert("x", LoroVal.Of(n.Row.X));
+                meta.Insert("y", LoroVal.Of(n.Row.Y));
+                int ordinal = 0;
+                foreach (GraphPinRow pin in n.Row.Pins) {
+                    meta.Insert($"pin/{ordinal}/key", LoroVal.Of(pin.Key));
+                    meta.Insert($"pin/{ordinal}/name", LoroVal.Of(pin.Name));
+                    meta.Insert($"pin/{ordinal}/alignment", LoroVal.Of(pin.Alignment.Key));
+                    meta.Insert($"pin/{ordinal}/direction", LoroVal.Of(pin.Direction.Key));
+                    meta.Insert($"pin/{ordinal}/bus", LoroVal.Of(pin.BusWidth));
+                    ordinal++;
+                }
+                return unit;
+            })),
+        nodeAt: static (doc, m) => doc.Use<LoroTree, Unit>(CollabContainer.Tree, "graph", tree =>
+            NodeOf(tree, m.NodeId).Bind(target => CollabDoc.Lift(() => {
+                using LoroMap meta = tree.GetMeta(target);
+                meta.Insert("x", LoroVal.Of(m.X));
+                meta.Insert("y", LoroVal.Of(m.Y));
+                return unit;
+            }))),
         // Identity-preserving reparent: MovTo relocates the node under its new parent at the index, so a
         // co-edited canvas reorder never rides delete-plus-recreate losing node identity.
-        nodeMove: static (doc, m) => As<LoroTree>(doc, CollabContainer.Tree, "graph").Bind(tree =>
+        nodeMove: static (doc, m) => doc.Use<LoroTree, Unit>(CollabContainer.Tree, "graph", tree =>
             NodeOf(tree, m.NodeId).Bind(target => m.Parent.Match(
                 Some: parentId => NodeOf(tree, parentId).Bind(parent =>
                     CollabDoc.Lift(() => { tree.MovTo(target, new TreeParentId.Node(parent), m.Index); return unit; })),
                 None: () => CollabDoc.Lift(() => { tree.MovTo(target, new TreeParentId.Root(), m.Index); return unit; })))),
-        nodeRemove: static (doc, n) => As<LoroTree>(doc, CollabContainer.Tree, "graph").Bind(tree =>
+        nodeRemove: static (doc, n) => doc.Use<LoroTree, Unit>(CollabContainer.Tree, "graph", tree =>
             NodeOf(tree, n.NodeId).Bind(target => CollabDoc.Lift(() => { tree.Delete(target); return unit; }))),
-        edgeAdd: static (doc, e) => Register(doc, "graph/edges").Bind(edges =>
-            CollabDoc.Lift(() => { edges.Insert($"{e.From}->{e.To}", LoroVal.Of(true)); return unit; })),
-        edgeRemove: static (doc, e) => Register(doc, "graph/edges").Bind(edges =>
-            CollabDoc.Lift(() => { edges.Delete($"{e.From}->{e.To}"); return unit; })));
+        // Edge identity is the pin-qualified endpoint pair — the register key round-trips both node and
+        // pin identity, so ReadEdges rehydrates GraphEndpoint values without a lossy string collapse.
+        edgeAdd: static (doc, e) => doc.Use<LoroMap, Unit>(CollabContainer.Map, "graph/edges", edges =>
+            CollabDoc.Lift(() => { edges.Insert(EdgeKey(e.From, e.To), LoroVal.Of(true)); return unit; })),
+        edgeRemove: static (doc, e) => doc.Use<LoroMap, Unit>(CollabContainer.Map, "graph/edges", edges =>
+            CollabDoc.Lift(() => { edges.Delete(EdgeKey(e.From, e.To)); return unit; })));
 
+    static string EdgeKey(GraphEndpoint from, GraphEndpoint to) =>
+        $"{from.NodeKey}|{from.PinKey.IfNone(string.Empty)}=>{to.NodeKey}|{to.PinKey.IfNone(string.Empty)}";
+
+    // Transient meta handles free per probe — every GetMeta map is a Rust-pointer wrapper under the
+    // same handle law the comment lens observes.
     static Fin<TreeId> NodeOf(LoroTree tree, string nodeId) {
-        foreach (TreeId candidate in tree.Nodes())
-            if (tree.GetMeta(candidate).Get("key")?.AsValue() is LoroValue.String s && s.Value == nodeId) return Fin.Succ(candidate);
+        foreach (TreeId candidate in tree.Nodes()) {
+            using LoroMap meta = tree.GetMeta(candidate);
+            if (meta.Get("key")?.AsValue() is LoroValue.String s && s.Value == nodeId) return Fin.Succ(candidate);
+        }
         return Fin.Fail<TreeId>(new CollabFault.Text($"graph node {nodeId} absent from replay state"));
     }
 }
@@ -385,7 +470,7 @@ public sealed record LiveWire(CollabDoc Document, SessionEpoch Epoch, ClockPolic
                 : Document.Doc.ImportBatch([.. deltas.AsIterable().Map(static delta => delta.ToArray())]))
             .Map(status => new CollabSyncReceipt(
                 Document.Key, deltas.Length, deltas.AsIterable().Fold(0L, static (sum, delta) => sum + delta.Length),
-                status.Pending?.Count ?? 0, true, Clocks.Now, Correlation)))
+                status.Pending?.Count ?? 0, status.Pending is not { Count: > 0 }, Clocks.Now, Correlation)))
             .Bind(result => result.Match(
                 Succ: receipt => Sink(receipt).Map(_ => Fin.Succ(receipt)),
                 Fail: error => IO.pure(Fin.Fail<CollabSyncReceipt>(error))));
@@ -402,7 +487,7 @@ public sealed record LiveWire(CollabDoc Document, SessionEpoch Epoch, ClockPolic
 
 ```mermaid
 flowchart LR
-    Edit[typed EditIntent] -->|Commit: durable-first| Ledger["Persistence Version/ledger (OpLogEntry/SyncOpKind)"]
+    Edit[typed EditIntent] -->|Commit: durable-first| Ledger["Persistence Version/ledger (CrdtOpWire / ReplayWindow.ForEntity)"]
     Edit -->|IntentApply.Apply| CollabDoc
     Ledger -->|ReplayWindow decode| Fresh["fresh LoroDoc (session epoch seed)"]
     CollabDoc -->|SubscribeLocalUpdate| LiveWire
@@ -414,13 +499,13 @@ flowchart LR
 
 ## [05]-[PRESENCE]
 
-- Owner: `Presence` the caret-and-awareness owner holding BOTH channel handles; `PresenceKind` `[SmartEnum<string>]` the channel axis every ingress dispatch reads; `CollabCursor` the position that survives concurrent edits; `PresenceDelta` the remote-application receipt.
-- Cases: `PresenceKind` = cursor | awareness under the locked kind literals — `cursor` is the TTL-expiring caret/selection channel through `EphemeralStore`, `awareness` is the per-peer user/color identity through `Awareness`; both modes have an owned transport and lifecycle path on this one owner.
-- Entry: `public static Presence Open(CollabDoc document, ulong peer, long timeoutMs)` — mints both channel handles under one TTL; `public Fin<CollabCursor> Anchor(CollabHandle handle, uint position, PosType source, Side side)` — anchors a stable cursor, converting the editor's declared index space through `ConvertPos(position, source, PosType.Unicode)` BEFORE `GetCursor` so a caret after a supplementary-plane character resolves identically in the editor and in loro; `public Fin<PresenceDelta> ApplyRemote(PresenceKind kind, ReadOnlyMemory<byte> update)` — applies a remote peer's presence bytes onto the kind-selected channel; `public Fin<byte[]> Identity(LoroVal state)` — sets the local peer's awareness state and returns the encoded wire bytes for the transport.
-- Auto: a remote caret/selection publishes through `EphemeralStore` (TTL-expiring) and never enters durable truth, so a stale caret evicts on `RemoveOutdated` rather than persisting; the cursor anchors through `GetCursor(pos, Side)` so it survives concurrent edits, and the rendered caret reads back through `Locate` — `GetCursorPos(cursor)` returning the `PosQueryResult` whose `Current` is the `AbsolutePosition` record carrying the post-merge position, a gc'd anchor (`CannotFindRelativePosition`) folding to `None` rather than a throw; `Awareness` carries the per-peer user/color identity on its own channel — `SetLocalState` admits, `Encode(peers)` wires out, `Apply` folds a remote update to its `AwarenessPeerUpdate` changed-peer receipt, and `GetAllStates` projects the live roster; both channels encode to `byte[]` riding the same AppHost transport as the data updates but on a separate ephemeral topic, so presence and data never mix; the tour presenter-follow arm (`Collab/tour.md`) rides THIS owner's cursor channel.
+- Owner: `Presence` the caret, identity, and spatial-state owner holding three channel handles; `PresenceKind` `[SmartEnum<string>]` the channel axis every ingress dispatch reads; `CollabCursor` the position that survives concurrent edits; `PresenceDelta` the remote-application receipt.
+- Cases: `PresenceKind` = cursor | awareness | viewport under the locked kind literals — `cursor` is the TTL-expiring caret/selection channel through `EphemeralStore`, `awareness` is the per-peer user/color identity through `Awareness`, and `viewport` carries camera, selection, section, presenter playhead, and review-location state through its own `EphemeralStore`; every mode has an owned transport and lifecycle path on this one owner.
+- Entry: `public static Presence Open(CollabDoc document, ulong peer, long timeoutMs)` — mints all three channel handles under one TTL; `public Fin<CollabCursor> Anchor(CollabHandle handle, uint position, PosType source, Side side)` — anchors a stable cursor, converting the editor's declared index space through `ConvertPos(position, source, PosType.Unicode)` BEFORE `GetCursor` so a caret after a supplementary-plane character resolves identically in the editor and in loro; `public Fin<PresenceDelta> ApplyRemote(PresenceKind kind, ReadOnlyMemory<byte> update)` — applies a remote peer's presence bytes onto the kind-selected channel; `public Fin<byte[]> Identity(LoroVal state)` and `PublishViewport` encode the identity and spatial channels for transport.
+- Auto: a remote caret/selection publishes through `EphemeralStore` (TTL-expiring) and never enters durable truth, so a stale caret evicts on `RemoveOutdated` rather than persisting; the cursor anchors through `GetCursor(pos, Side)` so it survives concurrent edits, and the rendered caret reads back through `Locate` — `GetCursorPos(cursor)` returning the `PosQueryResult` whose `Current` is the `AbsolutePosition` record carrying the post-merge position, a gc'd anchor (`CannotFindRelativePosition`) folding to `None` rather than a throw; `Awareness` carries the per-peer user/color identity on its own channel; the viewport store carries structured spatial values without overloading cursor keys, and the tour presenter-follow arm (`Collab/tour.md`) rides this channel; all three channels encode to `byte[]` on the separate ephemeral topic, so presence and data never mix.
 - Packages: LoroCs, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new presence channel is one `PresenceKind` row plus its `ApplyRemote` arm; a new presence field is one ephemeral key or one awareness-state column; zero new surface.
-- Boundary: presence rides the ephemeral channels beside the data, never durable truth — a caret stored durably is the deleted form, so `EphemeralStore`/`Awareness` are the presence owners and the durable stream carries only edit intents; a cursor-only surface presented as full presence is the deleted form — the awareness half is owned here, admitted, encoded, applied, and expired through the same authority; the anchor boundary carries the SOURCE index encoding — a raw UI offset passed to `GetCursor` and a hard-coded `PosType.Unicode` label are the rejected forms, the `Bytes`/`Unicode`/`Utf16` tri-encoding crossing once through `ConvertPos` at this seam while list ordinals anchor conversion-free; both channel handles are Rust-pointer wrappers the owner disposes; `PosQueryResult` is itself a disposable pair, scoped inside `Locate`.
+- Boundary: presence rides three ephemeral channels beside the data, never durable truth — a caret or viewport stored durably is the deleted form, so `EphemeralStore`/`Awareness` are the presence owners and the durable stream carries only edit intents; a cursor-only surface presented as full presence is rejected because identity and spatial state have distinct channels; the anchor boundary carries the source index encoding, and a raw UI offset passed to `GetCursor` is rejected; all three channel handles are Rust-pointer wrappers the owner disposes; `PosQueryResult` is itself a disposable pair, scoped inside `Locate`.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -429,6 +514,7 @@ flowchart LR
 public sealed partial class PresenceKind {
     public static readonly PresenceKind Cursor = new("cursor");
     public static readonly PresenceKind Awareness = new("awareness");
+    public static readonly PresenceKind Viewport = new("viewport");
 }
 
 public readonly record struct PresenceDelta(PresenceKind Kind, int Peers);
@@ -437,17 +523,22 @@ public sealed record CollabCursor(Cursor Anchor, PosType Encoding) : IDisposable
     public void Dispose() => Anchor.Dispose();
 }
 
-public sealed record Presence(CollabDoc Document, ulong Peer, EphemeralStore Cursors, Awareness Peers) : IDisposable {
+// Three native channel handles: identity-owned capability class per the same native-lifetime law.
+public sealed class Presence(CollabDoc document, ulong peer, EphemeralStore cursors, Awareness peers, EphemeralStore viewport) : IDisposable {
+    public CollabDoc Document { get; } = document;
+    public ulong Peer { get; } = peer;
+    public EphemeralStore Cursors { get; } = cursors;
+    public Awareness Peers { get; } = peers;
+    public EphemeralStore Viewport { get; } = viewport;
+
     public static Presence Open(CollabDoc document, ulong peer, long timeoutMs) =>
-        new(document, peer, new EphemeralStore(timeoutMs), new Awareness(peer, timeoutMs));
+        new(document, peer, new EphemeralStore(timeoutMs), new Awareness(peer, timeoutMs), new EphemeralStore(timeoutMs));
 
     // The editor's index space crosses ONCE: text positions convert source -> Unicode before GetCursor;
     // list ordinals are already container positions and anchor conversion-free.
     public Fin<CollabCursor> Anchor(CollabHandle handle, uint position, PosType source, Side side) =>
         handle.Container switch {
-            LoroText text => CollabDoc.Lift(() => text.ConvertPos(position, source, PosType.Unicode))
-                .Bind(at => Optional(at).ToFin(new CollabFault.Detached($"{handle.Name}: position {position} outside {source} space")))
-                .Bind(at => CollabDoc.Lift(() => text.GetCursor(at, side)))
+            LoroText text => CollabDoc.Lift(() => text.GetCursor(text.ConvertPos(position, source, PosType.Unicode), side))
                 .Bind(cursor => Optional(cursor).ToFin(new CollabFault.Detached(handle.Name)))
                 .Map(cursor => new CollabCursor(cursor, PosType.Unicode)),
             LoroList list => CollabDoc.Lift(() => list.GetCursor(position, side))
@@ -483,7 +574,17 @@ public sealed record Presence(CollabDoc Document, ulong Peer, EphemeralStore Cur
             awareness: static (s, _) => CollabDoc.Lift(() => {
                 AwarenessPeerUpdate changed = s.Self.Peers.Apply(s.Update.ToArray());
                 return new PresenceDelta(PresenceKind.Awareness, changed.Updated.Length + changed.Added.Length);
+            }),
+            viewport: static (s, _) => CollabDoc.Lift(() => {
+                s.Self.Viewport.Apply(s.Update.ToArray());
+                return new PresenceDelta(PresenceKind.Viewport, s.Self.Viewport.Keys().Length);
             }));
+
+    public IDisposable BroadcastViewport(Func<ReadOnlyMemory<byte>, IO<Unit>> sink, Func<Error, IO<Unit>> faults) =>
+        Viewport.SubscribeLocalUpdate(new EphemeralSink(Viewport, sink, faults));
+
+    public Fin<byte[]> PublishViewport(string key, LoroVal state) =>
+        CollabDoc.Lift(() => { Viewport.Set(key, state); return Viewport.Encode(key); });
 
     public HashMap<ulong, LoroValue> Roster() =>
         toHashMap(Peers.GetAllStates().AsIterable().Map(static entry => (entry.Key, entry.Value.State)));
@@ -496,7 +597,7 @@ public sealed record Presence(CollabDoc Document, ulong Peer, EphemeralStore Cur
         }
     }
 
-    public void Dispose() { Cursors.Dispose(); Peers.Dispose(); }
+    public void Dispose() { Cursors.Dispose(); Peers.Dispose(); Viewport.Dispose(); }
 }
 ```
 
@@ -574,7 +675,7 @@ public sealed record TimeTravel(
     public Fin<DiffBatch> Changes(Frontiers from, Frontiers to) => CollabDoc.Lift(() => Document.Doc.Diff(from, to));
 
     public Fin<CollabDoc> Fork(Frontiers cut) =>
-        CollabDoc.Lift(() => Document.Doc.ForkAt(cut)).Map(forked => new CollabDoc(forked, $"{Document.Key}/fork", Atom(Seq<IDisposable>())));
+        CollabDoc.Lift(() => Document.Doc.ForkAt(cut)).Map(forked => new CollabDoc(forked, $"{Document.Key}/fork", Atom(Seq<CollabHandle>())));
 }
 ```
 
@@ -588,6 +689,7 @@ flowchart LR
     Presence --> CollabCursor
     Presence -->|cursor channel| EphemeralStore
     Presence -->|identity channel| Awareness
+    Presence -->|viewport channel| EphemeralStore
     CollabDoc --> TimeTravel
     TimeTravel -->|inverse EditIntent rows| IntentLedger
     TimeTravel --> CollabUndo

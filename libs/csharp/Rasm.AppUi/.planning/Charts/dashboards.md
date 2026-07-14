@@ -1,6 +1,6 @@
 # [APPUI_CHARTS_DASHBOARDS]
 
-One LiveCharts rail carries every Rasm.AppUi visualization: `ChartSeriesSpec` is the seventeen-row series axis dispatching onto four `ChartCanvas` rows with a live `GeoLandFold` land-swap fold, `ChartAxisKind` owns the five scale rows, one `ChartPolicy` record owns interaction and styling keys, `ChartStream` rows bind `DataSource` feeds through window, bound, cadence, and downsampling folds with a persisted `BoardState` board snapshot, and `DashboardTile` composes boards with a `StatFold` aggregate vocabulary and a `CrossFilter` linked-brushing fold persisted as versioned blobs. The package spine is LiveCharts on the admitted Skia stack over DynamicData change-sets; paints, motion, and label roles arrive as token keys resolved at mount; capture and export are consumed rails. Benchmark and activity-timeline dashboards are named layout rows over the analytical and receipt feeds.
+One LiveCharts rail carries every Rasm.AppUi visualization: `ChartSeriesSpec` is the seventeen-row series axis dispatching onto four `ChartCanvas` rows with a live `GeoLandFold` land-swap fold, `ChartAxisKind` owns the five scale rows, one `ChartPolicy` record owns interaction and styling keys, `ChartStream` rows bind `DataSource` feeds through window, bound, cadence, and downsampling folds with a persisted `BoardState` board snapshot, and `DashboardTile` composes boards with a `StatFold` aggregate vocabulary, a `WatchRule` KPI-alert row armed over the same aggregates, and a `CrossFilter` linked-brushing fold persisted as versioned blobs. The package spine is LiveCharts on the admitted Skia stack over DynamicData change-sets; paints, motion, and label roles arrive as token keys resolved at mount; capture and export are consumed rails. Benchmark and activity-timeline dashboards are named layout rows over the analytical and receipt feeds.
 
 ## [01]-[INDEX]
 
@@ -8,7 +8,7 @@ One LiveCharts rail carries every Rasm.AppUi visualization: `ChartSeriesSpec` is
 - [02]-[AXES_SECTIONS]: Five scale rows; label formats; sections; shared-scale pairing.
 - [03]-[CHART_INTERACTION]: One policy record; zoom, anchors, intent routing, dashboard canvas.
 - [04]-[STREAM_BINDING]: Feed rows; downsampling fold; sync law; board-state persistence.
-- [05]-[DASHBOARD_TILES]: Tile union; placement fold; cross-filter brushing; layout persistence.
+- [05]-[DASHBOARD_TILES]: Tile union; placement fold; cross-filter brushing; KPI watch rules; layout persistence.
 
 ## [02]-[SERIES_TABLE]
 
@@ -19,21 +19,22 @@ One LiveCharts rail carries every Rasm.AppUi visualization: `ChartSeriesSpec` is
 - Growth: a new visualization is one `ChartSeriesSpec` row and a new chart family is one `ChartCanvas` row; an eighteenth series row carries its render-hash baseline by construction of the same fold; zero new surface.
 - Boundary:
   - Typed row models project through `ValuesMap` on each `XamlSeries` instance materialized per tile from the row delegate, never shared across charts.
-  - The geo row carries an absent series delegate and a `GeoAssetKey` resolved by key through the asset rank fold — chart code never opens files, the decoded asset feeds the `GeoMap` control through `SourceGenMapChart`, and the heat-land geometry projects off the canonical Compute `GeometryPayload` proto oneof through the settled wire boundary, never a second geometry minted here — the geo canvas binds the projected GeoJSON layer through the verified `SourceGenMapChart` members — `ActiveMap` (`DrawnMap`), `MapProjection` (`Default` or `Mercator`), `Series`, and `Stroke`/`Fill` resolved from token paints — and the heat-series binding carries one land set keyed by GeoJSON feature name whose heat ramp is the token-paint ramp.
+  - The geo row carries an absent series delegate and a `GeoAssetKey` resolved through the asset rank fold. Chart code never opens files; the decoded asset feeds `GeoMap` through `SourceGenMapChart`, and heat-land geometry projects from the Bim-owned `GeoFeature` GeoJSON projection delivered over the Persistence query lane — the Compute `GeometryPayload` oneof carries point_cloud, mesh, and voxel only and never a named-polygon arm.
+  - The geo canvas binds the projected GeoJSON layer through `SourceGenMapChart.ActiveMap`, `MapProjection`, `Series`, `Stroke`, and `Fill`; token paints supply stroke, fill, and the heat ramp, and GeoJSON feature names key the live land set.
   - The heat-land series constructor, the land-record shape on the series, the layer-load entrypoint, and the find-land-by-feature-name lookup on `DrawnMap` are the unverified `LiveChartsCore.SkiaSharpView` geo-series surface the GEO_PAYLOAD research item owns, so the boundary projects through the settled `GeoLand` record and never transcribes a heat-series member as fact.
   - A sync-fed live geometry feed updates the land set in place from the existing `ChartStream` `IChangeSet` deltas over the geo `DataSource.PersistenceQuery` lane through the one DynamicData `MergeMany`/`Connect()` spine so an overlay refresh is an incremental land swap, never a full re-render, and the spatial diff feeding the deltas is Persistence-owned.
-  - The `GeoLandFold` fold owns this binding — it consumes the `IChangeSet<GeoLand, string>` the geo `DataSource.PersistenceQuery` lane already emits, where each change-set delta carries one changed land keyed by GeoJSON feature name, and folds the change reasons onto the live land set inside the chart `SyncContext` lock through the composition-supplied `swap` delegate so an added feature appends a land, a moved or re-valued feature swaps the matching land by feature name and re-assigns its heat through the token-paint ramp, and a removed feature drops the land — the same incremental-swap law the multi-series feeds compose, never a full layer re-load per delta, with the `swap` delegate binding the unverified heat-series mutation at composition under the GEO_OVERLAY_DELTAS research item rather than a transcribed member.
-  - The change-set is the Persistence `SpatialDiff` change-detection fold projected to land records — the diff algebra (changed-region detection over two geometry versions) is Persistence-owned at `Query/lanes#GEO_LANES` and AppUi consumes the resulting `IChangeSet`, never re-computes the diff.
-  - The overlay contributes a `geo.overlay.swap` span and a `geo.overlay.lands` count through `TelemetryContributorPort` so a live overlay refresh attributes through the one meter without a second meter, and the proto-to-land projection rides the settled GEO_PAYLOAD wire boundary.
-  - The projection from the Compute `GeometryPayload` proto oneof to the land records is the cross-package wire boundary resolved under the GEO_PAYLOAD research item, and the proto-to-GeoJSON codec arity stays Persistence-side.
-  - The Mapsui basemap-overlay leg is `Charts/basemap.md`'s owner (`[V8]`b — the tiled-basemap charter, disjoint from this chart-projection row) and composes the REALIZED Bim MVT source — `csharp:Rasm.Bim/Semantics/geospatial#GEOSPATIAL_SEAM` `GeoModel.ToTiles` emits per-tile `GeoTiles.Encode` bytes fetched by the `{z}/{x}/{y}.mvt` URL template and `GeoTiles.Catalog` serves the TileJSON discovery document (tile extent, zoom span, layer roster) the tile layer bootstraps from — so the overlay reads the seam-produced vector tiles by contract, never an unnamed feed and never a second tile mint in AppUi.
+  - `GeoLandFold` consumes the `IChangeSet<GeoLand, string>` emitted by `DataSource.PersistenceQuery` and folds every feature-name-keyed delta onto the live land set inside the chart `SyncContext` lock through the composition-supplied `swap` delegate.
+  - Add appends, update replaces by feature name and reassigns heat through the token-paint ramp, and remove drops the land. The incremental fold never reloads the layer, and `swap` binds the unverified heat-series mutation at composition rather than transcribing a member.
+  - The change-set is the Persistence `SpatialDiff` change-detection fold projected to land records — Persistence owns changed-region detection over two geometry versions, and AppUi consumes the resulting `IChangeSet` without re-computing the diff.
+  - The overlay contributes a `geo.overlay.swap` span and a `geo.overlay.lands` count through `TelemetryContributorPort` so a live overlay refresh attributes through the one meter without a second meter.
+  - The land records project from the Bim `GeoFeature` vocabulary Persistence serves, and the GeoJSON codec arity stays Persistence-side — a choropleth arm on the Compute proto family is the rejected wire.
+  - The Mapsui basemap-overlay leg is the disjoint tiled-basemap owner and composes the REALIZED Bim MVT source — `GeoModel.ToTiles` emits per-tile `GeoTiles.Encode` bytes fetched by the `{z}/{x}/{y}.mvt` URL template, and `GeoTiles.Catalog` serves the TileJSON discovery document the tile layer bootstraps from — so the overlay reads seam-produced vector tiles without minting a second tile representation in AppUi.
   - `AdditionalVisualStates` on the materialized `XamlSeries` carries per-point annotation and hover visual states resolved from token paints, so a chart annotation is a series-state column, never a local overlay control.
   - Gauge accessory visuals `XamlNeedle` and `XamlAngularTicks` ride the gauge rows as canvas children.
   - Series paints resolve from the `ChartPolicy` paint-family ramp indexed per series instance.
   - Per-chart wrapper controls, hand-drawn chart code, and a second charting package are the deleted patterns.
 
 ```csharp signature
-
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
@@ -196,7 +197,7 @@ public sealed record ChartPolicy(
 - Entry: `public static Seq<T> Lttb<T>(Seq<T> points, int buckets, Func<T, (double X, double Y)> project)` — the pure largest-triangle-three-buckets fold; below three buckets the stream binds change-for-change.
 - Packages: DynamicData, Dock.Serializer.SystemTextJson, NodaTime, LanguageExt.Core, BCL inbox
 - Growth: a new feed class is one `ChartStream` row in the feed table; a new bound is one policy value on its row; a new persisted board concern is one `BoardState` field; zero new surface.
-- Boundary: `SourceKey` names the feed row whose typed `DataSource` case the screen catalog binds — the stream record carries policy values, never the typed source; the `persistence-analytical` feed binds `DataSource.PersistenceQuery` against the residence-selected analytical source — the TimescaleDB continuous-aggregate rollup on the server topology and the standalone in-process DuckDB analytical lane on the embedded and local topologies — a single query against one analytical source per residence, never an in-Postgres pg_duckdb lane and never a cross-engine fold, so the `ChartStream` row carries `SourceKey` only and the analytical-flow custom tiles consume the same single `Connect()` spine the multi-series feeds compose; `ChartFolds.Shape` is the one policy fold — `Window` composes `ExpireAfter` over the source change-set and `Bound` composes `LimitSizeTo` so a runaway feed sheds oldest points instead of unbounded growth, and an inert stream field with no composed operator is the `POLICY_VALUES` rejected form; a multi-series feed composes `MergeMany` over the nested per-key change-streams so one `Connect()` chain feeds every series, and the same delta is the one spine live-data folds into chart series, table projections, and aggregation summaries without a materialized intermediate; the bind edge materializes the window snapshot through `ChartFolds.Snapshots` — `ToCollection` then the `Sample` cadence gate, sampling the state stream rather than the delta stream so no cache delta is ever dropped — applies `Lttb`, and swaps series values inside the chart `SyncContext` lock — the concurrent-mutation law; scheduler placement stays inside the live-data binding capsule, so `ObserveOn` is composed exactly once and never re-applied here; gauge feeds assign `GaugeValue` and call `Invalidate` per swap; rows with no cadence bind change-for-change; `BoardState` persists the board itself — the `DashboardLayout` tile arrangement plus the live `FilterState` brush — distinct from `Shell/navigation#DOCK_LAYOUTS` which persists shell PANES, so a board's tile grid, span, and active cross-filter survive restore while the dock graph round-trips independently; `BoardState` round-trips through the concrete `DockSerializer` from `Dock.Serializer.SystemTextJson` bound at `Shell/navigation#DOCK_LAYOUTS` composition (its `IDockSerializer` contract `Serialize<T>(T)->string`/`Deserialize<T>(string)->T?`/`Load<T>(Stream)->T?`/`Save<T>(Stream,T)` carries the package-owned `JsonSerializerOptions` and the `DockModelPolymorphicTypeResolver`, no second serializer and no replacement options set), and its serialized blob crosses the Persistence port as an opaque versioned snapshot exactly as `DashboardLayout` does — `Version` gates restore and a mismatch falls back to the named dashboard row; the brush state restores by re-pushing the persisted `FilterState` onto the `CrossFilter` subject at mount so a restored board re-applies its cross-filter without a re-query, and AppUi issues no store query since file I/O is caller-side stream construction; a per-board layout engine and a second persistence serializer are the deleted patterns.
+- Boundary: `SourceKey` selects the typed `DataSource` row, while `Window` and `Bound` are consumed by `ChartFolds.Shape` and `Cadence` plus `Buckets` by `Snapshots` — the bucket fold rides inside the snapshot pipeline, so no feed can carry an inert bucket policy. `ToCollection` precedes `Sample`, so cadence samples state rather than dropping deltas, and the chart lock owns the terminal series swap. `BoardState` carries one admitted `DashboardLayout` plus one admitted `FilterState`; layout overlap, invalid time ranges, degenerate spatial rings, and empty dimension keys fail before capture or restore. `DashboardLayout.Version` alone gates schema restore, and `Reapply` restores brush state without issuing a query.
 
 ```csharp signature
 public sealed record ChartStream(
@@ -219,11 +220,14 @@ public static class ChartFolds {
                 .IfNone(source));
 
     // Cadence gates the materialized STATE stream, never the delta stream — Sample over ToCollection drops
-    // no cache delta, only intermediate bind refreshes.
-    public static IObservable<IReadOnlyCollection<T>> Snapshots<T, TKey>(ChartStream stream, IObservable<IChangeSet<T, TKey>> shaped) where TKey : notnull =>
+    // no cache delta, only intermediate bind refreshes; the row's bucket policy folds Lttb over the SAME
+    // materialized state, so every non-passthrough bucket row downsamples before series materialization
+    // and the below-three passthrough rides the Lttb guard.
+    public static IObservable<Seq<T>> Snapshots<T, TKey>(ChartStream stream, IObservable<IChangeSet<T, TKey>> shaped, Func<T, (double X, double Y)> project) where TKey : notnull =>
         stream.Cadence
             .Map(every => shaped.ToCollection().Sample(every.ToTimeSpan()))
-            .IfNone(shaped.ToCollection());
+            .IfNone(shaped.ToCollection())
+            .Select(state => Lttb(toSeq(state), stream.Buckets, project));
 
     public static Seq<T> Lttb<T>(Seq<T> points, int buckets, Func<T, (double X, double Y)> project) =>
         buckets < 3 || points.Count <= buckets
@@ -264,37 +268,60 @@ public static class ChartFolds {
 public sealed record BoardState(DashboardLayout Layout, FilterState Filter) {
     public static Fin<BoardState> Capture(DashboardLayout layout, FilterState filter) =>
         DashboardLayout.Admit(layout.Key, layout.Version, layout.Placements, layout.CanvasState)
-            .Map(admitted => new BoardState(admitted, filter));
+            .Bind(admitted => FilterState.Admit(filter).Map(admittedFilter => new BoardState(admitted, admittedFilter)));
 
-    public string Serialize(IDockSerializer serializer) => serializer.Serialize(this);
+    public Fin<string> Serialize(IDockSerializer serializer) => Try.lift(() => serializer.Serialize(this))
+        .Run()
+        .MapFail(_ => (Error)new ChartFault.SnapshotRejected(Layout.Key, Layout.Version));
 
     public static Fin<BoardState> Restore(IDockSerializer serializer, string blob, DashboardLayout expected) =>
-        serializer.Deserialize<BoardState>(blob) is { } state && state.Layout.Version == expected.Version
-            ? Fin.Succ(state)
-            : Fin.Fail<BoardState>(new ChartFault.SnapshotRejected(expected.Key, expected.Version));
+        Try.lift(() => serializer.Deserialize<BoardState>(blob))
+            .Run()
+            .MapFail(_ => (Error)new ChartFault.SnapshotRejected(expected.Key, expected.Version))
+            .Bind(state => state is not null && state.Layout.Version == expected.Version
+                ? Capture(state.Layout, state.Filter)
+                : Fin.Fail<BoardState>(new ChartFault.SnapshotRejected(expected.Key, expected.Version)));
 
-    public IO<Unit> Reapply(CrossFilter crossFilter) =>
-        Filter.Source.Match(
-            Some: source =>
-                from _ in crossFilter.Brush(source, Filter.From, Filter.To, Filter.Tags)
-                from __ in Filter.Dimensions.Fold(IO.pure(unit), (rail, entry) => rail.Bind(_ => crossFilter.BrushDimension(source, entry.Key, entry.Value)))
-                from ___ in Filter.Region.Match(Some: region => crossFilter.BrushRegion(source, region), None: () => IO.pure(unit))
-                select unit,
-            None: () => crossFilter.Clear());
+    public IO<Fin<Unit>> Reapply(CrossFilter crossFilter) => crossFilter.Restore(Filter);
 }
 ```
 
-| [INDEX] | [FEED_ROW]             | [SOURCE_CASE]        | [WINDOW] | [BOUND] | [BUCKETS] | [CADENCE] |
-| :-----: | :--------------------- | :------------------- | :------: | :-----: | :-------: | :-------: |
-|  [01]   | compute-receipt-stream | ReceiptStream        |  120 s   |  8192   |    512    |  250 ms   |
-|  [02]   | persistence-analytical | PersistenceQuery     |   none   |  none   |     0     |    1 s    |
-|  [03]   | host-document-events   | HostDocumentEvents   |  300 s   |  4096   |    256    |  500 ms   |
-|  [04]   | fake-deterministic     | FakeDeterministic    |   none   |  none   |     0     |   none    |
+| [INDEX] | [FEED_ROW]             | [SOURCE_CASE]      | [WINDOW] | [BOUND] | [BUCKETS] | [CADENCE] |
+| :-----: | :--------------------- | :----------------- | :------: | :-----: | :-------: | :-------: |
+|  [01]   | compute-receipt-stream | ReceiptStream      |  120 s   |  8192   |    512    |  250 ms   |
+|  [02]   | persistence-analytical | PersistenceQuery   |   none   |  none   |     0     |    1 s    |
+|  [03]   | host-document-events   | HostDocumentEvents |  300 s   |  4096   |    256    |  500 ms   |
+|  [04]   | fake-deterministic     | FakeDeterministic  |   none   |  none   |     0     |   none    |
 
 Window, bound, bucket, and cadence values live on these rows and nowhere else; a bucket value below three is the passthrough case the `Lttb` guard encodes.
 
 ```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
 flowchart LR
+    accTitle: Dashboard stream projection
+    accDescr: Chart streams and change sets converge through shaping and downsampling into series, canvas, tile, and layout owners.
     ChartStream --> Shape
     IChangeSet --> Shape
     Shape --> Lttb
@@ -302,16 +329,22 @@ flowchart LR
     XamlSeries --> ChartCanvas
     ChartCanvas --> DashboardTile
     DashboardTile --> DashboardLayout
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    class ChartStream,IChangeSet data
+    class Shape,Lttb,XamlSeries,ChartCanvas primary
+    class DashboardTile,DashboardLayout boundary
 ```
 
 ## [06]-[DASHBOARD_TILES]
 
-- Owner: `DashboardTile`
-- Cases: `DashboardTile.Chart` | `DashboardTile.Stat` | `DashboardTile.Gauge` | `DashboardTile.Table` | `DashboardTile.Custom`; named dashboards benchmark, activity-timeline, and analytical-flow.
+- Owner: `DashboardTile`; `WatchRule` — the live KPI alert row armed over the same aggregate spine the tiles bind.
+- Cases: `DashboardTile.Chart` | `DashboardTile.Stat` | `DashboardTile.Gauge` | `DashboardTile.Table` | `DashboardTile.Custom`; named dashboards benchmark, activity-timeline, and analytical-flow; `WatchComparator` = above | below | outside — each row carrying its own breach predicate.
 - Entry: `public static Fin<Seq<(TilePlacement Placement, DashboardTile Tile)>> Resolve(DashboardLayout layout, HashMap<string, DashboardTile> tiles)` — `Fin<T>` aborts on the first unresolved tile key.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, DynamicData, SkiaSharp
-- Growth: a new tile kind is one `DashboardTile` case; a new dashboard is one `DashboardLayout` row; a new statistic is one `StatFold` row carrying its aggregation delegate; a new cross-tile brush dimension is one `FilterState.Dimensions` map key; a new dimension projection is one `DimensionIndex` column; zero new surface.
-- Boundary: layout blobs persist as opaque versioned snapshots through the persistence port on the dock-layout law — `Version` gates restore and a mismatch falls back to the named dashboard row; a `Stat` or `Gauge` tile binds its `StatFold` row over the shaped feed — the row's delegate composes the catalogued `DynamicData.Aggregation` fold (`Count`/`Sum`/`Avg`/`Minimum`/`Maximum`/`StdDev`) through the livedata `Tile` edge, so a tile statistic is recoverable from its declaration and a bind-edge aggregate lambda is the deleted form; board capture projects to `SKImage` and hands off to the offscreen encode rows, so export is consumed and never re-owned; the headless render hash per named dashboard row is the visual proof lane and its `RenderReceipt` sinks through the `ReceiptSinkPort` envelope, contributing the chart-render span and frame-byte metric to the AppHost telemetry spine through the `TelemetryContributorPort` rather than a local meter; the `Custom` tile case places a `CustomVisual` kind in a board and its capture is the `CustomVisual.Materialize` render twin keyed through the same `(ThemeVariantRow, DensityRow)` grid as `ChartSeriesSpec.Baseline`, never a LiveCharts capture, and its render contributes the same chart-render span and frame-byte metric through `TelemetryContributorPort` so a custom-tile render attributes distinctly without a second meter; benchmark and activity-timeline rows read HLC-ordered receipt envelopes, and the skew-uncertainty band arrives as a consumed series feed from the evidence join; the analytical-flow row composes the custom-visual kinds over the residence-selected analytical feed; cross-tile linked brushing is the `CrossFilter` fold over `DashboardSurface` — a board holds one `BehaviorSubject<FilterState>` whose value carries the brushed time `(Option<Instant> From, Option<Instant> To)`, the brushed tags `Set<string>`, and the source tile `Option<string>` that raised the brush, so a `VisualElementsPointerDown` or `ZoomBorder` rectangle on one tile pushes the next `FilterState` and every other tile's `ChartStream.Connect()` re-filters through the DynamicData dynamic-predicate `Filter(IObservable<Func<TRow,bool>>)` overload built from `CrossFilter.Predicate`, never a per-tile event handler and never a shared mutable list; the source tile is excluded from its own brush by the `FilterState.Source` key so a self-filter loop is structurally impossible; the predicate composes inside the chart `SyncContext` lock on the one `Connect()` spine the multi-series feeds already share, so a brush is an incremental change-set re-filter, never a feed re-subscribe; multi-dimensional categorical brushing folds through `DimensionIndex<TRow,TKey>` — one word-aligned `ulong[]` bitset per `(dimension, value)` cell over the row ordinal so a multi-dimension brush is the AND of per-dimension value unions computed in O(changed-words) and never an O(rows) re-scan, `Ingest`/`Drop` maintain the bitset off the same `IChangeSet` deltas the feeds already carry so the index tracks the live cache with no second materialization, and `Selected` resolves the brushed key set the predicate intersects, so the bitmap index is the absorbing owner of categorical cross-filtering and a `System.Linq` per-tile `GroupBy` re-aggregation on every brush is the deleted form; spatial cross-filtering rides the `PolygonBrush` ring whose even-odd winding `Contains` is a ray-cast fold over the ring vertices (the one point-in-polygon law, no second geometry predicate), so a lasso or map-region brush on a geo or scatter tile pushes one `BrushRegion` and every spatial tile's predicate admits a row only when its projected point lies inside the ring, with the geo tile projecting the `GeoLand` centroid and the scatter tile projecting its `(X,Y)` value; the server-side filtered re-query against the analytical lane is Persistence-owned, the brush pushes the same `(time, tags, dimensions, region)` shape across the seam and AppUi never builds the SQL predicate; the cross-filter mechanics own the brush state and the in-board re-filter, the cross-tile telemetry contributes a `filter.apply` span and a `filter.tiles` count through `TelemetryContributorPort` so a brush attributes through the one meter; a dashboard layout engine is the deleted pattern — one placement fold inside the dock rail.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, DynamicData, System.Reactive, NodaTime, SkiaSharp
+- Growth: a new tile kind is one `DashboardTile` case; a new dashboard is one `DashboardLayout` row; a new statistic is one `StatFold` row carrying its aggregation delegate; a new alert is one `WatchRule` value and a new breach posture is one `WatchComparator` row; a new cross-tile brush dimension is one `FilterState.Dimensions` map key; a new dimension projection is one `DimensionIndex` column; zero new surface.
+- Boundary: layout blobs persist as opaque snapshots through the persistence port on the dock-layout law — `DashboardLayout.Version` is the sole schema discriminator, `BoardState` carries no duplicate version knob, and `Restore` returns `ChartFault.SnapshotRejected` on a decode or version mismatch so caller policy decides whether to select a named layout; a `Stat` or `Gauge` tile binds its `StatFold` row over the shaped feed — the row's delegate composes the catalogued `DynamicData.Aggregation` fold (`Count`/`Sum`/`Avg`/`Minimum`/`Maximum`/`StdDev`) through the livedata `Tile` edge, so a tile statistic is recoverable from its declaration and a bind-edge aggregate lambda is the deleted form; board capture projects to `SKImage` and hands off to the offscreen encode rows, so export is consumed and never re-owned; the headless render hash per named dashboard row is the visual proof lane and its `RenderReceipt` sinks through the `ReceiptSinkPort` envelope, contributing the chart-render span and frame-byte metric to the AppHost telemetry spine through the `TelemetryContributorPort` rather than a local meter; the `Custom` tile case places a `CustomVisual` kind in a board and its capture is the `CustomVisual.Materialize` render twin keyed through the same `(ThemeVariantRow, DensityRow)` grid as `ChartSeriesSpec.Baseline`, never a LiveCharts capture, and its render contributes the same chart-render span and frame-byte metric through `TelemetryContributorPort` so a custom-tile render attributes distinctly without a second meter; the `Collab/issues.md` issue lane mounts as one such `Custom` cell and pushes its status keys as brushed tags into the board's one `FilterState`, so the issue board is a brush contributor on the same `CrossFilter` fold, never a second brush protocol; benchmark and activity-timeline rows read HLC-ordered receipt envelopes, and the skew-uncertainty band arrives as a consumed series feed from the evidence join; the analytical-flow row composes the custom-visual kinds over the residence-selected analytical feed; cross-tile linked brushing is the `CrossFilter` fold over `DashboardSurface` — a board holds one `BehaviorSubject<FilterState>` whose value carries the brushed time `(Option<Instant> From, Option<Instant> To)`, the brushed tags `Set<string>`, and the source tile `Option<string>` that raised the brush, so a `VisualElementsPointerDown` or `ZoomBorder` rectangle on one tile pushes the next `FilterState` and every other tile's `ChartStream.Connect()` re-filters through the DynamicData dynamic-predicate `Filter(IObservable<Func<TRow,bool>>)` overload built from `CrossFilter.Predicate`, never a per-tile event handler and never a shared mutable list; the source tile is excluded from its own brush by the `FilterState.Source` key so a self-filter loop is structurally impossible; the predicate composes inside the chart `SyncContext` lock on the one `Connect()` spine the multi-series feeds already share, so a brush is an incremental change-set re-filter, never a feed re-subscribe; multi-dimensional categorical brushing folds through `DimensionIndex<TRow,TKey>` — one word-aligned `ulong[]` bitset per `(dimension, value)` cell over the row ordinal plus one liveness bitmap, so `Ingest` first clears an ordinal's prior memberships before replacement, `Drop` clears membership and liveness, an empty brush selects only live ordinals, and reuse cannot resurrect stale categorical membership; `Selected` computes the AND of per-dimension value unions in `O(words)` and its terminal projection enumerates only set bits, so no brush path performs an `O(rows)` re-scan and the bitmap index is the absorbing owner of categorical cross-filtering; spatial cross-filtering rides the `PolygonBrush` ring whose even-odd winding `Contains` is a ray-cast fold over the ring vertices, so a lasso or map-region brush on a geo or scatter tile pushes one `BrushRegion` and every spatial tile's predicate admits a row only when its projected point lies inside the ring; the server-side filtered re-query against the analytical lane is Persistence-owned, the brush pushes the same `(time, tags, dimensions, region)` shape across the seam and AppUi never builds the SQL predicate; `CrossFilter.Dispose` completes and disposes the subject at the board activation boundary, and the cross-tile telemetry contributes a `filter.apply` span and a `filter.tiles` count through `TelemetryContributorPort`; KPI watching is `WatchFold.Arm` over the SAME `StatFold` stream a `Stat` or `Gauge` tile already binds — the comparator row carries its breach predicate, a crossing is a breach-state EDGE held through the rule's `Quiet` window, and the crossing raises the rule's `ToastIntent` through the CommandIntent table, so the alert's durable evidence is the command rail's `CommandReceipt` and the alert vocabulary is rule DATA over the one aggregate spine, never a bind-edge threshold lambda or a second alert pipeline; a dashboard layout engine is the deleted pattern — one placement fold inside the dock rail.
 
 ```csharp signature
 // StatFold — the aggregate vocabulary Stat and Gauge tiles bind: each row carries the DynamicData
@@ -346,7 +379,13 @@ public abstract partial record DashboardTile {
     public sealed record Custom(string Key, CustomVisual Kind, ChartStream Stream) : DashboardTile;
 }
 
-public readonly record struct TilePlacement(string TileKey, int Column, int Row, int ColumnSpan, int RowSpan);
+public readonly record struct TilePlacement(string TileKey, int Column, int Row, int ColumnSpan, int RowSpan) {
+    public bool Overlaps(TilePlacement other) =>
+        Column < (long)other.Column + other.ColumnSpan
+            && (long)Column + ColumnSpan > other.Column
+            && Row < (long)other.Row + other.RowSpan
+            && (long)Row + RowSpan > other.Row;
+}
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChartFault : Expected {
@@ -360,13 +399,24 @@ public abstract partial record ChartFault : Expected {
     public sealed record LayerRejected(string Layer) : ChartFault($"chart/layer: {Layer}", AppUiFaultBand.Chart.Code(6));
     public sealed record PayloadMismatch(string Kind, string Payload) : ChartFault($"chart/payload: {Kind} rejected {Payload}", AppUiFaultBand.Chart.Code(7));
     public sealed record SnapshotRejected(string LayoutKey, int Version) : ChartFault($"chart/snapshot: {LayoutKey} requires version {Version}", AppUiFaultBand.Chart.Code(8));
+    public sealed record PlacementRejected(string LayoutKey) : ChartFault($"chart/placement: {LayoutKey} is invalid", AppUiFaultBand.Chart.Code(9));
+    public sealed record FilterRejected : ChartFault("chart/filter: state is invalid", AppUiFaultBand.Chart.Code(10));
 }
 
 public sealed record DashboardLayout(string Key, int Version, Seq<TilePlacement> Placements, Option<string> CanvasState) {
     public static Fin<DashboardLayout> Admit(string key, int version, Seq<TilePlacement> placements, Option<string> canvasState = default) =>
-        placements.Map(static p => p.TileKey).Distinct().Count == placements.Count
+        !string.IsNullOrWhiteSpace(key)
+            && version > 0
+            && placements.ForAll(static placement =>
+                !string.IsNullOrWhiteSpace(placement.TileKey)
+                && placement.Column >= 0
+                && placement.Row >= 0
+                && placement.ColumnSpan > 0
+                && placement.RowSpan > 0)
+            && placements.Map(static p => p.TileKey).Distinct().Count == placements.Count
+            && placements.ForAll(left => placements.ForAll(right => left.TileKey == right.TileKey || !left.Overlaps(right)))
             ? Fin.Succ(new DashboardLayout(key, version, placements, canvasState))
-            : Fin.Fail<DashboardLayout>(new ChartFault.DuplicateTile(key));
+            : Fin.Fail<DashboardLayout>(new ChartFault.PlacementRejected(key));
 }
 
 public static class DashboardSurface {
@@ -388,6 +438,18 @@ public sealed record FilterState(
     Option<PolygonBrush> Region,
     Option<string> Source) {
     public static readonly FilterState Empty = new(None, None, Set<string>(), HashMap<string, Set<string>>(), None, None);
+
+    public static Fin<FilterState> Admit(FilterState candidate) =>
+        candidate.From.Match(Some: lo => candidate.To.ForAll(hi => lo <= hi), None: static () => true)
+            && candidate.Tags.ForAll(static tag => !string.IsNullOrWhiteSpace(tag))
+            && candidate.Region.ForAll(static region => !string.IsNullOrWhiteSpace(region.DimensionKey)
+                && region.Ring.Count >= 3
+                && region.Ring.ForAll(static point => double.IsFinite(point.X) && double.IsFinite(point.Y)))
+            && candidate.Dimensions.ForAll(static entry => !string.IsNullOrWhiteSpace(entry.Key)
+                && entry.Value.ForAll(static value => !string.IsNullOrWhiteSpace(value)))
+            && candidate.Source.ForAll(static source => !string.IsNullOrWhiteSpace(source))
+            ? Fin.Succ(candidate)
+            : Fin.Fail<FilterState>(new ChartFault.FilterRejected());
 
     public bool Admits(Instant at, Set<string> rowTags) =>
         From.Map(lo => at >= lo).IfNone(true)
@@ -478,9 +540,21 @@ public sealed class DimensionIndex<TRow, TKey> where TKey : notnull {
         return result;
     }
 
+    // Output-sensitive terminal projection: only set bits enumerate — a word of zeros costs one test and
+    // Lemire bit-clearing walks each survivor once, so projection cost tracks the selection, never rows.
     private Seq<TKey> Materialize(Option<ulong[]> bits) =>
         bits.Match(
-            Some: live => toSeq(Enumerable.Range(0, keys.Count).Where(ordinal => (live[ordinal >> 6] & (1UL << (ordinal & 63))) != 0).Select(ordinal => keys[ordinal])),
+            Some: chosen => {
+                List<TKey> hits = [];
+                for (int word = 0; word < chosen.Length; word++) {
+                    ulong bucket = chosen[word];
+                    while (bucket != 0UL) {
+                        hits.Add(keys[(word << 6) + BitOperations.TrailingZeroCount(bucket)]);
+                        bucket &= bucket - 1;
+                    }
+                }
+                return toSeq(hits);
+            },
             None: () => Seq<TKey>());
 
     private Unit Clear(int ordinal) {
@@ -508,16 +582,18 @@ public sealed class CrossFilter : IDisposable {
 
     public FilterState Current => state.Value;
 
-    public IO<Unit> Brush(string source, Option<Instant> from, Option<Instant> to, Set<string> tags) =>
-        IO.lift(() => state.OnNext(state.Value with { From = from, To = to, Tags = tags, Source = Some(source) }));
+    public IO<Fin<Unit>> Brush(string source, Option<Instant> from, Option<Instant> to, Set<string> tags) =>
+        Update(current => current with { From = from, To = to, Tags = tags, Source = Some(source) });
 
-    public IO<Unit> BrushDimension(string source, string dimension, Set<string> values) =>
-        IO.lift(() => state.OnNext(state.Value with { Dimensions = state.Value.Dimensions.AddOrUpdate(dimension, values), Source = Some(source) }));
+    public IO<Fin<Unit>> BrushDimension(string source, string dimension, Set<string> values) =>
+        Update(current => current with { Dimensions = current.Dimensions.AddOrUpdate(dimension, values), Source = Some(source) });
 
-    public IO<Unit> BrushRegion(string source, PolygonBrush region) =>
-        IO.lift(() => state.OnNext(state.Value with { Region = Some(region), Source = Some(source) }));
+    public IO<Fin<Unit>> BrushRegion(string source, PolygonBrush region) =>
+        Update(current => current with { Region = Some(region), Source = Some(source) });
 
-    public IO<Unit> Clear() => IO.lift(() => state.OnNext(FilterState.Empty));
+    public IO<Fin<Unit>> Clear() => Update(static _ => FilterState.Empty);
+
+    public IO<Fin<Unit>> Restore(FilterState snapshot) => Update(_ => snapshot);
 
     public IObservable<Func<TRow, bool>> Predicate<TRow>(
         string tile,
@@ -533,7 +609,9 @@ public sealed class CrossFilter : IDisposable {
 
     private static bool DimensionsAdmit<TRow>(FilterState filter, TRow row, Func<TRow, string, Option<string>>? dimension) =>
         dimension is null || filter.Dimensions.ForAll(entry =>
-            dimension(row, entry.Key).Match(Some: value => entry.Value.IsEmpty || entry.Value.Contains(value), None: () => true));
+            dimension(row, entry.Key).Match(
+                Some: value => entry.Value.IsEmpty || entry.Value.Contains(value),
+                None: () => entry.Value.IsEmpty));
 
     private static bool RegionAdmits<TRow>(FilterState filter, TRow row, Func<TRow, (double X, double Y)>? point) =>
         point is null || filter.Region.Match(Some: brush => Contains(brush, point(row)), None: () => true);
@@ -550,6 +628,9 @@ public sealed class CrossFilter : IDisposable {
         Func<TRow, (double X, double Y)>? point = null) where TKey : notnull =>
         source.Filter(Predicate(tile, at, rowTags, dimension, point));
 
+    private IO<Fin<Unit>> Update(Func<FilterState, FilterState> project) => IO.lift(() =>
+        FilterState.Admit(project(state.Value)).Map(admitted => fun(() => state.OnNext(admitted))()));
+
     public void Dispose() {
         state.OnCompleted();
         state.Dispose();
@@ -563,8 +644,45 @@ public sealed class CrossFilter : IDisposable {
 |  [02]   | activity-timeline | step-line + heat + table     | compute-receipt-stream + persistence-analytical |
 |  [03]   | analytical-flow   | sankey + treemap + waterfall | persistence-analytical                          |
 
+```csharp signature
+// The watch rows turn a board into a monitor: the comparator row owns its breach predicate, a crossing is
+// a breach-state edge that must hold through Quiet before it raises, and the raised ToastIntent's
+// CommandReceipt is the alert's durable evidence — the rule is data over the tile's existing stat stream.
+public readonly record struct WatchBound(double Floor, double Ceiling);
+
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class WatchComparator {
+    public static readonly WatchComparator Above = new("above", static (value, bound) => value > bound.Ceiling);
+    public static readonly WatchComparator Below = new("below", static (value, bound) => value < bound.Floor);
+    public static readonly WatchComparator Outside = new("outside", static (value, bound) => value < bound.Floor || value > bound.Ceiling);
+
+    [UseDelegateFromConstructor]
+    public partial bool Breached(double value, WatchBound bound);
+}
+
+public sealed record WatchRule(string Key, string TileKey, WatchComparator Comparator, WatchBound Bound, Duration Quiet, string ToastIntent);
+
+public readonly record struct WatchCrossing(string RuleKey, string TileKey, double Value, string ToastIntent);
+
+public static class WatchFold {
+    // One armed subscription per rule over the tile's StatFold stream: DistinctUntilChanged makes the
+    // crossing edge-triggered, so a value that stays breached raises once. Throttle runs over BOTH edge
+    // kinds — a recovery edge inside Quiet replaces the pending breach emission, so only a breach that
+    // HELD through Quiet survives the trailing filter and a flapping aggregate never reaches the gate.
+    public static IDisposable Arm(WatchRule rule, IObservable<double> stat, IScheduler scheduler, Action<WatchCrossing> raise, Action<Error> fault) =>
+        stat.Select(value => (Value: value, Breached: rule.Comparator.Breached(value, rule.Bound)))
+            .DistinctUntilChanged(static sample => sample.Breached)
+            .Throttle(rule.Quiet.ToTimeSpan(), scheduler)
+            .Where(static sample => sample.Breached)
+            .Subscribe(
+                sample => raise(new WatchCrossing(rule.Key, rule.TileKey, sample.Value, rule.ToastIntent)),
+                raw => fault(new ChartFault.Text($"watch/{rule.Key}: {raw.Message}")));
+}
+```
+
 ## [07]-[RESEARCH]
 
-- [GEO_CHARTER_SPLIT]: RESOLVED — LiveCharts `GeoMap`/`DrawnMap` here is the CHART-projection row (choropleth/heat-land over chart geometry); the TILED basemap with NTS overlays is `Charts/basemap.md`'s Mapsui owner (`[V8]`b), disjoint charters stated on both pages; a dashboard tile embedding a slippy map mounts the basemap surface as its tile body.
-- [GEO_PAYLOAD]: the projection from the canonical Compute `GeometryPayload` proto oneof into the `GeoMap` land records is the cross-package wire boundary the geo row never re-mints; the `.api` catalogue verifies the `SourceGenMapChart` binding members `ActiveMap` (`DrawnMap`), `MapProjection`, `Series`, `Stroke`, and `Fill` that carry the projected land geometry and token paints, and the `GeoLand` record plus the `IChangeSet<GeoLand, string>` projection are settled; the heat-land series constructor, the land-record shape the series carries, the heat-ramp and gradient-stop members, the layer-load entrypoint, and the find-land-by-feature-name lookup on `DrawnMap` are the unverified `LiveChartsCore.SkiaSharpView` geo-series surface resolved at implementation against the decompiled core assembly and the settled Compute wire contract — the surface binds through the `GeoLandFold.Bind` `swap` delegate at composition rather than a transcribed member.
-- [GEO_OVERLAY_DELTAS]: the `swap` delegate `GeoLandFold.Bind` invokes folds the verified DynamicData `Change<GeoLand, string>` into the unverified heat-series mutation — the `Change` accessor spellings (`Reason` over `ChangeReason`, `Current`, `Key`), the `ChangeReason` add/update/remove case spellings the swap dispatches, and the heat-series land-collection mutability that the in-place swap re-assigns resolve at implementation against the decompiled DynamicData and LiveChartsCore.SkiaSharpView surfaces; the in-place swap law keyed by GeoJSON feature name, the `GeoLand` record, the `IChangeSet<GeoLand, string>` enumerable contract, and the `GeoLandFold.Bind` change-set fold are settled, the `Change` accessor and heat-series mutation spellings inside the `swap` delegate are the unverified surface bound at composition.
+- [GEO_PAYLOAD]: the LiveCharts geo-series member surface — `SourceGenMapChart.ActiveMap`, `MapProjection`, `Series`, `Stroke`, and `Fill` are catalogued; the heat-land constructor, carried land shape, ramp members, layer load, and `DrawnMap` feature-name lookup remain implementation-gated behind `GeoLandFold.Bind.swap` — verify against the `LiveChartsCore.SkiaSharpView` geo-series source; the land WIRE is settled: Bim `GeoFeature` GeoJSON over the Persistence lane, never a Compute proto arm.
+- [GEO_OVERLAY_DELTAS]: `GeoLandFold.Bind.swap` folds DynamicData `Change<GeoLand, string>` into the heat-series mutation. `Change.Reason`, `Current`, `Key`, the add/update/remove spellings, and land-collection mutability remain implementation-gated; feature-name identity and the incremental `IChangeSet` law are settled.

@@ -62,14 +62,15 @@
 | :-----: | :----------------------- | :------------ | :-------------------- |
 |  [01]   | `Layer`                  | table entry   | layer definition      |
 |  [02]   | `LineType`               | table entry   | linetype definition   |
-|  [03]   | `TextStyle`              | table entry   | text style definition |
-|  [04]   | `DimensionStyle`         | table entry   | dimension style       |
-|  [05]   | `BlockRecord`            | table entry   | block registry        |
-|  [06]   | `DwgWriter`              | IO writer     | DWG emit entry        |
-|  [07]   | `DxfWriter`              | IO writer     | DXF emit entry        |
-|  [08]   | `SvgWriter`              | IO writer     | SVG emit entry        |
-|  [09]   | `DxfWriterConfiguration` | writer config | DXF write options     |
-|  [10]   | `CadFileFormat`          | format enum   | file format selector  |
+|  [03]   | `LineType.Segment`       | pattern row   | dash, gap, or dot     |
+|  [04]   | `TextStyle`              | table entry   | text style definition |
+|  [05]   | `DimensionStyle`         | table entry   | dimension style       |
+|  [06]   | `BlockRecord`            | table entry   | block registry        |
+|  [07]   | `DwgWriter`              | IO writer     | DWG emit entry        |
+|  [08]   | `DxfWriter`              | IO writer     | DXF emit entry        |
+|  [09]   | `SvgWriter`              | IO writer     | SVG emit entry        |
+|  [10]   | `DxfWriterConfiguration` | writer config | DXF write options     |
+|  [11]   | `CadFileFormat`          | format enum   | file format selector  |
 
 [PUBLIC_TYPE_SCOPE]: DocumentFormat.OpenXml document packages
 - rail: document-export
@@ -93,7 +94,7 @@
 |  [01]   | `WorkbookPart`               | part                   | xlsx workbook part (AddWorkbookPart)   |
 |  [02]   | `WorksheetPart`              | part                   | xlsx sheet part (AddNewPart)           |
 |  [03]   | `MainDocumentPart`           | part                   | docx body part (AddMainDocumentPart)   |
-|  [04]   | `FontTablePart`              | part                   | embedded-font part (GetStream)         |
+|  [04]   | `FontTablePart` / `FontPart` | part                   | docx embedded-font parts (docx-owned)  |
 |  [05]   | `Workbook` / `Sheets`        | content element        | xlsx workbook + sheet registry         |
 |  [06]   | `Sheet`                      | content element        | sheet registry entry (Id/SheetId/Name) |
 |  [07]   | `Worksheet` / `SheetData`    | content element        | xlsx sheet body + row container        |
@@ -108,13 +109,14 @@
 [ENTRYPOINT_SCOPE]: ACadSharp WRITE operations — one `CadDocument` fold, three format writers
 - rail: drafting
 
-| [INDEX] | [SURFACE]             | [SURFACE_ROOT] | [CAPABILITY]        |
-| :-----: | :-------------------- | :------------- | :------------------ |
-|  [01]   | static `Write`        | `DwgWriter`    | one-call DWG emit   |
-|  [02]   | static `Write`        | `DxfWriter`    | one-call DXF emit   |
-|  [03]   | constructor + `Write` | `DwgWriter`    | configured DWG emit |
-|  [04]   | constructor + `Write` | `DxfWriter`    | configured DXF emit |
-|  [05]   | constructor + `Write` | `SvgWriter`    | configured SVG emit |
+| [INDEX] | [SURFACE]             | [SURFACE_ROOT] | [CAPABILITY]         |
+| :-----: | :-------------------- | :------------- | :------------------- |
+|  [01]   | static `Write`        | `DwgWriter`    | one-call DWG emit    |
+|  [02]   | static `Write`        | `DxfWriter`    | one-call DXF emit    |
+|  [03]   | constructor + `Write` | `DwgWriter`    | configured DWG emit  |
+|  [04]   | constructor + `Write` | `DxfWriter`    | configured DXF emit  |
+|  [05]   | constructor + `Write` | `SvgWriter`    | configured SVG emit  |
+|  [06]   | `AddSegment(Segment)` | `LineType`     | ordered dash pattern |
 
 [WRITER_SIGNATURES]:
 - DWG static: `DwgWriter.Write(string|Stream, CadDocument, DwgWriterConfiguration?, NotificationEventHandler?)`.
@@ -122,6 +124,7 @@
 - DWG instance: `new DwgWriter(string|Stream, CadDocument)` exposes reusable `.Configuration` before `Write()`.
 - DXF instance: `new DxfWriter(string|Stream, CadDocument, bool binary = false)` fixes binary mode at construction and exposes `.Configuration` before `Write()`.
 - SVG instance: `new SvgWriter(string|Stream, CadDocument)` exposes `SvgConfiguration` before `Write()`, including `LineWeightRatio` and `DefaultLineWeight`.
+- Linetype pattern: `LineType.AddSegment(LineType.Segment)` appends ordered pattern rows; positive `Segment.Length` draws, negative length spaces, and zero length dots.
 
 [ENTRYPOINT_SCOPE]: DocumentFormat.OpenXml package factory operations
 - rail: document-export
@@ -139,15 +142,15 @@
 [ENTRYPOINT_SCOPE]: OpenXml part-add and content-build operations
 - rail: document-export
 
-| [INDEX] | [SURFACE]                                            | [SURFACE_ROOT]                 | [RAIL]                |
-| :-----: | :--------------------------------------------------- | :----------------------------- | :-------------------- |
-|  [01]   | `AddWorkbookPart()`                                  | `SpreadsheetDocument`          | workbook part create  |
-|  [02]   | `AddNewPart<WorksheetPart>()`                        | `WorkbookPart`                 | sheet part create     |
-|  [03]   | `GetIdOfPart(part)`                                  | `WorkbookPart`                 | relationship-id query |
-|  [04]   | `AddMainDocumentPart()`                              | `WordprocessingDocument`       | docx body part create |
-|  [05]   | `AddNewPart<FontTablePart>()` / `GetStream()`        | `WorkbookPart`/`FontTablePart` | embedded-font pack    |
-|  [06]   | `AppendChild(element)` / `Append(elements)`          | content element                | child-element insert  |
-|  [07]   | `part.Workbook` / `part.Worksheet` / `part.Document` | part                           | root-element assign   |
+| [INDEX] | [SURFACE]                                                  | [SURFACE_ROOT]                                | [RAIL]                |
+| :-----: | :--------------------------------------------------------- | :-------------------------------------------- | :-------------------- |
+|  [01]   | `AddWorkbookPart()`                                        | `SpreadsheetDocument`                         | workbook part create  |
+|  [02]   | `AddNewPart<WorksheetPart>()`                              | `WorkbookPart`                                | sheet part create     |
+|  [03]   | `GetIdOfPart(part)`                                        | `WorkbookPart`                                | relationship-id query |
+|  [04]   | `AddMainDocumentPart()`                                    | `WordprocessingDocument`                      | docx body part create |
+|  [05]   | `AddNewPart<FontTablePart>()` / `AddFontPart` / `FeedData` | `MainDocumentPart`/`FontTablePart`/`FontPart` | embedded-font pack    |
+|  [06]   | `AppendChild(element)` / `Append(elements)`                | content element                               | child-element insert  |
+|  [07]   | `part.Workbook` / `part.Worksheet` / `part.Document`       | part                                          | root-element assign   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -155,7 +158,7 @@
 [ACADSHARP_WRITE]:
 `ACadSharp` (`lib/net9.0` bound) is AppUi's WRITE authority: `CadDocument` is the ONE document root the drafting leg builds, and `ACadSharp.IO` emits it three ways through `CadWriterBase<T>` — `DwgWriter` (DWG), `DxfWriter` (DXF binary/text), and `ACadSharp.IO.SVG.SvgWriter` (SVG, `SvgConfiguration.LineWeightRatio`/`DefaultLineWeight`). Each writer exposes a settable `.Configuration` and a static one-call `Write` overload with an optional trailing `NotificationEventHandler` warning/error sink.
 
-- `ACadSharp.Entities` is the geometry roster the fold populates (`Line`/`Arc`/`Circle`/`Spline`/`Polyline`/`LwPolyline`/`Hatch`/`MText`/`Dimension`/`Insert`); `ACadSharp.Tables` carries the `Layer`/`LineType`/`TextStyle`/`DimensionStyle`/`BlockRecord` entries entities bind. Geometry points are `CSMath.XYZ`; entity layers attach through the entity `Layer` property bound to a `Layer` table entry; the document `Entities`/`Layers` collections take typed entities through `Add`.
+- `ACadSharp.Entities` is the geometry roster the fold populates (`Line`/`Arc`/`Circle`/`Spline`/`Polyline`/`LwPolyline`/`Hatch`/`MText`/`Dimension`/`Insert`); `ACadSharp.Tables` carries the `Layer`/`LineType`/`TextStyle`/`DimensionStyle`/`BlockRecord` entries entities bind. Geometry points are `CSMath.XYZ`; entity layers attach through the entity `Layer` property bound to a `Layer` table entry; `LineType.AddSegment` binds ordered `LineType.Segment` rows whose signed `Length` encodes dash, gap, or dot; the document `Entities`/`Layers` collections take typed entities through `Add`.
 - The output DWG/DXF version is a POLICY ROW over `ACadVersion` (never a hardcoded `AutoCad2018` literal); the two-format write leg (DWG + DXF) is two rows on one `DraftEmit` axis over the single `CadDocument`, not two document models.
 - `DocumentFormat.OpenXml`: `Packaging` owns the three document roots; `Wordprocessing`/`Spreadsheet`/`Presentation` supply the open content-element trees. The OOXML part-graph is `Document/export.md`'s arm.
 

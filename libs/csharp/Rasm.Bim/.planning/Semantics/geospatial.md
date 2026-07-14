@@ -207,7 +207,16 @@ public sealed record GeoFeature(
         return GeoTransform.Reproject(source, target, ordinates.AsSpan(), stride: 3, key).Map(_ => {
             Geometry shifted = Geometry.Copy();
             shifted.Apply(new OrdinateWriteback(ordinates));
-            return this with { Geometry = shifted };
+            // The result carries the frame it now HOLDS, never the stale from-frame: the geometry SRID
+            // stamps the target's EPSG (0 when the target resolves by WKT only) and SourceCrs re-stamps to
+            // the target's projected CRS — clearing to None on the geodetic EPSG:4326 anchor — so a
+            // consumer ingress gate (the AppUi basemap admits SourceCrs.IsNone && SRID == 4326) admits a
+            // reprojected feature on the feature's own evidence.
+            shifted.SRID = target.Epsg.IfNone(0);
+            return this with {
+                Geometry = shifted,
+                SourceCrs = target.Epsg == Some(4326) ? Option<ProjectedCrs>.None : target.Crs,
+            };
         });
     }
 

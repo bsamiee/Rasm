@@ -217,9 +217,30 @@ public static class ControlFactory {
         return grid;
     }
 
-    // The recycling re-entry: MaterializePool routes a reset parked control back through the one Bind fold.
+    // The recycling re-entry: Refresh re-applies every intent-carried visual field before the one Bind
+    // fold re-attaches command, token, trigger, and automation state — a reused control reflects its
+    // CURRENT intent completely, and stale content, watermark, bounds, options, or limits cannot survive.
     public static Fin<Control> Rebind(ControlIntent intent, Control control, MaterializeContext context) =>
-        Bind(intent, control, context);
+        Refresh(intent, control, context).Bind(fresh => Bind(intent, fresh, context));
+
+    // The hot self-constructed leaf kinds re-dress the parked control in place; every context-constructed
+    // or container kind reconstructs through the ONE Visual fold instead — correct either way, pooled
+    // where hot, and construction truth keeps exactly one owner per case.
+    private static Fin<Control> Refresh(ControlIntent intent, Control control, MaterializeContext context) =>
+        (intent, control) switch {
+            (ControlIntent.Button c, Button b) => Field(b, () => b.Content = c.Content),
+            (ControlIntent.TextInput c, TextBox t) => Field(t, () => { t.Watermark = c.Watermark; t.AcceptsReturn = c.Multiline; }),
+            (ControlIntent.NumberInput c, NumericUpDown n) => Field(n, () => { n.Minimum = (decimal)c.Min; n.Maximum = (decimal)c.Max; n.Increment = (decimal)c.Increment; }),
+            (ControlIntent.Select c, ComboBox box) => Field(box, () => box.ItemsSource = c.Options.Map(static o => o.Label).ToArray()),
+            (ControlIntent.Slider c, Slider s) => Field(s, () => { s.Minimum = c.Min; s.Maximum = c.Max; s.TickFrequency = c.Step; }),
+            (ControlIntent.Toggle c, ToggleSwitch t) => Field(t, () => t.Content = c.Label),
+            _ => Visual(intent, context),
+        };
+
+    private static Fin<Control> Field<TControl>(TControl control, Action assign) where TControl : Control {
+        assign();
+        return Fin<Control>.Succ(control);
+    }
 
     private static Fin<Control> Bind(ControlIntent intent, Control control, MaterializeContext context) =>
         from command in intent.Binding.Command.Match(
@@ -282,7 +303,7 @@ public static class ControlFactory {
 
 - Owner: `RecycleScope` the realized-control reuse pool; `MaterializePool` the recycling-aware materialization over the `VirtualWindow` window.
 - Entry: `public Fin<Control> Realize(ControlIntent intent, MaterializeContext context, RecycleScope scope)` — materializes through the pool, reusing a parked control of the same intent key when the window scrolls a row out and back, sealing a `RecyclingViolation` when an intent key crosses control types.
-- Auto: the `Grid`, `Tree`, and `Panel` kinds materialize their row/cell controls through `MaterializePool` keyed by intent key so the `VirtualWindow` recycles realized controls over a data window rather than re-materializing per scroll tick; a parked control releases every owned binding and activation lifetime before the full replacement intent re-enters `ControlFactory.Rebind`, so a recycled cell carries no stale value, command, trigger, token, or automation state; the pool capacity is composition-bound to the realized-window overscan bound.
+- Auto: the `Grid`, `Tree`, and `Panel` kinds materialize their row/cell controls through `MaterializePool` keyed by intent key so the `VirtualWindow` recycles realized controls over a data window rather than re-materializing per scroll tick; a parked control releases every owned binding and activation lifetime before the full replacement intent re-enters `ControlFactory.Rebind`, whose `Refresh` fold re-applies every intent-carried visual field — or reconstructs a context-constructed or container kind through the one `Visual` fold — before `Bind` re-attaches, so a recycled cell carries no stale value, field, command, trigger, token, or automation state; the pool capacity is composition-bound to the realized-window overscan bound.
 - Packages: Avalonia, LanguageExt.Core, BCL inbox
 - Growth: a new recyclable kind is one pool-key entry; zero new surface.
 - Boundary: control recycling rides the one `VirtualWindow` owner (`Shell/virtualization`) — a per-surface recycling pool is the `[05]-[PROHIBITIONS]` per-surface-virtualizer rejected form, and the pool is keyed by intent key so a recycled control always matches its intent type; the pool resets bindings on reuse so a recycled control never leaks the prior row's value; the realized-item count bounds the pool so recycling is constant-cost; a `RecyclingViolation` fault fires when an intent key reuses a control of a different type, so a pool-key collision aborts on the `Fin` rail rather than mounting a mismatched control.

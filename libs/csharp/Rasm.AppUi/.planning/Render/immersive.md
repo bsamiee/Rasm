@@ -1,6 +1,6 @@
 # [APPUI_RENDER_IMMERSIVE]
 
-One immersive owner binds OpenXR stereo design-review plus `XR_FB_passthrough` onto the same `Wgpu` device the viewport leases, with `ImmersiveMode` carrying immersive-versus-flat as a value so a host without an OpenXR loader renders the flat viewport through the same receipt family. `ImmersiveSession` runs the `Instance -> SystemId -> Session -> Swapchain` lifecycle against the shared graphics binding, `XrFrame` runs the predicted-display-time `WaitFrame`/`BeginFrame`/`LocateViews`/`EndFrame` loop submitting one `CompositionLayerProjection` per frame, `XrInput` is the action-set controller model, and `Passthrough` chains the `XR_FB_passthrough` env-blend layer under the rendered scene. The page owns the session lifecycle, the stereo frame loop, the action-set input, and the passthrough composition; it shares the one `Wgpu` device the `Render/pipeline` viewport leases through the branch `ONE_WGPU_DEVICE` owner rather than a second GPU context, and the runtime arm is SPIKE-gated (the `[05]-[PROHIBITIONS]` per-host-GpuBackend clause holds — never a second GPU context). The substrate is `Silk.NET.OpenXR` (`.api/api-silk-openxr.md`), `Silk.NET.OpenXR.Extensions.FB` (`.api/api-silk-openxr-fb.md`), the `GpuBackend.Wgpu` row with its `GpuBinding.Wgpu` substrate, Thinktecture.Runtime.Extensions, and LanguageExt rails. The flat-fold fallback carries the page even without an XR runtime.
+One immersive owner binds OpenXR stereo design review plus `XR_FB_passthrough` onto the same `Wgpu` device the viewport leases, with `ImmersiveMode` carrying immersive-versus-flat as a value so a host without an OpenXR loader renders the flat viewport through the same receipt family. `ImmersiveSession` runs the `Instance -> SystemId -> Session -> Swapchain` lifecycle against the shared graphics binding, `XrFrame` runs the predicted-display-time `WaitFrame`/`BeginFrame`/`LocateViews`/`EndFrame` loop submitting one `CompositionLayerProjection` per frame, `XrInput` is the action-set controller model, and `Passthrough` chains the `XR_FB_passthrough` environment-blend layer under the rendered scene. The page owns the session lifecycle, stereo frame loop, action-set input, and passthrough composition while sharing the viewport's one `Wgpu` device. `Silk.NET.OpenXR`, its FB extensions, `GpuBinding.Wgpu`, Thinktecture, and LanguageExt supply the substrate; the flat fold remains a complete successful mode when no XR runtime is available.
 
 ## [01]-[INDEX]
 
@@ -11,8 +11,8 @@ One immersive owner binds OpenXR stereo design-review plus `XR_FB_passthrough` o
 ## [02]-[XR_SESSION]
 
 - Owner: `ImmersiveMode` `[Union]` the availability algebra — `Immersive(ImmersiveSession)` or `Flat(FlatCause)`; `FlatCause` `[SmartEnum<string>]` the flat-state vocabulary; `ImmersiveSession` the OpenXR session lifecycle; `XrHandle`/`XrHandleLedger` the typed handle-to-destroy ledger; `XrRuntime` the impossible-state-free availability union; `ImmersiveFault` the typed fault family on the `AppUiFaultBand.Immersive` registry row (6120).
-- Cases: `ImmersiveFault` = Text | SystemUnavailable | SessionRejected | SwapchainFailed — codes derive through the `Diagnostics/evidence.md#FAULT_TABLES` registry; `FlatCause` = LoaderAbsent | PlatformUnsupported | SystemAbsent — capability states, not faults: an absent loader, a loaderless platform, or a runtime with no attached HMD lands as `Flat` with its cause, and only a present-but-refusing runtime faults.
-- Entry: `public static Fin<ImmersiveMode> Create(WgpuDevice device, XrRuntime runtime, Func<WgpuDevice, XrRuntime.Ready, Fin<ImmersiveSession>> bind)` dispatches the complete `XrRuntime.Ready(PassthroughAdvertised, ViewConfig)` payload to the native-open continuation and preserves `XrRuntime.Unavailable(FlatCause)` as the successful desktop floor. `Ready` alone can carry advertised extension and view-configuration facts, so an absent loader or system can never coexist with usable runtime data. The continuation creates the OpenXR instance, system, session, eye swapchains, and reference space against the shared `WgpuDevice`; `ImmersiveFrame.Frame` then returns the same `FrameReceipt` family for stereo and flat modes.
+- Cases: `ImmersiveFault` = Text | SystemUnavailable | SessionRejected | SwapchainFailed | ReleaseFailed — codes derive through `AppUiFaultBand.Immersive`; `FlatCause` = LoaderAbsent | PlatformUnsupported | SystemAbsent — capability states, not faults: an absent loader, a loaderless platform, or a runtime with no attached HMD lands as `Flat` with its cause, and only a present-but-refusing runtime faults.
+- Entry: `public static Fin<ImmersiveMode> Create(WgpuDevice device, XrRuntime runtime, Func<WgpuDevice, XrRuntime.Ready, Fin<ImmersiveSession>> bind)` dispatches the complete `XrRuntime.Ready(PassthroughAdvertised, ViewConfig, BlendModes)` payload to the native-open continuation — `Ready.Blend` selects the strongest advertised `EnvironmentBlendMode`, so opaque VR, additive AR, and admitted passthrough are runtime-capability outcomes, never a constant — and preserves `XrRuntime.Unavailable(FlatCause)` as the successful desktop floor. `Ready` alone can carry advertised extension and view-configuration facts, so an absent loader or system can never coexist with usable runtime data. The continuation creates the OpenXR instance, system, session, eye swapchains, and reference space against the shared `WgpuDevice`; `ImmersiveFrame.Frame` then returns the same `FrameReceipt` family for stereo and flat modes.
 - Auto: the session creates against the graphics-binding `next` chain sharing the same physical device, queue family, and queue index the wgpu instance negotiated (`KHR_vulkan_enable2`, `GraphicsBindingVulkanKHR`) so the meshlet/path-trace/splat passes render into the OpenXR swapchain images with the one device — a second GPU device for the immersive path is the cross-adapter copy penalty the shared binding avoids; the session probes for `XR_FB_passthrough` through `EnumerateInstanceExtensionProperties` and lists it in `InstanceCreateInfo.EnabledExtensionNames` when advertised; the absence of an installed loader (`libopenxr_loader`) is the `Flat(LoaderAbsent)` capability value that renders through the flat `Render/pipeline` viewport, so the immersive session is an optional surface the desktop path degrades from with the cause preserved and no XR session constructed; every acquired native handle records as its typed `XrHandle` case on the session `XrHandleLedger`, and release is the ledger fold in reverse-acquisition order through the matching `DestroyXxx`/`DestroyXxxFB` entrypoint with each `Result` checked.
 - Receipt: the session creation emits a session-resolved evidence row — system id, view config, swapchain format, passthrough-available flag; `TelemetryRow` contributes the session-resolved and session-absent instruments inward through the AppHost `TelemetryContributorPort`.
 - Packages: Silk.NET.OpenXR, Silk.NET.OpenXR.Extensions.FB, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
@@ -48,7 +48,16 @@ public sealed partial class FlatCause {
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record XrRuntime {
     private XrRuntime() { }
-    public sealed record Ready(bool PassthroughAdvertised, ViewConfigurationType ViewConfig) : XrRuntime;
+    public sealed record Ready(bool PassthroughAdvertised, ViewConfigurationType ViewConfig, Seq<EnvironmentBlendMode> BlendModes) : XrRuntime {
+        // Composition selects the strongest ADVERTISED blend: FB passthrough rides AlphaBlend, an AR
+        // runtime's AdditiveBlend composits over the see-through display, and Opaque is the VR floor —
+        // an unadvertised mode is unrepresentable as the selected composite.
+        public EnvironmentBlendMode Blend =>
+            PassthroughAdvertised && BlendModes.Contains(EnvironmentBlendMode.AlphaBlend) ? EnvironmentBlendMode.AlphaBlend
+            : BlendModes.Contains(EnvironmentBlendMode.AdditiveBlend) ? EnvironmentBlendMode.AdditiveBlend
+            : EnvironmentBlendMode.Opaque;
+    }
+
     public sealed record Unavailable(FlatCause Cause) : XrRuntime;
 
     public static readonly XrRuntime Absent = new Unavailable(FlatCause.LoaderAbsent);
@@ -151,7 +160,7 @@ public sealed record ImmersiveSession(
 ## [03]-[STEREO_FRAME]
 
 - Owner: `XrFrame` the predicted-display-time frame loop; `EyeView` the per-eye pose-and-fov; `ProjectionLayer` the stereo composition layer.
-- Entry: `public IO<FrameReceipt> Frame(RenderGraph graph, ViewportClock clock, FrameBudget budget, int tierRank)` on `ImmersiveSession` — runs `WaitFrame` (predicted display time) -> `BeginFrame` -> `LocateViews` (per-eye pose/fov) -> render each eye into its swapchain image through the shared `Render/pipeline` `RenderGraph` under the governor tier -> `EndFrame` submitting one `CompositionLayerProjection` plus the optional passthrough layer; `ImmersiveFrame.Frame` on `ImmersiveMode` is the one dispatch over the availability algebra.
+- Entry: `public IO<FrameReceipt> Frame(RenderGraph graph, ViewportClock clock, FrameBudget budget, int tierRank, Func<RenderPass, bool> passMask)` on `ImmersiveSession` — runs `WaitFrame` (predicted display time) -> `BeginFrame` -> `LocateViews` (per-eye pose/fov) -> render each eye into its swapchain image through the shared `Render/pipeline` `RenderGraph` under the governor tier -> `EndFrame` submitting one `CompositionLayerProjection` plus the optional passthrough layer; `ImmersiveFrame.Frame` on `ImmersiveMode` is the one dispatch over the availability algebra.
 - Auto: the frame loop is driven by the runtime-predicted display time from `WaitFrame`'s `FrameState`, never a wall clock, so the render anticipates the display deadline; `LocateViews` resolves the two `View` structs (per-eye `Posef`+`Fovf`) and the render walks the one `Render/pipeline` `RenderGraph` once per eye into the eye's acquired swapchain image, so the meshlet/path-trace passes render stereo with no second scene model; `EndFrame` submits one `CompositionLayerProjection` carrying two `CompositionLayerProjectionView` sub-images (left/right eye) plus the passthrough layer beneath when present; the frame seals the same `Render/pipeline` `FrameReceipt` so the immersive frame rides the one evidence family.
 - Receipt: the `Render/pipeline` `FrameReceipt` per submitted frame, carrying the stereo backend and the per-eye pass elapsed.
 - Packages: Silk.NET.OpenXR, Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime
@@ -165,11 +174,11 @@ public readonly record struct ProjectionLayer(Seq<EyeView> Eyes, Space Reference
 
 public static class XrFrame {
     extension(ImmersiveSession session) {
-        public IO<FrameReceipt> Frame(RenderGraph graph, ViewportClock clock, FrameBudget budget, int tierRank) =>
+        public IO<FrameReceipt> Frame(RenderGraph graph, ViewportClock clock, FrameBudget budget, int tierRank, Func<RenderPass, bool> passMask) =>
             from predicted in WaitFrame(session)
             from begin in BeginFrame(session)
             from views in LocateViews(session, predicted)
-            from rendered in views.TraverseM(eye => RenderEye(session, graph, eye, clock, budget, tierRank)).As()
+            from rendered in views.TraverseM(eye => RenderEye(session, graph, eye, clock, budget, tierRank, passMask)).As()
             from receipt in EndFrame(session, predicted, views)
             select receipt;
     }
@@ -180,10 +189,10 @@ public static class XrFrame {
 // the desktop RenderGraph.Frame — one receipt family, two composition arms.
 public static class ImmersiveFrame {
     extension(ImmersiveMode mode) {
-        public IO<FrameReceipt> Frame(RenderGraph graph, ViewportClock clock, FrameBudget budget, int tierRank, ViewCamera camera) =>
+        public IO<FrameReceipt> Frame(RenderGraph graph, ViewportClock clock, FrameBudget budget, int tierRank, Func<RenderPass, bool> passMask, ViewCamera camera) =>
             mode.Switch(
-                immersive: s => s.Session.Frame(graph, clock, budget, tierRank),
-                flat: _ => graph.Frame(clock, budget, tierRank, camera));
+                immersive: s => s.Session.Frame(graph, clock, budget, tierRank, passMask),
+                flat: _ => graph.Frame(clock, budget, tierRank, passMask, camera));
     }
 }
 ```
@@ -210,9 +219,7 @@ public readonly record struct PassthroughStyle(float EdgeR, float EdgeG, float E
 
 // Passthrough handles record on the ONE session ledger (PassthroughHandle/PassthroughLayerHandle rows), so
 // release rides the session's reverse-order fold and no second lifetime owner exists.
-public sealed record Passthrough(PassthroughFB Feature, PassthroughLayerFB Layer, PassthroughStyle Style) {
-    public EnvironmentBlendMode BlendMode => EnvironmentBlendMode.AlphaBlend;
-
+public sealed record Passthrough(PassthroughFB Feature, PassthroughLayerFB Layer, PassthroughStyle Style, EnvironmentBlendMode BlendMode) {
     public Passthrough Restyle(PassthroughStyle style) => this with { Style = style };
 
     // Per-layer toggle without feature teardown: PassthroughLayerPauseFB/ResumeFB flip the camera feed

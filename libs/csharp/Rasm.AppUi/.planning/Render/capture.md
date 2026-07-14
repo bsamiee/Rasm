@@ -14,7 +14,7 @@ Offscreen visuals are the package's raster rail: one DrawSource capsule projects
 ## [02]-[DRAW_CAPSULE]
 
 - Owner: `DrawSource` [Union] · `Offscreen` · `VisualFault` — the page's typed fault family on the `AppUiFaultBand.Visual` registry row (6160)
-- Cases: Borrowed · Owned; `VisualFault` = LeaseBound | IccInvalid | XpsUnavailable | EncodeFailed
+- Cases: Borrowed · Owned; `VisualFault` = LeaseBound | IccInvalid | XpsUnavailable | EncodeFailed | SurfaceAllocationFailed
 - Entry: `public Fin<T> Use<T>(Func<SKCanvas, Fin<T>> draw)` — Fin rail
 - Auto: in-tree visuals lease the live canvas through `ISkiaSharpApiLeaseFeature.Lease` at render scope and fold to Borrowed; offscreen pipelines construct Owned with the target `SKImageInfo` and Materialize a snapshot.
 - Packages: SkiaSharp, Avalonia.Skia, Thinktecture.Runtime.Extensions, LanguageExt.Core
@@ -229,7 +229,7 @@ public sealed record PreviewRow<TReceipt>(
 
 ## [05]-[ENCODE_IDENTITY]
 
-- Owner: `RenderReceipt` · `NativeAssetFact` · `VisualCodec` — including `ColorPolicy`, the ONE suite gamut/transfer row family (`[V10]`).
+- Owner: `RenderReceipt` · `NativeAssetFact` · `VisualCodec` — including `ColorPolicy`, the one suite gamut-and-transfer row family.
 - Entry: `public static IO<RenderReceipt> Encode(VisualRuntime runtime, SKImage image, EncodeRow row, string kind, string key)` — IO rail
 - Auto: the runtime NativeIdentity delegate is filled by the mount transaction's load-identity probe and yields one `NativeAssetFact` per loaded native (libSkiaSharp, libHarfBuzzSharp) with version, path, and RID; the evidence stream folds the facts with kind native-asset.
 - Receipt: FrameHash is the whole-payload content hash through the runtime ContentHash delegate — the delegate binds at composition to the kernel `Rasm.Domain` `ContentHash.Of(ReadOnlySpan<byte>) -> UInt128` seed-zero entry (the federation one-hasher; hex encoding stays this boundary's projection), so an AppUi-local `XxHash128` call site is the deleted form; quality values are the encode-row axis values — lossless png at 100, perceptual jpeg and webp at 90; the receipt's `ColorSpace` field is the encode-row working-space tag so a wide-gamut baseline keys distinctly from its sRGB twin and a cross-host byte swap is attributable, never silent.
@@ -273,7 +273,7 @@ public static class VisualCodec {
         public static readonly ColorPolicy DisplayP3 = new("display-p3", static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.DisplayP3), static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.DisplayP3), SKColorType.Rgba8888, ToneMap.None);
         public static readonly ColorPolicy Rec2020 = new("rec2020", static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.Rec2020), static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.Rec2020), SKColorType.Rgba8888, ToneMap.None);
         public static readonly ColorPolicy ScrgbFloat = new("scrgb-float", static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Linear, SKColorSpaceXyz.Srgb), static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Linear, SKColorSpaceXyz.Srgb), SKColorType.RgbaF16, ToneMap.None);
-        public static readonly ColorPolicy HdrPq = new("rec2020-pq", static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Linear, SKColorSpaceXyz.Rec2020), static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.Rec2020), SKColorType.RgbaF16, ToneMap.Aces);
+        public static readonly ColorPolicy HdrPq = new("rec2020-pq", static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Pq, SKColorSpaceXyz.Rec2020), static () => SKColorSpace.CreateRgb(SKColorSpaceTransferFn.Srgb, SKColorSpaceXyz.Rec2020), SKColorType.RgbaF16, ToneMap.Aces);
 
         public SKColorF Resolve(Color token) => new(token.R / 255f, token.G / 255f, token.B / 255f, token.A / 255f);
 
@@ -293,10 +293,13 @@ public static class VisualCodec {
         // None = already conformant, the caller's image stays caller-owned; Some = a minted projection the
         // consumer owns and disposes. The identity arm never re-owns a borrowed image.
         public Fin<Option<SKImage>> Reproject(SKImage image) {
+            using SKColorSpace working = Working();
             using SKColorSpace target = Output();
             using SKColorFilter? tone = Tone.Filter();
-            using SKColorSpace? fallback = image.ColorSpace is null ? SKColorSpace.CreateSrgb() : null;
-            SKColorSpace source = image.ColorSpace ?? fallback!;
+            // The row's WORKING space is the interpretation frame for an untagged source — sRGB is never
+            // assumed, so the HdrPq and WideGamut rows realize their declared working behavior and the
+            // conformance test compares the interpreted source against the output space.
+            SKColorSpace source = image.ColorSpace ?? working;
             return SKColorSpace.Equal(source, target) && tone is null
                 ? Fin.Succ(Option<SKImage>.None)
                 : Offscreen.Snapshot(
@@ -448,7 +451,7 @@ public static class VisualExport {
 ## [07]-[VIDEO_ENCODE]
 
 - Owner: `VideoEncodeRow` — the codec/container policy row; `ClipEncoder` — the in-process FFmpeg mux/encode surface a frame stream folds through.
-- Entry: `public static IO<RenderReceipt> Mux(VisualRuntime runtime, VideoEncodeRow row, Seq<SKImage> frames, VisualDestination destination)` — IO rail; one clip per fold.
+- Entry: `public static IO<RenderReceipt> Mux(VisualRuntime runtime, VideoEncodeRow row, Seq<SKImage> frames, VisualDestination destination)` — IO rail; one clip per fold; the frame stream admits one uniform geometry before any native allocation, so a dimension-mismatched frame is a typed encode fault, never a malformed native conversion.
 - Auto: frames convert RGBA -> `Yuv420p` through one `sws_getContext`/`sws_scale` pair constructed once per clip; the codec context configures H.264 through `avcodec_find_encoder`/`avcodec_alloc_context3`/`avcodec_open2`; the container muxes MP4 through `avformat_alloc_output_context2`/`avformat_new_stream`/`avformat_write_header`/`av_interleaved_write_frame`/`av_write_trailer`; the send/receive loop is `avcodec_send_frame`/`avcodec_receive_packet` with the flush-on-null terminal; the animation walkthrough's flythrough composes THESE rows past its frame-sequence terminal — the encode is capture's row, animation keeps the frame sequence (`Render/animation.md#WALKTHROUGH`), and the tour clip render rides the same route.
 - Receipt: one RenderReceipt of kind clip per mux with whole-payload content hash and the delivered destination key; per-frame hashes stay animation's walkthrough proof.
 - Packages: FFmpeg.AutoGen, SkiaSharp, Rasm.AppHost (project), LanguageExt.Core
@@ -482,6 +485,9 @@ public static class ClipEncoder {
     private static unsafe byte[] Encode(VideoEncodeRow row, Seq<SKImage> frames) {
         SKImage first = frames.Head.Match(Some: static image => image, None: () => throw Fault("empty frame stream"));
         (int width, int height) = (first.Width, first.Height);
+        // The stream admits ONE geometry before any native allocation: a dimension-mismatched frame is a
+        // typed encode fault, never an invalid sws_scale read under first-frame geometry.
+        if (frames.Exists(image => image.Width != width || image.Height != height)) { throw Fault($"frame-shape: stream diverges from {width}x{height}"); }
         string sink = Path.Combine(Path.GetTempPath(), $"rasm-clip-{Guid.CreateVersion7():N}.{row.Container}");
         AVFormatContext* mux = null;
         AVCodecContext* codec = null;

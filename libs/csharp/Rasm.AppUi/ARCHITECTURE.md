@@ -18,19 +18,19 @@ Rasm.AppUi/
 │   ├── Input.cs          # Command-derived hotkeys, behavior rows, pan-zoom canvas, device drivers
 │   └── Accessibility.cs  # Automation identity, tab-order and trap law, one WCAG luminance gate
 ├── Render/               # Pure GPU-viewport and temporal tier
-│   ├── Pipeline.cs       # Render-graph pass-DAG with per-backend targets and a resolve ladder
+│   ├── Pipeline.cs       # Render-graph pass-DAG: per-backend targets, resolve ladder, visibility fold, version ghost, GPU-time lane
 │   ├── Meshlets.cs       # Compute residency cluster consumption with hysteresis LOD and cull cut
-│   ├── PathTrace.cs      # BVH, ReSTIR, and denoise oracle over the one light rig
+│   ├── PathTrace.cs      # BVH, ReSTIR, denoise oracle, and sun study over the one light rig
 │   ├── Shading.cs        # GPU shader cache per backend feeding the layered-BSDF shade pass
 │   ├── Immersive.cs      # OpenXR stereo design-review and passthrough over the shared device
 │   ├── Reality.cs        # Gaussian-splat and point-cloud capture over the one residency carrier
 │   ├── Capture.cs        # Raster capsule, color-policy owner, vector-print arm, and encode rows
 │   ├── Drafting.cs       # Sheet drafting with hidden-line consumption and one DWG/DXF write leg
-│   └── Animation.cs      # Timeline keyframe-track union with track-owned interpolation
+│   └── Animation.cs      # Timeline keyframe-track union with track-owned interpolation, per-element transform tracks, and 4D schedule playback
 ├── Charts/               # Chart, dashboard, and geo-basemap projection
 │   ├── Dashboards.cs     # Chart series and axis rows with downsampled stream binding and brushing
 │   ├── Custom.cs         # Custom-visual Skia layout algebra with a keyed color-policy projection
-│   └── Basemap.cs        # Tiled basemap with Bim-owned overlays beside the viewport
+│   └── Basemap.cs        # Tiled basemap with Bim-owned overlays and EditManager redlining beside the viewport
 ├── Editing/              # Typed-edit surfaces over the model
 │   ├── Inspector.cs      # Typed property inspection with ranked editor rows and diff3 conflict hunks
 │   ├── Tables.cs         # Tabular and hierarchical projection routed through the virtual window
@@ -40,7 +40,7 @@ Rasm.AppUi/
 │   └── Graph.cs          # Node-editor parametric canvas with an admission gate and co-edit merge
 ├── Document/             # Reproducible document plane
 │   ├── Notebook.cs       # Capability-pinned cells composing the recompute graph; co-editing; replay
-│   ├── Media.cs          # Markdown inlines and codec rows on the one surface seam
+│   ├── Media.cs          # Markdown inlines and codec rows materialized for the one Surfaces.Mount crossing
 │   └── Export.cs         # Paginated flow reports, PDF security and forms, an Office arm, a print arm
 ├── Collab/               # Live-collaboration plane over the durable Persistence spine
 │   ├── Sync.cs           # Live-merge authority and the typed edit-intent stream onto the durable ledger
@@ -110,13 +110,16 @@ flowchart LR
     Render e2@<-->|"[SHAPE]: WgpuDevice"| Compute
     Compute e3@-->|"[SHAPE]: SolarPosition"| Render
     Fabrication e4@-->|"[RECEIPT]: HiddenLineResult"| Render
-    Materials e5@-->|"[BOUNDARY]: LayeredBsdf"| Render
+    Materials e5@-->|"[BOUNDARY]: LayeredBsdf + SurfaceShade"| Render
     Rasm e6@-->|"[CONTENT_KEY]: ContentHash"| Render
     Bim e7@-->|"[SHAPE]: BasemapOverlay"| Charts
     Bim e8@-->|"[RECEIPT]: CostSchedule"| Charts
     Bim e9@-->|"[PORT]: BcfIssueBoard"| Collab
     Collab e10@-->|"[PROJECTION]: ReplayWindow"| Persistence
     Collab e11@-->|"[CONTENT_KEY]: SnapshotAccelerator"| Persistence
+    Bim e12@-->|"[RECEIPT]: ConstructionState"| Render
+    Bim e13@-->|"[BOUNDARY]: BcfViewpoint"| Render
+    Bim e14@-->|"[SHAPE]: GeoReference"| Render
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
     classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
@@ -130,9 +133,9 @@ flowchart LR
     class Persistence data
     class Fabrication,Materials,Bim,Rasm annotation
     class e6,e11 edgeData
-    class e4,e8 edgeSuccess
+    class e4,e8,e12 edgeSuccess
     class e1,e10 edgeExternal
-    class e2,e3,e5,e7,e9 edgeControl
+    class e2,e3,e5,e7,e9,e13,e14 edgeControl
 ```
 
 ```mermaid
@@ -201,7 +204,7 @@ flowchart LR
     class e9 edgeError
 ```
 
-`[PORT]` edges into `Editing` and `Document` are the one AppHost runtime port spine every surface composes at app composition, resolving through the one `Rasm.AppHost/Runtime` boundary. `[CONTENT_KEY]` edges are one idiom: every AppUi content-identity mint composes the kernel `ContentHash.Of` seed-zero entry, and Compute-minted residency and splat keys stay decode-only.
+`[PORT]` edges into `Editing` and `Document` are the one AppHost runtime port spine every surface composes at app composition, resolving through the one `Rasm.AppHost/Runtime` boundary. `[CONTENT_KEY]` edges are one idiom: every AppUi content-identity mint composes the kernel `ContentHash.Of` seed-zero entry, and Compute-minted residency and splat keys stay decode-only. The `[PROJECTION]: ReplayWindow` edge also serves the Render version-compare lane: the Persistence `ReplayWindow`/commit-DAG fold derives the `(ElementId, DiffClass)` classification `VersionGhost` renders as diff-classed `VisibilityOverride` rows — values only, AppUi runs no ledger read. The `[RECEIPT]: ConstructionState` edge carries the 4D schedule-phase consumption: `Render/animation.md` `SchedulePlayback.FromSchedule` reads as values off `Rasm.Bim/Planning/schedule.md` `ConstructionState.At`/`TaskKind`.
 
 `Diagnostics ⇄ Rasm.AppHost` `[FAULT]` edge is the 6xxx `AppUiFaultBand` neighborhood: AppUi lowers every fault union onto its band and the AppHost lifecycle registry pins the reciprocal range, so fault codes never collide across the platform seam.
 

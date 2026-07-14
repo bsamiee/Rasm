@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'Campaign closure gate: after a rebuild campaign lands, verify the whole target corpus against its root DECISION/brief and fix every miss in place. args = {doc, root} or an array of such pairs; campaigns verify in parallel lanes. The resolver finalizes each campaign in-run — findings resolve as edits, never as a report; a doctrine lander closes the run only when a pass pools a durable nomination.',
     description:
-        'Cold-verify pass over one or more landed campaigns. Per campaign: one sonnet plan partitions the target folder into balanced verification slices; gpt-5.6-terra (codex) verifiers fan out through sonnet dispatch wrappers (CODEX flag; false restores native opus), each reading the root doc IN FULL plus its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance lane: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts; a per-language-branch verifier owns the cross-libs ripple lane: every sibling seam ledger, consumer anchor, counterpart obligation, and frozen wire name the campaign touches outside the target root). Every verifier runs a mandatory second-pass self-verify: each finding adversarially re-derived from disk before return, vague or unconfirmed findings deleted, and a clean verdict asserted only after the second hostile pass returns empty. ONE terminal fable resolver then finalizes the campaign with LIBS-WIDE ripple authority — verifier findings are SIGNALS, not law: it re-verifies each on disk, implements the strongest fix where a suggestion was weak or short-sighted, hunts and fixes what the verifiers missed on its own authority, resolves every ripple its edits expose anywhere under libs/ (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), and pushes touched pages past the ruling per the floor law. The resolver carries a required-but-usually-empty harvest attestation; when any campaign pools a non-empty nomination, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal). Otherwise no phase follows the resolver.',
+        'Cold-verify pass over one or more landed campaigns. Per campaign: one sonnet plan partitions the target folder into balanced verification slices; gpt-5.6-terra (codex) verifiers fan out through sonnet dispatch wrappers (CODEX flag; false restores native opus), each reading the root doc IN FULL plus its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance lane: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts; a per-language-branch verifier owns the cross-libs ripple lane: every sibling seam ledger, consumer anchor, counterpart obligation, and frozen wire name the campaign touches outside the target root). Every verifier runs a mandatory second-pass self-verify: each finding adversarially re-derived from disk before return, vague or unconfirmed findings deleted, and a clean verdict asserted only after the second hostile pass returns empty. ONE terminal fable resolver then finalizes the campaign with LIBS-WIDE ripple authority — verifier findings are SIGNALS, not law: it re-verifies each on disk, implements the strongest fix where a suggestion was weak or short-sighted, hunts and fixes what the verifiers missed on its own authority, resolves every ripple its edits expose anywhere under libs/ (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), and pushes touched pages past the ruling per the floor law. The resolver is retry-guarded and appends each harvest nomination to a deterministic .jsonl as it is minted; when any campaign pools a non-empty nomination OR its resolver dies, ONE terminal fable doctrine lander adjudicates against docs/laws (refutation-first, land-nothing legal), sweeping the disk harvest files so a dead finalize loses none. Otherwise no phase follows the resolver.',
     phases: [
         { title: 'Plan', detail: 'per campaign: enumerate pages, partition into balanced slices', model: 'sonnet' },
         {
@@ -18,7 +18,7 @@ export const meta = {
         },
         {
             title: 'Doctrine',
-            detail: 'terminal doctrine lander (fable), fires only on non-empty pooled harvest: adjudicates resolver nominations against docs/laws, refutation-first, land-nothing legal',
+            detail: 'terminal doctrine lander (fable), fires on pooled harvest or a dead resolver: sweeps each resolver harvest .jsonl from disk, adjudicates nominations against docs/laws, refutation-first, land-nothing legal',
             model: 'fable',
         },
     ],
@@ -30,6 +30,9 @@ const SLICES = 4;
 const STALL = 300000;
 const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const CODEX = true; // verifier fan lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
+const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // repo checkout root — native lanes resolve relative paths against it, never the launching session cwd
+const RETRY_ATTEMPTS = 2; // re-dispatches per dead terminal resolver; the count bounds spend, the backoff buys recovery time
+const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -219,10 +222,18 @@ const FIXLOG = {
 
 // --- [SHARED_BLOCKS]
 
+// Every relative repo path resolves against ONE absolute root — native terminal lanes (resolver, doctrine) do not reliably
+// inherit the launching session cwd, so the pin travels in every prompt; codex lanes additionally pin it as cwd.
+const ROOT_LAW =
+    'WORKING ROOT: ' +
+    ROOT +
+    ' — every relative repo path in this brief resolves against this absolute root; read, write, and edit ONLY under it, never another checkout of the repository.';
+
 // reg selects the register by the EXECUTING model: 'codex' neutral for a codex verify lane, the default hostile
 // estate register for a native-first lane (plan, resolver) it sharpens; only the stance clause forks.
 const CTX = (c, reg) =>
-    'Rasm monorepo, planning phase. The campaign over ' +
+    ROOT_LAW +
+    '\n\nRasm monorepo, planning phase. The campaign over ' +
     c.root +
     ' is LANDED; ' +
     c.doc +
@@ -282,6 +293,18 @@ const HARVEST_LAW =
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a backoff before each;
+// the final death isolates the lane, NEVER the chain — the doctrine lander still fires from the resolver's disk harvest file.
+const retryLane = async (fn) => {
+    for (let a = 0; a < RETRY_ATTEMPTS; a++) {
+        await sleep(RETRY_BACKOFF);
+        const r = await fn();
+        if (r) return r;
+    }
+    return null;
+};
+
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split); the prompt carries only the task; the output contract sits LAST.
@@ -306,8 +329,7 @@ const laneLaw = (schema, o) =>
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
-    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
-    const report = root + '/' + base + '-report.json';
+    const report = ROOT + '/' + base + '-report.json';
     const model = o.model || 'gpt-5.6-terra';
     return [
         'DISPATCH ROLE: ' +
@@ -320,7 +342,7 @@ const codexPrompt = (label, task, schema, o) => {
             '", sandbox=' +
             (o.writes ? '"workspace-write"' : '"read-only"') +
             ', cwd=' +
-            JSON.stringify(root) +
+            JSON.stringify(ROOT) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
             'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
@@ -408,8 +430,14 @@ const lanes = await parallel(
                 '.',
             { label: 'plan:' + tag, phase: 'Plan', model: 'sonnet', effort: 'low', schema: PLAN, stallMs: STALL },
         );
-        const slices = ((plan && plan.slices) || []).filter((s) => s && s.length);
-        const gov = (plan && plan.governance) || [];
+        // Predicate-validate the model-emitted path rosters before dispatch: a slice page is a repo-relative .md under this
+        // campaign's .planning/ root; governance entries (README/ARCHITECTURE, manifest rows, .api path, the doc) are non-empty strings.
+        const planRoot = c.root + '/.planning/';
+        const okPage = (p) => typeof p === 'string' && p.trim().startsWith(planRoot) && p.trim().endsWith('.md');
+        const slices = ((plan && plan.slices) || [])
+            .map((s) => (Array.isArray(s) ? s.map((p) => (typeof p === 'string' ? p.trim() : p)).filter(okPage) : []))
+            .filter((s) => s.length);
+        const gov = ((plan && plan.governance) || []).filter((g) => typeof g === 'string' && g.trim());
         const verifyTasks = slices.map(
             (pages, i) => () =>
                 recon(
@@ -515,48 +543,63 @@ const lanes = await parallel(
                           .join(', ')
                     : ''),
         );
-        const fix = await agent(
+        const harvestFile = SCRATCH + '/' + fileTag('resolve:' + tag) + '-harvest.jsonl';
+        const resolveTask =
             CTX(c) +
-                '\n\n' +
-                HUNT +
-                '\n\n' +
-                LAWS_READ +
-                '\n\n' +
-                HARVEST_LAW +
-                '\n\nTASK: TERMINAL FINALIZE (WRITER — full authority over ' +
-                c.root +
-                ', its manifest rows, ' +
-                c.doc +
-                ' where a finding proves the doc itself wrong, AND libs-wide ripple authority: a ' +
-                'ripple a fix exposes anywhere under libs/ — sibling seam ledgers, mirrored rows, consumer anchors, index docs, ' +
-                '.api catalogs — is repaired in place at the sibling in the same pass, both ends; where the doc rules a ' +
-                'counterpart RECORDED with a demanding consumer rather than edited, the recording IS the fix and the sibling ' +
-                "interior stays unedited past that ruling. You are the run's LAST agent, no phase follows you). " +
-                'CONSUMPTION PROTOCOL, in order: (a) read ' +
-                c.doc +
-                ' IN FULL — it is the ruling; (b) UNMAPPED scope below is ' +
-                "your direct-hunt queue — a failed lane's territory gets your own cold read, first; (c) read every ok report " +
-                'file IN FULL from disk, governance and ripple lanes before page slices — group findings by `claimKey` as you ' +
-                'read (the same key across lanes is ONE defect with corroborating evidence, never several priorities) and order ' +
-                'work by `severity` then `owner` (shared owners and registries before their consumers, cross-folder seams before ' +
-                'local prose); (d) each finding is a SIGNAL: re-open its anchors before editing — anchors behind an edit, cited ' +
-                'members, seams, and manifest rows re-verify MANDATORY; navigation-only entries in untouched groups re-verify ' +
-                'only when touched (re-proving findings you will not act on is waste); (e) `mechanism`/`owner`/`reject`/' +
-                "`acceptance` are the finding's constraint boundary — honor the owner and the rejected forms, but the DESIGN is " +
-                'yours: implement the densest root-level resolution the boundary admits, never a single-point patch; a finding ' +
-                'whose anchors do not re-confirm is rejected with reason. Then hunt PAST the signal list on your own authority — ' +
-                'the hunt classes above over the corpus and governance surface as you work it — and fix what the verifiers ' +
-                'missed; `beyond` enumerates those fixes, and an empty `beyond` attests your own hunt found nothing, never that ' +
-                'it did not run. Every ripple an edit exposes is YOURS in the same pass, anywhere under libs/: seam counterparts ' +
-                'both ends, consumer sites, index docs, manifest rows, .api anchors — the run ends finalized, nothing deferred. ' +
-                'The floor law governs every page you touch: exceed the ruling with denser, deeper, more capable form. Frozen ' +
-                'signatures and wire names stay byte-identical. ' +
-                'UNMAPPED: ' +
-                JSON.stringify(unmapped) +
-                ' ROSTER: ' +
-                JSON.stringify(roster),
-            { label: 'resolve:' + tag, phase: 'Resolve', model: 'fable', effort: 'high', schema: FIXLOG, stallMs: STALL },
-        );
+            '\n\n' +
+            HUNT +
+            '\n\n' +
+            LAWS_READ +
+            '\n\n' +
+            HARVEST_LAW +
+            '\n\nTASK: TERMINAL FINALIZE (WRITER — full authority over ' +
+            c.root +
+            ', its manifest rows, ' +
+            c.doc +
+            ' where a finding proves the doc itself wrong, AND libs-wide ripple authority: a ' +
+            'ripple a fix exposes anywhere under libs/ — sibling seam ledgers, mirrored rows, consumer anchors, index docs, ' +
+            '.api catalogs — is repaired in place at the sibling in the same pass, both ends; where the doc rules a ' +
+            'counterpart RECORDED with a demanding consumer rather than edited, the recording IS the fix and the sibling ' +
+            "interior stays unedited past that ruling. You are the run's LAST agent, no phase follows you). " +
+            'CONSUMPTION PROTOCOL, in order: (a) read ' +
+            c.doc +
+            ' IN FULL — it is the ruling; (b) UNMAPPED scope below is ' +
+            "your direct-hunt queue — a failed lane's territory gets your own cold read, first; (c) read every ok report " +
+            'file IN FULL from disk, governance and ripple lanes before page slices — group findings by `claimKey` as you ' +
+            'read (the same key across lanes is ONE defect with corroborating evidence, never several priorities) and order ' +
+            'work by `severity` then `owner` (shared owners and registries before their consumers, cross-folder seams before ' +
+            'local prose); (d) each finding is a SIGNAL: re-open its anchors before editing — anchors behind an edit, cited ' +
+            'members, seams, and manifest rows re-verify MANDATORY; navigation-only entries in untouched groups re-verify ' +
+            'only when touched (re-proving findings you will not act on is waste); (e) `mechanism`/`owner`/`reject`/' +
+            "`acceptance` are the finding's constraint boundary — honor the owner and the rejected forms, but the DESIGN is " +
+            'yours: implement the densest root-level resolution the boundary admits, never a single-point patch; a finding ' +
+            'whose anchors do not re-confirm is rejected with reason. Then hunt PAST the signal list on your own authority — ' +
+            'the hunt classes above over the corpus and governance surface as you work it — and fix what the verifiers ' +
+            'missed; `beyond` enumerates those fixes, and an empty `beyond` attests your own hunt found nothing, never that ' +
+            'it did not run. Every ripple an edit exposes is YOURS in the same pass, anywhere under libs/: seam counterparts ' +
+            'both ends, consumer sites, index docs, manifest rows, .api anchors — the run ends finalized, nothing deferred. ' +
+            'The floor law governs every page you touch: exceed the ruling with denser, deeper, more capable form. Frozen ' +
+            'signatures and wire names stay byte-identical. ' +
+            'HARVEST FILE: append each `harvest` nomination to `' +
+            harvestFile +
+            '` (one JSON row per line) the moment it is minted — the doctrine lander sweeps that file, so a dead finalize ' +
+            'loses no nomination; your returned `harvest` carries the same rows. ' +
+            'UNMAPPED: ' +
+            JSON.stringify(unmapped) +
+            ' ROSTER: ' +
+            JSON.stringify(roster);
+        // Terminal writer: a dead resolver retries with a suffixed label; a final death isolates the campaign, never the run —
+        // its harvest survives on disk for the lander. Operational FIXLOG rows ride the wire only for the run summary.
+        const fireResolve = (suffix) =>
+            agent(resolveTask, {
+                label: 'resolve:' + tag + suffix,
+                phase: 'Resolve',
+                model: 'fable',
+                effort: 'high',
+                schema: FIXLOG,
+                stallMs: STALL,
+            });
+        const fix = (await fireResolve('')) || (await retryLane(() => fireResolve(':r1')));
         return {
             campaign: c.root,
             lanes: roster.length,
@@ -566,31 +609,46 @@ const lanes = await parallel(
             beyond: (fix && fix.beyond && fix.beyond.length) || 0,
             rejected: (fix && fix.rejected && fix.rejected.length) || 0,
             harvest: (fix && fix.harvest) || [],
+            harvestFile,
+            resolverDead: !fix,
             summary: (fix && fix.summary) || '',
         };
     }),
 );
 
-// DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations adjudicated against the live
-// doctrine surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws. Fires only on non-empty rows.
-const HARVEST_ROWS = lanes.filter(Boolean).flatMap((l) => l.harvest || []);
-const doctrine = HARVEST_ROWS.length
-    ? await agent(
-          'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` ' +
-              'FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. Load ' +
-              'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
-              '`mermaid-diagramming` before touching any diagram. ' +
-              "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
-              JSON.stringify(HARVEST_ROWS) +
-              '\nADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on ' +
-              'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
-              'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
-              'whose coupling no longer holds, land a coupling this run proved.\n' +
-              'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
-              'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-          { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
-      )
-    : null;
+// DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations adjudicated against the live doctrine
+// surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws. Nomination transport never rides a living
+// fold: the wire `harvest` is corroboration only, and the lander reads each resolver's deterministic harvest `.jsonl` from disk
+// directly — a dead resolver still fires it (fire-gate below) and loses no row. Harvest paths mint from CAMPS, not lane returns,
+// so a fully-dead campaign lane still contributes its file.
+const LIVE = lanes.filter(Boolean);
+const HARVEST_ROWS = LIVE.flatMap((l) => l.harvest || []);
+const HARVEST_FILES = CAMPS.map((c) => SCRATCH + '/' + fileTag('resolve:' + c.root.split('/').pop()) + '-harvest.jsonl');
+const RESOLVER_DIED = lanes.some((l) => !l || l.resolverDead);
+const doctrine =
+    HARVEST_ROWS.length || RESOLVER_DIED
+        ? await agent(
+              ROOT_LAW +
+                  '\n\nTASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` ' +
+                  'FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. Load ' +
+                  'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
+                  '`mermaid-diagramming` before touching any diagram. ' +
+                  "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
+                  JSON.stringify(HARVEST_ROWS) +
+                  '\nAlso sweep each resolver harvest file at these deterministic paths (an absent or invalid file skips; a dead ' +
+                  'finalize reaches you ONLY through these files, and no other agent transports these rows): ' +
+                  JSON.stringify(HARVEST_FILES) +
+                  ' — each line is one JSON nomination row; rows there missing from NOMINATIONS are nominations too. Dedupe ' +
+                  'against NOMINATIONS and adjudicate them identically.\n' +
+                  'ADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on ' +
+                  'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
+                  'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
+                  'whose coupling no longer holds, land a coupling this run proved.\n' +
+                  'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
+                  'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
+              { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+          )
+        : null;
 
 return {
     campaigns: lanes.filter(Boolean),

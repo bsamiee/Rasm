@@ -1,6 +1,6 @@
 # [APPUI_ISSUE_BOARD]
 
-The coordination rail is the openBIM issue board: `Issue` composes one AppUi `Viewpoint` view-state with a `Rasm.Bim`-owned BCF topic consumed at the boundary, the comment conversation is a `Collab/sync.md` `CollabDoc` `map` container keyed by comment GUID (the bespoke comment CRDT is DROPPED root-up), `IssueTile` projects each issue onto the dashboard tile family, and `IssueBoard` is the board projection owning the issue-to-viewpoint binding. Every comment mutation rides the ONE `IntentLedger.Commit` rail — the durable intent lands first, the live container applies through the same `IntentApply` dispatch replay uses — so live convergence and durable truth cannot silently diverge and the board holds no state replay cannot reconstruct. The page owns the UI issue projection, the comment lens over the shared merge authority, the snapshot tile, and the topic-to-viewpoint binding; the substrate is the `Render/pipeline.md#VIEWPOINT_CODEC` `Viewpoint` receipt, the `Collab/sync.md` merge authority and edit-intent stream, the `charts-dashboards` dashboard tiles, and the `Rasm.Bim/Review/issues#BCF_ARCHIVE` `BcfTopic`/`BcfComment`/`BcfViewpoint` contract at the package edge. AppUi composes the BCF topic plus its own `Viewpoint` and the one collab owner into the board and never re-mints a BCF semantic schema; a second BCF model or a direct BCF-XML writer here is the rejected form.
+The coordination rail is the openBIM issue board: `Issue` composes the AppUi `Viewpoint` with the `Rasm.Bim` BCF topic, `CommentLens` projects the shared `CollabDoc` comment maps, `IssueTile` projects dashboard rows, and `IssueBoard` owns the issue-to-viewpoint binding. Comment content, mention routing, and resolution all enter through `IntentLedger.Commit`; the durable row lands before the live `IntentApply` dispatch, so a live-apply failure remains visible on the rail and cold-load replay reconstructs the durable state. AppUi owns projection and interaction while `Rasm.Bim` owns BCF semantics and archive encoding; a second BCF model or direct XML writer is rejected.
 
 ## [01]-[INDEX]
 
@@ -8,6 +8,7 @@ The coordination rail is the openBIM issue board: `Issue` composes one AppUi `Vi
 - [03]-[COMMENT_LENS]: The comment conversation as a `CollabDoc` map container; the one commit rail; BCF projection at the boundary.
 - [04]-[ISSUE_TILE]: Dashboard-tile projection of the issue list with status brushing.
 - [05]-[BOARD_PROJECTION]: Board owning the issue-to-viewpoint binding, the merge-authority re-projection, and the BCF round-trip.
+- [06]-[REDLINE_AUTHORING]: Typed line and bitmap markup folded onto the bound BCF viewpoint.
 
 ## [02]-[ISSUE_MODEL]
 
@@ -103,7 +104,9 @@ public sealed record Issue(
             topic.Guid, topic.Title, status, topic.TopicType, topic.Priority,
             topic.Author, topic.CreationDate,
             topic.Viewpoints.Map(vp => new IssueBinding(vp.Guid, ViewpointCodec.FromBcf(vp.Guid, vp, clocks))),
-            topic.Comments.Map(static c => new CommentEntry(c.Guid, c.Author, c.Text, c.ViewpointGuid, false, c.Date, c.ModifiedDate, c.ModifiedAuthor)),
+            topic.Comments.Map(static c => new CommentEntry(
+                c.Guid, c.Author, c.Text, c.ViewpointGuid, false, c.Date, c.ModifiedDate,
+                Optional(c.ModifiedAuthor).Filter(static author => author.Length > 0))),
             topic.Viewpoints.Find(static vp => vp.Snapshot.IsSome).Map(static vp => vp.Guid),
             Some(topic));
 
@@ -140,27 +143,40 @@ flowchart LR
 ## [03]-[COMMENT_LENS]
 
 - Owner: `CommentLens` — the comment conversation as a `Collab/sync.md` `CollabDoc` `map` container attach keyed by comment GUID; NO page-local CRDT and NO page-local write kernel exist — every live column write rides the `Collab/sync.md` `IntentApply` comment arms through the one `IntentLedger.Commit` rail, so the live register shape and the replay register shape are one dispatch by construction (the `CommentOp` `[Union]` + `CommentThread` register AND the duplicated page-local `WriteEntry` kernel are DROPPED root-up).
-- Entry: `public static Fin<LoroMap> Thread(CollabDoc doc, string topicGuid)` — attaches the topic's comment map (`comments/{topicGuid}`); `public static IO<Fin<Unit>> Put(CollabDoc doc, IntentLedger ledger, string topicGuid, CommentEntry entry, ClockPolicy clocks)` — the ONE comment write verb: row existence discriminates the durable case, an absent GUID landing `EditIntent.CommentAdd` and an existing one `EditIntent.CommentEdit`, so add-versus-edit is recoverable from the merge authority's own state, never a caller flag and never an add-only misclassification; `public static IO<Fin<Unit>> Resolve(CollabDoc doc, IntentLedger ledger, string topicGuid, string commentId, ClockPolicy clocks)` — admits only an existing comment row, a missing GUID failing `IssueFault.CommentConflict` before the rail runs.
-- Auto: each comment is one map key (its GUID) whose value is a nested mergeable map carrying the author, body, viewpoint-guid, resolved, at, edited-by, and edited-at columns — the `LoroDoc` map container IS the convergence law, so concurrent same-comment edits resolve through the one merge authority and the board holds no ordering, LWW, or merge algebra of its own; the mutation path is `IntentLedger.Commit` — durable projection FIRST, then the live apply through the same total `IntentApply` dispatch replay uses, the whole path one `IO<Fin<Unit>>` carrier the composition edge runs, so a durable refusal returns before any live mutation and a mid-pipeline `.Run()` inside a `Fin` transform is the deleted form; a superseded concurrent edit surfaces through the container diff feed (`CollabDoc.Changes`) for the presence UI, never silently dropped; the lens projects the container state to `Seq<CommentEntry>` for the `Issue` record — each row carrying its `GetLastEditor` peer provenance so the board attributes the last touch — and materializes to the `Rasm.Bim` `BcfComment` set for the topic round-trip.
+- Entry: `Put` is the one comment write verb: row existence discriminates `EditIntent.CommentAdd` from `CommentEdit`, then the composition-bound `MentionRouter` resolves identity tokens and commits one `CommentRoute` carrying the distinct peer set; `Resolve` admits only an existing row before committing `CommentResolve`.
+- Auto: each comment is one GUID-keyed mergeable map carrying author, body, viewpoint, resolution, timestamps, and editor provenance; the mutation path is `IntentLedger.Commit`, and mention routing is another case on the same durable union whose replay arm writes `notifications/{peer}` inbox rows. Identity parsing remains composition-bound, so the issue owner stores resolved peer identities and never implements a username parser or a second notification transport.
 - Packages: LoroCs (via `Collab/sync.md` owners), Thinktecture.Runtime.Extensions, LanguageExt.Core, NodaTime, Rasm.Bim (project)
 - Growth: a new comment column is one nested-map key written by its `IntentApply` arm; zero new surface, zero new CRDT, zero new write kernel.
-- Boundary: the comment thread rides the `Collab/sync.md#DOCUMENT_OWNER` map-container charter — the one merge authority; durable truth rides the `Collab/sync.md#DURABLE_INTENT` typed edit-intent stream (`CommentAdd`/`CommentEdit`/`CommentResolve` rows on the ONE union), so a comment op persisting as an opaque Loro byte, a parallel per-page op union, or a live write that bypasses the intent rail is the deleted form; the lens materializes to the `Rasm.Bim` `BcfComment` record — modification provenance included — for the topic round-trip so a board comment exports to the openBIM container, never an AppUi-local comment schema.
+- Boundary: the comment thread rides the one merge authority; durable truth rides the `CommentAdd`/`CommentEdit`/`CommentResolve`/`CommentRoute` cases on the shared edit-intent union, so a page-local op family or direct live write is rejected; the lens materializes comment content and modification provenance to `BcfComment`, while notification routing remains collaboration state and never leaks into the BCF exchange record.
 
 ```csharp signature
 public static class CommentLens {
     public const string BoardOrigin = "board";
 
-    public static Fin<LoroMap> Thread(CollabDoc doc, string topicGuid) =>
-        IntentApply.As<LoroMap>(doc, CollabContainer.Map, $"comments/{topicGuid}");
+    // Thread access is SCOPED through CollabDoc.Use — the container wrapper frees with each read, so a
+    // board refresh never grows the document's registered handle set.
+    static Fin<A> Thread<A>(CollabDoc doc, string topicGuid, Func<LoroMap, Fin<A>> read) =>
+        doc.Use(CollabContainer.Map, $"comments/{topicGuid}", read);
 
     // ONE write verb: the merge authority's own row state discriminates add-versus-edit, and the
     // mutation rides IntentLedger.Commit — durable-first, live apply through the replay dispatch.
-    public static IO<Fin<Unit>> Put(CollabDoc doc, IntentLedger ledger, string topicGuid, CommentEntry entry, ClockPolicy clocks) =>
+    public static IO<Fin<Unit>> Put(
+        CollabDoc doc,
+        IntentLedger ledger,
+        MentionRouter mentions,
+        string topicGuid,
+        CommentEntry entry,
+        ClockPolicy clocks) =>
         IO.lift(() => CommentId(entry.CommentId).Bind(id => Has(doc, topicGuid, id).Map(exists => (id, exists)))).Bind(probe => probe.Match(
-            Succ: admitted => ledger.Commit(doc, admitted.exists
-                    ? new EditIntent.CommentEdit(doc.Key, admitted.id, topicGuid, entry.Text, entry.Author, clocks.Now)
-                    : new EditIntent.CommentAdd(doc.Key, admitted.id, topicGuid, entry.Text, entry.Author, entry.ViewpointGuid, clocks.Now),
-                BoardOrigin),
+            Succ: admitted => ledger.Commit(
+                    doc,
+                    admitted.exists
+                        ? new EditIntent.CommentEdit(doc.Key, admitted.id, topicGuid, entry.Text, entry.Author, clocks.Now)
+                        : new EditIntent.CommentAdd(doc.Key, admitted.id, topicGuid, entry.Text, entry.Author, entry.ViewpointGuid, clocks.Now),
+                    BoardOrigin)
+                .Bind(written => written.Match(
+                    Succ: _ => mentions.Route(doc, ledger, admitted.id, topicGuid, entry.Text, clocks.Now),
+                    Fail: static error => IO.pure(Fin.Fail<Unit>(error)))),
             Fail: static error => IO.pure(Fin.Fail<Unit>(error))));
 
     // Resolve gates on row existence: a resolve of a GUID the thread never held would mint an orphan
@@ -173,16 +189,18 @@ public static class CommentLens {
             Fail: static error => IO.pure(Fin.Fail<Unit>(error))));
 
     public static Fin<Seq<CommentEntry>> Project(CollabDoc doc, string topicGuid) =>
-        Thread(doc, topicGuid).Bind(thread => CollabDoc.Lift(() => ReadEntries(thread)));
+        Thread(doc, topicGuid, thread => CollabDoc.Lift(() => ReadEntries(thread)));
 
+    // BcfComment.ModifiedAuthor is a plain string with "" as absence on the Bim contract — the Option
+    // collapses at this seam only, never inside the board's own rows.
     public static Seq<Rasm.Bim.Coordination.BcfComment> Materialize(Seq<CommentEntry> comments) =>
         toSeq(comments.OrderBy(static entry => entry.Date))
             .Map(static entry => new Rasm.Bim.Coordination.BcfComment(
-                entry.CommentId, entry.Author, entry.Text, entry.ViewpointGuid, entry.Date, entry.ModifiedAt, entry.ModifiedBy));
+                entry.CommentId, entry.Author, entry.Text, entry.ViewpointGuid, entry.Date, entry.ModifiedAt, entry.ModifiedBy.IfNone("")));
 
-    // Existence probes ride Keys() — zero transient container handles minted for a yes/no answer.
+    // Existence probes ride Keys() — one scoped wrapper, freed with the yes/no answer.
     static Fin<bool> Has(CollabDoc doc, string topicGuid, Guid commentId) =>
-        Thread(doc, topicGuid).Bind(thread =>
+        Thread(doc, topicGuid, thread =>
             CollabDoc.Lift(() => thread.Keys().Contains(commentId.ToString("N"))));
 
     static Fin<Guid> CommentId(string value) =>
@@ -220,6 +238,28 @@ public static class CommentLens {
 
     static Option<Instant> Stamp(LoroMap row, string key) =>
         row.Get(key)?.AsValue() is LoroValue.I64 at ? Some(Instant.FromUnixTimeMilliseconds(at.Value)) : None;
+}
+
+public readonly record struct CommentNotice(Guid CommentId, string TopicId, Instant At);
+
+public sealed record MentionRouter(Func<string, Fin<Seq<ulong>>> Resolve) {
+    public IO<Fin<Unit>> Route(CollabDoc doc, IntentLedger ledger, Guid comment, string topic, string body, Instant at) =>
+        IO.lift(() => Resolve(body).Map(peers => peers.Distinct().ToSeq())).Bind(resolved => resolved.Match(
+            Succ: peers => peers.IsEmpty
+                ? IO.pure(Fin.Succ(unit))
+                : ledger.Commit(doc, new EditIntent.CommentRoute(doc.Key, comment, topic, peers, at), CommentLens.BoardOrigin),
+            Fail: static error => IO.pure(Fin.Fail<Unit>(error))));
+
+    public Fin<Seq<CommentNotice>> Inbox(CollabDoc doc, ulong peer) =>
+        doc.Use<LoroMap, Seq<CommentNotice>>(CollabContainer.Map, $"notifications/{peer}", inbox => CollabDoc.Lift(() =>
+            inbox.Keys().AsIterable().Choose(key =>
+                Guid.TryParseExact(key, "N", out Guid comment)
+                    && inbox.Get(key)?.AsValue() is LoroValue.Map { Value: var fields }
+                    && fields.TryGetValue("topic", out LoroValue? topic) && topic is LoroValue.String { Value: var topicId }
+                    && fields.TryGetValue("at", out LoroValue? at) && at is LoroValue.I64 { Value: var stamp }
+                        ? Some(new CommentNotice(comment, topicId, Instant.FromUnixTimeMilliseconds(stamp)))
+                        : None)
+                .ToSeq()));
 }
 ```
 
@@ -271,13 +311,56 @@ public sealed record IssueBoard(string Key, Seq<Issue> Issues) {
     public Fin<Seq<Rasm.Bim.Coordination.BcfTopic>> Save() =>
         Fin.Succ(Issues.Map(static issue => issue.ToTopic()));
 
-    public Option<Viewpoint> Navigate(string guid) =>
-        Issues.Find(issue => issue.Guid == guid).Bind(static issue => issue.Bindings.HeadOrNone().Map(static binding => binding.View));
+    public Fin<Viewpoint> Navigate(string guid, Option<string> viewpointGuid = default) =>
+        Issues.Find(issue => issue.Guid == guid)
+            .ToFin(new IssueFault.TopicMalformed($"issue {guid} is absent"))
+            .Bind(issue => viewpointGuid.Match(
+                Some: key => issue.Bindings.Find(binding => binding.ViewpointGuid == key)
+                    .Map(static binding => binding.View)
+                    .ToFin(new IssueFault.ViewpointUnbound($"issue {guid}: viewpoint {key} is absent")),
+                None: () => issue.Bindings.Count == 1
+                    ? Fin.Succ(issue.Bindings.Head.View)
+                    : Fin.Fail<Viewpoint>(new IssueFault.ViewpointUnbound($"issue {guid}: select one of {issue.Bindings.Count} viewpoints"))));
 
     // Comment state enters the board ONLY as a read of the merge authority — a caller-supplied
     // comment set would mint state the ledger replay cannot reconstruct.
     public Fin<IssueBoard> Synced(CollabDoc doc) =>
         Issues.Traverse(issue => CommentLens.Project(doc, issue.Guid).Map(comments => issue with { Comments = comments })).As()
             .Map(issues => this with { Issues = issues.ToSeq() });
+}
+```
+
+## [06]-[REDLINE_AUTHORING]
+
+- Owner: `ViewpointMarkup` is the closed authoring family over the `Rasm.Bim`-owned `BcfLine` and `BcfBitmap` payloads; `IssueMarkup.Apply` is the one fold that updates the GUID-bound source viewpoint retained by `Issue`.
+- Entry: `public static Fin<IssueBoard> Apply(IssueBoard board, string issueGuid, string viewpointGuid, Seq<ViewpointMarkup> markup)` admits both identities, folds every redline row onto the bound `BcfViewpoint`, and returns a board whose existing `ToTopic`/`BcfArchive.Write` boundary preserves the markup in `.bcfzip`.
+- Auto: a viewport stroke becomes one `BcfLine` sequence and an image callout becomes one `BcfBitmap`; the closed fold appends to the source viewpoint's existing `Lines` and `Bitmaps`, so imported redlines survive an authoring pass and a redline never mints an AppUi exchange schema.
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Bim (project)
+- Growth: a BCF-admitted viewpoint annotation is one `ViewpointMarkup` case plus one generated `Switch` arm; zero parallel viewpoint or archive owner.
+- Boundary: `Rasm.Bim` owns BCF markup semantics and serialization; AppUi owns interactive authoring and only constructs the admitted domain records. Missing issue or viewpoint identities fail through `IssueFault` before mutation, and an unbound “current viewpoint” default is rejected.
+
+```csharp signature
+[Union]
+public abstract partial record ViewpointMarkup {
+    private ViewpointMarkup() { }
+    public sealed record Stroke(Seq<Rasm.Bim.Coordination.BcfLine> Lines) : ViewpointMarkup;
+    public sealed record Bitmap(Rasm.Bim.Coordination.BcfBitmap Value) : ViewpointMarkup;
+}
+
+public static class IssueMarkup {
+    public static Fin<IssueBoard> Apply(IssueBoard board, string issueGuid, string viewpointGuid, Seq<ViewpointMarkup> markup) =>
+        from issue in board.Issues.Find(row => row.Guid == issueGuid)
+            .ToFin(new IssueFault.TopicMalformed($"issue {issueGuid} is absent"))
+        from source in issue.Source.ToFin(new IssueFault.TopicMalformed($"issue {issueGuid} has no BCF source row"))
+        from viewpoint in source.Viewpoints.Find(row => row.Guid == viewpointGuid)
+            .ToFin(new IssueFault.ViewpointUnbound($"issue {issueGuid}: viewpoint {viewpointGuid} is absent"))
+        let updated = markup.Fold(viewpoint, static (current, row) => row.Switch(
+            state: current,
+            stroke: static (state, value) => state with { Lines = state.Lines + value.Lines },
+            bitmap: static (state, value) => state with { Bitmaps = state.Bitmaps.Add(value.Value) }))
+        let topic = source with { Viewpoints = source.Viewpoints.Map(row => row.Guid == viewpointGuid ? updated : row) }
+        select board with {
+            Issues = board.Issues.Map(row => row.Guid == issueGuid ? row with { Source = Some(topic) } : row),
+        };
 }
 ```

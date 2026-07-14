@@ -1,6 +1,6 @@
 # [APPUI_MOTION_TOKENS]
 
-Rasm.AppUi motion is one six-row `MotionToken` vocabulary: each row carries one `MotionTiming` modality and one reduced-motion delegate, and every duration or easing literal in the package traces to that owner. `MotionTiming.Tween` carries duration plus easing while `MotionTiming.Spring` derives its response envelope from the admitted spring, so an impossible duration/curve/spring combination is unrepresentable. The page owns the token axis, the `MotionPlan` and `MotionPacing` policy families feeding Avalonia transitions, chart timing, pan-zoom canvases, reactive cadence, the closed `ProgressPhase` mapping, and the global reduced-motion degrade switch.
+Rasm.AppUi motion is one six-row `MotionToken` vocabulary: each row carries one `MotionTiming` modality and one reduced-motion delegate, and every duration or easing literal in the package traces to that owner. `MotionTiming.Tween` carries duration plus easing while `MotionTiming.Spring` derives its response envelope from the admitted spring, so an impossible duration/curve/spring combination is unrepresentable. The page owns the token axis, the `MotionPlan` policies and `MotionPacing` discriminant feeding Avalonia transitions, chart timing, pan-zoom canvases, reactive cadence, the closed `ProgressPhase` mapping, and the global reduced-motion degrade switch.
 
 ## [01]-[INDEX]
 
@@ -17,7 +17,7 @@ Rasm.AppUi motion is one six-row `MotionToken` vocabulary: each row carries one 
 - Auto: timing rows double as throttle and debounce pacing values consumed by live-data streams, behavior intervals, and screen runtime rows; `SpringValue` derives stiffness and damping from response and damping fraction, so a spring row carries two tuning values, never four constants — and every derivation reads admitted members only, because the `[ComplexValueObject]` factory is the sole construction path.
 - Packages: Thinktecture.Runtime.Extensions, NodaTime, LanguageExt.Core, BCL inbox
 - Growth: a new motion grade is one `MotionToken` row carrying its reduced delegate; a new spring invariant is one predicate arm inside `ValidateFactoryArguments`; zero new surface.
-- Boundary: `MotionTiming.Tween` carries one NodaTime duration plus one Avalonia `Easing`, while `MotionTiming.Spring` carries one admitted `SpringValue` and derives its duration from `Response`; the former optional-spring ghost and duplicated spring-duration knob are unrepresentable. `MotionToken.Duration`, `Curve`, and `Spring` are projections of the timing case for consumers, not independent constructor columns. Reduced targets are deferred row delegates, native Avalonia easing classes own curve arithmetic, and `SpringValue` admits every finite response, damping, and mass invariant once.
+- Boundary: `MotionTiming.Tween` carries one NodaTime duration plus one Avalonia `Easing`, while `MotionTiming.Spring` carries one admitted `SpringValue` and derives its duration from `Response`; the former optional-spring ghost and duplicated spring-duration knob are unrepresentable. `MotionToken.Duration`, `Curve`, and `Spring` are projections of the timing case for consumers, not independent constructor columns. Reduced targets are deferred row delegates, `SpringEasing` owns spring progress, and `SpringValue` admits finite positive response plus non-negative damping once; unit mass is derived policy because every token shared it.
 
 ```csharp signature
 
@@ -35,19 +35,15 @@ public abstract partial record MotionFault : Expected, IValidationError<MotionFa
         : MotionFault($"motion/probe: {Detail}", AppUiFaultBand.Motion.Code(3));
 }
 
+// Duration and Easing thread through the base positional parameters (the ControlIntent pattern); the
+// Spring arm derives both from its admitted SpringValue at construction, so the two projections stay
+// case-consistent by construction and never re-derive per read.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record MotionTiming {
-    private MotionTiming() { }
-    public sealed record Tween(Duration Duration, Easing Easing) : MotionTiming;
-    public sealed record Spring(SpringValue Value) : MotionTiming;
-
-    public Duration Duration => Switch(
-        tween: static value => value.Duration,
-        spring: static value => Duration.FromMilliseconds(value.Value.Response * 1000d));
-
-    public Func<double, double> Curve => Switch(
-        tween: static value => value.Easing.Ease,
-        spring: static value => value.Value.Ease);
+public abstract partial record MotionTiming(Duration Duration, Easing Easing) {
+    public sealed record Tween(Duration Duration, Easing Easing) : MotionTiming(Duration, Easing);
+    public sealed record Spring(SpringValue Value) : MotionTiming(
+        Duration.FromMilliseconds(Value.Response * 1000d),
+        new SpringEasing(mass: 1d, stiffness: Value.Stiffness, damping: Value.Damping));
 
     public Option<SpringValue> SpringValue => Switch(
         tween: static _ => None,
@@ -61,56 +57,34 @@ public readonly partial struct SpringValue {
 
     public float DampingFraction { get; }
 
-    public float Mass { get; }
+    public float Stiffness => (2f * MathF.PI / Response) * (2f * MathF.PI / Response);
 
-    public float Stiffness => (2f * MathF.PI / Response) * (2f * MathF.PI / Response) * Mass;
+    public float Damping => 4f * MathF.PI * DampingFraction / Response;
 
-    public float Damping => 4f * MathF.PI * DampingFraction * Mass / Response;
-
-    public double Ease(double progress) => Math.Clamp(progress, 0d, 1d) switch {
-        <= 0d => 0d,
-        >= 1d => 1d,
-        var t when DampingFraction < 1f => UnderDamped(t),
-        var t when DampingFraction == 1f => 1d - (Math.Exp(-2d * Math.PI * t) * (1d + (2d * Math.PI * t))),
-        var t => OverDamped(t),
-    };
-
-    private double UnderDamped(double t) =>
-        1d - (Math.Exp(-DampingFraction * 2d * Math.PI * t) * (
-            Math.Cos(2d * Math.PI * Math.Sqrt(1d - (DampingFraction * DampingFraction)) * t)
-            + (DampingFraction / Math.Sqrt(1d - (DampingFraction * DampingFraction)))
-            * Math.Sin(2d * Math.PI * Math.Sqrt(1d - (DampingFraction * DampingFraction)) * t)));
-
-    private double OverDamped(double t) =>
-        (-(2d * Math.PI) * (DampingFraction - Math.Sqrt((DampingFraction * DampingFraction) - 1d)),
-         -(2d * Math.PI) * (DampingFraction + Math.Sqrt((DampingFraction * DampingFraction) - 1d))) switch {
-            var (slow, fast) => 1d - (((fast * Math.Exp(slow * t)) - (slow * Math.Exp(fast * t))) / (fast - slow)),
-        };
-
-    static partial void ValidateFactoryArguments(ref MotionFault? validationError, ref float response, ref float dampingFraction, ref float mass) =>
-        validationError = (float.IsFinite(response) && response > 0f, float.IsFinite(dampingFraction) && dampingFraction >= 0f, float.IsFinite(mass) && mass > 0f) switch {
-            (false, _, _) => new MotionFault.SpringOutOfDomain($"response {response}"),
-            (_, false, _) => new MotionFault.SpringOutOfDomain($"damping-fraction {dampingFraction}"),
-            (_, _, false) => new MotionFault.SpringOutOfDomain($"mass {mass}"),
+    static partial void ValidateFactoryArguments(ref MotionFault? validationError, ref float response, ref float dampingFraction) =>
+        validationError = (float.IsFinite(response) && response > 0f, float.IsFinite(dampingFraction) && dampingFraction >= 0f) switch {
+            (false, _) => new MotionFault.SpringOutOfDomain($"response {response}"),
+            (_, false) => new MotionFault.SpringOutOfDomain($"damping-fraction {dampingFraction}"),
             _ => validationError,
         };
 }
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class MotionToken {
     public static readonly MotionToken Instant = new("instant", new MotionTiming.Tween(Duration.Zero, new LinearEasing()), reduced: static () => Instant);
     public static readonly MotionToken Fast = new("fast", new MotionTiming.Tween(Duration.FromMilliseconds(100), new QuadraticEaseOut()), reduced: static () => Instant);
     public static readonly MotionToken Standard = new("standard", new MotionTiming.Tween(Duration.FromMilliseconds(250), new CubicEaseInOut()), reduced: static () => Fast);
     public static readonly MotionToken Emphasized = new("emphasized", new MotionTiming.Tween(Duration.FromMilliseconds(400), new QuinticEaseOut()), reduced: static () => Fast);
-    public static readonly MotionToken SpringSnappy = new("spring-snappy", new MotionTiming.Spring(SpringValue.Create(response: 0.30f, dampingFraction: 0.85f, mass: 1f)), reduced: static () => Fast);
-    public static readonly MotionToken SpringGentle = new("spring-gentle", new MotionTiming.Spring(SpringValue.Create(response: 0.65f, dampingFraction: 1.00f, mass: 1f)), reduced: static () => Standard);
+    public static readonly MotionToken SpringSnappy = new("spring-snappy", new MotionTiming.Spring(SpringValue.Create(response: 0.30f, dampingFraction: 0.85f)), reduced: static () => Fast);
+    public static readonly MotionToken SpringGentle = new("spring-gentle", new MotionTiming.Spring(SpringValue.Create(response: 0.65f, dampingFraction: 1.00f)), reduced: static () => Standard);
 
     public MotionTiming Timing { get; }
 
     public Duration Duration => Timing.Duration;
 
-    public Func<double, double> Curve => Timing.Curve;
+    public Func<double, double> Curve => Timing.Easing.Ease;
 
     public Option<SpringValue> Spring => Timing.SpringValue;
 
@@ -121,13 +95,13 @@ public sealed partial class MotionToken {
 
 ## [03]-[MOTION_APPLICATION]
 
-- Owner: `MotionPlan` `[SmartEnum<string>]` enter-exit-stagger policy family; `MotionPacing` payload-free cadence enum; `MotionApplication` anchor and projection fold.
+- Owner: `MotionPlan` `[SmartEnum<string>]` enter-exit-stagger policy family; process-local behavior `MotionPacing` keyless `[SmartEnum]`; `MotionApplication` anchor and projection fold.
 - Cases: Dialog, Toast, Page, Cascade plan rows
 - Entry: `public TimeSpan ChartSpeed` — chart animation timing for the `AnimationsSpeed` binding.
 - Auto: pan-zoom canvases bind `EnableAnimations` and `AnimationDuration` from `ZoomMilliseconds`; dialog and toast sessions read their plan rows for enter-exit pairs, page transitions read the Page row, and list or sequence entrances derive per-item delay from `Delay(ordinal)` over the Cascade row's `Stagger` column; headless motion specs advance frames through `ForceRenderTimerTick` against the `ClockPolicy` fake pair, so every animation assertion runs deterministically.
 - Packages: Avalonia, LiveChartsCore.SkiaSharpView.Avalonia, PanAndZoom, System.Reactive, NodaTime, BCL inbox
-- Growth: a new animated surface is one `MotionPlan` row, and a new cadence is one `MotionPacing` enum value on `Gate`; zero operation proliferation.
-- Boundary: every projection receives a post-degrade token. `Gate` discriminates trailing throttle from sampled pulse through one scheduler-parameterized entrypoint, so headless consumers inject `VirtualTimeScheduler` or `HistoricalScheduler`; `Delay` rejects negative ordinals on `Fin`; `PhaseMotion.Resolve` returns `PhaseUnmapped` instead of indexing a dictionary; and `MotionProbeRow.Designed` cannot masquerade as an executable probe.
+- Growth: a new animated surface is one `MotionPlan` row, and a new cadence is one `MotionPacing` case plus one `Gate` arm; zero operation proliferation.
+- Boundary: the projection surface IS the selection boundary — `ChartSpeed`, `ChartCurve`, `ZoomMilliseconds`, and `Gate` fold `ReducedMotion.Select` at the read, so a raw row token structurally cannot leak unreduced timing under active reduction; projections take authored row tokens, and feeding an already-selected token (`EnterToken`, `ExitToken`, a `PhaseMotion.Resolve` result) back through a projection is the deleted double-degrade form. `Gate` discriminates trailing throttle, sampled pulse, and lossless serial dwell through one scheduler-parameterized entrypoint, so headless consumers inject `VirtualTimeScheduler` or `HistoricalScheduler`; the serial row delays and concatenates every element instead of sampling a loss-bearing stream. `Delay` rejects negative ordinals on `Fin`; `PhaseMotion.Resolve` returns `PhaseUnmapped` instead of indexing a dictionary; and `MotionProbeRow.Designed` cannot masquerade as an executable probe. `ToastHorizon` is the one motion-owned hold window the `Shell/dialogs.md` `ToastGate.Flush` drain consumes at composition — a dialog-local horizon literal is the deleted form.
 
 ```csharp signature
 [SmartEnum<string>]
@@ -150,25 +124,37 @@ public sealed partial class MotionPlan {
     public MotionToken ExitToken => ReducedMotion.Select(Exit);
 }
 
-public enum MotionPacing { Trailing, Pulse }
+[SmartEnum]
+public sealed partial class MotionPacing {
+    public static readonly MotionPacing Trailing = new();
+    public static readonly MotionPacing Pulse = new();
+    public static readonly MotionPacing Serial = new();
+}
 
 public static class MotionApplication {
     public static readonly Duration Throttle = MotionToken.Fast.Duration;
     public static readonly Duration Debounce = MotionToken.Standard.Duration;
+    public static readonly Duration ToastHorizon = Duration.FromSeconds(30); // the Shell/dialogs ToastGate.Flush hold window, bound at composition
 
+    // Each projection selects against the live reduced-motion state at the read — a raw row token never
+    // leaks unreduced timing, so the accessibility invariant holds at the owning surface, not per caller.
     extension(MotionToken token) {
-        public TimeSpan ChartSpeed => token.Duration.ToTimeSpan();
+        public TimeSpan ChartSpeed => ReducedMotion.Select(token).Duration.ToTimeSpan();
 
-        public Func<float, float> ChartCurve => t => (float)token.Curve(t);
+        public Func<float, float> ChartCurve => t => (float)ReducedMotion.Select(token).Curve(t);
 
-        public double ZoomMilliseconds => token.Duration.TotalMilliseconds;
+        public double ZoomMilliseconds => ReducedMotion.Select(token).Duration.TotalMilliseconds;
 
-        public IObservable<T> Gate<T>(MotionPacing pacing, IObservable<T> source, IScheduler scheduler) => token.Duration == Duration.Zero
-            ? source
-            : pacing switch {
-                MotionPacing.Trailing => source.Throttle(token.Duration.ToTimeSpan(), scheduler),
-                MotionPacing.Pulse => source.Sample(token.Duration.ToTimeSpan(), scheduler),
-                _ => throw new UnreachableException(),
+        public IObservable<T> Gate<T>(MotionPacing pacing, IObservable<T> source, IScheduler scheduler) =>
+            ReducedMotion.Select(token) switch {
+                var selected when selected.Duration == Duration.Zero => source,
+                var selected => pacing.Switch(
+                    state: (Source: source, Window: selected.Duration.ToTimeSpan(), Scheduler: scheduler),
+                    trailing: static state => state.Source.Throttle(state.Window, state.Scheduler),
+                    pulse: static state => state.Source.Sample(state.Window, state.Scheduler),
+                    serial: static state => state.Source
+                        .Select(item => Observable.Return(item).Delay(state.Window, state.Scheduler))
+                        .Concat()),
             };
     }
 

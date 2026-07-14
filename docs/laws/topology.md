@@ -14,6 +14,6 @@ The coupling map: editing a `[SURFACE]` obligates its `[OBLIGATED_COUNTERPARTS]`
 |  [06]   | `CLAUDE.md` fact                      | `AGENTS.md` cross-reference                      | one fact lands at its acting reader          |
 |  [07]   | `.config/dotnet-tools.json` tool row  | `tools/assay` decompile rails                    | manifest tools are assay runtime deps        |
 |  [08]   | workflow codex-lane dispatch shape    | `workflow-creator` + `codex` lane references     | the skill owns the canon; land there first   |
-|  [09]   | folder `.api/` catalog member         | planning fences citing the member                | fences compose verified spellings only       |
+|  [09]   | folder `.api/` catalog member         | planning fences citing the member                | fences prove spelling, accessibility, arity  |
 
 The central manifests are `Directory.Packages.props` (whose row also obligates the consuming `.csproj`), `pyproject.toml`, and `pnpm-workspace.yaml`.

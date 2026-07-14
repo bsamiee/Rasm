@@ -267,6 +267,21 @@ const HARVEST_LAW =
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical write pass; the count bounds spend, the backoff buys recovery time
+const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
+// Bounded re-dispatch for a dead CRITICAL write pass (usage-limit or transport death — agent() returned null): attempt-counted
+// with a backoff before each; the final death isolates the pass but NEVER the chain — every later pass and the final track still
+// run, and each pass derives its own findings from disk, so a dead predecessor removes grounding, never the stage.
+const retryLane = async (fn) => {
+    for (let a = 0; a < RETRY_ATTEMPTS; a++) {
+        await sleep(RETRY_BACKOFF);
+        const r = await fn();
+        if (r) return r;
+    }
+    return null;
+};
+
 const docsOrder = (t) =>
     (t.docs
         ? 'CODE DOCTRINE: read ' +
@@ -313,21 +328,18 @@ const reconPrompt = (t, name, lane) =>
 // dossier (workspace-write, that one file) and returns the receipt as its final message — the wrapper relays
 // that receipt, no product write, no relay hop. Lane law rides developer-instructions; the prompt carries only the task.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
+// Codex lanes in this workflow are recon-only — the write passes stay native fable behind network-bound gates a codex sandbox
+// cannot reach — so the lane law is the read-only investigation contract; no write/fix branch exists to fork.
 const laneLaw = (schema, o) =>
-    (o.fix
-        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
-          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
-          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
-          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
-        : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
-          'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
-          (o.calls || 60) +
-          ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
-          'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
-          'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
-          'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
-          'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
-          '</verification>') +
+    '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
+    'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
+    (o.calls || 60) +
+    ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
+    'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
+    'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
+    'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
+    'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
+    '</verification>' +
     '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
@@ -439,6 +451,15 @@ const passPrompt = (t, name, tier, reconRows) =>
     'reasons), harvest (per the harvest law below). ' +
     HARVEST_LAW;
 
+// A T-pass is the run's critical WRITE lane: fable, high effort, network-bound gates — the most usage-limit-exposed lane in the
+// run. It rides the attempt-counted retryLane with a suffixed retry label; a final death returns null and the chain continues,
+// because every later pass and the final track derive their own findings from disk (a dead predecessor removes grounding, never a stage).
+const passOpts = (label, phase) => ({ model: 'fable', effort: 'high', phase, label, schema: PASS_RECEIPT });
+const runPass = (t, name, tier, reconRows, label, phase) =>
+    agent(passPrompt(t, name, tier, reconRows), passOpts(label, phase)).then(
+        (r) => r || retryLane(() => agent(passPrompt(t, name, tier, reconRows), passOpts(label + ':r1', phase))),
+    );
+
 // Doctrine lander: adjudicates pooled harvest nominations against the live doctrine surfaces; an estate run owns test/tool/config
 // infrastructure and monorepo alignment, so its routing weighs toward the constitution, the test/tool READMEs, and the reviewer rules.
 const doctrinePrompt = (rows, residuals) =>
@@ -470,36 +491,9 @@ log('estate tracks: ' + ACTIVE.join(', ') + (WANT_FINAL ? ' + final' : ''));
 const results = await pipeline(
     trackRows,
     (t) => parallel([() => reconLane(t, t.lang, 'scope', 'Recon'), () => reconLane(t, t.lang, 'libs', 'Recon')]),
-    (recon, t) =>
-        agent(passPrompt(t, t.lang, 'T1', (recon || []).filter(Boolean)), {
-            model: 'fable',
-            effort: 'high',
-            phase: 'Estate',
-            label: 't1:' + t.lang,
-            schema: PASS_RECEIPT,
-        }).then((r) => ({ t1: r })),
-    (acc, t) =>
-        agent(passPrompt(t, t.lang, 'T2', null), {
-            model: 'fable',
-            effort: 'high',
-            phase: 'Estate',
-            label: 't2:' + t.lang,
-            schema: PASS_RECEIPT,
-        }).then((r) => ({
-            ...acc,
-            t2: r,
-        })),
-    (acc, t) =>
-        agent(passPrompt(t, t.lang, 'T3', null), {
-            model: 'fable',
-            effort: 'high',
-            phase: 'Estate',
-            label: 't3:' + t.lang,
-            schema: PASS_RECEIPT,
-        }).then((r) => ({
-            ...acc,
-            t3: r,
-        })),
+    (recon, t) => runPass(t, t.lang, 'T1', (recon || []).filter(Boolean), 't1:' + t.lang, 'Estate').then((r) => ({ t1: r })),
+    (acc, t) => runPass(t, t.lang, 'T2', null, 't2:' + t.lang, 'Estate').then((r) => ({ ...acc, t2: r })),
+    (acc, t) => runPass(t, t.lang, 'T3', null, 't3:' + t.lang, 'Estate').then((r) => ({ ...acc, t3: r })),
 );
 
 // --- [FINAL]
@@ -510,27 +504,9 @@ if (WANT_FINAL && ACTIVE.length) {
     const fRecon = (await parallel([() => reconLane(f, 'monorepo', 'scope', 'Final'), () => reconLane(f, 'monorepo', 'libs', 'Final')])).filter(
         Boolean,
     );
-    const f1 = await agent(passPrompt(f, 'monorepo FINAL', 'T1', fRecon), {
-        model: 'fable',
-        effort: 'high',
-        phase: 'Final',
-        label: 'final:t1',
-        schema: PASS_RECEIPT,
-    });
-    const f2 = await agent(passPrompt(f, 'monorepo FINAL', 'T2', null), {
-        model: 'fable',
-        effort: 'high',
-        phase: 'Final',
-        label: 'final:t2',
-        schema: PASS_RECEIPT,
-    });
-    const f3 = await agent(passPrompt(f, 'monorepo FINAL', 'T3', null), {
-        model: 'fable',
-        effort: 'high',
-        phase: 'Final',
-        label: 'final:t3',
-        schema: PASS_RECEIPT,
-    });
+    const f1 = await runPass(f, 'monorepo FINAL', 'T1', fRecon, 'final:t1', 'Final');
+    const f2 = await runPass(f, 'monorepo FINAL', 'T2', null, 'final:t2', 'Final');
+    const f3 = await runPass(f, 'monorepo FINAL', 'T3', null, 'final:t3', 'Final');
     final = { t1: f1, t2: f2, t3: f3 };
 }
 

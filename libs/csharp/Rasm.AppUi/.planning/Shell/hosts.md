@@ -55,7 +55,8 @@ public sealed record SurfaceSeam(
     Func<bool> OnUiThread,
     Func<AppBuilder, Fin<Unit>> RunLoop,
     Func<double> Scale,
-    Func<Action<SurfaceFact>, IDisposable> HostFacts);
+    Func<Action<SurfaceFact>, IDisposable> HostFacts,
+    Func<long, IO<Unit>> ReleaseRetainedView);
 
 public sealed record SurfaceRow(
     Func<AppBuilder, AppBuilder> Build,
@@ -103,9 +104,17 @@ public static class Surfaces {
             static b => b.UseSkia().With(SkiaBudget).UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false, FrameBufferFormat = PixelFormat.Rgba8888 }).UseReactiveUI(),
             Setup, HeadlessRoot, SurfaceMode.Headless)));
 
+    // Boot edge is a claim-commit transaction: 0 unstarted, 1 start in flight, 2 committed. A failed
+    // start restores 0 so boot stays retryable; only a completed Start commits the process-wide edge.
     public static Fin<Unit> Boot(SurfaceHost host, SurfaceSeam seam, Func<AppBuilder> entry) =>
         from row in Row(host, seam)
-        from started in FirstBoot() ? row.Start(row.Build(entry())) : Fin.Succ(unit)
+        from started in Interlocked.CompareExchange(ref booted, 1, 0) switch {
+            2 => Fin.Succ(unit),
+            1 => Fin.Fail<Unit>(new SurfaceFault.MountRejected($"<boot-in-flight:{host}>")),
+            _ => row.Start(row.Build(entry()))
+                .Map(static done => (Interlocked.Exchange(ref booted, 2), done).Item2)
+                .MapFail(static fault => (Interlocked.Exchange(ref booted, 0), fault).Item2),
+        }
         select started;
 
     public static Fin<SurfaceSession> Mount(SurfaceHost host, SurfaceSeam seam, Control content, ClockPolicy clocks, CorrelationId correlation) =>
@@ -123,7 +132,7 @@ public static class Surfaces {
         Marshal: seam.HostMarshal,
         Scale: seam.Scale,
         OnUiThread: seam.OnUiThread,
-        Attach: content => new EmbedCapsule(content, EmbedOptions.Embedded).Mounted(mount)
+        Attach: content => new EmbedCapsule(content, EmbedOptions.Embedded).Mounted(mount, seam.ReleaseRetainedView)
             .Map(static attached => (Some(attached.Handle), attached.Descriptor, attached.Teardown)),
         Facts: seam.HostFacts,
         Capabilities: Capability.Set(Capability.HostDocument),
@@ -143,8 +152,6 @@ public static class Surfaces {
         Mode: mode);
 
     private static Fin<Unit> Setup(AppBuilder builder) => Fin.Succ(ignore(builder.SetupWithoutStarting()));
-
-    private static bool FirstBoot() => Interlocked.Exchange(ref booted, 1) == 0;
 
     // Interactive windows FAULT on a missing platform handle — a zero-handle success receipt is the
     // deleted sentinel; the headless row legitimately carries None through its own attach.
@@ -182,7 +189,7 @@ public static class Surfaces {
 - Auto: construction runs the load-bearing order in one body — `EnforceClientSize` value, `Content`, `Prepare` — and `Mounted` appends retained-view capture, seam attach, and `StartRendering`; teardown composes `StopRendering`, seam detach, `Dispose` in declared order.
 - Packages: Avalonia, System.Reactive, LanguageExt.Core
 - Growth: one `EmbedOptions` policy value per new platform knob; zero new surface.
-- Boundary: every successful `Mounted` and its composed teardown ride the `Surfaces.MountInstrument` count through the one `AppUiTelemetry.Contribute` spine, and a handle-absent or seam-rejected `Fin` failure folds its `SurfaceFault` into the same mount-outcome evidence, so the foreign-view boundary mints no second telemetry surface; `EmbedCapsule` is the named boundary capsule for the statement carve-out — the constructor carries the ordered statements; `GetNSViewRetained` hands a retained pointer whose release belongs to the host seam after detach, and the accessor carries Avalonia's unstable-API obsolete marker, so the capsule's `RetainedView` body is the single acknowledged suppression site; `EnforceClientSize` is a protected setter reachable only inside the derived capsule, and the host seam pushes frame sync on every panel-resize fact while it holds true; `MacOSPlatformOptions` and `AvaloniaNativePlatformOptions` values enter only through `EmbedOptions.Admit` and a hardcoded platform knob in boot code is the rejected form — `ShowInDock` false keeps embedded rows out of the macOS Dock, `DisableDefaultApplicationMenuItems` strips the default app menu under the host menu bar, `DisableNativeMenus`/`DisableSetProcessName`/`DisableAvaloniaAppDelegate` complete the plugin-host menu and process-identity policy, and `RenderingMode` is the `AvaloniaNativePlatformOptions.RenderingMode` `IReadOnlyList<AvaloniaNativeRenderingMode>` backend policy column whose three rows are `Metal`, `OpenGl`, and `Software` (Avalonia's own default ordering is `[OpenGl, Software]` and the embedded backend ordering the render research row decides), with `AvaloniaNativeLibraryPath` carrying the optional native-binary override and `AppSandboxEnabled`/`OverlayPopups` the remaining platform knobs; Avalonia owns GPU backend selection through `RenderingMode`, so a direct `GRContext.CreateMetal`/`CreateVulkan`/`CreateDirect3D`/`CreateGl` call inside a dispatch arm is the rejected form (PROHIBITION host-API-in-arm) — a shared-context requirement against the host pipeline rides one `SurfaceSeam` delegate column bound at composition, never a per-host GPU call site, and the exact shared-context spelling is the EMBED_SPIKE render research row; the AppKit dispatcher-pump regime under the Rhino-owned run-loop stays research-gated.
+- Boundary: every successful `Mounted` and its composed teardown ride the `Surfaces.MountInstrument` count through the one `AppUiTelemetry.Contribute` spine, and a handle-absent or seam-rejected `Fin` failure folds its `SurfaceFault` into the same mount-outcome evidence, so the foreign-view boundary mints no second telemetry surface; `EmbedCapsule` is the named boundary capsule for the statement carve-out — the constructor carries the ordered statements; `GetNSViewRetained` hands a retained pointer whose one release-capable owner is the disposable `Mounted` mints beside the capture off the seam `ReleaseRetainedView` column (the host binds the AppKit release at composition) — teardown composes it after detach, every failed mount or start disposes it in place, and a non-retained handle carries `Disposable.Empty`, so the retained value releases exactly once on every path; the accessor carries Avalonia's unstable-API obsolete marker, so the capsule's `RetainedView` body is the single acknowledged suppression site; `EnforceClientSize` is a protected setter reachable only inside the derived capsule, and the host seam pushes frame sync on every panel-resize fact while it holds true; `MacOSPlatformOptions` and `AvaloniaNativePlatformOptions` values enter only through `EmbedOptions.Admit` and a hardcoded platform knob in boot code is the rejected form — `ShowInDock` false keeps embedded rows out of the macOS Dock, `DisableDefaultApplicationMenuItems` strips the default app menu under the host menu bar, `DisableNativeMenus`/`DisableSetProcessName`/`DisableAvaloniaAppDelegate` complete the plugin-host menu and process-identity policy, and `RenderingMode` is the `AvaloniaNativePlatformOptions.RenderingMode` `IReadOnlyList<AvaloniaNativeRenderingMode>` backend policy column whose three rows are `Metal`, `OpenGl`, and `Software` (Avalonia's own default ordering is `[OpenGl, Software]` and the embedded backend ordering the render research row decides), with `AvaloniaNativeLibraryPath` carrying the optional native-binary override and `AppSandboxEnabled`/`OverlayPopups` the remaining platform knobs; Avalonia owns GPU backend selection through `RenderingMode`, so a direct `GRContext.CreateMetal`/`CreateVulkan`/`CreateDirect3D`/`CreateGl` call inside a dispatch arm is the rejected form (PROHIBITION host-API-in-arm) — a shared-context requirement against the host pipeline rides one `SurfaceSeam` delegate column bound at composition, never a per-host GPU call site, and the exact shared-context spelling is the EMBED_SPIKE render research row; the AppKit dispatcher-pump regime under the Rhino-owned run-loop stays research-gated.
 
 ```csharp signature
 public sealed record EmbedOptions(
@@ -228,18 +235,23 @@ public sealed class EmbedCapsule : EmbeddableControlRoot {
         Prepare();
     }
 
-    public Fin<(long Handle, string Descriptor, IDisposable Teardown)> Mounted(Func<EmbedCapsule, Fin<IDisposable>> mount) =>
+    // The retained macOS view has exactly one lifetime owner: the release disposable minted beside the
+    // capture. Success threads it into teardown after detach; every failure path disposes it in place.
+    public Fin<(long Handle, string Descriptor, IDisposable Teardown)> Mounted(
+        Func<EmbedCapsule, Fin<IDisposable>> mount, Func<long, IO<Unit>> releaseRetained) =>
         (from view in RetainedView()
-         from detach in mount(this)
-         from live in Start()
-         select (view.Handle, view.Descriptor, (IDisposable)new CompositeDisposable(Disposable.Create(StopRendering), detach, Disposable.Create(Dispose))))
+         let release = view.Retained ? Disposable.Create(() => releaseRetained(view.Handle).Run()) : Disposable.Empty
+         from detach in mount(this).MapFail(fault => (fun(release.Dispose)(), fault).Item2)
+         from live in Start().MapFail(fault => (fun(new CompositeDisposable(detach, release).Dispose)(), fault).Item2)
+         select (view.Handle, view.Descriptor,
+             (IDisposable)new CompositeDisposable(Disposable.Create(StopRendering), detach, release, Disposable.Create(Dispose))))
         .MapFail(fault => (fun(Dispose)(), fault).Item2);
 
-    public Fin<(long Handle, string Descriptor)> RetainedView() =>
+    public Fin<(long Handle, string Descriptor, bool Retained)> RetainedView() =>
         TryGetPlatformHandle() switch {
-            IMacOSTopLevelPlatformHandle mac => Fin.Succ((mac.GetNSViewRetained().ToInt64(), "NSView")),
-            { } handle => Fin.Succ((handle.Handle.ToInt64(), handle.HandleDescriptor ?? string.Empty)),
-            null => Fin.Fail<(long, string)>(new SurfaceFault.HandleUnavailable(nameof(EmbedCapsule))),
+            IMacOSTopLevelPlatformHandle mac => Fin.Succ((mac.GetNSViewRetained().ToInt64(), "NSView", true)),
+            { } handle => Fin.Succ((handle.Handle.ToInt64(), handle.HandleDescriptor ?? string.Empty, false)),
+            null => Fin.Fail<(long, string, bool)>(new SurfaceFault.HandleUnavailable(nameof(EmbedCapsule))),
         };
 
     public Fin<Unit> Start() => Fin.Succ(fun(StartRendering)());

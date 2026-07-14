@@ -9,6 +9,7 @@ Rasm.AppUi document export is one paginated-output owner: the MigraDoc flow DOM 
 - [04]-[PDF_POLICY]: Security, signatures over the AppHost secrets lease, AcroForms, PDF-UA.
 - [05]-[OFFICE_ARM]: OOXML part-graph writers — XLSX, DOCX, PPTX.
 - [06]-[PRINT_ARM]: lcmsNET device-CMYK/ICC transforms; proofing; K-preservation intents.
+- [07]-[SCHEDULED_EXPORT]: Consumer-owned `ScheduleEntry` rows for recurring report delivery and bounded backfill.
 
 ## [02]-[EXPORT_DESTINATIONS]
 
@@ -50,16 +51,27 @@ public static class ExportDelivery {
     public static IO<string> Deliver(VisualRuntime runtime, VisualDestination destination, byte[] payload) =>
         destination.Switch(
             state: (runtime, payload),
-            filePath: static (ctx, file) => IO.lift(() => { File.WriteAllBytes(file.AbsolutePath, ctx.payload); return file.AbsolutePath; }),
+            filePath: static (ctx, file) => AtomicFile(file.AbsolutePath, ctx.payload),
             blobLane: static (ctx, blob) => ctx.runtime.BlobWrite(blob.ArtifactKey, ctx.payload),
             bundle: static (ctx, bundle) => ctx.runtime.BundleWrite(bundle.ArtifactName, bundle.Classification, ctx.payload));
+
+    static IO<string> AtomicFile(string destination, byte[] payload) {
+        string? directory = Path.GetDirectoryName(destination);
+        if (string.IsNullOrWhiteSpace(directory)) { return IO.fail<string>(new ExportFault.DeliveryFailed(destination, "destination has no directory")); }
+        string pending = Path.Combine(directory, $".{Path.GetFileName(destination)}.{Guid.NewGuid():N}.pending");
+        return IO.lift(() => {
+                try { File.WriteAllBytes(pending, payload); File.Move(pending, destination, overwrite: true); return destination; }
+                finally { if (File.Exists(pending)) { File.Delete(pending); } }
+            })
+            | @catch<IO, string>(static _ => true, error => IO.fail<string>(new ExportFault.DeliveryFailed(destination, error.Message)));
+    }
 }
 ```
 
 ## [03]-[FLOW_REPORT]
 
 - Owner: `ReportSpec` — the flow-report composition row; `ReportSetup` — the page-geometry policy row (dimensions, margins, orientation) applied once to the section `PageSetup`; `ReportBlock` [Union] — the typed content vocabulary the MigraDoc fold consumes; `FlowReport` — the one MigraDoc render surface.
-- Cases: `ReportBlock` = Heading · Body · Table · PlacedVisual · Rule · PageBreak.
+- Cases: `ReportBlock` = Heading · Body · List · Callout · Code · Table · PlacedVisual · Figure · Footnote · Section · Rule · PageBreak.
 - Entry: `public static IO<RenderReceipt> Render(VisualRuntime runtime, ReportSpec spec)` — IO rail; the MigraDoc `Document`/`Section` DOM composes from the block seq, `PdfDocumentRenderer` paginates, and the payload delivers through the destination union.
 - Auto: pagination, widow/orphan control, running headers/footers with `PageField`/`NumPagesField`, and cross-page table breaking are the MigraDoc layout engine's — the hand-rolled `FlowBlock`/`FlowFold` pagination engine is the deleted form this owner replaces; `FormattedDocument` exposes the measured layout so a page count or block position reads from the renderer, never a local cursor fold; placed visuals enter as `PlacedVisual` rows whose `SKImage` tiles encode through the capture codec axis (`VisualCodec.Encode`) and place as MigraDoc `Image` values — capture stays the one raster owner, the report only places.
 - Receipt: one `RenderReceipt` of kind document per report with whole-payload content hash through the kernel-bound delegate and the delivered destination key.
@@ -73,8 +85,14 @@ public abstract partial record ReportBlock {
     private ReportBlock() { }
     public sealed record Heading(int Level, string Text) : ReportBlock;
     public sealed record Body(string Text) : ReportBlock;
+    public sealed record List(Seq<string> Items, bool Ordered) : ReportBlock;
+    public sealed record Callout(int HeadingLevel, string Title, Seq<ReportBlock> Blocks) : ReportBlock;
+    public sealed record Code(string Language, string Source) : ReportBlock;
     public sealed record Table(Seq<Seq<string>> Rows, bool Header) : ReportBlock;
     public sealed record PlacedVisual(SKImage Tile, double WidthCm) : ReportBlock;
+    public sealed record Figure(SKImage Tile, double WidthCm, string AltText, Option<string> Caption) : ReportBlock;
+    public sealed record Footnote(string Key, string Text) : ReportBlock;
+    public sealed record Section(string Title, Seq<ReportBlock> Blocks) : ReportBlock;
     public sealed record Rule : ReportBlock;
     public sealed record PageBreak : ReportBlock;
 }
@@ -100,7 +118,8 @@ public static class FlowReport {
 
     public static IO<RenderReceipt> Render(VisualRuntime runtime, ReportSpec spec) =>
         from mark in IO.lift(runtime.Clocks.Mark)
-        from payload in IO.lift(() => Compose(spec)).Bind(static fin => fin.Match(Succ: IO.pure, Fail: IO.fail<byte[]>))
+        from payload in (IO.lift(() => Compose(spec))
+            | @catch<IO, byte[]>(static _ => true, static error => IO.fail<byte[]>(new ExportFault.RenderFailed("flow-report", error.Message)))).As()
         from sealed_ in PdfPolicies.Apply(runtime, spec.Pdf, payload)
         from destination in ExportDelivery.Deliver(runtime, spec.Destination, sealed_)
         from elapsed in IO.lift(() => runtime.Clocks.Elapsed(mark))
@@ -108,7 +127,7 @@ public static class FlowReport {
         from _ in runtime.Sink(receipt)
         select receipt;
 
-    static Fin<byte[]> Compose(ReportSpec spec) {
+    static byte[] Compose(ReportSpec spec) {
         Document document = new();
         Section section = document.AddSection();
         if (!spec.Setup.IsInert) { ApplySetup(section.PageSetup, spec.Setup); }
@@ -125,15 +144,21 @@ public static class FlowReport {
         renderer.RenderDocument();
         using MemoryStream sink = new();
         renderer.PdfDocument.Save(sink);
-        return Fin.Succ(sink.ToArray());
+        return sink.ToArray();
     }
 
     static void Append(Section section, ReportBlock block) {
         switch (block) {
             case ReportBlock.Heading heading: section.AddParagraph(heading.Text, $"Heading{int.Clamp(heading.Level, 1, 6)}"); break;
             case ReportBlock.Body body: section.AddParagraph(body.Text); break;
+            case ReportBlock.List list: list.Items.Map(static (item, index) => (Item: item, Index: index)).Iter(row => section.AddParagraph($"{(list.Ordered ? $"{row.Index + 1}." : "•")} {row.Item}")); break;
+            case ReportBlock.Callout callout: section.AddParagraph(callout.Title, $"Heading{int.Clamp(callout.HeadingLevel, 1, 6)}"); callout.Blocks.Iter(child => Append(section, child)); break;
+            case ReportBlock.Code code: section.AddParagraph(code.Source); break;
             case ReportBlock.Table table: AppendTable(section, table); break;
             case ReportBlock.PlacedVisual visual: AppendVisual(section, visual); break;
+            case ReportBlock.Figure figure: AppendVisual(section, new ReportBlock.PlacedVisual(figure.Tile, figure.WidthCm)); section.AddParagraph(figure.Caption.IfNone(figure.AltText)); break;
+            case ReportBlock.Footnote footnote: section.AddParagraph($"[{footnote.Key}] {footnote.Text}"); break;
+            case ReportBlock.Section group: section.AddParagraph(group.Title, "Heading2"); group.Blocks.Iter(child => Append(section, child)); break;
             case ReportBlock.Rule: section.AddParagraph().Format.Borders.Bottom.Width = 0.5; break;
             case ReportBlock.PageBreak: section.AddPageBreak(); break;
         }
@@ -208,31 +233,39 @@ public sealed record PdfPolicy(
 }
 
 public static class PdfPolicies {
+    // The modify pass folds its native failures typed: a throw with a signer bound classifies
+    // SignerUnavailable (credential lease and crypto path), anything else RenderFailed("pdf-policy").
     public static IO<byte[]> Apply(VisualRuntime runtime, PdfPolicy policy, byte[] rendered) =>
         policy is { EncryptAes256: false, Signer.IsNone: true, AcroFields.IsEmpty: true, Identity.IsInert: true }
             ? IO.pure(rendered)
-            : IO.lift(() => {
-                using MemoryStream source = new(rendered);
-                using PdfDocument document = PdfReader.Open(source, PdfDocumentOpenMode.Modify);
-                policy.Identity.Title.Iter(title => document.Info.Title = title);
-                policy.Identity.Author.Iter(author => document.Info.Author = author);
-                policy.Identity.Subject.Iter(subject => document.Info.Subject = subject);
-                policy.Identity.Keywords.Iter(keywords => document.Info.Keywords = keywords);
-                policy.AcroFields.Iter(field => document.AcroForm?.Fields[field.Field]?.Value = new PdfString(field.Value));
-                if (policy.EncryptAes256) {
-                    document.SecurityHandler.SetEncryptionToV5(policy.EncryptMetadata);
-                    policy.OwnerPasswordLease.Iter(lease => document.SecuritySettings.OwnerPassword = lease);
-                    document.SecuritySettings.PermitPrint = policy.AllowPrinting;
-                    document.SecuritySettings.PermitExtractContent = policy.AllowExtraction;
-                }
-                using MemoryStream sink = new();
-                // ForDocument ATTACHES the signing handler to the document; the subsequent Save computes
-                // and embeds the signature — the handler exposes no save verb of its own.
-                policy.Signer.Iter(signer => _ = DigitalSignatureHandler.ForDocument(
-                    document, signer, policy.SignatureOptions.IfNone(() => new DigitalSignatureOptions())));
-                document.Save(sink);
-                return sink.ToArray();
-            });
+            : (Modify(policy, rendered)
+                | @catch<IO, byte[]>(static _ => true, error => IO.fail<byte[]>(policy.Signer.IsSome
+                    ? new ExportFault.SignerUnavailable(error.Message)
+                    : new ExportFault.RenderFailed("pdf-policy", error.Message)))).As();
+
+    static IO<byte[]> Modify(PdfPolicy policy, byte[] rendered) =>
+        IO.lift(() => {
+            using MemoryStream source = new(rendered);
+            using PdfDocument document = PdfReader.Open(source, PdfDocumentOpenMode.Modify);
+            policy.Identity.Title.Iter(title => document.Info.Title = title);
+            policy.Identity.Author.Iter(author => document.Info.Author = author);
+            policy.Identity.Subject.Iter(subject => document.Info.Subject = subject);
+            policy.Identity.Keywords.Iter(keywords => document.Info.Keywords = keywords);
+            policy.AcroFields.Iter(field => document.AcroForm?.Fields[field.Field]?.Value = new PdfString(field.Value));
+            if (policy.EncryptAes256) {
+                document.SecurityHandler.SetEncryptionToV5(policy.EncryptMetadata);
+                policy.OwnerPasswordLease.Iter(lease => document.SecuritySettings.OwnerPassword = lease);
+                document.SecuritySettings.PermitPrint = policy.AllowPrinting;
+                document.SecuritySettings.PermitExtractContent = policy.AllowExtraction;
+            }
+            using MemoryStream sink = new();
+            // ForDocument ATTACHES the signing handler to the document; the subsequent Save computes
+            // and embeds the signature — the handler exposes no save verb of its own.
+            policy.Signer.Iter(signer => _ = DigitalSignatureHandler.ForDocument(
+                document, signer, policy.SignatureOptions.IfNone(() => new DigitalSignatureOptions())));
+            document.Save(sink);
+            return sink.ToArray();
+        });
 }
 ```
 
@@ -312,13 +345,16 @@ public static class OfficeExport {
         from _ in runtime.Sink(receipt)
         select receipt;
 
+    // Total generated dispatch over the closed format vocabulary — a new OfficeFormat row breaks this
+    // site at compile time; a part-graph throw folds typed PartGraphRejected, never an untyped Error.
     static IO<byte[]> Write(OfficeSpec spec) =>
-        spec.Format.Key switch {
-            "xlsx" => IO.lift(() => WriteXlsx(spec)),
-            "docx" => IO.lift(() => WriteDocx(spec)),
-            "pptx" => IO.fail<byte[]>(new ExportFault.ContentUnsupported("pptx", "catalogued part graph")),
-            _ => IO.fail<byte[]>(new ExportFault.ContentUnsupported(spec.Format.Key, "format")),
-        };
+        spec.Format.Switch(
+            state: spec,
+            xlsx: static s => (IO.lift(() => WriteXlsx(s))
+                | @catch<IO, byte[]>(static _ => true, static error => IO.fail<byte[]>(new ExportFault.PartGraphRejected("xlsx", error.Message)))).As(),
+            pptx: static _ => IO.fail<byte[]>(new ExportFault.ContentUnsupported("pptx", "catalogued part graph")),
+            docx: static s => (IO.lift(() => WriteDocx(s))
+                | @catch<IO, byte[]>(static _ => true, static error => IO.fail<byte[]>(new ExportFault.PartGraphRejected("docx", error.Message)))).As());
 
     static byte[] WriteXlsx(OfficeSpec spec) {
         using MemoryStream sink = new();
@@ -368,8 +404,14 @@ public static class OfficeExport {
     static Seq<Row> BlockRow(ReportBlock block) => block.Switch(
         heading: static h => Seq(TextRow(h.Text)),
         body: static b => Seq(TextRow(b.Text)),
+        list: static l => l.Items.Map(TextRow),
+        callout: static c => TextRow(c.Title).Cons(c.Blocks.Bind(BlockRow)),
+        code: static c => Seq(TextRow(c.Source)),
         table: static t => t.Rows.Map(cells => TextRow(string.Join('\t', cells))),
         placedVisual: static _ => Seq<Row>(),
+        figure: static f => f.Caption.Map(TextRow).ToSeq(),
+        footnote: static f => Seq(TextRow($"[{f.Key}] {f.Text}")),
+        section: static s => TextRow(s.Title).Cons(s.Blocks.Bind(BlockRow)),
         rule: static _ => Seq<Row>(),
         pageBreak: static _ => Seq<Row>());
 
@@ -402,8 +444,14 @@ public static class OfficeExport {
     static Seq<Paragraph> BlockParagraph(ReportBlock block) => block.Switch(
         heading: static h => Seq(new Paragraph(new Run(new Text(h.Text)))),
         body: static b => Seq(new Paragraph(new Run(new Text(b.Text) { Space = SpaceProcessingModeValues.Preserve }))),
+        list: static l => l.Items.Map(static item => new Paragraph(new Run(new Text(item)))),
+        callout: static c => new Paragraph(new Run(new Text(c.Title))).Cons(c.Blocks.Bind(BlockParagraph)),
+        code: static c => Seq(new Paragraph(new Run(new Text(c.Source) { Space = SpaceProcessingModeValues.Preserve }))),
         table: static t => t.Rows.Map(static cells => new Paragraph(new Run(new Text(string.Join('\t', cells))))),
         placedVisual: static _ => Seq<Paragraph>(),
+        figure: static f => f.Caption.Map(static caption => new Paragraph(new Run(new Text(caption)))).ToSeq(),
+        footnote: static f => Seq(new Paragraph(new Run(new Text($"[{f.Key}] {f.Text}")))),
+        section: static s => new Paragraph(new Run(new Text(s.Title))).Cons(s.Blocks.Bind(BlockParagraph)),
         rule: static _ => Seq<Paragraph>(),
         pageBreak: static _ => Seq<Paragraph>());
 
@@ -446,7 +494,14 @@ public sealed partial class PrintIntent {
     public CmsFlags Flags { get; }
 }
 
-public sealed record PrintTransform(string Key, ReadOnlyMemory<byte> SourceProfile, ReadOnlyMemory<byte> DestinationProfile, PrintIntent IntentRow, Option<ReadOnlyMemory<byte>> ProofProfile, bool GamutCheck);
+public sealed record PrintTransform(
+    string Key,
+    ReadOnlyMemory<byte> SourceProfile,
+    ReadOnlyMemory<byte> DestinationProfile,
+    PrintIntent IntentRow,
+    PrintIntent ProofIntent,
+    Option<ReadOnlyMemory<byte>> ProofProfile,
+    bool GamutCheck);
 
 public static class PrintArm {
     public const string Kind = "print";
@@ -454,24 +509,86 @@ public static class PrintArm {
     // The proofing dispatch is the row's ProofProfile: Some builds the three-profile soft-proofing
     // Transform.Create overload (separate proofing intent, SoftProofing flag, GamutCheck marking
     // out-of-gamut pixels with the alarm colors), None the two-profile device conversion — one Create
-    // name, argument-shape discrimination, K/BPC riding the intent row.
+    // name, argument-shape discrimination, K/BPC riding the intent row. A successful conversion seals
+    // one RenderReceipt of kind print through the runtime Sink — destination-profile identity in
+    // ColorSpace, whole-payload content hash, byte count, elapsed — so print baselines key distinctly on
+    // the shared render-evidence rail; a failed conversion stays on ExportFault with no success receipt.
     public static IO<byte[]> Convert(VisualRuntime runtime, PrintTransform row, ReadOnlyMemory<byte> rgba) =>
-        IO.lift(() => {
-            using Profile source = Profile.Open(row.SourceProfile.Span.ToArray());
-            using Profile destination = Profile.Open(row.DestinationProfile.Span.ToArray());
-            using Transform transform = row.ProofProfile.Match(
-                Some: proofBytes => {
-                    using Profile proof = Profile.Open(proofBytes.Span.ToArray());
-                    return Transform.Create(
-                        source, Cms.TYPE_RGBA_8, destination, Cms.TYPE_CMYK_8, proof,
-                        row.IntentRow.Rendering, row.IntentRow.Rendering,
-                        row.IntentRow.Flags | CmsFlags.SoftProofing | (row.GamutCheck ? CmsFlags.GamutCheck : CmsFlags.None));
-                },
+        from mark in IO.lift(runtime.Clocks.Mark)
+        from cmyk in IO.lift(() => Transformed(row, rgba)).Bind(static fin => fin.Match(Succ: IO.pure, Fail: IO.fail<byte[]>))
+        from _ in runtime.Sink(new RenderReceipt(
+            Kind, $"cmyk-{row.IntentRow.Key}", runtime.ContentHash(cmyk), cmyk.Length,
+            runtime.Clocks.Elapsed(mark), runtime.Correlation, None, row.Key))
+        select cmyk;
+
+    // lcms native boundary kernel: each profile parse classifies its own ProfileInvalid ordinal and a
+    // transform failure classifies RenderFailed — every advertised fault case has a producing path.
+    static Fin<byte[]> Transformed(PrintTransform row, ReadOnlyMemory<byte> rgba) {
+        Profile source, destination;
+        Option<Profile> proof;
+        try { source = Profile.Open(row.SourceProfile.Span.ToArray()); }
+        catch { return Fin.Fail<byte[]>(new ExportFault.ProfileInvalid($"{row.Key}:source")); }
+        try { destination = Profile.Open(row.DestinationProfile.Span.ToArray()); }
+        catch { source.Dispose(); return Fin.Fail<byte[]>(new ExportFault.ProfileInvalid($"{row.Key}:destination")); }
+        try { proof = row.ProofProfile.Map(bytes => Profile.Open(bytes.Span.ToArray())); }
+        catch { source.Dispose(); destination.Dispose(); return Fin.Fail<byte[]>(new ExportFault.ProfileInvalid($"{row.Key}:proof")); }
+        try {
+            using Transform transform = proof.Match(
+                Some: proofProfile => Transform.Create(
+                    source, Cms.TYPE_RGBA_8, destination, Cms.TYPE_CMYK_8, proofProfile,
+                    row.IntentRow.Rendering, row.ProofIntent.Rendering,
+                    row.IntentRow.Flags | CmsFlags.SoftProofing | (row.GamutCheck ? CmsFlags.GamutCheck : CmsFlags.None)),
                 None: () => Transform.Create(
                     source, Cms.TYPE_RGBA_8, destination, Cms.TYPE_CMYK_8, row.IntentRow.Rendering, row.IntentRow.Flags));
             byte[] cmyk = new byte[rgba.Length];
             transform.DoTransform(rgba.Span.ToArray(), cmyk, rgba.Length / 4);
-            return cmyk;
-        });
+            return Fin.Succ(cmyk);
+        }
+        catch (Exception error) { return Fin.Fail<byte[]>(new ExportFault.RenderFailed("print", error.Message)); }
+        finally { source.Dispose(); destination.Dispose(); proof.Iter(static held => held.Dispose()); }
+    }
+}
+```
+
+## [07]-[SCHEDULED_EXPORT]
+
+- Owner: `ReportSubscription` — the consumer-owned recurring-delivery row that closes a report specification over the AppHost scheduler without introducing a document-local timer.
+- Entry: `public ScheduleEntry Register(Func<string, IO<ReportSpec>> resolve, VisualRuntime runtime)` — contributes one `ScheduleEntry`; its work resolves the current report specification at firing time, renders through `FlowReport.Render`, and preserves the ordinary destination, receipt, deadline, lease, and failure rails.
+- Auto: cadence is an `OccurrenceSpec` value, fleet distribution is `ScheduleEntry.Spread`, and bounded missed-occurrence recovery reads `SchedulePort.Window`; the subscription stores only the report key and schedule policy, so a profile reload re-resolves the live report rather than retaining a stale `ReportSpec` object graph.
+- Receipt: every run returns the ordinary document `RenderReceipt` through `FlowReport.Render` and the AppHost `DeadlineReceipt` through `SchedulePort.Run`; a failed delivery remains the scheduled work failure and never advances the last-success stamp.
+- Packages: Rasm.AppHost (project), LanguageExt.Core, NodaTime
+- Growth: one recurring deliverable is one `ReportSubscription` value; one cadence is one existing `OccurrenceSpec` case; zero scheduler surface.
+- Boundary: `SchedulePort` is the only time owner, `FlowReport` is the only pagination owner, and `VisualDestination` is the only delivery owner; a timer, login hook, or document-local retry loop is rejected.
+
+```csharp signature
+[ComplexValueObject]
+public sealed partial class ReportSubscription {
+    public string Key { get; }
+    public string ReportKey { get; }
+    public Rasm.AppHost.Runtime.OccurrenceSpec Occurrence { get; }
+    public Rasm.AppHost.Runtime.DeadlineClass Deadline { get; }
+    public Option<Rasm.AppHost.Runtime.LeasePolicy> Lease { get; }
+
+    static partial void ValidateFactoryArguments(
+        ref ValidationError? validationError,
+        ref string key,
+        ref string reportKey,
+        ref Rasm.AppHost.Runtime.OccurrenceSpec occurrence,
+        ref Rasm.AppHost.Runtime.DeadlineClass deadline,
+        ref Option<Rasm.AppHost.Runtime.LeasePolicy> lease) =>
+        validationError = string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(reportKey)
+            ? new ValidationError("report subscription requires schedule and report identities")
+            : validationError;
+
+    public Rasm.AppHost.Runtime.ScheduleEntry Register(Func<string, IO<ReportSpec>> resolve, VisualRuntime runtime) =>
+        new(
+            Key,
+            Occurrence,
+            Deadline,
+            Lease,
+            () => resolve(ReportKey).Bind(spec => FlowReport.Render(runtime, spec).Map(static _ => unit)));
+
+    public Seq<Instant> Backfill(Rasm.AppHost.Runtime.ScheduleEntry registered, Instant lastSuccess, Instant now) =>
+        Rasm.AppHost.Runtime.SchedulePort.Window(registered, lastSuccess, now);
 }
 ```

@@ -22,6 +22,8 @@ export const meta = {
 const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 300000;
+const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical writer; the count bounds spend, the backoff buys recovery time
+const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -107,6 +109,16 @@ const LAW = [
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+// Bounded re-dispatch for a dead CRITICAL writer (usage-limit or transport death, agent() returned null): attempt-counted with a
+// backoff before each; the final death returns null — the pool collects it and .filter(Boolean) drops it, so the lane isolates, never the chain.
+const retryLane = async (fn) => {
+    for (let a = 0; a < RETRY_ATTEMPTS; a++) {
+        await sleep(RETRY_BACKOFF);
+        const r = await fn();
+        if (r) return r;
+    }
+    return null;
+};
 const pool = async (items, cap, worker) => {
     const out = new Array(items.length);
     let next = 0;
@@ -139,42 +151,42 @@ const inv = await agent(
         'folders sorted by path, each with its sorted repo-relative card-file paths. Read-only; use find; do not cd.',
     { label: 'discover', phase: 'Cards-Discover', schema: DISCOVERY_SCHEMA, model: 'sonnet', effort: 'low' },
 );
-const FOLDERS = ((inv && inv.folders) || []).filter((u) => u && u.folder && Array.isArray(u.files) && u.files.length);
-const CARD_FILES = FOLDERS.flatMap((u) => u.files).filter(Boolean);
+// GUARD the model-emitted path roster before any dispatch: keep only paths matching the card-file invariant (a file named exactly
+// IDEAS.md or TASKLOG.md), drop the rest, and drop a folder left with no valid card — a mis-enumerated path never widens the pass.
+const isCard = (f) => typeof f === 'string' && (f.endsWith('/IDEAS.md') || f.endsWith('/TASKLOG.md') || f === 'IDEAS.md' || f === 'TASKLOG.md');
+const FOLDERS = ((inv && inv.folders) || [])
+    .map((u) => (u && u.folder && Array.isArray(u.files) ? { folder: u.folder, files: u.files.filter(isCard) } : null))
+    .filter((u) => u && u.files.length);
+const CARD_FILES = FOLDERS.flatMap((u) => u.files);
 log('Cards discover under ' + SWEEP + ': ' + FOLDERS.length + ' folders / ' + CARD_FILES.length + ' card files');
 
 // --- [CARDS_ALIGN]
 
 phase('Cards-Align');
 const aligned = (
-    await pool(FOLDERS, CAP, (u) =>
-        agent(
-            [
-                LAW,
-                '',
-                'TASK: ALIGN/REFINE the cards in ' +
-                    u.files.join(' + ') +
-                    " (your primary files — the folder's whole card set) to the current state. Read " +
-                    'EVERY primary card file IN FULL, then read the folder they govern IN FULL — its .planning pages, ARCHITECTURE, README, and both .api tiers, ' +
-                    'ONE folder read serving every card in the set — and attack every card line-by-line against that reality: ' +
-                    'an IDEA/TASK now realized in-corpus is marked COMPLETE/DROPPED with a one-line disposition ONLY against the realized page or fence you ' +
-                    'located on disk, never against the claim the card itself makes; a stale status, a wrong or now better-placed anchor, a thesis the corpus now ' +
-                    'enables to be denser or that fails either naivety axis, and a phantom-cited member are each corrected in place. These checks are a FLOOR, ' +
-                    'never the complete set — hunt past them for any defect the card schema or the corpus exposes. Do NOT add new cards. Read the wider corpus as ' +
-                    'needed for cross-folder logic (aligned-not-coupled); a defect that read exposes in another card file is yours per RIPPLE AUTHORITY under ' +
-                    'CURRENT STATE. Return the fix-log of edits already made; set folder to ' +
-                    u.folder +
-                    ' and list every file edited beyond the primaries in repaired.',
-            ].join('\n'),
-            {
-                label: 'align:' + u.folder.split('/').slice(-2).join('/'),
-                phase: 'Cards-Align',
-                schema: FIXLOG_SCHEMA,
-                effort: 'high',
-                stallMs: STALL,
-            },
-        ),
-    )
+    await pool(FOLDERS, CAP, async (u) => {
+        const prompt = [
+            LAW,
+            '',
+            'TASK: ALIGN/REFINE the cards in ' +
+                u.files.join(' + ') +
+                " (your primary files — the folder's whole card set) to the current state. Read " +
+                'EVERY primary card file IN FULL, then read the folder they govern IN FULL — its .planning pages, ARCHITECTURE, README, and both .api tiers, ' +
+                'ONE folder read serving every card in the set — and attack every card line-by-line against that reality: ' +
+                'an IDEA/TASK now realized in-corpus is marked COMPLETE/DROPPED with a one-line disposition ONLY against the realized page or fence you ' +
+                'located on disk, never against the claim the card itself makes; a stale status, a wrong or now better-placed anchor, a thesis the corpus now ' +
+                'enables to be denser or that fails either naivety axis, and a phantom-cited member are each corrected in place. These checks are a FLOOR, ' +
+                'never the complete set — hunt past them for any defect the card schema or the corpus exposes. Do NOT add new cards. Read the wider corpus as ' +
+                'needed for cross-folder logic (aligned-not-coupled); a defect that read exposes in another card file is yours per RIPPLE AUTHORITY under ' +
+                'CURRENT STATE. Return the fix-log of edits already made; set folder to ' +
+                u.folder +
+                ' and list every file edited beyond the primaries in repaired.',
+        ].join('\n');
+        const base = 'align:' + u.folder.split('/').slice(-2).join('/');
+        const opt = (suffix) => ({ label: base + suffix, phase: 'Cards-Align', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL });
+        // CRITICAL WRITER: a dead align lane loses its folder's density realignment with no downstream re-drain — a final death isolates the lane.
+        return (await agent(prompt, opt(''))) || (await retryLane(() => agent(prompt, opt(':r1'))));
+    })
 ).filter(Boolean);
 log('Cards aligned across ' + aligned.length + ' folders');
 
@@ -184,38 +196,52 @@ phase('Cards-Verify');
 const verify = (
     await pool(
         [
-            () =>
-                agent(
-                    [
-                        LAW,
-                        '',
-                        'TASK: BIDIRECTIONALITY verify + FIX IN PLACE across ALL discovered card files (' +
-                            JSON.stringify(CARD_FILES) +
-                            '). This ' +
-                            'is an adversarial WRITING verify, never a confirmation: treat every Ripple and every disposition the align pass just made as suspect until ' +
-                            'proven on disk. For every Ripple, confirm the named counterpart card EXISTS on the other side and references back; repair any ' +
-                            'dangling/asymmetric/slug-collision Ripple (edit whichever side is wrong). Re-derive each COMPLETE/DROPPED disposition: the realized page or ' +
-                            'fence must actually exist in-corpus — revert or correct any disposition the disk does not prove; no in-corpus-done work stays carded and no ' +
-                            'card duplicates a realized page. A token, loose, or single-point align fix is itself a defect you rebuild to the root form before ' +
-                            'classifying. Return the fix-log of edits already made; set folder to the folder of the first card file you edited and list every edited file in repaired.',
-                    ].join('\n'),
-                    { label: 'verify:bidir', phase: 'Cards-Verify', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL },
-                ),
-            () =>
-                agent(
-                    [
-                        LAW,
-                        '',
-                        'TASK: COMPLETENESS verify + FIX IN PLACE. For each target folder, read its plan/charter/README IN FULL to learn its ' +
-                            'intended card band and scope — from disk, never memory — then attack its IDEAS/TASKLOG pool against the band: a folder short of band or a ' +
-                            'genuinely-deferred unit missing its card is a defect you CLOSE NOW by adding exactly that missing genuinely-deferred card (the one place a ' +
-                            'missing deferred card is filled), never a finding you flag. Mine the gap sources to operator depth: both .api tiers and the README registry ' +
-                            'are where the uncarded admitted capability hides. Prove pre-existing cards were correctly absorbed/dispositioned: a wrong, token, or loose ' +
-                            'disposition is repaired to the root card form, never noted. Never duplicate a realized page. Return the fix-log of edits already made; set ' +
-                            'folder to the folder of a card file you edited and list every edited file in repaired.',
-                    ].join('\n'),
-                    { label: 'verify:complete', phase: 'Cards-Verify', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL },
-                ),
+            // Each verify lens is the SOLE owner of its lens (bidirectionality / completeness) with no downstream re-check — a dead lens
+            // is unrecovered, so it earns attempt-counted retry; a final death isolates the lens, the pool filters it, the run continues.
+            async () => {
+                const prompt = [
+                    LAW,
+                    '',
+                    'TASK: BIDIRECTIONALITY verify + FIX IN PLACE across ALL discovered card files (' +
+                        JSON.stringify(CARD_FILES) +
+                        '). This ' +
+                        'is an adversarial WRITING verify, never a confirmation: treat every Ripple and every disposition the align pass just made as suspect until ' +
+                        'proven on disk. For every Ripple, confirm the named counterpart card EXISTS on the other side and references back; repair any ' +
+                        'dangling/asymmetric/slug-collision Ripple (edit whichever side is wrong). Re-derive each COMPLETE/DROPPED disposition: the realized page or ' +
+                        'fence must actually exist in-corpus — revert or correct any disposition the disk does not prove; no in-corpus-done work stays carded and no ' +
+                        'card duplicates a realized page. A token, loose, or single-point align fix is itself a defect you rebuild to the root form before ' +
+                        'classifying. Return the fix-log of edits already made; set folder to the folder of the first card file you edited and list every edited file in repaired.',
+                ].join('\n');
+                const opt = (suffix) => ({
+                    label: 'verify:bidir' + suffix,
+                    phase: 'Cards-Verify',
+                    schema: FIXLOG_SCHEMA,
+                    effort: 'high',
+                    stallMs: STALL,
+                });
+                return (await agent(prompt, opt(''))) || (await retryLane(() => agent(prompt, opt(':r1'))));
+            },
+            async () => {
+                const prompt = [
+                    LAW,
+                    '',
+                    'TASK: COMPLETENESS verify + FIX IN PLACE. For each target folder, read its plan/charter/README IN FULL to learn its ' +
+                        'intended card band and scope — from disk, never memory — then attack its IDEAS/TASKLOG pool against the band: a folder short of band or a ' +
+                        'genuinely-deferred unit missing its card is a defect you CLOSE NOW by adding exactly that missing genuinely-deferred card (the one place a ' +
+                        'missing deferred card is filled), never a finding you flag. Mine the gap sources to operator depth: both .api tiers and the README registry ' +
+                        'are where the uncarded admitted capability hides. Prove pre-existing cards were correctly absorbed/dispositioned: a wrong, token, or loose ' +
+                        'disposition is repaired to the root card form, never noted. Never duplicate a realized page. Return the fix-log of edits already made; set ' +
+                        'folder to the folder of a card file you edited and list every edited file in repaired.',
+                ].join('\n');
+                const opt = (suffix) => ({
+                    label: 'verify:complete' + suffix,
+                    phase: 'Cards-Verify',
+                    schema: FIXLOG_SCHEMA,
+                    effort: 'high',
+                    stallMs: STALL,
+                });
+                return (await agent(prompt, opt(''))) || (await retryLane(() => agent(prompt, opt(':r1'))));
+            },
         ],
         CAP,
         (t) => t(),

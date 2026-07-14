@@ -16,7 +16,18 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
-(none)
+[HOST-SPRING-PARITY]-[QUEUED]: Host-side spring presets mirror the Theme/motion `SpringValue` algebra so shell and host viewport motion read as one system.
+- Capability: host canvas and viewport overlay motion reads `Response`/`DampingFraction`/`Mass` and the `Stiffness`/`Damping` derivations verbatim from the motion spring rows.
+- Shape: an app-root preset table binding the motion vocabulary values per host surface; AppUi stays the parity source with zero AppUi surface change.
+- Unlocks: cross-surface motion-consistency proofs comparing host and shell spring envelopes as values.
+- Anchors: `.planning/Theme/motion.md` [02] boundary parity clause; `SpringValue` `[ComplexValueObject]`.
+
+[MATH-TYPESET-OWNER]-[QUEUED]: A math-layout owner renders the typography `MarkdownRow.Math`/`InlineRun.Math` arms so calc reports and notebooks display engineering notation.
+- Capability: TeX-subset typesetting rendered Skia-side, composing the one shaping rail and the offscreen capture capsule.
+- Shape: one math-layout package admission plus a materialization row on `.planning/Document/media.md` `MarkdownInlineRenderer`; the typography projection stays typeset-free.
+- Unlocks: Mathcad-class calc deliverables across notebook cells, media panels, and paginated PDF exports.
+- Anchors: `.planning/Theme/typography.md` [05] `Math` arm; `.api/api-markdig.md` `UseMathematics`.
+- Tension: demands a new package admission for math layout; engine selection and channel undecided.
 
 ## [02]-[CLOSED]
 

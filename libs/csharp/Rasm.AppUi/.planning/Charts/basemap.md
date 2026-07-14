@@ -12,10 +12,10 @@ The basemap is the tiled 2D geographic plane beside the Wgpu viewport: one Mapsu
 ## [02]-[MAP_SURFACE]
 
 - Owner: `BasemapLayerRow` [Union] — the closed layer vocabulary; `BasemapSurface` — the one map owner; `MapNav` [Union] — the navigation verb vocabulary.
-- Cases: `BasemapLayerRow` = Tile · Overlay · Widget; `MapNav` = CenterOn · ZoomTo · ZoomToLevel · ZoomToBox · CenterAndZoom · FlyTo · RotateTo — the verified `Navigator` camera surface, one case per move, so a caller composes verbs and never touches the `Navigator` directly.
+- Cases: `BasemapLayerRow` = Tile · Overlay · Widget; `MapNav` = CenterOn · ZoomTo · ZoomToLevel · ZoomToBox · CenterAndZoom · FlyTo · RotateTo; `MapFlight` = Direct · Focus · Traverse — flight timing is declared policy data rather than a caller duration knob.
 - Entry: `public Fin<Map> Build(Seq<BasemapLayerRow> rows)` — one fold from layer rows to the mounted `Map`; `public IO<Unit> Navigate(MapNav verb)` — every camera move discriminates on the verb union through the one `Navigator`.
-- Auto: the tile row defaults to `OpenStreetMap.CreateTileLayer` and any slippy-tile source is one row value; the map chrome ships as named widget rows — `ScaleBar` (`ScaleBarWidget`), `ZoomButtons` (`ZoomInOutWidget`), `InfoBox` (`MapInfoWidget`) — screen-anchored on `Map.Widgets`, never world-space features; layer z-order is seq order so a stacking change is a row reorder, never an imperative insert; the control binds `Map` through `MapControl.Map` at mount and a row-set change re-runs `Build`, whose terminal `RefreshGraphics` invalidates the canvas so the new stack draws without a data refetch.
-- Receipt: layer-set changes and navigation verbs contribute through `AppUiTelemetry.Contribute` instrument rows; faults are typed `ChartFault` cases deriving through the `Diagnostics/evidence.md#FAULT_TABLES` `AppUiFaultBand.Chart` row (6200) — the one Charts band shared with dashboards and custom.
+- Auto: the tile row defaults to `OpenStreetMap.CreateTileLayer` and any slippy-tile source is one row value; the map chrome ships as named widget rows — `ScaleBar`, `ZoomButtons`, and `InfoBox` — screen-anchored on `Map.Widgets`; layer z-order is sequence order. `Build` stages a candidate map, disposes it on any row failure, swaps only after complete admission, calls `RefreshGraphics`, and then disposes the replaced map, so a failed rebuild preserves the mounted surface and every successful replacement has one owner.
+- Receipt: layer-set changes and navigation verbs contribute through `AppUiTelemetry.Contribute` instrument rows; faults are typed `ChartFault` cases deriving through `AppUiFaultBand.Chart` (6200) — the one Charts band shared with dashboards and custom.
 - Packages: Mapsui.Avalonia12, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new basemap source, overlay family, or widget is one `BasemapLayerRow` value; a new camera move is one `MapNav` case; zero new surface.
 - Boundary: ONE `MapControl` and ONE `Map` per basemap surface — a second map control, a per-overlay map, or a parallel tile engine is the deleted form; the transitive Mapsui/Tiling/Nts/Rendering.Skia set stays transitive (the admitted pin is `Mapsui.Avalonia12`); the basemap draws BESIDE the Wgpu viewport as an Avalonia control — it never enters the render graph, and geographic dashboards that need chart-projected geography stay on the LiveCharts `GeoMap` row (`dashboards.md`), the charter split stated on both pages.
@@ -196,14 +196,14 @@ public static class MapPick {
 
 ## [05]-[REDLINE]
 
-- Owner: `RedlineVerb` [Union] — the closed markup-verb vocabulary; `RedlineSurface` — the one `EditManager` authoring owner; the commit leg projects onto the `Collab/sync.md#DURABLE_INTENT` `EditIntent.Annotation` case, never a basemap-local op union.
-- Cases: `RedlineVerb` = BeginMark · Modify · Delete · Commit · Discard — begin opens an authoring session with the mark kind (point, polyline, polygon), modify and delete ride `EditManager`'s vertex add/drag/rotate interaction, commit seals the session, discard drops it.
-- Entry: `public IO<Fin<Option<EditIntent>>> Drive(RedlineVerb verb)` — every markup gesture discriminates on the verb union; only the `Commit` arm yields `Some(EditIntent.Annotation)`, every other arm yields `None`, so the caller composes one rail and the intent ledger commit stays caller-side (`IntentLedger.Commit` is `Collab/sync.md`'s one transaction rail).
-- Auto: authoring runs on a dedicated redline `MemoryLayer` above the overlay stack — the `EditingWidget` binds the interaction and the `EditManager` mutates only that layer, so overlay and tile rows never receive an authored vertex; commit reads the authored `GeometryFeature` geometry in view coordinates, returns it to WGS-84 through `Apply(MercatorFilter.Inverse)` with the copy re-stamped SRID 4326, and projects the ring through `Geometry.Coordinates` into the `RedlineMark` payload `JsonSerializer.SerializeToElement` carries as the `Annotation` `JsonElement` — the exact symmetric leg `MercatorFilter.Forward` runs at overlay ingress, so the round-trip is one parameterized filter, never a second projection path.
+- Owner: `RedlineVerb` [Union] — the closed markup-verb vocabulary; `RedlineSurface` — the one `EditManager` authoring owner; the commit leg projects onto `EditIntent.Annotation`, never a basemap-local op union.
+- Cases: `RedlineVerb` = BeginMark · Modify · Delete · Commit · Discard; `RedlineKind` = Point · Path · Area; `RedlineDelta` = Upsert · Delete; `RedlineShape` = Point · Path · Area · Collection. `BeginMark` carries the kind, commit carries document, target, and the stroke/fill/opacity/dash policy, and delete carries the durable target identity.
+- Entry: `public IO<Fin<Option<EditIntent>>> Drive(RedlineVerb verb)` — every markup gesture discriminates on the verb union; `Commit` emits an upsert annotation and `Delete` emits a delete annotation, while local begin, modify, and discard return `None`; the caller composes one rail and the intent ledger commit stays caller-side (`IntentLedger.Commit` is `Collab/sync.md`'s one transaction rail).
+- Auto: authoring runs on a dedicated redline `MemoryLayer` above the overlay stack. `Apply` is the composition adapter over the research-gated `EditManager` session members and returns the current `GeometryFeature` for a sealed commit. `Sealed` admits document and target identities, copies geometry, applies `MercatorFilter.Inverse`, stamps `SRID` `4326`, and preserves finite points, paths, polygon shells and holes, multi-geometries, and heterogeneous collections before serializing `RedlineDelta.Upsert`; `Delete` needs no surviving feature and serializes `RedlineDelta.Delete`. Degenerate geometry and invalid paint, fill, width, opacity, or dash policy fail as `ChartFault.VisualDegenerate`.
 - Receipt: a committed redline is one `EditIntent.Annotation(DocKey, TargetId, Payload)` row on the single edit-intent union — durable truth rides the Persistence `OpLogEntry` projection per the `[04]-[PROHIBITIONS]` Loro-byte clause, and the redline layer re-renders from the committed intent, never from retained authoring state; commits and discards contribute a `redline.commit` count through `AppUiTelemetry.Contribute`.
 - Packages: Mapsui.Avalonia12 (Mapsui.Nts transitive), Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new mark kind is one `BeginMark` kind value; a new markup verb is one `RedlineVerb` case; zero new surface.
-- Boundary: `EditManager`/`EditingWidget` stay inside this section — no Mapsui editing type crosses out, the authored geometry leaves only as the WGS-84 `RedlineMark` payload; the `EditManager` session-member spellings (mode start/stop, the bound edit layer slot) bind through the `drive` delegate at composition under the REDLINE_EDIT_SURFACE research row, exactly as the dashboards `GeoLandFold` binds its unverified swap; a redline over the 3D viewport is `Collab/issues.md`'s BCF markup charter — this section owns only the 2D geographic plane.
+- Growth: a new mark kind is one `RedlineKind` row plus its corresponding `RedlineShape` case when the payload arity differs; a new markup verb is one `RedlineVerb` case; zero new surface.
+- Boundary: `EditManager` and `EditingWidget` remain inside this section; authored geometry leaves only as the WGS-84 `RedlineDelta` payload, and delete carries no stale geometry. The session-member spellings bind through `Apply` at composition under `REDLINE_EDIT_SURFACE`. A redline over the 3D viewport remains the BCF markup charter; this section owns only the 2D geographic plane.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -211,10 +211,20 @@ public abstract partial record RedlineShape {
     private RedlineShape() { }
     public sealed record Point(double Lon, double Lat) : RedlineShape;
     public sealed record Path(Seq<(double Lon, double Lat)> Vertices) : RedlineShape;
-    public sealed record Area(Seq<(double Lon, double Lat)> Ring) : RedlineShape;
+    public sealed record Area(Seq<(double Lon, double Lat)> Shell, Seq<Seq<(double Lon, double Lat)>> Holes) : RedlineShape;
+    public sealed record Collection(Seq<RedlineShape> Members) : RedlineShape;
 }
 
-public sealed record RedlineMark(RedlineShape Shape);
+public sealed record RedlineStyle(string PaintKey, Option<string> FillKey, double Width, double Opacity, Seq<double> Dash);
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record RedlineDelta {
+    private RedlineDelta() { }
+    public sealed record Upsert(RedlineMark Mark) : RedlineDelta;
+    public sealed record Delete : RedlineDelta;
+}
+
+public sealed record RedlineMark(RedlineShape Shape, RedlineStyle Style);
 
 [SmartEnum<string>]
 public sealed partial class RedlineKind {
@@ -228,8 +238,8 @@ public abstract partial record RedlineVerb {
     private RedlineVerb() { }
     public sealed record BeginMark(RedlineKind Kind) : RedlineVerb;
     public sealed record Modify : RedlineVerb;
-    public sealed record Delete : RedlineVerb;
-    public sealed record Commit(string DocKey, string TargetId) : RedlineVerb;
+    public sealed record Delete(string DocKey, string TargetId) : RedlineVerb;
+    public sealed record Commit(string DocKey, string TargetId, RedlineStyle Style) : RedlineVerb;
     public sealed record Discard : RedlineVerb;
 }
 
@@ -242,7 +252,10 @@ public sealed record RedlineSurface(
             state: authored,
             beginMark: static (_, _) => Fin.Succ(Option<EditIntent>.None),
             modify: static (_, _) => Fin.Succ(Option<EditIntent>.None),
-            delete: static (_, _) => Fin.Succ(Option<EditIntent>.None),
+            delete: static (_, command) => AdmitIdentity(command.DocKey, command.TargetId).Map(_ => Some<EditIntent>(new EditIntent.Annotation(
+                command.DocKey,
+                command.TargetId,
+                JsonSerializer.SerializeToElement<RedlineDelta>(new RedlineDelta.Delete())))),
             commit: static (candidate, commit) => candidate
                 .ToFin(new ChartFault.VisualEmpty("redline: commit has no authored feature"))
                 .Bind(feature => Sealed(commit, feature))
@@ -252,27 +265,56 @@ public sealed record RedlineSurface(
     // Inverse leg of the one MercatorFilter: authored view geometry returns to WGS-84 before it crosses
     // the intent seam, so no EPSG:3857 coordinate ever lands in durable truth.
     static Fin<EditIntent> Sealed(RedlineVerb.Commit commit, GeometryFeature feature) =>
-        Optional(feature.Geometry)
+        AdmitIdentity(commit.DocKey, commit.TargetId)
+            .Bind(_ => Optional(feature.Geometry)
             .ToFin(new ChartFault.VisualEmpty("redline: authored feature has no geometry"))
             .Bind(geometry => fun(() => {
                 NetTopologySuite.Geometries.Geometry wgs84 = geometry.Copy();
                 wgs84.Apply(MercatorFilter.Inverse);
                 wgs84.SRID = 4326;
-                return Shape(wgs84).Map(shape => (EditIntent)new EditIntent.Annotation(
+                return Shape(wgs84).Bind(shape => !string.IsNullOrWhiteSpace(commit.Style.PaintKey)
+                    && commit.Style.FillKey.ForAll(static key => !string.IsNullOrWhiteSpace(key))
+                    && double.IsFinite(commit.Style.Width) && commit.Style.Width > 0d
+                    && double.IsFinite(commit.Style.Opacity) && commit.Style.Opacity is >= 0d and <= 1d
+                    && commit.Style.Dash.ForAll(static interval => double.IsFinite(interval) && interval > 0d)
+                    ? Fin.Succ((EditIntent)new EditIntent.Annotation(
                     commit.DocKey,
                     commit.TargetId,
-                    JsonSerializer.SerializeToElement(new RedlineMark(shape))));
-            })());
+                    JsonSerializer.SerializeToElement<RedlineDelta>(new RedlineDelta.Upsert(new RedlineMark(shape, commit.Style)))))
+                    : Fin.Fail<EditIntent>(new ChartFault.VisualDegenerate("redline: paint, fill, width, opacity, or dash is invalid")));
+            })()));
+
+    static Fin<Unit> AdmitIdentity(string docKey, string targetId) =>
+        !string.IsNullOrWhiteSpace(docKey) && !string.IsNullOrWhiteSpace(targetId)
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(new ChartFault.VisualDegenerate("redline: document and target identities are required"));
 
     static Fin<RedlineShape> Shape(NetTopologySuite.Geometries.Geometry geometry) => geometry switch {
-        NetTopologySuite.Geometries.Point point => Fin.Succ<RedlineShape>(new RedlineShape.Point(point.X, point.Y)),
-        NetTopologySuite.Geometries.LineString line => Fin.Succ<RedlineShape>(new RedlineShape.Path(toSeq(line.Coordinates).Map(static at => (at.X, at.Y)))),
-        NetTopologySuite.Geometries.Polygon area => Fin.Succ<RedlineShape>(new RedlineShape.Area(toSeq(area.ExteriorRing.Coordinates).Map(static at => (at.X, at.Y)))),
+        NetTopologySuite.Geometries.Point point when double.IsFinite(point.X) && double.IsFinite(point.Y) =>
+            Fin.Succ<RedlineShape>(new RedlineShape.Point(point.X, point.Y)),
+        NetTopologySuite.Geometries.LineString line => Vertices(line.Coordinates, minimum: 2, kind: "path")
+            .Map(vertices => (RedlineShape)new RedlineShape.Path(vertices)),
+        NetTopologySuite.Geometries.Polygon area => Vertices(area.ExteriorRing.Coordinates, minimum: 4, kind: "area shell")
+            .Bind(shell => toSeq(area.InteriorRings)
+                .Traverse(ring => Vertices(ring.Coordinates, minimum: 4, kind: "area hole"))
+                .As()
+                .Map(holes => (RedlineShape)new RedlineShape.Area(shell, holes))),
+        NetTopologySuite.Geometries.GeometryCollection collection when collection.NumGeometries > 0 => toSeq(Enumerable.Range(0, collection.NumGeometries))
+            .Traverse(index => Shape(collection.GetGeometryN(index)))
+            .As()
+            .Map(members => (RedlineShape)new RedlineShape.Collection(members)),
         _ => Fin.Fail<RedlineShape>(new ChartFault.VisualDegenerate($"redline: {geometry.OgcGeometryType} is not an annotation shape")),
     };
+
+    static Fin<Seq<(double Lon, double Lat)>> Vertices(NetTopologySuite.Geometries.Coordinate[] coordinates, int minimum, string kind) {
+        Seq<(double Lon, double Lat)> vertices = toSeq(coordinates).Map(static at => (at.X, at.Y));
+        return vertices.Count >= minimum && vertices.ForAll(static at => double.IsFinite(at.Lon) && double.IsFinite(at.Lat))
+            ? Fin.Succ(vertices)
+            : Fin.Fail<Seq<(double Lon, double Lat)>>(new ChartFault.VisualDegenerate($"redline: {kind} vertices are invalid"));
+    }
 }
 ```
 
 ## [06]-[RESEARCH]
 
-- [REDLINE_EDIT_SURFACE]: the `EditManager` session-member spellings the `Drive` delegate binds — the edit-mode start/stop members, the bound edit-layer slot, and the vertex add/drag/rotate verb members — resolve at implementation against the decompiled `Mapsui.Nts` surface; the `EditManager`/`EditingWidget` types, the dedicated redline `MemoryLayer`, the `MercatorFilter.Inverse` return leg, and the `EditIntent.Annotation` commit projection are settled, the session-member spellings inside the delegate are the unverified surface bound at composition.
+- [REDLINE_EDIT_SURFACE]: `Drive` binds the implementation-gated `EditManager` start/stop, edit-layer, and vertex add/drag/rotate members. `EditManager`, `EditingWidget`, the dedicated `MemoryLayer`, `MercatorFilter.Inverse`, and the `EditIntent.Annotation` projection are catalogued; session spellings remain composition-bound.

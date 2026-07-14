@@ -69,18 +69,20 @@
 [QUERY_TYPES]: sort, page, virtual, aggregate, and diagnostic model
 - rail: live-data
 
-| [INDEX] | [SYMBOL]                    | [RAIL]                                         |
-| :-----: | :-------------------------- | :--------------------------------------------- |
-|  [01]   | `SortExpressionComparer<T>` | sort comparer                                  |
-|  [02]   | `SortExpression<T>`         | sort expression                                |
-|  [03]   | `PageRequest`               | page request                                   |
-|  [04]   | `PageContext<T>`            | page context                                   |
-|  [05]   | `VirtualRequest`            | virtual request                                |
-|  [06]   | `VirtualResponse`           | virtual response                               |
-|  [07]   | `Node<TObject,TKey>`        | tree node — `Item`/`Depth`/`Children`/`Parent` |
-|  [08]   | `IAggregateChangeSet<T>`    | aggregate changes                              |
-|  [09]   | `ChangeStatistics`          | diagnostics                                    |
-|  [10]   | `ChangeSummary`             | diagnostics                                    |
+| [INDEX] | [SYMBOL]                                          | [RAIL]                                                     |
+| :-----: | :------------------------------------------------ | :--------------------------------------------------------- |
+|  [01]   | `SortExpressionComparer<T>`                       | sort comparer                                              |
+|  [02]   | `SortExpression<T>`                               | sort expression                                            |
+|  [03]   | `PageRequest`                                     | page request                                               |
+|  [04]   | `PageContext<T>`                                  | page context                                               |
+|  [05]   | `VirtualRequest`                                  | virtual request                                            |
+|  [06]   | `VirtualResponse`                                 | virtual response — `StartIndex`/`Size`/`TotalSize`         |
+|  [07]   | `PageResponse`                                    | page response — `Page`/`Pages`/`PageSize`/`TotalSize`      |
+|  [08]   | `IPagedChangeSet<T,K>` / `IVirtualChangeSet<T,K>` | realized-window change-set — `Response` carries the bounds |
+|  [09]   | `Node<TObject,TKey>`                              | tree node — `Item`/`Depth`/`Children`/`Parent`             |
+|  [10]   | `IAggregateChangeSet<T>`                          | aggregate changes                                          |
+|  [11]   | `ChangeStatistics`                                | diagnostics                                                |
+|  [12]   | `ChangeSummary`                                   | diagnostics                                                |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -107,7 +109,7 @@
 |  [01]   | `Filter`                    | predicate filter                                                                      |
 |  [02]   | `FilterOnObservable`        | per-item `IObservable<bool>` predicate (live re-filter on item-state stream)          |
 |  [03]   | `Sort`                      | comparer sort                                                                         |
-|  [04]   | `Group` / `GroupOnProperty` | key grouping (static key or `INotifyPropertyChanged`-driven regroup)                  |
+|  [04]   | `Group` / `GroupOnProperty` | key grouping — static, property-regrouped, or `GroupWithImmutableState` snapshots     |
 |  [05]   | `Transform`                 | projection (with `transformOnRefresh` to re-project on refresh)                       |
 |  [06]   | `TransformOnObservable`     | async/observable projection — each item maps to `IObservable<TDest>`                  |
 |  [07]   | `TransformMany`             | one-to-many child expansion                                                           |
@@ -138,6 +140,8 @@
 |  [08]   | `WhenValueChanged`                 | `NotifyPropertyChangedEx` | typed value stream off `INotifyPropertyChanged`                 |
 |  [09]   | `WhenPropertyChanged`              | `NotifyPropertyChangedEx` | typed property stream off `INotifyPropertyChanged`              |
 |  [10]   | `WhenAnyPropertyChanged`           | `NotifyPropertyChangedEx` | property-change stream off `INotifyPropertyChanged`             |
+
+`AsyncDisposeMany(source, Action<IObservable<Unit>> disposalsCompletedAccessor)` disposes `IAsyncDisposable` items itself; the accessor hands out the one disposals-completed stream a deactivation scope awaits before teardown.
 
 [AGGREGATE_ENTRYPOINTS]: computed stream summaries
 - rail: live-data

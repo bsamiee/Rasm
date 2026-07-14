@@ -115,26 +115,8 @@ public sealed record DialogTopology(
 public static class DialogSurface {
     extension(DialogTopology root) {
         public Eff<Option<TResult>> Show<TResult>(DialogAsk<TResult> ask) where TResult : notnull =>
-            Eff.lift(async () => {
-                bool admitted = root.StackedSessions;
-                ignore(root.Occupied.Swap(occupied => root.StackedSessions
-                    ? occupied
-                    : occupied || root.HasOpenSession
-                        ? true
-                        : (admitted = true)));
-
-                if (!admitted) {
-                    return FinFail<Option<TResult>>(new DialogFault.SessionOccupied(root.SurfaceKey)).ThrowIfFail();
-                }
-
-                try {
-                    return Project<TResult>(await root.Requests.Handle(ask.Intent).ConfigureAwait(true)).ThrowIfFail();
-                } finally {
-                    if (!root.StackedSessions) {
-                        ignore(root.Occupied.Swap(static _ => false));
-                    }
-                }
-            });
+            Eff.lift(async () => await Request(root, ask).ConfigureAwait(true))
+                .Bind(static result => result.ToEff());
 
         public IO<Unit> Advance(DialogIntent.Progress snapshot) =>
             IO.lift(() => Optional(DialogHost.GetDialogSession(root.Identifier)).Iter(session => session.UpdateContent(snapshot)));
@@ -154,9 +136,16 @@ public static class DialogSurface {
                     error: static (state, request) => DialogHost.Show(request, state.Identifier),
                     about: static (state, request) => DialogHost.Show(request, state.Identifier)).ConfigureAwait(true)));
 
+        // Cardinality is admission, not decoration: a One request returning multiple paths is a picker
+        // transport defect sealed as a typed fault, never a silently multi-valued single pick.
         internal async Task<object?> RoutePick(DialogIntent.Pick request) =>
             root.PickPipe is { IsSome: true, Case: Func<DialogIntent.Pick, Task<Seq<string>>> route }
-                ? await route(request).ConfigureAwait(true) is { IsEmpty: false } paths ? (object?)paths : null
+                ? await route(request).ConfigureAwait(true) switch {
+                    { IsEmpty: true } => null,
+                    var paths when request.Cardinality == PickCardinality.One && paths.Length > 1 =>
+                        new DialogFault.PolicyRejected($"pick-cardinality:{request.Cardinality.Key}:{paths.Length}"),
+                    var paths => (object?)paths,
+                }
                 : new DialogFault.PickerUnavailable(root.SurfaceKey);
 
         internal Task<object?> RouteForm(DialogIntent.Form request) =>
@@ -177,6 +166,27 @@ public static class DialogSurface {
             DialogFault fault => FinFail<Option<TResult>>(fault),
             var other => FinFail<Option<TResult>>(new DialogFault.ResultShape(typeof(TResult).Name, other.GetType().Name)),
         };
+
+    private static async Task<Fin<Option<TResult>>> Request<TResult>(DialogTopology root, DialogAsk<TResult> ask) where TResult : notnull {
+        bool admitted = root.StackedSessions;
+        ignore(root.Occupied.Swap(occupied => root.StackedSessions
+            ? occupied
+            : occupied || root.HasOpenSession
+                ? true
+                : (admitted = true)));
+
+        if (!admitted) {
+            return FinFail<Option<TResult>>(new DialogFault.SessionOccupied(root.SurfaceKey));
+        }
+
+        try {
+            return Project<TResult>(await root.Requests.Handle(ask.Intent).ConfigureAwait(true));
+        } finally {
+            if (!root.StackedSessions) {
+                ignore(root.Occupied.Swap(static _ => false));
+            }
+        }
+    }
 }
 ```
 
@@ -291,7 +301,7 @@ flowchart LR
 - Entry: `public static Seq<PickFilter> Filters(Seq<(string Key, Seq<string> Extensions)> formats)` — pure projection; one filter row per format tuple.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
 - Growth: one `PickKind` row or one format tuple from the host vocabulary; zero new surface.
-- Boundary: the host `FileFormat` vocabulary crosses `HostAttachPort` as key-plus-extension tuples — the type never enters this package; host-native modal flows (document file IO, command prompts, semi-modal panels) stay host-owned at the app root and AppUi raises only the intent through the abstract surface-host port; `PickPipe` rows bind the storage route resolved through the topology `TopLevelResolver` per surface — the pick route discriminates on the `PickKind` row with `PickFilter` rows projecting into the storage picker filter patterns — and the headless row holds `None` storage and folds to `DialogFault.PickerUnavailable`; the anchored picker and confirm popups ride the `AlignmentDialogPopupPositioner` row swapped onto the topology `Positioner` field, the centered surfaces ride the centered positioner, and the embedded-root storage-provider resolution spelling stays research-gated.
+- Boundary: the host `FileFormat` vocabulary crosses `HostAttachPort` as key-plus-extension tuples — the type never enters this package; host-native modal flows (document file IO, command prompts, semi-modal panels) stay host-owned at the app root and AppUi raises only the intent through the abstract surface-host port; `PickPipe` rows bind the storage route resolved through the topology `TopLevelResolver` per surface — the pick route discriminates on the `PickKind` row with `PickFilter` rows projecting into the storage picker filter patterns — and the headless row holds `None` storage and folds to `DialogFault.PickerUnavailable`; the selected `PickCardinality` gates the picker result at the one `RoutePick` admission — a `One` request returning multiple paths seals `DialogFault.PolicyRejected`, so every picker transport converges on the same cardinality law; the anchored picker and confirm popups ride the `AlignmentDialogPopupPositioner` row swapped onto the topology `Positioner` field, the centered surfaces ride the centered positioner, and the embedded-root storage-provider resolution spelling stays research-gated.
 
 ```csharp signature
 [SmartEnum<string>]

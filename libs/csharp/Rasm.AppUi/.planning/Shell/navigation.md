@@ -16,8 +16,8 @@ Rasm.AppUi composes one shell: a five-case `NavRequest` union dispatches over th
 - Entry: `public IO<Unit> Navigate(NavRequest request)` — `IO` carries the navigation effect; an unknown route key aborts on the `Error` rail.
 - Auto: `RoutedViewHost` re-resolves the view on every router transition; deep links and remote verbs enter through `Parse` with no second admission path.
 - Packages: ReactiveUI, ReactiveUI.Avalonia, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox
-- Growth: a new navigation verb is one case on `NavRequest`, a new screen is one route row frozen through `Freeze`, and a new navigation instrument is one `InstrumentRow` on `ShellRoot.TelemetryRow`; zero new surface.
-- Boundary: each `Navigate` dispatch folds one observation into the `ShellRoot.NavigateInstrument` count keyed by the verb case and an unknown-route abort into the `ShellRoot.RouteMissInstrument` count, both through the one `AppUiTelemetry.Contribute` spine, so navigation volume and route-miss rate are attributable per verb and a router-local meter is the deleted form; `ShellRoot` is the named boundary capsule — ReactiveUI command execution awaits inside its private kernels and nowhere else; `RoutedViewHost` and `ViewModelViewHost` are the only view-resolution surfaces, binding `Router` and `ViewModel` from the shell root, and view lookup beside the two hosts is the deleted pattern; the `ViewContract` value on `RoutedViewHost` carries the `SurfaceHost` row key so one screen resolves a surface-specific template; route keys are ordinal strings shared by deep links, remote invocation, the dock factory, and the web projection, so the same grammar admits every caller today; modal presentation crosses to the dialog-session owner through the `PresentModal` delegate; viewport-scoped navigation rides the same five-verb grammar — a `Push`/`Pop` over a `ZoomBorder`-hosted screen drives `ZoomBorder.NavigateBack`/`NavigateForward` view history and `ClearViewHistory` on a `Reset`, so a per-canvas back-stack is the deleted pattern and viewport history is one verb dispatch, never a second navigation owner; a second router beside the router cell and a region framework are the rejected forms.
+- Growth: a new navigation verb is one case on `NavRequest`, a new screen is one `ScreenCatalog` row whose route the index projects through `Freeze`, and a new navigation instrument is one `InstrumentRow` on `ShellRoot.TelemetryRow`; zero new surface.
+- Boundary: `Freeze` projects the route index off the frozen `ScreenCatalog` roster — keys are `row.RouteKey` by construction, so an independently authored route pair is unrepresentable; each `Navigate` dispatch folds one observation into the `ShellRoot.NavigateInstrument` count and an unknown-route abort folds one into the `ShellRoot.RouteMissInstrument` count through the composition-bound `Count` delegate, both declared through the one `AppUiTelemetry.Contribute` spine, so navigation volume and route-miss rate are attributable and a router-local meter is the deleted form; `ShellRoot` is the named boundary capsule — ReactiveUI command execution awaits inside its private kernels and nowhere else; `RoutedViewHost` and `ViewModelViewHost` are the only view-resolution surfaces, binding `Router` and `ViewModel` from the shell root, and view lookup beside the two hosts is the deleted pattern; the `ViewContract` value on `RoutedViewHost` carries the `SurfaceHost` row key so one screen resolves a surface-specific template; route keys are ordinal strings shared by deep links, remote invocation, the dock factory, and the web projection, so the same grammar admits every caller today; modal presentation crosses to the dialog-session owner through the `PresentModal` delegate; viewport-scoped navigation rides the same five-verb grammar — a `Push`/`Pop` over a `ZoomBorder`-hosted screen drives `ZoomBorder.NavigateBack`/`NavigateForward` view history and `ClearViewHistory` on a `Reset`, so a per-canvas back-stack is the deleted pattern and viewport history is one verb dispatch, never a second navigation owner; a second router beside the router cell and a region framework are the rejected forms.
 
 ```csharp signature
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -82,12 +82,15 @@ public readonly record struct RouteRestoreFact(string Key, bool Resolved);
 
 public sealed class ShellRoot(
     FrozenDictionary<string, Func<IScreen, IRoutableViewModel>> routes,
-    Func<IRoutableViewModel, IO<Unit>> presentModal) : ReactiveObject, IScreen {
+    Func<IRoutableViewModel, IO<Unit>> presentModal,
+    Func<string, IO<Unit>> count) : ReactiveObject, IScreen {
     public RoutingState Router { get; } = new();
 
     public FrozenDictionary<string, Func<IScreen, IRoutableViewModel>> Routes { get; } = routes;
 
     public Func<IRoutableViewModel, IO<Unit>> PresentModal { get; } = presentModal;
+
+    public Func<string, IO<Unit>> Count { get; } = count; // composition binds the AppHost meter increment for the two declared instruments
 
     public const string NavigateInstrument = "rasm.appui.nav.navigated";
     public const string RouteMissInstrument = "rasm.appui.nav.route-miss";
@@ -95,18 +98,21 @@ public sealed class ShellRoot(
     public static TelemetryContributorPort TelemetryRow(string version) =>
         AppUiTelemetry.Contribute(version, NavigateInstrument, RouteMissInstrument);
 
+    // The route index is a projection of the frozen screen roster: keys are row.RouteKey by construction,
+    // so deep links, dock rows, palette listings, and screens cannot disagree — an independently authored
+    // route pair is unrepresentable.
     public static FrozenDictionary<string, Func<IScreen, IRoutableViewModel>> Freeze(
-        Seq<(string Key, Func<IScreen, IRoutableViewModel> Make)> rows) =>
-        rows.ToFrozenDictionary(static row => row.Key, static row => row.Make, StringComparer.Ordinal);
+        ScreenCatalog catalog, Func<ScreenCatalogRow, Func<IScreen, IRoutableViewModel>> make) =>
+        toSeq(catalog.Rows.Values).ToFrozenDictionary(static row => row.RouteKey, make, StringComparer.Ordinal);
 
     public IO<Unit> Navigate(NavRequest request) =>
-        request.Switch(
+        Count(NavigateInstrument).Bind(_ => request.Switch(
             state: this,
             push: static (s, c) => s.Forward(s.Router.Navigate, c.RouteKey),
             pop: static (s, _) => s.Back(),
             replace: static (s, c) => s.Swap(c.RouteKey),
             reset: static (s, c) => s.Forward(s.Router.NavigateAndReset, c.RouteKey),
-            modal: static (s, c) => s.Resolved(c.RouteKey).Bind(s.PresentModal));
+            modal: static (s, c) => s.Resolved(c.RouteKey).Bind(s.PresentModal)));
 
     // Replace is ONE stack write — pop-plus-push as a single NavigationStack assignment, so no
     // intermediate back transition renders and the router observes exactly one change.
@@ -136,7 +142,9 @@ public sealed class ShellRoot(
         });
 
     private IO<IRoutableViewModel> Resolved(string key) =>
-        Resolve(key).Match(Succ: IO.pure, Fail: IO.fail<IRoutableViewModel>);
+        Resolve(key).Match(
+            Succ: IO.pure,
+            Fail: error => Count(RouteMissInstrument).Bind(_ => IO.fail<IRoutableViewModel>(error)));
 
     private IO<Unit> Forward(ReactiveCommand<IRoutableViewModel, IRoutableViewModel> verb, string key) =>
         Resolved(key).Bind(vm => IO.lift(async _ => { await verb.Execute(vm).ConfigureAwait(true); return unit; }));
