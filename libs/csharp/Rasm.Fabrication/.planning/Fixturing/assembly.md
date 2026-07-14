@@ -1,25 +1,27 @@
 # [RASM_FABRICATION_ASSEMBLY]
 
-The join-PRECEDENCE owner: `Assembly` the static surface folding an `AdmittedComponent`'s connection census into the typed partial order a build follows — `Assembly.Sequence(AdmittedComponent, AssemblyPolicy) → Fin<AssemblyPlan>`, the ONE entry. The joint census IS the owner#atoms `ComponentConnection` row set: each row's `RealizingKey` is a Materials designation whose PREFIX classifies the join (`joint.weld-`/`joint.stud-`/`joint.adhesive-`/`fastener.`/`connector.` — the `JoinClass` prefix table, a boundary scan, never a parallel joint model), and the rows BEHIND the key stay `Rasm.Materials`-owned: `GrooveGeometry` (the AWS A2.4 groove axis with `IncludedAngleDeg`), `GroovePrep`, the `WeldRow` static leg bounds `MinimumFilletLegMm`, and `ConnectorPlate` over `PlateStock` (all in `Rasm.Materials` `Component/joint.md` and `Component/connector.md` — member names, never line anchors, because cross-package line cites drift as Materials rebuilds) — this page carries the KEY plus ONE boundary-resolved column (a groove-welded joint tightens its access half-angle to half the resolved `GrooveGeometry.IncludedAngleDeg`), `Joining/weld` reads the deep rows. Precedence is a QuikGraph `BidirectionalGraph` over `(joint, phase)` nodes under three edge families: tack-before-final per `Tackable` joint (the `JoinPhase` expansion), datum-first from the policy's datum joints, and corridor occlusion — a joint sitting inside another's approach CONE forces the deep joint first, so access is a PRECEDENCE fact, not a runtime surprise; the corridor radius grows as `clearance + tan(halfAngle)·t` along the approach, so the census-resolved `AccessHalfAngleDeg` is a live geometric axis of the occlusion test, never a decorative column. The clamp window is the landed `Fixturing/workholding#WORKHOLDING` keep-out: a joint whose approach segment `Workholding.Clears(Edge3, Fixture)` rejects under the plan's holding routes `SetupInfeasible` 2717 (unreachable in this fixture), and a cyclic precedence (mutual occlusion, contradictory datums) routes `AssemblyPrecedenceCyclic` 2737 off the `IsDirectedAcyclicGraph` gate — the folder charter is keep-out + setup + assembly planning, three owners on one keep-out substrate.
+`Assembly.Sequence` is the join-precedence owner. Each `ComponentConnection.RealizingKey` resolves through an explicit `AssemblyPolicy.Specifications` row, so classification, component membership, access corridors, groove narrowing, reversibility, tackability, and thermal behavior remain data instead of prefix scans or inferred defaults.
 
-The plan is the CONTRACT, not the schedule: `AssemblyPlan` carries the Kahn-ordered `JoinStep` rows, the weak-component subassembly partition, and the transitively-REDUCED cross-joint `Precedence` pairs — `Joining/sequence` permutes steps for distortion control ONLY where `Precedence` admits (backstep/skip/balanced ordering is that page's law; this page owns what MUST come before what, never how heat walks the seam). The joint identity space is ONE shared ordinal: `AssemblyJoint.Index` is the `ComponentConnection` census ordinal, and `Joining/weld`'s `WeldJoint.Joint` MUST equal it — the alignment contract that lets `sequence` join `plan.Passes` groups against `assembly.Steps` rows, stated here once. Setup-chain datum lineage across machining reorientations stays the `setups` scheduler's (`DatumLineageBroken` 2726 is its arm; assembly's cycle is 2737 — two lineage laws, two owners). Consumers: `Joining/sequence` (the plan + `JoinClass.Thermal` discriminant), `Process/derivation#FABRICATION_DERIVATION` (the setup/assembly stage of `Run(Derive)`), and the traveler compose (`Run(Document)` fan-in) — the plan's durable facts ride the `weld-plan` and `traveler` egress keys downstream, the plan record itself stays plane-local.
+The graph uses typed `JoinNode(Joint, Phase)` vertices. `PrecedenceKind` preserves phase, datum, access-occlusion, reversible-last, and thermal-first provenance through transitive reduction. Physical subassemblies derive from the component endpoint graph, not from the precedence graph. `AssemblyJoint.Index` remains the connection-census identity consumed by joining plans.
 
-Wire posture: HOST-LOCAL. `AssemblyPlan` crosses only the in-process seam to the joining, derivation, and traveler folds; the census rows, the precedence graph, and the plan never sit between wire and rail.
+Holding admission composes the full `ToolCorridor` verdict for every declared access row. Occlusion minimizes the segment-versus-cone quadratic over the complete axial interval, so an interior crossing cannot clear because its endpoints do. The cone radius grows with distance, and the optional groove angle tightens its half-angle. Policy validation, specification lookup, and reach checks remain on accumulating rails before graph mutation.
+
+Wire posture: HOST-LOCAL. `AssemblyPlan` crosses only in-process joining, derivation, and documentation seams.
 
 ## [01]-[INDEX]
 
-- [01]-[ASSEMBLY]: owns the `JoinClass` prefix-classification table and `JoinPhase` vocabulary, the `AssemblyJoint` census row, the `AssemblyPolicy` carrier, the `JoinStep`/`AssemblyPlan` receipts, and the one `Assembly.Sequence` fold with its `Reaches` holding verdict — the join-precedence plane between the element ingress and the joining planes.
+- [01]-[ASSEMBLY]: owns explicit join specifications, phase expansion, typed precedence provenance, holding-corridor admission, physical subassembly partitioning, and the reduced assembly plan.
 
 ## [02]-[ASSEMBLY]
 
-- Owner: `JoinClass` `[SmartEnum<string>]` the realizing-key prefix classification (`weld`/`stud`/`adhesive`/`bolt`/`connector`) carrying `KeyPrefix`, `Tackable` (the phase-expansion gate), `Reversible` (late-order admission), and `Thermal` (the distortion discriminant `Joining/sequence` reads); `JoinPhase` `[SmartEnum<string>]` (`tack`/`final`) the per-joint expansion vocabulary; `AssemblyJoint` the census row (index, the owner#atoms `ComponentConnection`, class, the XY-normal approach, the resolved access half-angle the corridor test reads); `AssemblyPolicy` the ONE policy carrier (tack expansion, access half-angle floor, standoff, corridor clearance, the optional holding `Fixture`, datum joints, the boundary-resolved per-key groove angles); `JoinStep` the ordered plan row; `AssemblyPlan` the receipt (steps + subassembly count + reduced precedence pairs); `Assembly` the static surface owning `Sequence` and `Reaches`.
-- Cases: `JoinClass` rows 5 — `weld` {tackable, thermal} · `stud` {thermal} · `adhesive` {} · `bolt` {reversible} · `connector` {reversible}, each binding its Materials designation prefix; `JoinPhase` rows 2, a tackable joint expanding to `tack → final` under the policy gate, every other joint carrying `final` alone; the three precedence edge families — phase (`tack→final` per joint), datum (`datum.final → first(other)` per policy datum), corridor (`a.final → first(b)` where `b`'s joint midpoint lies within `a`'s access cone — radius `clearance + tan(halfAngle)·t` at parameter `t` along the standoff corridor); the subassembly partition is the weak-component fold over the precedence graph, parallel-buildable islands numbered by component.
-- Entry: `public static Fin<AssemblyPlan> Sequence(AdmittedComponent component, AssemblyPolicy policy)` — the ONE fold: census → holding reach gate → graph assembly → acyclicity gate → Kahn order → partition → reduction; `public static bool Reaches(Fixture holding, AssemblyJoint joint, double standoffMm)` the total per-joint holding verdict composing `Workholding.Clears(Edge3, Fixture)` in the owner's declared argument order; `Fin<T>` routes `SetupInfeasible` 2717 (holding-blocked joint), `AssemblyPrecedenceCyclic` 2737 (cycle), and the kernel `GeometryFault.DegenerateInput` (an unclassifiable realizing key is degenerate input at the boundary, never a silent skip).
-- Auto: the census traverses each `ComponentConnection` on the `Fin` rail — `JoinClass.Classify` prefix scan (an unclassifiable key rails, and the matched class binds, never a dead fallback), the approach as the left XY normal of the connection segment (a degenerate run falls to `ZAxis`), and the access half-angle — the policy floor, tightened to half the `GrooveGeometry.IncludedAngleDeg` where the policy's boundary-resolved groove map carries the joint's realizing key (the Materials row resolved ONCE at the boundary, the interior reading a raw double); `Sequence` gates every joint against the optional holding via `Reaches` BEFORE graph assembly, adds `(joint, phase)` vertices with the phase expansion, folds the three edge families, rejects a non-DAG at `IsDirectedAcyclicGraph`, orders by `SourceFirstBidirectionalTopologicalSort` (the catalogued bidirectional-graph Kahn member — sources first, deterministic), numbers subassemblies by `WeaklyConnectedComponents`, and projects the cross-joint `Precedence` pairs off `ComputeTransitiveReduction` so the joining plane re-orders against the MINIMAL constraint set; `Joining/sequence` reads `AssemblyPlan.Precedence` + `JoinClass.Thermal` for distortion ordering, `derivation` folds the plan into the `Run(Derive)` setup/assembly stage, the traveler composes the step rows.
-- Receipt: `AssemblyPlan` IS the typed evidence — Kahn-ordered `JoinStep` rows, the subassembly count, and the reduced precedence pairs; no generic sequencing ledger, no per-class plan sibling, no schedule timestamps (scheduling is the joining and documentation planes' concern).
-- Packages: QuikGraph (`BidirectionalGraph`/`SEdge`, `AlgorithmExtensions` `IsDirectedAcyclicGraph`/`SourceFirstBidirectionalTopologicalSort`/`WeaklyConnectedComponents`/`ComputeTransitiveReduction` — the shared `libs/csharp/.api/api-quikgraph.md` catalog), `Process/owner#FABRICATION_OWNER` (`AdmittedComponent`/`ComponentConnection`/`Edge3` — composed), `Fixturing/workholding#WORKHOLDING` (`Fixture`/`Workholding.Clears` — the one keep-out owner), `Process/faults#FAULT_BAND` (2717/2737), `Rasm.Numerics` (`GeometryFault` band-2400), `Rasm.Materials` `Component/{joint,fastener,connector}` seed vocabulary at the string-key boundary (designation prefixes + the one resolved groove angle — never a type reference), Rhino.Geometry (`Vector3d`/`Line`), Thinktecture, LanguageExt.Core, BCL inbox.
-- Growth: a new join class is one `JoinClass` row (prefix + flags); a fit-up phase is one `JoinPhase` row + one expansion arm; a new precedence law (thermal-neighbor spacing, crane-lift staging) is one edge-family fold in `Sequence`; a per-joint fixture window (clamp release between steps) is one policy column read by the reach gate; zero new surface.
-- Boundary: this page owns PRECEDENCE and a second distortion sequencer here is the deleted form — heat ordering (backstep/skip/balanced/block) is `Joining/sequence`'s law over this plan's admissible orders; the Materials joining vocabulary is CONSUMED, never re-minted — a local `GrooveGeometry`/`WeldRow`/`ConnectorPlate` sibling is the deleted form, the census carries designation KEYS and one boundary-resolved angle; setup-chain lineage is `setups`' (`DatumLineageBroken` 2726 stays there; assembly's cycle routes 2737 — re-casing either across owners is the deleted form); the precedence graph rides QuikGraph and a hand-rolled toposort/cycle walk is the deleted form — the graph builder mutations and the order/reduction projections over the mutable container are the page's named platform-forced statement seam, every other body expression-shaped; `AssemblyPlan` is plane-local and never rides a `FabricationResult` case (ruling 5 — its durable facts cross on the `weld-plan`/`traveler` content keys); one polymorphic `Sequence` — a per-class `SequenceWelds`/`SequenceBolts` family is the deleted form; the keep-out verdict is `Workholding.Clears` in its declared `(Edge3, Fixture)` order and a second reach test or a reversed-argument local adapter is the deleted form; the access half-angle is a LIVE axis of the corridor cone and a flat clearance radius ignoring it is the named decorative-column defect.
+- Owner: `JoinClass` owns behavioral flags; `JoinPhase` owns tack and final execution; `AssemblyMode` owns phase expansion; `PrecedenceKind` owns edge provenance; `JoinSpecification` owns class, components, access, and groove angle; `AssemblyPolicy` owns specification rows, datums, clearance, mode, and optional holding; `AssemblyPlan` owns ordered steps and evidence.
+- Cases: join classes cover weld, stud, braze, adhesive, rivet, press-fit, clinch, bolt, screw, and connector behavior — the full behavioral vocabulary the three flags span. `AssemblyMode` selects tack-plus-final or final-only expansion. `PrecedenceKind` preserves the reason for every reduced phase, datum, occlusion, reversibility, and thermal constraint.
+- Entry: `Sequence(AdmittedComponent, AssemblyPolicy) -> Fin<AssemblyPlan>` validates policy, resolves the connection census, validates datum indices and holding access, constructs the graph, rejects cycles, orders nodes, partitions components, and reduces precedence. `Reaches(Fixture, AssemblyJoint, double) -> Fin<bool>` traverses every access corridor.
+- Auto: `Census` traverses exact key lookup on `Fin`; `Reaches` traverses tool corridors on `Validation`; `Ordered` expands phases, adds typed edge families, derives cycle-member evidence with `StronglyConnectedComponents`, orders with `SourceFirstBidirectionalTopologicalSort`, labels component islands with `ConnectedComponents`, and reduces graph edges while retaining their reasons.
+- Receipt: `AssemblyPlan` carries ordered `JoinStep` rows, physical subassembly count, typed reduced `PrecedenceEdge` rows, resolved joints, and blocked-corridor witnesses.
+- Packages: `Rasm`, `RhinoCommon`, `QuikGraph`, `Thinktecture.Runtime.Extensions`, and `LanguageExt.Core`.
+- Growth: a new join behavior is one `JoinClass` row; a new precedence rule is one `PrecedenceKind` row and one graph fold; a new access modality is one `AccessCorridor` row on the existing specification.
+- Boundary: precedence and physical connectivity remain separate graphs; classification comes from explicit specification data; corridor half-angle, standoff, tool radius, and groove angle remain live; reduction preserves provenance; and no local distortion sequencer, prefix classifier, or second keep-out solver exists.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -37,23 +39,22 @@ using static LanguageExt.Prelude;
 namespace Rasm.Fabrication.Fixturing;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// Boundary classification: the Materials designation PREFIX is the class key; the rows behind the key
-// (GrooveGeometry/GroovePrep/WeldRow/ConnectorPlate) stay Materials-owned — Joining/weld reads them, this page never does.
 [SmartEnum<string>]
 public sealed partial class JoinClass {
-    public static readonly JoinClass Weld = new("weld", keyPrefix: "joint.weld-", tackable: true, reversible: false, thermal: true);
-    public static readonly JoinClass Stud = new("stud", keyPrefix: "joint.stud-", tackable: false, reversible: false, thermal: true);
-    public static readonly JoinClass Adhesive = new("adhesive", keyPrefix: "joint.adhesive-", tackable: false, reversible: false, thermal: false);
-    public static readonly JoinClass Bolt = new("bolt", keyPrefix: "fastener.", tackable: false, reversible: true, thermal: false);
-    public static readonly JoinClass Connector = new("connector", keyPrefix: "connector.", tackable: false, reversible: true, thermal: false);
+    public static readonly JoinClass Weld = new("weld", tackable: true, reversible: false, thermal: true);
+    public static readonly JoinClass Stud = new("stud", tackable: false, reversible: false, thermal: true);
+    public static readonly JoinClass Braze = new("braze", tackable: false, reversible: false, thermal: true);
+    public static readonly JoinClass Adhesive = new("adhesive", tackable: false, reversible: false, thermal: false);
+    public static readonly JoinClass Rivet = new("rivet", tackable: false, reversible: false, thermal: false);
+    public static readonly JoinClass PressFit = new("press-fit", tackable: false, reversible: false, thermal: false);
+    public static readonly JoinClass Clinch = new("clinch", tackable: false, reversible: false, thermal: false);
+    public static readonly JoinClass Bolt = new("bolt", tackable: false, reversible: true, thermal: false);
+    public static readonly JoinClass Screw = new("screw", tackable: false, reversible: true, thermal: false);
+    public static readonly JoinClass Connector = new("connector", tackable: false, reversible: true, thermal: false);
 
-    public string KeyPrefix { get; }
     public bool Tackable { get; }
     public bool Reversible { get; }
     public bool Thermal { get; }
-
-    public static Option<JoinClass> Classify(string realizingKey) =>
-        toSeq(Items).Find(c => realizingKey.StartsWith(c.KeyPrefix, StringComparison.Ordinal));
 }
 
 [SmartEnum<string>]
@@ -62,134 +63,263 @@ public sealed partial class JoinPhase {
     public static readonly JoinPhase Final = new("final");
 }
 
+[SmartEnum<string>]
+public sealed partial class AssemblyMode {
+    public static readonly AssemblyMode TackAndFinal = new("tack-and-final", includeTack: true);
+    public static readonly AssemblyMode FinalOnly = new("final-only", includeTack: false);
+
+    public bool IncludeTack { get; }
+}
+
+[SmartEnum<string>]
+public sealed partial class PrecedenceKind {
+    public static readonly PrecedenceKind Phase = new("phase");
+    public static readonly PrecedenceKind Datum = new("datum");
+    public static readonly PrecedenceKind Occlusion = new("occlusion");
+    public static readonly PrecedenceKind ReversibleLast = new("reversible-last");
+    public static readonly PrecedenceKind ThermalFirst = new("thermal-first");
+}
+
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 // Index IS the ComponentConnection census ordinal — the ONE joint identity space Joining/weld's WeldJoint.Joint
 // and Joining/sequence's pass grouping share; a parallel joint numbering is the deleted form.
-public sealed record AssemblyJoint(int Index, ComponentConnection Connection, JoinClass Class, Vector3d Approach, double AccessHalfAngleDeg);
+public readonly record struct AccessCorridor(Vector3d Axis, double HalfAngleRadians, double StandoffMm, double ToolRadiusMm);
 
-// GrooveIncludedDeg: per-realizing-key included angles resolved ONCE at the Materials boundary (GrooveGeometry rows) —
-// the interior reads raw doubles, never a Materials type.
+public sealed record JoinSpecification(JoinClass Class, Arr<int> Components, Seq<AccessCorridor> Access, Option<double> GrooveIncludedRadians);
+
+public sealed record AssemblyJoint(int Index, ComponentConnection Connection, JoinSpecification Specification);
+
+// Groove included angles resolve once at the materials boundary; the interior carries validated radians and no foreign domain type.
 public sealed record AssemblyPolicy(
-    bool TackBeforeFinal,
-    double AccessHalfAngleDeg,
-    double StandoffMm,
+    AssemblyMode Mode,
     double CorridorClearanceMm,
     Option<Fixture> Holding,
     Seq<int> DatumJoints,
-    Map<string, double> GrooveIncludedDeg);
+    Map<string, JoinSpecification> Specifications);
 
 public readonly record struct JoinStep(int Order, int Joint, JoinPhase Phase, int Subassembly);
 
+public readonly record struct JoinNode(int Joint, JoinPhase Phase);
+
+public readonly record struct PrecedenceEdge(JoinNode Before, JoinNode After, PrecedenceKind Kind);
+
+public readonly record struct BlockedCorridor(int Joint, int Corridor, int Occluder);
+
 // The reduced partial order IS the seam contract: Joining/sequence permutes Steps only where Precedence admits.
-public sealed record AssemblyPlan(Seq<JoinStep> Steps, int Subassemblies, Seq<(int Before, int After)> Precedence);
+public sealed record AssemblyPlan(Seq<JoinStep> Steps, int Subassemblies, Seq<PrecedenceEdge> Precedence,
+    Seq<AssemblyJoint> Joints, Seq<BlockedCorridor> Blocked);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Assembly {
     public static Fin<AssemblyPlan> Sequence(AdmittedComponent component, AssemblyPolicy policy) =>
-        Census(component, policy)
-            .Bind(joints => joints.Find(j => policy.Holding.Map(h => !Reaches(h, j, policy.StandoffMm)).IfNone(false)).Match(
-                Some: blocked => Fin.Fail<AssemblyPlan>(FabricationFault.SetupInfeasible(blocked.Index, 1).ToError()),
-                None: () => Ordered(joints, policy)));
+        Validate(policy).Bind(_ => Census(component, policy).Bind(joints =>
+            policy.DatumJoints.Find(index => index < 0 || index >= joints.Count).Match(
+                Some: invalid => Fin.Fail<AssemblyPlan>(FabricationFault.SetupInfeasible(invalid, joints.Count).ToError()),
+                None: () => policy.Holding.Match(
+                    Some: holding => joints.Traverse(joint => Reaches(holding, joint, policy.CorridorClearanceMm)
+                            .Map(clear => (joint.Index, Clear: clear)).ToValidation())
+                        .As().ToFin().Bind(clearance => clearance.Find(static row => !row.Clear).Match(
+                            Some: blocked => Fin.Fail<AssemblyPlan>(FabricationFault.SetupInfeasible(blocked.Index, holding.Zones.Count).ToError()),
+                            None: () => Ordered(joints, policy))),
+                    None: () => Ordered(joints, policy)))));
 
-    public static bool Reaches(Fixture holding, AssemblyJoint joint, double standoffMm) {
-        Point3d mid = Mid(joint.Connection.At);
-        return Workholding.Clears(new Edge3(mid, mid + (standoffMm * joint.Approach)), holding);
-    }
+    public static Fin<bool> Reaches(Fixture holding, AssemblyJoint joint, double clearanceMm) =>
+        joint.Specification.Access.Traverse(access => Workholding.Clears(Corridor(joint.Connection.At, access,
+                joint.Specification.GrooveIncludedRadians, clearanceMm), holding).ToValidation())
+            .As().ToFin().Map(static verdicts => verdicts.ForAll(identity));
 
-    // Census rides the rail: an unclassifiable realizing key fails typed and the MATCHED class binds — the
-    // old post-rail IfNone(Weld) fallback was dead code that would misclassify under any future refactor.
     static Fin<Seq<AssemblyJoint>> Census(AdmittedComponent component, AssemblyPolicy policy) =>
         component.Connections.ToSeq()
             .Map((connection, index) => (Connection: connection, Index: index))
-            .Traverse(row => JoinClass.Classify(row.Connection.RealizingKey).Match(
-                Some: cls => Fin.Succ(new AssemblyJoint(
-                    row.Index,
-                    row.Connection,
-                    cls,
-                    Approach(row.Connection),
-                    policy.GrooveIncludedDeg.Find(row.Connection.RealizingKey)
-                        .Map(a => Math.Min(policy.AccessHalfAngleDeg, 0.5 * a))
-                        .IfNone(policy.AccessHalfAngleDeg))),
-                None: () => Fin.Fail<AssemblyJoint>(
-                    GeometryFault.DegenerateInput($"assembly:join-class:{row.Connection.RealizingKey}").ToError())))
-            .As();
+            .Traverse(row => policy.Specifications.Find(row.Connection.RealizingKey)
+                .Map(specification => new AssemblyJoint(row.Index, row.Connection, specification))
+                .ToFin(GeometryFault.DegenerateInput($"assembly:join-specification:{row.Connection.RealizingKey}").ToError())
+                .ToValidation())
+            .As().ToFin();
+
+    static Fin<Unit> Validate(AssemblyPolicy policy) {
+        Seq<Validation<Error, Unit>> rows = policy.Specifications.Values.ToSeq().Map(specification =>
+            specification.Components.Count >= 2 && specification.Components.Distinct().Count() == specification.Components.Count &&
+            specification.Access.ForAll(access => Finite(access.Axis) && access.Axis.Length > 1e-9 &&
+                double.IsFinite(access.HalfAngleRadians) && access.HalfAngleRadians is > 0.0 and < Math.PI / 2.0 &&
+                double.IsFinite(access.StandoffMm) && access.StandoffMm > 0.0 && double.IsFinite(access.ToolRadiusMm) && access.ToolRadiusMm >= 0.0) &&
+            specification.GrooveIncludedRadians.ForAll(static angle => double.IsFinite(angle) && angle is > 0.0 and < Math.PI)
+                ? Fin.Succ(unit).ToValidation()
+                : Fin.Fail<Unit>(GeometryFault.DegenerateInput("assembly:join-specification").ToError()).ToValidation());
+        Seq<Validation<Error, Unit>> policyRow = Seq((double.IsFinite(policy.CorridorClearanceMm) && policy.CorridorClearanceMm >= 0.0
+            ? Fin.Succ(unit) : Fin.Fail<Unit>(GeometryFault.DegenerateInput("assembly:policy").ToError())).ToValidation());
+        return policyRow.Concat(rows).Traverse(static row => row).As().ToFin().Map(static _ => unit);
+    }
 
     // QuikGraph's builder and its order/component/reduction projections run over a mutable container — the
     // page's named platform-forced statement seam; everything before and after is expression-shaped.
     static Fin<AssemblyPlan> Ordered(Seq<AssemblyJoint> joints, AssemblyPolicy policy) {
-        BidirectionalGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
-        foreach (AssemblyJoint j in joints) {
-            graph.AddVertex(Node(j.Index, JoinPhase.Final));
-            if (policy.TackBeforeFinal && j.Class.Tackable) {
-                graph.AddVertex(Node(j.Index, JoinPhase.Tack));
-                graph.AddEdge(new SEdge<int>(Node(j.Index, JoinPhase.Tack), Node(j.Index, JoinPhase.Final)));
-            }
+        BidirectionalGraph<JoinNode, SEdge<JoinNode>> graph = new(allowParallelEdges: false);
+        Dictionary<(JoinNode Before, JoinNode After), Seq<PrecedenceKind>> reasons = new();
+        void Add(JoinNode before, JoinNode after, PrecedenceKind kind) {
+            if (!graph.ContainsEdge(before, after)) graph.AddVerticesAndEdge(new SEdge<JoinNode>(before, after));
+            reasons[(before, after)] = reasons.TryGetValue((before, after), out Seq<PrecedenceKind> carried)
+                ? carried.Add(kind).Distinct().ToSeq()
+                : Seq1(kind);
         }
-        foreach (int d in policy.DatumJoints.Filter(d => d >= 0 && d < joints.Count))
-            foreach (AssemblyJoint j in joints.Filter(x => x.Index != d))
-                graph.AddEdge(new SEdge<int>(Node(d, JoinPhase.Final), First(j, policy)));
-        foreach (AssemblyJoint a in joints)
-            foreach (AssemblyJoint b in joints.Filter(x => x.Index != a.Index))
-                if (Occludes(a, b, policy.StandoffMm, policy.CorridorClearanceMm))
-                    graph.AddEdge(new SEdge<int>(Node(a.Index, JoinPhase.Final), First(b, policy)));
+        foreach (AssemblyJoint joint in joints) {
+            graph.AddVertex(new JoinNode(joint.Index, JoinPhase.Final));
+            if (policy.Mode.IncludeTack && joint.Specification.Class.Tackable)
+                Add(new JoinNode(joint.Index, JoinPhase.Tack), new JoinNode(joint.Index, JoinPhase.Final), PrecedenceKind.Phase);
+        }
+        foreach (int datum in policy.DatumJoints)
+            foreach (AssemblyJoint joint in joints.Filter(row => row.Index != datum))
+                Add(new JoinNode(datum, JoinPhase.Final), First(joint, policy), PrecedenceKind.Datum);
+        foreach (AssemblyJoint irreversible in joints.Filter(static joint => !joint.Specification.Class.Reversible))
+            foreach (AssemblyJoint reversible in joints.Filter(static joint => joint.Specification.Class.Reversible))
+                if (SharesComponent(irreversible, reversible))
+                    Add(new JoinNode(irreversible.Index, JoinPhase.Final), First(reversible, policy), PrecedenceKind.ReversibleLast);
+        foreach (AssemblyJoint thermal in joints.Filter(static joint => joint.Specification.Class.Thermal))
+            foreach (AssemblyJoint sensitive in joints.Filter(static joint => !joint.Specification.Class.Thermal))
+                if (SharesComponent(thermal, sensitive))
+                    Add(new JoinNode(thermal.Index, JoinPhase.Final), First(sensitive, policy), PrecedenceKind.ThermalFirst);
+        Seq<BlockedCorridor> blocked = joints.Bind(before => before.Specification.Access.Map((access, index) => (before, access, index)))
+            .Bind(row => joints.Filter(after => after.Index != row.before.Index && Occludes(row.before.Connection.At, row.access,
+                    row.before.Specification.GrooveIncludedRadians, after.Connection.At, policy.CorridorClearanceMm))
+                .Map(after => new BlockedCorridor(row.before.Index, row.index, after.Index)));
+        foreach (BlockedCorridor corridor in blocked)
+            Add(new JoinNode(corridor.Joint, JoinPhase.Final), First(joints[corridor.Occluder], policy), PrecedenceKind.Occlusion);
 
-        if (!graph.IsDirectedAcyclicGraph())
-            return Fin.Fail<AssemblyPlan>(FabricationFault.AssemblyPrecedenceCyclic(joints.Count, graph.EdgeCount).ToError());
+        if (!graph.IsDirectedAcyclicGraph()) {
+            Dictionary<JoinNode, int> labels = new();
+            graph.StronglyConnectedComponents(labels);
+            int cyclic = labels.GroupBy(static row => row.Value).Where(static group => group.Count() > 1).Sum(static group => group.Count());
+            return Fin.Fail<AssemblyPlan>(FabricationFault.AssemblyPrecedenceCyclic(cyclic, graph.EdgeCount).ToError());
+        }
 
-        Dictionary<int, int> islands = new();
-        int count = graph.WeaklyConnectedComponents(islands);
+        (Dictionary<int, int> components, int count) = Physical(joints);
         Seq<JoinStep> steps = toSeq(graph.SourceFirstBidirectionalTopologicalSort())
-            .Map((node, rank) => new JoinStep(rank, node >> 1, (node & 1) == 1 ? JoinPhase.Final : JoinPhase.Tack, islands[node]));
-        Seq<(int Before, int After)> reduced = toSeq(
-            graph.ComputeTransitiveReduction(static (a, b) => new SEdge<int>(a, b)).Edges)
-            .Filter(static e => (e.Source >> 1) != (e.Target >> 1))
-            .Map(static e => (e.Source >> 1, e.Target >> 1));
+            .Map((node, rank) => new JoinStep(rank, node.Joint, node.Phase, components[joints[node.Joint].Specification.Components[0]]));
+        Seq<PrecedenceEdge> reduced = toSeq(graph.ComputeTransitiveReduction(static (before, after) => new SEdge<JoinNode>(before, after)).Edges)
+            .Bind(edge => reasons[(edge.Source, edge.Target)].Map(kind => new PrecedenceEdge(edge.Source, edge.Target, kind)))
+            .Distinct().ToSeq();
 
-        return Fin.Succ(new AssemblyPlan(steps, count, reduced));
-    }
-
-    static Vector3d Approach(ComponentConnection connection) {
-        Vector3d run = connection.At.B - connection.At.A;
-        Vector3d approach = new(-run.Y, run.X, 0.0);
-        return approach.Unitize() ? approach : Vector3d.ZAxis;
+        return Fin.Succ(new AssemblyPlan(steps, count, reduced, joints, blocked));
     }
 
     // b inside a's access CONE => a joins FIRST (the deep joint precedes its walling-off neighbor). The cone
     // radius grows as clearance + tan(halfAngle)·t along the standoff corridor — the census-resolved access
     // half-angle is a live axis: a tight groove (small half-angle) claims a narrow corridor, an open fillet a wide one.
-    static bool Occludes(AssemblyJoint a, AssemblyJoint b, double standoffMm, double clearanceMm) {
-        Point3d mid = Mid(a.Connection.At);
-        Point3d bMid = Mid(b.Connection.At);
-        Line corridor = new(mid, mid + (standoffMm * a.Approach));
-        Point3d closest = corridor.ClosestPoint(bMid, limitToFiniteSegment: true);
-        double along = mid.DistanceTo(closest);
-        double radius = clearanceMm + (Math.Tan(Math.PI * a.AccessHalfAngleDeg / 180.0) * along);
-        return bMid.DistanceTo(closest) < radius;
+    static bool Occludes(Edge3 joint, AccessCorridor access, Option<double> grooveIncludedRadians, Edge3 obstacle, double clearanceMm) {
+        Point3d origin = Mid(joint);
+        Vector3d axis = access.Axis;
+        axis.Unitize();
+        Vector3d span = obstacle.B - obstacle.A, at = obstacle.A - origin;
+        double axial0 = at * axis, axialRate = span * axis;
+        (double lower, double upper) = AxialInterval(axial0, axialRate, access.StandoffMm);
+        if (lower > upper) return false;
+        Vector3d radial0 = at - (axial0 * axis), radialRate = span - (axialRate * axis);
+        double slope = Math.Tan(EffectiveHalfAngle(access, grooveIncludedRadians));
+        double radius0 = access.ToolRadiusMm + clearanceMm + (slope * axial0), radiusRate = slope * axialRate;
+        double a = (radialRate * radialRate) - (radiusRate * radiusRate);
+        double b = 2.0 * ((radial0 * radialRate) - (radius0 * radiusRate));
+        double c = (radial0 * radial0) - (radius0 * radius0);
+        double stationary = Math.Abs(a) > 1e-12 ? Math.Clamp(-b / (2.0 * a), lower, upper) : lower;
+        double At(double parameter) => (a * parameter * parameter) + (b * parameter) + c;
+        return Math.Min(At(lower), Math.Min(At(stationary), At(upper))) <= 0.0;
+    }
+
+    static (double Lower, double Upper) AxialInterval(double at, double rate, double length) {
+        if (Math.Abs(rate) < 1e-12) return at is >= 0.0 && at <= length ? (0.0, 1.0) : (1.0, 0.0);
+        double first = -at / rate, second = (length - at) / rate;
+        return (Math.Max(0.0, Math.Min(first, second)), Math.Min(1.0, Math.Max(first, second)));
+    }
+
+    static ToolCorridor Corridor(Edge3 joint, AccessCorridor access, Option<double> grooveIncludedRadians, double clearanceMm) {
+        Point3d origin = Mid(joint);
+        Vector3d axis = access.Axis;
+        axis.Unitize();
+        double halfAngle = EffectiveHalfAngle(access, grooveIncludedRadians);
+        return new ToolCorridor(new Edge3(origin, origin + (access.StandoffMm * axis)),
+            access.ToolRadiusMm + clearanceMm,
+            access.ToolRadiusMm + clearanceMm + (Math.Tan(halfAngle) * access.StandoffMm));
+    }
+
+    static double EffectiveHalfAngle(AccessCorridor access, Option<double> grooveIncludedRadians) =>
+        grooveIncludedRadians.Map(angle => Math.Min(access.HalfAngleRadians, 0.5 * angle)).IfNone(access.HalfAngleRadians);
+
+    static (Dictionary<int, int> Labels, int Count) Physical(Seq<AssemblyJoint> joints) {
+        UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
+        graph.AddVertexRange(joints.Bind(static joint => joint.Specification.Components).Distinct());
+        foreach (AssemblyJoint joint in joints)
+            foreach (int component in joint.Specification.Components.Tail)
+                graph.AddEdge(new SEdge<int>(joint.Specification.Components[0], component));
+        Dictionary<int, int> labels = new();
+        int count = graph.ConnectedComponents(labels);
+        return (labels, count);
     }
 
     static Point3d Mid(Edge3 at) => at.A + (0.5 * (at.B - at.A));
 
-    static int Node(int joint, JoinPhase phase) => (joint << 1) | (phase == JoinPhase.Final ? 1 : 0);
+    static JoinNode First(AssemblyJoint joint, AssemblyPolicy policy) =>
+        policy.Mode.IncludeTack && joint.Specification.Class.Tackable
+            ? new JoinNode(joint.Index, JoinPhase.Tack)
+            : new JoinNode(joint.Index, JoinPhase.Final);
 
-    static int First(AssemblyJoint j, AssemblyPolicy policy) =>
-        policy.TackBeforeFinal && j.Class.Tackable ? Node(j.Index, JoinPhase.Tack) : Node(j.Index, JoinPhase.Final);
+    static bool SharesComponent(AssemblyJoint left, AssemblyJoint right) =>
+        left.Specification.Components.Exists(right.Specification.Components.Contains);
+
+    static bool Finite(Vector3d value) => double.IsFinite(value.X) && double.IsFinite(value.Y) && double.IsFinite(value.Z);
 }
 ```
 
 ```mermaid
 ---
 config:
-  layout: elk
   theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    titleColor: "#D6BCFA"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
-    Component["AdmittedComponent.Connections (owner#atoms census)"] -->|"JoinClass.Classify prefix scan (rail)"| Joints["AssemblyJoint rows"]
-    Materials["Rasm.Materials joint/fastener/connector keys + GrooveGeometry angle"] -.->|string-key boundary| Joints
-    Joints -->|"phase · datum · access-cone corridor edges"| Graph["QuikGraph BidirectionalGraph"]
-    Holding["Fixture (Workholding.Clears reach gate)"] --> Graph
-    Graph -->|"IsDirectedAcyclicGraph = false"| Cyclic["AssemblyPrecedenceCyclic 2737"]
-    Graph -->|"SourceFirstBidirectionalTopologicalSort + weak components + reduction"| Plan["AssemblyPlan steps · subassemblies · Precedence"]
-    Plan -->|distortion ordering within Precedence| Sequence["Joining/sequence"]
-    Plan -->|"Run(Derive) setup/assembly stage"| Derivation["Process/derivation"]
-    Plan -->|"Run(Document) fan-in"| Traveler["Documentation/traveler"]
+    accTitle: Assembly precedence construction
+    accDescr: Connection rows resolve through explicit join specifications and holding corridors into a typed precedence graph whose acyclicity gate emits either a reduced assembly plan or one cycle fault.
+    Connections([Connection census]) --> Census[Resolve join specifications]
+    Specifications[(Specification rows)] -.->|classifies keys| Census
+    Census --> Reach[Validate holding corridors]
+    Holding[(Fixture)] -.->|constrains reach| Reach
+    Reach --> Graph[Build precedence graph]
+    Graph --> Dag{Acyclic?}
+    Dag -->|no| Fault[/Cycle fault/]
+    Dag -->|yes| Order[Topologically order nodes]
+    Order --> Components[Partition physical components]
+    Components --> Reduce[Reduce precedence edges]
+    Reduce --> Plan[/Assembly plan/]
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
+    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
+    class Connections boundary
+    class Census,Reach,Graph,Dag,Order,Components,Reduce primary
+    class Specifications,Holding data
+    class Fault error
+    class Plan success
+    linkStyle 1,3 stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dasharray:4 6
+    linkStyle 6 stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    linkStyle 10 stroke:#50FA7B,color:#F8F8F2
 ```

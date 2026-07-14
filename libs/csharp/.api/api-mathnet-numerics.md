@@ -95,12 +95,13 @@ Distribution surfaces own construction, probability evaluation, sampling, and se
 |  [15]   | `StudentT.CDF(location, scale, freedom, x)`                      | static `double`   | cumulative probability |
 |  [16]   | `Normal.InvCDF(mean, stdDev, p)`                                 | static `double`   | quantile               |
 |  [17]   | `StudentT.InvCDF(location, scale, freedom, p)`                   | static `double`   | quantile               |
-|  [18]   | `Generate.LinearRange(start, step, stop)`                        | static `double[]` | arithmetic progression |
-|  [19]   | `Generate.LinearSpaced(length, start, stop)`                     | static `double[]` | evenly spaced axis     |
-|  [20]   | `Generate.LinearRangeMap(start, step, stop, Func<double, T>)`    | static `T[]`      | fused range mapping    |
-|  [21]   | `Generate.LinearSpacedMap(length, start, stop, Func<double, T>)` | static `T[]`      | fused spacing mapping  |
-|  [22]   | `Generate.Map(double[], Func<double, T>)`                        | static `T[]`      | element projection     |
-|  [23]   | `Generate.Map2(a, b, Func<double, double, T>)`                   | static `T[]`      | pairwise projection    |
+|  [18]   | `Gamma.InvCDF(shape, rate, p)`                                   | static `double`   | quantile               |
+|  [19]   | `Generate.LinearRange(start, step, stop)`                        | static `double[]` | arithmetic progression |
+|  [20]   | `Generate.LinearSpaced(length, start, stop)`                     | static `double[]` | evenly spaced axis     |
+|  [21]   | `Generate.LinearRangeMap(start, step, stop, Func<double, T>)`    | static `T[]`      | fused range mapping    |
+|  [22]   | `Generate.LinearSpacedMap(length, start, stop, Func<double, T>)` | static `T[]`      | fused spacing mapping  |
+|  [23]   | `Generate.Map(double[], Func<double, T>)`                        | static `T[]`      | element projection     |
+|  [24]   | `Generate.Map2(a, b, Func<double, double, T>)`                   | static `T[]`      | pairwise projection    |
 
 [ENTRYPOINT_SCOPE]: integration via `Integrate`
 

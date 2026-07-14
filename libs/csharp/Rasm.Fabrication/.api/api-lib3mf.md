@@ -80,6 +80,9 @@
 |  [13]   | `model.GetMeshObjects()`                                   | query          | mesh-object iterator                                   |
 |  [14]   | `model.GetMetaDataGroup()` / `AddAttachment(uri, relType)` | metadata       | model metadata + package attachments                   |
 |  [15]   | `model.QueryWriter(keyword)` / `QueryReader(keyword)`      | serialize      | mint a `3mf`/`stl` `CWriter`/`CReader`                 |
+|  [16]   | `model.SetBuildUUID(uuid)` / `GetBuildUUID(out hasUuid)`   | production     | production-extension build identity                    |
+|  [17]   | `object.SetUUID(uuid)` / `GetUUID(out hasUuid)`            | production     | production-extension object identity                   |
+|  [18]   | `buildItem.SetUUID(uuid)` / `GetUUID(out hasUuid)`         | production     | production-extension placement identity                |
 
 [ENTRYPOINT_SCOPE]: mesh + beam-lattice authoring — `CMeshObject` / `CBeamLattice`
 - rail: fabrication

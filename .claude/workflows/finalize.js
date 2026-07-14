@@ -608,9 +608,9 @@ const codexPrompt = (label, task, schema, o) => {
 };
 
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's
-// Claude twin (sol->fable, luna->sonnet, terra->opus); the caller owns the re-dispatch, the sonnet wrapper never executes work.
+// Claude twin (sol->opus, luna->sonnet, terra->opus); the caller owns the re-dispatch, the sonnet wrapper never executes work.
 // The roster row carries `scope` from the ORCHESTRATOR so a lane that died before writing still names its territory exactly.
-const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus'); // native fallback twins; fable's ONE seat is the terminal red-team, never a fallback
 const nativeLane = (task, o) =>
     agent(
         task +
@@ -1021,12 +1021,13 @@ log(
 );
 
 phase('Implement');
+// The first full-project writer, but NOT the run's terminal reconciler — the red-team drains its backlog after it, so it rides opus.
 const implFire = (suffix) =>
     slot(() =>
         run(implementPrompt(PAGES, WORK_DOSSIER, MERGE_OK, MAP_REPORTS, UNMAPPED), {
             label: 'implement' + suffix,
             phase: 'Implement',
-            model: 'fable',
+            model: 'opus',
             effort: 'high',
             schema: IMPL_SCHEMA,
             stallMs: STALL,
@@ -1081,6 +1082,8 @@ log(
         ' finding(s)',
 );
 
+// Terminal RED-TEAM: the run's ONE fable seat — the last corrector, full-repo authority draining every critique row, the
+// implementor backlog, and its own hunt to a fixpoint, so the premium judgment spend lands where every residual is absorbed.
 const rtFire = (suffix) =>
     slot(() =>
         run(redteamPrompt(PAGES, CRIT_PATHS, BACKLOG, UNMAPPED), {
@@ -1116,7 +1119,7 @@ const doctrine =
               run(doctrinePrompt(HARVEST_ROWS, CRIT_PATHS), {
                   label: 'doctrine',
                   phase: 'Close',
-                  model: 'fable',
+                  model: 'opus',
                   effort: 'high',
                   schema: DOCTRINE_SCHEMA,
                   stallMs: STALL,

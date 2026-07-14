@@ -1,25 +1,29 @@
 # [RASM_FABRICATION_LINKING]
 
-The cut-topology optimizer over a resolved `Placement`: after `Nest.Solve` fixes the part transforms, THIS page edits the CUT GRAPH — never the placement — to cut shared material once, pierce once per chain, hold the skeleton stable, and slit the waste for safe removal. Four edits, ONE `LinkOp` `[Union]`: `CommonLine` pairs collinear OPPOSITE-WOUND straight edges of two neighboring parts lying within kerf tolerance and cuts the shared line ONCE (two CCW parts sharing a kerf-width gap traverse the shared edge in opposite directions — the anti-parallel direction test plus the metric kerf-band test plus the projected-overlap floor form the pairing predicate, and a bulged edge never pairs: an arc is not a common line); `ChainCut` threads parts into shared-pierce chains so one pierce and one lead serve the whole chain; `Bridge` keeps micro-bridges uncut so thin parts and the waste skeleton cannot tip into the torch; `SkeletonCutUp` grid-slits the waste skeleton through the ONE open-path clip owner (`PolygonAlgebra.ClipOpen` — the OUTSIDE segments of each grid line against the kerf-inflated placed set ARE the slitting cuts, never a second clipper). Every common-line commit is COLLISION-CHECKED against the placement graph before it enters the plan: the kerf-inflated shared segment must clear every third part (`Offset` the open overlap by the kerf band, `Clip`-intersect against the others, commit only on empty). The plan is monotone AT PLAN LEVEL under the one three-term objective — `pierces·PierceCost + rapid·RapidCostPerMm + cut·CutCostPerMm` — evaluated once over the whole edited graph against the unlinked baseline: the cut term is load-bearing, because a commons-only plan saves `SharedCutSavedMm` of cut travel with no pierce delta, and an objective blind to cut length would discard exactly the savings the edit exists to harvest. Chain formation carries BOTH declared orders: containment depth DESCENDING (an inner contour cuts before the loop that `Covers` it — thermal fall-out) and centroid PROXIMITY threading within the `ChainBandMm` band — a topologically-connected member spatially beyond the band starts a NEW chain rather than dragging the pierce tour across the sheet, so chain geography is policy-bounded, capped by `MaxChainParts`. The shared-pierce components ride QuikGraph — committed common-lines are undirected edges, `ConnectedComponents` labels the islands — never a hand-rolled union-find beside the admitted graph substrate.
+`Linking` optimizes the cut graph after placement without mutating any transform. `PlacementRow.Instance` supplies the physical graph identity, while `SourcePart` preserves the profile definition identity. `LinkOp` closes common-line cuts, shared-pierce chains, bridges, and skeleton slits behind one `Plan` entry.
 
-An inapplicable or non-improving edit FALLS BACK to the unlinked placement — a verdict, never a fault; the only fault this page routes is the folder's cross-cutting `OpenLoop` 2704 (`FabConcern.Nest`) on a non-closed part outline, and the placement transforms pass through byte-identical (linking edits topology, nesting owns position). The receipt feeds posting IN-PROCESS as a designed contract: `ChainRow` carries one pierce point and the ordered part membership per chain, and the `Posting/program` `Pierce`/`Lead` conditioning consumes that topology — one pierce/lead per chain instead of per contour — a seam this page states and program's conditioning owns at its side; linking mints NO content key (the `cutprogram` key covers the lowered program, and a plan that never posts leaves no artifact).
+Common-line discovery admits only straight, normalized anti-parallel edges at the declared cut-width separation and within the independent angular and match tolerances. It preserves every disjoint overlap span, collision-checks each candidate against third-party geometry on `Fin`, and commits nonconflicting edges by descending shared length. QuikGraph components form the chain islands; containment depth, proximity band, and maximum membership determine threading without losing the resulting instance order.
+
+`LinkPolicy.Score` prices pierces, rapid travel, and cut travel. `LinkPlan` records before-and-after values for all three axes, shared cut length, bridge count, skeleton-cut length, and both source and instance membership. A non-improving result returns an explicit baseline receipt with no applied operations.
+
+Stock slitting first resolves the exact region for every occupied sheet, intersects its grid with that material, and then subtracts arc-offset occupied regions. The sheet-indexed stock census must equal the placement sheet census. Geometry failure aborts the plan; it never becomes a full-grid or empty-grid substitute. The posting seam consumes `ChainRow.SheetIndex`, `Instances`, `SourceParts`, and `Pierce` without rebuilding topology.
 
 Wire posture: HOST-LOCAL. The `LinkPlan` crosses only the in-process seam to the posting conditioning; no type on this page sits between wire and rail.
 
 ## [01]-[INDEX]
 
-- [01]-[CUT_LINKING]: owns the `LinkOp` `[Union]` (common-line, chain, bridge, skeleton cut-up), the `LinkPolicy` table (kerf tolerance, shared-length floor, bridge rows, three objective weights, chain cap, chain proximity band, cut-up pitch), the `SharedEdge`/`ChainRow` rows, the `LinkPlan` receipt, and the one `Linking.Plan` fold — pairing predicate, collision-checked commits, plan-level monotone objective, containment-and-proximity chaining over QuikGraph components, auto-bridging, and waste slitting.
+- [01]-[CUT_LINKING]: owns instance-aware cut-graph discovery, collision-checked commits, chain threading, bridges, stock slitting, objective comparison, and the `LinkPlan` receipt.
 
 ## [02]-[CUT_LINKING]
 
-- Owner: `LinkOp` `[Union]` the cut-graph edit — `CommonLine(SharedEdge)` · `ChainCut(Seq<int> parts, Point3d pierce)` · `Bridge(int part, Point3d at, double widthMm)` · `SkeletonCutUp(Seq<Edge3> grid)`; `LinkPolicy` the policy table — `KerfToleranceMm` (the collinearity band IS the physical kerf), `MinSharedLengthMm`, `BridgeWidthMm`/`BridgeSpacingMm`/`AutoBridge`, `PierceCost`/`RapidCostPerMm`/`CutCostPerMm` (the three objective weights), `MaxChainParts`, `ChainBandMm` (the proximity band chain threading honors), `CutUpPitchMm` — with `Laser`/`Plasma` seed rows; `SharedEdge` the pairing row (part/edge indices both sides, the overlap `Edge3`, the shared length); `ChainRow` the per-chain pierce/membership row posting's `Pierce`/`Lead` conditioning consumes; `LinkPlan` the receipt (applied ops, chains, pierce and rapid before/after, shared cut saved); `Linking` the static surface owning the one `Plan` fold.
-- Cases: `LinkOp` cases 4; the pairing predicate is four conjunctive gates — both edges straight (a bulged arc never pairs), anti-parallel direction (opposite winding), both endpoints inside the kerf distance band (a METRIC test: kerf is physical width, `Predicate.Orient2D` stays the winding gate, never bent into a tolerance test), projected interval overlap ≥ `MinSharedLengthMm`; commit gate 1 — `Clears` (kerf-inflated overlap intersects no third part); the plan gate — the three-term objective must improve over the unlinked baseline; chain order keys 2 — containment depth descending over `Loop.Covers`, then nearest-neighbor centroid threading within `ChainBandMm` (a member beyond the band opens a new chain); `LinkPolicy` seed rows 2 (`laser` fine-kerf auto-bridged, `plasma` wide-kerf manual-bridge).
-- Entry: `public static Fin<LinkPlan> Linking.Plan(FabricationResult.Placement placement, Arr<Loop> parts, Option<Stock> stock, LinkPolicy policy)` — the ONE fold: validate closed outlines (`OpenLoop` 2704, `FabConcern.Nest`), place the loops by their transforms (bulges preserved — an arc-bearing outline keeps its arcs through pairing, clipping, containment, and perimeter), discover `SharedEdge` candidates under a bounds prefilter, commit collision-checked common-lines in shared-length order, form containment-and-proximity-ordered chains over the QuikGraph components, auto-bridge long shared lines, grid-slit the skeleton when a `Stock` is present, and emit the receipt; the placement transforms are READ-ONLY throughout.
-- Auto: candidate discovery prefilters part pairs by kerf-inflated `BoundingBox` overlap before the O(edges²) pairing runs; committed common-lines become undirected `SEdge<int>` rows in a QuikGraph `UndirectedGraph` whose `ConnectedComponents` labels the shared-pierce islands (two joined parts pierce once); `Chains` orders each island by `Loop.Covers` containment depth descending (inner before outer — the thermal fall-out rule), threads members nearest-neighbor from the current chain tail, opens a new chain when the next member sits beyond `ChainBandMm` or the `MaxChainParts` cap, and stamps each chain's pierce at its first part's lowest-then-leftmost vertex; `AutoBridge` emits `Bridge` rows at `BridgeSpacingMm` intervals along any committed overlap longer than twice the spacing; `SkeletonCutUp` builds the grid over the stock outline at `CutUpPitchMm` and keeps each line's `ClipOpen` OUTSIDE segments against the placed set inflated by the kerf band; the objective evaluates before/after ONCE at plan level — pierce count from chain count, rapid length from the consecutive pierce-to-pierce tour, cut length from the placed perimeters minus the shared savings — and a plan whose edits do not improve returns the unlinked baseline receipt.
-- Receipt: `LinkPlan` — the applied ops, the `ChainRow` topology, `PiercesBefore`/`PiercesAfter`, `RapidBeforeMm`/`RapidAfterMm`, `SharedCutSavedMm`; the receipt IS the evidence and posting reads the chain topology, never a re-derivation.
-- Packages: `Rasm.Fabrication.Geometry2D` (`PolygonAlgebra.Offset`/`Clip`/`ClipOpen`/`Area` — the one clip/offset owner), `Process/owner#FABRICATION_OWNER` (`Loop.Covers`/`Edge3`/`PartTransform` — exact containment and the motion atoms), `Process/faults#FAULT_BAND` (`OpenLoop`/`FabConcern.Nest`), the sibling `Nesting/nfp#NESTING` `Stock.Outline` (the cut-up frame), QuikGraph (`UndirectedGraph`/`SEdge`, `ConnectedComponents` — the shared `libs/csharp/.api/api-quikgraph.md` catalog, the same substrate the Fixturing planners ride), Thinktecture.Runtime.Extensions, LanguageExt.Core, `Rhino.Geometry`, BCL inbox.
+- Owner: `LinkOp` owns edit modality; `LinkPolicy` owns geometric tolerances, bridge values, chain limits, slitting pitch, and objective weights; `SharedEdge` owns instance-and-edge pairing; `ChainRow` owns instance and source membership; `LinkPlan` owns applied operations and measured evidence.
+- Cases: `CommonLine`, `ChainCut`, `Bridge`, and `SkeletonCutUp` are the four edit cases. `Laser` and `Plasma` are policy values over the same algebra. Objective rejection is a baseline verdict, not a fault case.
+- Entry: `Plan(FabricationResult.Placement, Arr<Loop>, Map<int, Stock>, LinkPolicy) -> Fin<LinkPlan>` validates policy, profile references, sheet-indexed stock, and closure before placing source geometry and evaluating edits.
+- Auto: `PartTransform.Apply` projects each placed loop once, with its densified polygon and area centroid admitted on the same row; AABB proximity bounds candidate pairs; normalized direction and symmetric distance admit shared spans; `Commit` traverses geometry checks on `Fin`; `ConnectedComponents` labels physical instances; centroids order travel; `Loop.Length` measures curved perimeters; `ClipOpen` composes material intersection with occupied subtraction in two seq-shaped passes.
+- Receipt: `LinkPlan` carries applied edits, chain rows, pierce, rapid, cut, shared-length, bridge, skeleton-cut, and objective evidence before and after optimization.
+- Packages: `Rasm`, `RhinoCommon`, `Clipper2`, `QuikGraph`, `Thinktecture.Runtime.Extensions`, and `LanguageExt.Core`.
 - Growth: a new cut-graph edit is one `LinkOp` case plus one arm in the plan fold; a new objective term is one `LinkPolicy` weight column inside `Score`; per-modality tuning is a policy row, never a branch; a lead-style or pierce-style vocabulary stays `Posting/program`'s conditioning — this page hands topology only; zero new entrypoints.
-- Boundary: linking edits the CUT GRAPH and never the placement — a transform mutation here is the named defect (nesting owns position); the pairing tolerance is the physical kerf band and a re-purposed robustness predicate as a tolerance test is the deleted form (`Orient2D` gates winding, metrics gate distance); a bulged edge never enters the pairing and a straight-line pairing over a flattened arc is the named arc-loss defect — the placed-loop projection preserves `Bulges`; every geometric construction routes the one `Geometry2D` owner and a second clipper/offsetter call site is the named duplication defect; the shared-pierce components ride the one QuikGraph substrate and a hand-rolled union-find root map is the deleted form; the objective carries all three cost axes and a pierce-and-rapid-only score that discards commons-only cut savings is the named objective-blindness defect — monotonicity is a PLAN-level gate (edits in, baseline out on no improvement), never a per-commit claim the body does not enforce; chain geography is policy-bounded by `ChainBandMm` and an unbounded chain dragging the pierce tour across the sheet is the deleted form; the pierce/lead REALIZATION is posting's conditioning and an emitted lead arc or pierce block on this page is the lowering half it never owns; an inapplicable edit is a fallback verdict and a fault-on-no-improvement is the deleted form; the plan mints no content key and a `linking` egress row is the rejected form (the `cutprogram` key covers the posted artifact); the placed-loop projection is page-local pending the `PartTransform.Apply(Loop)` atoms home — a second sibling copy is the collapse trigger.
+- Boundary: transforms remain read-only; physical instance identity never collapses into source identity; curved edges never enter common-line pairing; geometry faults never become permissive clearance; and objective comparison includes pierce, rapid, and cut costs. Placed-loop projection composes the atoms-owner `PartTransform.Apply(Loop)`; no page-local transform kernel exists.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -28,8 +32,10 @@ using LanguageExt;
 using LanguageExt.Common;
 using QuikGraph;
 using QuikGraph.Algorithms;
+using Rasm.Domain;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
+using Rasm.Numerics;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -43,163 +49,285 @@ public abstract partial record LinkOp {
     private LinkOp() { }
 
     public sealed record CommonLine(SharedEdge Pair) : LinkOp;
-    public sealed record ChainCut(Seq<int> Parts, Point3d Pierce) : LinkOp;
-    public sealed record Bridge(int Part, Point3d At, double WidthMm) : LinkOp;
-    public sealed record SkeletonCutUp(Seq<Edge3> Grid) : LinkOp;
+    public sealed record ChainCut(int SheetIndex, Seq<int> Instances, Point3d Pierce) : LinkOp;
+    public sealed record Bridge(SharedEdge Pair, Point3d At, double WidthMm) : LinkOp;
+    public sealed record SkeletonCutUp(int SheetIndex, Seq<Edge3> Grid) : LinkOp;
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-// Policy table: KerfToleranceMm IS the physical kerf band the collinearity test and the collision
-// inflation both read; PierceCost/RapidCostPerMm/CutCostPerMm weight the one three-term objective —
-// the cut term is what lets a commons-only plan (no pierce delta) register its real savings.
-// ChainBandMm bounds chain geography: a member beyond the band opens a new chain.
-public sealed record LinkPolicy(double KerfToleranceMm, double MinSharedLengthMm, double BridgeWidthMm, double BridgeSpacingMm, bool AutoBridge,
-    double PierceCost, double RapidCostPerMm, double CutCostPerMm, int MaxChainParts, double ChainBandMm, double CutUpPitchMm) {
-    public static readonly LinkPolicy Laser = new(KerfToleranceMm: 0.3, MinSharedLengthMm: 25.0, BridgeWidthMm: 0.8, BridgeSpacingMm: 250.0,
-        AutoBridge: true, PierceCost: 30.0, RapidCostPerMm: 0.01, CutCostPerMm: 0.05, MaxChainParts: 20, ChainBandMm: 400.0, CutUpPitchMm: 600.0);
-    public static readonly LinkPolicy Plasma = new(KerfToleranceMm: 1.6, MinSharedLengthMm: 40.0, BridgeWidthMm: 2.0, BridgeSpacingMm: 400.0,
-        AutoBridge: false, PierceCost: 120.0, RapidCostPerMm: 0.02, CutCostPerMm: 0.08, MaxChainParts: 12, ChainBandMm: 600.0, CutUpPitchMm: 800.0);
+// Cut width and match tolerance remain separate: one defines physical separation, and one admits geometric correspondence.
+public sealed record LinkPolicy(double CutWidthMm, double MatchToleranceMm, double AngularToleranceRadians, double ArcChordErrorMm,
+    double MinSharedLengthMm, Option<(double WidthMm, double SpacingMm)> Bridge, double PierceCost, double RapidCostPerMm, double CutCostPerMm,
+    int MaxChainParts, double ChainBandMm, double CutUpPitchMm, Point3d RapidOrigin) {
+    public static readonly LinkPolicy Laser = new(CutWidthMm: 0.2, MatchToleranceMm: 0.1, MinSharedLengthMm: 25.0,
+        Bridge: Some((WidthMm: 0.8, SpacingMm: 250.0)), AngularToleranceRadians: 0.002, ArcChordErrorMm: 0.01,
+        PierceCost: 30.0, RapidCostPerMm: 0.01, CutCostPerMm: 0.05, MaxChainParts: 20, ChainBandMm: 400.0,
+        CutUpPitchMm: 600.0, RapidOrigin: Point3d.Origin);
+    public static readonly LinkPolicy Plasma = new(CutWidthMm: 1.5, MatchToleranceMm: 0.2, MinSharedLengthMm: 40.0,
+        Bridge: None, AngularToleranceRadians: 0.006, ArcChordErrorMm: 0.05, PierceCost: 120.0, RapidCostPerMm: 0.02,
+        CutCostPerMm: 0.08, MaxChainParts: 12, ChainBandMm: 600.0, CutUpPitchMm: 800.0, RapidOrigin: Point3d.Origin);
 
     public double Score(int pierces, double rapidMm, double cutMm) =>
         (pierces * PierceCost) + (rapidMm * RapidCostPerMm) + (cutMm * CutCostPerMm);
+
+    public Fin<LinkPolicy> Admit() =>
+        new[] { CutWidthMm, MatchToleranceMm, AngularToleranceRadians, ArcChordErrorMm, MinSharedLengthMm,
+            PierceCost, RapidCostPerMm, CutCostPerMm, ChainBandMm, CutUpPitchMm }.Any(static value => !double.IsFinite(value) || value <= 0.0) ||
+        AngularToleranceRadians >= Math.PI / 2.0 || MaxChainParts < 1 ||
+        Bridge.Exists(static value => !double.IsFinite(value.WidthMm) || value.WidthMm <= 0.0 ||
+            !double.IsFinite(value.SpacingMm) || value.SpacingMm <= value.WidthMm) || !Finite(RapidOrigin)
+            ? Fin.Fail<LinkPolicy>(GeometryFault.DegenerateInput("link:policy").ToError())
+            : Fin.Succ(this);
+
+    static bool Finite(Point3d value) => double.IsFinite(value.X) && double.IsFinite(value.Y) && double.IsFinite(value.Z);
 }
 
-public readonly record struct SharedEdge(int PartA, int EdgeA, int PartB, int EdgeB, Edge3 Overlap, double SharedLengthMm);
+// Placed carries exact arcs; Polygon and Centroid are admitted ONCE per row (one densify at admission), so every
+// chain, clearance, and threading predicate downstream is total with zero per-call re-densification.
+file readonly record struct PlacementRow(int Instance, int SourcePart, int SheetIndex, Loop Placed, Loop Polygon, Point3d Centroid);
+
+// SheetIndex rides the edge so posting recovers per-sheet common-line topology without a placement lookup.
+public readonly record struct SharedEdge(
+    int SheetIndex,
+    int InstanceA,
+    int EdgeA,
+    int InstanceB,
+    int EdgeB,
+    Edge3 Overlap,
+    double SharedLengthMm,
+    Context Tolerance);
 
 // One pierce/lead per chain — the topology row Posting/program's Pierce/Lead conditioning consumes.
-public readonly record struct ChainRow(int Chain, Point3d Pierce, Seq<int> Parts, double CutLengthMm);
+public readonly record struct ChainRow(int Chain, int SheetIndex, Point3d Pierce, Seq<int> Instances, Seq<int> SourceParts, double CutLengthMm);
 
 public sealed record LinkPlan(Seq<LinkOp> Applied, Seq<ChainRow> Chains, int PiercesBefore, int PiercesAfter,
-    double RapidBeforeMm, double RapidAfterMm, double SharedCutSavedMm);
+    double RapidBeforeMm, double RapidAfterMm, double CutBeforeMm, double CutAfterMm, double SharedCutSavedMm,
+    int Bridges, double BridgeUncutMm, double SkeletonCutMm, double ScoreBefore, double ScoreAfter);
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Linking {
-    public static Fin<LinkPlan> Plan(FabricationResult.Placement placement, Arr<Loop> parts, Option<Stock> stock, LinkPolicy policy) =>
-        parts.Find(static l => !l.Closed).Match(
-            Some: _ => Fin.Fail<LinkPlan>(FabricationFault.OpenLoop(FabConcern.Nest, parts.Count).ToError()),
-            None: () => {
-                Seq<(int Id, Loop Placed)> placed = placement.Parts.Map(t => (t.PartId, Placed(parts[t.PartId], t)));
-                Seq<SharedEdge> commits = Commit(Candidates(placed, policy), placed, policy);
-                Seq<ChainRow> chains = Chains(placed, commits, policy);
-                Seq<LinkOp> bridges = policy.AutoBridge ? Bridges(commits, policy) : Seq<LinkOp>();
-                Seq<LinkOp> cutUp = stock.Match(
-                    Some: s => Seq<LinkOp>(new LinkOp.SkeletonCutUp(CutUp(s, placed.Map(static p => p.Placed), policy))),
-                    None: () => Seq<LinkOp>());
-                double totalCut = placed.Sum(static p => Perimeter(p.Placed));
-                double saved = commits.Sum(static e => e.SharedLengthMm);
-                int before = placed.Count, after = chains.Count;
-                double rapidBefore = Tour(placed.Map(static p => Centroid(p.Placed)));
-                double rapidAfter = Tour(chains.Map(static c => c.Pierce));
-                Seq<LinkOp> applied = commits.Map(static e => (LinkOp)new LinkOp.CommonLine(e))
-                    .Concat(chains.Map(static c => (LinkOp)new LinkOp.ChainCut(c.Parts, c.Pierce)))
-                    .Concat(bridges).Concat(cutUp);
-                // Plan-level monotonicity: the three-term objective over the edited graph must beat the unlinked
-                // baseline, the cut term crediting commons-only savings the pierce/rapid terms cannot see.
-                return Fin.Succ(policy.Score(after, rapidAfter, totalCut - saved) < policy.Score(before, rapidBefore, totalCut)
-                    ? new LinkPlan(applied, chains, before, after, rapidBefore, rapidAfter, saved)
-                    : new LinkPlan(Seq<LinkOp>(), Baseline(placed), before, before, rapidBefore, rapidBefore, 0.0));
-            });
+    public static Fin<LinkPlan> Plan(FabricationResult.Placement placement, Arr<Loop> parts, Map<int, Stock> stockBySheet, LinkPolicy policy) =>
+        policy.Admit().Bind(admitted => {
+            Seq<(PartTransform Transform, int Instance)> indexed = placement.Parts.Map((transform, instance) => (transform, instance));
+            return indexed.Find(row => row.Transform.PartId < 0 || row.Transform.PartId >= parts.Count).Match(
+                Some: invalid => Fin.Fail<LinkPlan>(FabricationFault.NoFit(invalid.Transform.PartId, Seq<double>()).ToError()),
+                None: () => indexed.Find(row => !parts[row.Transform.PartId].Closed).Match(
+                    Some: open => Fin.Fail<LinkPlan>(FabricationFault.OpenLoop(FabConcern.Nest, open.Instance).ToError()),
+                    None: () => indexed.Find(row => !Admitted(parts[row.Transform.PartId]) || !Admitted(row.Transform)).Match(
+                        Some: invalid => Fin.Fail<LinkPlan>(GeometryFault.DegenerateInput($"link:placement:{invalid.Instance}").ToError()),
+                        None: () => {
+                        Set<int> occupiedSheets = toSet(indexed.Map(static row => row.Transform.SheetIndex));
+                        bool completeStock = occupiedSheets.Count == stockBySheet.Count &&
+                            stockBySheet.ToSeq().ForAll(row => occupiedSheets.Contains(row.Key));
+                        return !completeStock
+                            ? Fin.Fail<LinkPlan>(GeometryFault.DegenerateInput("link:stock-sheet-census").ToError())
+                            : indexed.Traverse(row => row.Transform.Apply(parts[row.Transform.PartId])
+                                .Bind(loop => ArcAlgebra.Densify(loop, admitted.ArcChordErrorMm).Map(receipt =>
+                                    new PlacementRow(row.Instance, row.Transform.PartId, row.Transform.SheetIndex, loop,
+                                        receipt.Result, Centroid(receipt.Result)))).ToValidation())
+                            .As().ToFin().Bind(placed => Commit(Candidates(placed, admitted), placed, admitted).Bind(commits => {
+                            Seq<ChainRow> chains = Chains(placed, commits, admitted);
+                            Seq<LinkOp> bridges = admitted.Bridge.Match(
+                                Some: bridge => Bridges(commits, bridge),
+                                None: static () => Seq<LinkOp>());
+                            // The census gate above already proved key-for-key correspondence, so the stock rows
+                            // traverse with no per-row re-census.
+                            return stockBySheet.ToSeq().Traverse(row =>
+                                    row.Value.Admit().Bind(_ => CutUp(row.Value,
+                                            placed.Filter(item => item.SheetIndex == row.Key).Map(static item => item.Polygon), admitted))
+                                        .Map(grid => grid.IsEmpty ? Seq<LinkOp>() : Seq<LinkOp>(new LinkOp.SkeletonCutUp(row.Key, grid)))
+                                        .ToValidation())
+                                .As().ToFin().Map(static rows => rows.Bind(identity))
+                                .Map(cutUp => {
+                                    Seq<ChainRow> baseline = Baseline(placed, admitted);
+                                    double cutBefore = placed.Sum(static row => row.Placed.Length());
+                                    double saved = commits.Sum(static edge => edge.SharedLengthMm);
+                                    int piercesBefore = placed.Count, piercesAfter = chains.Count;
+                                    double rapidBefore = Rapid(baseline, admitted.RapidOrigin);
+                                    double rapidAfter = Rapid(chains, admitted.RapidOrigin);
+                                    double skeletonCut = cutUp.Bind(static op => op is LinkOp.SkeletonCutUp cut
+                                        ? cut.Grid.Map(static edge => edge.A.DistanceTo(edge.B)) : Seq<double>()).Sum();
+                                    double bridgeUncut = bridges.Bind(static op => op is LinkOp.Bridge bridge ? Seq1(bridge.WidthMm) : Seq<double>()).Sum();
+                                    double cutAfter = cutBefore - saved - bridgeUncut + skeletonCut;
+                                    double scoreBefore = admitted.Score(piercesBefore, rapidBefore, cutBefore);
+                                    double scoreAfter = admitted.Score(piercesAfter, rapidAfter, cutAfter);
+                                    Seq<LinkOp> applied = commits.Map(static edge => (LinkOp)new LinkOp.CommonLine(edge))
+                                        .Concat(chains.Map(static chain => (LinkOp)new LinkOp.ChainCut(chain.SheetIndex, chain.Instances, chain.Pierce)))
+                                        .Concat(bridges).Concat(cutUp);
+                                    return scoreAfter < scoreBefore
+                                        ? new LinkPlan(applied, chains, piercesBefore, piercesAfter, rapidBefore, rapidAfter, cutBefore, cutAfter,
+                                            saved, bridges.Count, bridgeUncut, skeletonCut, scoreBefore, scoreAfter)
+                                        : new LinkPlan(Seq<LinkOp>(), baseline, piercesBefore, piercesBefore,
+                                            rapidBefore, rapidBefore, cutBefore, cutBefore, 0.0, 0, 0.0, 0.0, scoreBefore, scoreBefore);
+                                });
+                        }));
+                    })));
+        });
+
+    static bool Admitted(Loop loop) =>
+        loop.Closed && loop.Count >= 3 && loop.Vertices.ForAll(static point =>
+            double.IsFinite(point.X) && double.IsFinite(point.Y) && double.IsFinite(point.Z)) &&
+        loop.Bulges.ForAll(double.IsFinite);
+
+    static bool Admitted(PartTransform transform) =>
+        transform.SheetIndex >= 0 && double.IsFinite(transform.Tx) && double.IsFinite(transform.Ty) && double.IsFinite(transform.RotationRadians);
 
     // Collinear opposite-wound pairing over STRAIGHT edges only (a bulged arc never pairs): anti-parallel
     // direction, both endpoints inside the kerf band (a METRIC test — kerf is physical; Orient2D stays the
     // winding gate), overlap >= the floor.
-    static Option<SharedEdge> Pair(int ia, Loop a, int ea, int ib, Loop b, int eb, LinkPolicy policy) {
+    static Option<SharedEdge> Pair(int sheet, int ia, Loop a, int ea, int ib, Loop b, int eb, LinkPolicy policy) {
         if (a.BulgeAt(ea) != 0.0 || b.BulgeAt(eb) != 0.0) return None;
         (Point3d a0, Point3d a1, Point3d b0, Point3d b1) = (a.At(ea), a.At(ea + 1), b.At(eb), b.At(eb + 1));
         Vector3d da = a1 - a0, db = b1 - b0;
-        double la = da.Length;
-        if (la < 1e-9 || db.Length < 1e-9 || da * db > -1e-9) return None;
-        if (Dist(a0, a1, b0) > policy.KerfToleranceMm || Dist(a0, a1, b1) > policy.KerfToleranceMm) return None;
+        double la = da.Length, lb = db.Length;
+        if (la < 1e-9 || lb < 1e-9 || (da * db) / (la * lb) > -Math.Cos(policy.AngularToleranceRadians)) return None;
+        if (Math.Abs(Dist(a0, a1, b0) - policy.CutWidthMm) > policy.MatchToleranceMm ||
+            Math.Abs(Dist(a0, a1, b1) - policy.CutWidthMm) > policy.MatchToleranceMm ||
+            Math.Abs(Dist(b0, b1, a0) - policy.CutWidthMm) > policy.MatchToleranceMm ||
+            Math.Abs(Dist(b0, b1, a1) - policy.CutWidthMm) > policy.MatchToleranceMm) return None;
         double t0 = ((b0 - a0) * da) / (la * la), t1 = ((b1 - a0) * da) / (la * la);
         double lo = Math.Max(0.0, Math.Min(t0, t1)), hi = Math.Min(1.0, Math.Max(t0, t1));
+        Point3d left = a0 + (da * lo), right = a0 + (da * hi);
         return (hi - lo) * la >= policy.MinSharedLengthMm
-            ? Some(new SharedEdge(ia, ea, ib, eb, new Edge3(a0 + (da * lo), a0 + (da * hi)), (hi - lo) * la))
+            ? Some(new SharedEdge(sheet, ia, ea, ib, eb,
+                new Edge3(Midline(left, b0, db), Midline(right, b0, db)), (hi - lo) * la, a.Tolerance))
             : None;
     }
 
-    static Seq<SharedEdge> Candidates(Seq<(int Id, Loop Placed)> placed, LinkPolicy policy) =>
-        placed.Bind(a => placed.Filter(b => b.Id > a.Id && Near(a.Placed, b.Placed, policy.KerfToleranceMm))
+    static Seq<SharedEdge> Candidates(Seq<PlacementRow> placed, LinkPolicy policy) =>
+        placed.Bind(a => placed.Filter(b => b.SheetIndex == a.SheetIndex && b.Instance > a.Instance &&
+                Near(a.Placed, b.Placed, policy.CutWidthMm + policy.MatchToleranceMm))
             .Bind(b => toSeq(Enumerable.Range(0, a.Placed.Count))
                 .Bind(ea => toSeq(Enumerable.Range(0, b.Placed.Count))
-                    .Bind(eb => Pair(a.Id, a.Placed, ea, b.Id, b.Placed, eb, policy).ToSeq()))))
+                    .Bind(eb => Pair(a.SheetIndex, a.Instance, a.Placed, ea, b.Instance, b.Placed, eb, policy).ToSeq()))))
             .OrderByDescending(static e => e.SharedLengthMm).ToSeq();
 
     // Commit fold: longest shared line first, each edit re-validated against the CURRENT graph — the
-    // kerf-inflated overlap must clear every third part, one commit per part-pair.
-    static Seq<SharedEdge> Commit(Seq<SharedEdge> candidates, Seq<(int Id, Loop Placed)> placed, LinkPolicy policy) =>
-        candidates.Fold(Seq<SharedEdge>(), (done, e) =>
-            done.Exists(d => (d.PartA, d.PartB) == (e.PartA, e.PartB)) || !Clears(e, placed, policy) ? done : done.Add(e));
+    // kerf-inflated overlap must clear every third part. Disjoint spans between one pair ALL commit;
+    // Conflicts rejects only overlapping re-use of an already-committed edge span.
+    static Fin<Seq<SharedEdge>> Commit(Seq<SharedEdge> candidates, Seq<PlacementRow> placed, LinkPolicy policy) =>
+        candidates.Fold(Fin.Succ(Seq<SharedEdge>()), (state, edge) => state.Bind(done =>
+            done.Exists(accepted => Conflicts(accepted, edge, policy.MatchToleranceMm))
+                ? Fin.Succ(done)
+                : Clears(edge, placed, policy).Map(clear => clear ? done.Add(edge) : done)));
 
-    static bool Clears(SharedEdge e, Seq<(int Id, Loop Placed)> placed, LinkPolicy policy) =>
-        PolygonAlgebra.Offset(Seq(new Loop(Arr(e.Overlap.A, e.Overlap.B), Closed: false)), policy.KerfToleranceMm, OffsetEnds.OpenSquare).ToOption()
-            .Map(region => placed.Filter(p => p.Id != e.PartA && p.Id != e.PartB)
-                .ForAll(p => PolygonAlgebra.Clip(region, Seq(p.Placed), ClipOp.Intersect).Map(static r => r.IsEmpty).IfFail(false)))
-            .IfNone(false);
+    static Fin<bool> Clears(SharedEdge edge, Seq<PlacementRow> placed, LinkPolicy policy) =>
+        Loop.Admit(Arr(edge.Overlap.A, edge.Overlap.B), closed: false, Arr<double>(), edge.Tolerance)
+            .Bind(segment => OffsetPolicy.Admit(OffsetJoin.Square, OffsetEnd.Square, miterLimit: 2.0, arcTolerance: policy.ArcChordErrorMm)
+                .Bind(ends => PolygonAlgebra.Offset(Seq1(segment), (0.5 * policy.CutWidthMm) + policy.MatchToleranceMm, ends)))
+            .Bind(region => placed.Filter(row => row.SheetIndex == edge.SheetIndex &&
+                    row.Instance != edge.InstanceA && row.Instance != edge.InstanceB)
+                .Traverse(row => PolygonAlgebra.Clip(region, Seq1(row.Polygon), PolygonBoolean.Intersection, PolygonFill.NonZero)
+                    .Map(static intersection => intersection.IsEmpty).ToValidation())
+                .As().ToFin())
+            .Map(static verdicts => verdicts.ForAll(identity));
+
+    static bool Conflicts(SharedEdge accepted, SharedEdge candidate, double toleranceMm) =>
+        ((accepted.InstanceA, accepted.EdgeA) == (candidate.InstanceA, candidate.EdgeA) ||
+         (accepted.InstanceA, accepted.EdgeA) == (candidate.InstanceB, candidate.EdgeB) ||
+         (accepted.InstanceB, accepted.EdgeB) == (candidate.InstanceA, candidate.EdgeA) ||
+         (accepted.InstanceB, accepted.EdgeB) == (candidate.InstanceB, candidate.EdgeB)) &&
+        Overlap(accepted.Overlap, candidate.Overlap) > toleranceMm;
 
     // Shared-pierce islands ride QuikGraph (committed common-lines as undirected edges, ConnectedComponents
     // labels — the graph mutations are the named platform-forced statement seam); per island: containment depth
     // DESCENDING (inner cuts before the loop that Covers it — thermal fall-out), then nearest-neighbor threading
     // from the chain tail, a member beyond ChainBandMm or the member cap opening a NEW chain.
-    static Seq<ChainRow> Chains(Seq<(int Id, Loop Placed)> placed, Seq<SharedEdge> commits, LinkPolicy policy) {
+    static Seq<ChainRow> Chains(Seq<PlacementRow> placed, Seq<SharedEdge> commits, LinkPolicy policy) {
         UndirectedGraph<int, SEdge<int>> graph = new(allowParallelEdges: false);
-        graph.AddVertexRange(placed.Map(static p => p.Id));
-        foreach (SharedEdge e in commits) graph.AddEdge(new SEdge<int>(e.PartA, e.PartB));
+        graph.AddVertexRange(placed.Map(static row => row.Instance));
+        foreach (SharedEdge edge in commits) graph.AddEdge(new SEdge<int>(edge.InstanceA, edge.InstanceB));
         Dictionary<int, int> labels = new();
         graph.ConnectedComponents(labels);
-        return toSeq(placed.GroupBy(p => labels[p.Id]))
+        // A committed span whose members split across chunks charges its A-member's chain ONCE, so the chain cut
+        // lengths always sum to the plan-level cutAfter within a sheet.
+        Seq<ChainRow> rows = toSeq(placed.GroupBy(row => labels[row.Instance]))
             .Bind(island => Threaded(
-                island.ToSeq().OrderByDescending(p => placed.Count(o => o.Id != p.Id && o.Placed.Covers(Centroid(p.Placed)))).ToSeq(),
+                island.ToSeq().OrderByDescending(row => placed.Count(other => other.Instance != row.Instance &&
+                    other.Placed.Covers(row.Centroid))).ToSeq(),
                 policy))
-            .Map((chunk, i) => new ChainRow(i, Anchor(chunk.Head.Placed), chunk.Map(static p => p.Id),
-                chunk.Sum(static p => Perimeter(p.Placed))))
+            .Bind(chunk => chunk.Head.Match(
+                Some: head => {
+                    Set<int> members = toSet(chunk.Map(static item => item.Instance));
+                    return Seq1(new ChainRow(0, head.SheetIndex, Anchor(head.Placed), chunk.Map(static item => item.Instance),
+                        chunk.Map(static item => item.SourcePart),
+                        chunk.Sum(static item => item.Placed.Length()) - commits
+                            .Filter(edge => members.Contains(edge.InstanceA))
+                            .Sum(static edge => edge.SharedLengthMm)));
+                },
+                None: static () => Seq<ChainRow>()))
             .ToSeq();
+        return Order(rows, policy.RapidOrigin);
     }
 
     // Greedy proximity threading: pull the nearest pool member to the current tail while it stays inside the
     // band and under the cap; otherwise close the chain and seed the next from the depth order.
-    static Seq<Seq<(int Id, Loop Placed)>> Threaded(Seq<(int Id, Loop Placed)> ordered, LinkPolicy policy) =>
-        ordered.IsEmpty
-            ? Seq<Seq<(int Id, Loop Placed)>>()
-            : Grow(Seq1(ordered.Head), ordered.Tail, policy) is var (chain, rest)
+    static Seq<Seq<PlacementRow>> Threaded(Seq<PlacementRow> ordered, LinkPolicy policy) =>
+        ordered.Head.Match(
+            Some: head => Grow(Seq1(head), ordered.Tail, policy) is var (chain, rest)
                 ? Seq1(chain).Concat(Threaded(rest, policy))
-                : Seq<Seq<(int Id, Loop Placed)>>();
+                : Seq<Seq<PlacementRow>>(),
+            None: static () => Seq<Seq<PlacementRow>>());
 
-    static (Seq<(int Id, Loop Placed)> Chain, Seq<(int Id, Loop Placed)> Rest) Grow(
-        Seq<(int Id, Loop Placed)> chain, Seq<(int Id, Loop Placed)> pool, LinkPolicy policy) =>
-        chain.Count >= policy.MaxChainParts || pool.IsEmpty
-            ? (chain, pool)
-            : pool.OrderBy(p => Centroid(chain.Last.Placed).DistanceTo(Centroid(p.Placed))).ToSeq() is var ranked
-              && Centroid(chain.Last.Placed).DistanceTo(Centroid(ranked.Head.Placed)) <= policy.ChainBandMm
-                ? Grow(chain.Add(ranked.Head), ranked.Tail, policy)
-                : (chain, pool);
-
-    static Seq<ChainRow> Baseline(Seq<(int Id, Loop Placed)> placed) =>
-        placed.Map((p, i) => new ChainRow(i, Anchor(p.Placed), Seq(p.Id), Perimeter(p.Placed))).ToSeq();
-
-    static Seq<LinkOp> Bridges(Seq<SharedEdge> commits, LinkPolicy policy) =>
-        commits.Filter(e => e.SharedLengthMm > 2.0 * policy.BridgeSpacingMm)
-            .Bind(e => toSeq(Enumerable.Range(1, (int)(e.SharedLengthMm / policy.BridgeSpacingMm)))
-                .Map(k => (LinkOp)new LinkOp.Bridge(e.PartA, Lerp(e.Overlap, k * policy.BridgeSpacingMm / e.SharedLengthMm), policy.BridgeWidthMm)));
-
-    // Waste-grid slitting through the ONE open-path clip owner: OUTSIDE segments of each grid line
-    // against the kerf-inflated placed set ARE the slitting cuts.
-    static Seq<Edge3> CutUp(Stock stock, Seq<Loop> placed, LinkPolicy policy) {
-        Seq<Loop> inflated = placed.Bind(p => PolygonAlgebra.Offset(Seq(p), policy.KerfToleranceMm, OffsetEnds.Polygon).IfFail(Seq(p)));
-        BoundingBox b = stock.Outline().Bound();
-        Seq<Edge3> grid = toSeq(Enumerable.Range(1, Math.Max(0, (int)(b.Diagonal.X / policy.CutUpPitchMm))))
-            .Map(i => new Edge3(new Point3d(b.Min.X + (i * policy.CutUpPitchMm), b.Min.Y, 0), new Point3d(b.Min.X + (i * policy.CutUpPitchMm), b.Max.Y, 0)))
-            .Concat(toSeq(Enumerable.Range(1, Math.Max(0, (int)(b.Diagonal.Y / policy.CutUpPitchMm))))
-            .Map(j => new Edge3(new Point3d(b.Min.X, b.Min.Y + (j * policy.CutUpPitchMm), 0), new Point3d(b.Max.X, b.Min.Y + (j * policy.CutUpPitchMm), 0))));
-        return grid.Bind(line => PolygonAlgebra.ClipOpen(line, inflated).Outside);
+    static (Seq<PlacementRow> Chain, Seq<PlacementRow> Rest) Grow(Seq<PlacementRow> chain, Seq<PlacementRow> pool, LinkPolicy policy) {
+        if (chain.Count >= policy.MaxChainParts || pool.IsEmpty) return (chain, pool);
+        return chain.Last.Match(
+            Some: tail => {
+                Seq<PlacementRow> ranked = pool.OrderBy(row => tail.Centroid.DistanceTo(row.Centroid)).ToSeq();
+                return ranked.Head.Filter(next => tail.Centroid.DistanceTo(next.Centroid) <= policy.ChainBandMm)
+                    .Match(
+                        Some: next => Grow(chain.Add(next), ranked.Tail, policy),
+                        None: () => (chain, pool));
+            },
+            None: () => (chain, pool));
     }
 
-    // Page-local placed-loop projection (rotation + translation, Bulges PRESERVED — arcs survive pairing,
-    // clipping, containment, and perimeter); the atoms-level application fold is the recorded collapse target
-    // shared with nfp's Transform.
-    static Loop Placed(Loop part, PartTransform t) {
-        double c = Math.Cos(t.RotationRadians), s = Math.Sin(t.RotationRadians);
-        return new Loop(part.Vertices.Map(v => new Point3d((v.X * c) - (v.Y * s) + t.Tx, (v.X * s) + (v.Y * c) + t.Ty, 0.0)).ToArr(), Closed: true, part.Bulges);
-    }
+    static Seq<ChainRow> OrderSheet(Seq<ChainRow> pool, Point3d cursor, int index) =>
+        pool.OrderBy(row => cursor.DistanceTo(row.Pierce)).ToSeq().Head.Match(
+            Some: next => Seq1(next with { Chain = index }).Concat(OrderSheet(pool.Filter(row => row != next), next.Pierce, index + 1)),
+            None: static () => Seq<ChainRow>());
+
+    static Seq<ChainRow> Order(Seq<ChainRow> rows, Point3d origin) =>
+        rows.GroupBy(static row => row.SheetIndex).OrderBy(static group => group.Key)
+            .Fold((Next: 0, Rows: Seq<ChainRow>()), (state, group) => {
+                Seq<ChainRow> sheet = OrderSheet(group.ToSeq(), origin, state.Next);
+                return (state.Next + sheet.Count, state.Rows.Concat(sheet));
+            }).Rows;
+
+    static Seq<ChainRow> Baseline(Seq<PlacementRow> placed, LinkPolicy policy) =>
+        Order(placed.Map(row => new ChainRow(0, row.SheetIndex, Anchor(row.Placed), Seq1(row.Instance), Seq1(row.SourcePart),
+            row.Placed.Length())).ToSeq(), policy.RapidOrigin);
+
+    static Seq<LinkOp> Bridges(Seq<SharedEdge> commits, (double WidthMm, double SpacingMm) policy) =>
+        commits.Bind(edge => Math.Max(0, (int)Math.Ceiling(edge.SharedLengthMm / policy.SpacingMm) - 1) is var count
+            ? toSeq(Enumerable.Range(1, count))
+                .Map(index => (LinkOp)new LinkOp.Bridge(edge, Lerp(edge.Overlap, (double)index / (count + 1)), policy.WidthMm))
+            : Seq<LinkOp>());
+
+    // Waste-grid slitting through the ONE open-path clip owner, seq-shaped end to end: grid segments INSIDE the
+    // material region and OUTSIDE the kerf-inflated occupied set ARE the slitting cuts — two ClipOpen passes on
+    // one rail, no per-line dispatch. Occupied rows arrive pre-densified; the inflation re-densifies its arcs.
+    static Fin<Seq<Edge3>> CutUp(Stock stock, Seq<Loop> occupied, LinkPolicy policy) =>
+        occupied.Traverse(polygon => ArcAlgebra.ShapeOffset(Seq1(polygon), 0.5 * policy.CutWidthMm).ToValidation())
+            .As().ToFin()
+            .Bind(inflated => inflated.Bind(static loops => loops)
+                .Traverse(loop => ArcAlgebra.Densify(loop, policy.ArcChordErrorMm).Map(static receipt => receipt.Result).ToValidation())
+                .As().ToFin())
+            .Bind(walls => stock.Region.Bind(region => region
+                .Traverse(loop => ArcAlgebra.Densify(loop, policy.ArcChordErrorMm).Map(static receipt => receipt.Result).ToValidation())
+                .As().ToFin()
+                .Bind(material => PolygonAlgebra.ClipOpen(
+                        Grid(new BoundingBox(region.Bind(static loop => loop.Vertices)), policy.CutUpPitchMm), material, PolygonFill.NonZero)
+                    .Bind(split => PolygonAlgebra.ClipOpen(split.Inside, walls, PolygonFill.NonZero))
+                    .Map(static split => split.Outside))));
+
+    static Seq<Edge3> Grid(BoundingBox bounds, double pitchMm) =>
+        toSeq(Enumerable.Range(1, Math.Max(0, (int)(bounds.Diagonal.X / pitchMm))))
+            .Map(i => new Edge3(new Point3d(bounds.Min.X + (i * pitchMm), bounds.Min.Y, 0),
+                new Point3d(bounds.Min.X + (i * pitchMm), bounds.Max.Y, 0)))
+            .Concat(toSeq(Enumerable.Range(1, Math.Max(0, (int)(bounds.Diagonal.Y / pitchMm))))
+            .Map(j => new Edge3(new Point3d(bounds.Min.X, bounds.Min.Y + (j * pitchMm), 0),
+                new Point3d(bounds.Max.X, bounds.Min.Y + (j * pitchMm), 0))));
 
     static bool Near(Loop a, Loop b, double band) {
         BoundingBox ba = a.Bound(), bb = b.Bound();
@@ -212,18 +340,40 @@ public static class Linking {
         return len < 1e-9 ? p0.DistanceTo(q) : Vector3d.CrossProduct(d, q - p0).Length / len;
     }
 
-    static double Tour(Seq<Point3d> stops) =>
-        stops.Tail.Fold((Len: 0.0, At: stops.HeadOrNone().IfNone(Point3d.Origin)), (acc, p) => (acc.Len + acc.At.DistanceTo(p), p)).Len;
+    static double Tour(Seq<Point3d> stops, Point3d origin) =>
+        stops.Fold((Len: 0.0, At: origin), (acc, point) => (acc.Len + acc.At.DistanceTo(point), point)).Len;
 
-    static double Perimeter(Loop loop) =>
-        toSeq(Enumerable.Range(0, loop.Count)).Sum(i => loop.At(i).DistanceTo(loop.At(i + 1)));
+    static double Rapid(Seq<ChainRow> chains, Point3d origin) =>
+        chains.GroupBy(static chain => chain.SheetIndex).Sum(group => Tour(group.ToSeq().Map(static chain => chain.Pierce), origin));
 
-    static Point3d Centroid(Loop loop) {
-        BoundingBox b = loop.Bound();
-        return new Point3d(0.5 * (b.Min.X + b.Max.X), 0.5 * (b.Min.Y + b.Max.Y), 0.0);
+    // Area centroid over the pre-densified placement polygon; a degenerate cross sum falls back to the anchor.
+    static Point3d Centroid(Loop polygon) {
+        (double Cross, double X, double Y) moment = toSeq(Enumerable.Range(0, polygon.Count)).Fold((0.0, 0.0, 0.0), (sum, index) => {
+            Point3d a = polygon.At(index), b = polygon.At(index + 1);
+            double cross = (a.X * b.Y) - (b.X * a.Y);
+            return (sum.Item1 + cross, sum.Item2 + ((a.X + b.X) * cross), sum.Item3 + ((a.Y + b.Y) * cross));
+        });
+        return Math.Abs(moment.Cross) < 1e-12
+            ? Anchor(polygon)
+            : new Point3d(moment.X / (3.0 * moment.Cross), moment.Y / (3.0 * moment.Cross), 0.0);
     }
 
     static Point3d Anchor(Loop loop) => loop.Vertices.OrderBy(static v => v.Y).ThenBy(static v => v.X).Head();
+
+    static Point3d Midline(Point3d onFirst, Point3d secondOrigin, Vector3d secondDirection) {
+        double parameter = ((onFirst - secondOrigin) * secondDirection) / (secondDirection * secondDirection);
+        Point3d onSecond = secondOrigin + (parameter * secondDirection);
+        return onFirst + (0.5 * (onSecond - onFirst));
+    }
+
+    static double Overlap(Edge3 left, Edge3 right) {
+        Vector3d axis = left.B - left.A;
+        double length = axis.Length;
+        if (length < 1e-9) return 0.0;
+        double first = ((right.A - left.A) * axis) / (length * length);
+        double second = ((right.B - left.A) * axis) / (length * length);
+        return Math.Max(0.0, Math.Min(1.0, Math.Max(first, second)) - Math.Max(0.0, Math.Min(first, second))) * length;
+    }
 
     static Point3d Lerp(Edge3 e, double t) => e.A + ((e.B - e.A) * t);
 }
@@ -232,18 +382,54 @@ public static class Linking {
 ```mermaid
 ---
 config:
-  layout: elk
   theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    titleColor: "#D6BCFA"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
-    Placement["Nest.Solve Placement (transforms READ-ONLY, bulges preserved)"] --> Pairs["pairing predicate: straight · anti-parallel · kerf band · overlap floor"]
-    Pairs -->|"Clears (Offset + Clip vs third parts)"| Commit["commit fold, longest shared line first"]
-    Commit -->|"UndirectedGraph + ConnectedComponents"| Chains["Chains: depth DESC · proximity band · cap"]
-    Commit -->|"AutoBridge over long shared lines"| Bridge["Bridge rows"]
-    Stock["Stock.Outline"] -->|"grid × ClipOpen OUTSIDE"| CutUp["SkeletonCutUp slitting"]
-    Chains --> Objective{"pierce + rapid + cut score improves?"}
-    Objective -->|yes| PlanY["LinkPlan: ops + ChainRows + saved metrics"]
-    Objective -->|no| PlanN["baseline receipt (fallback verdict, no fault)"]
-    PlanY -->|"one pierce/lead per chain"| Program["Posting/program Pierce/Lead conditioning (seam)"]
-    Placement -.->|open outline| Open["FabricationFault.OpenLoop (FabConcern.Nest)"]
+    accTitle: Linking plan dispatch and fold
+    accDescr: Placed instances produce collision-cleared common lines, component chains, optional bridges, and stock slits whose measured objective either commits the optimized operations or emits an explicit baseline receipt.
+    Placement([Placed instances]) --> Candidates[Find shared spans]
+    Candidates --> Commit[Commit conflict-free spans]
+    Commit --> Chains[Build instance chains]
+    Commit --> Bridges[Place bridges]
+    Stock[(Stock region)] -.-> CutUp[Clip skeleton slits]
+    Chains --> Score[Measure objective]
+    Bridges --> Score
+    CutUp --> Score
+    Score --> Better{Improves baseline?}
+    Better -->|yes| Optimized[Commit operations]
+    Better -->|no| Baseline[Preserve baseline]
+    Optimized --> Receipt[/Link plan/]
+    Baseline --> Receipt
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
+    class Placement boundary
+    class Candidates,Commit,Chains,Bridges,CutUp,Score,Better,Optimized,Baseline primary
+    class Stock data
+    class Receipt success
+    linkStyle 4 stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dasharray:4 6
+    linkStyle 11,12 stroke:#50FA7B,color:#F8F8F2
 ```

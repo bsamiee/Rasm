@@ -1,15 +1,13 @@
 ---
 name: skill-writer
 description: >-
-    Designs, authors, reviews, and repairs skill bundles end to end: SKILL.md root routing,
-    trigger descriptions and listing budgets, references and progressive disclosure, bundled
-    scripts and templates, frontmatter invocation policy, degrees-of-freedom calibration, and
-    the eval loop that proves a skill fires when it must and changes output when it loads. Use
-    when creating a skill, rewriting or auditing an existing bundle, writing or tuning a trigger
-    description, splitting an oversized root, deciding whether material earns a skill or a
-    cheaper owner, pricing how rigid an instruction is allowed to be, measuring trigger and
-    adherence quality, or auditing a skill estate for trigger collisions, listing overflow,
-    and forks. Prose register and the deterministic prose gate belong to the
+    Designs, authors, reviews, and repairs skill bundles — SKILL.md roots, trigger descriptions,
+    references, templates, bundled scripts, frontmatter policy — and proves them with trigger and
+    adherence evals. Use when creating a skill, rewriting or auditing an existing bundle, writing
+    or tuning a trigger description, splitting an oversized root, deciding whether material earns
+    a skill or a cheaper owner, pricing how rigid an instruction is allowed to be, measuring
+    trigger and adherence quality, or auditing a skill estate for trigger collisions, listing
+    overflow, and forks. Prose register and the deterministic prose gate belong to the
     docgen skill; codex-native format and discovery mechanics belong to the codex skill;
     runnable orchestration scripts belong to workflow-creator; placement across memory files,
     rules, settings, and hooks belongs to harness-config.
@@ -83,4 +81,4 @@ Every bundle file passes the docgen skill's prose gate before return — it mech
 
 ## [09]-[ESTATE]
 
-An installed fleet is one selection system: descriptions compete in a shared listing, the budget is common property, and a defect in one bundle degrades its neighbors' selection. `scripts/estate_audit.py <roots...>` sweeps every bundle beneath the given roots in one pass and receipts description budgets, starved triggers, pairwise trigger overlap, cross-bundle prose forks, shadowed names, and the listing spend — text rows by default, `--json` for machine consumers, nonzero exit on hard failures. Audit cadence, finding-to-repair routing, and mirror and port discipline are [references/estate.md](references/estate.md).
+An installed fleet is one selection system: descriptions compete in a shared listing, the budget is common property, and a defect in one bundle degrades its neighbors' selection. `${CLAUDE_SKILL_DIR}/scripts/estate_audit.py <roots...>` sweeps every bundle beneath the given roots in one pass and receipts description budgets, starved triggers, pairwise trigger overlap, cross-bundle prose forks, shadowed names, and the listing spend — text rows by default, `--json` for machine consumers, nonzero exit on hard failures. Audit cadence, finding-to-repair routing, and mirror and port discipline are [references/estate.md](references/estate.md).

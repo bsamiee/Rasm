@@ -153,7 +153,7 @@ public readonly record struct AlignmentReceipt(
         ValidityClaim.Of(Robust.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)),
         ValidityClaim.Of(Solve.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)),
         ValidityClaim.Of(Optimizer.Map(static receipt => receipt.IsValid).IfNone(noneValue: true)));
-    internal Fin<TOut> Project<TOut>(Op key) {
+    public Fin<TOut> Project<TOut>(Op key) {
         AlignmentReceipt self = this;
         return AtomProjection.Rows<AlignmentReceipt, TOut>(self: self, key: key,
             ProjectionRow.Of<Transform>(() => self.Stop.Equals(AlignmentStopKind.Converged)

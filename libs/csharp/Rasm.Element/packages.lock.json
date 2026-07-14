@@ -166,7 +166,8 @@
           "System.IO.Hashing": "[10.0.9, )",
           "System.Numerics.Tensors": "[10.0.9, )",
           "TYoshimura.DoubleDouble": "[5.0.8, )",
-          "Thinktecture.Runtime.Extensions": "[10.4.0, )"
+          "Thinktecture.Runtime.Extensions": "[10.4.0, )",
+          "Wacton.Unicolour": "[8.0.0, )"
         }
       },
       "CommunityToolkit.HighPerformance": {
@@ -222,6 +223,12 @@
         "requested": "[5.0.8, )",
         "resolved": "5.0.8",
         "contentHash": "uv/osrv2ZwBdgij6HvOBmojPnnuZ0nNwGPZVFOO9aKlV6/IHl3TOsP4a7XRlS8SUIPUUKqhynG5HQTeaNh8WVA=="
+      },
+      "Wacton.Unicolour": {
+        "type": "CentralTransitive",
+        "requested": "[8.0.0, )",
+        "resolved": "8.0.0",
+        "contentHash": "BOTEJsSzwVGM4ovknAtOwY0SlfHQ2C4rjEhVPX6JeshVYzxr3iJiDHH4e+jX0iSujgqHuByOudIrXiHMgQabWA=="
       }
     }
   }

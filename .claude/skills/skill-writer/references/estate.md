@@ -26,8 +26,9 @@ An installed fleet is one selection system: every description competes in a shar
 
 The audit script's checks are heuristics that surface candidates; the eval loop adjudicates. Each finding class routes to its repair surface:
 
+- [MISSING_FIELD]: A bundle whose frontmatter lacks `name` or `description`, or a file the sweep cannot read — a hard failure with a nonzero exit, repaired before any other finding is triaged.
 - [DESC_BUDGET]: Description over the portability budget or the listing ceiling — rebuilt under the construction ordering, tail first.
-- [STARVED]: Fewer than two mechanical discriminants — repaired in the description's first clause with concrete objects and verbs.
+- [STARVED]: Fewer than two mechanically detectable discriminants — backticked spans, quoted phrasings, file extensions, screaming tokens. A description discriminated by plain capitalized domain nouns or verb-plus-object phrases clears the eval loop while tripping this heuristic, so the flag is a candidate the trigger evals adjudicate, never a verdict; a confirmed hit repairs in the description's first clause with concrete objects and verbs.
 - [OVERLAP]: High shared-discriminant similarity between two descriptions — a collision candidate, adjudicated by must-not-fire runs, never by the similarity score alone.
 - [FORK]: An identical prose line in two bundles — the owning bundle keeps it; the sibling composes by name or deletes.
 - [SHADOW]: One skill name under several scanned roots — collapsed to the single authority.

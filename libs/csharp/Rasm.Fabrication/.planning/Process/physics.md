@@ -1,25 +1,27 @@
 # [RASM_FABRICATION_CUT_PARAMETER]
 
-The process-physics owner: ONE `Material` identity per physical material carrying a `Map<ProcessModality, ModalityPhysics>` payload — stainless is ONE row whose map holds its subtractive, abrasive, erosion, formed, and joined physics; the disk `stainless-abrasive`/`mild-steel-thermal` fragmented per-modality material rows are the collapsed form. `RemovalParameter.Budget` modality-dispatches into the map: the `Process/family#PROCESS_FAMILY` `ProcessKind.Modality` selects the map entry, and the ENTRY'S `ModalityPhysics` case selects the `RemovalBudget` case — so the `additive` modality resolves FFF extrusion for `pla-filament`, DED deposition for `mild-steel`, resin exposure/cure for `photopolymer-resin`, and powder laser/hatch/scan for `ss316-powder` off the one map; the `erosion` modality resolves a REAL `Erosion` budget (EDM discharge current, pulse on/off, wire feed) — the `erosion→ThermalBudget` conflation is dead; the `formed` modality resolves the `Formed` FORM budget (tensile `Rm` the brake tonnage formula `F=(C·Rm·S²·L)/(V·1000)` consumes, base K-factor the bend-allowance projection `BA=(π/180)·A·(R+K·T)` consumes, springback ratio the overbend derivation consumes, minimum-bend-radius factor in thickness multiples — `Forming/{sheet,brake}` are the consumers); and the `joined` modality REUSES the landed `Deposition` case as the weld heat-input budget (`Joining/weld` is its first consumer — arc power/wire-feed/standoff/interpass drive `HI = η·60·V·I/(1000·v)` and the interpass schedule on `Joining/sequence`), never a parallel weld-physics sibling. A material lacking the demanded modality's entry routes the kernel `GeometryFault.DegenerateInput`, never a hardcoded fallback: the dead `(ProcessKind, Material, Tool, Operation)` `Overrides` carrier is DELETED (measured production data enters through `Tooling/cuttingdata`'s ingress arm, never a page-local dictionary), and the inline `90.0 m/min` literal is demoted behind the data table — every seed value is a constructor-bound row datum, no code-path constant survives. The measured machinability table (the SFM/chip-load cells) is EXCISED to `Tooling/cuttingdata` and deepened there to the Kienzle `kc` model; this page keeps the material identity, the per-modality physics, and the formula FLOOR the generators fall back to when no measured cell exists — consumers consult `CuttingData.Of` first, `Budget` always.
+The process-physics owner separates material family identity from admitted grade data. Each `Material` row carries a catalog baseline, while `MaterialSpec` carries the actual grade, constitutive properties, `PhysicsKind` map, and optional certificate key used for one run. `ProcessPhysics.Budget` selects that runtime map by `ProcessKind.Physics` and returns the matching `ProcessBudget` case.
 
-`Budget` reads the mounted `ToolAssembly` (the `Tooling/magazine` ISO-13399-backed assembly), not a bare catalog row — the subtractive projection reads the assembly's tool diameter/flutes and the operation's chip-load/engagement columns, so a measured tool budgets from its real geometry. The `Tool` axis stays HERE as the process-discriminated catalog vocabulary (`Diameter`/`Flutes`/`Coating`/`CornerRadius`/`HelixAngle`/`Stickout`/`Runout` columns) the `ToolAssembly` composes; a parallel tool-geometry record anywhere is the deleted form. The upstream constitutive scalars — conductivity, specific heat, density — admit as RAW DOUBLES at the `Rasm.Materials` `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` AEC-peer boundary (never a `MaterialProperty` type in-folder). Quantity-bearing ingress (`mm/min`, `m/min`, `rpm`, `mm`, `bar`) admits ONCE through the in-folder `UnitsNet` boundary (`Speed`/`Length`/`RotationalSpeed`/`Pressure` `TryParse` → typed accessor), the strata-correct owner honoring AEC-domain acyclicity; the interior's CANONICAL scalar row is the machining unit system — millimetre, millimetre/minute, rev/minute, bar — the same units every physics row datum and budget field carries, so the boundary projects `MillimetersPerMinutes`/`RevolutionsPerMinute`/`Millimeters`/`Bars` BY LAW (an SI-base `m/s` feed would silently mis-scale every generator); a quantity type in a generator signature is the seam violation, and the SI-m² spellings live only on the element-graph wire.
+Subtractive physics requires an operation and equipment matched to the process: rotary cutters for milling and routing, turning inserts for turning, wheels for grinding, and saw blades for sawing. `Tool.Admit` validates the geometry carried by each equipment case before assembly admission. Thermal, abrasive, fused-filament, deposition, joining, and wire-erosion physics require the matching process head. Resin, powder, and forming physics reject equipment and operation carriers because those concepts do not belong to their budget case.
 
-Wire posture: HOST-LOCAL. The `RemovalBudget` scalars cross only the in-process seam to the toolpath generators — never a browser or peer wire; the axes and unions never sit between wire and rail.
+The interior unit regime is explicit machining canonical form: millimetres, millimetres per minute, revolutions per minute, bar, watts, degrees Celsius, microseconds, and megapascals. `UnitsNet` parses boundary text and projects the named accessor for that regime. The page never labels those scalars SI, and a quantity type never crosses into a generator signature.
+
+Wire posture: HOST-LOCAL. `ProcessBudget` cases and `MaterialSpec` cross only in-process seams to the fabrication generators.
 
 ## [01]-[INDEX]
 
-- [01]-[CUT_PARAMETER]: owns the `Coating`/`Tool`/`Operation` catalog axes, the nine-case `ModalityPhysics` per-modality payload union, the ONE `Material` identity with its `Map<ProcessModality, ModalityPhysics>` column, the nine-case `RemovalBudget` receipt union, and the `RemovalParameter.Budget` projection — the modality-dispatched map read the toolpath, additive, erosion, forming, and joining generators consume as settled scalars.
+- [01]-[CUT_PARAMETER]: `Coating`, `ToolClass`, `Tool`, `FeedLaw`, `Operation`, `ModalityPhysics`, `Material`, `MaterialSpec`, `ProcessBudget`, and the single `ProcessPhysics` projection owner.
 
 ## [02]-[CUT_PARAMETER]
 
-- Owner: `Coating` `[SmartEnum<string>]` (`uncoated`/`TiN`/`TiAlN`/`diamond`); `Tool` `[SmartEnum<string>]` the process-discriminated catalog axis carrying the full tooling payload columns; `Operation` `[SmartEnum<string>]` the milling-op taxonomy (`contour`/`pocket`/`slot`/`face`/`drill`/`bore`/`ream`/`tap`/`chamfer`/`trochoidal`) carrying chip-load, radial-engagement, and INDEPENDENT axial-depth columns; `ModalityPhysics` `[Union]` the closed per-modality material payload — `Subtractive` (surface-speed floor) · `Thermal` (kerf/pierce/assist/speed) · `Abrasive` (jet/rate/traverse) · `Fff` (melt-temp/bond-window/extrusion-width/layer-height/print-speed — the full FFF production row, no projection-side constant) · `Deposition` (power/wire-feed/standoff/interpass — DED distinct from FFF) · `Erosion` (discharge-current/pulse-on/pulse-off/wire-feed) · `Resin` (exposure/cure-depth/lift) · `Powder` (laser-power/hatch-spacing/scan-speed) · `Forming` (tensile-Rm/K-factor/springback-ratio/min-bend-radius-factor — the sheet-forming constitutive row); `Material` `[SmartEnum<string>]` the ONE per-physical-material identity carrying `Map<ProcessModality, ModalityPhysics>`; `RemovalBudget` `[Union]` the case-per-physics raw-scalar receipt MIRRORING the payload cases name-for-name (`Fff` mirrors `Fff` — the `Additive`-named budget case that shadowed the modality concept is the deleted misname) — its `Formed` case IS the form budget (tonnage/springback/bend-allowance inputs) and its `Deposition` case doubles as the weld heat-input budget under the `joined` map key; `RemovalParameter` the static surface owning `Budget` and the admission boundaries.
-- Cases: `Material` rows 9 — `aluminium` {subtractive, thermal, abrasive, erosion, formed, joined→Deposition} · `mild-steel` {subtractive, thermal, abrasive, erosion, additive→Deposition, formed, joined→Deposition} · `stainless` {subtractive, thermal, abrasive, erosion, formed, joined→Deposition} · `titanium` {subtractive, abrasive, erosion, formed, joined→Deposition — the aerospace staple; thermal omitted, Ti oxy/plasma cutting is metallurgy-hostile} · `acrylic` {subtractive, thermal} · `plywood` {subtractive, thermal} · `pla-filament` {additive→Fff} · `photopolymer-resin` {additive→Resin} · `ss316-powder` {additive→Powder} — the metals carry every removal modality a real shop routes them through (stainless laser-cuts, mild steel waterjets and wire-EDMs; the prior thin slices were the named coverage defect); the map entry's CASE, not the modality row, discriminates the budget case, so one `additive` modality serves four distinct production physics and the `Deposition` case serves BOTH the DED build (`additive` key) and the weld heat-input budget (`joined` key) off distinct row values; `Tool` rows 9; `Operation` rows 10; the subtractive projection is the milling formula (`spindle = v·1000/(π·d)`, `feed = spindle·flutes·chipLoad`, `depth = axial·d`, `width = engagement·d`, `mrr = depth·width·feed`) over the map's surface-speed floor and the assembly geometry — the MEASURED cell (Kienzle `kc`, per-operation speed, feed-per-tooth) lives at `Tooling/cuttingdata` and defeats this floor at the consumer.
-- Entry: `public static Fin<RemovalBudget> Budget(ProcessKind process, Material material, ToolAssembly tool, Operation operation)` — the ONE projection: `process.Modality` keys the material map, a missing entry routes `GeometryFault.DegenerateInput` (the material/modality pairing is degenerate input, never a silent default), the present entry's case projects its budget through the generated total `Switch`; `public static Fin<(ProcessKind, Material, Operation)> Admit(string process, string material, string operation)` accumulates three INDEPENDENT key admissions through `Validation` over the family's one `ProcessFamily.Admit<TAxis>` bridge — every bad key reports in one verdict, then the triple rejoins the `Fin` rail; `Feed`/`Spindle`/`Depth`/`Assist` are the `UnitsNet` quantity-text boundaries emitting canonical machining scalars (mm/min · rpm · mm · bar), each routing `DegenerateInput` on an unparseable quantity.
-- Auto: `Budget` binds `material.Physics.Find(process.Modality)` and folds the entry through the `ModalityPhysics` generated total `Switch` — `Subtractive` projects the milling formula from the map floor + `tool.Tool.Diameter`/`Flutes` + `operation.ChipLoad`/`Engagement`/`Axial`; `Thermal` projects pierce/kerf/speed/assist off its row with the kerf floored at the mounted torch/beam orifice diameter (a physical invariant, not a policy value); `Abrasive` jet/rate/traverse; `Fff` extrusion width (floored at the nozzle bore)/layer/speed/melt-temp — every FFF scalar a ROW datum, the projection-side print-speed constant deleted; `Deposition` power/feed/standoff/interpass; `Erosion` discharge/pulse-on/pulse-off/wire-feed; `Resin` exposure/cure-depth/lift; `Powder` laser/hatch/scan; `Forming` Rm/K/springback/min-radius. Constitutive scalars (a thermal cut scaling pierce by conductivity, an abrasive cut by density) admit as raw doubles at the `Rasm.Materials` peer boundary. `Toolpath/motion` reads the modality-matched case; `Tooling/cuttingdata` keys its Kienzle table by this page's `Material` identity; `Toolpath/surface` reads the subtractive chip-load budget for engagement bounds; `Forming/sheet` reads `Formed.KFactor` as the coupon-refinable base row and `Forming/brake` reads `Formed.TensileRm`/`SpringbackRatio`/`MinBendRadiusFactor` for tonnage/overbend/radius-floor; `Joining/weld` reads the `joined`-keyed `Deposition` for heat input and `Joining/sequence` its `InterpassTemp` for the interpass schedule; `Additive/scanpath` consumes the `Powder` budget's laser/hatch/scan triple.
-- Receipt: the `RemovalBudget` case carries its physics' raw scalars directly — the projected budget IS the evidence; no generic parameter ledger, no quantity type escaping the boundary, no case carrying a column outside its physics.
-- Packages: `Process/family#PROCESS_FAMILY` (`ProcessKind`/`ProcessModality` — the one modality vocabulary, composed), `Tooling/magazine#TOOL_MAGAZINE` (`ToolAssembly` — the mounted-tool geometry the budget reads), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`/`[Union]`), `UnitsNet` (`Speed`/`Length`/`RotationalSpeed`/`Pressure` ingress + SI accessors — the `.api/api-unitsnet.md` overlay), `Rasm.Numerics` (`GeometryFault` band-2400), LanguageExt.Core (`Fin`/`Map`), BCL inbox; `Rasm.Materials` `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` constitutive scalars as raw doubles at the peer boundary.
-- Growth: a new material is one `Material` row binding its full modality map; a new modality physics for an existing material is one map entry on its row; a new production physics (a new AM class) is one `ModalityPhysics` case + one `RemovalBudget` case + one `Switch` arm, the generated dispatch breaking the build until the arm lands; a new budget scalar is one field on its case + one projection term; measured production machinability is `Tooling/cuttingdata`'s ingress arm, NEVER a page-local override dictionary; zero new surface.
-- Boundary: `RemovalParameter` is the ONE removal-physics owner and a per-generator magic number is the deleted form; the material is ONE identity row and a per-modality material sibling (`stainless-abrasive`, `mild-steel-thermal`) is the deleted fragmentation — the map column owns the modality spread; the `Overrides` dictionary is DELETED and a resurrected page-local measured-data carrier is the rejected form — measured cells are `Tooling/cuttingdata`'s, entered through its data-ingress arm; no code-path fallback constant survives — a missing map entry FAILS typed, the seed values are row data, and an inline surface-speed/pierce/melt/print-speed literal in a projection body is the named defect the `90.0` and `PrintSpeed: 60.0` demotions killed (both now constructor-bound row data); the budget union mirrors the physics union name-for-name and a budget case named after a MODALITY rather than its physics (`Additive` for the FFF receipt) is the deleted misname; the budget union is modality-discriminated and a parallel `ThermalParameter`/`ErosionParameter` sibling table is the deleted form; the modality discriminant is the `Process/family` row and a second modality enum here is the deleted form; the quantity parse lives only at the `UnitsNet` boundary and the interior is raw doubles; the constitutive read is raw doubles at the `Rasm.Materials` peer boundary and a `MaterialProperty` type in a generator signature is the seam violation.
+- Owner: `Tool` discriminates rotary cutters, turning inserts, grinding wheels, saw blades, and process heads under shared key identity. `ToolClass` gates thermal, abrasive, extrusion, wire-electrode, and deposition heads. `FeedLaw` distinguishes per-tooth, per-revolution, pitch-synchronous, and surface-ratio feed. `Operation` binds the feed law and engagement fractions. `ModalityPhysics` owns constitutive inputs; `MaterialSpec` owns admitted grade data; and `ProcessBudget` owns derived outputs.
+- Cases: the seeded equipment catalog covers milling, holemaking, turning, grinding, sawing, laser, plasma, waterjet, fused filament, wire EDM, and deposition. `Operation` covers milling, holemaking, turning, threading, grooving, grinding, sawing, form milling, and engraving. `ModalityPhysics` covers nine constitutive families, while `ProcessBudget` adds a distinct turning case because CSS spindle speed depends on workpiece radius at motion time.
+- Entry: `Tool.Admit` owns equipment geometry admission. `ProcessPhysics.Budget(ProcessKind, MaterialSpec, Option<ToolAssembly>, Option<Operation>)` selects the grade map and folds its physics case to `Fin<ProcessBudget>`. Equipment/process mismatches fail through `RelationFault.OperationEquipment`, process/material mismatches fail through `RelationFault.ProcessMaterial`, independent textual key failures accumulate in `Admit`, and quantity entries parse machining-unit text.
+- Auto: material admission proves every constitutive scalar finite and physically admitted. Milling, grinding, and sawing derive bounded spindle, feed, engagement, and removal-rate floors. Turning carries surface speed and feed per revolution without inventing a fixed spindle value. Thermal and fused-filament widths floor against admitted hardware diameter, the formed budget sources its tensile strength from the one admitted grade axis, and every other budget carries the exact scalars produced by its constitutive case — every admitted field reaches its budget, none is validated and then discarded.
+- Receipt: the `ProcessBudget` case carries only the scalars its physics produces, and `MaterialSpec.Certificate` links the budget inputs to admitted grade evidence.
+- Packages: `ProcessKind`, `ProcessModality`, `ToolAssembly`, Thinktecture.Runtime.Extensions, `UnitsNet` named machining-unit accessors, `Rasm.Numerics`, LanguageExt.Core, and BCL inbox.
+- Growth: a material family is one `Material` row; a production grade is one admitted `MaterialSpec`; equipment is one `Tool` case value; an operation is one `Operation` row; and a physics family is one `PhysicsKind` row, one input case, one output case, and one total-dispatch arm.
+- Boundary: family identity, grade evidence, equipment variant, physics input, and derived budget remain distinct admission and payload-timing regimes. Required equipment and operations fail typed, irrelevant carriers fail typed, and no variant encodes inapplicable fields as zeros.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -44,49 +46,124 @@ public sealed partial class Coating {
 }
 
 [SmartEnum<string>]
-public sealed partial class Tool {
-    public static readonly Tool Endmill3 = new("endmill-3mm", diameter: 3.0, flutes: 2, Coating.TiAlN, cornerRadius: 0.2, helixAngle: 30.0, stickout: 18.0, runout: 0.005);
-    public static readonly Tool Endmill6 = new("endmill-6mm", diameter: 6.0, flutes: 3, Coating.TiAlN, cornerRadius: 0.5, helixAngle: 35.0, stickout: 30.0, runout: 0.008);
-    public static readonly Tool Endmill10 = new("endmill-10mm", diameter: 10.0, flutes: 4, Coating.TiAlN, cornerRadius: 0.8, helixAngle: 38.0, stickout: 45.0, runout: 0.010);
-    public static readonly Tool Drill6 = new("drill-6mm", diameter: 6.0, flutes: 2, Coating.TiN, cornerRadius: 0.0, helixAngle: 28.0, stickout: 36.0, runout: 0.012);
-    public static readonly Tool TurningInsert = new("turning-insert", diameter: 0.8, flutes: 1, Coating.TiAlN, cornerRadius: 0.8, helixAngle: 0.0, stickout: 25.0, runout: 0.005);
-    public static readonly Tool LaserHead = new("laser-head", diameter: 0.1, flutes: 0, Coating.Uncoated, cornerRadius: 0.0, helixAngle: 0.0, stickout: 0.0, runout: 0.0);
-    public static readonly Tool PlasmaTorch = new("plasma-torch", diameter: 1.5, flutes: 0, Coating.Uncoated, cornerRadius: 0.0, helixAngle: 0.0, stickout: 0.0, runout: 0.0);
-    public static readonly Tool WaterjetNozzle = new("waterjet-nozzle", diameter: 0.76, flutes: 0, Coating.Uncoated, cornerRadius: 0.0, helixAngle: 0.0, stickout: 0.0, runout: 0.0);
-    public static readonly Tool FffNozzle = new("fff-nozzle", diameter: 0.4, flutes: 0, Coating.Uncoated, cornerRadius: 0.0, helixAngle: 0.0, stickout: 0.0, runout: 0.0);
+public sealed partial class ToolClass {
+    public static readonly ToolClass Thermal = new("thermal", Set(ProcessModality.Thermal));
+    public static readonly ToolClass Abrasive = new("abrasive", Set(ProcessModality.Abrasive));
+    public static readonly ToolClass Extrusion = new("extrusion", Set(ProcessModality.Additive));
+    public static readonly ToolClass WireElectrode = new("wire-electrode", Set(ProcessModality.Erosion));
+    public static readonly ToolClass Deposition = new("deposition", Set(ProcessModality.Additive, ProcessModality.Joined));
 
-    public double Diameter { get; }
-    public int Flutes { get; }
-    public Coating Coating { get; }
-    public double CornerRadius { get; }
-    public double HelixAngle { get; }
-    public double Stickout { get; }
-    public double Runout { get; }
+    public Set<ProcessModality> Modalities { get; }
+    public bool Admits(ProcessModality modality) => Modalities.Contains(modality);
 }
 
-// Radial Engagement and AXIAL depth are independent cut dimensions (both diameter fractions) — one column
-// doubling as both produced identical MRR evidence for physically distinct cuts, the deleted conflation.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Tool(string Key) {
+    public static readonly Tool Endmill3 = new Rotary("endmill-3mm", 3.0, 2, Coating.TiAlN, 0.2, 30.0, 18.0, 0.005);
+    public static readonly Tool Endmill6 = new Rotary("endmill-6mm", 6.0, 3, Coating.TiAlN, 0.5, 35.0, 30.0, 0.008);
+    public static readonly Tool Endmill10 = new Rotary("endmill-10mm", 10.0, 4, Coating.TiAlN, 0.8, 38.0, 45.0, 0.010);
+    public static readonly Tool Ballnose6 = new Rotary("ballnose-6mm", 6.0, 2, Coating.TiAlN, 3.0, 30.0, 32.0, 0.008);
+    public static readonly Tool FaceMill50 = new Rotary("face-mill-50mm", 50.0, 5, Coating.TiAlN, 0.8, 0.0, 45.0, 0.012);
+    public static readonly Tool Drill6 = new Rotary("drill-6mm", 6.0, 2, Coating.TiN, 0.0, 28.0, 36.0, 0.012);
+    public static readonly Tool Reamer6 = new Rotary("reamer-6mm", 6.0, 6, Coating.TiN, 0.0, 8.0, 40.0, 0.006);
+    public static readonly Tool TapM6 = new Rotary("tap-m6", 6.0, 4, Coating.TiN, 0.0, 0.0, 35.0, 0.008);
+    public static readonly Tool BoringBar12 = new Rotary("boring-bar-12mm", 12.0, 1, Coating.TiAlN, 0.4, 0.0, 60.0, 0.006);
+    public static readonly Tool TurningInsert = new Turning("turning-insert", 0.8, 8.0, 95.0, Coating.TiAlN);
+    public static readonly Tool GrindingWheel200 = new Wheel("grinding-wheel-200mm", 200.0, 25.0, grit: 60, maxRpm: 4800.0);
+    public static readonly Tool ColdSawBlade300 = new SawBlade("cold-saw-blade-300mm", 300.0, 2.5, teeth: 180, maxRpm: 3600.0);
+    public static readonly Tool LaserHead = new Head("laser-head", 0.1, ToolClass.Thermal);
+    public static readonly Tool PlasmaTorch = new Head("plasma-torch", 1.5, ToolClass.Thermal);
+    public static readonly Tool WaterjetNozzle = new Head("waterjet-nozzle", 0.76, ToolClass.Abrasive);
+    public static readonly Tool FffNozzle = new Head("fff-nozzle", 0.4, ToolClass.Extrusion);
+    public static readonly Tool EdmWire = new Head("edm-wire-0.25mm", 0.25, ToolClass.WireElectrode);
+    public static readonly Tool DepositionHead = new Head("deposition-head", 1.2, ToolClass.Deposition);
+
+    public sealed record Rotary(
+        string Key,
+        double Diameter,
+        int Flutes,
+        Coating Coating,
+        double CornerRadius,
+        double HelixAngle,
+        double Stickout,
+        double Runout) : Tool(Key);
+
+    public sealed record Wheel(string Key, double Diameter, double Width, int Grit, double MaxRpm) : Tool(Key);
+    public sealed record SawBlade(string Key, double Diameter, double Kerf, int Teeth, double MaxRpm) : Tool(Key);
+    public sealed record Turning(
+        string Key,
+        double NoseRadius,
+        double CuttingEdgeLength,
+        double ApproachAngleDeg,
+        Coating Coating) : Tool(Key);
+    public sealed record Head(string Key, double Diameter, ToolClass Class) : Tool(Key);
+
+    public static Fin<Tool> Admit(Tool candidate) => candidate.Switch(
+        rotary: static tool => tool.Diameter > 0.0 && double.IsFinite(tool.Diameter)
+            && tool.Flutes > 0 && double.IsFinite(tool.CornerRadius) && tool.CornerRadius is >= 0.0
+            && tool.CornerRadius <= tool.Diameter * 0.5 && double.IsFinite(tool.HelixAngle) && tool.HelixAngle is >= 0.0 and < 90.0
+            && double.IsFinite(tool.Stickout) && tool.Stickout > 0.0 && double.IsFinite(tool.Runout) && tool.Runout >= 0.0
+                ? Fin.Succ((Tool)tool) : Invalid("rotary"),
+        wheel: static tool => tool.Diameter > 0.0 && double.IsFinite(tool.Diameter)
+            && tool.Width > 0.0 && double.IsFinite(tool.Width) && tool.Grit > 0
+            && tool.MaxRpm > 0.0 && double.IsFinite(tool.MaxRpm)
+                ? Fin.Succ((Tool)tool) : Invalid("wheel"),
+        sawBlade: static tool => tool.Diameter > 0.0 && double.IsFinite(tool.Diameter)
+            && tool.Kerf > 0.0 && double.IsFinite(tool.Kerf) && tool.Teeth > 0
+            && tool.MaxRpm > 0.0 && double.IsFinite(tool.MaxRpm)
+                ? Fin.Succ((Tool)tool) : Invalid("saw-blade"),
+        turning: static tool => tool.NoseRadius >= 0.0 && double.IsFinite(tool.NoseRadius)
+            && tool.CuttingEdgeLength > 0.0 && double.IsFinite(tool.CuttingEdgeLength)
+            && tool.ApproachAngleDeg > 0.0 && tool.ApproachAngleDeg < 180.0 && double.IsFinite(tool.ApproachAngleDeg)
+                ? Fin.Succ((Tool)tool) : Invalid("turning"),
+        head: static tool => tool.Diameter > 0.0 && double.IsFinite(tool.Diameter)
+            ? Fin.Succ((Tool)tool) : Invalid("head"));
+
+    private static Fin<Tool> Invalid(string kind) =>
+        Fin.Fail<Tool>(GeometryFault.DegenerateInput($"tool:{kind}").ToError());
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record FeedLaw {
+    private FeedLaw() { }
+
+    public sealed record Chip(double PerTooth) : FeedLaw;
+    public sealed record PerRevolution(double Millimeters) : FeedLaw;
+    public sealed record Pitch(double MillimetersPerRevolution) : FeedLaw;
+    public sealed record SurfaceRatio(double Fraction) : FeedLaw;
+}
+
 [SmartEnum<string>]
 public sealed partial class Operation {
-    public static readonly Operation Contour = new("contour", chipLoad: 0.05, engagement: 1.0, axial: 1.0);
-    public static readonly Operation Pocket = new("pocket", chipLoad: 0.04, engagement: 0.5, axial: 0.5);
-    public static readonly Operation Slot = new("slot", chipLoad: 0.035, engagement: 1.0, axial: 0.5);
-    public static readonly Operation Face = new("face", chipLoad: 0.08, engagement: 0.7, axial: 0.1);
-    public static readonly Operation Drill = new("drill", chipLoad: 0.03, engagement: 1.0, axial: 1.0);
-    public static readonly Operation Bore = new("bore", chipLoad: 0.04, engagement: 0.05, axial: 1.0);
-    public static readonly Operation Ream = new("ream", chipLoad: 0.08, engagement: 0.02, axial: 1.0);
-    public static readonly Operation Tap = new("tap", chipLoad: 0.0, engagement: 1.0, axial: 1.0);
-    public static readonly Operation Chamfer = new("chamfer", chipLoad: 0.05, engagement: 0.2, axial: 0.1);
-    public static readonly Operation Trochoidal = new("trochoidal", chipLoad: 0.06, engagement: 0.1, axial: 1.0);
+    public static readonly Operation Contour = new("contour", new FeedLaw.Chip(0.05), engagement: 1.0, axial: 1.0);
+    public static readonly Operation Pocket = new("pocket", new FeedLaw.Chip(0.04), engagement: 0.5, axial: 0.5);
+    public static readonly Operation Slot = new("slot", new FeedLaw.Chip(0.035), engagement: 1.0, axial: 0.5);
+    public static readonly Operation Face = new("face", new FeedLaw.Chip(0.08), engagement: 0.7, axial: 0.1);
+    public static readonly Operation Drill = new("drill", new FeedLaw.Chip(0.03), engagement: 1.0, axial: 1.0);
+    public static readonly Operation Bore = new("bore", new FeedLaw.Chip(0.04), engagement: 0.05, axial: 1.0);
+    public static readonly Operation Ream = new("ream", new FeedLaw.Chip(0.08), engagement: 0.02, axial: 1.0);
+    public static readonly Operation Tap = new("tap", new FeedLaw.Pitch(1.0), engagement: 1.0, axial: 1.0);
+    public static readonly Operation Chamfer = new("chamfer", new FeedLaw.Chip(0.05), engagement: 0.2, axial: 0.1);
+    public static readonly Operation Trochoidal = new("trochoidal", new FeedLaw.Chip(0.06), engagement: 0.1, axial: 1.0);
+    public static readonly Operation RoughTurn = new("rough-turn", new FeedLaw.PerRevolution(0.2), engagement: 0.5, axial: 0.3);
+    public static readonly Operation FinishTurn = new("finish-turn", new FeedLaw.PerRevolution(0.08), engagement: 0.1, axial: 0.1);
+    public static readonly Operation Part = new("part", new FeedLaw.PerRevolution(0.06), engagement: 1.0, axial: 0.2);
+    public static readonly Operation Groove = new("groove", new FeedLaw.PerRevolution(0.08), engagement: 1.0, axial: 0.3);
+    public static readonly Operation Thread = new("thread", new FeedLaw.Pitch(1.5), engagement: 0.3, axial: 0.2);
+    public static readonly Operation Counterbore = new("counterbore", new FeedLaw.Chip(0.05), engagement: 0.8, axial: 0.4);
+    public static readonly Operation Countersink = new("countersink", new FeedLaw.Chip(0.04), engagement: 0.5, axial: 0.2);
+    public static readonly Operation SpotDrill = new("spot-drill", new FeedLaw.Chip(0.03), engagement: 0.5, axial: 0.1);
+    public static readonly Operation FormMill = new("form-mill", new FeedLaw.Chip(0.04), engagement: 0.3, axial: 0.2);
+    public static readonly Operation Engrave = new("engrave", new FeedLaw.Chip(0.02), engagement: 0.1, axial: 0.05);
+    public static readonly Operation SurfaceGrind = new("surface-grind", new FeedLaw.SurfaceRatio(0.01), engagement: 1.0, axial: 0.02);
+    public static readonly Operation SawCut = new("saw-cut", new FeedLaw.Chip(0.002), engagement: 1.0, axial: 0.5);
 
-    public double ChipLoad { get; }
+    public FeedLaw Feed { get; }
     public double Engagement { get; }
     public double Axial { get; }
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// Nine production physics, one union: the map ENTRY'S case (not the modality row) discriminates the budget case,
-// so the one `additive` modality serves FFF, DED, resin, and powder off four distinct material rows.
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ModalityPhysics {
     private ModalityPhysics() { }
@@ -99,106 +176,309 @@ public abstract partial record ModalityPhysics {
     public sealed record Erosion(double DischargeCurrent, double PulseOnUs, double PulseOffUs, double WireFeed) : ModalityPhysics;
     public sealed record Resin(double Exposure, double CureDepth, double LiftHeight) : ModalityPhysics;
     public sealed record Powder(double LaserPower, double HatchSpacing, double ScanSpeed) : ModalityPhysics;
-    public sealed record Forming(double TensileRm, double KFactor, double SpringbackRatio, double MinBendRadiusFactor) : ModalityPhysics;
+    // Grade tensile strength lives once on MaterialSpec.UltimateStrengthMpa; the forming row carries only process constants.
+    public sealed record Forming(double KFactor, double SpringbackRatio, double MinBendRadiusFactor) : ModalityPhysics;
 }
 
-// ONE identity per physical material; the Map column owns the modality spread. Every scalar is a row datum —
-// no code-path fallback constant exists anywhere on this page.
 [SmartEnum<string>]
 public sealed partial class Material {
     public static readonly Material Aluminium = new("aluminium", Map(
-        (ProcessModality.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(300.0)),
-        (ProcessModality.Thermal, new ModalityPhysics.Thermal(KerfWidth: 1.0, PierceTime: 0.3, AssistPressure: 10.0, CutSpeed: 4000.0)),
-        (ProcessModality.Abrasive, new ModalityPhysics.Abrasive(JetPressure: 380.0, AbrasiveRate: 0.45, TraverseSpeed: 250.0)),
-        (ProcessModality.Erosion, new ModalityPhysics.Erosion(DischargeCurrent: 10.0, PulseOnUs: 6.0, PulseOffUs: 10.0, WireFeed: 10.0)),
-        (ProcessModality.Formed, new ModalityPhysics.Forming(TensileRm: 260.0, KFactor: 0.43, SpringbackRatio: 0.98, MinBendRadiusFactor: 1.5)),
-        (ProcessModality.Joined, new ModalityPhysics.Deposition(PowerW: 5200.0, WireFeedRate: 8.5, Standoff: 12.0, InterpassTemp: 120.0))));
+        (PhysicsKind.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(300.0)),
+        (PhysicsKind.Thermal, new ModalityPhysics.Thermal(KerfWidth: 1.0, PierceTime: 0.3, AssistPressure: 10.0, CutSpeed: 4000.0)),
+        (PhysicsKind.Abrasive, new ModalityPhysics.Abrasive(JetPressure: 380.0, AbrasiveRate: 0.45, TraverseSpeed: 250.0)),
+        (PhysicsKind.Erosion, new ModalityPhysics.Erosion(DischargeCurrent: 10.0, PulseOnUs: 6.0, PulseOffUs: 10.0, WireFeed: 10.0)),
+        (PhysicsKind.Deposition, new ModalityPhysics.Deposition(PowerW: 3200.0, WireFeedRate: 3.2, Standoff: 10.0, InterpassTemp: 120.0)),
+        (PhysicsKind.Joining, new ModalityPhysics.Deposition(PowerW: 5200.0, WireFeedRate: 8.5, Standoff: 12.0, InterpassTemp: 120.0)),
+        (PhysicsKind.Forming, new ModalityPhysics.Forming(KFactor: 0.43, SpringbackRatio: 0.98, MinBendRadiusFactor: 1.5))));
     public static readonly Material MildSteel = new("mild-steel", Map(
-        (ProcessModality.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(90.0)),
-        (ProcessModality.Thermal, new ModalityPhysics.Thermal(KerfWidth: 1.2, PierceTime: 0.5, AssistPressure: 8.0, CutSpeed: 2000.0)),
-        (ProcessModality.Abrasive, new ModalityPhysics.Abrasive(JetPressure: 380.0, AbrasiveRate: 0.45, TraverseSpeed: 180.0)),
-        (ProcessModality.Erosion, new ModalityPhysics.Erosion(DischargeCurrent: 9.0, PulseOnUs: 5.0, PulseOffUs: 11.0, WireFeed: 9.0)),
-        (ProcessModality.Additive, new ModalityPhysics.Deposition(PowerW: 2400.0, WireFeedRate: 2.0, Standoff: 10.0, InterpassTemp: 250.0)),
-        (ProcessModality.Formed, new ModalityPhysics.Forming(TensileRm: 440.0, KFactor: 0.44, SpringbackRatio: 0.99, MinBendRadiusFactor: 1.0)),
-        (ProcessModality.Joined, new ModalityPhysics.Deposition(PowerW: 8100.0, WireFeedRate: 9.0, Standoff: 15.0, InterpassTemp: 250.0))));
+        (PhysicsKind.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(90.0)),
+        (PhysicsKind.Thermal, new ModalityPhysics.Thermal(KerfWidth: 1.2, PierceTime: 0.5, AssistPressure: 8.0, CutSpeed: 2000.0)),
+        (PhysicsKind.Abrasive, new ModalityPhysics.Abrasive(JetPressure: 380.0, AbrasiveRate: 0.45, TraverseSpeed: 180.0)),
+        (PhysicsKind.Erosion, new ModalityPhysics.Erosion(DischargeCurrent: 9.0, PulseOnUs: 5.0, PulseOffUs: 11.0, WireFeed: 9.0)),
+        (PhysicsKind.Deposition, new ModalityPhysics.Deposition(PowerW: 2400.0, WireFeedRate: 2.0, Standoff: 10.0, InterpassTemp: 250.0)),
+        (PhysicsKind.Joining, new ModalityPhysics.Deposition(PowerW: 8100.0, WireFeedRate: 9.0, Standoff: 15.0, InterpassTemp: 250.0)),
+        (PhysicsKind.Forming, new ModalityPhysics.Forming(KFactor: 0.44, SpringbackRatio: 0.99, MinBendRadiusFactor: 1.0))));
     public static readonly Material Stainless = new("stainless", Map(
-        (ProcessModality.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(45.0)),
-        (ProcessModality.Thermal, new ModalityPhysics.Thermal(KerfWidth: 0.9, PierceTime: 0.8, AssistPressure: 14.0, CutSpeed: 1500.0)),
-        (ProcessModality.Abrasive, new ModalityPhysics.Abrasive(JetPressure: 380.0, AbrasiveRate: 0.45, TraverseSpeed: 150.0)),
-        (ProcessModality.Erosion, new ModalityPhysics.Erosion(DischargeCurrent: 8.0, PulseOnUs: 4.0, PulseOffUs: 12.0, WireFeed: 8.0)),
-        (ProcessModality.Formed, new ModalityPhysics.Forming(TensileRm: 620.0, KFactor: 0.45, SpringbackRatio: 0.97, MinBendRadiusFactor: 2.0)),
-        (ProcessModality.Joined, new ModalityPhysics.Deposition(PowerW: 6200.0, WireFeedRate: 7.5, Standoff: 12.0, InterpassTemp: 150.0))));
+        (PhysicsKind.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(45.0)),
+        (PhysicsKind.Thermal, new ModalityPhysics.Thermal(KerfWidth: 0.9, PierceTime: 0.8, AssistPressure: 14.0, CutSpeed: 1500.0)),
+        (PhysicsKind.Abrasive, new ModalityPhysics.Abrasive(JetPressure: 380.0, AbrasiveRate: 0.45, TraverseSpeed: 150.0)),
+        (PhysicsKind.Erosion, new ModalityPhysics.Erosion(DischargeCurrent: 8.0, PulseOnUs: 4.0, PulseOffUs: 12.0, WireFeed: 8.0)),
+        (PhysicsKind.Deposition, new ModalityPhysics.Deposition(PowerW: 2800.0, WireFeedRate: 2.4, Standoff: 10.0, InterpassTemp: 150.0)),
+        (PhysicsKind.Joining, new ModalityPhysics.Deposition(PowerW: 6200.0, WireFeedRate: 7.5, Standoff: 12.0, InterpassTemp: 150.0)),
+        (PhysicsKind.Forming, new ModalityPhysics.Forming(KFactor: 0.45, SpringbackRatio: 0.97, MinBendRadiusFactor: 2.0))));
     public static readonly Material Titanium = new("titanium", Map(
-        (ProcessModality.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(35.0)),
-        (ProcessModality.Abrasive, new ModalityPhysics.Abrasive(JetPressure: 400.0, AbrasiveRate: 0.5, TraverseSpeed: 90.0)),
-        (ProcessModality.Erosion, new ModalityPhysics.Erosion(DischargeCurrent: 6.0, PulseOnUs: 3.0, PulseOffUs: 14.0, WireFeed: 6.0)),
-        (ProcessModality.Formed, new ModalityPhysics.Forming(TensileRm: 950.0, KFactor: 0.46, SpringbackRatio: 0.93, MinBendRadiusFactor: 3.0)),
-        (ProcessModality.Joined, new ModalityPhysics.Deposition(PowerW: 4300.0, WireFeedRate: 5.0, Standoff: 10.0, InterpassTemp: 120.0))));
+        (PhysicsKind.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(35.0)),
+        (PhysicsKind.Abrasive, new ModalityPhysics.Abrasive(JetPressure: 400.0, AbrasiveRate: 0.5, TraverseSpeed: 90.0)),
+        (PhysicsKind.Erosion, new ModalityPhysics.Erosion(DischargeCurrent: 6.0, PulseOnUs: 3.0, PulseOffUs: 14.0, WireFeed: 6.0)),
+        (PhysicsKind.Deposition, new ModalityPhysics.Deposition(PowerW: 2200.0, WireFeedRate: 1.8, Standoff: 9.0, InterpassTemp: 120.0)),
+        (PhysicsKind.Joining, new ModalityPhysics.Deposition(PowerW: 4300.0, WireFeedRate: 5.0, Standoff: 10.0, InterpassTemp: 120.0)),
+        (PhysicsKind.Forming, new ModalityPhysics.Forming(KFactor: 0.46, SpringbackRatio: 0.93, MinBendRadiusFactor: 3.0))));
     public static readonly Material Acrylic = new("acrylic", Map(
-        (ProcessModality.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(500.0)),
-        (ProcessModality.Thermal, new ModalityPhysics.Thermal(KerfWidth: 0.2, PierceTime: 0.05, AssistPressure: 0.5, CutSpeed: 12000.0))));
+        (PhysicsKind.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(500.0)),
+        (PhysicsKind.Thermal, new ModalityPhysics.Thermal(KerfWidth: 0.2, PierceTime: 0.05, AssistPressure: 0.5, CutSpeed: 12000.0))));
     public static readonly Material Plywood = new("plywood", Map(
-        (ProcessModality.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(600.0)),
-        (ProcessModality.Thermal, new ModalityPhysics.Thermal(KerfWidth: 0.3, PierceTime: 0.1, AssistPressure: 0.6, CutSpeed: 8000.0))));
+        (PhysicsKind.Subtractive, (ModalityPhysics)new ModalityPhysics.Subtractive(600.0)),
+        (PhysicsKind.Thermal, new ModalityPhysics.Thermal(KerfWidth: 0.3, PierceTime: 0.1, AssistPressure: 0.6, CutSpeed: 8000.0))));
     public static readonly Material PlaFilament = new("pla-filament", Map(
-        (ProcessModality.Additive, (ModalityPhysics)new ModalityPhysics.Fff(MeltTemp: 210.0, BondWindow: 15.0, ExtrusionWidth: 0.45, LayerHeight: 0.2, PrintSpeed: 60.0))));
+        (PhysicsKind.Fff, (ModalityPhysics)new ModalityPhysics.Fff(MeltTemp: 210.0, BondWindow: 15.0, ExtrusionWidth: 0.45, LayerHeight: 0.2, PrintSpeed: 60.0))));
     public static readonly Material PhotopolymerResin = new("photopolymer-resin", Map(
-        (ProcessModality.Additive, (ModalityPhysics)new ModalityPhysics.Resin(Exposure: 2.5, CureDepth: 0.1, LiftHeight: 5.0))));
+        (PhysicsKind.Resin, (ModalityPhysics)new ModalityPhysics.Resin(Exposure: 2.5, CureDepth: 0.1, LiftHeight: 5.0))));
     public static readonly Material Ss316Powder = new("ss316-powder", Map(
-        (ProcessModality.Additive, (ModalityPhysics)new ModalityPhysics.Powder(LaserPower: 200.0, HatchSpacing: 0.12, ScanSpeed: 900.0))));
+        (PhysicsKind.Powder, (ModalityPhysics)new ModalityPhysics.Powder(LaserPower: 200.0, HatchSpacing: 0.12, ScanSpeed: 900.0))));
 
-    public Map<ProcessModality, ModalityPhysics> Physics { get; }
+    public Map<PhysicsKind, ModalityPhysics> Physics { get; }
+}
+
+public sealed record MaterialSpec {
+    private MaterialSpec(
+        Material family,
+        string grade,
+        double densityKgM3,
+        double conductivityWMK,
+        double specificHeatJKgK,
+        double yieldStrengthMpa,
+        double ultimateStrengthMpa,
+        Map<PhysicsKind, ModalityPhysics> physics,
+        Option<ContentKey> certificate) =>
+        (Family, Grade, DensityKgM3, ConductivityWMK, SpecificHeatJKgK, YieldStrengthMpa, UltimateStrengthMpa, Physics, Certificate) =
+        (family, grade, densityKgM3, conductivityWMK, specificHeatJKgK, yieldStrengthMpa, ultimateStrengthMpa, physics, certificate);
+
+    public Material Family { get; }
+    public string Grade { get; }
+    public double DensityKgM3 { get; }
+    public double ConductivityWMK { get; }
+    public double SpecificHeatJKgK { get; }
+    public double YieldStrengthMpa { get; }
+    public double UltimateStrengthMpa { get; }
+    public Map<PhysicsKind, ModalityPhysics> Physics { get; }
+    public Option<ContentKey> Certificate { get; }
+
+    public static Fin<MaterialSpec> Admit(
+        Material family,
+        string grade,
+        double densityKgM3,
+        double conductivityWMK,
+        double specificHeatJKgK,
+        double yieldStrengthMpa,
+        double ultimateStrengthMpa,
+        Map<PhysicsKind, ModalityPhysics> physics,
+        Option<ContentKey> certificate) =>
+        !string.IsNullOrWhiteSpace(grade)
+        && double.IsFinite(densityKgM3) && densityKgM3 > 0.0
+        && double.IsFinite(conductivityWMK) && conductivityWMK > 0.0
+        && double.IsFinite(specificHeatJKgK) && specificHeatJKgK > 0.0
+        && double.IsFinite(yieldStrengthMpa) && yieldStrengthMpa > 0.0
+        && double.IsFinite(ultimateStrengthMpa) && ultimateStrengthMpa >= yieldStrengthMpa
+        && !physics.IsEmpty
+        && physics.AsIterable().ForAll(static pair => Fits(pair.Key, pair.Value))
+            ? Fin.Succ(new MaterialSpec(family, grade, densityKgM3, conductivityWMK, specificHeatJKgK, yieldStrengthMpa, ultimateStrengthMpa, physics, certificate))
+            : Fin.Fail<MaterialSpec>(GeometryFault.DegenerateInput("material-spec").ToError());
+
+    private static bool Fits(PhysicsKind kind, ModalityPhysics physics) =>
+        physics.Switch(
+            state: kind,
+            subtractive: static (k, row) => k == PhysicsKind.Subtractive
+                && double.IsFinite(row.SurfaceSpeed) && row.SurfaceSpeed > 0.0,
+            thermal: static (k, row) => k == PhysicsKind.Thermal
+                && double.IsFinite(row.KerfWidth) && row.KerfWidth > 0.0
+                && double.IsFinite(row.PierceTime) && row.PierceTime >= 0.0
+                && double.IsFinite(row.AssistPressure) && row.AssistPressure >= 0.0
+                && double.IsFinite(row.CutSpeed) && row.CutSpeed > 0.0,
+            abrasive: static (k, row) => k == PhysicsKind.Abrasive
+                && double.IsFinite(row.JetPressure) && row.JetPressure > 0.0
+                && double.IsFinite(row.AbrasiveRate) && row.AbrasiveRate > 0.0
+                && double.IsFinite(row.TraverseSpeed) && row.TraverseSpeed > 0.0,
+            fff: static (k, row) => k == PhysicsKind.Fff
+                && double.IsFinite(row.MeltTemp) && row.MeltTemp > 0.0
+                && double.IsFinite(row.BondWindow) && row.BondWindow > 0.0
+                && double.IsFinite(row.ExtrusionWidth) && row.ExtrusionWidth > 0.0
+                && double.IsFinite(row.LayerHeight) && row.LayerHeight > 0.0 && row.LayerHeight <= row.ExtrusionWidth
+                && double.IsFinite(row.PrintSpeed) && row.PrintSpeed > 0.0,
+            deposition: static (k, row) => (k == PhysicsKind.Deposition || k == PhysicsKind.Joining)
+                && double.IsFinite(row.PowerW) && row.PowerW > 0.0
+                && double.IsFinite(row.WireFeedRate) && row.WireFeedRate > 0.0
+                && double.IsFinite(row.Standoff) && row.Standoff > 0.0
+                && double.IsFinite(row.InterpassTemp) && row.InterpassTemp > 0.0,
+            erosion: static (k, row) => k == PhysicsKind.Erosion
+                && double.IsFinite(row.DischargeCurrent) && row.DischargeCurrent > 0.0
+                && double.IsFinite(row.PulseOnUs) && row.PulseOnUs > 0.0
+                && double.IsFinite(row.PulseOffUs) && row.PulseOffUs >= 0.0
+                && double.IsFinite(row.WireFeed) && row.WireFeed > 0.0,
+            resin: static (k, row) => k == PhysicsKind.Resin
+                && double.IsFinite(row.Exposure) && row.Exposure > 0.0
+                && double.IsFinite(row.CureDepth) && row.CureDepth > 0.0
+                && double.IsFinite(row.LiftHeight) && row.LiftHeight > 0.0,
+            powder: static (k, row) => k == PhysicsKind.Powder
+                && double.IsFinite(row.LaserPower) && row.LaserPower > 0.0
+                && double.IsFinite(row.HatchSpacing) && row.HatchSpacing > 0.0
+                && double.IsFinite(row.ScanSpeed) && row.ScanSpeed > 0.0,
+            forming: static (k, row) => k == PhysicsKind.Forming
+                && double.IsFinite(row.KFactor) && row.KFactor is > 0.0 and < 1.0
+                && double.IsFinite(row.SpringbackRatio) && row.SpringbackRatio is > 0.0 and <= 2.0
+                && double.IsFinite(row.MinBendRadiusFactor) && row.MinBendRadiusFactor > 0.0);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
-public abstract partial record RemovalBudget {
-    private RemovalBudget() { }
+public abstract partial record ProcessBudget {
+    private ProcessBudget() { }
 
-    public sealed record Subtractive(double SpindleRpm, double FeedRate, double DepthOfCut, double WidthOfCut, double MaterialRemovalRate) : RemovalBudget;
-    public sealed record Thermal(double PierceTime, double KerfWidth, double CutSpeed, double AssistPressure) : RemovalBudget;
-    public sealed record Abrasive(double JetPressure, double AbrasiveRate, double TraverseSpeed) : RemovalBudget;
-    public sealed record Fff(double ExtrusionWidth, double LayerHeight, double PrintSpeed, double MeltTemp) : RemovalBudget;
-    public sealed record Deposition(double PowerW, double WireFeedRate, double Standoff, double InterpassTemp) : RemovalBudget;
-    public sealed record Erosion(double DischargeCurrent, double PulseOnUs, double PulseOffUs, double WireFeed) : RemovalBudget;
-    public sealed record Resin(double Exposure, double CureDepth, double LiftHeight) : RemovalBudget;
-    public sealed record Powder(double LaserPower, double HatchSpacing, double ScanSpeed) : RemovalBudget;
-    // The FORM budget: brake computes F=(C·Rm·S²·L)/(V·1000) from TensileRm; sheet computes BA=(π/180)·A·(R+K·T) from KFactor.
-    public sealed record Formed(double TensileRm, double KFactor, double SpringbackRatio, double MinBendRadiusFactor) : RemovalBudget;
+    public sealed record Subtractive(double SpindleRpm, double FeedRate, double DepthOfCut, double WidthOfCut, double MaterialRemovalRate) : ProcessBudget;
+    public sealed record Turning(double SurfaceSpeed, double FeedPerRevolution, double DepthOfCut, double NoseRadius) : ProcessBudget;
+    public sealed record Thermal(double PierceTime, double KerfWidth, double CutSpeed, double AssistPressure) : ProcessBudget;
+    public sealed record Abrasive(double JetPressure, double AbrasiveRate, double TraverseSpeed) : ProcessBudget;
+    public sealed record Fff(double ExtrusionWidth, double LayerHeight, double PrintSpeed, double MeltTemp, double BondWindow) : ProcessBudget;
+    public sealed record Deposition(double PowerW, double WireFeedRate, double Standoff, double InterpassTemp) : ProcessBudget;
+    public sealed record Erosion(double DischargeCurrent, double PulseOnUs, double PulseOffUs, double WireFeed) : ProcessBudget;
+    public sealed record Resin(double Exposure, double CureDepth, double LiftHeight) : ProcessBudget;
+    public sealed record Powder(double LaserPower, double HatchSpacing, double ScanSpeed) : ProcessBudget;
+    // The FORM budget: TensileRm is the admitted grade's UltimateStrengthMpa — the one strength axis; brake computes
+    // F=(C·Rm·S²·L)/(V·1000) from it, and sheet computes BA=(π/180)·A·(R+K·T) from KFactor.
+    public sealed record Formed(double TensileRm, double KFactor, double SpringbackRatio, double MinBendRadiusFactor) : ProcessBudget;
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
-public static class RemovalParameter {
-    // The modality keys the map; the ENTRY'S case projects its budget. A missing entry is degenerate input —
-    // the measured Kienzle cell (Tooling/cuttingdata) defeats the subtractive formula floor at the CONSUMER.
-    public static Fin<RemovalBudget> Budget(ProcessKind process, Material material, ToolAssembly tool, Operation operation) =>
-        material.Physics.Find(process.Modality).Match(
-            None: () => Fin.Fail<RemovalBudget>(GeometryFault.DegenerateInput($"removal-parameter:{material.Key}-lacks-{process.Modality.Key}").ToError()),
-            Some: physics => Fin.Succ(physics.Switch<RemovalBudget>(
-                subtractive: sub => SubtractiveFloor(sub, tool, operation),
-                // The mounted tool is a PHYSICAL floor on beam/bead width: a kerf can never undercut the torch
-                // orifice, an extrusion can never undercut the nozzle bore — invariants, not policy values.
-                thermal:     th => new RemovalBudget.Thermal(th.PierceTime, Math.Max(th.KerfWidth, tool.Tool.Diameter), th.CutSpeed, th.AssistPressure),
-                abrasive:    ab => new RemovalBudget.Abrasive(ab.JetPressure, ab.AbrasiveRate, ab.TraverseSpeed),
-                fff:         f => new RemovalBudget.Fff(Math.Max(f.ExtrusionWidth, tool.Tool.Diameter), f.LayerHeight, f.PrintSpeed, f.MeltTemp),
-                deposition:  d => new RemovalBudget.Deposition(d.PowerW, d.WireFeedRate, d.Standoff, d.InterpassTemp),
-                erosion:     e => new RemovalBudget.Erosion(e.DischargeCurrent, e.PulseOnUs, e.PulseOffUs, e.WireFeed),
-                resin:       r => new RemovalBudget.Resin(r.Exposure, r.CureDepth, r.LiftHeight),
-                powder:      p => new RemovalBudget.Powder(p.LaserPower, p.HatchSpacing, p.ScanSpeed),
-                forming:     fo => new RemovalBudget.Formed(fo.TensileRm, fo.KFactor, fo.SpringbackRatio, fo.MinBendRadiusFactor))));
+public static class ProcessPhysics {
+    public static Fin<ProcessBudget> Budget(
+        ProcessKind process,
+        MaterialSpec material,
+        Option<ToolAssembly> tool,
+        Option<Operation> operation) =>
+        from physics in material.Physics.Find(process.Physics)
+            .ToFin(FabricationFault.InadmissiblePair(new RelationFault.ProcessMaterial(process, material.Family)).ToError())
+        from budget in physics.Switch(
+            state: (Process: process, Material: material, Tool: tool, Operation: operation),
+            subtractive: static (s, sub) =>
+                from mounted in s.Tool.ToFin(GeometryFault.DegenerateInput("process-physics:subtractive-tool").ToError())
+                from op in s.Operation.ToFin(GeometryFault.DegenerateInput("process-physics:subtractive-operation").ToError())
+                from floor in SubtractiveFloor(s.Process, sub, mounted.Tool, op)
+                select floor,
+            thermal: static (s, th) =>
+                from head in AdmitHead(s.Tool, ToolClass.Thermal, "process-physics:thermal-head")
+                from _ in RequireAbsent(s.Operation, "process-physics:thermal-operation")
+                select (ProcessBudget)new ProcessBudget.Thermal(
+                    th.PierceTime, Math.Max(th.KerfWidth, head.Diameter), th.CutSpeed, th.AssistPressure),
+            abrasive: static (s, ab) =>
+                from _ in AdmitHead(s.Tool, ToolClass.Abrasive, "process-physics:abrasive-head")
+                from __ in RequireAbsent(s.Operation, "process-physics:abrasive-operation")
+                select (ProcessBudget)new ProcessBudget.Abrasive(ab.JetPressure, ab.AbrasiveRate, ab.TraverseSpeed),
+            fff: static (s, f) =>
+                from head in AdmitHead(s.Tool, ToolClass.Extrusion, "process-physics:fff-head")
+                from _ in RequireAbsent(s.Operation, "process-physics:fff-operation")
+                select (ProcessBudget)new ProcessBudget.Fff(
+                    Math.Max(f.ExtrusionWidth, head.Diameter), f.LayerHeight, f.PrintSpeed, f.MeltTemp, f.BondWindow),
+            deposition: static (s, d) =>
+                from _ in AdmitHead(s.Tool, ToolClass.Deposition, "process-physics:deposition-head")
+                from __ in RequireAbsent(s.Operation, "process-physics:deposition-operation")
+                select (ProcessBudget)new ProcessBudget.Deposition(d.PowerW, d.WireFeedRate, d.Standoff, d.InterpassTemp),
+            erosion: static (s, e) =>
+                from _ in AdmitHead(s.Tool, ToolClass.WireElectrode, "process-physics:erosion-wire")
+                from __ in RequireAbsent(s.Operation, "process-physics:erosion-operation")
+                select (ProcessBudget)new ProcessBudget.Erosion(e.DischargeCurrent, e.PulseOnUs, e.PulseOffUs, e.WireFeed),
+            resin: static (s, r) =>
+                from _ in RequireAbsent(s.Tool, "process-physics:resin-tool")
+                from __ in RequireAbsent(s.Operation, "process-physics:resin-operation")
+                select (ProcessBudget)new ProcessBudget.Resin(r.Exposure, r.CureDepth, r.LiftHeight),
+            powder: static (s, p) =>
+                from _ in RequireAbsent(s.Tool, "process-physics:powder-tool")
+                from __ in RequireAbsent(s.Operation, "process-physics:powder-operation")
+                select (ProcessBudget)new ProcessBudget.Powder(p.LaserPower, p.HatchSpacing, p.ScanSpeed),
+            forming: static (s, fo) =>
+                from _ in RequireAbsent(s.Tool, "process-physics:forming-tool")
+                from __ in RequireAbsent(s.Operation, "process-physics:forming-operation")
+                select (ProcessBudget)new ProcessBudget.Formed(
+                    s.Material.UltimateStrengthMpa, fo.KFactor, fo.SpringbackRatio, fo.MinBendRadiusFactor))
+        select budget;
 
-    // Axial and radial are INDEPENDENT diameter fractions: depth = axial·d, width = radial·d, MRR = depth·width·feed —
-    // the duplicated-engagement MRR that could not distinguish a facing skim from a full slot is the deleted form.
-    static RemovalBudget SubtractiveFloor(ModalityPhysics.Subtractive sub, ToolAssembly tool, Operation operation) {
-        double spindle = sub.SurfaceSpeed * 1000.0 / (Math.PI * tool.Tool.Diameter);
-        double feed = spindle * tool.Tool.Flutes * operation.ChipLoad;
-        double depth = operation.Axial * tool.Tool.Diameter;
-        double width = operation.Engagement * tool.Tool.Diameter;
-        return new RemovalBudget.Subtractive(spindle, feed, depth, width, depth * width * feed);
+    private static Fin<ProcessBudget> SubtractiveFloor(
+        ProcessKind process,
+        ModalityPhysics.Subtractive sub,
+        Tool tool,
+        Operation operation) =>
+        tool.Switch(
+            state: (Process: process, Sub: sub, Operation: operation, Tool: tool),
+            rotary: static (s, cutter) => s.Process != ProcessKind.Grind && s.Process != ProcessKind.Saw
+                && s.Process != ProcessKind.Turn
+                ? RotaryFloor(s.Sub, cutter, s.Operation)
+                : InvalidSubtractive(s.Operation, s.Tool),
+            wheel: static (s, wheel) => s.Process == ProcessKind.Grind
+                ? WheelFloor(s.Sub, wheel, s.Operation)
+                : InvalidSubtractive(s.Operation, s.Tool),
+            sawBlade: static (s, blade) => s.Process == ProcessKind.Saw
+                ? SawFloor(s.Sub, blade, s.Operation)
+                : InvalidSubtractive(s.Operation, s.Tool),
+            turning: static (s, insert) => s.Process == ProcessKind.Turn
+                ? TurningFloor(s.Sub, insert, s.Operation)
+                : InvalidSubtractive(s.Operation, s.Tool),
+            head: static (s, _) => InvalidSubtractive(s.Operation, s.Tool));
+
+    private static Fin<ProcessBudget> RotaryFloor(ModalityPhysics.Subtractive sub, Tool.Rotary tool, Operation operation) {
+        double spindle = sub.SurfaceSpeed * 1000.0 / (Math.PI * tool.Diameter);
+        return operation.Feed.Switch(
+            state: (Spindle: spindle, Tool: tool, Operation: operation),
+            chip: static (s, chip) => Budget(s.Spindle, s.Spindle * s.Tool.Flutes * chip.PerTooth,
+                s.Operation.Axial * s.Tool.Diameter, s.Operation.Engagement * s.Tool.Diameter),
+            perRevolution: static (s, _) => InvalidSubtractive(s.Operation, s.Tool),
+            pitch: static (s, pitch) => Budget(s.Spindle, s.Spindle * pitch.MillimetersPerRevolution,
+                s.Operation.Axial * s.Tool.Diameter, s.Operation.Engagement * s.Tool.Diameter),
+            surfaceRatio: static (s, _) => InvalidSubtractive(s.Operation, s.Tool));
     }
 
+    private static Fin<ProcessBudget> WheelFloor(ModalityPhysics.Subtractive sub, Tool.Wheel tool, Operation operation) =>
+        operation.Feed.Switch(
+            state: (Sub: sub, Tool: tool, Operation: operation),
+            chip: static (s, _) => InvalidSubtractive(s.Operation, s.Tool),
+            perRevolution: static (s, _) => InvalidSubtractive(s.Operation, s.Tool),
+            pitch: static (s, _) => InvalidSubtractive(s.Operation, s.Tool),
+            surfaceRatio: static (s, ratio) => Budget(
+                Math.Min(s.Sub.SurfaceSpeed * 1000.0 / (Math.PI * s.Tool.Diameter), s.Tool.MaxRpm),
+                s.Sub.SurfaceSpeed * 1000.0 * ratio.Fraction,
+                s.Operation.Axial * s.Tool.Width,
+                s.Operation.Engagement * s.Tool.Width));
+
+    private static Fin<ProcessBudget> SawFloor(ModalityPhysics.Subtractive sub, Tool.SawBlade tool, Operation operation) =>
+        operation.Feed.Switch(
+            state: (Sub: sub, Tool: tool, Operation: operation),
+            chip: static (s, chip) => {
+                double spindle = Math.Min(s.Sub.SurfaceSpeed * 1000.0 / (Math.PI * s.Tool.Diameter), s.Tool.MaxRpm);
+                return Budget(spindle, spindle * s.Tool.Teeth * chip.PerTooth,
+                    s.Operation.Axial * s.Tool.Diameter, s.Tool.Kerf);
+            },
+            perRevolution: static (s, _) => InvalidSubtractive(s.Operation, s.Tool),
+            pitch: static (s, _) => InvalidSubtractive(s.Operation, s.Tool),
+            surfaceRatio: static (s, _) => InvalidSubtractive(s.Operation, s.Tool));
+
+    private static Fin<ProcessBudget> TurningFloor(
+        ModalityPhysics.Subtractive sub,
+        Tool.Turning tool,
+        Operation operation) =>
+        operation.Feed.Switch(
+            state: (Sub: sub, Tool: tool, Operation: operation),
+            chip: static (s, _) => InvalidSubtractive(s.Operation, s.Tool),
+            perRevolution: static (s, feed) => Fin.Succ<ProcessBudget>(new ProcessBudget.Turning(
+                s.Sub.SurfaceSpeed, feed.Millimeters, s.Operation.Axial * s.Tool.CuttingEdgeLength, s.Tool.NoseRadius)),
+            pitch: static (s, pitch) => Fin.Succ<ProcessBudget>(new ProcessBudget.Turning(
+                s.Sub.SurfaceSpeed, pitch.MillimetersPerRevolution, s.Operation.Axial * s.Tool.CuttingEdgeLength, s.Tool.NoseRadius)),
+            surfaceRatio: static (s, _) => InvalidSubtractive(s.Operation, s.Tool));
+
+    private static Fin<ProcessBudget> Budget(double spindle, double feed, double depth, double width) =>
+        Fin.Succ<ProcessBudget>(new ProcessBudget.Subtractive(spindle, feed, depth, width, depth * width * feed));
+
+    private static Fin<ProcessBudget> InvalidSubtractive(Operation operation, Tool equipment) =>
+        Fin.Fail<ProcessBudget>(FabricationFault.InadmissiblePair(
+            new RelationFault.OperationEquipment(operation, equipment)).ToError());
+
+    private static Fin<Tool.Head> AdmitHead(Option<ToolAssembly> tool, ToolClass required, string locus) =>
+        tool.ToFin(GeometryFault.DegenerateInput(locus).ToError())
+            .Bind(assembly => assembly.Tool is Tool.Head head && head.Class == required
+                ? Fin.Succ(head)
+                : Fin.Fail<Tool.Head>(GeometryFault.DegenerateInput(locus).ToError()));
+
+    private static Fin<Unit> RequireAbsent<T>(Option<T> value, string locus) =>
+        value.IsNone
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(GeometryFault.DegenerateInput(locus).ToError());
+
     // --- [BOUNDARIES] -------------------------------------------------------------------------------------------------------------------------------
-    // Three INDEPENDENT keys accumulate through Validation before the triple reports — every bad key surfaces
-    // in one verdict; each admission rides the family's one generic factory bridge.
     public static Fin<(ProcessKind Process, Material Material, Operation Operation)> Admit(string process, string material, string operation) =>
         (ProcessFamily.Admit<ProcessKind>(process).ToValidation(),
          ProcessFamily.Admit<Material>(material).ToValidation(),
@@ -208,34 +488,54 @@ public static class RemovalParameter {
     public static Fin<double> Feed(string text) =>
         Speed.TryParse(text, CultureInfo.InvariantCulture, out Speed feed)
             ? Fin.Succ(feed.MillimetersPerMinutes)
-            : Fin.Fail<double>(GeometryFault.DegenerateInput($"removal-parameter:feed:{text}").ToError());
+            : Fin.Fail<double>(GeometryFault.DegenerateInput("process-physics:feed").ToError());
 
     public static Fin<double> Spindle(string text) =>
         RotationalSpeed.TryParse(text, CultureInfo.InvariantCulture, out RotationalSpeed rpm)
             ? Fin.Succ(rpm.RevolutionsPerMinute)
-            : Fin.Fail<double>(GeometryFault.DegenerateInput($"removal-parameter:spindle:{text}").ToError());
+            : Fin.Fail<double>(GeometryFault.DegenerateInput("process-physics:spindle").ToError());
 
     public static Fin<double> Depth(string text) =>
         Length.TryParse(text, CultureInfo.InvariantCulture, out Length depth)
             ? Fin.Succ(depth.Millimeters)
-            : Fin.Fail<double>(GeometryFault.DegenerateInput($"removal-parameter:depth:{text}").ToError());
+            : Fin.Fail<double>(GeometryFault.DegenerateInput("process-physics:depth").ToError());
 
     public static Fin<double> Assist(string text) =>
         Pressure.TryParse(text, CultureInfo.InvariantCulture, out Pressure pressure)
             ? Fin.Succ(pressure.Bars)
-            : Fin.Fail<double>(GeometryFault.DegenerateInput($"removal-parameter:assist:{text}").ToError());
+            : Fin.Fail<double>(GeometryFault.DegenerateInput("process-physics:assist").ToError());
 }
 ```
 
 ```mermaid
 ---
 config:
-  layout: elk
   theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
-    ProcessKind["ProcessKind.Modality"] -->|map key| Budget["RemovalParameter.Budget"]
-    Material["Material identity Map&lt;ProcessModality, ModalityPhysics&gt;"] -->|entry CASE discriminates| Budget
+    accTitle: Fabrication physics-budget dispatch
+    accDescr: Process modality, material physics, tool shape, quantity inputs, and constitutive data converge on one budget fold whose closed result cases feed subtractive, additive, erosion, forming, and joining consumers.
+    ProcessKind["ProcessKind.Physics"] -->|map key| Budget["ProcessPhysics.Budget"]
+    Material["MaterialSpec Map&lt;PhysicsKind, ModalityPhysics&gt;"] -->|entry CASE discriminates| Budget
     Assembly["ToolAssembly (Tooling/magazine)"] -->|measured geometry| Budget
     Quantity["Quantity text mm/min · rpm · bar"] -->|UnitsNet boundary| Budget
     Constitutive["Rasm.Materials constitutive raw doubles"] -->|peer boundary| Budget
@@ -245,4 +545,14 @@ flowchart LR
     Budget -->|Formed Rm/K/springback| Form["Forming sheet + brake"]
     Budget -->|"Deposition (joined key) heat input"| Weld["Joining weld + sequence"]
     Budget -.->|missing map entry| Degen["GeometryFault.DegenerateInput"]
+    linkStyle 5,6,7,8,9 stroke:#50FA7B,color:#F8F8F2
+    linkStyle 10 stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
+    class Budget primary
+    class Cam,AM,Edm,Form,Weld success
+    class ProcessKind,Material,Assembly,Quantity,Constitutive data
+    class Degen error
 ```

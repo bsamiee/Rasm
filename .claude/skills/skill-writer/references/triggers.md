@@ -6,7 +6,7 @@ Selection is a one-shot classification over name and description alone, run agai
 
 The description is built in fixed order because truncation eats from the tail:
 
-- [DELIVERABLE]: The first clause names what the skill produces or owns, as a total claim — the one fact that survives every truncation.
+- [DELIVERABLE]: The first clause names what the skill produces or owns, as a total claim — the one fact that survives every truncation. It names the deliverable, never the procedure that makes it: a description enumerating the skill's internal steps invites the model to obey the description and skip the loaded body, collapsing a multi-step method to a single pass; the method lives in the body, the description carries the produced artifact and the triggers that select it.
 - [DISCRIMINANTS]: Concrete objects and verbs that select the skill — file kinds, fence kinds, commands, artifact names, verb-plus-object trigger contexts. Precision comes from discriminating nouns, never from breadth or synonym volume.
 - [UTTERANCES]: Quoted user phrasings that select the skill even when the domain noun is absent — the phrases a task actually arrives wearing.
 - [BOUNDARY]: The adjacent deliverable the skill refuses, named last, naming the owning sibling where one exists.
@@ -15,13 +15,15 @@ The loader admits a `when_to_use` field appended to the description under one sh
 
 Third person throughout; a voiced description breaks the selection register beside its siblings. The name is the directory name: a lowercase hyphenated noun or gerund phrase naming the deliverable, never a vague stem such as helper, utils, or tools, and never a loader's reserved words.
 
+Selection gates on task substance as well as description quality: the model consults a skill only for work it cannot readily complete unaided, so a trivial one-step request bypasses even a perfectly discriminated skill. A non-fire on a thin query is task triviality, never a starved trigger; the discriminant is repaired only when a substantive multi-step task inside the skill's own domain misses.
+
 ## [02]-[LISTING_ECONOMICS]
 
 The listing is budgeted, and the budget shapes authoring law:
 
 - Names always survive; descriptions are what the budget spends. The default budget is 1% of the model's context window, raised by `skillListingBudgetFraction` or fixed in characters by `SLASH_COMMAND_TOOL_CHAR_BUDGET`.
 - Under overflow, the least-invoked skills lose their descriptions first — a rarely used skill degrades to a bare name, keeping invocability while losing trigger semantics. Frequency of use is earned protection.
-- Each entry's combined description text caps at 1536 characters regardless of budget (`skillListingMaxDescChars`); the authoring budget of 1024 keeps a margin under the ceiling and survives portability across loaders.
+- Each entry's combined description text truncates at 1536 characters regardless of budget (`skillListingMaxDescChars`); 1024 is the open-standard validation cap on `description`, so a description authored to 1024 survives both the listing truncation and every other loader's validation.
 - `skillOverrides` sets per-skill visibility without editing the bundle: `on`, `name-only`, `user-invocable-only`, `off`. Demoting low-priority siblings to `name-only` frees budget for the skills whose triggers matter.
 - `/doctor` reports which descriptions are shortened or dropped; `/context` reports the listing's post-budget size. A skill that mysteriously stopped firing is checked here before its description is rewritten.
 

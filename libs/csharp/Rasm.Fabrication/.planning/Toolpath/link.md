@@ -1,25 +1,25 @@
 # [RASM_FABRICATION_LINK]
 
-The rapid-travel owner: `Link` the static surface whose ONE `Route` fold orders the committed cut set and mints every non-cutting move between cuts — the tour, the retract selection, and the obstacle-routed escape are ONE concern owned HERE, so no generator ever emits its elements in input order and no sibling ever hand-rolls an up-over-down retract. The tour is the MST/DFS 2-approximation over the element endpoint graph: element hop costs — SYMMETRIZED as the cheaper of the two directed exit→entry rapids, the metric the undirected tree demands — weight a `QuikGraph` undirected graph, `MinimumSpanningTreePrim` extracts the spanning tree, and a `DepthFirstSearchAlgorithm` preorder walk over the tree yields the visit order (the classic ≤2×optimal tour bound — a Held-Karp exact solve on a thousand-hole peck grid is the rejected form, the 2-approx the professional-CAM standard). Between consecutive elements the retract KIND resolves per pair by clearance probes, cheapest first: `direct` (the feed-height straight traverse — XY corridor clear against every keep-out and the endpoint ΔZ inside the policy's direct tolerance), `skim` (a hop at the declared keep-out ceiling plus the skim margin — admitted when only Z-BOUNDED keep-outs block the feed-height corridor), `full-lift` (the clearance-plane up-over-down the plane's above-fixture height clears by construction). A pair whose corridor is blocked even at the clearance plane — a keep-out the policy declares Z-UNBOUNDED, the rising clamp tower or fourth-axis tombstone — routes the A* escape: `ShortestPathsAStar` over the visibility graph of margin-inflated unbounded-keep-out corners (Euclidean heuristic, admissible), edges admitted only where the corridor clears the narrow phase; an unreachable goal routes `FabricationFault.LinkBlocked` 2733, never a silent cut-through.
+The rapid-travel owner: `Link.Route` orders the committed cut set and mints every non-cutting move between cuts. Endpoint cost is directed because each `CutElement` has a fixed entry and exit, and every hop prices through the SAME retract resolver that later emits it — the directed cheapest insertion, the bounded directed 2-opt improvement, the input-order baseline, and the receipt all pay one obstacle-aware metric, so a short straight hop that demands a long lift or routed escape orders by its true cost, and a blocked pair prices unreachable so ordering steers around what emission rejects. An undirected MST over symmetrized costs cannot carry an approximation bound for this problem: the cheaper reverse hop can weight the tree while the emitted order pays the expensive forward hop. Between consecutive elements, `direct`, `skim`, `full-lift`, and `routed` resolve from typed keep-out height rows. `Skim` uses the minimum blocker-clearing Z when the required rise stays within `MaxSkimRise`; `full-lift` uses the declared clearance plane for taller bounded fixtures; any unbounded blocker routes A* over its visibility corners. Kernel query failure remains on the `Fin` rail, and an unreachable visibility graph routes `LinkBlocked` 2733.
 
-The clearance probes are REAL composed seams, not named stubs: the broad phase builds the kernel BVH ONCE per route — `Spatial.Apply(SpatialOp.Build(SpatialKind.Bvh, inflatedBounds, BuildPolicy.Canonical))` over the margin-inflated keep-out boxes — and prunes each corridor through `SpatialOp.Query(index, SpatialQuery.Range(corridorBox, None))`; the narrow phase tests the corridor centerline as one `Edge3` through `PolygonAlgebra.ClipOpen` against the pruned inflated loops — an empty `Inside` census IS the clear verdict, exactly the open-subject clip `Toolpath/guard#GUARD` composes for swept envelopes. Guard stays the per-move SAFETY verdict and Link the ROUTING owner: guard says a move is blocked, Link decides where the tool goes instead — the guard `Lift` demotes to the `full-lift` ROW of this page's retract axis (guard keeps `Lift` only as the last-resort trajectory its `Clearance` verdict carries when a caller consults `Check` outside the linked fold). The `Cam` fold folds its generated elements through `Route` before the cell hand-off, retiring the peck input-order emission; a `Nesting/linking` fused chain — one pierce, one entry, one exit — enters as ONE `CutElement` minted by the composing consumer at the plan boundary, so the tour never splits a fused chain. The owner composes the `Process/owner#FABRICATION_OWNER` `Move`/`Edge3` vocabulary, computes no hash, and operates on raw coordinate doubles.
+The broad phase builds the kernel BVH once. Every corridor query returns `Fin<Seq<int>>`; only a genuine `SpatialAnswer.Result` proceeds to `PolygonAlgebra.ClipOpen`, and unexpected answers fail typed instead of becoming a clear verdict. `KeepoutRule` aligns each input keep-out with `TopZ` and `Unbounded`, so Z admission is data rather than a global ceiling fiction. `Home` is a REQUIRED route endpoint — the one initial cursor this fold and the committing fold share: `Seed` emits and accounts the home-to-first-element retract through the resolver before the first committed feed chain, so no origin-to-entry travel exists outside the receipt.
 
-Wire posture: HOST-LOCAL. The linked `Move` stream and the `LinkReceipt` cross only the in-process seam back to the `Cam` fold and forward to `Verify/simulate#PROGRAM_SIMULATE` time accounting — never a browser or peer wire.
+Wire posture: HOST-LOCAL. The linked `Move` stream and the `LinkReceipt` cross only the in-process seam back to the `Cam` fold and forward to `Verify/simulate.md` time accounting — never a browser or peer wire.
 
 ## [01]-[INDEX]
 
-- [01]-[LINK]: owns the `RetractKind` axis, the `CutElement`/`LinkPolicy`/`LinkReceipt`/`Linked` models, and the ONE `Link.Route` fold — MST/DFS tour, per-pair retract selection over the kernel-BVH + `ClipOpen` clearance probes, A* obstacle escape — the single owner of every non-cutting move between committed cuts.
+- [01]-[LINK]: owns the `RetractKind` axis, the `CutElement`/`LinkPolicy`/`LinkReceipt`/`Linked` models, and the ONE `Link.Route` fold — resolver-priced directed cheapest insertion plus bounded directed 2-opt, per-pair retract selection over the kernel BVH and `ClipOpen` clearance probes, and A* obstacle escape — the single owner of every non-cutting move between committed cuts, home leg included.
 
 ## [02]-[LINK]
 
-- Owner: `RetractKind` `[SmartEnum<string>]` (`direct`/`skim`/`full-lift`/`routed`) the retract axis a pair resolves onto cheapest-first; `CutElement` the tour unit (entry point, exit point, committed feed chain — a fused chain is ONE element); `LinkPolicy` the routing knobs (clearance-plane Z, keep-out ceiling Z, skim margin, corner-inflation margin, feed-height direct ΔZ tolerance, the Z-unbounded keep-out index set, optional home); `LinkReceipt` the typed routing evidence (rapid length, input-order baseline length, per-kind retract counts, routed-escape count); `Linked` the result pair (ordered `Move` stream + receipt); `Link` the static surface owning `Route`.
-- Cases: the `RetractKind` rows 4 — `direct` (feed-height straight traverse; corridor BVH-pruned and `ClipOpen`-clear against every keep-out, ΔZ within `DirectTolerance`) · `skim` (hop at `KeepoutCeiling + SkimMargin`; admitted when the feed-height blockers are all Z-bounded) · `full-lift` (clearance-plane up-over-down; admitted when the unbounded set leaves the corridor clear — the plane clears bounded keep-outs by construction) · `routed` (A* corner-graph path at the clearance plane over the unbounded set; the arm of last resort) — resolved in that order per consecutive pair, the first admitted row winning; the tour itself is ONE shape (MST + DFS preorder), never a per-strategy tour family.
-- Entry: `public static Fin<Linked> Route(Seq<CutElement> elements, FabricationInput input, LinkPolicy policy)` — the ONE linking fold: empty input folds to the empty `Linked` identity; the body inflates the keep-outs once, builds the kernel BVH once, builds the endpoint graph, extracts the Prim MST, walks the DFS preorder from the element nearest the machine home (or `policy` start), then per consecutive pair resolves the retract row and emits `exit → rapids → entry` between the committed feed chains; keep-outs read `input.Keepouts`; an A* escape with no admissible path routes `FabricationFault.LinkBlocked(from, to)` 2733; a degenerate element set (an element with an empty feed chain) routes the kernel `GeometryFault.DegenerateInput`; the corner-inflation offset failure PROPAGATES typed — never a fallback to uninflated corners.
-- Auto: `Route` internalizes the whole orchestration — the consumer hands elements and gets a linked stream, never builds a graph, an index, or a retract: the endpoint graph weights each undirected edge with the symmetrized exit/entry cost; `MinimumSpanningTreePrim` (the `api-quikgraph.md` weighted-spanning row) extracts the tree; `DepthFirstSearchAlgorithm` over the MST-restricted adjacency records `DiscoverVertex` preorder as the visit order (the event-fold closure is the QuikGraph event model's named boundary seam); per pair the retract resolver probes `direct` → `skim` → `full-lift` → `routed` over the ONE clearance kernel (BVH `Range` prune → `ClipOpen` centerline test, subset-filtered per row); the A* visibility graph mints vertices from the inflated unbounded-keep-out corners plus the pair endpoints, admits edges whose corridors clear, and calls `ShortestPathsAStar` with the Euclidean goal heuristic; `Cam.Solve` folds every multi-element strategy (peck point sets, contour ring families, pocket islands) through `Route` before the `Kinematics/cell` hand-off.
-- Receipt: `LinkReceipt` carries `RapidLengthMm`, `NaiveRapidLengthMm` (the input-order baseline the tour is judged against), the per-`RetractKind` count map, and `RoutedEscapes` — the typed routing evidence `Verify/simulate` time-integrates and `Verify/estimation` prices; no generic tour ledger.
-- Packages: QuikGraph (`UndirectedGraph`/`AdjacencyGraph`/`SEdge`, `MinimumSpanningTreePrim`, `DepthFirstSearchAlgorithm`, `ShortestPathsAStar` — the shared-tier `api-quikgraph.md` catalog rows, composed), kernel `Spatial/index` (`Spatial.Apply` + `SpatialOp.Build`/`Query` + `SpatialQuery.Range` + `QueryResult.Hits` + `SpatialKind.Bvh` + `BuildPolicy.Canonical` — the ONE broad-phase owner, composed, never a local structure), `Geometry2D/algebra#POLYGON_ALGEBRA` (`Offset` corner inflation, `ClipOpen` corridor narrow phase), `Process/owner#FABRICATION_OWNER` (`Move`/`Edge3`/`FabricationInput`), `Toolpath/guard#GUARD` (the clearance-verdict contract — guard verdicts feed the resolver, routing never re-derives safety), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Owner: `RetractKind` is the four-row retract axis; `KeepoutRule` carries index, top Z, and unbounded posture; `CutElement` is the fixed-entry/fixed-exit tour unit; `LinkPolicy` carries clearance, skim-rise, inflation, direct-Z, tour-improvement, keep-out, and home policy; `LinkReceipt` carries rapid distance, baseline, retract census, and routed escapes; `Linked` carries moves plus receipt; `Link` owns `Route`.
+- Cases: the `RetractKind` rows 4 — `direct` (feed-height straight traverse; corridor BVH-pruned and `ClipOpen`-clear against every keep-out, ΔZ within `DirectTolerance`) · `skim` (hop at the maximum blocking `TopZ` plus `SkimMargin`; admitted when every blocker is bounded and the rise stays within `MaxSkimRise`) · `full-lift` (clearance-plane up-over-down for taller bounded fixtures) · `routed` (A* corner-graph path at the clearance plane over unbounded blockers) — resolved in that order per consecutive pair, the first admitted row winning; the tour itself is one directed order, never a per-strategy family.
+- Entry: `public static Fin<Linked> Route(Seq<CutElement> elements, FabricationInput input, LinkPolicy policy)` is the one linking fold. Empty input folds to the empty `Linked` identity; the body inflates keep-outs once, builds the kernel BVH once, prices the directed hop matrix through the retract resolver, inserts every fixed-entry element under that resolver cost, performs at most `TourPasses` directed 2-opt sweeps, emits the home-to-first retract, and resolves every subsequent `exit → rapid path → entry` seam. Invalid element or keep-out rows route `GeometryFault.DegenerateInput`; corner-inflation and spatial-query failures propagate typed; an unreachable A* visibility graph prices unreachable during ordering and routes `FabricationFault.LinkBlocked(from, to)` 2733 at emission.
+- Auto: `Route` validates every element and keep-out row, builds one clearance field, prices every directed pair plus the home legs through the resolver once, performs directed insertion and 2-opt under the policy pass bound, emits the home seed, and folds each pair through the retract resolver. A* remains QuikGraph-owned; tour construction does not claim an inapplicable metric bound.
+- Receipt: `LinkReceipt` carries `RapidLengthMm`, `NaiveRapidLengthMm` (the input-order baseline under the same resolver metric, home leg included), the per-`RetractKind` count map, and `RoutedEscapes` — the typed routing evidence `Verify/simulate` time-integrates and `Verify/estimation` prices; no generic tour ledger.
+- Packages: QuikGraph (`AdjacencyGraph`/`SEdge`/`ShortestPathsAStar` for the visibility escape), kernel `Spatial/index` (`Spatial.Apply` + `SpatialOp.Build`/`Query` + `SpatialQuery.Range` + `QueryResult.Hits` + `SpatialKind.Bvh` + `BuildPolicy.Canonical`), `Geometry2D/algebra.md` (`Offset` corner inflation and `ClipOpen` corridor narrow phase), `Process/owner.md` (`Move`/`Edge3`/`FabricationInput`), `Toolpath/guard.md` (swept-motion verdicts), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
 - Growth: a new retract row is one `RetractKind` row + one resolver arm (a feed-rate-limited controlled descent, a helical drop); a tour objective beyond rapid length (pierce-weighted, thermal-dwell-weighted) is one edge-weight policy column on `LinkPolicy`; per-keep-out ceilings (replacing the one policy ceiling) are one height column on the keep-out row when fixturing lands it; zero new entrypoints.
-- Boundary: Link is the ONE routing owner and a generator-local ordering (the dead peck input-order emission), a sibling-local retract (the dead guard up-over-down as a routing policy), or a second tour surface is the deleted form; guard owns per-move SAFETY verdicts and Link owns ROUTING — a Link-side gouge test re-deriving guard's swept envelope is the deleted form, the resolver reads guard's contract; the tour is the MST/DFS 2-approximation and an exact TSP solve or a greedy nearest-neighbor without the tree bound is the rejected form; the broad phase is the kernel `Spatial.Apply` BVH and an O(n·m) all-pairs corridor scan is the deleted form; the escape graph mints from keep-out corners and a rasterized grid A* is the rejected form (resolution-bound where the visibility graph is exact); a blocked pair FAILS typed with `LinkBlocked` and a silent straight-line rapid through a keep-out is the named safety defect; a swallowed inflation or clip failure is the deleted form — the rail carries every Geometry2D verdict through.
+- Boundary: Link is the ONE routing owner. A symmetrized-undirected tour over fixed directed endpoints, a Euclidean ordering surrogate beside obstacle-priced emission, a bool-returning spatial probe, a home point used only as a root hint, a raster escape, or a blind rapid is the deleted form. Guard owns swept-motion safety; Link owns route selection over guard-compatible clearance evidence.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------------------------------------------------------------
@@ -27,7 +27,6 @@ using LanguageExt;
 using LanguageExt.Common;
 using QuikGraph;
 using QuikGraph.Algorithms;
-using QuikGraph.Algorithms.Search;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rasm.Numerics;
@@ -50,16 +49,30 @@ public sealed partial class RetractKind {
 // --- [MODELS] ---------------------------------------------------------------------------------------------------------------------------------------
 // Unbounded names the keep-out indices rising past the clearance plane (clamp towers, tombstones) — the set
 // the routed escape navigates; every other keep-out is cleared by the plane law.
+public readonly record struct KeepoutRule(int Index, double TopZ, bool Unbounded);
+
+// Home is a REQUIRED route endpoint — the one initial cursor Link and the committing fold share, so no
+// origin-to-entry travel exists outside the retract resolver. The default is the workholding free-fixture
+// cursor datum; the composing fold passes the admitted fixture's initial cursor.
 public sealed record LinkPolicy(
-    double ClearancePlane, double KeepoutCeiling, double SkimMargin, double CornerMargin, double DirectTolerance,
-    Set<int> Unbounded, Option<Point3d> Home) {
+    double ClearancePlane, double MaxSkimRise, double SkimMargin, double CornerMargin, double DirectTolerance,
+    int TourPasses, Arr<KeepoutRule> Keepouts, Point3d Home) {
     public static readonly LinkPolicy Default =
-        new(ClearancePlane: 25.0, KeepoutCeiling: 10.0, SkimMargin: 2.0, CornerMargin: 1.0, DirectTolerance: 0.5, Unbounded: default, Home: default);
+        new(ClearancePlane: 25.0, MaxSkimRise: 5.0, SkimMargin: 2.0, CornerMargin: 1.0,
+            DirectTolerance: 0.5, TourPasses: 4, Keepouts: Arr<KeepoutRule>.Empty, Home: Point3d.Origin);
 }
 
 // One tour unit: a fused chain (common-line / chain-cut / bridged group) is ONE element — one pierce, one entry, one exit.
 public sealed record CutElement(Point3d Entry, Point3d Exit, Seq<Move> Feed) {
-    public static CutElement Of(Seq<Move> feed) => new(feed.Head.To, feed.Last.To, feed);
+    public static Fin<CutElement> Of(Seq<Move> feed) =>
+        feed.IsEmpty
+            ? Fin.Fail<CutElement>(GeometryFault.DegenerateInput("link:empty-element").ToError())
+            : Fin.Succ(new CutElement(Target(feed.Head), Target(feed.Last), feed));
+
+    static Point3d Target(Move move) => move.Switch(
+        rapid: static row => row.Target,
+        linear: static row => row.Target,
+        circular: static row => row.Target);
 }
 
 public sealed record LinkReceipt(double RapidLengthMm, double NaiveRapidLengthMm, Map<RetractKind, int> Retracts, int RoutedEscapes);
@@ -71,54 +84,117 @@ internal sealed record RouteField(Seq<Loop> Inflated, BoundingBox[] Bounds, Opti
 
 // --- [OPERATIONS] -----------------------------------------------------------------------------------------------------------------------------------
 public static class Link {
-    // The ONE linking fold: tour (MST + DFS preorder), then per-pair retract resolution cheapest-first,
-    // then the A* corner-graph escape; a pair with no admissible route fails typed — never a blind rapid.
+    // Directed insertion and bounded 2-opt precede per-pair retract selection and the A* escape.
     public static Fin<Linked> Route(Seq<CutElement> elements, FabricationInput input, LinkPolicy policy) =>
-        elements.IsEmpty ? Fin.Succ(new Linked(Seq<Move>(), new LinkReceipt(0.0, 0.0, default, 0)))
-        : elements.Find(static e => e.Feed.IsEmpty).IsSome
-            ? Fin.Fail<Linked>(GeometryFault.DegenerateInput("link:empty-element").ToError())
-            : Field(input, policy).Bind(field => Fold(Tour(elements, policy), elements, field));
+        elements.IsEmpty ? Fin.Succ(new Linked(Seq<Move>(), new LinkReceipt(0.0, 0.0, Map<RetractKind, int>(), 0)))
+        : elements.Find(e => e.Feed.IsEmpty || !e.Entry.IsValid || !e.Exit.IsValid
+                || e.Feed.Exists(static move => !Target(move).IsValid)
+                || e.Entry.DistanceTo(Target(e.Feed.Head)) > 1e-9
+                || e.Exit.DistanceTo(Target(e.Feed.Last)) > 1e-9).IsSome
+            ? Fin.Fail<Linked>(GeometryFault.DegenerateInput("link:invalid-element").ToError())
+            : !double.IsFinite(policy.ClearancePlane) || !double.IsFinite(policy.MaxSkimRise)
+                || !double.IsFinite(policy.SkimMargin) || !double.IsFinite(policy.CornerMargin)
+                || !double.IsFinite(policy.DirectTolerance) || policy.ClearancePlane <= 0.0
+                || policy.MaxSkimRise < 0.0 || policy.SkimMargin < 0.0 || policy.CornerMargin <= 0.0
+                || policy.DirectTolerance < 0.0 || policy.TourPasses < 0
+                || !policy.Home.IsValid
+                ? Fin.Fail<Linked>(GeometryFault.DegenerateInput("link:policy").ToError())
+                : policy.Keepouts.Count != input.Keepouts.Count
+                    || toSeq(policy.Keepouts).Map((rule, index) => rule.Index == index).Exists(static aligned => !aligned)
+                    || policy.Keepouts.Exists(rule => !double.IsFinite(rule.TopZ)
+                        || !rule.Unbounded && rule.TopZ >= policy.ClearancePlane)
+                    ? Fin.Fail<Linked>(GeometryFault.DegenerateInput("link:keepout-height-policy").ToError())
+                    : Field(input, policy).Bind(field => Costs(elements, field).Bind(costs => {
+                        Seq<int> order = Tour(costs, policy);
+                        return Seed(order, elements, field, costs).Bind(seed => Fold(order.Tail, elements, field, seed));
+                    }));
 
     // The clearance field: corner-inflated keep-outs (failure propagates — never uninflated fallback) and the
     // kernel BVH over their boxes, built through the ONE Spatial.Apply entry.
     static Fin<RouteField> Field(FabricationInput input, LinkPolicy policy) =>
         input.Keepouts.IsEmpty
             ? Fin.Succ(new RouteField(Seq<Loop>(), [], Option<SpatialIndex>.None, policy))
-            : PolygonAlgebra.Offset(toSeq(input.Keepouts), policy.CornerMargin, OffsetEnds.Polygon).Bind(inflated => {
-                BoundingBox[] bounds = [.. inflated.Map(static loop => loop.Bound())];
-                return Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, bounds, BuildPolicy.Canonical)).Map(answer =>
-                    new RouteField(inflated, bounds, answer is SpatialAnswer.Index built ? Some(built.Value) : Option<SpatialIndex>.None, policy));
+            : toSeq(input.Keepouts).TraverseM(loop =>
+                OffsetPolicy.Admit(OffsetJoin.Round, OffsetEnd.Polygon, miterLimit: 2.0, loop.Tolerance.Absolute.Value)
+                    .Bind(offsetPolicy => PolygonAlgebra.Offset(Seq(loop), policy.CornerMargin, offsetPolicy))
+                    .Bind(rows => rows.Count == 1
+                        ? Fin.Succ(rows.Head)
+                        : Fin.Fail<Loop>(GeometryFault.DegenerateInput($"link:keepout-offset-topology:{rows.Count}").ToError())))
+                .As().Bind(inflated => {
+                BoundingBox[] bounds = [.. inflated.Map(static loop => Planar(loop.Bound()))];
+                return Spatial.Apply(new SpatialOp.Build(SpatialKind.Bvh, bounds, BuildPolicy.Canonical)).Bind(answer =>
+                    answer is SpatialAnswer.Index built
+                        ? Fin.Succ(new RouteField(inflated, bounds, Some(built.Value), policy))
+                        : Fin.Fail<RouteField>(GeometryFault.DegenerateInput("link:spatial-build-answer").ToError()));
             });
 
-    // MST over the symmetrized endpoint graph, DFS preorder as the visit order — the 2-approx tour. The MST
-    // edge set expands BOTH directions into an AdjacencyGraph so the cataloged DepthFirstSearchAlgorithm walks
-    // the undirected tree; DiscoverVertex fires once per vertex, so the event fold IS the preorder (the event
-    // closure is the QuikGraph event model's named boundary seam).
-    static Seq<int> Tour(Seq<CutElement> elements, LinkPolicy policy) {
-        UndirectedGraph<int, SEdge<int>> graph = new();
-        graph.AddVertexRange(Enumerable.Range(0, elements.Count));
-        graph.AddEdgeRange(from i in Enumerable.Range(0, elements.Count)
-                           from j in Enumerable.Range(i + 1, elements.Count - i - 1)
-                           select new SEdge<int>(i, j));
-        double W(SEdge<int> e) => Math.Min(
-            elements[e.Source].Exit.DistanceTo(elements[e.Target].Entry),
-            elements[e.Target].Exit.DistanceTo(elements[e.Source].Entry));
-        AdjacencyGraph<int, SEdge<int>> tree = new();
-        tree.AddVertexRange(Enumerable.Range(0, elements.Count));
-        tree.AddEdgeRange(graph.MinimumSpanningTreePrim(W).SelectMany(static e => new[] { e, new SEdge<int>(e.Target, e.Source) }));
-        int start = policy.Home.Match(
-            Some: h => Enumerable.Range(0, elements.Count).OrderBy(i => elements[i].Entry.DistanceTo(h)).First(),
-            None: () => 0);
-        Seq<int> order = Seq<int>();
-        DepthFirstSearchAlgorithm<int, SEdge<int>> dfs = new(tree);
-        dfs.DiscoverVertex += v => order = order.Add(v);
-        dfs.Compute(start);
-        return order;
+    // The ONE directed rapid cost: the same resolver that emits the moves prices every hop, so tour ordering,
+    // the input-order baseline, and the receipt share one metric — lift and routed-escape costs shape the order.
+    // A blocked pair prices +∞ so ordering steers around it; emission stays the typed enforcement.
+    sealed record TourCosts(double[][] Hops, double[] FromHome);
+
+    static Fin<TourCosts> Costs(Seq<CutElement> elements, RouteField field) =>
+        toSeq(Enumerable.Range(0, elements.Count)).TraverseM(i =>
+                toSeq(Enumerable.Range(0, elements.Count)).TraverseM(j => i == j
+                        ? Fin.Succ(0.0)
+                        : HopCost(elements[i].Exit, elements[j].Entry, field))
+                    .As().Map(static row => row.ToArray()))
+            .As()
+            .Bind(rows => toSeq(Enumerable.Range(0, elements.Count))
+                .TraverseM(j => HopCost(field.Policy.Home, elements[j].Entry, field))
+                .As().Map(home => new TourCosts([.. rows], [.. home])));
+
+    static Fin<double> HopCost(Point3d from, Point3d to, RouteField field) =>
+        RapidPath(from, to, field).Map(static path => path.Map(static hop => hop.Length).IfNone(double.PositiveInfinity));
+
+    // Fixed entry/exit endpoints make hop costs directed. Cheapest insertion followed by bounded directed
+    // 2-opt preserves that fact over the resolver-priced matrix; no symmetric metric bound is claimed.
+    static Seq<int> Tour(TourCosts costs, LinkPolicy policy) {
+        int count = costs.FromHome.Length;
+        int start = toSeq(Enumerable.Range(0, count)).OrderBy(i => costs.FromHome[i]).Head;
+        Seq<int> inserted = Insert(costs, Seq(start), toSet(Enumerable.Range(0, count).Where(i => i != start)));
+        return Enumerable.Range(0, Math.Max(policy.TourPasses, 0)).Fold(inserted, (order, _) => Improve(costs, order));
     }
 
-    static Fin<Linked> Fold(Seq<int> order, Seq<CutElement> elements, RouteField field) =>
-        order.Tail.Fold(
-            Fin.Succ((Moves: elements[order.Head].Feed, Receipt: new LinkReceipt(0.0, Naive(elements), default, 0), At: order.Head)),
+    static Seq<int> Insert(TourCosts costs, Seq<int> order, Set<int> remaining) =>
+        remaining.IsEmpty ? order : (from node in remaining
+                                      from position in toSeq(Enumerable.Range(1, order.Count))
+                                      let before = order[position - 1]
+                                      let after = position < order.Count ? Some(order[position]) : Option<int>.None
+                                      let delta = costs.Hops[before][node] + after.Map(a => costs.Hops[node][a] - costs.Hops[before][a]).IfNone(0.0)
+                                      orderby delta
+                                      select (node, position)).HeadOrNone().Map(best =>
+                                          Insert(costs, order.Take(best.position).Concat(Seq(best.node)).Concat(order.Skip(best.position)).ToSeq(), remaining.Remove(best.node)))
+            .IfNone(order);
+
+    static Seq<int> Improve(TourCosts costs, Seq<int> order) =>
+        (from i in toSeq(Enumerable.Range(1, Math.Max(order.Count - 2, 0)))
+         from j in toSeq(Enumerable.Range(i + 1, order.Count - i - 1))
+         let candidate = order.Take(i).Concat(order.Skip(i).Take(j - i + 1).Rev()).Concat(order.Skip(j + 1)).ToSeq()
+         let gain = Cost(costs, order) - Cost(costs, candidate)
+         where gain > 1e-9
+         orderby gain descending
+         select candidate).HeadOrNone().IfNone(order);
+
+    // The ordering objective includes the home leg — the same law Seed pays and Naive judges input order under.
+    static double Cost(TourCosts costs, Seq<int> order) =>
+        costs.FromHome[order.Head]
+        + order.Tail.Fold((At: order.Head, Cost: 0.0), (state, next) => (next, state.Cost + costs.Hops[state.At][next])).Cost;
+
+    static double Naive(TourCosts costs) =>
+        costs.FromHome.Length == 0
+            ? 0.0
+            : costs.FromHome[0] + toSeq(Enumerable.Range(0, costs.FromHome.Length - 1)).Fold(0.0, (sum, i) => sum + costs.Hops[i][i + 1]);
+
+    static Fin<(Seq<Move> Moves, LinkReceipt Receipt, int At)> Seed(Seq<int> order, Seq<CutElement> elements, RouteField field, TourCosts costs) =>
+        Retract(field.Policy.Home, elements[order.Head].Entry, field).Map(hop =>
+            (hop.Moves + elements[order.Head].Feed,
+             new LinkReceipt(hop.Length, Naive(costs), Map((hop.Kind, 1)), hop.Kind == RetractKind.Routed ? 1 : 0),
+             order.Head));
+
+    static Fin<Linked> Fold(Seq<int> remaining, Seq<CutElement> elements, RouteField field, (Seq<Move> Moves, LinkReceipt Receipt, int At) seed) =>
+        remaining.Fold(
+            Fin.Succ(seed),
             (acc, next) => acc.Bind(s => Retract(elements[s.At].Exit, elements[next].Entry, field).Map(hop =>
                 (s.Moves + hop.Moves + elements[next].Feed,
                  new LinkReceipt(s.Receipt.RapidLengthMm + hop.Length, s.Receipt.NaiveRapidLengthMm,
@@ -127,89 +203,133 @@ public static class Link {
                  next))))
             .Map(static s => new Linked(s.Moves, s.Receipt));
 
-    // Cheapest-first per pair: direct (all keep-outs clear + ΔZ tolerance) → skim (only bounded keep-outs
-    // block) → full-lift (unbounded set clear at the plane) → routed (A* over the unbounded corner graph);
-    // an unreachable goal routes LinkBlocked 2733.
-    static Fin<(Seq<Move> Moves, double Length, RetractKind Kind)> Retract(Point3d from, Point3d to, RouteField field) =>
-        Math.Abs(from.Z - to.Z) <= field.Policy.DirectTolerance && Clear(field, from, to, All)
-            ? Fin.Succ((Seq(new Move(to, Rapid: true, Feed: 0.0)), from.DistanceTo(to), RetractKind.Direct))
-        : Clear(field, from, to, UnboundedOnly)
-            ? Clear(field, from, to, BoundedOnly)
-                ? Fin.Succ(Hopped(from, to, field.Policy.KeepoutCeiling + field.Policy.SkimMargin, RetractKind.Skim))
-                : Fin.Succ(Hopped(from, to, field.Policy.ClearancePlane, RetractKind.FullLift))
-            : Escape(from, to, field).Match(
-                Some: path => Fin.Succ((path, PathLength(from, path), RetractKind.Routed)),
-                None: () => Fin.Fail<(Seq<Move>, double, RetractKind)>(FabricationFault.LinkBlocked(from, to).ToError()));
+    // Direct preserves endpoint Z; bounded blockers choose minimum skim or clearance-plane full lift; unbounded
+    // blockers route around at clearance. Every spatial answer remains typed; None means no admissible path —
+    // the pricing lane reads it as +∞ while the emission lane lifts it into LinkBlocked 2733.
+    static Fin<Option<(Seq<Move> Moves, double Length, RetractKind Kind)>> RapidPath(Point3d from, Point3d to, RouteField field) =>
+        Blockers(field, from, to, Math.Max(from.Z, to.Z)).Bind(blocked =>
+            blocked.IsEmpty && Math.Abs(from.Z - to.Z) <= field.Policy.DirectTolerance
+                ? Fin.Succ(Some((Seq<Move>(new Move.Rapid(to)), from.DistanceTo(to), RetractKind.Direct)))
+                : blocked.Exists(id => Rule(field, id).Unbounded)
+                    ? Escape(from, to, field).Map(path => path.Map(moves => (moves, PathLength(from, moves), RetractKind.Routed)))
+                    : Fin.Succ(Some(Lifted(from, to, field, blocked))));
 
-    static bool All(RouteField field, int id) => true;
-    static bool UnboundedOnly(RouteField field, int id) => field.Policy.Unbounded.Contains(id);
-    static bool BoundedOnly(RouteField field, int id) => !field.Policy.Unbounded.Contains(id);
+    static Fin<(Seq<Move> Moves, double Length, RetractKind Kind)> Retract(Point3d from, Point3d to, RouteField field) =>
+        RapidPath(from, to, field).Bind(path => path.ToFin(FabricationFault.LinkBlocked(from, to).ToError()));
+
+    static (Seq<Move> Moves, double Length, RetractKind Kind) Lifted(Point3d from, Point3d to, RouteField field, Seq<int> blockers) {
+        double floor = Math.Max(from.Z, to.Z);
+        double skim = blockers.Map(id => Rule(field, id).TopZ).Fold(floor, Math.Max) + field.Policy.SkimMargin;
+        bool isSkim = skim - floor <= field.Policy.MaxSkimRise && skim <= field.Policy.ClearancePlane;
+        return Hopped(from, to, isSkim ? skim : field.Policy.ClearancePlane, isSkim ? RetractKind.Skim : RetractKind.FullLift);
+    }
+
+    static KeepoutRule Rule(RouteField field, int id) => field.Policy.Keepouts[id];
 
     // The ONE clearance kernel: BVH Range prune over the corridor AABB, then the ClipOpen centerline narrow
     // phase against the pruned, subset-filtered inflated loops — an empty Inside census IS the clear verdict.
-    static bool Clear(RouteField field, Point3d from, Point3d to, Func<RouteField, int, bool> subset) =>
+    static Fin<Seq<int>> Blockers(RouteField field, Point3d from, Point3d to, double atZ) =>
         field.Index.Match(
-            None: () => true,
+            None: () => Fin.Succ(Seq<int>()),
             Some: index => Spatial.Apply(new SpatialOp.Query(index, new SpatialQuery.Range(
-                    new BoundingBox(Seq(from, to).ToArray()), Option<Sphere>.None)))
-                .Map(answer => answer is SpatialAnswer.Result { Value: QueryResult.Hits hits }
-                    ? PolygonAlgebra.ClipOpen(
-                        Seq(new Edge3(from, to)),
-                        hits.Ids.Filter(id => subset(field, id)).Map(id => field.Inflated[id]))
-                        .Inside.IsEmpty
-                    : true)
-                .IfFail(false));
+                    Planar(new BoundingBox(Seq(from, to).ToArray())), Option<Sphere>.None)))
+                .Bind(answer => answer is SpatialAnswer.Result { Value: QueryResult.Hits hits }
+                    ? hits.Ids.TraverseM(id => PolygonAlgebra.ClipOpen(Seq1(new Edge3(from, to)), Seq(field.Inflated[id]), PolygonFill.NonZero)
+                            .Map(clipped => (Rule(field, id).Unbounded || Rule(field, id).TopZ >= atZ) && !clipped.Inside.IsEmpty
+                                ? Some(id) : Option<int>.None))
+                        .As()
+                        .Map(static rows => rows.Bind(static row => row.ToSeq()))
+                    : Fin.Fail<Seq<int>>(GeometryFault.DegenerateInput("link:spatial-query-answer").ToError())));
+
+    static BoundingBox Planar(BoundingBox box) =>
+        new(new Point3d(box.Min.X, box.Min.Y, 0.0), new Point3d(box.Max.X, box.Max.Y, 0.0));
 
     // A* over the visibility graph of inflated UNBOUNDED keep-out corners plus the endpoints, edges admitted
     // where the corridor clears the unbounded subset; the path rides the clearance plane.
-    static Option<Seq<Move>> Escape(Point3d from, Point3d to, RouteField field) {
+    static Fin<Option<Seq<Move>>> Escape(Point3d from, Point3d to, RouteField field) {
+        Point3d liftedFrom = new(from.X, from.Y, field.Policy.ClearancePlane);
+        Point3d liftedTo = new(to.X, to.Y, field.Policy.ClearancePlane);
         Seq<Point3d> corners = toSeq(Enumerable.Range(0, field.Inflated.Count))
-            .Filter(id => field.Policy.Unbounded.Contains(id))
-            .Bind(id => toSeq(field.Inflated[id].Vertices));
-        Seq<Point3d> verts = from.Cons(to.Cons(corners));
-        AdjacencyGraph<int, SEdge<int>> graph = new();
-        graph.AddVertexRange(Enumerable.Range(0, verts.Count));
-        graph.AddEdgeRange(from i in Enumerable.Range(0, verts.Count)
-                           from j in Enumerable.Range(0, verts.Count)
-                           where i != j && Clear(field, verts[i], verts[j], UnboundedOnly)
-                           select new SEdge<int>(i, j));
-        TryFunc<int, IEnumerable<SEdge<int>>> paths = graph.ShortestPathsAStar(
-            e => verts[e.Source].DistanceTo(verts[e.Target]), v => verts[v].DistanceTo(to), 0);
-        return paths(1, out IEnumerable<SEdge<int>>? edges)
-            ? Some(toSeq(edges!).Map(e => new Move(
-                new Point3d(verts[e.Target].X, verts[e.Target].Y, field.Policy.ClearancePlane), Rapid: true, Feed: 0.0)))
-            : None;
+            .Filter(id => Rule(field, id).Unbounded)
+            .Bind(id => toSeq(field.Inflated[id].Vertices)
+                .Map(point => new Point3d(point.X, point.Y, field.Policy.ClearancePlane)));
+        Seq<Point3d> verts = liftedFrom.Cons(liftedTo.Cons(corners));
+        Seq<(int From, int To)> pairs = from i in toSeq(Enumerable.Range(0, verts.Count))
+                                        from j in toSeq(Enumerable.Range(0, verts.Count))
+                                        where i != j
+                                        select (i, j);
+        return pairs.TraverseM(pair => Blockers(field, verts[pair.From], verts[pair.To], field.Policy.ClearancePlane)
+                .Map(blocked => blocked.Exists(id => Rule(field, id).Unbounded)
+                    ? Option<SEdge<int>>.None : Some(new SEdge<int>(pair.From, pair.To))))
+            .As()
+            .Map(edges => {
+                AdjacencyGraph<int, SEdge<int>> graph = new();
+                graph.AddVertexRange(Enumerable.Range(0, verts.Count));
+                graph.AddEdgeRange(edges.Bind(static edge => edge.ToSeq()));
+                TryFunc<int, IEnumerable<SEdge<int>>> paths = graph.ShortestPathsAStar(
+                    edge => verts[edge.Source].DistanceTo(verts[edge.Target]), vertex => verts[vertex].DistanceTo(liftedTo), 0);
+                return paths(1, out IEnumerable<SEdge<int>>? route) && route is not null
+                    ? Some(Seq<Move>(new Move.Rapid(liftedFrom))
+                        + toSeq(route).Map(edge => (Move)new Move.Rapid(verts[edge.Target]))
+                        + Seq<Move>(new Move.Rapid(to)))
+                    : Option<Seq<Move>>.None;
+            });
     }
 
     static (Seq<Move> Moves, double Length, RetractKind Kind) Hopped(Point3d from, Point3d to, double z, RetractKind kind) =>
-        (Seq(new Move(new Point3d(from.X, from.Y, z), Rapid: true, Feed: 0.0),
-             new Move(new Point3d(to.X, to.Y, z), Rapid: true, Feed: 0.0),
-             new Move(to, Rapid: true, Feed: 0.0)),
+        (Seq<Move>(new Move.Rapid(new Point3d(from.X, from.Y, z)),
+             new Move.Rapid(new Point3d(to.X, to.Y, z)),
+             new Move.Rapid(to)),
          Math.Abs(z - from.Z) + new Point3d(from.X, from.Y, z).DistanceTo(new Point3d(to.X, to.Y, z)) + Math.Abs(z - to.Z),
          kind);
 
     static double PathLength(Point3d from, Seq<Move> path) =>
-        path.Fold((Length: 0.0, At: from), static (acc, move) => (acc.Length + acc.At.DistanceTo(move.To), move.To)).Length;
+        path.Fold((Length: 0.0, At: from), static (acc, move) => {
+            Point3d target = Target(move);
+            return (acc.Length + acc.At.DistanceTo(target), target);
+        }).Length;
 
-    static double Naive(Seq<CutElement> elements) =>
-        elements.Tail.Fold((0.0, elements.Head.Exit), static (a, e) => (a.Item1 + a.Item2.DistanceTo(e.Entry), e.Exit)).Item1;
+    static Point3d Target(Move move) => move.Switch(
+        rapid: static row => row.Target,
+        linear: static row => row.Target,
+        circular: static row => row.Target);
 }
 ```
 
 ```mermaid
 ---
 config:
-  layout: elk
   theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
+    accTitle: Directed rapid-link routing
+    accDescr: Link.Route orders fixed-entry cut elements and resolves typed direct, lifted, or obstacle-routed moves.
     Elements["Seq&lt;CutElement&gt; (Cam generators · fused chains as one element)"] --> Route["Link.Route"]
-    Route -->|"symmetrized weights · MST (Prim) + DFS preorder"| Tour["visit order — 2-approx tour"]
+    Route -->|"resolver-priced directed insertion · bounded directed 2-opt"| Tour["fixed-entry visit order"]
     Field["RouteField — Offset inflation + Spatial.Apply BVH build (once)"] --> Resolve
     Tour -->|per consecutive pair| Resolve["retract resolver cheapest-first"]
     Resolve -->|"all clear + ΔZ ≤ tol"| Direct["direct"]
     Resolve -->|"bounded blockers only → ceiling + margin"| Skim["skim"]
-    Resolve -->|"unbounded set clear → plane law"| FullLift["full-lift"]
+    Resolve -->|"bounded blocker rise > skim limit → clearance plane"| FullLift["full-lift"]
     Resolve -->|"A* unbounded corner visibility graph"| Routed["routed"]
     Resolve -.->|no admissible path| Blocked["FabricationFault.LinkBlocked 2733"]
     Kernel["SpatialQuery.Range prune → PolygonAlgebra.ClipOpen centerline"] --> Resolve
@@ -218,4 +338,14 @@ flowchart LR
     FullLift --> Linked
     Routed --> Linked
     Linked -->|time integration| Simulate["Verify/simulate"]
+    class Elements,Field data
+    class Route,Tour,Resolve primary
+    class Direct,Skim,FullLift,Routed,Kernel,Simulate boundary
+    class Linked success
+    class Blocked error
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
 ```

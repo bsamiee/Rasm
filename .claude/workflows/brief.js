@@ -1,7 +1,7 @@
 export const meta = {
     name: 'brief',
     description:
-        'Durable polyglot campaign-brief author over libs/{python,csharp,typescript} planning corpora. args = {targets, upstream, deep, mandate, review, gold} — targets a folder path or an ORDERED array (a waterfall: each later brief consumes every earlier one as finalized law with surgical ripple authority back); upstream = pre-existing finalized brief paths (any language) joining the corpus; deep = true or a target-path subset gaining 2 OSS-ecosystem research lanes; mandate = a scope-expansion law string for all targets or a {targetPath: text} map; review = extra brief paths for the terminal cross-corpus review, or false to skip it; gold = the exemplar brief (default RASM-PY-ARTIFACTS-BRIEF.md). Per target: 5 surveyors (corpus halves + api/manifest tiers + seam/consumer census + cross-folder strata census; +2 deep lanes) all on gpt-5.6-terra via codex dispatch wrappers (sonnet shells; surveyors write dossiers workspace-write, deep lanes add live web search; CODEX flag false restores native lanes; every lane leaves its dossier + typed report on disk and returns a thin receipt) -> 1 author (a single-phase decision-complete brief that never requires a second document, carrying the bidirectional CROSS_FOLDER enablement section, the section-utility anti-chaff law, and the header campaign law) -> 4 sequential adversarial passes (architecture, capability incl. the cross-folder audit, roster under the integration-first/seal-challenge/package-waterfall laws, cold-read + hedge-kill + chaff-sweep + RIPPLE AUDIT re-verifying every claimed upstream edit on disk). Terminal: when 1+ briefs were produced, 3 sequential review passes (initial/critique/redteam) cross-align the WHOLE corpus in place. Every adversarial refine + review pass carries a required-but-usually-empty harvest attestation; when the pooled nominations are non-empty, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal). Output naming RASM-<PY|CS|TS>-<NAME>-BRIEF.md.',
+        'Durable polyglot campaign-brief author over libs/{python,csharp,typescript} planning corpora. args = {targets, upstream, deep, mandate, review, gold} — targets a folder path or an ORDERED array (a waterfall: each later brief consumes every earlier one as finalized law with surgical ripple authority back); upstream = pre-existing finalized brief paths (any language) joining the corpus; deep = true or a target-path subset gaining 2 OSS-ecosystem research lanes; mandate = a scope-expansion law string for all targets or a {targetPath: text} map; review = extra brief paths for the terminal cross-corpus review, or false to skip it; gold = the exemplar brief (default RASM-PY-ARTIFACTS-BRIEF.md). Per target: 5 surveyors (corpus halves + api/manifest tiers + seam/consumer census + cross-folder strata census; +2 deep lanes) all on gpt-5.6-terra via codex dispatch wrappers (sonnet shells; surveyors write dossiers workspace-write, deep lanes add live web search; CODEX flag false restores native lanes; every lane leaves its dossier + typed report on disk and returns a thin receipt) -> 1 author (a single-phase decision-complete brief that never requires a second document, carrying the bidirectional CROSS_FOLDER enablement section, the section-utility anti-chaff law, and the header campaign law) -> 4 sequential adversarial passes (architecture, capability incl. the cross-folder audit, roster under the integration-first/seal-challenge/package-waterfall laws, cold-read + hedge-kill + chaff-sweep + RIPPLE AUDIT re-verifying every claimed upstream edit on disk). Terminal: when 1+ briefs were produced, 3 sequential review passes (initial/critique/redteam) cross-align the WHOLE corpus in place. Every adversarial refine + review pass carries a required-but-usually-empty harvest attestation; when the pooled nominations are non-empty, ONE terminal opus doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal). Output naming RASM-<PY|CS|TS>-<NAME>-BRIEF.md.',
     whenToUse:
         'The standing brief engine: author one brief, or a dependency-ordered waterfall of them, in any language mix, with the cross-corpus review built in. Empty args = no-op.',
 };
@@ -372,7 +372,7 @@ const HARVEST_LAW =
     'would harden, quoted with its path — or "absent" plus the surfaces searched). A brief-local fix never nominates; an empty array is ' +
     'the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
-// Stance opener forks by executing model: the fable author/passes (and the native survey twin) read the estate hostile
+// Stance opener forks by executing model: the native author/passes (and the native survey twin) read the estate hostile
 // register as calibration; the codex-primary survey/deep lanes take the neutral form (a hostile stance makes a codex lane
 // over-probe). Both keep identical substance — the two naivety axes and the full defect-hunt list follow verbatim.
 const STANCE = {
@@ -548,10 +548,10 @@ const codexPrompt = (label, task, schema, o) => {
     ].join('\n\n');
 };
 // Every survey/research lane routes here: terra by default; CODEX=false restores a fully native run. QUOTA FALLBACK: a codex receipt whose failure
-// matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->fable, luna->sonnet) — the caller owns
+// matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->opus, luna->sonnet) — the caller owns
 // the re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the lane's
 // self-report) so a failed lane's unmapped territory is exact even when it died before writing anything.
-const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus'); // native fallback twins; fable is never a fallback
 const nativeLane = (task, o) =>
     run(
         task +
@@ -823,7 +823,7 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
     const name = nameOf(t);
     const out = outOf(t);
     const preCodex = preOf(t, corpus, 'codex'); // survey/deep lanes (codex-primary)
-    const preClaude = preOf(t, corpus, 'claude'); // native fable author + adversarial passes
+    const preClaude = preOf(t, corpus, 'claude'); // native author + adversarial passes
     const P = L.tag + ':' + name.toLowerCase();
     const laneLabel = (lane) => 'survey:' + L.tag.toLowerCase() + '-' + name.toLowerCase() + ':' + lane;
 
@@ -1047,7 +1047,7 @@ if (harvestRows.length) {
             'whose coupling no longer holds, land a coupling this run proved.\n' +
             'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
             'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-        { label: 'doctrine', phase: 'doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+        { label: 'doctrine', phase: 'doctrine', model: 'opus', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
     );
     log(
         'doctrine: ' +

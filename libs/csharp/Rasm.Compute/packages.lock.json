@@ -1901,7 +1901,8 @@
           "System.IO.Hashing": "[10.0.9, )",
           "System.Numerics.Tensors": "[10.0.9, )",
           "TYoshimura.DoubleDouble": "[5.0.8, )",
-          "Thinktecture.Runtime.Extensions": "[10.4.0, )"
+          "Thinktecture.Runtime.Extensions": "[10.4.0, )",
+          "Wacton.Unicolour": "[8.0.0, )"
         }
       },
       "rasm.apphost": {
@@ -4024,6 +4025,12 @@
         "requested": "[1.2.0, )",
         "resolved": "1.2.0",
         "contentHash": "Rz67gJL619fSBS6omaSINUxyDuwhIxkm5mmubf7uLd5Qgi6LLKaKCha+QFP6n+Bw/UjA0vutnH4JQfYzn6ANtw=="
+      },
+      "Wacton.Unicolour": {
+        "type": "CentralTransitive",
+        "requested": "[8.0.0, )",
+        "resolved": "8.0.0",
+        "contentHash": "BOTEJsSzwVGM4ovknAtOwY0SlfHQ2C4rjEhVPX6JeshVYzxr3iJiDHH4e+jX0iSujgqHuByOudIrXiHMgQabWA=="
       },
       "Wasmtime": {
         "type": "CentralTransitive",

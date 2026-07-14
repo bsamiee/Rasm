@@ -27,6 +27,7 @@ A workflow is a runnable JavaScript orchestrator for Claude Code's `Workflow` to
 - [04]-[RECOVERY](references/recovery.md): resume, transplant, and reconstruction.
 - [05]-[EXTERNAL_LANES](references/codex-lanes.md): external-model lane composition — codex (gpt-5.6) work lanes, the agy (Gemini) read-only review lane.
 - [06]-[EXECUTION_STANDARD](references/execution-standard.md): the stage-prompt demand bar — hostile stance, the writer's ground-up/absorption law, reviewers as rebuilders, the mapping-lane burden-reduction contract with unit-granularity mapping, the two-lane ideation split, and the own-pass-first consumption ladder.
+- [07]-[RUN_STEWARDSHIP](references/run-stewardship.md): the live-run observation system — the three instruments (watcher, forensics, grading), the artifact creation and consumption laws they enforce, the three-rail agent-type verdict, the improvement placement discipline, and fleet propagation.
 
 [TEMPLATES]:
 - [01]-[SKELETONS](assets/templates/): starter skeletons — fan-out, loop, pipeline, and `run-ledger.template.md`.
@@ -36,6 +37,7 @@ A workflow is a runnable JavaScript orchestrator for Claude Code's `Workflow` to
 
 [SCRIPTS]:
 - [01]-[GATES](scripts/): the deterministic validate and dry-run gates.
+- [02]-[WATCHER](scripts/watch-run.sh): the run watcher — phase-bucket signals, heartbeats, silence/stall/drain detection; armed through the Monitor tool per the stewardship reference.
 
 ## [02]-[FIT]
 
@@ -48,7 +50,7 @@ Answer these before writing a line; the answers pick the topology. Write them do
 1. The unit of work — the thing one subagent does once. Name it concretely.
 2. The count — a known list maps; an unknown count loops; a worklist only evidence can produce takes an orchestrator-workers planner, re-planned per round when execution feedback reshapes it.
 3. The topology — the patterns reference owns the vocabulary and its map dispatches the choice by deliverable kind: transformed items, unknown counts, class-shaped routing, emergent worklists, iterate-to-a-bar, contested judgment, deferred cross-item work, with the dataflow contracts riding any shape. Name the shape from that catalog; never invent an ad-hoc one.
-4. The barrier question — a later step needing ALL earlier results at once (dedup, merge, count, early-exit) takes `parallel`; everything else prefers `pipeline`, which streams items through stages with no barrier, so wall-clock is the slowest single chain, never the sum of stage maxima. When in doubt, `pipeline`.
+4. The barrier question — a later step needing ALL earlier results at once (dedup, merge, count, early-exit) takes `parallel`; everything else takes `pipeline`, which streams items through stages with no barrier, so wall-clock is the slowest single chain, never the sum of stage maxima. When in doubt, `pipeline`.
 5. The data question — any result a later line reads a field off of takes a `schema`.
 
 Terminal stages are opt-in, never a default. A reconcile or align stage exists only when workers DEFER cross-item work they cannot do alone — then the deferral travels as data whose resource slot is a LIST (`{files: string[], claim}`), so clustering by shared resource works (patterns reference, the reconcile shape). A pure fan-out legitimately ends at its last per-item stage. A workflow parameterized by a target (file, sub-folder, unit root, several at once) resolves scope with a discovery agent — the orchestrator has no filesystem (patterns reference, the scope shape).
@@ -58,13 +60,12 @@ PLAN-PHASE LAW: a phase whose single agent merely lists files or enumerates scop
 ## [04]-[LAWS]
 
 The rules that break runs, each carried in depth by its owning reference:
-
 - [01]-[META_LITERAL]: `meta` is a pure literal, the first statement, no backticks anywhere inside it.
 - [02]-[NO_WALLCLOCK]: `Date.now()`, `Math.random()`, and argless `new Date()` throw — pass timestamps via `args`; vary randomness by loop index.
 - [03]-[NO_NODE_APIS]: No filesystem or Node APIs in the orchestrator — file and shell work lives inside `agent()`; the body is plain JavaScript, never TypeScript.
 - [04]-[THUNKS_NOT_PROMISES]: `parallel()` takes thunks (`[() => agent(…)]`), never bare promises — bare calls start immediately and defeat the limiter.
 - [05]-[FILTER_HOLES]: Always `.filter(Boolean)` on `parallel()`/`pipeline()` results — skipped, failed, and budget-dropped items are `null` holes.
-- [06]-[DISK_RECEIPTS]: A heavy lane product (anything past ~50 rows) goes to disk; only the thin receipt `{ok, report, entries, headline, failure}` crosses the wire, and the terminal reader reads every ok report file IN FULL — relaying a product through an intermediate agent truncates it silently (patterns reference, the report-file shape).
+- [06]-[DISK_RECEIPTS]: A heavy lane product (anything past ~50 rows) goes to disk; only the thin receipt `{ok, report, entries, headline, failure, thread}` crosses the wire (`thread` carries the external-lane session id, empty on native lanes), and the terminal reader reads every ok report file IN FULL — relaying a product through an intermediate agent truncates it silently (patterns reference, the report-file shape).
 - [07]-[NO_IDLE_WAIT]: No agent idles — a live blocking call is the only legal wait; a wait no single call can hold is orchestration: the agent returns a receipt, the orchestrator holds time with `setTimeout`, a fresh agent runs the next round (throughput reference).
 - [08]-[HARD_STOP]: Every open-ended loop carries a hard stop — a counter, a budget guard (`budget.total && budget.remaining() > N`), or a progress gate; a fix-verify loop gates on file-changing progress, never the round cap alone.
 - [09]-[ARGS_STRUCTURED]: `args` is structured data — read it directly, never `JSON.parse` it, and default the no-args run to a safe no-op, never a full-corpus sweep.
@@ -90,7 +91,6 @@ export const meta = {
 `meta.phases[].model` is a dialog label only — the model is set per `agent()` call; a re-tiered phase sets both or the dialog lies. META DISCIPLINE: meta is a selection and dialog surface, not a second copy of the prompts — `description` states what the run produces, the args shape, and the phase spine; `whenToUse` is one selection clause; `phases[].detail` names each phase's concept. Law text, consumption protocols, and derived agent tallies live in the prompts and the code — a meta that re-serializes them drifts on every stage edit and buries the contract the dialog exists to show ([13]-[FRAGILE_PROSE]). Size is never the metric, in meta or in prompts: prose optimizes by DENSITY — wording refined per the docgen register and the `docs/standards/` prose owners until fewer words carry the same guidance — and never by dropping guidance the acting agent needs; no gate or script imposes a length cap. The lean-prompt shaping that trims intensifiers and hostile register is codex-lane law (external-lanes reference), never a general bar. Then the body: async JavaScript with injected globals — `agent(prompt, opts?)`, `pipeline(items, …stages)`, `parallel(thunks)`, `phase(title)`, `log(msg)`, `console`, `setTimeout`, `budget`, `args`, `workflow(name, args?)` — and the body's `return` becomes the tool result. Full signatures, the `args` shape map, and every cap: api reference.
 
 The three `agent()` options tuned most, independent axes:
-
 - `model` — `'sonnet'`/`'opus'`/`'fable'`/`'inherit'` or a full ID; `'sonnet'` is the floor. Cheap mechanical leaf work drops to `'sonnet'`; a self-contained lane routes to codex (terra default, sol for the hardest legs) through the codex-lanes reference; judgment-heavy work inherits the session model.
 - `effort` — `'low'`…`'max'`, independent of `model`: a cheap model still reasons hard. Synthesis and adversarial judgment run high; mechanical leaf work runs `'low'`.
 - `schema` — a strict JSON Schema (`additionalProperties: false`, everything required, conditional fields required-but-empty) returning a validated object; one strict shape serves native lanes and codex `--output-schema` alike.
@@ -106,9 +106,7 @@ node ${CLAUDE_SKILL_DIR}/scripts/validate-workflow.mjs <file.js>
 node ${CLAUDE_SKILL_DIR}/scripts/dry-run.mjs <file.js> [--args '<json>'] [--fixtures '<json>']
 ```
 
-The linter enforces the parser's hard rules — errors exit 1 and every one gets fixed; warnings are real defects (runtime bugs, unformatted source), cleared too. The dry-run re-hosts the unmodified file under mocked globals for zero tokens: `parseOk=true ran=true deterministic=true` is the bar, and per-phase agent counts expose fan-out bugs and guard-dropped phases. A green simulation validates the machine, never the meaning — close that gap with a narrow real run on one tiny scope before the full spend. Signals, fixtures, and narrow-run mechanics: api reference, validation section.
-
-The narrow run judges the reasoning path, not only the products: after it lands, read the lane transcripts themselves (`/workflows` raw view), because a schema-valid receipt hides premature exits, wrong-tool selection, and over-verbose queries that only the transcript shows. A DURABLE workflow — one rerun across sessions — additionally earns a small fixed eval set (~15-20 representative `args` inputs with a rubric-scoped judge pass over the products); rerun it after any prompt or schema edit, because the dry-run cannot see a meaning regression.
+The bar: linter errors and warnings both cleared; dry-run `parseOk=true ran=true deterministic=true` with sane per-phase counts. A green simulation validates the machine, never the meaning — close that gap with a narrow real run on one tiny scope before the full spend; signals, fixtures, race-in-sim semantics, transcript reads, and the durable-workflow eval set are the api reference's validation section.
 
 ## [07]-[RUN]
 
@@ -117,3 +115,7 @@ Launch with `Workflow({ name })` or `Workflow({ scriptPath })`; the run goes to 
 Iterate by editing the saved file and resuming — every `agent()` call before the first edit replays from cache, only the changed call onward re-runs. Never re-paste a script after the first run, and never edit a launched script while its run is meant to stay resumable. Saving a good run is `s` in `/workflows`, which makes it a `/<name>` command.
 
 A weak lane repairs itself faster than hand-tuning: dispatch one agent holding the lane's PROMPT plus its FAILURE TRANSCRIPT to diagnose why the lane failed and rewrite the prompt or schema, then resume — a model reading its own failure mode finds the fix a cold author misses.
+
+## [08]-[STEWARDSHIP]
+
+A durable workflow's run is stewarded, never merely awaited: the launching agent arms the watcher, grades each stage's artifacts as they complete, mines lane transcripts for behavior, and lands every finding as a durable improvement at its owning surface — the full system is the stewardship reference. The load-bearing laws: agent-type verdicts are three-railed (artifact grade, behavior forensics, downstream-consumption proof) because an artifact nobody downstream opens is churn regardless of its grade; a downstream lane's cold lookups and re-derivation turns are the measurement of upstream artifact quality; every improvement lands at a named enforcement surface — schema field, prompt law, prompt exemplar, engine data, or register variance — and a live-resumable workflow is byte-frozen, its improvements accreting in a working copy that folds back after the run.

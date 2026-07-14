@@ -2,94 +2,20 @@
     "files": [
         {
             "path": "CLAUDE.md",
-            "description": "Repo execution standards and agent instructions"
+            "description": "Repo execution and code-generation law: polymorphic collapse, typed rails, entry-point and dependency policy, comment discipline, file organization"
         },
         {
             "path": "AGENTS.md",
-            "description": "Repo role and ownership boundaries for agents"
+            "description": "Agent load order and engineering contract: planning-state scope, design-doc completeness bar, .api/ obligations, monorepo topology frame"
         },
         {
             "path": "README.md",
-            "description": "Workspace structure register: strata, branch coupling, library-first ownership"
-        },
-        {
-            "path": "docs/standards/design-doctrine.md",
-            "description": "Universal design law binding every executable surface: rails, dispatch, admitted substrate, parameterization, boundaries, density, vocabularies"
-        },
-        {
-            "path": "docs/stacks/csharp/README.md",
-            "description": "C# doctrine entry: rails, shapes, surfaces, boundaries",
-            "scope": ["**/*.cs", "**/*.csproj"]
-        },
-        {
-            "path": "docs/stacks/csharp/rails-and-effects.md",
-            "description": "C# monadic result and effect law",
-            "scope": ["**/*.cs"]
-        },
-        {
-            "path": "docs/stacks/typescript/README.md",
-            "description": "TypeScript doctrine entry: Effect rails, services, boundaries",
-            "scope": ["**/*.ts", "**/*.tsx", "**/package.json"]
-        },
-        {
-            "path": "docs/stacks/python/README.md",
-            "description": "Python doctrine entry",
-            "scope": ["**/*.py", "**/pyproject.toml"]
-        },
-        {
-            "path": "libs/.planning/architecture.md",
-            "description": "System architecture: layer boundaries and ownership map"
-        },
-        {
-            "path": "libs/.planning/README.md",
-            "description": "Planning-corpus standard: page grammar, index templates, seams kind vocabulary, .api verification gate",
-            "scope": ["libs/**"]
+            "description": "Workspace structure register: strata, branch coupling, library-first ownership, entry rails"
         },
         {
             "path": "libs/.planning/campaign-method.md",
-            "description": "Campaign method: fence-as-product, plan completeness, density and red-team bar for design pages",
+            "description": "The review standard for design-corpus work: fence-as-product law, the decision-complete bar, universal principles, workflow roles",
             "scope": ["libs/**"]
-        },
-        {
-            "path": "tests/README.md",
-            "description": "Test estate law: oracle grades, refuting witnesses, banned shapes, lane vocabulary, kit custody, artifact routing",
-            "scope": ["tests/**"]
-        },
-        {
-            "path": "tests/contracts/README.md",
-            "description": "Contracts corpus custody: C# sole producer, read-only round-trips, manifest-first directories, DESIGN-PIN vs REAL grammar",
-            "scope": ["tests/contracts/**"]
-        },
-        {
-            "path": "docs/standards/style-guide.md",
-            "description": "Prose law: sentence altitude, register, banned patterns",
-            "scope": ["**/*.md"]
-        },
-        {
-            "path": "docs/standards/formatting.md",
-            "description": "Formatting law for durable artifacts",
-            "scope": ["**/*.md"]
-        },
-        {
-            "path": "docs/standards/information-structure.md",
-            "description": "Information architecture law: structure, density, tables vs prose",
-            "scope": ["**/*.md"]
-        },
-        {
-            "path": "docs/laws/topology.md",
-            "description": "Edit-coupling map: which surfaces obligate which counterparts in the same change"
-        },
-        {
-            "path": "docs/laws/patterns.md",
-            "description": "Pattern law rows binding every branch they name"
-        },
-        {
-            "path": "docs/laws/scars.md",
-            "description": "The trap ledger: paid-for failures and the rules that foreclose them - standing review duty"
-        },
-        {
-            "path": "docs/laws/README.md",
-            "description": "Admission law for the docs/laws corpus: what earns a law page and how findings land"
         }
     ]
 }

@@ -13,9 +13,9 @@ Rasm.Fabrication/
 │   ├── Faults.cs            # FabricationFault band-2700 registry entrypoint
 │   └── Derivation.cs        # RunDerive plan orchestrator
 ├── Tooling/                 # ISO-13399 tool intelligence, machinability, and wear
-│   ├── Magazine.cs          # MTConnect tool-assembly magazine and minimal-swap life schedule
-│   ├── CuttingData.cs       # Kienzle machinability seeds and cutter-form projection
-│   └── Wear.cs              # Taylor flank-wear and condition-based remaining-life estimation
+│   ├── Magazine.cs          # Provider-detached ToolAssembly owner, kitting, and the ordered multi-basis life schedule
+│   ├── CuttingData.cs       # Kienzle machinability seeds and cutter-form projection on typed evidence rails
+│   └── Wear.cs              # Taylor flank-wear, per-edge budgets, and condition-based remaining-life estimation
 ├── Geometry2D/              # 2D substrate: line, arc, and parametric-curve lanes
 │   ├── Algebra.cs           # Clipper2 line-space owner: offset, boolean clip, area, Minkowski
 │   ├── Arcs.cs              # CavalierContours arc-space owner with kerf, lead, and adaptive offsets
@@ -65,19 +65,19 @@ Rasm.Fabrication/
 │   ├── Estimation.cs        # Cost estimation from the fabrication result
 │   └── Audit.cs             # Additive layer-stack pre-flight
 ├── Spec/                    # Production specs
-│   ├── Tolerance.cs         # ISO 286 fits, ISO 1101/ASME Y14.5 FCF and datums, ISO 1302 finish
-│   ├── Capability.cs        # Cp/Cpk process capability and the plan-time Cpk gate verdict
-│   └── Manufacturability.cs # Cross-modality DfM verdicts on one surface
+│   ├── Tolerance.cs         # Generated ISO 286 fits, admitted GD&T frames, datum targets, composites, and ISO 1302 texture
+│   ├── Capability.cs        # Capability intervals, variables SPC, fitted dependence, correlated stackup, and history gates
+│   └── Manufacturability.cs # Cross-modality DfM evidence and typed ranked process routing
 ├── Documentation/           # Shop documentation
-│   ├── Projection.cs        # Hidden-line-removal emission preserving the HiddenLineResult receipt
-│   ├── Traveler.cs          # Content-keyed setup sheets and shop travelers; the widest fan-in node
-│   └── Report.cs            # FAI, mill-cert, and weld-inspection as-built quality records
+│   ├── Projection.cs        # Kernel hidden-line/silhouette projection over an arrangement-fold watertight source
+│   ├── Traveler.cs          # DAG-normalized content-keyed traveler over the typed receipt corpus
+│   └── Report.cs            # Staged inspection, EN 10204, NDT, NCR, calibration, and declaration quality records
 ├── Forming/                 # Sheet forming
 │   ├── Sheet.cs             # One unfold owner
 │   ├── Brake.cs             # Best-first bend-sequence planning over the feasibility matrix
 │   └── Tube.cs              # Tube centerline fold, elongation carry, and cope development
 └── Joining/                 # Weld engineering
-    ├── Weld.cs              # Joint-by-prep composition over the Materials groove geometry
+    ├── Weld.cs              # Joint-by-prep composition over boundary-resolved groove facts
     ├── Sequence.cs          # Distortion ordering: backstep, skip-weld, balanced, block
     └── Procedure.cs         # WPS/PQR essential-variable rows and the heat-input compliance gate
 ```
@@ -115,7 +115,7 @@ config:
 ---
 flowchart LR
     accTitle: Fabrication AEC-domain peer seams
-    accDescr: Fabrication sub-domain owners exchanging the element projector, material composition, groove prep, and profile reads with the AEC peers Element, Materials, and Bim, edge rails colored by kind and nodes classed by seam direction.
+    accDescr: Fabrication sub-domain owners exchanging the element projector, material composition, and groove prep with the AEC peers Element and Materials, edge rails colored by kind and nodes classed by seam direction.
     subgraph fabrication[RASM.FABRICATION]
         Process[Process rail]
         Ingress[Ingress admission]
@@ -125,7 +125,6 @@ flowchart LR
     end
     Element{{Rasm.Element}}
     Materials([Rasm.Materials])
-    Bim([Rasm.Bim])
     Process e1@-->|"[PROJECTION]: FabricationProjector"| Element
     Element e2@-->|"[WIRE]: ElementGraph.Bake"| Ingress
     Materials e3@-->|"[SHAPE]: LayerSet"| Ingress
@@ -133,7 +132,6 @@ flowchart LR
     Materials e5@-->|"[SHAPE]: GroovePrep"| Joining
     Materials e6@-->|"[SHAPE]: GroovePrep"| Fixturing
     Materials e7@-->|"[SHAPE]: GroovePrep"| Forming
-    Bim e8@-->|"[SHAPE]: AcadReader"| Ingress
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
     classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
@@ -142,10 +140,10 @@ flowchart LR
     classDef edgeControl stroke:#FF79C6,color:#F8F8F2
     class Process,Ingress,Fixturing,Forming,Joining primary
     class Element external
-    class Materials,Bim annotation
+    class Materials annotation
     class e1 edgeExternal
     class e2,e4 edgeData
-    class e3,e5,e6,e7,e8 edgeControl
+    class e3,e5,e6,e7 edgeControl
 ```
 
 ```mermaid

@@ -10,19 +10,18 @@ Wire posture: HOST-LOCAL. `HiddenLineResult` crosses only as in-process `Seq<Edg
 
 ## [02]-[PROJECTION_HIDDEN_LINE]
 
-- Owner: `BooleanSolid` the watertight operand row carried by `FabricationPolicy.HiddenLine` — the operand SEQUENCE (each `(MeshSpace, BooleanOp)` pair folded left onto the model) plus the ONE `ArrangementPolicy` the fold threads; `HiddenLineProjection` the local receipt adapter over the two kernel `DrawingProjection` runs; `Hlr` the single Fabrication entry lowered by owner#run. `ProjectionDir`, `Edge3`, `FabricationInput`, `FabricationPolicy`, and `FabricationResult` stay owner#atoms vocabulary; `Camera`, `ViewPolicy`, `ViewOp`, `DrawingProjection`, `ProjectedSegment`, `BooleanOp`, `ArrangementOp`, `ArrangementPolicy`, and `ArrangementResult` stay kernel-owned seams.
-- Cases: `BooleanSolid` carries `Seq<(MeshSpace Other, BooleanOp Op)> Operands` and `ArrangementPolicy Policy`; `HiddenLineProjection` carries exactly `Visible`, `Hidden`, and `Silhouette`; `FabricationResult.HiddenLineResult` remains byte-identical to owner#atoms. Kernel `ViewOp` owns `Silhouette`/`HiddenLine`/`Section`/`Outline`; this page consumes the `HiddenLine` and `Silhouette` cases — the silhouette locus is a SEPARATE kernel solve, never a field the hidden-line result carries — and refuses to mint a parallel drawing family.
+- Owner: `BooleanSolid` is the watertight operand row carried by `FabricationPolicy.HiddenLine` — the operand sequence folds each `(MeshSpace, BooleanOp)` pair left onto the model under one `ArrangementPolicy`; `Hlr` is the single Fabrication entry lowered by owner#run. `ProjectionDir`, `Edge3`, `FabricationInput`, `FabricationPolicy`, and `FabricationResult` stay owner#atoms vocabulary; `Camera`, `ViewPolicy`, `ViewOp`, `DrawingProjection`, `ProjectedSegment`, `BooleanOp`, `ArrangementOp`, `ArrangementPolicy`, and `ArrangementResult` stay kernel-owned seams.
+- Cases: `BooleanSolid` carries `Seq<(MeshSpace Other, BooleanOp Op)> Operands` and `ArrangementPolicy Policy`; `FabricationResult.HiddenLineResult` is the sole receipt. Kernel `ViewOp` owns `Silhouette`/`HiddenLine`/`Section`/`Outline`; this page consumes `HiddenLine` and `Silhouette` — the silhouette locus is a separate kernel solve, never a field the hidden-line result carries — and mints no parallel drawing family or field-rename adapter.
 - Entry: `public static Fin<FabricationResult> Solve(FabricationPolicy.HiddenLine policy, FabricationInput input)` sources the mesh from raw `input.Model` or the arrangement fold, synthesizes `Camera` from `input.View` and `ViewPolicy` from the policy scalars, runs `View.Apply` twice (`HiddenLine`, then `Silhouette` over the same camera and policy), and maps the kernel runs into `FabricationResult.HiddenLineResult`.
-- Auto: `Source` reads `policy.Watertight`; an absent operand row passes the raw `MeshSpace`, a present row FOLDS each operand through `Arrangement.Apply(ArrangementOp.MeshBoolean(current, other, op, policy))`, pattern-matching `ArrangementResult` through its generated total `Switch` — `boolean` yields the welded solid the fold continues on, `overlay`/`complex` are impossible answers for a `MeshBoolean` request and route `GeometryFault.ProjectionFault(EdgeKind.Intersection, -1)`. `CameraOf` derives the orthographic frame from the model bounds — no magic eye literal survives; the eye distance IS the bounds diagonal. `Project` copies both kernel run sets into the local adapter as `Edge3(ScreenA, ScreenB)` pairs without filtering, sampling, reclassifying, clipping, or sorting; the kernel's `ToPolylines`/`ToSegments`/`Fill` projections remain available to consumers that want chained or filled output — this receipt preserves the segment partition shape owner#atoms declares.
+- Auto: `Source` reads `policy.Watertight`; an absent operand row passes the raw `MeshSpace`, while a present row folds each operand through `Arrangement.Apply(new ArrangementOp.MeshBoolean(current, other, op, policy), HlrOp)`. The generated total `ArrangementResult.Switch` yields `Boolean.Solid`; `Overlay`/`Complex` are impossible for a `MeshBoolean` request and route `HlrOp.InvalidResult()`. `Lower` admits finite positive bounds, facet tolerance, and leaf capacity before deriving the orthographic camera and view policy. The independent hidden-line and silhouette operations convert to `Validation`, join applicatively, and lower once to `Fin`; their `ProjectedSegment` rows project directly into `FabricationResult.HiddenLineResult` as `Edge3(ScreenA, ScreenB)` partitions without sampling, reclassification, or sorting.
 - Receipt: `HiddenLineResult(Seq<Edge3> Visible, Seq<Edge3> Hidden, Seq<Edge3> Silhouette)` is the only receipt; AppUi remains insulated at the exact owner#atoms case shape and never sees `DrawingProjection` or `ProjectedSegment`.
-- Packages: `Process/owner#FABRICATION_OWNER` (`ProjectionDir`, `Edge3`, `FabricationInput`, `FabricationPolicy.HiddenLine`, `FabricationResult.HiddenLineResult`), kernel `Rasm/Drawing/view#VIEW` (`View.Apply`, `ViewOp.HiddenLine`/`ViewOp.Silhouette`, `Camera`, `ViewPolicy.Canonical`, `DrawingProjection`, `ProjectedSegment`, kernel `GeometryFault.ProjectionFault(EdgeKind, int)` 2436 + `GeometryFault.DegenerateInput(Kind, int, string)` 2400 for a missing model), kernel `Rasm/Meshing/arrangement#ARRANGEMENT` (`Arrangement.Apply`, `ArrangementOp.MeshBoolean`, `ArrangementResult.Boolean.Solid`, `BooleanOp`, `ArrangementPolicy.Canonical`), kernel `Rasm/Spatial/index#SPATIAL` (`BuildPolicy.Canonical` — the `SpatialLeaf` lowering target), `Rasm.Meshing` (`MeshSpace`, `IntersectPolicy.Canonical` — the `FacetTolerance` lowering target), `Rasm.Domain` (`Kind`, `Context`), Rhino.Geometry (`Plane`, `Point3d`, `BoundingBox`), LanguageExt.Core, BCL inbox.
+- Packages: `Process/owner` (`ProjectionDir`, `Edge3`, `FabricationInput`, `FabricationPolicy.HiddenLine`, `FabricationResult.HiddenLineResult`), kernel drawing (`View.Apply`, `ViewOp`, `Camera`, `ViewPolicy`, `DrawingProjection`, `ProjectedSegment`), kernel arrangement (`Arrangement.Apply`, `ArrangementOp.MeshBoolean`, `ArrangementResult.Boolean`, `BooleanOp`, `ArrangementPolicy`), kernel spatial (`BuildPolicy`), `Rasm.Meshing`, `Rasm.Domain`, Rhino.Geometry, LanguageExt.Core, BCL inbox.
 - Growth: a new drafting projection is one kernel `ViewOp` case and one downstream consumer projection; Fabrication stays a hidden-line policy consumer. A new watertight operand is one row in the `BooleanSolid` sequence — the fold absorbs arity. A new receipt column lands first on owner#atoms, then this adapter copies it.
 - Boundary: the dead forms stay dead — the in-page `BspNode` tree, the `1e6` eye literal, the per-edge average-depth classifier, the mesh-edge soup, the local `SpatialIndex` visibility walk, a `Silhouette` field read off the hidden-line result (the kernel result carries visible/hidden/histogram — the locus is its own op), a `ProjectedSegment` assigned into an `Edge3` field without the seam projection, a `HealOp` operand on the arrangement request (healing precedes admission in `Rasm.Processing`), and a `Rasm.Processing` attribution for `BooleanOp` (it lives in kernel `Rasm.Meshing`). Kernel `DrawingProjection` owns analytic visibility and faults; kernel arrangement owns watertight Boolean cells; Fabrication never re-authors either interior and never mints a Documentation `FabricationFault` arm.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using LanguageExt;
-using LanguageExt.Common;
 using Rasm.Domain;
 using Rasm.Drawing;
 using Rasm.Fabrication.Process;
@@ -39,55 +38,59 @@ namespace Rasm.Fabrication.Documentation;
 // the one ArrangementPolicy — healing is Rasm.Processing's upstream concern and never rides this row.
 public readonly record struct BooleanSolid(Seq<(MeshSpace Other, BooleanOp Op)> Operands, ArrangementPolicy Policy);
 
-public sealed record HiddenLineProjection(Seq<Edge3> Visible, Seq<Edge3> Hidden, Seq<Edge3> Silhouette) {
-    public FabricationResult ToResult() => new FabricationResult.HiddenLineResult(Visible, Hidden, Silhouette);
-}
-
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Hlr {
+    static readonly Op HlrOp = Op.Of(name: "fabrication:hidden-line");
+
     // Two kernel solves fill the three partitions: HiddenLine answers visible+hidden, Silhouette answers the raw
     // locus — the same camera and policy thread both, so the partitions are mutually consistent by construction.
     public static Fin<FabricationResult> Solve(FabricationPolicy.HiddenLine policy, FabricationInput input) =>
         from model in Source(input, policy.Watertight)
-        let camera = CameraOf(model, input.View)
-        let view = Lower(policy)
-        from lines in View.Apply(ViewOp.HiddenLine(model, camera, view), key: null)
-        from locus in View.Apply(ViewOp.Silhouette(model, camera, view), key: null)
-        select new HiddenLineProjection(Edges(lines.Visible), Edges(lines.Hidden), Edges(locus.Visible)).ToResult();
+        from lowered in Lower(model, input.View, policy)
+        from projection in (
+            View.Apply(new ViewOp.HiddenLine(model, lowered.Camera, lowered.Policy), HlrOp).ToValidation(),
+            View.Apply(new ViewOp.Silhouette(model, lowered.Camera, lowered.Policy), HlrOp).ToValidation())
+            .Apply(static (lines, locus) => (Lines: lines, Locus: locus))
+            .As()
+            .ToFin()
+        select (FabricationResult)new FabricationResult.HiddenLineResult(
+            Edges(projection.Lines.Visible),
+            Edges(projection.Lines.Hidden),
+            Edges(projection.Locus.Visible));
 
     static Fin<MeshSpace> Source(FabricationInput input, Option<BooleanSolid> watertight) =>
         input.Model.Match(
-            None: () => Fin.Fail<MeshSpace>(GeometryFault.DegenerateInput(Kind.Mesh, 0, "model-missing").ToError()),
+            None: () => Fin.Fail<MeshSpace>(new GeometryFault.DegenerateInput(Kind.Mesh, 0, "model-missing").ToError()),
             Some: model => watertight.Match(
                 None: () => Fin.Succ(model),
-                Some: solid => solid.Operands.Fold(Fin.Succ(model), (acc, operand) =>
-                    acc.Bind(current => Arrangement.Apply(
-                            new ArrangementOp.MeshBoolean(current, operand.Other, operand.Op, solid.Policy),
-                            key: null)
-                        .Bind(static result => result.Switch(
-                            boolean: static kept => Fin.Succ(kept.Solid),
-                            overlay: static _ => Fin.Fail<MeshSpace>(GeometryFault.ProjectionFault(EdgeKind.Intersection, -1).ToError()),
-                            complex: static _ => Fin.Fail<MeshSpace>(GeometryFault.ProjectionFault(EdgeKind.Intersection, -1).ToError())))))));
+                Some: solid => solid.Operands.FoldM(model, (current, operand) =>
+                    Arrangement.Apply(
+                        new ArrangementOp.MeshBoolean(current, operand.Other, operand.Op, solid.Policy),
+                        HlrOp)
+                    .Bind(static result => result.Switch(
+                        boolean: static kept => Fin.Succ(kept.Solid),
+                        overlay: static _ => Fin.Fail<MeshSpace>(HlrOp.InvalidResult()),
+                        complex: static _ => Fin.Fail<MeshSpace>(HlrOp.InvalidResult()))))));
 
     // Orthographic frame off the atoms basis: eye one bounds-diagonal behind the center along −Forward (every model
     // point lands at positive depth), screen plane spanned by the basis, the model Context threading the tolerance.
-    static Camera CameraOf(MeshSpace model, ProjectionDir dir) {
+    static Fin<(Camera Camera, ViewPolicy Policy)> Lower(MeshSpace model, ProjectionDir dir, FabricationPolicy.HiddenLine policy) {
         BoundingBox box = model.Native.GetBoundingBox(accurate: false);
-        return new Camera(
-            Eye: box.Center - (dir.Forward * box.Diagonal.Length),
-            Direction: dir.Forward,
-            Screen: new Plane(box.Center, dir.ScreenU, dir.ScreenV),
-            Perspective: false,
-            Tolerance: model.Tolerance);
+        double diagonal = box.Diagonal.Length;
+        return from _1 in guard(box.IsValid && double.IsFinite(diagonal) && diagonal > model.Tolerance.Absolute.Value, HlrOp.InvalidResult()).ToFin()
+               from _2 in guard(double.IsFinite(policy.FacetTolerance) && policy.FacetTolerance > 0.0 && policy.SpatialLeaf > 0, HlrOp.InvalidResult()).ToFin()
+               select (
+                   new Camera(
+                       Eye: box.Center - (dir.Forward * diagonal),
+                       Direction: dir.Forward,
+                       Screen: new Plane(box.Center, dir.ScreenU, dir.ScreenV),
+                       Perspective: false,
+                       Tolerance: model.Tolerance),
+                   ViewPolicy.Canonical with {
+                       Narrow = IntersectPolicy.Canonical with { BroadPhaseInflation = policy.FacetTolerance },
+                       Broad = BuildPolicy.Canonical with { LeafSize = policy.SpatialLeaf },
+                   });
     }
-
-    // The policy scalars lower into the kernel policy rows: FacetTolerance is the crossing-lattice broad-phase
-    // inflation, SpatialLeaf the BVH leaf capacity — both over the Canonical rows, no field dropped.
-    static ViewPolicy Lower(FabricationPolicy.HiddenLine policy) =>
-        ViewPolicy.Canonical with {
-            Narrow = IntersectPolicy.Canonical with { BroadPhaseInflation = policy.FacetTolerance },
-            Broad = BuildPolicy.Canonical with { LeafSize = policy.SpatialLeaf },
-        };
 
     static Seq<Edge3> Edges(Seq<ProjectedSegment> runs) =>
         runs.Map(static s => new Edge3(s.ScreenA, s.ScreenB));
@@ -129,9 +132,9 @@ flowchart LR
     Arrangement -->|"welded solid"| Lower
     Lower -->|"ViewOp.HiddenLine"| ViewApply["kernel View.Apply"]
     Lower -->|"ViewOp.Silhouette"| ViewApply
-    ViewApply -->|"DrawingProjection runs"| Adapter["HiddenLineProjection Edge3 screen runs"]
-    Adapter -->|"HiddenLineResult Visible/Hidden/Silhouette"| AppUi["AppUi Viewport2D consumer"]
-    Adapter -.->|"view rows"| Traveler["Run(Document) traveler"]
+    ViewApply -->|"direct Edge3 projection"| Receipt["HiddenLineResult screen runs"]
+    Receipt -->|"Visible/Hidden/Silhouette"| AppUi["AppUi Viewport2D consumer"]
+    Receipt -.->|"view rows"| Traveler["Run(Document) traveler"]
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
     classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
     classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
@@ -139,6 +142,8 @@ flowchart LR
     class OwnerRun,Atoms primary
     class Lower boundary
     class Watertight,Arrangement,ViewApply data
-    class Adapter,AppUi,Traveler annotation
+    class Receipt,AppUi,Traveler annotation
+    linkStyle 6 stroke:#50FA7B,color:#F8F8F2
+    linkStyle 7 stroke:#8BE9FD,color:#F8F8F2
     linkStyle 8 stroke:#6272A4,color:#F8F8F2,stroke-dasharray:4 6
 ```

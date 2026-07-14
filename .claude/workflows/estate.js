@@ -1,9 +1,9 @@
 export const meta = {
     name: 'estate',
     description:
-        'Per-language estate tracks - two gpt-5.6-terra recon lanes per track (codex wrappers, split charges: the estate-scope dossier and the libs-complexity dossier, both written to scratch) then initial/critique/redteam fable passes - closing with a monorepo final track. The T-passes stay native fable because their acceptance gates run network-bound toolchains (dotnet restore, uv sync, pnpm install) a codex sandbox cannot reach. Every pass nominates generalizable findings and reports deliberately-left residuals; a terminal doctrine lander pools both across all tracks and adjudicates the nominations into docs/laws, the constitution, the test/tool READMEs, and the reviewer rules, while the pooled residuals ride the run return untouched - estate residuals are deliberate deferrals, not a drain backlog.',
+        'Per-language estate tracks - two gpt-5.6-terra recon lanes per track (codex wrappers, split charges: the estate-scope dossier and the libs-complexity dossier, both written to scratch) then native initial/critique/redteam opus passes - closing with a monorepo final track whose terminal redteam holds the single fable seat of the run, the widest-scope monorepo writer that closes cross-language seams and absorbs what the language tracks missed. The passes stay native rather than codex because their acceptance gates run network-bound toolchains (dotnet restore, uv sync, pnpm install) a codex sandbox cannot reach. Every pass nominates generalizable findings and reports deliberately-left residuals; a terminal opus doctrine lander pools both across all tracks and adjudicates the nominations into docs/laws, the constitution, the test/tool READMEs, and the reviewer rules, while the pooled residuals ride the run return untouched - estate residuals are deliberate deferrals, not a drain backlog.',
     whenToUse:
-        'Full estate improvement over tests/tools/root configs per language, then polyglot alignment; passes run on fable, then a terminal doctrine lander lands generalizable findings.',
+        'Full estate improvement over tests/tools/root configs per language, then polyglot alignment; passes run on opus with a single fable seat at the final-track redteam, then a terminal opus doctrine lander lands generalizable findings.',
     phases: [
         {
             title: 'Recon',
@@ -11,11 +11,14 @@ export const meta = {
             model: 'sonnet',
         },
         { title: 'Estate' },
-        { title: 'Final' },
+        {
+            title: 'Final',
+            detail: 'monorepo/polyglot alignment track (T1/T2/T3) closing cross-language seams; T1/T2 ride opus, the terminal redteam holds the single fable seat of the run',
+        },
         {
             title: 'Doctrine',
-            detail: 'one fable lander pools harvest nominations and deliberately-left residuals across every track pass plus the final track, then adjudicates the nominations against the live doctrine surfaces; residuals ride the return untouched; fires only when a nomination exists',
-            model: 'fable',
+            detail: 'one opus lander pools harvest nominations and deliberately-left residuals across every track pass plus the final track, then adjudicates the nominations against the live doctrine surfaces; residuals ride the return untouched; fires only when a nomination exists',
+            model: 'opus',
         },
     ],
 };
@@ -350,7 +353,7 @@ const reconPrompt = (t, name, lane) =>
 // dossier (workspace-write, that one file) and returns the receipt as its final message — the wrapper relays
 // that receipt, no product write, no relay hop. Lane law rides developer-instructions; the prompt carries only the task.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-// Codex lanes in this workflow are recon-only — the write passes stay native fable behind network-bound gates a codex sandbox
+// Codex lanes in this workflow are recon-only — the write passes stay native behind network-bound gates a codex sandbox
 // cannot reach — so the lane law is the read-only investigation contract; no write/fix branch exists to fork.
 const laneLaw = (schema, o) =>
     '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
@@ -416,7 +419,7 @@ const codexRecon = (task, o) => {
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the
 // role's Claude twin (terra->opus); the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The
 // recon task already writes its own dossier and returns the receipt, so the native lane runs it verbatim.
-const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
     agent(task, {
         label: o.label,
@@ -495,13 +498,15 @@ const passPrompt = (t, name, tier, reconRows) =>
     'reasons), harvest (per the harvest law below). ' +
     HARVEST_LAW;
 
-// A T-pass is the run's critical WRITE lane: fable, high effort, network-bound gates — the most usage-limit-exposed lane in the
-// run. It rides the attempt-counted retryLane with a suffixed retry label; a final death returns null and the chain continues,
-// because every later pass and the final track derive their own findings from disk (a dead predecessor removes grounding, never a stage).
-const passOpts = (label, phase) => ({ model: 'fable', effort: 'high', phase, label, schema: PASS_RECEIPT });
-const runPass = (t, name, tier, reconRows, label, phase) =>
-    run(passPrompt(t, name, tier, reconRows), passOpts(label, phase)).then(
-        (r) => r || retryLane(() => run(passPrompt(t, name, tier, reconRows), passOpts(label + ':r1', phase))),
+// A T-pass is a critical WRITE lane behind network-bound gates — the most usage-limit-exposed lane in the run. Every pass rides
+// opus save the run's ONE fable seat, the final-track redteam (the terminal widest-scope monorepo writer absorbing every
+// cross-language residual). Each lane rides the attempt-counted retryLane with a suffixed retry label; a final death returns
+// null and the chain continues, because every later pass and the final track derive their own findings from disk (a dead
+// predecessor removes grounding, never a stage).
+const passOpts = (label, phase, model) => ({ model, effort: 'high', phase, label, schema: PASS_RECEIPT });
+const runPass = (t, name, tier, reconRows, label, phase, model) =>
+    run(passPrompt(t, name, tier, reconRows), passOpts(label, phase, model)).then(
+        (r) => r || retryLane(() => run(passPrompt(t, name, tier, reconRows), passOpts(label + ':r1', phase, model))),
     );
 
 // Doctrine lander: adjudicates pooled harvest nominations against the live doctrine surfaces; an estate run owns test/tool/config
@@ -535,9 +540,9 @@ log('estate tracks: ' + ACTIVE.join(', ') + (WANT_FINAL ? ' + final' : ''));
 const results = await pipeline(
     trackRows,
     (t) => parallel([() => reconLane(t, t.lang, 'scope', 'Recon'), () => reconLane(t, t.lang, 'libs', 'Recon')]),
-    (recon, t) => runPass(t, t.lang, 'T1', (recon || []).filter(Boolean), 't1:' + t.lang, 'Estate').then((r) => ({ t1: r })),
-    (acc, t) => runPass(t, t.lang, 'T2', null, 't2:' + t.lang, 'Estate').then((r) => ({ ...acc, t2: r })),
-    (acc, t) => runPass(t, t.lang, 'T3', null, 't3:' + t.lang, 'Estate').then((r) => ({ ...acc, t3: r })),
+    (recon, t) => runPass(t, t.lang, 'T1', (recon || []).filter(Boolean), 't1:' + t.lang, 'Estate', 'opus').then((r) => ({ t1: r })),
+    (acc, t) => runPass(t, t.lang, 'T2', null, 't2:' + t.lang, 'Estate', 'opus').then((r) => ({ ...acc, t2: r })),
+    (acc, t) => runPass(t, t.lang, 'T3', null, 't3:' + t.lang, 'Estate', 'opus').then((r) => ({ ...acc, t3: r })),
 );
 
 // --- [FINAL]
@@ -548,9 +553,10 @@ if (WANT_FINAL && ACTIVE.length) {
     const fRecon = (await parallel([() => reconLane(f, 'monorepo', 'scope', 'Final'), () => reconLane(f, 'monorepo', 'libs', 'Final')])).filter(
         Boolean,
     );
-    const f1 = await runPass(f, 'monorepo FINAL', 'T1', fRecon, 'final:t1', 'Final');
-    const f2 = await runPass(f, 'monorepo FINAL', 'T2', null, 'final:t2', 'Final');
-    const f3 = await runPass(f, 'monorepo FINAL', 'T3', null, 'final:t3', 'Final');
+    const f1 = await runPass(f, 'monorepo FINAL', 'T1', fRecon, 'final:t1', 'Final', 'opus');
+    const f2 = await runPass(f, 'monorepo FINAL', 'T2', null, 'final:t2', 'Final', 'opus');
+    // The run's ONE fable seat — the terminal widest-scope monorepo redteam absorbing every cross-language residual.
+    const f3 = await runPass(f, 'monorepo FINAL', 'T3', null, 'final:t3', 'Final', 'fable');
     final = { t1: f1, t2: f2, t3: f3 };
 }
 
@@ -571,7 +577,7 @@ if (HARVEST_ROWS.length) {
     doctrine = await run(doctrinePrompt(HARVEST_ROWS, RESIDUALS), {
         label: 'doctrine',
         phase: 'Doctrine',
-        model: 'fable',
+        model: 'opus',
         effort: 'high',
         schema: DOCTRINE_SCHEMA,
         stallMs: STALL,

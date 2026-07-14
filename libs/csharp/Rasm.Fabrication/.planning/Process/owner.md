@@ -1,41 +1,44 @@
 # [RASM_FABRICATION_OWNER]
 
-The polymorphic `Fabrication` owner closes the entire fabrication concern over the 10-case `FabricationPolicy` `[Union]` — `Cam` · `HiddenLine` · `Nest` · `Additive` · `Verify` · `Inspect` · `Post` · `Document` · `Derive` · `Form` — folded by ONE `Run` generated total `Switch` returning the per-case 10-case `FabricationResult`. The page is TWO nodes on the compose ledger, the one ratified acyclicity exception, and never splits physically: owner#atoms is the upstream vocabulary every plane reads (`Loop`+`Bulges`, `Edge3`, `ArcCenter`, `Move`, `PartTransform`, `ProjectionDir`, `CutterForm`, `AdmittedComponent`, `PlannedStep`, `BendStep`, `ResidualStock`, `StockSnapshot`, `CapabilityVerdict`, `EgressKind`, `ContentKey`, `FabricationInput`/`Policy`/`Result`), reading only the family leaf axes and the kernel; owner#run is the terminal 10-arm dispatch composing the plane kernels, composed by nothing — the flow `owner#run → planes → owner#atoms → family(leaf)` is linear and acyclic. Fabrication is ALSO an egress engine: every flagship terminates in a content-keyed machine-consumable artifact, so the egress concern COLLAPSES onto this vocabulary — the `EgressKind` discriminant (the thirteen artifact families `cutprogram`/`placement`/`remnant`/`cli`/`threemf`/`nc1`/`stock-snapshot`/`traveler`/`flat-pattern`/`bend-program`/`weld-plan`/`scan-vectors`/`plan`) plus ONE `ContentKey.Of` fold seeding the kernel `ContentHash.Of` federation entry — never a sixteenth `Egress/` folder and never a second hasher.
+`Fabrication` is the terminal ten-case orchestration fold over `FabricationPolicy` and `FabricationResult`. This page also owns the cycle-breaking atoms shared by every fabrication plane, the run-to-run truth carrier, the content-key egress vocabulary, and the lineage projection. Plane kernels depend on these atoms, while the terminal `Run` fold depends on the plane kernels; the two logical nodes remain in one physical owner.
 
-FIVE mints break the former page cycles: `ProjectionDir` mints HERE (the seam inversion — the disk owner imported it downstream from the projection page); `CutterForm` mints HERE as a pure-scalar leaf (`CutterFamily` flat/ball/bull/taper/drill/chamfer/thread-mill rows + diameter/corner-radius/taper-angle/flute-length — the type on atoms, the `CutterForm.Of(ToolAssembly)` projection and Kienzle machinability on `Tooling/cuttingdata`, so `owner→cuttingdata→magazine→owner` never forms); `ResidualStock` and per-setup `StockSnapshot` mint HERE input-carried (`Verify/removal` PRODUCES them, rest-machining and `Fixturing/setups` READ them off the NEXT run's input — run N feeds run N+1, breaking `motion→removal→program→motion`); `CapabilityVerdict` mints HERE input-carried (the `Spec/capability` plan-time Cpk gate produces it in the truth tranche, the plan reads it input-carried — spec→plan→verify→capability with no intra-run cycle). The result-payload discipline is the sixth latent-cycle guard: every egress `FabricationResult` case carries ONLY owner#atoms-safe payloads (primitives, kernel vocabulary, and the atom leaves — `Move`/`Edge3`/`PartTransform`/`Remnant`/`EgressKind`/`ContentKey`/`CutterForm`/`ResidualStock`); the rich plane-internal types (`CutProgram` AST, PicoGK `Voxels`, GD&T frames) stay plane-local and NEVER ride a result case. The neutral `CutProgram` AST is `Posting/program`-local, assembled in the `Run(Post)` case body from the atoms `Motion` result — NOT inside the Cam fold — so `motion` and `program` decouple through the `Motion` type and no `motion→program` compose edge exists; `PostedProgram` carries lowered blocks + `ContentKey`, never the AST. Re-posting one `Motion` to five dialects is `Run(Post{Motion, PostDialect})` ×5; traveler-compose is `Run(Document{results})` — both re-invocable terminal transforms over a prior result, each a policy case, NEVER a second public `Post()`/`Traveler.Assemble()` fold. `AdmittedComponent` mints HERE as the element-ingress carrier, exactly the `CutterForm` discipline: the TYPE on atoms (representation content key, admitted kernel geometry, composition-layer and connection ROWS, quantity/property bags — atoms-safe scalars whose string keys reference Materials/Bim rows at the boundary, never their types), the `Ingress.Admit` Element-arm PROJECTION on `Ingress/element`; `Run(Derive{AdmittedComponent, DerivePolicy})` lowers to the `Process/derivation` orchestrator (manufacturability → routing → fleet → setup/assembly → programs → documentation) returning the `FabricationPlan` receipt, and `Run(Form{FormPolicy})` is the sheet-forming case whose body composes the Forming plane (`FlatPattern.Unfold` → `BendSequence.Plan` → `FormedResult` with the `flat-pattern`/`bend-program` keys) — the component rides the POLICY case, never a new input field. The `Loop` widens with the parallel `Bulges` arc column (`0` per straight vertex, `tan(θ/4)` per arc span) + the 3-arg ctor + `BulgeAt` — the one shape of the arc rail: a zero-bulge `Loop` is the pure polygon the line owner clips, a bulged `Loop` the arc profile `Geometry2D/arcs` offsets exactly.
+Cycle-breaking atoms mint here. `Loop.Admit` owns cardinality, finiteness, bulge alignment, closure, tolerance, and the one-plane law — every vertex shares `Plane` within tolerance, so the 2D substrate re-emits results on the admitted elevation instead of collapsing them to `Z = 0`; its arc-aware area, winding, containment, and bounds compose `CavalierContours`. `ProjectionDir.Of`, `PartTransform.Admit`, `CutterForm.Admit`, `AdmittedComponent.Admit`, `ResidualStock.Admit`, `StockSnapshot.Admit`, `PlannedStep.Admit`, `CapabilityVerdict.Admit`, and `InspectionFeature.Admit` own their raw boundaries. Source keys, parent-run keys, material-certificate identity, and admitted prior-state evidence travel on `FabricationInput` so a later run consumes prior truth without a reverse plane dependency. `PostSource` closes motion and placement posting behind one policy case. Plane-internal ASTs, voxels, and tolerance models never ride a `FabricationResult` case.
 
-Every entry threads the kernel substrate rails: the `Op` value key with `Eff<Env>` carriage (`Domain/rails.md`), receipts registering through `IValidityEvidence`+`ValidityClaim` into the one `OpAcceptance` oracle with zero oracle edits (`Domain/validation.md`), and typed output projection riding `AtomProjection`/`ProjectionRow` (`Numerics/atoms.md`). The owner composes the kernel `Predicate.Orient2D` exact winding floor, `Rasm.Meshing` `MeshSpace`, and `Rhino.Geometry` `Point3d`/`Vector3d` as native vocabulary; interior coordinates are raw doubles — a unit-bearing quantity in a kernel signature is the seam violation.
+Every artifact key routes through `ContentKey.Of` and kernel `ContentHash.Of`. Geometry atoms carry `Context`, and host-native coordinate scalars remain raw doubles inside the package.
 
 Wire posture: HOST-LOCAL. Results cross only the in-process seam — `HiddenLineResult` to AppUi `Viewport2D`, `Motion` to posting, egress content keys to the Persistence artifact-index enrollment rows; the unions and atoms never sit between wire and rail.
 
 ## [01]-[INDEX]
 
-- [01]-[FABRICATION_OWNER]: owns the shared atoms (`Loop`+`Bulges`/`Edge3`/`ArcCenter`/`Move`/`PartTransform`/`ProjectionDir`), the atom mints (`CutterForm`, `AdmittedComponent`+`ComponentLayer`/`ComponentConnection`, `PlannedStep`, `BendStep`, `ResidualStock`, `StockSnapshot`, `CapabilityVerdict`, `RunLineage`), the egress spine (`EgressKind` + the ONE `ContentKey.Of` fold over kernel `ContentHash.Of`), the 10-case `FabricationPolicy`/`FabricationResult` unions, the `FabricationInput` carrier with its run-N→run-N+1 truth-carry fields, the one `Run` generated total `Switch` — all ten arms landed on their planes — and the `Lineage` genealogy fold deriving the consumed/produced key edge set from the input-carry law.
+- [01]-[FABRICATION_OWNER]: admitted geometry and motion atoms, planning and evidence rows, egress identity, run input/policy/result vocabularies, the total `Run` dispatch, and the derived `Lineage` projection.
 
 ## [02]-[FABRICATION_OWNER]
 
-- Owner: `Loop` the closed/open boundary atom with the `Bulges` arc column — `Covers` the ONE containment (exact crossing-parity over `Predicate.Orient2D`, total over non-convex loops, bulged spans corrected by circular-segment membership), `Winding`/`AsCcw` exact extremal-vertex orientation with the shift-correct bulge reversal, `Bound` the bulge-aware extent; `Edge3`/`ArcCenter`/`Move`/`PartTransform` the motion atoms; `ProjectionDir` the view basis (minted HERE, read by `Documentation/projection` and AppUi); `CutterFamily`+`CutterForm` the cutter-form leaf (four consumers: surface/removal/guard/cuttingdata); `ComponentLayer`/`ComponentConnection`+`AdmittedComponent` the element-ingress carrier (consumers: derivation/fleet/assembly/manufacturability/sheet — produced by the `Ingress/element` arm); `PlannedStep` the plan-step row (`FabricationPlan`'s leaf); `BendStep` the bend-program row (`FormedResult`'s leaf); `EgressKind` the egress discriminant; `ContentKey` the `(EgressKind, UInt128)` pair with the ONE `Of` fold seeding kernel `ContentHash.Of`; `ResidualStock` the uncut-material field; `StockSnapshot` the per-setup machined-state snapshot (content-keyed — `Fixturing/setups` admits op-N against op-N-1, `guard` reads the CURRENT snapshot, never the raw blank); `CapabilityVerdict` the minimal plan-gate leaf (pass/fail + Cpk + demanded IT grade); `FabricationInput` the ONE input carrier; `FabricationPolicy`/`FabricationResult` the 10-case unions; `Fabrication` the static surface whose ONE `Run` discriminates by policy case through the generated total `Switch`.
-- Cases: `FabricationPolicy` — `HiddenLine(FacetTolerance, SpatialLeaf, Option<BooleanSolid>)` · `Cam(CutStrategy, StepOver, CutterForm, Passes, CellPolicy, EngagementPolicy)` (the bare `ToolRadius` double re-framed to the `CutterForm` reference) · `Nest(NestPolicy)` · `Additive(AdditivePolicy)` · `Verify(VerifyPolicy)` · `Inspect(InspectPolicy)` · `Post(FabricationResult.Motion, PostDialect)` · `Document(Seq<FabricationResult>)` · `Derive(AdmittedComponent, DerivePolicy)` · `Form(FormPolicy)` (10); `FabricationResult` — `HiddenLineResult` · `Motion` · `Placement` · `AdditiveResult` · `VerificationResult` · `InspectionResult` · `PostedProgram` · `TravelerDocument` · `FabricationPlan(Seq<PlannedStep>, Option<CapabilityVerdict>, Seq<ContentKey>, ContentKey)` · `FormedResult(Arr<Loop> FlatPattern, Seq<BendStep>, double SpringbackMaxDeg, ContentKey)` (10), pairing one-to-one across the fold; every egress case carries its `ContentKey` (the `EgressKind` rides inside it), and `VerificationResult` carries the `ResidualStock`/`StockSnapshot` mints the next run's input re-admits.
-- Entry: `public static Fin<FabricationResult> Run(FabricationPolicy policy, FabricationInput input)` — the ONE fabrication entrypoint, PRESERVED VERBATIM; `Fin<T>` routes the typed `FabricationFault` band-2700 arms or the composed kernel `GeometryFault` band-2400, each lowered with `.ToError()` per `Process/faults#FAULT_BAND`.
-- Auto: `Run` dispatches through the Thinktecture-generated total `Switch` threading `FabricationInput` as state — a new policy case FAILS THE BUILD until its arm lands, never a `policy switch` cascade or `Type`-keyed lookup. ALL TEN arms are landed: `HiddenLine → Hlr.Solve` (`Documentation/projection`), `Cam → Cam.Solve` (`Toolpath/motion` — the Cam fold executes Guard/Workholding/Magazine conditioning and emits the conditioned `Motion`), `Nest → Nest.Solve` (`Nesting/nfp`), `Additive → Slice.Solve` (`Additive/slicing` — the `AdditivePolicy` dispatch over kernel-slice-then-fill and `Production.Plan`), `Verify → Removal.Verify` (`Verify/removal`), `Inspect → Probe.Inspect` (`Verify/probing`), `Post → Post.Lower` (`Posting/program` — assemble the neutral `CutProgram` AST from the carried `Motion`, condition, lower via `Dialect.Emit`; the Placement-vs-Motion asymmetry binds which conditioning runs — a 2D-cut `Placement` runs `Kerf`/`Lead`/`Pierce`/`Tab`/`Sequence`, the already-conditioned `Motion` NEVER a second kerf pass), `Document → Traveler.Assemble` (`Documentation/traveler` — views/tool-lists/fixture-plans/program-facts/spec-rows into the content-keyed model at the boundary clock), `Derive → Derivation.Plan` (`Process/derivation`), `Form → FlatPattern.Unfold → BendSequence.Plan → FlatPattern.Formed` (`Forming/sheet`+`brake` under the `flat-pattern`/`bend-program` keys). `Loop.Covers` is the ONE exact containment every plane reads (`Remnant.Holds`, `NoFitPolygon.Feasible`, `ExclusionZone.Covers`, posting `Encloses`); `ContentKey.Of` is the ONE egress mint — every raw `XxHash128`/`GenerateHash` call site is the second-hasher defect.
-- Receipt: `FabricationResult` IS the typed evidence — each case carries its own typed result under the ruling-5 payload discipline; no generic fabrication ledger and no plane-internal type on a case; `Fabrication.Lineage(input, result)` derives the `RunLineage` chain-of-custody receipt (consumed carry keys + produced artifact keys) as ONE fold over landed truth — the Persistence artifact index consumes the edge set at the content-key boundary, never a per-arm lineage mint and never a mutable run ledger.
+- Owner: `Loop`, `ProjectionDir`, `PartTransform`, `CutterForm`, `AdmittedComponent`, `ResidualStock`, `StockSnapshot`, `PlannedStep`, `CamPassPolicy`, `CapabilityVerdict`, and `InspectionFeature` admit externally variable atoms. `RotationSense` plus the `Move` union own rapid, linear, and circular motion without boolean or optional-payload ghosts. `InspectionMethod` closes measurement provenance, while tolerance and uncertainty derive each feature disposition. `EgressKind` plus `ContentKey` own artifact identity. `FabricationPolicy`, `PostSource`, `FabricationResult`, `FabricationInput`, and `Fabrication` own orchestration.
+- Cases: `FabricationPolicy` and `FabricationResult` each carry ten plane cases. `PostSource` distinguishes motion from placement. `Move` distinguishes rapid, linear, and circular moves. `FabricationPlan` carries its case-derived ceiling, DfM-ranked process routing, retained route evidence, executable steps, requested artifact kinds, produced keys, and content key. Artifact-producing result cases carry `ContentKey`; transient geometry, motion, inspection, and verification cases carry typed evidence instead.
+- Entry: `Run(FabricationPolicy, FabricationInput)` is the only orchestration entry and returns `Fin<FabricationResult>`. `Lineage` derives parent, source, certificate, consumed-state, and produced-artifact edges from one completed run.
+- Auto: the generated total `Switch` dispatches hidden-line, CAM, nesting, additive, verification, inspection, posting, documentation, derivation, and forming requests. The forming arm consumes the selected `ProcessEnvelope.Brake`; it never substitutes an unbounded phantom envelope. Posting dispatches `PostSource` before lowering, so placement conditioning and already-conditioned motion remain distinct.
+- Receipt: `FabricationResult` is the plane result evidence. `Fabrication.Lineage(policy, input, result)` derives policy, process, machine, parents, source artifacts, material certificate, consumed state, and produced artifacts without a mutable ledger.
 - Packages: `Rasm` (`ContentHash.Of` — `Domain/identity`; `Op`/`Eff<Env>` rails; `OpAcceptance` oracle; `AtomProjection`), `Rasm.Numerics` (`Predicate.Orient2D`/`Sign`/`Matrix`), `Rasm.Meshing` (`MeshSpace`), `Rhino.Geometry` (`Point3d`/`Vector3d`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new concern is one policy case + one result case + one `Switch` arm lowering to its plane kernel — the generated dispatch breaks the build until the arm lands (the `Derive`/`Form` widening is the exemplar: two cases, two result rows, zero new entrypoints); a new artifact family is one `EgressKind` row + one Persistence `ArtifactKind` enrollment ripple (the forming/joining/scan rows rode exactly this — each Persistence enrollment rides its egress page); a new process or machine is one family row the input already carries; a new keep-out class is one `Keepouts` member; the input shape is FINAL — the truth-carry fields (`Residual`/`Snapshots`/`Capability`) close the run-N→run-N+1 loop and no further field lands for verify/inspect/post/document/derive/form growth (the component rides the `Derive` POLICY case); zero new entrypoint surface.
-- Boundary: one polymorphic owner — a per-concern projector/post/packer class family is the deleted form; the union case is the ONE discriminant — a parallel string `[SmartEnum]` kind beside it is the deleted form, and a `Type`-keyed `FrozenDictionary` dispatch loses the compile-time totality the closed family owns; `Run(Post)`/`Run(Document)` are policy cases and a second public `Post()`/`Traveler.Assemble()` fold is the deleted form; the egress spine is `EgressKind`-local by name and by strata — the Persistence `ArtifactKind` taxonomy is a DIFFERENT owner the egress rows federate to at the content-key boundary, never a strata-crossing type reference and never a second same-named mint; a result case carrying `CutProgram`/`Voxels`/GD&T frames is the named ruling-5 violation; the atoms live here and a plane re-minting a parallel atom is the deleted form; a sign verdict is exact (`Predicate.Orient2D`) or it is a defect — the fan-triangle sign-sum winding and the convex half-plane containment walk are the named deleted forms (both mis-verdict non-convex loops); `Covers` is the ONE containment every plane reads and a chord-only verdict on a bulged loop is the silent-corruption defect the segment correction closes; interior doubles are the sanctioned native-scalar posture.
+- Growth: a fabrication concern is one policy case, one result case, and one total-dispatch arm. An artifact family is one `EgressKind` row plus its persistence enrollment. A motion modality is one `Move` case, and a new run-to-run truth source is one explicit lineage field.
+- Boundary: plane-internal ASTs, voxel carriers, and tolerance models never enter `FabricationResult`. Every geometry, state, plan-step, and inspection atom re-enters through its admission function, every egress digest routes through `ContentKey.Of`, and every orchestration modality remains a closed union case.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+using System.Linq;
+using CavalierContours.Core;
+using CavalierContours.Polyline;
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Domain;                        // ContentHash — the federation content-identity entry
-using Rasm.Fabrication.Additive;          // AdditivePolicy · Slice.Solve (the Additive arm)
-using Rasm.Fabrication.Documentation;     // BooleanSolid (HiddenLine watertight operand)
-using Rasm.Fabrication.Forming;           // FormPolicy · FlatPattern.Unfold · BendSequence.Plan · BrakeEnvelope
-using Rasm.Fabrication.Kinematics;        // RobotCell · CellPolicy
-using Rasm.Fabrication.Nesting;           // Stock · NestPlan · NestPolicy · Remnant
-using Rasm.Fabrication.Posting;           // Post.Lower (the Post arm — the AST is program-local, ruling 5)
-using Rasm.Fabrication.Toolpath;          // EngagementPolicy · Cam
-using Rasm.Fabrication.Verify;            // VerifyPolicy · InspectPolicy · Removal.Verify · Probe.Inspect
+using Rasm.Domain;
+using Rasm.Fabrication.Additive;
+using Rasm.Fabrication.Documentation;
+using Rasm.Fabrication.Forming;
+using Rasm.Fabrication.Kinematics;
+using Rasm.Fabrication.Nesting;
+using Rasm.Fabrication.Posting;
+using Rasm.Fabrication.Toolpath;
+using Rasm.Fabrication.Verify;
 using Rasm.Meshing;
 using Rasm.Numerics;
 using Rhino.Geometry;
@@ -45,98 +48,151 @@ using static LanguageExt.Prelude;
 namespace Rasm.Fabrication.Process;
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// The boundary atom of the arc rail: Bulges parallels Vertices (0 straight, tan(theta/4) per arc span);
-// a zero-bulge Loop is the pure polygon the line owner clips, a bulged Loop the arc profile arcs offsets exactly.
-public sealed record Loop(Arr<Point3d> Vertices, bool Closed, Arr<double> Bulges = default) {
+// `Bulges` parallels `Vertices`: `0` is linear and `tan(theta / 4)` is the corresponding arc span.
+public sealed record Loop {
+    private Loop(Arr<Point3d> vertices, bool closed, Arr<double> bulges, Context tolerance) =>
+        (Vertices, Closed, Bulges, Tolerance) = (vertices, closed, bulges, tolerance);
+
+    public Arr<Point3d> Vertices { get; }
+    public bool Closed { get; }
+    public Arr<double> Bulges { get; }
+    public Context Tolerance { get; }
     public int Count => Vertices.Count;
     public int Spans => Closed ? Count : Count - 1;
     public Point3d At(int i) => Vertices[((i % Count) + Count) % Count];
     public double BulgeAt(int i) => Bulges.IsEmpty ? 0.0 : Bulges[((i % Count) + Count) % Count];
 
-    // Exact winding at the lexicographically-extremal vertex — correct for every simple polygon; a fan-triangle
-    // SIGN sum mis-verdicts non-convex loops and is the deleted form.
-    public Sign Winding() {
-        int m = 0;
-        for (int i = 1; i < Count; i++)
-            if (Vertices[i].X < Vertices[m].X || (Vertices[i].X == Vertices[m].X && Vertices[i].Y < Vertices[m].Y)) m = i;
-        return Predicate.Orient2D(At(m - 1), At(m), At(m + 1));
+    public static Fin<Loop> Admit(Arr<Point3d> vertices, bool closed, Arr<double> bulges, Context tolerance) {
+        if (vertices.Count < (closed ? 3 : 2)
+            || (!bulges.IsEmpty && (bulges.Count != vertices.Count || !closed && bulges[vertices.Count - 1] != 0.0))
+            || vertices.Exists(static point => !point.IsValid)
+            || bulges.Exists(static bulge => !double.IsFinite(bulge))
+            || vertices.Exists(point => Math.Abs(point.Z - vertices[0].Z) > tolerance.Absolute.Value)
+            || !Range(0, closed ? vertices.Count : vertices.Count - 1).ForAll(index =>
+                vertices[index].DistanceTo(vertices[(index + 1) % vertices.Count]) > tolerance.Absolute.Value))
+            return Fin.Fail<Loop>(GeometryFault.DegenerateInput("loop").ToError());
+
+        Arr<double> admittedBulges = bulges.IsEmpty
+            ? Range(0, vertices.Count).Map(static _ => 0.0).ToArr()
+            : bulges;
+        Loop admitted = new(vertices, closed, admittedBulges, tolerance);
+        return !closed || Math.Abs(admitted.Pline().Area()) > tolerance.Absolute.Value * tolerance.Absolute.Value
+            ? Fin.Succ(admitted)
+            : Fin.Fail<Loop>(GeometryFault.DegenerateInput("loop:area").ToError());
     }
 
-    // Reversal SHIFTS the bulge column: reversed span j runs v[n-1-j] -> v[n-2-j], so b'[j] = -b[(n-2-j) mod n] —
-    // the plain reverse-and-negate is off by one span and corrupts every arc profile it re-winds.
-    public Loop AsCcw() =>
-        Winding() != Sign.Negative ? this : this with {
-            Vertices = Vertices.Rev().ToArr(),
-            Bulges = Bulges.IsEmpty ? Bulges : new Arr<double>([.. Enumerable.Range(0, Count).Select(j => -BulgeAt(Count - 2 - j))]),
-        };
+    public double Plane => Vertices[0].Z;
 
-    // Bulge-aware bound: each arc span unions the axis-cardinal circle points inside its swept range —
-    // a vertex-only box understates every outward bulge by its sagitta.
-    public BoundingBox Bound() {
-        BoundingBox box = new(Vertices);
-        for (int i = 0; i < Spans; i++) {
-            double bulge = BulgeAt(i);
-            if (bulge == 0.0) continue;
-            (Point3d c, double r, double a0, double sweep) = ArcOf(At(i), At(i + 1), bulge);
-            for (int q = 0; q < 4; q++)
-                if (InSweep(q * Math.PI / 2.0, a0, sweep))
-                    box.Union(new Point3d(c.X + (r * Math.Cos(q * Math.PI / 2.0)), c.Y + (r * Math.Sin(q * Math.PI / 2.0)), c.Z));
-        }
-        return box;
+    public Sign Winding() => !Closed ? Sign.Zero : Pline().Area() switch {
+        > 0.0 => Sign.Positive,
+        < 0.0 => Sign.Negative,
+        _ => Sign.Zero,
+    };
+
+    // Admitted-value metrics: total on the admitted interior, no re-admission rail. Raw-boundary measures stay ArcAlgebra.ArcArea/ArcLength.
+    public double Area() => Closed ? Pline().Area() : 0.0;
+    public double Length() => Pline().PathLength();
+
+    // Reversed span `j` runs `v[n - 1 - j]` to `v[n - 2 - j]`, so its bulge is `-b[(n - 2 - j) mod n]`.
+    public Loop AsCcw() => Winding() != Sign.Negative
+        ? this
+        : new Loop(
+            Vertices.Rev().ToArr(),
+            Closed,
+            Range(0, Count).Map(j => -BulgeAt(Count - 2 - j)).ToArr(),
+            Tolerance);
+
+    public BoundingBox Bound() => Pline().Extents() is { } bounds
+        ? new BoundingBox(
+            new Point3d(bounds.MinX, bounds.MinY, Vertices.Min(static point => point.Z)),
+            new Point3d(bounds.MaxX, bounds.MaxY, Vertices.Max(static point => point.Z)))
+        : BoundingBox.Empty;
+
+    public bool Covers(Point3d point) {
+        Polyline<double> polyline = Pline();
+        Vector2<double> query = new(point.X, point.Y);
+        return polyline.WindingNumber(query) != 0;
     }
 
-    // Exact crossing-parity containment over Orient2D — total over non-convex loops, boundary counts as covered —
-    // corrected per bulged span by circular-segment membership: the chord verdict flips inside the bow between
-    // chord and arc (chord predicates stay exact; the arc membership is double-precision by the arc's own nature).
-    public bool Covers(Point3d p) {
-        bool inside = false;
-        for (int i = 0; i < Count; i++) {
-            Point3d a = At(i), b = At(i + 1);
-            Sign side = Predicate.Orient2D(a, b, p);
-            if (side == Sign.Zero
-                && Math.Min(a.X, b.X) <= p.X && p.X <= Math.Max(a.X, b.X)
-                && Math.Min(a.Y, b.Y) <= p.Y && p.Y <= Math.Max(a.Y, b.Y)) return true;
-            if (a.Y <= p.Y ? b.Y > p.Y && side == Sign.Positive : b.Y <= p.Y && side == Sign.Negative) inside = !inside;
-            double bulge = BulgeAt(i);
-            if (bulge != 0.0 && side.Key * Math.Sign(bulge) > 0) {
-                (Point3d c, double r, _, _) = ArcOf(a, b, bulge);
-                if (p.DistanceTo(c) <= r) inside = !inside;
-            }
-        }
-        return inside;
-    }
-
-    // Span arc recovery: bulge tan(theta/4) gives sweep theta and radius chord/(2 sin(theta/2)); the center sits on
-    // the perpendicular bisector, bulge sign selecting the side — the one arc spelling curves.md's chord walk shares.
-    static (Point3d Center, double Radius, double Start, double Sweep) ArcOf(Point3d a, Point3d z, double bulge) {
-        double theta = 4.0 * Math.Atan(bulge), half = Math.Abs(theta) / 2.0;
-        double r = a.DistanceTo(z) / (2.0 * Math.Sin(half));
-        Vector3d m = (z - a) * 0.5;
-        Vector3d normal = new(-m.Y, m.X, 0.0);
-        normal.Unitize();
-        Point3d c = a + m + (normal * (r * Math.Cos(half) * Math.Sign(bulge)));
-        return (c, r, Math.Atan2(a.Y - c.Y, a.X - c.X), theta);
-    }
-
-    static bool InSweep(double angle, double start, double sweep) {
-        double tau = 2.0 * Math.PI;
-        double delta = (sweep >= 0.0 ? angle - start : start - angle) % tau;
-        return (delta < 0.0 ? delta + tau : delta) <= Math.Abs(sweep);
+    private Polyline<double> Pline() {
+        Polyline<double> polyline = new(Count, Closed);
+        for (int index = 0; index < Count; index++) polyline.Add(At(index).X, At(index).Y, BulgeAt(index));
+        return polyline;
     }
 }
 
 public readonly record struct Edge3(Point3d A, Point3d B);
 
-public readonly record struct ArcCenter(Point3d Center, bool Clockwise);
+[SmartEnum<string>]
+public sealed partial class RotationSense {
+    public static readonly RotationSense Clockwise = new("clockwise");
+    public static readonly RotationSense Counterclockwise = new("counterclockwise");
+}
 
-public readonly record struct Move(Point3d To, bool Rapid, double Feed, Option<ArcCenter> Arc = default);
+public readonly record struct ArcCenter(Point3d Center, RotationSense Sense);
 
-public sealed record PartTransform(int PartId, double Tx, double Ty, double RotationRadians, int SheetIndex = 0);
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record Move {
+    private Move() { }
 
-// Minted HERE (seam inversion): the view basis the projection plane and AppUi both read off the atoms.
-// Of IS the admission: a zero or non-finite forward is refused typed — a discarded Unitize verdict minting a
-// zero basis is the named silent-ghost defect.
-public readonly record struct ProjectionDir(Vector3d Forward, Vector3d ScreenU, Vector3d ScreenV) {
+    public sealed record Rapid(Point3d Target) : Move;
+    public sealed record Linear(Point3d Target, double Feed) : Move;
+    public sealed record Circular(Point3d Target, double Feed, ArcCenter Arc) : Move;
+
+    public static Fin<Move> Admit(Move candidate) => candidate.Switch(
+        rapid: static move => move.Target.IsValid
+            ? Fin.Succ((Move)move)
+            : Fin.Fail<Move>(GeometryFault.DegenerateInput("move:rapid").ToError()),
+        linear: static move => move.Target.IsValid && double.IsFinite(move.Feed) && move.Feed > 0.0
+            ? Fin.Succ((Move)move)
+            : Fin.Fail<Move>(GeometryFault.DegenerateInput("move:linear").ToError()),
+        circular: static move => move.Target.IsValid && move.Arc.Center.IsValid
+            && move.Arc.Center.DistanceTo(move.Target) > 0.0
+            && double.IsFinite(move.Feed) && move.Feed > 0.0
+                ? Fin.Succ((Move)move)
+                : Fin.Fail<Move>(GeometryFault.DegenerateInput("move:circular").ToError()));
+}
+
+public sealed record PartTransform {
+    private PartTransform(int partId, double tx, double ty, double rotationRadians, int sheetIndex) =>
+        (PartId, Tx, Ty, RotationRadians, SheetIndex) = (partId, tx, ty, rotationRadians, sheetIndex);
+
+    public int PartId { get; }
+    public double Tx { get; }
+    public double Ty { get; }
+    public double RotationRadians { get; }
+    public int SheetIndex { get; }
+
+    public static Fin<PartTransform> Admit(int partId, double tx, double ty, double rotationRadians, int sheetIndex) =>
+        partId >= 0 && sheetIndex >= 0
+        && double.IsFinite(tx) && double.IsFinite(ty) && double.IsFinite(rotationRadians)
+            ? Fin.Succ(new PartTransform(partId, tx, ty, rotationRadians, sheetIndex))
+            : Fin.Fail<PartTransform>(GeometryFault.DegenerateInput("part-transform").ToError());
+
+    // One placement projection, input shape the modality discriminant: point, move, or whole loop.
+    public Point3d Apply(Point3d point) => new(
+        (point.X * Math.Cos(RotationRadians)) - (point.Y * Math.Sin(RotationRadians)) + Tx,
+        (point.X * Math.Sin(RotationRadians)) + (point.Y * Math.Cos(RotationRadians)) + Ty,
+        point.Z);
+
+    public Move Apply(Move move) => move.Switch(
+        state: this,
+        rapid:    static (t, m) => new Move.Rapid(t.Apply(m.Target)),
+        linear:   static (t, m) => new Move.Linear(t.Apply(m.Target), m.Feed),
+        circular: static (t, m) => new Move.Circular(t.Apply(m.Target), m.Feed, new ArcCenter(t.Apply(m.Arc.Center), m.Arc.Sense)));
+
+    public Fin<Loop> Apply(Loop source) =>
+        Loop.Admit(source.Vertices.Map(Apply), source.Closed, source.Bulges, source.Tolerance);
+}
+
+public sealed record ProjectionDir {
+    private ProjectionDir(Vector3d forward, Vector3d screenU, Vector3d screenV) =>
+        (Forward, ScreenU, ScreenV) = (forward, screenU, screenV);
+
+    public Vector3d Forward { get; }
+    public Vector3d ScreenU { get; }
+    public Vector3d ScreenV { get; }
+
     public static Fin<ProjectionDir> Of(Vector3d forward) {
         Vector3d f = forward;
         if (!f.Unitize()) return Fin.Fail<ProjectionDir>(GeometryFault.DegenerateInput("projection-dir:forward").ToError());
@@ -163,26 +219,96 @@ public sealed partial class CutterFamily {
     public static readonly CutterFamily ThreadMill = new("thread-mill");
 }
 
-// The pure-scalar cutter-form leaf (ruling 2): the TYPE lives on atoms; the CutterForm.Of(ToolAssembly)
-// projection and the Kienzle machinability keyed by it live on Tooling/cuttingdata — the cycle never forms.
-public readonly record struct CutterForm(CutterFamily Family, double Diameter, double CornerRadius, double TaperAngle, double FluteLength);
+public sealed record CutterForm {
+    private CutterForm(CutterFamily family, double diameter, double cornerRadius, double taperAngle, double fluteLength) =>
+        (Family, Diameter, CornerRadius, TaperAngle, FluteLength) = (family, diameter, cornerRadius, taperAngle, fluteLength);
 
-// Atoms-safe element-ingress rows: string keys reference Materials/Bim rows at the boundary, never their types.
+    public CutterFamily Family { get; }
+    public double Diameter { get; }
+    public double CornerRadius { get; }
+    public double TaperAngle { get; }
+    public double FluteLength { get; }
+
+    public static Fin<CutterForm> Admit(
+        CutterFamily family,
+        double diameter,
+        double cornerRadius,
+        double taperAngle,
+        double fluteLength) =>
+        double.IsFinite(diameter) && diameter > 0.0
+        && double.IsFinite(cornerRadius) && cornerRadius >= 0.0 && cornerRadius <= diameter * 0.5
+        && double.IsFinite(taperAngle) && taperAngle is >= 0.0 and < 90.0
+        && double.IsFinite(fluteLength) && fluteLength > 0.0
+        && Fits(family, diameter, cornerRadius, taperAngle)
+            ? Fin.Succ(new CutterForm(family, diameter, cornerRadius, taperAngle, fluteLength))
+            : Fin.Fail<CutterForm>(GeometryFault.DegenerateInput("cutter-form").ToError());
+
+    // Total generated dispatch: the next CutterFamily row breaks this admission loudly instead of inheriting a default arm.
+    private static bool Fits(CutterFamily family, double diameter, double cornerRadius, double taperAngle) => family.Switch(
+        state: (Diameter: diameter, Corner: cornerRadius, Taper: taperAngle),
+        flat: static s => s.Corner == 0.0 && s.Taper == 0.0,
+        ball: static s => s.Corner == s.Diameter * 0.5 && s.Taper == 0.0,
+        bull: static s => s.Corner is > 0.0 && s.Corner < s.Diameter * 0.5 && s.Taper == 0.0,
+        taper: static s => s.Taper > 0.0,
+        drill: static s => s.Corner == 0.0 && s.Taper > 0.0,
+        chamfer: static s => s.Corner == 0.0 && s.Taper > 0.0,
+        threadMill: static s => s.Corner == 0.0 && s.Taper == 0.0);
+}
+
 public sealed record ComponentLayer(string Function, double ThicknessMm, string MaterialKey);
 
 public sealed record ComponentConnection(string DetailKey, string RealizingKey, Edge3 At);
 
-// Minted HERE per the CutterForm discipline: the TYPE on atoms, the Ingress.Admit Element-arm projection on
-// Ingress/element. Run(Derive) carries it on the policy case; derivation/fleet/assembly/manufacturability read it.
-public sealed record AdmittedComponent(
-    UInt128 RepresentationKey,
-    Option<MeshSpace> Mesh,
-    Arr<Loop> Profiles,
-    Option<double> SheetThicknessMm,
-    Arr<ComponentLayer> Layers,
-    Arr<ComponentConnection> Connections,
-    Map<string, double> Quantities,
-    Map<string, string> Properties);
+public sealed record AdmittedComponent {
+    private AdmittedComponent(
+        UInt128 representationKey,
+        Option<MeshSpace> mesh,
+        Arr<Loop> profiles,
+        Option<double> sheetThicknessMm,
+        Arr<ComponentLayer> layers,
+        Arr<ComponentConnection> connections,
+        Map<string, double> quantities,
+        Map<string, string> properties) =>
+        (RepresentationKey, Mesh, Profiles, SheetThicknessMm, Layers, Connections, Quantities, Properties) =
+        (representationKey, mesh, profiles, sheetThicknessMm, layers, connections, quantities, properties);
+
+    public UInt128 RepresentationKey { get; }
+    public Option<MeshSpace> Mesh { get; }
+    public Arr<Loop> Profiles { get; }
+    public Option<double> SheetThicknessMm { get; }
+    public Arr<ComponentLayer> Layers { get; }
+    public Arr<ComponentConnection> Connections { get; }
+    public Map<string, double> Quantities { get; }
+    public Map<string, string> Properties { get; }
+
+    public static Fin<AdmittedComponent> Admit(
+        UInt128 representationKey,
+        Option<MeshSpace> mesh,
+        Arr<Loop> profiles,
+        Option<double> sheetThicknessMm,
+        Arr<ComponentLayer> layers,
+        Arr<ComponentConnection> connections,
+        Map<string, double> quantities,
+        Map<string, string> properties) {
+        Seq<Validation<Error, Unit>> gates = Seq(
+            Gate(mesh.IsSome || !profiles.IsEmpty, "component:geometry"),
+            Gate(sheetThicknessMm.Map(static value => double.IsFinite(value) && value > 0.0).IfNone(true), "component:thickness"),
+            Gate(layers.ForAll(static layer => !string.IsNullOrWhiteSpace(layer.Function)
+                && !string.IsNullOrWhiteSpace(layer.MaterialKey)
+                && double.IsFinite(layer.ThicknessMm) && layer.ThicknessMm > 0.0), "component:layers"),
+            Gate(connections.ForAll(static connection => !string.IsNullOrWhiteSpace(connection.DetailKey)
+                && !string.IsNullOrWhiteSpace(connection.RealizingKey)
+                && connection.At.A.IsValid && connection.At.B.IsValid && connection.At.A != connection.At.B), "component:connections"),
+            Gate(quantities.ForAll(static row => !string.IsNullOrWhiteSpace(row.Key) && double.IsFinite(row.Value)), "component:quantities"),
+            Gate(properties.ForAll(static row => !string.IsNullOrWhiteSpace(row.Key)
+                && !string.IsNullOrWhiteSpace(row.Value)), "component:properties"));
+        return gates.Traverse(static gate => gate).As().ToFin().Map(_ => new AdmittedComponent(
+            representationKey, mesh, profiles, sheetThicknessMm, layers, connections, quantities, properties));
+    }
+
+    private static Validation<Error, Unit> Gate(bool valid, string locus) =>
+        (valid ? Fin.Succ(unit) : Fin.Fail<Unit>(GeometryFault.DegenerateInput(locus).ToError())).ToValidation();
+}
 
 [SmartEnum<string>]
 public sealed partial class EgressKind {
@@ -201,32 +327,178 @@ public sealed partial class EgressKind {
     public static readonly EgressKind Plan = new("plan");
 }
 
-// The ONE egress content-key fold: every machine-consumable artifact keys through kernel ContentHash.Of
-// (seed-zero XxHash128); a raw XxHash128/GenerateHash call site anywhere in the package is the second-hasher defect.
+// Machine-consumable artifacts share the kernel `ContentHash.Of` identity regime.
 public readonly record struct ContentKey(EgressKind Kind, UInt128 Digest) {
     public static ContentKey Of(EgressKind kind, ReadOnlySpan<byte> canonicalBytes) => new(kind, ContentHash.Of(canonicalBytes));
 }
 
-// Input-carried truth fields (run N produces, run N+1 reads): the ResidualStock/CapabilityVerdict input-carry
-// breaks the motion->removal->program and capability->plan cycles; snapshots are per-SETUP, never one terminal state.
-public sealed record ResidualStock(ContentKey Key, Arr<Loop> Uncut);
+// A later run consumes prior stock truth without introducing a reverse plane dependency.
+public sealed record ResidualStock {
+    private ResidualStock(ContentKey key, Arr<Loop> uncut) => (Key, Uncut) = (key, uncut);
 
-public sealed record StockSnapshot(int Setup, ContentKey Key, Arr<Loop> Machined);
+    public ContentKey Key { get; }
+    public Arr<Loop> Uncut { get; }
 
-// Cross-run chain-of-custody: consumed carry keys from the input, produced keys from the result — derived by ONE
-// owner fold (Fabrication.Lineage), never a per-arm mint; the Persistence artifact index reads the edge set at the
-// content-key boundary, turning the input-carry cycle-break law into an auditable lot-traceability record.
-public sealed record RunLineage(Seq<ContentKey> Consumed, Seq<ContentKey> Produced);
+    public static Fin<ResidualStock> Admit(ContentKey key, Arr<Loop> uncut) =>
+        uncut.ForAll(static loop => loop.Closed)
+            ? Fin.Succ(new ResidualStock(key, uncut))
+            : Fin.Fail<ResidualStock>(FabricationFault.OpenLoop(FabConcern.Verify, 0).ToError());
+}
 
-// Plan and forming result leaves (ruling 5: result cases carry ROWS, never plane-internal types).
-public readonly record struct PlannedStep(int Order, ProcessKind Process, Machine Machine, int Setup, Option<ContentKey> Program);
+public sealed record StockSnapshot {
+    private StockSnapshot(int setup, ContentKey key, Arr<Loop> machined) => (Setup, Key, Machined) = (setup, key, machined);
+
+    public int Setup { get; }
+    public ContentKey Key { get; }
+    public Arr<Loop> Machined { get; }
+
+    public static Fin<StockSnapshot> Admit(int setup, ContentKey key, Arr<Loop> machined) =>
+        setup >= 0 && machined.ForAll(static loop => loop.Closed)
+            ? Fin.Succ(new StockSnapshot(setup, key, machined))
+            : Fin.Fail<StockSnapshot>(GeometryFault.DegenerateInput("stock-snapshot").ToError());
+}
+
+// Lineage derives consumed and produced keys at the shared content-key boundary.
+public sealed record RunLineage(
+    FabricationPolicy Policy,
+    ProcessKind Process,
+    Machine Machine,
+    Seq<ContentKey> Parents,
+    Seq<ContentKey> Sources,
+    Option<ContentKey> MaterialCertificate,
+    Seq<ContentKey> Consumed,
+    Seq<ContentKey> Produced);
+
+public sealed record PlannedStep {
+    private PlannedStep(
+        int order,
+        ProcessKind process,
+        Machine machine,
+        int setup,
+        Arr<int> operations,
+        Option<ContentKey> program) =>
+        (Order, Process, Machine, Setup, Operations, Program) = (order, process, machine, setup, operations, program);
+
+    public int Order { get; }
+    public ProcessKind Process { get; }
+    public Machine Machine { get; }
+    public int Setup { get; }
+    public Arr<int> Operations { get; }
+    public Option<ContentKey> Program { get; }
+
+    public static Fin<PlannedStep> Admit(
+        int order,
+        ProcessKind process,
+        Machine machine,
+        int setup,
+        Arr<int> operations,
+        Option<ContentKey> program) =>
+        order >= 0 && setup >= 0 && !operations.IsEmpty
+        && operations.ForAll(static operation => operation >= 0)
+        && operations.Distinct().Count == operations.Count
+        && machine.Admits(process)
+            ? Fin.Succ(new PlannedStep(order, process, machine, setup, operations, program))
+            : Fin.Fail<PlannedStep>(GeometryFault.DegenerateInput("planned-step").ToError());
+}
+
+public sealed record CamPassPolicy {
+    private CamPassPolicy(double stepOver, int passes) => (StepOver, Passes) = (stepOver, passes);
+
+    public double StepOver { get; }
+    public int Passes { get; }
+
+    public static Fin<CamPassPolicy> Admit(double stepOver, int passes) =>
+        double.IsFinite(stepOver) && stepOver > 0.0 && passes >= 1
+            ? Fin.Succ(new CamPassPolicy(stepOver, passes))
+            : Fin.Fail<CamPassPolicy>(GeometryFault.DegenerateInput("cam-pass-policy").ToError());
+}
+
+[SmartEnum<string>]
+public sealed partial class BendOrientation {
+    public static readonly BendOrientation AsIs = new("as-is");
+    public static readonly BendOrientation Flipped = new("flipped");
+}
 
 public readonly record struct BendStep(
-    int Order, Edge3 Line, double AngleDeg, double RadiusMm, double KFactor, double OverbendDeg, double TonnageKn, bool Flip);
+    int Order,
+    Edge3 Line,
+    double AngleDeg,
+    double RadiusMm,
+    double KFactor,
+    double OverbendDeg,
+    double TonnageKn,
+    BendOrientation Orientation);
 
-public readonly record struct CapabilityVerdict(bool Pass, double Cpk, int DemandedItGrade);
+public sealed record CapabilityVerdict {
+    private CapabilityVerdict(double cpk, double demandedCpk, int demandedItGrade, bool procedureQualified, bool measurementSystemSuitable) =>
+        (Cpk, DemandedCpk, DemandedItGrade, ProcedureQualified, MeasurementSystemSuitable) =
+            (cpk, demandedCpk, demandedItGrade, procedureQualified, measurementSystemSuitable);
 
-public readonly record struct FabricationInput(
+    public double Cpk { get; }
+    public double DemandedCpk { get; }
+    public int DemandedItGrade { get; }
+
+    // Fail-closed states carry their own evidence: an unqualified procedure or unsuitable measurement system
+    // fails Pass directly instead of masquerading as a zero-Cpk process.
+    public bool ProcedureQualified { get; }
+    public bool MeasurementSystemSuitable { get; }
+    public bool Pass => Cpk >= DemandedCpk && ProcedureQualified && MeasurementSystemSuitable;
+
+    public static Fin<CapabilityVerdict> Admit(double cpk, double demandedCpk, int demandedItGrade, bool procedureQualified, bool measurementSystemSuitable) =>
+        double.IsFinite(cpk) && cpk >= 0.0
+        && double.IsFinite(demandedCpk) && demandedCpk > 0.0
+        && demandedItGrade >= 1
+            ? Fin.Succ(new CapabilityVerdict(cpk, demandedCpk, demandedItGrade, procedureQualified, measurementSystemSuitable))
+            : Fin.Fail<CapabilityVerdict>(GeometryFault.DegenerateInput("capability-verdict").ToError());
+}
+
+public readonly record struct GougeWitness(int Setup, int Move, Point3d Point, double DepthMm);
+
+[SmartEnum<string>]
+public sealed partial class InspectionMethod {
+    public static readonly InspectionMethod Probe = new("probe");
+    public static readonly InspectionMethod Scan = new("scan");
+    public static readonly InspectionMethod Gauge = new("gauge");
+    public static readonly InspectionMethod Vision = new("vision");
+    public static readonly InspectionMethod Manual = new("manual");
+}
+
+public sealed record InspectionFeature {
+    private InspectionFeature(
+        string key,
+        Point3d nominal,
+        Point3d measured,
+        Option<double> toleranceMm,
+        double uncertaintyMm,
+        InspectionMethod method) =>
+        (Key, Nominal, Measured, ToleranceMm, UncertaintyMm, Method) =
+        (key, nominal, measured, toleranceMm, uncertaintyMm, method);
+
+    public string Key { get; }
+    public Point3d Nominal { get; }
+    public Point3d Measured { get; }
+    public Option<double> ToleranceMm { get; }
+    public double UncertaintyMm { get; }
+    public InspectionMethod Method { get; }
+    public double DeviationMm => Nominal.DistanceTo(Measured);
+    public Option<bool> Pass => ToleranceMm.Map(tolerance => DeviationMm + UncertaintyMm <= tolerance);
+
+    public static Fin<InspectionFeature> Admit(
+        string key,
+        Point3d nominal,
+        Point3d measured,
+        Option<double> toleranceMm,
+        double uncertaintyMm,
+        InspectionMethod method) =>
+        !string.IsNullOrWhiteSpace(key) && nominal.IsValid && measured.IsValid
+        && toleranceMm.Map(static tolerance => double.IsFinite(tolerance) && tolerance > 0.0).IfNone(true)
+        && double.IsFinite(uncertaintyMm) && uncertaintyMm >= 0.0
+            ? Fin.Succ(new InspectionFeature(key, nominal, measured, toleranceMm, uncertaintyMm, method))
+            : Fin.Fail<InspectionFeature>(GeometryFault.DegenerateInput("inspection-feature").ToError());
+}
+
+// Class carrier: a defaulted struct would mint null ProcessKind/Machine ghosts past admission; the null default throws at first touch instead.
+public sealed record FabricationInput(
     Option<MeshSpace> Model,
     ProjectionDir View,
     Arr<Loop> Profiles,
@@ -239,48 +511,73 @@ public readonly record struct FabricationInput(
     Machine Machine,
     Option<ResidualStock> Residual,
     Seq<StockSnapshot> Snapshots,
-    Option<CapabilityVerdict> Capability);
+    Option<CapabilityVerdict> Capability,
+    Seq<ContentKey> ParentRuns,
+    Seq<ContentKey> Sources,
+    Option<ContentKey> MaterialCertificate);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FabricationPolicy {
     private FabricationPolicy() { }
 
     public sealed record HiddenLine(double FacetTolerance, int SpatialLeaf, Option<BooleanSolid> Watertight) : FabricationPolicy;
-    public sealed record Cam(CutStrategy Strategy, double StepOver, CutterForm Cutter, int Passes, CellPolicy Cell, EngagementPolicy Engagement) : FabricationPolicy;
+    public sealed record Cam(
+        CutStrategy Strategy,
+        CamPassPolicy Pass,
+        CutterForm Cutter,
+        CellPolicy Cell,
+        EngagementPolicy Engagement) : FabricationPolicy;
     public sealed record Nest(NestPolicy Nesting) : FabricationPolicy;
     public sealed record Additive(AdditivePolicy Policy) : FabricationPolicy;
     public sealed record Verify(VerifyPolicy Policy) : FabricationPolicy;
     public sealed record Inspect(InspectPolicy Policy) : FabricationPolicy;
-    public sealed record Post(FabricationResult.Motion Motion, PostDialect Dialect) : FabricationPolicy;      // re-invocable terminal transform
-    public sealed record Document(Seq<FabricationResult> Results) : FabricationPolicy;                        // re-invocable terminal transform
-    public sealed record Derive(AdmittedComponent Component, DerivePolicy Policy) : FabricationPolicy;        // the plan orchestrator case
-    public sealed record Form(FormPolicy Policy) : FabricationPolicy;                                         // sheet forming: unfold + bend plan
+    public sealed record Post(PostSource Source, PostDialect Dialect) : FabricationPolicy;
+    // Corpus is the traveler fan-in pack; TravelerReceiptCorpus.Empty is the caller's explicit no-receipts choice.
+    public sealed record Document(Seq<FabricationResult> Results, TravelerReceiptCorpus Corpus) : FabricationPolicy;
+    public sealed record Derive(AdmittedComponent Component, DerivePolicy Policy) : FabricationPolicy;
+    public sealed record Form(FormPolicy Policy, ProcessEnvelope.Brake Envelope) : FabricationPolicy;
 }
 
-// Ruling-5 payload discipline: egress cases carry ONLY atoms-safe payloads — lowered blocks and content keys,
-// never the CutProgram AST, never PicoGK Voxels, never a GD&T frame.
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PostSource {
+    private PostSource() { }
+
+    public sealed record Motion(FabricationResult.Motion Value) : PostSource;
+    public sealed record Placement(FabricationResult.Placement Value) : PostSource;
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FabricationResult {
     private FabricationResult() { }
 
     public sealed record HiddenLineResult(Seq<Edge3> Visible, Seq<Edge3> Hidden, Seq<Edge3> Silhouette) : FabricationResult;
-    public sealed record Motion(Seq<Move> Moves, Seq<double[]> Joints, double Duration, bool Reached, Seq<string> CellCode) : FabricationResult;
+    public sealed record Motion(Seq<Move> Moves, Seq<Arr<double>> Joints, double Duration, Seq<string> CellCode) : FabricationResult;
     public sealed record Placement(Seq<PartTransform> Parts, double Utilization, int Unplaced, Seq<Remnant> Remnants, ContentKey Key) : FabricationResult;
     public sealed record AdditiveResult(Seq<Move> Moves, int Layers, Seq<ContentKey> Artifacts) : FabricationResult;
-    public sealed record VerificationResult(ResidualStock Residual, Seq<StockSnapshot> Snapshots, Seq<Point3d> Gouges, double UncutVolume, double OvercutVolume, double AirCutRatio) : FabricationResult;
-    public sealed record InspectionResult(Seq<(Point3d Nominal, Point3d Measured)> Features, double MaxDeviation) : FabricationResult;
+    public sealed record VerificationResult(
+        ResidualStock Residual,
+        Seq<StockSnapshot> Snapshots,
+        Seq<GougeWitness> Gouges,
+        double UncutVolume,
+        double OvercutVolume,
+        double AirCutRatio) : FabricationResult;
+    public sealed record InspectionResult(Seq<InspectionFeature> Features) : FabricationResult;
     public sealed record PostedProgram(Seq<string> Blocks, ContentKey Key) : FabricationResult;
     public sealed record TravelerDocument(ContentKey Key, Seq<ContentKey> Composed) : FabricationResult;
     public sealed record FabricationPlan(
-        Seq<PlannedStep> Steps, Option<CapabilityVerdict> Capability, Seq<ContentKey> Artifacts, ContentKey Key) : FabricationResult;
+        DerivationStage Ceiling,
+        Seq<ProcessKind> Routing,
+        Seq<MachineMatch> Routes,
+        Seq<PlannedStep> Steps,
+        Option<CapabilityVerdict> Capability,
+        Set<EgressKind> RequestedArtifacts,
+        Seq<ContentKey> Artifacts,
+        ContentKey Key) : FabricationResult;
     public sealed record FormedResult(Arr<Loop> FlatPattern, Seq<BendStep> Bends, double SpringbackMaxDeg, ContentKey Key) : FabricationResult;
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Fabrication {
-    // The generated total Switch: every plane landed, every arm filled — a new policy case FAILS THE BUILD
-    // until its arm lands. Post assembles the CutProgram AST from the carried Motion inside Post.Lower
-    // (ruling 5); Document composes at the boundary clock; Form chains unfold → bend plan → the Formed mint.
     public static Fin<FabricationResult> Run(FabricationPolicy policy, FabricationInput input) =>
         policy.Switch(
             state:      input,
@@ -290,17 +587,25 @@ public static class Fabrication {
             additive:   static (i, p) => Slice.Solve(p, i),
             verify:     static (i, p) => Removal.Verify(p.Policy, i),
             inspect:    static (i, p) => Probe.Inspect(p.Policy, i),
-            post:       static (i, p) => Post.Lower(p.Motion, p.Dialect, i).Map(static r => (FabricationResult)r),
+            post:       static (i, p) => p.Source.Switch(
+                state: (Input: i, Dialect: p.Dialect),
+                motion: static (state, source) => Post.Lower(source.Value, state.Dialect, state.Input).Map(static result => (FabricationResult)result),
+                placement: static (state, source) => Post.Lower(source.Value, state.Dialect, state.Input).Map(static result => (FabricationResult)result)),
             document:   static (i, p) => Traveler.Assemble(p, i),
             derive:     static (i, p) => Derivation.Plan(p, i),
-            form:       static (i, p) => FlatPattern.Unfold(p.Policy, i).Bind(unfold =>
-                            BendSequence.Plan(unfold, p.Policy, BrakeEnvelope.Unbounded)
-                                .Map(bends => FlatPattern.Formed(unfold, bends))));
+            form:       static (i, p) =>
+                from unfold in FlatPattern.Unfold(p.Policy, i)
+                from bends in BendSequence.Plan(unfold, p.Policy, p.Envelope)
+                select FlatPattern.Formed(unfold, bends));
 
-    // The genealogy fold: run N's input carries run N-1's truth, the result mints keys — the pair IS the
-    // run-lineage edge set, derived from landed truth with zero arm edits and zero new Run modality.
-    public static RunLineage Lineage(FabricationInput input, FabricationResult result) =>
+    public static RunLineage Lineage(FabricationPolicy policy, FabricationInput input, FabricationResult result) =>
         new(
+            policy,
+            input.Process,
+            input.Machine,
+            input.ParentRuns,
+            input.Sources,
+            input.MaterialCertificate,
             input.Residual.ToSeq().Map(static r => r.Key) + input.Snapshots.Map(static s => s.Key),
             result.Switch(
                 hiddenLineResult:   static _ => Seq<ContentKey>(),
@@ -319,11 +624,31 @@ public static class Fabrication {
 ```mermaid
 ---
 config:
-  layout: elk
   theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
-    Atoms["owner#atoms Loop+Bulges · Move · CutterForm · AdmittedComponent · PlannedStep · BendStep · ResidualStock · StockSnapshot · CapabilityVerdict · EgressKind · ContentKey"]
+    accTitle: Fabrication orchestration fold
+    accDescr: One generated run dispatch routes ten policy variants to their plane kernels, folds every result back through shared fabrication atoms, and projects content-keyed persistence facts.
+    Atoms["owner#atoms Loop+Bulges · Move · CutterForm · AdmittedComponent · PlannedStep · BendStep · ResidualStock · StockSnapshot · CapabilityVerdict · EgressKind · ContentKey · RunLineage"]
     Run["owner#run 10-arm generated total Switch"]
     Family["family leaf axes ProcessKind · Machine · CutStrategy · PostDialect"]
     Run -->|HiddenLine| Hlr["Documentation/projection Hlr.Solve"]
@@ -331,7 +656,7 @@ flowchart LR
     Run -->|Nest| Nest["Nesting/nfp Nest.Solve"]
     Run -->|Derive| Derivation["Process/derivation Derivation.Plan → FabricationPlan"]
     Run -->|"Additive · Verify · Inspect"| Planes["Slice.Solve · Removal.Verify · Probe.Inspect"]
-    Run -->|"Post{Motion, dialect} · Document{results} · Form{policy}"| Egress["Post.Lower AST-assembly · Traveler.Assemble · Unfold + Plan + Formed"]
+    Run -->|"Post{PostSource, dialect} · Document{results, corpus} · Form{policy}"| Egress["Post.Lower · Traveler.Assemble · Unfold + Plan + Formed"]
     Hlr --> Atoms
     Cam --> Atoms
     Nest --> Atoms
@@ -339,4 +664,12 @@ flowchart LR
     Egress --> Atoms
     Atoms --> Family
     Atoms -->|"ContentKey.Of → kernel ContentHash.Of"| Persist["Rasm.Persistence ArtifactKind enrollment rows"]
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    class Run primary
+    class Hlr,Cam,Nest,Derivation,Planes,Egress success
+    class Atoms,Family data
+    class Persist boundary
 ```

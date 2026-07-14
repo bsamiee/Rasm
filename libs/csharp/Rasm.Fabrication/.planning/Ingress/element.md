@@ -1,34 +1,37 @@
 # [RASM_FABRICATION_ELEMENT_INGRESS]
 
-The element-ingress arm: `ElementImport` the one boundary lowering a baked `Rasm.Element` graph object into the `Process/owner#FABRICATION_OWNER` `AdmittedComponent` atoms carrier — the 4th arm of the ONE polymorphic `Ingress.Admit(IngressSource)` fold `Ingress/profile#PROFILE_IMPORT` owns. The seam crossing happens exactly ONCE here: `Admit` runs the seam-owned `Graph/element#BAKE` fold (`ElementGraph.Bake(NodeId, Op) → Fin<Element>` — cycle-guarded, memoized, the one derived flatten), then projects the baked seam vocabulary onto atoms-safe scalars — no `Element`, `Node`, `PropertyBag`, `BakedMaterial`, `MaterialComposition`, or `Relationship` type ever travels past this boundary, and no sibling plane re-learns the graph. The projection is total over what the element carries: the `RepresentationContentHash` keyed map yields the `RepresentationKey` in CORRESPONDENCE with the geometry riding the call — a supplied Body mesh demands the `Body` identifier, a supplied footprint the `FootPrint` identifier, and only a geometry-less admission falls to the Body → FootPrint → Axis precedence, so the carrier's evidence key never names geometry it does not hold (the mismatch and the geometry-less no-identifier element are the one translation failure — `IngressTranslation` 2711 with the typed `SourceLocus.ElementNode` locus); the occurrence + type-inherited `BakedMaterial` compositions flatten through the seam union's GENERATED total `Switch` to `ComponentLayer` rows (a `LayerSet` ply per row via `LayerName`, a `ConstituentSet` constituent per row via `Category`, a `ProfileSet`/`Single` a dimensionless row — four arms, compiler-total, no wildcard downgrade) and the ONE formable `LayerSet` stack lifts its `TotalThickness` to `SheetThicknessMm` — the `Forming/sheet` admission lane; the `Connect` edges off the graph incidence key the `ComponentConnection` rows; the `Void` edges land as the typed opening census (count + per-opening feature keys and `VoidKind` rows) — the drill/pocket/cope feature tier a fabrication derivation plans; the `MaterialUsage` occurrence payload lands its layer direction/sense/offset and profile cardinal point as `Usage.*` rows — the asymmetric-buildup and placement facts forming and nesting orient against; the material nodes' engineering profile lands as `Material.*` quantity rows (`Mechanical` density/stiffness/strength, `Thermal` conductivity/heat columns) — the open material-physics lane `Process/physics` and `Tooling/cuttingdata` read beside their seeded axes; the property/quantity bags flatten to `SetName.Row`-keyed maps, the realizing-detail bags riding among them under the seam `DetailSchema.Realization` neutral set name, and a bag row literally named `material` ALSO lands under its raw key so an element-authored material identity always defeats the derived head-layer fallback; the resolved `TypeBinding.Section` lands column-per-column — ALL twenty `SectionProperties` columns as `Section.*` SI rows — so no consumer re-derives the ProfileSet traversal.
+The element-ingress arm lowers one baked `Rasm.Element` object into the owner#atoms `AdmittedComponent` carrier. `Admit` composes the seam-owned `ElementGraph.Bake(NodeId, Op)` once, preserves peer-band failures, and projects only atoms-safe values. A body-only payload requires the `Body` representation key, a footprint-only payload requires `FootPrint`, and an absent or simultaneous body plus footprint fails. No evidence key names an absent or unkeyed payload.
 
-Resolved GEOMETRY rides the call, never a blob read: the element carries content HASHES (`RepresentationContentHash` — blob-resident by design), so the caller resolves Body mesh and FootPrint loops upstream through the Persistence artifact index and passes them alongside the graph; this package opens no blob store. The `ComponentConnection.At` locus stays `default` at admission — the joint LINE is a geometry-time read against the resolved Body that `Fixturing/assembly`'s access analysis owns; the typed `DetailKey`/`RealizingKey` rows are the admission truth. A `Bake` failure (compose cycle, absent root) rides its own Element-band fault through the `Fin` rail unchanged — the band-ownership law forbids re-casing a peer's fault; only the translation failure mints on the Fabrication band. Consumers compose the carrier, never the graph: `Run(Derive{AdmittedComponent, DerivePolicy})` carries it on the policy case into `Process/derivation`; `Kinematics/fleet` joins envelope/capacity against the bags under ITS key contract — `DemandKey` owns the `demand:*` quantity keys and the `material` property fallback, this projection writes the rows so `Fleet.Capable` resolves shim-free; `Fixturing/assembly` sequences its connection rows; `Spec/manufacturability` folds DfM verdicts over its layers, openings, and quantities; `Forming/sheet` unfolds its sheet lane.
+Occurrence and type-inherited materials arrive already unioned by `ElementGraph.Bake` and traverse the generated four-case `MaterialComposition.Switch` exactly once. A single `LayerSet` supplies `SheetThicknessMm`; multiple layer stacks are ambiguous and fail rather than selecting the head. Usage quantities namespace by `MaterialKey`, constituent fractions namespace by material plus ordinal, openings preserve feature and kind rows, and all twenty section columns project from the baked `ProfileSet.Section`. The engineering material lane exhausts all eleven `MaterialPropertySet` cases: mechanical, orthotropic, thermal, acoustic, fire, environmental, cost, damping, hygrothermal, durability, and optical data land as indexed numeric and symbolic rows with evidence. `PropertyValue` lowers through a total length-prefixed encoding that includes enumerated allowed values, reference usage, bounds positions, table interpolation, complex usage names, measure type/dimension/uncertainty, and nested structure without delimiter collisions.
+
+Resolved geometry rides the call because `RepresentationContentHash` identifies blob-resident artifacts; this package opens no blob store. The current owner#atoms `ComponentConnection.At` is non-optional while `Relationship.Connect` carries no geometric joint line, so a connected element routes `IngressTranslation` instead of manufacturing a default `Edge3`; the atoms owner must widen the locus before connection rows can cross truthfully. Bake failures pass through their Element fault band. Derivation, fleet, fixturing, manufacturability, and forming consume the carrier rather than the graph.
 
 Wire posture: HOST-LOCAL. The graph arrives in-process at the `IngressSource.Element` case; only atoms-safe scalars and content keys leave; no wire model, no serialized graph, and no Element/Materials/Bim type between wire and rail.
 
 ## [01]-[INDEX]
 
-- [01]-[ELEMENT_INGRESS]: `ElementImport` the static element-ingress boundary — `Admit` running the seam `ElementGraph.Bake` and projecting the baked element onto `AdmittedComponent` (payload-corresponding representation key, total composition layer rows, sheet-thickness lane, `Connect`-edge connection rows, `Void`-edge opening census, `Usage.*` occurrence rows, `Material.*` engineering rows, flattened property/quantity bags + the full `Section.*` column set), the `Render` typed-value-to-invariant-text boundary fold, and the `IngressTranslation` translation rail; the 4th `Ingress.Admit` arm.
+- [01]-[ELEMENT_INGRESS]: `ElementImport` runs `ElementGraph.Bake` and projects one `AdmittedComponent` with representation correspondence, total composition, sheet thickness, fail-closed connections, host-owned openings, complete material/usage/section/bag rows, injective property rendering, and the `IngressTranslation` rail; the 4th `Ingress.Admit` arm.
 
 ## [02]-[ELEMENT_INGRESS]
 
-- Owner: `ElementImport` the static surface owning `Admit` (the `ElementGraph`/`NodeId` → `Fin<AdmittedComponent>` boundary fold) plus the private projection folds (`KeyOf` payload-corresponding precedence, `MaterialsOf` two-tier composition walk, `LayersOf`, `SheetOf`, `ConnectionsOf`, `OpeningRows`, `UsageRows`, `MaterialRows`, `QuantitiesOf`+`SectionRows`, `PropertiesOf`, `Render`). One owner, one fold — never a per-bag sibling reader family and never a second graph walker beside the seam's own `Bake`. The `AdmittedComponent`/`ComponentLayer`/`ComponentConnection` TYPES are `owner#atoms` mints (the `CutterForm` discipline) — this page owns only the PROJECTION.
-- Cases: the composition dispatch is the seam union's GENERATED total `Switch` over `MaterialComposition` — `Single` (one dimensionless substance row) · `ProfileSet` (one `"profile"` row; the section columns land via `SectionRows`, never here) · `LayerSet` (one `ComponentLayer` per ply: `LayerName` → `Function`, `Thickness.Si`·1000 → `ThicknessMm`, `Material.Value` → `MaterialKey`; the set's `TotalThickness` lifts to `SheetThicknessMm`) · `ConstituentSet` (one row per constituent: `Category` → `Function`, its `Fraction` a `Constituent.*` quantity row) (4, compiler-total — a new upstream case breaks the build, never lowers to a substance row); the `Render` fold rides the seam `PropertyValue` GENERATED total `Switch` (10 cases, compiler-total); the representation correspondence rows — supplied body demands `Body`, supplied footprint demands `FootPrint`, geometry-less falls to the `Body`/`FootPrint`/`Axis` precedence (3, ordered).
-- Entry: `public static Fin<AdmittedComponent> Admit(ElementGraph graph, NodeId id, Op key, Option<MeshSpace> body, Arr<Loop> footprint = default)` — the ONE entrypoint: `graph.Bake(id, key)` (the seam fold, its `ElementFault` rail passing through unchanged), then the projection; a missing or payload-mismatched representation routes `FabricationFault.IngressTranslation(SourceKind.Element, SourceLocus.ElementNode(...))`, never a silent empty carrier or an evidence key naming absent geometry. Invoked by the `Ingress.Admit` `Element` arm (`Ingress/profile#PROFILE_IMPORT` owns the fold); `Run(Derive)` carries the RESULT on its policy case.
-- Auto: `KeyOf` demands the identifier matching the supplied payload, falling to the precedence array only for an evidence-only admission; `MaterialsOf` concatenates occurrence `Materials` with the `TypeBinding.Materials` type tier so one composition walk serves both; `QuantitiesOf` folds every `QuantityBag` row to `"{SetName}.{Row}"` → SI double over the `SectionRows` floor (ALL twenty `TypeBinding.Section` columns as `Section.*` SI rows — `Area`/`Iyy`/`Izz`/`J`/`Iw`/`Wely`/`Welz`/`Wply`/`Wplz`/`AvY`/`AvZ`/`RadiusOfGyrationMajor`/`RadiusOfGyrationMinor`/`Depth`/`Width`/`HeatedPerimeter`/`AxisDistance`/`ShearCentreY`/`ShearCentreZ`/`MonosymmetryFactor`), the `Material.*` engineering rows (each composition material's `MaterialPropertySet` `Mechanical`/`Thermal` columns keyed `Material.{key}.{Column}`), the `Usage.*` occurrence rows, the `Opening.Count`/`Component.Parts` census rows, and the `Constituent.*` fraction rows — EXCEPT the demand rows: a row already carrying the `demand:` prefix keeps its RAW key so `Kinematics/fleet`'s `DemandKey.Read` resolves against the bag without a shim — fleet owns the keys, this projection writes the rows; `PropertiesOf` folds every `PropertyBag` row through `Render` to `"{SetName}.{Row}"` → invariant text, a row literally named `material` landing ALSO under the raw `material` key (element-authored identity wins), the `Realization` detail rows arriving exactly as the Bim connection reader authored them, and the head composition layer's key landing as the `material` fallback only when no authored row claimed it; `ConnectionsOf` chooses the `Relationship.Connect` edges off `graph.EdgesAt(baked.Id)` — `SubKind.Key` → `DetailKey`, the `Realizing` node key → `RealizingKey`, `At` default at admission; `OpeningRows` chooses the `Relationship.Void` edges — the feature node key and `VoidKind` row per opening.
+- Owner: `ElementImport` owns `Admit` plus `KeyOf`, `LayersOf`, ambiguity-aware `SheetOf`, connection/opening projection, complete material/usage/section/bag projection, and injective `Render`. `AdmittedComponent`, `ComponentLayer`, and `ComponentConnection` remain owner#atoms mints; this page owns only projection.
+- Cases: the composition dispatch is the seam union's GENERATED total `Switch` over `MaterialComposition` — `Single` contributes material/property rows but no zero-thickness layer · `ProfileSet` contributes section/material rows but no zero-thickness layer · `LayerSet` contributes one `ComponentLayer` per positive-thickness ply (`LayerName` → `Function`, `Thickness.Si`·1000 → `ThicknessMm`, `Material.Value` → `MaterialKey`) and lifts `TotalThickness` to `SheetThicknessMm` · `ConstituentSet` contributes ordinal-keyed fractions and material rows but no zero-thickness layer (4, compiler-total — a new upstream case breaks the build); the `Render` fold rides the seam `PropertyValue` GENERATED total `Switch` (10 cases, compiler-total); representation correspondence has two successful rows — supplied body demands `Body`, and supplied footprint demands `FootPrint`; absent or dual payloads fail.
+- Entry: `public static Fin<AdmittedComponent> Admit(ElementGraph graph, NodeId id, Op key, Option<MeshSpace> body, Arr<Loop> footprint)` bakes once and projects one carrier. Missing, mismatched, dual-unkeyable representation payloads and multiple sheet stacks route element-locus `IngressTranslation`; the footprint has no default ghost.
+- Auto: `KeyOf` composes the seam's `Body` and `FootPrint` accessors directly, and `AdmittedComponent.Admit` remains the sole carrier mint. The already inherited and material-key-deduplicated `Element.Materials` sequence is the sole material input. `QuantitiesOf` combines all 20 baked `ProfileSet.Section` columns, every numeric column from all 11 material-property cases, material-keyed usage, ordinal-keyed constituents, census rows, and quantity bags while preserving raw `demand:` keys. `PropertiesOf` adds material evidence and symbolic property rows, lossless property-bag renderings, host-owned opening rows, and the text-typed authored `material` override; the fallback flat alias exists only for one distinct material identity. Both folds reject conflicting projected keys instead of silently overwriting structural truth. `ConnectionsOf` fails a connection until the atoms locus becomes optional.
 - Receipt: the `AdmittedComponent` IS the typed admission evidence — content-keyed by a `RepresentationKey` that corresponds to its payload, self-describing rows, no import report, no graph handle escaping. Fault evidence rides the `Fin` rail: the seam's own `ElementFault` for graph defects, `IngressTranslation` 2711 for the translation failure.
-- Packages: `Rasm.Element` (`ElementGraph.Bake`/`EdgesAt` · `Element` (`Representations`/`Materials`/`Properties`/`Quantities`/`Type`/`Parts`) · `RepresentationContentHash.ByIdentifier` · `BakedMaterial(Material, Usage)` · `MaterialComposition` `Single`/`ProfileSet`/`LayerSet`(`Layers`,`TotalThickness`)/`ConstituentSet`(`Constituents`) · `MaterialLayer(Material, Thickness, LayerName)` · `MaterialConstituent(Material, Category, Fraction)` · `MaterialUsage` `None`/`LayerSet`(`Direction`,`Sense`,`OffsetFromReferenceLine`,`ReferenceExtent`)/`ProfileSet`(`CardinalPoint`,`ReferenceExtent`) · `MaterialPropertySet` (`Mechanical` density/stiffness/strength, `Thermal` conductivity/heat — the named per-discipline reads) · `Relationship.Connect(From, To, SubKind, Realizing)`/`Relationship.Void(Host, Feature, SubKind)` · `PropertyBag`/`QuantityBag`/`PropertyName`/`PropertyValue` (10-case) · `MeasureValue.Si` · `SectionProperties` (20 columns) · `DetailSchema.Realization` · `NodeId`/`MaterialId` `[ValueObject<string>]` — the whole seam consumed as settled vocabulary), `Rasm` (`Op` value key · `ContentHash.Of` — the one mint, the fault-locus key), `Rasm.Meshing` (`MeshSpace` — the resolved Body), `Rasm.Fabrication.Process` (`AdmittedComponent`/`ComponentLayer`/`ComponentConnection`/`Loop` atoms · `FabricationFault`/`SourceKind`/`SourceLocus`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Arr`/`Map`), BCL inbox (`CultureInfo` invariant rendering).
-- Growth: a new representation identifier is one precedence row; a new composition genus is one generated-`Switch` arm the compiler demands; a new seam `PropertyValue` case is one `Render` arm; a new engineering discipline is one `MaterialRows` column family; a richer connection locus (the `At` line resolved against the Body mesh) is a downstream geometry read on `Fixturing/assembly`, never a second admission pass; batch admission is the caller's map over `Admit` — the fold stays single-component, the `Component.Parts` census naming what the caller maps next; a typed `Openings`/`Placement` carrier field is one owner#atoms widening whose projection already lands here as rows; zero new entrypoint, zero new carrier type.
+- Packages: `Rasm.Element` (`ElementGraph.Bake`/`EdgesAt`, baked representations/materials/bags/type/parts, all four `MaterialComposition` cases, all three `MaterialUsage` cases, all eleven `MaterialPropertySet` cases and their typed columns, relationships, the ten-case `PropertyValue`, `MeasureValue` type/dimension/uncertainty, and 20-column `SectionProperties`); `Rasm` (`Op`, `ContentHash.Of`); `Rasm.Meshing` (`MeshSpace`); fabrication atoms and faults; LanguageExt.Core; BCL invariant and length-prefixed rendering.
+- Growth: a new representation identifier is one precedence row; a new composition or property case breaks its generated total switch; a new property column extends the existing numeric or symbolic row projection. Typed per-representation keys, openings, placement, and connection loci are owner#atoms widenings whose available facts already project here. Batch admission maps the same entry.
 - Boundary: `ElementImport` is the ONE element-ingress owner — a second `Bake` call site, a `graph.Nodes` traversal, or an `Element`/`PropertyBag`/`BakedMaterial` field in any sibling plane is the named seam violation (the graph lowers to `AdmittedComponent` HERE and never travels the interior); the blob store never opens in this package — a Persistence read, a mesh-by-hash resolution, or a blob client in this fold is the reject (resolved geometry rides the call); the `AdmittedComponent` TYPE mints on `owner#atoms` and a page-local admitted-component sibling is the deleted form; string keys reference Materials/Bim rows at the boundary and a `MaterialId`/`NodeId`/`DetailSchema` TYPE on the carrier is the reject; a peer-band fault never re-cases here (`ElementFault` passes through; only the translation failure mints 2711); the set-name/row spellings compose the seam `DetailSchema` statics and a hand-spelled IFC literal is the deleted form; every composition and value dispatch is the seam's GENERATED total `Switch` — a wildcard arm that silently downgrades a future case is the rejected form; the fabrication projector counterpart (`FabricationProjector : IElementProjection`) is the OUTBOUND seam `Process/derivation` registers — this page is INBOUND only and never authors graph nodes.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ------------------------------------------------------------------------------------------------------------------------------
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Domain;                    // Op — the value key the Bake fold threads; ContentHash.Of — the one mint (fault-locus key)
-using Rasm.Element;                   // ElementGraph · Element · BakedMaterial · MaterialComposition · MaterialUsage · Relationship · PropertyValue
+using Rasm.Domain;
+using Rasm.Element;
 using Rasm.Fabrication.Process;
 using Rasm.Meshing;
 using static LanguageExt.Prelude;
@@ -37,89 +40,73 @@ namespace Rasm.Fabrication.Ingress;
 
 // --- [OPERATIONS] -----------------------------------------------------------------------------------------------------------------------------------
 public static class ElementImport {
-    // Evidence-only fallback precedence: the display Body wins, the analytical FootPrint/Axis fall back.
-    static readonly string[] RepresentationOrder = ["Body", "FootPrint", "Axis"];
-
     const string DemandPrefix = "demand:";
     const string MaterialRow = "material";
 
-    // The 4th Ingress.Admit arm: Bake the Object node (Graph/element#BAKE), lower the baked seam vocabulary onto the
-    // owner#atoms AdmittedComponent ONCE. Resolved geometry rides the call — the blob store resolves upstream.
-    public static Fin<AdmittedComponent> Admit(ElementGraph graph, NodeId id, Op key, Option<MeshSpace> body, Arr<Loop> footprint = default) =>
+    public static Fin<AdmittedComponent> Admit(ElementGraph graph, NodeId id, Op key, Option<MeshSpace> body, Arr<Loop> footprint) =>
         graph.Bake(id, key).Bind(baked => Project(graph, baked, body, footprint));
 
     static Fin<AdmittedComponent> Project(ElementGraph graph, Element baked, Option<MeshSpace> body, Arr<Loop> footprint) =>
-        KeyOf(baked, body, footprint).Match(
-            None: () => Fin.Fail<AdmittedComponent>(FabricationFault.IngressTranslation(
-                SourceKind.Element,
-                new SourceLocus.ElementNode(ContentHash.Of(Encoding.UTF8.GetBytes(baked.Id.Value)))).ToError()),
-            Some: representation => Fin.Succ(Carrier(graph, baked, body, footprint, representation)));
+        KeyOf(baked, body, footprint)
+            .ToFin(Translation(baked))
+            .Bind(representation => Carrier(graph, baked, body, footprint, representation));
 
-    static AdmittedComponent Carrier(ElementGraph graph, Element baked, Option<MeshSpace> body, Arr<Loop> footprint, UInt128 representation) {
+    static Fin<AdmittedComponent> Carrier(ElementGraph graph, Element baked, Option<MeshSpace> body, Arr<Loop> footprint, UInt128 representation) {
         Arr<ComponentLayer> layers = LayersOf(baked);
-        return new AdmittedComponent(
-            RepresentationKey: representation,
-            Mesh: body,
-            Profiles: footprint,
-            SheetThicknessMm: SheetOf(baked),
-            Layers: layers,
-            Connections: ConnectionsOf(graph, baked),
-            Quantities: QuantitiesOf(graph, baked),
-            Properties: PropertiesOf(graph, baked, layers));
+        return from sheet in SheetOf(baked)
+               from connections in ConnectionsOf(graph, baked)
+               from quantities in QuantitiesOf(graph, baked)
+               from properties in PropertiesOf(graph, baked)
+               from component in AdmittedComponent.Admit(representation, body, footprint, sheet, layers, connections,
+                   quantities, properties).MapFail(_ => Translation(baked))
+               select component;
     }
 
-    // Payload correspondence: a supplied Body mesh demands the Body identifier, a supplied footprint the
-    // FootPrint identifier — the evidence key never names geometry the carrier does not hold; the precedence
-    // fold serves only the evidence-only (geometry-less) admission.
     static Option<UInt128> KeyOf(Element baked, Option<MeshSpace> body, Arr<Loop> footprint) =>
-        body.IsSome ? baked.Representations.ByIdentifier.Find("Body")
-        : !footprint.IsEmpty ? baked.Representations.ByIdentifier.Find("FootPrint")
-        : toSeq(RepresentationOrder).Choose(identifier => baked.Representations.ByIdentifier.Find(identifier)).Head;
+        body.IsSome && !footprint.IsEmpty ? None
+        : body.IsSome ? baked.Representations.Body
+        : !footprint.IsEmpty ? baked.Representations.FootPrint
+        : None;
 
-    // Occurrence materials first, type-inherited second — ONE composition walk serves both tiers.
-    static Seq<BakedMaterial> MaterialsOf(Element baked) =>
-        baked.Materials + baked.Type.Map(static t => t.Materials).IfNone(Empty);
-
-    // The seam union's GENERATED total Switch: four arms, compiler-total — a new composition case breaks the
-    // build here, never lowers to a substance row.
     static Arr<ComponentLayer> LayersOf(Element baked) =>
-        MaterialsOf(baked).Bind(static m => m.Material.Composition.Switch(
-            single: s => Seq(new ComponentLayer("substance", 0.0, s.Material.Value)),
-            profileSet: p => Seq(new ComponentLayer("profile", 0.0, p.Material.Value)),
+        baked.Materials.Bind(static m => m.Material.Composition.Switch(
+            single: static _ => Seq<ComponentLayer>(),
+            profileSet: static _ => Seq<ComponentLayer>(),
             layerSet: set => set.Layers.Map(static l => new ComponentLayer(l.LayerName, l.Thickness.Si * 1000.0, l.Material.Value)),
-            constituentSet: set => set.Constituents.Map(static c => new ComponentLayer(c.Category, 0.0, c.Material.Value)))).ToArr();
+            constituentSet: static _ => Seq<ComponentLayer>())).ToArr();
 
-    // ONE formable stack: the LayerSet's SI total lifts to mm; profile/single/constituent compositions admit no sheet lane.
-    static Option<double> SheetOf(Element baked) =>
-        MaterialsOf(baked).Choose(static m => m.Material.Composition is MaterialComposition.LayerSet set
-            ? Some(set.TotalThickness * 1000.0)
-            : None).Head;
+    static Fin<Option<double>> SheetOf(Element baked) {
+        Seq<double> stacks = baked.Materials.Choose(static material =>
+            material.Material.Composition is MaterialComposition.LayerSet set ? Some(set.TotalThickness * 1000.0) : None);
+        return stacks.Count switch {
+            0 => Fin.Succ<Option<double>>(None),
+            1 => Fin.Succ<Option<double>>(Some(stacks.Head)),
+            _ => Fin.Fail<Option<double>>(Translation(baked)),
+        };
+    }
 
-    // Topology keys off the Connect edges: SubKind row → DetailKey, realizing node key → RealizingKey. The Edge3
-    // locus stays default at admission — the joint LINE resolves against the Body downstream (assembly access).
-    static Arr<ComponentConnection> ConnectionsOf(ElementGraph graph, Element baked) =>
-        toSeq(graph.EdgesAt(baked.Id))
-            .Choose(static e => e is Relationship.Connect c ? Some(c) : None)
-            .Map(static c => new ComponentConnection(c.SubKind.Key, c.Realizing.Map(static r => r.Value).IfNone(string.Empty), At: default))
-            .ToArr();
+    static Fin<Arr<ComponentConnection>> ConnectionsOf(ElementGraph graph, Element baked) =>
+        toSeq(graph.EdgesAt(baked.Id)).Exists(static edge => edge is Relationship.Connect)
+            ? Fin.Fail<Arr<ComponentConnection>>(Translation(baked))
+            : Fin.Succ(Arr<ComponentConnection>());
 
     static Seq<Relationship.Void> VoidsOf(ElementGraph graph, Element baked) =>
-        toSeq(graph.EdgesAt(baked.Id)).Choose(static e => e is Relationship.Void v ? Some(v) : None);
+        toSeq(graph.EdgesAt(baked.Id)).Choose(e => e is Relationship.Void v && v.Host == baked.Id ? Some(v) : None);
 
-    // Demand rows land RAW so Kinematics/fleet DemandKey.Read resolves without a shim; every other bag row
-    // namespaces under its set name. The quantity floor stacks SectionRows + Material.* + Usage.* + the
-    // opening/parts census + Constituent.* fractions before the bags fold over it.
-    static Map<string, double> QuantitiesOf(ElementGraph graph, Element baked) =>
-        baked.Quantities.Fold(
-            SectionRows(baked) + MaterialRows(baked) + UsageQuantityRows(baked) + CensusRows(graph, baked) + ConstituentRows(baked),
-            static (acc, bag) => bag.Values.Fold(acc, (m, row, value) => m.AddOrUpdate(
-                row.Value.StartsWith(DemandPrefix, StringComparison.Ordinal) ? row.Value : $"{bag.SetName}.{row.Value}",
-                value.Si)));
+    static Fin<Map<string, double>> QuantitiesOf(ElementGraph graph, Element baked) =>
+        Merge(
+            Seq(SectionRows(baked), CensusRows(graph, baked)).Bind(static map => map.Pairs.Map(static pair => (pair.Key, pair.Value)))
+            + MaterialRows(baked)
+            + UsageQuantityRows(baked)
+            + ConstituentRows(baked)
+            + baked.Quantities.Bind(bag => bag.Values.Pairs.Map(pair => (
+                pair.Key.Value.StartsWith(DemandPrefix, StringComparison.Ordinal) ? pair.Key.Value : $"{bag.SetName}.{pair.Key.Value}",
+                pair.Value.Si))),
+            Translation(baked));
 
-    // ALL twenty resolved section columns land as Section.* SI rows — no consumer re-derives the ProfileSet
-    // traversal and no partial slice hides behind a complete-columns contract.
     static Map<string, double> SectionRows(Element baked) =>
-        baked.Type.Bind(static t => t.Section).Match(
+        baked.Materials.Choose(static material => material.Material.Composition is MaterialComposition.ProfileSet profile
+            ? profile.Section : Option<SectionProperties>.None).Head.Match(
             None: static () => Map<string, double>(),
             Some: static s => Map(
                 ("Section.Area", s.Area.Si), ("Section.Iyy", s.Iyy.Si), ("Section.Izz", s.Izz.Si), ("Section.J", s.J.Si), ("Section.Iw", s.Iw.Si),
@@ -131,91 +118,257 @@ public static class ElementImport {
                 ("Section.ShearCentreY", s.ShearCentreY.Si), ("Section.ShearCentreZ", s.ShearCentreZ.Si),
                 ("Section.MonosymmetryFactor", s.MonosymmetryFactor)));
 
-    // The open material-physics lane: each composition material's engineering profile lands keyed by its
-    // MaterialKey — the Mechanical/Thermal columns physics and cutting-data read beside their seeded axes.
-    static Map<string, double> MaterialRows(Element baked) =>
-        MaterialsOf(baked).Fold(Map<string, double>(), static (acc, m) => {
-            string key = m.Material.MaterialKey.Value;
-            Map<string, double> mech = m.Material.Properties.Mechanical.Match(
-                Some: p => Map(($"Material.{key}.Density", p.Density.Si), ($"Material.{key}.YoungsModulus", p.YoungsModulus.Si),
-                               ($"Material.{key}.YieldStrength", p.YieldStrength.Si), ($"Material.{key}.UltimateStrength", p.UltimateStrength.Si)),
-                None: () => Map<string, double>());
-            Map<string, double> thermal = m.Material.Properties.Thermal.Match(
-                Some: p => Map(($"Material.{key}.Conductivity", p.Conductivity.Si), ($"Material.{key}.SpecificHeat", p.SpecificHeat.Si),
-                               ($"Material.{key}.UValue", p.UValue.Si)),
-                None: () => Map<string, double>());
-            return acc + mech + thermal;
-        });
+    static Seq<(string Key, double Value)> MaterialRows(Element baked) =>
+        baked.Materials.Bind(material => material.Material.Properties.Bind(property =>
+            PropertyQuantities(material.Material.MaterialKey.Value, property).Pairs.Map(static pair => (pair.Key, pair.Value))));
 
-    // Occurrence-usage rows: layer-set offset/extent and the profile cardinal point — the asymmetric-buildup
-    // and placement facts forming/nesting orient against; direction/sense land as Usage.* property rows.
-    static Map<string, double> UsageQuantityRows(Element baked) =>
-        MaterialsOf(baked).Fold(Map<string, double>(), static (acc, m) => m.Usage switch {
-            MaterialUsage.LayerSet u => acc.AddOrUpdate("Usage.OffsetFromReferenceLine", u.OffsetFromReferenceLine)
-                                           .AddOrUpdate("Usage.ReferenceExtent", u.ReferenceExtent),
-            MaterialUsage.ProfileSet u => acc.AddOrUpdate("Usage.CardinalPoint", u.CardinalPoint.Key)
-                                             .AddOrUpdate("Usage.ReferenceExtent", u.ReferenceExtent),
-            _ => acc,
-        });
+    static Map<string, double> PropertyQuantities(string material, MaterialPropertySet property) {
+        string prefix = $"Material.{material}";
+        return property.Switch(
+            mechanical: p => Map(($"{prefix}.Mechanical.Density", p.Density.Si), ($"{prefix}.Mechanical.YoungsModulus", p.YoungsModulus.Si),
+                ($"{prefix}.Mechanical.ShearModulus", p.ShearModulus.Si), ($"{prefix}.Mechanical.YieldStrength", p.YieldStrength.Si),
+                ($"{prefix}.Mechanical.UltimateStrength", p.UltimateStrength.Si), ($"{prefix}.Mechanical.PoissonsRatio", p.PoissonsRatio),
+                ($"{prefix}.Mechanical.ThermalExpansionPerK", p.ThermalExpansionPerK)),
+            orthotropic: p => Map(($"{prefix}.Orthotropic.Density", p.Density.Si), ($"{prefix}.Orthotropic.E1Parallel", p.E1Parallel.Si),
+                ($"{prefix}.Orthotropic.E2Perpendicular", p.E2Perpendicular.Si), ($"{prefix}.Orthotropic.ShearModulus", p.ShearModulus.Si),
+                ($"{prefix}.Orthotropic.Strength1Parallel", p.Strength1Parallel.Si), ($"{prefix}.Orthotropic.Strength2Perpendicular", p.Strength2Perpendicular.Si),
+                ($"{prefix}.Orthotropic.ThermalExpansionPerK", p.ThermalExpansionPerK)),
+            thermal: p => Map(($"{prefix}.Thermal.Conductivity", p.Conductivity.Si), ($"{prefix}.Thermal.SpecificHeat", p.SpecificHeat.Si),
+                ($"{prefix}.Thermal.UValue", p.UValue.Si), ($"{prefix}.Thermal.VapourResistanceFactor", p.VapourResistanceFactor)),
+            acoustic: p => AcousticRows($"{prefix}.Acoustic", p)
+                + OptionRow($"{prefix}.Acoustic.DynamicStiffnessMNPerM3", p.DynamicStiffnessMNPerM3)
+                + OptionRow($"{prefix}.Acoustic.FlowResistivityPaSPerM2", p.FlowResistivityPaSPerM2)
+                + OptionRow($"{prefix}.Acoustic.LossFactor", p.LossFactor)
+                + Map(($"{prefix}.Acoustic.Nrc", p.Nrc), ($"{prefix}.Acoustic.Saa", p.Saa),
+                    ($"{prefix}.Acoustic.StcWeighted", (double)p.StcWeighted), ($"{prefix}.Acoustic.Rw", (double)p.Rw)),
+            fire: p => Map(($"{prefix}.Fire.LoadBearingMinutes", (double)p.Resistance.LoadBearingMinutes),
+                ($"{prefix}.Fire.IntegrityMinutes", (double)p.Resistance.IntegrityMinutes),
+                ($"{prefix}.Fire.InsulationMinutes", (double)p.Resistance.InsulationMinutes)),
+            environmental: p => EnvironmentalRows($"{prefix}.Environmental", p)
+                + Map(($"{prefix}.Environmental.RecycledContent", p.RecycledContent),
+                    ($"{prefix}.Environmental.EndOfLifeRecovery", p.EndOfLifeRecovery)),
+            cost: p => Map(($"{prefix}.Cost.SupplyPerUnit", p.SupplyPerUnit), ($"{prefix}.Cost.InstallPerUnit", p.InstallPerUnit),
+                ($"{prefix}.Cost.LifecyclePerUnit", p.LifecyclePerUnit)),
+            damping: p => Map(($"{prefix}.Damping.DampingRatio", p.DampingRatio), ($"{prefix}.Damping.StructuralLossFactor", p.StructuralLossFactor))
+                + p.Rayleigh.Match(
+                    Some: pair => Map(($"{prefix}.Damping.RayleighAlphaPerS", pair.AlphaPerS), ($"{prefix}.Damping.RayleighBetaS", pair.BetaS)),
+                    None: () => Map<string, double>()),
+            hygrothermal: p => Map(($"{prefix}.Hygrothermal.Porosity", p.Porosity),
+                ($"{prefix}.Hygrothermal.WaterContent80Rh", p.WaterContent80Rh.Si),
+                ($"{prefix}.Hygrothermal.FreeWaterSaturation", p.FreeWaterSaturation.Si))
+                + OptionRow($"{prefix}.Hygrothermal.WaterAbsorptionKgPerM2SqrtS", p.WaterAbsorptionKgPerM2SqrtS),
+            durability: p => Map(($"{prefix}.Durability.CarbonationRateMmPerSqrtYear", p.CarbonationRateMmPerSqrtYear),
+                ($"{prefix}.Durability.ChlorideDiffusion", p.ChlorideDiffusion.Si), ($"{prefix}.Durability.AgeingExponent", p.AgeingExponent)),
+            optical: p => Map(($"{prefix}.Optical.VisibleTransmittance", p.VisibleTransmittance),
+                ($"{prefix}.Optical.VisibleReflectanceFront", p.VisibleReflectanceFront),
+                ($"{prefix}.Optical.VisibleReflectanceBack", p.VisibleReflectanceBack), ($"{prefix}.Optical.SolarTransmittance", p.SolarTransmittance),
+                ($"{prefix}.Optical.SolarReflectanceFront", p.SolarReflectanceFront), ($"{prefix}.Optical.SolarReflectanceBack", p.SolarReflectanceBack),
+                ($"{prefix}.Optical.SolarAbsorptanceFront", p.SolarAbsorptanceFront), ($"{prefix}.Optical.SolarAbsorptanceBack", p.SolarAbsorptanceBack),
+                ($"{prefix}.Optical.ThermalIrTransmittance", p.ThermalIrTransmittance),
+                ($"{prefix}.Optical.ThermalIrEmissivityFront", p.ThermalIrEmissivityFront),
+                ($"{prefix}.Optical.ThermalIrEmissivityBack", p.ThermalIrEmissivityBack)));
+    }
 
-    static Map<string, double> ConstituentRows(Element baked) =>
-        MaterialsOf(baked).Fold(Map<string, double>(), static (acc, m) => m.Material.Composition is MaterialComposition.ConstituentSet set
-            ? set.Constituents.Fold(acc, static (a, c) => a.AddOrUpdate($"Constituent.{c.Category}", c.Fraction))
-            : acc);
+    static Map<string, double> AcousticRows(string prefix, MaterialPropertySet.Acoustic acoustic) =>
+        toSeq(AcousticBand.Items).Fold(Map<string, double>(), (rows, band) =>
+            rows.Add($"{prefix}.Absorption.{band.CenterHz}Hz", acoustic.At(band))
+                .Add($"{prefix}.SoundReductionIndexDb.{band.CenterHz}Hz", acoustic.SriAt(band)));
+
+    static Map<string, double> EnvironmentalRows(string prefix, MaterialPropertySet.Environmental environmental) =>
+        toSeq(ImpactCategory.Items).Bind(category => toSeq(LifecycleStage.Items).Map(stage => (
+                Key: $"{prefix}.Impact.{category.Name}.{stage.Module}", Value: environmental.IndicatorAt(category, stage))))
+            .Fold(Map<string, double>(), static (rows, row) => rows.Add(row.Key, row.Value));
+
+    static Map<string, double> OptionRow(string key, Option<double> value) =>
+        value.Match(Some: scalar => Map((key, scalar)), None: () => Map<string, double>());
+
+    static Seq<(string Key, double Value)> UsageQuantityRows(Element baked) =>
+        baked.Materials.Bind(static material => material.Usage.Switch(
+            none: static _ => Seq<(string, double)>(),
+            layerSet: usage => Seq<(string, double)>(
+                ($"Usage.{material.Material.MaterialKey.Value}.OffsetFromReferenceLine", usage.OffsetFromReferenceLine),
+                ($"Usage.{material.Material.MaterialKey.Value}.ReferenceExtent", usage.ReferenceExtent))
+                .Filter(static row => double.IsFinite(row.Item2)),
+            profileSet: usage => Seq<(string, double)>(
+                ($"Usage.{material.Material.MaterialKey.Value}.CardinalPoint", (double)usage.CardinalPoint.Key),
+                ($"Usage.{material.Material.MaterialKey.Value}.ReferenceExtent", usage.ReferenceExtent))
+                .Filter(static row => double.IsFinite(row.Item2))));
+
+    static Seq<(string Key, double Value)> ConstituentRows(Element baked) =>
+        baked.Materials.Bind(static material => material.Material.Composition is MaterialComposition.ConstituentSet set
+            ? set.Constituents.Map((constituent, index) => (
+                $"Constituent.{material.Material.MaterialKey.Value}.{index}.{constituent.Category}", constituent.Fraction))
+            : Seq<(string, double)>());
 
     static Map<string, double> CensusRows(ElementGraph graph, Element baked) =>
         Map(("Opening.Count", (double)VoidsOf(graph, baked).Count), ("Component.Parts", (double)baked.Parts.Count));
 
-    // Element-authored material identity wins: a bag row literally named `material` ALSO lands raw, and the
-    // head-layer fallback fills only when nothing claimed the key — Fleet's no-layer lane stays whole.
-    static Map<string, string> PropertiesOf(ElementGraph graph, Element baked, Arr<ComponentLayer> layers) {
-        Map<string, string> bags = baked.Properties.Fold(Map<string, string>(), static (acc, bag) =>
-            bag.Values.Fold(acc, (m, row, value) => {
-                Map<string, string> next = m.AddOrUpdate($"{bag.SetName}.{row.Value}", Render(value));
-                return row.Value == MaterialRow ? next.AddOrUpdate(MaterialRow, Render(value)) : next;
-            }));
-        Map<string, string> openings = VoidsOf(graph, baked).Fold((bags, 0), static (state, v) =>
-            (state.Item1.AddOrUpdate($"Opening.{state.Item2}", v.Feature.Value).AddOrUpdate($"Opening.{state.Item2}.Kind", v.SubKind.Key), state.Item2 + 1)).Item1;
-        return layers.Fold(openings, static (acc, layer) => acc.ContainsKey(MaterialRow) ? acc : acc.Add(MaterialRow, layer.MaterialKey));
+    static Fin<Map<string, string>> PropertiesOf(ElementGraph graph, Element baked) {
+        Seq<(ValueBag<PropertyValue> Bag, PropertyName Key, PropertyValue Value)> authored = baked.Properties.Bind(bag =>
+            bag.Values.Pairs.Map(pair => (bag, pair.Key, pair.Value)));
+        Option<string> fallbackMaterial = baked.Materials.Map(static material => material.Material.MaterialKey.Value)
+            .Distinct().ToSeq() is { Count: 1 } materials ? Some(materials.Head) : None;
+        return authored.Find(static row => row.Key.Value == MaterialRow && row.Value is not PropertyValue.Text).Match(
+            Some: _ => Fin.Fail<Map<string, string>>(Translation(baked)),
+            None: () => Merge(
+                authored.Bind(row => {
+                    string rendered = Render(row.Value);
+                    return row.Key.Value == MaterialRow && row.Value is PropertyValue.Text material
+                        ? Seq(($"{row.Bag.SetName}.{row.Key.Value}", rendered), (MaterialRow, material.Value))
+                        : Seq(($"{row.Bag.SetName}.{row.Key.Value}", rendered));
+                })
+                + baked.Materials.Bind(material => material.Material.Properties.Bind(property =>
+                    PropertyFacts(material.Material.MaterialKey.Value, property).Pairs.Map(static pair => (pair.Key, pair.Value))))
+                + VoidsOf(graph, baked).Map((@void, index) => Seq(
+                    ($"Opening.{index}", @void.Feature.Value), ($"Opening.{index}.Kind", @void.SubKind.Key))).Bind(identity),
+                Translation(baked))
+            .Map(properties => properties.ContainsKey(MaterialRow)
+                ? properties
+                : fallbackMaterial.Map(material => properties.Add(MaterialRow, material)).IfNone(properties)));
     }
 
+    static Map<string, string> PropertyFacts(string material, MaterialPropertySet property) {
+        string prefix = $"Material.{material}";
+        string family = property.Switch(
+            mechanical: static _ => "Mechanical", orthotropic: static _ => "Orthotropic", thermal: static _ => "Thermal",
+            acoustic: static _ => "Acoustic", fire: static _ => "Fire", environmental: static _ => "Environmental",
+            cost: static _ => "Cost", damping: static _ => "Damping", hygrothermal: static _ => "Hygrothermal",
+            durability: static _ => "Durability", optical: static _ => "Optical");
+        Map<string, string> evidence = Map(($"{prefix}.{family}.Evidence.Source", property.Evidence.Source),
+            ($"{prefix}.{family}.Evidence.Reference", property.Evidence.Reference),
+            ($"{prefix}.{family}.Evidence.ValidUntil", property.Evidence.ValidUntil.Match(
+                Some: date => Pack("some", Seq(date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))),
+                None: () => Pack("none", Seq<string>()))));
+        return evidence + property.Switch(
+            mechanical: static _ => Map<string, string>(),
+            orthotropic: static _ => Map<string, string>(),
+            thermal: static _ => Map<string, string>(),
+            acoustic: static _ => Map<string, string>(),
+            fire: p => Map(($"{prefix}.Fire.Reaction", p.Reaction.Key), ($"{prefix}.Fire.Smoke", p.Smoke.Key),
+                ($"{prefix}.Fire.Droplets", p.Droplets.Key)),
+            environmental: p => Map(($"{prefix}.Environmental.Basis", p.Basis.Key))
+                + toSeq(ImpactCategory.Items).Fold(Map<string, string>(), (rows, category) =>
+                    rows.Add($"{prefix}.Environmental.Impact.{category.Name}.Unit", category.Unit)),
+            cost: p => Map(($"{prefix}.Cost.Basis", p.Basis.Key), ($"{prefix}.Cost.Currency", p.Currency.Value)),
+            damping: static _ => Map<string, string>(),
+            hygrothermal: static _ => Map<string, string>(),
+            durability: static _ => Map<string, string>(),
+            optical: static _ => Map<string, string>());
+    }
+
+    static Fin<Map<string, T>> Merge<T>(IEnumerable<(string Key, T Value)> rows, Error conflict) =>
+        toSeq(rows).Fold(Fin.Succ(Map<string, T>()), (rail, row) => rail.Bind(map => map.Find(row.Key).Match(
+            Some: existing => EqualityComparer<T>.Default.Equals(existing, row.Value)
+                ? Fin.Succ(map)
+                : Fin.Fail<Map<string, T>>(conflict),
+            None: () => Fin.Succ(map.Add(row.Key, row.Value)))));
+
+    static Error Translation(Element baked) =>
+        FabricationFault.IngressTranslation(SourceKind.Element,
+            new SourceLocus.ElementNode(ContentHash.Of(Encoding.UTF8.GetBytes(baked.Id.Value)))).ToError();
+
     // --- [BOUNDARIES] ---------------------------------------------------------------------------------------------------------------------------------
-    // The typed PropertyValue family lowers to canonical invariant text ONCE through the seam union's GENERATED
-    // total Switch: a new upstream case adds a required Switch parameter, so admission breaks at compile time
-    // instead of silently erasing the value — no `_` arm, no empty-string sentinel, no lossy row-count token.
     static string Render(PropertyValue value) =>
         value.Switch(
-            text: static t => t.Value,
-            measure: static m => m.Value.Si.ToString("R", CultureInfo.InvariantCulture),
-            boolean: static b => b.Value ? "true" : "false",
-            logical: static l => l.Value.Match(Some: v => v ? "true" : "false", None: () => "unknown"),
-            enumerated: static e => string.Join("|", e.Selected),
-            reference: static r => r.UsageName.Match(Some: u => $"{r.Target.Value}:{u}", None: () => r.Target.Value),
-            bounded: static b => string.Join("..", Seq(b.Lower, b.Upper, b.SetPoint).Somes().Map(v => v.Si.ToString("R", CultureInfo.InvariantCulture))),
-            list: l => string.Join("|", l.Values.Map(Render)),
-            table: t => string.Join("|", t.Rows.Map(r => $"{Render(r.Defining)}={Render(r.Defined)}")),
-            complex: c => string.Join("|", c.Properties.Pairs.Map(p => $"{p.Key.Value}={Render(p.Value)}")));
+            text: t => Pack("text", Seq(t.Value)),
+            measure: m => MeasureText(m.Value),
+            boolean: b => Pack("boolean", Seq(b.Value ? "true" : "false")),
+            logical: l => Pack("logical", Seq(l.Value.Match(Some: static v => v ? "true" : "false", None: static () => "unknown"))),
+            enumerated: e => Pack("enumerated", Seq(Pack("selected", e.Selected), Pack("allowed", e.Allowed))),
+            reference: r => Pack("reference", Seq(r.Target.Value,
+                r.UsageName.Match(Some: usage => Pack("some", Seq(usage)), None: () => Pack("none", Seq<string>())))),
+            bounded: b => Pack("bounded", Seq(OptionalMeasure(b.Lower), OptionalMeasure(b.Upper), OptionalMeasure(b.SetPoint))),
+            list: l => Pack("list", l.Values.Map(Render)),
+            table: t => Pack("table", Seq(t.Interp.Key,
+                Pack("rows", t.Rows.Map(row => Pack("row", Seq(Render(row.Defining), Render(row.Defined))))))),
+            complex: c => Pack("complex", Seq(c.UsageName, Pack("properties", c.Properties.Pairs
+                .OrderBy(static pair => pair.Key.Value, StringComparer.Ordinal)
+                .Map(pair => Pack("property", Seq(pair.Key.Value, Render(pair.Value))))))));
+
+    static string OptionalMeasure(Option<MeasureValue> value) =>
+        value.Match(Some: measure => Pack("some", Seq(MeasureText(measure))), None: () => Pack("none", Seq<string>()));
+
+    static string MeasureText(MeasureValue value) =>
+        Pack("measure", Seq(value.Type.Value, value.Dimension.Length.ToString(CultureInfo.InvariantCulture),
+            value.Dimension.Mass.ToString(CultureInfo.InvariantCulture), value.Dimension.Time.ToString(CultureInfo.InvariantCulture),
+            value.Dimension.Current.ToString(CultureInfo.InvariantCulture), value.Dimension.Temperature.ToString(CultureInfo.InvariantCulture),
+            value.Dimension.Amount.ToString(CultureInfo.InvariantCulture), value.Dimension.LuminousIntensity.ToString(CultureInfo.InvariantCulture),
+            value.Si.ToString("R", CultureInfo.InvariantCulture), value.CanonicalUnit, value.Uncertainty.Match(
+                Some: band => Pack("some", Seq(band.Kind.Key, band.LowerSi.ToString("R", CultureInfo.InvariantCulture),
+                    band.UpperSi.ToString("R", CultureInfo.InvariantCulture),
+                    band.StandardDeviationSi.Match(
+                        Some: deviation => Pack("some", Seq(deviation.ToString("R", CultureInfo.InvariantCulture))),
+                        None: () => Pack("none", Seq<string>())),
+                    band.CoverageFactor.Match(
+                        Some: factor => Pack("some", Seq(factor.ToString("R", CultureInfo.InvariantCulture))),
+                        None: () => Pack("none", Seq<string>())))),
+                None: () => Pack("none", Seq<string>()))));
+
+    static string Pack(string tag, IEnumerable<string> fields) =>
+        $"{tag}:{string.Concat(fields.Select(field => $"{Encoding.UTF8.GetByteCount(field)}:{field}"))}";
 }
 ```
 
 ```mermaid
 ---
 config:
-  layout: elk
   theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    titleColor: "#D6BCFA"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
-    Graph["ElementGraph + NodeId + Op"] -->|"Bake (seam fold, ElementFault passes through)"| Baked["baked Element"]
+    accTitle: Element graph admission and projection flow
+    accDescr: A baked element plus caller-resolved representations produce identity, total material composition, topology, openings, quantities, and full property evidence before one atoms carrier reaches fabrication consumers or a typed representation fault.
+    Graph["ElementGraph + NodeId + Op"] eBake@-->|"Bake · seam fold"| Baked["baked Element"]
     Resolved["caller-resolved Body mesh + FootPrint loops"] -->|ride the call| Project["Project"]
-    Baked -->|"payload-corresponding key (Body/FootPrint demanded, precedence evidence-only)"| Key["RepresentationKey UInt128"]
+    Baked -->|"payload-corresponding key (Body or FootPrint demanded)"| Key["RepresentationKey UInt128"]
     Baked -->|"total composition Switch (4 arms)"| Layers["ComponentLayer rows + SheetThicknessMm"]
-    Baked -->|"EdgesAt · Connect + Void"| Topo["ComponentConnection rows + Opening census"]
+    Baked -->|"EdgesAt · Connect + host-owned Void"| Topo["fail-closed connection gate + Opening census"]
     Baked -->|"bags · Section.* (20) · Material.* · Usage.* · Render"| Bags["Quantities + Properties"]
     Key --> Project
     Layers --> Project
     Topo --> Project
     Bags --> Project
-    Project -->|atoms carrier| Out["Fin&lt;AdmittedComponent&gt;"]
-    Baked -.->|no or mismatched representation| Fault["IngressTranslation 2711 · SourceLocus.ElementNode"]
-    Out -->|"Run(Derive) policy case"| Consumers["derivation · fleet · assembly · manufacturability · sheet"]
+    Project eOut@-->|atoms carrier| Out["Fin&lt;AdmittedComponent&gt;"]
+    Baked eFault@-.->|no or mismatched representation| Fault["IngressTranslation 2711 · SourceLocus.ElementNode"]
+    Out eConsumers@-->|"Run(Derive) policy case"| Consumers["derivation · fleet · assembly · manufacturability · sheet"]
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
+    classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef edgeSuccess stroke:#50FA7B,color:#F8F8F2
+    classDef edgeError stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    classDef edgeExternal stroke:#8BE9FD,color:#F8F8F2
+    classDef edgeData stroke:#FFB86C,color:#F8F8F2
+    class Graph,Resolved boundary
+    class Project primary
+    class Baked,Key,Layers,Topo,Bags data
+    class Out success
+    class Fault error
+    class Consumers external
+    class eOut edgeSuccess
+    class eFault edgeError
+    class eConsumers edgeExternal
+    class eBake edgeData
 ```

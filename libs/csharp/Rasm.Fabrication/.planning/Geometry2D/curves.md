@@ -1,35 +1,35 @@
 # [RASM_FABRICATION_CURVES]
 
-The parametric-curve CAM substrate — the THIRD Geometry2D owner beside the line-space `PolygonAlgebra` (Clipper2 int64 lattice) and the arc-space `ArcAlgebra` (CavalierContours bulge lattice, `Geometry2D/arcs`): a free-form profile neither lattice expresses exactly — the splined DXF outline, the refit mesh-section chain, the cam lobe, the fairing-critical 5-axis path — rides HERE as a `NurbsForm.Curve` over the landed kernel parametric rail. `CurveAlgebra` is a BOUNDARY-MAP owner, never a re-implementation: every geometric computation routes the kernel — exact side offsets with self-intersection trim through `ParametricOp.Offset` → `ParametricResult.Offsets(Curves, Receipt, TrimmedCrossings, KeptSegments)`, station frames through `ParametricOp.Stations` → `StationField` (the RMF `PerpendicularFrames` sweep with the `FrameDefect` orthonormality witness), engagement sampling through `ParametricOp.Divide`, curve rebuild through `ParametricOp.Reconstruct` → `Refit`, region resolve through `Parametric.Fill` → `ArrangementResult.Overlay`, and point-set admission through `Nurbs.Of(NurbsWire.CurveThrough(samples, FitPolicy))`. The page owns the CAM composition the kernel rail does not: the multi-pass side-offset LADDER (pass i at signed distance `side·(offset + i·stepOver)` — the free-form roughing/finish family the 2.5D pocket-profile arms consume), the `Loop`↔curve bridge in both directions (`Admit` promotes, `Lower` demotes to a zero-bulge `Loop` the line owner clips), and the witness-carrying result vocabulary consumers GATE on.
+`CurveAlgebra` owns free-form planar CAM profiles over the kernel `Rasm.Parametric` rail. It admits sample and bulged-outline sources, generates witnessed side-pass ladders, exposes station fields and division samples, resolves regions, rebuilds curves, reports planar crossings, and lowers curves to canonical `Loop` values. The line, arc, and free-form owners remain distinct because their exact carriers and algorithms differ; their bridge operations preserve tolerance and approximation evidence.
 
-Kerf compensation is NOT this page's law: the `[V10]a` split holds — pure kerf comp lives in arc space on the `arcs` owner, and `SidePasses` is the free-form parametric pass ladder (tool-side geometry only; climb-vs-conventional resolves at the motion arm from spindle sense × side). The split of the three owners is capability-driven, never namespace-driven: Clipper2 cannot represent a constant-radius arc, CavalierContours cannot represent a free-form spline, the kernel NURBS rail prices exactness in refinement rounds the integer lattice never pays — so line rides `algebra`, arc rides `arcs`, parametric rides `curves`, and the bridges (`Densify`, `Lower`, `Admit`, `g3.BiArcFit2` line-sourced refit) cross only at the declared edges. Results carry kernel witnesses (`RefineReceipt` target-vs-achieved, `StationField.FrameDefect`) and the CONSUMER gates: `Posting/program` refuses a frame batch whose defect exceeds its posting tolerance, `Kinematics/machine` gates the smoothing receipt before a 5-axis fairing pass — a silent skew or deviation swallow downstream is the named defect, never re-checked by a second probe here.
-
-Wire posture: HOST-LOCAL. `CurveAlgebra` results cross only the in-process seam to the toolpath, posting, and kinematics kernels — `NurbsForm.Curve`/`StationField` are kernel vocabulary and travel as such; no result crosses a browser or peer wire, and no local carrier sits between wire and rail.
+All curve results remain host-local. `NurbsForm.Curve`, `ParametricResult.StationField`, `RefineReceipt`, and `BooleanReceipt` cross only in-process package seams, and no serialization carrier is introduced here.
 
 ## [01]-[INDEX]
 
-- [01]-[CURVE_ALGEBRA]: owns the `PassSide`/`CurveSource` vocabularies, the eight-case `CurveOp` request `[Union]`, the five-case `CurveTrace` result `[Union]`, and the ONE `CurveAlgebra.Apply` fold — the parametric lane of the Geometry2D substrate: side-pass ladders, station frames, engagement chords, region resolve, smoothing refit, planar crossings, and the `Loop`↔curve bridge, every computation delegated to the kernel `Parametric`/`Nurbs` rail.
+- [01]-[CURVE_ALGEBRA]: `PassSide`, `CurveSource`, `SidePassPolicy`, `RebuildPolicy`, `CurveOp`, `PassCurve`, `CurveTrace`, and the single `CurveAlgebra.Apply` fold.
 
 ## [02]-[CURVE_ALGEBRA]
 
-- Owner: `PassSide` `[SmartEnum<string>]` (`left`/`right`) the tool-side axis carrying its `Sign` column (+1 left of travel, −1 right — the one place side becomes offset sign); `CurveSource` `[Union]` the admission address (`Samples` raw probe/section points + `FitPolicy` · `Outline` a `Loop` promoted at `ArcChord` — bulged spans sampled at chord tolerance before the fit, the honest approximation note carried); `CurveOp` `[Union]` the eight-case request (`Admit` · `SidePasses` · `Stations` · `Chords` · `Region` · `Smooth` · `Crossings` · `Lower`); `CurveTrace` `[Union]` the five-case result (`Curves` · `Frames` · `Outlines` · `Samples` · `Hits`) — five carriers over eight requests, one polymorphic collapse; `CurveAlgebra` the static surface whose ONE `Apply` discriminates on the op case through the generated total `Switch`.
-- Cases: `CurveOp` — `Admit(CurveSource)` the promotion arm · `SidePasses(Profile, Frame, Side, Offset, Passes, StepOver, Refine)` the multi-pass ladder (a concave profile's inward pass legitimately splits, so pass curves accumulate across `Offsets` results; `Passes < 1` refuses typed) · `Stations(Path, StationPlan)` the posting-frame projection (`[T0,T1]` SpineRef window law is the kernel's) · `Chords(Path, MaxChord)` constant-chord engagement sampling · `Region(Loops, Plane)` the closed-loop pocket-profile resolve (closure PROVEN before the kernel call) · `Smooth(Path, Fit, Samples)` the arc-uniform rebuild for 5-axis fairing · `Crossings(Path, IntersectTarget)` the planar crossing probe (profile self-intersection, path-against-path, section-plane hits — the kernel `Intersect2D` exact-sign + Newton-refined lane surfaced for CAM) · `Lower(Path, Chord)` the zero-bulge demotion (8); `CurveTrace` — `Curves(Arr<NurbsForm.Curve>, Option<RefineReceipt>, TrimmedCrossings, KeptSegments)` fed by Admit/SidePasses/Smooth · `Frames(ParametricResult.StationField)` fed by Stations · `Outlines(Seq<Loop>)` fed by Region/Lower · `Samples(Arr<double> Parameters, Arr<Point3d> Points)` fed by Chords · `Hits(Arr<(double TA, double TB, Point3d At)>)` fed by Crossings, the kernel triple carried WHOLE (5).
-- Entry: `public static Fin<CurveTrace> Apply(CurveOp op, Op? key = null)` — the ONE entry, mirror of the kernel rail idiom; `Fin<T>` routes the kernel `GeometryFault.DegenerateInput` on an empty or non-finite input set and passes kernel `ParametricFault` 2448 refusals through untouched — Geometry2D mints no new arm, its cluster stays 2703 (`KerfCollision` is the arc owner's).
-- Auto: `Admit` folds the source — `Samples` straight through `Nurbs.Of(NurbsWire.CurveThrough(samples, fit))` with `None` receipt; `Outline` densifies bulged spans through the arc owner's `ArcAlgebra.Densify(profile, ArcChord)` bridge (the same concern resolves at ITS owner — the page-local span walk was the cross-page duplication) then the same `CurveThrough` fit, its receipt carrying the chord deviation tolerance as the approximation evidence a consumer gates on; `SidePasses` folds pass i ∈ [0, Passes) through `Parametric.Apply(new ParametricOp.Offset(profile, frame, side.Sign · (offset + i·stepOver), refine), key)`, concatenating each `Offsets.Curves`, keeping the WORST receipt (max `Achieved`), and summing the `TrimmedCrossings`/`KeptSegments` census — the honest ladder evidence; `Stations` runs `Parametric.Apply(new ParametricOp.Stations(path, plan), key)` and carries the `StationField` WHOLE (SoA columns + `FrameDefect` — the consumer's gate, never re-checked here); `Chords` runs `ParametricOp.Divide` with `DivideRule.ByChord(maxChord)` and carries the kernel `Division` columns; `Region` proves every loop closed (an open loop refuses typed BEFORE the kernel call), runs `Parametric.Fill(loops, plane)`, and folds the `ArrangementResult.Overlay.Loops` chains to `Loop`s re-wound through `Predicate.Orient2D`; `Smooth` runs `ParametricOp.Reconstruct(path, fit, samples)` and carries the `Refit` curve + receipt; `Crossings` runs `ParametricOp.Intersect2D(path, target)` and carries the `Crossings.Hits` triples whole (`TA` this curve's parameter, `TB` the target's, `At` the refined point); `Lower` runs `ByChord` division and emits the zero-bulge `Loop` (closed iff the path is) the line owner clips. Consumers: `Toolpath/turning` reads `SidePasses`/`Stations` for ZX profile passes, the 2.5D pocket-profile arms read `Region`/`SidePasses`/`Lower`, `Posting/program` reads `Frames` for station posting, and `Kinematics/machine` reads `Smooth`'s `Curves` TYPE contract for 5-axis fairing — the seam lands against the contract now, the consumer arm with its page.
-- Receipt: `CurveTrace` carries the kernel witnesses forward untouched — `RefineReceipt` (target vs achieved deviation, rounds, samples) on every refined curve set, the trim census on the ladder, `StationField.FrameDefect` on every frame batch; the receipt IS the gate input at the consumer and no second deviation probe exists here.
-- Packages: `Rasm.Parametric` (`Parametric.Apply` + `ParametricOp.{Offset, Stations, Divide, Reconstruct, Intersect2D}` + `ParametricResult.{Offsets, StationField, Division, Refit, Crossings}` + `Parametric.Fill` + `StationPlan`/`RefinePolicy`/`RefineReceipt`/`DivideRule`/`IntersectTarget` — the op rail; `Nurbs.Of` + `NurbsWire.CurveThrough` + `FitPolicy` — the fit seed; `NurbsForm.Curve` the carrier, its `PerpendicularFrames` RMF reached through the `Stations` case, never called per-station here), `Rasm.Meshing` (`ArrangementResult.Overlay` — the `Fill` result read at the one seam), `Rasm.Numerics` (`Predicate.Orient2D` the winding verdict, `Axis` the fill plane, `GeometryFault` band-2400), `Geometry2D/arcs#ARC_ALGEBRA` (`Densify` — the outline-admission bridge, composed at ITS owner), `Process/owner#FABRICATION_OWNER` (`Loop` — the canonical outline atom, bridged both directions), `Rhino.Geometry` (`Point3d`/`Plane`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new CAM projection over the kernel rail (a blend pass, a plane projection) is one `CurveOp` case delegating to its kernel op; a new admission address is one `CurveSource` case; a new lowering target is one arm on `Lower`'s carrier; a new witness is a kernel-receipt field carried forward, never a local probe; zero new entry surfaces.
-- Boundary: this page is BOUNDARY-MAP altitude over the kernel OP rail — a re-derived offset loop, trim lattice, RMF sweep, arc-length table, or fit kernel here is the altitude violation, and every computation routes `Parametric.Apply`/`Parametric.Fill`/`Nurbs.Of`; the three-owner split is law — a constant-radius arc profile rides the `arcs` owner, a pure polygon rides `algebra`, and offsetting either HERE (paying refinement rounds for what a lattice owns exactly) is the misrouted form; kerf compensation stays the arc owner's `[V10]a` lane and naming `SidePasses` a kerf pass is the named confusion; `StationField` and `NurbsForm.Curve` cross only to the declared turning/pocket-profile/posting/machine seams and a re-minted parallel `(point, frame)` SoA or curve record is the deleted form; consumers gate on the carried witnesses and a downstream arm that consumes a frame batch without reading `FrameDefect`, or a smoothed curve without reading `Achieved`, ships the named silent-skew defect; the bridge is `Admit`/`Lower` at THIS edge and `Densify`/`BiArcFit2` at the arc/line edges — `Admit`'s outline arm COMPOSES the arc owner's `Densify` rather than re-walking bulge spans, and a fourth bridge site or a page-local re-derivation of an owned bridge is the deleted form.
+- Owner: `PassSide` carries the signed tool side. `CurveSource` discriminates raw sample fitting from arc-aware outline promotion. `SidePassPolicy` admits the exact increasing distance field and kernel refinement policy. `RebuildPolicy` admits fit shape and sample budget. `CurveOp` is the eight-case request algebra, and `CurveTrace` gives each distinct evidence timing its own result case.
+- Cases: `CurveOp` has `Admit`, `SidePasses`, `Stations`, `Chords`, `Region`, `Smooth`, `Crossings`, and `Lower`. `CurveTrace` has `Fitted`, `Densified`, `Passes`, `Frames`, `Regions`, `Lowered`, `Samples`, `Refit`, and `Hits`. `PassCurve` retains pass ordinal and signed-distance magnitude for every curve emitted when one concave offset splits.
+- Entry: `Apply(CurveOp, Op?)` is the only public operation. Each arm delegates to `Nurbs.Of`, `Parametric.Apply`, `Parametric.Fill`, or `ArcAlgebra.Densify`; unexpected kernel union cases route through `Fin<T>` instead of throwing casts.
+- Auto: sample admission fits through `NurbsWire.CurveThrough`. Outline admission composes `DensifyReceipt.Result` and preserves the receipt beside the fitted curve. Side passes traverse every admitted pass distance, preserve every `RefineReceipt`, and aggregate the trim census without discarding pass provenance. Stations preserve the complete `StationField`; chords accept the full `DivideRule` family; smoothing preserves the kernel `Refit` receipt; crossings preserve every `(TA, TB, At)` tuple.
+- Region: `Region` rejects an empty or open input, passes an explicit `ArrangementPolicy` to `Parametric.Fill`, requires `ArrangementResult.Overlay`, preserves outer and hole orientation, removes only tolerance-equal closure duplication, admits every chain through `Loop.Admit`, and emits `CurveTrace.Regions` with its `BooleanReceipt`. `Lower` accepts the same `DivideRule` vocabulary and emits a distinct `CurveTrace.Lowered` case without an optional receipt.
+- Receipt: `DensifyReceipt` records outline approximation; `RefineReceipt` records each offset or rebuild; `StationField.FrameDefect` records frame orthogonality; `BooleanReceipt` records region classification; `PassCurve` records split-output provenance. An operation with no producer receipt emits no invented substitute.
+- Packages: `Rasm.Parametric` supplies `Nurbs.Of`, `NurbsWire.CurveThrough`, `Parametric.Apply`, `Parametric.Fill`, `ParametricOp.Offset`, `Stations`, `Divide`, `Reconstruct`, and `Intersect2D`, plus their typed `ParametricResult` cases. `Rasm.Meshing` supplies `ArrangementPolicy`, `ArrangementResult.Overlay`, and `BooleanReceipt`. `ArcAlgebra.Densify` supplies the bulge-to-line bridge. `Loop`, `Context`, `Axis`, `Op`, `Fin<T>`, and `Rhino.Geometry` carriers remain at their owning seams.
+- Growth: a new free-form operation is one `CurveOp` case and one `CurveTrace` evidence case over an existing kernel operation; a new division modality is one `DivideRule` case; a new fitting modality is one `FitPolicy` value. No operation creates a sibling entry or a parallel curve carrier.
+- Boundary: curve evaluation, offset refinement, intersection, station framing, fitting, and region arrangement remain kernel-owned. `CurveAlgebra` owns only CAM composition, typed result narrowing, tolerance-preserving bridges, and evidence projection.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+using System.Linq;
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Domain;                  // Op — the value-key carriage every kernel entry threads
-using Rasm.Fabrication.Process;     // Loop — the canonical outline atom
-using Rasm.Meshing;                 // ArrangementResult.Overlay — the Fill result seam
-using Rasm.Numerics;                // Predicate · Axis · GeometryFault
-using Rasm.Parametric;              // Parametric · ParametricOp/Result · Nurbs · NurbsWire · FitPolicy · StationPlan · RefinePolicy · DivideRule
+using Rasm.Domain;
+using Rasm.Fabrication.Process;
+using Rasm.Meshing;
+using Rasm.Numerics;
+using Rasm.Parametric;
 using Rhino.Geometry;
 using Thinktecture;
 using static LanguageExt.Prelude;
@@ -37,7 +37,6 @@ using static LanguageExt.Prelude;
 namespace Rasm.Fabrication.Geometry2D;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// Tool-side of travel only; climb-vs-conventional resolves at the motion arm from spindle sense × side.
 [SmartEnum<string>]
 public sealed partial class PassSide {
     public static readonly PassSide Left = new("left", sign: +1.0);
@@ -46,42 +45,79 @@ public sealed partial class PassSide {
     public double Sign { get; }
 }
 
-// The admission address: Outline promotes a Loop (bulged spans sampled at ArcChord before the fit —
-// an arc-exact workflow stays on the arcs owner; this lane is for free-form profiles).
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CurveSource {
     private CurveSource() { }
 
     public sealed record Samples(Arr<Point3d> Points, FitPolicy Fit) : CurveSource;
-    public sealed record Outline(Loop Profile, Plane Frame, FitPolicy Fit, double ArcChord) : CurveSource;
+    public sealed record Outline(Loop Profile, FitPolicy Fit, double ChordError) : CurveSource;
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+public sealed record SidePassPolicy {
+    private SidePassPolicy(Arr<double> distances, RefinePolicy refine) =>
+        (Distances, Refine) = (distances, refine);
+
+    public Arr<double> Distances { get; }
+    public RefinePolicy Refine { get; }
+
+    public static Fin<SidePassPolicy> Admit(Arr<double> distances, RefinePolicy refine) =>
+        !distances.IsEmpty
+        && distances.ForAll(static distance => double.IsFinite(distance) && distance >= 0.0)
+        && Range(1, distances.Count - 1).ForAll(index => distances[index] > distances[index - 1])
+        && refine.IsValid
+            ? Fin.Succ(new SidePassPolicy(distances, refine))
+            : Fin.Fail<SidePassPolicy>(GeometryFault.DegenerateInput("side-pass-policy").ToError());
+}
+
+public sealed record RebuildPolicy {
+    private RebuildPolicy(FitPolicy fit, int samples) => (Fit, Samples) = (fit, samples);
+
+    public FitPolicy Fit { get; }
+    public int Samples { get; }
+
+    public static Fin<RebuildPolicy> Admit(FitPolicy fit, int samples) =>
+        samples >= fit.Degree + 1
+            ? Fin.Succ(new RebuildPolicy(fit, samples))
+            : Fin.Fail<RebuildPolicy>(GeometryFault.DegenerateInput("rebuild-policy").ToError());
+}
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CurveOp {
     private CurveOp() { }
 
     public sealed record Admit(CurveSource Source) : CurveOp;
-    public sealed record SidePasses(
-        NurbsForm.Curve Profile, Plane Frame, PassSide Side, double Offset, int Passes, double StepOver, RefinePolicy Refine) : CurveOp;
+    public sealed record SidePasses(NurbsForm.Curve Profile, Plane Frame, PassSide Side, SidePassPolicy Policy) : CurveOp;
     public sealed record Stations(NurbsForm.Curve Path, StationPlan Plan) : CurveOp;
-    public sealed record Chords(NurbsForm.Curve Path, double MaxChord) : CurveOp;
-    public sealed record Region(Arr<NurbsForm.Curve> Loops, Axis Plane) : CurveOp;
-    public sealed record Smooth(NurbsForm.Curve Path, FitPolicy Fit, int Samples) : CurveOp;
+    public sealed record Chords(NurbsForm.Curve Path, DivideRule Rule) : CurveOp;
+    public sealed record Region(
+        Arr<NurbsForm.Curve> Loops,
+        Axis Plane,
+        Context Tolerance,
+        ArrangementPolicy Policy) : CurveOp;
+    public sealed record Smooth(NurbsForm.Curve Path, RebuildPolicy Policy) : CurveOp;
     public sealed record Crossings(NurbsForm.Curve Path, IntersectTarget Target) : CurveOp;
-    public sealed record Lower(NurbsForm.Curve Path, double Chord) : CurveOp;
+    public sealed record Lower(NurbsForm.Curve Path, DivideRule Rule, Context Tolerance) : CurveOp;
 }
 
-// Five carriers over eight requests; kernel witnesses travel WHOLE — the consumer gates on
-// FrameDefect / Achieved, never a second probe here.
+public sealed record PassCurve(int Pass, double Distance, NurbsForm.Curve Curve);
+
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CurveTrace {
     private CurveTrace() { }
 
-    public sealed record Curves(Arr<NurbsForm.Curve> Set, Option<RefineReceipt> Receipt, int TrimmedCrossings, int KeptSegments) : CurveTrace;
+    public sealed record Fitted(NurbsForm.Curve Curve) : CurveTrace;
+    public sealed record Densified(NurbsForm.Curve Curve, DensifyReceipt Receipt) : CurveTrace;
+    public sealed record Passes(
+        Arr<PassCurve> Curves,
+        Arr<RefineReceipt> Receipts,
+        int TrimmedCrossings,
+        int KeptSegments) : CurveTrace;
     public sealed record Frames(ParametricResult.StationField Field) : CurveTrace;
-    public sealed record Outlines(Seq<Loop> Loops) : CurveTrace;
+    public sealed record Regions(Seq<Loop> Loops, BooleanReceipt Receipt) : CurveTrace;
+    public sealed record Lowered(Loop Loop) : CurveTrace;
     public sealed record Samples(Arr<double> Parameters, Arr<Point3d> Points) : CurveTrace;
+    public sealed record Refit(NurbsForm.Curve Curve, RefineReceipt Receipt) : CurveTrace;
     public sealed record Hits(Arr<(double TA, double TB, Point3d At)> Set) : CurveTrace;
 }
 
@@ -93,74 +129,141 @@ public static class CurveAlgebra {
             admit:      static (k, a) => AdmitOf(a.Source, k),
             sidePasses: static (k, s) => Ladder(s, k),
             stations:   static (k, s) => Parametric.Apply(new ParametricOp.Stations(s.Path, s.Plan), k)
-                .Map(static r => (CurveTrace)new CurveTrace.Frames((ParametricResult.StationField)r)),
-            chords:     static (k, c) => Parametric.Apply(new ParametricOp.Divide(c.Path, new DivideRule.ByChord(c.MaxChord)), k)
-                .Map(static r => { var d = (ParametricResult.Division)r; return (CurveTrace)new CurveTrace.Samples(d.Parameters, d.Points); }),
+                .Bind(static result => Expect<ParametricResult, ParametricResult.StationField>(result, "curve:stations"))
+                .Map(static field => (CurveTrace)new CurveTrace.Frames(field)),
+            chords:     static (k, c) => Parametric.Apply(new ParametricOp.Divide(c.Path, c.Rule), k)
+                .Bind(static result => Expect<ParametricResult, ParametricResult.Division>(result, "curve:chords"))
+                .Map(static division => (CurveTrace)new CurveTrace.Samples(division.Parameters, division.Points)),
             region:     static (k, r) => RegionOf(r, k),
-            smooth:     static (k, s) => Parametric.Apply(new ParametricOp.Reconstruct(s.Path, s.Fit, s.Samples), k)
-                .Map(static r => { var f = (ParametricResult.Refit)r; return (CurveTrace)new CurveTrace.Curves([f.Curve], Some(f.Receipt), 0, 0); }),
+            smooth:     static (k, s) => SmoothOf(s, k),
             crossings:  static (k, c) => Parametric.Apply(new ParametricOp.Intersect2D(c.Path, c.Target), k)
-                .Map(static r => (CurveTrace)new CurveTrace.Hits(((ParametricResult.Crossings)r).Hits)),
-            lower:      static (k, l) => Parametric.Apply(new ParametricOp.Divide(l.Path, new DivideRule.ByChord(l.Chord)), k)
-                .Map(r => { var d = (ParametricResult.Division)r; return (CurveTrace)new CurveTrace.Outlines([new Loop(d.Points, l.Path.IsClosed)]); }));
+                .Bind(static result => Expect<ParametricResult, ParametricResult.Crossings>(result, "curve:crossings"))
+                .Map(static crossings => (CurveTrace)new CurveTrace.Hits(crossings.Hits)),
+            lower:      static (k, l) => LowerOf(l, k));
 
-    // Pass i at side.Sign·(offset + i·stepOver): a zero-pass request refuses typed BEFORE the traversal (the empty
-    // census reaching First() was the throwing hole in a Fin body); curves accumulate (a concave inward pass splits),
-    // the WORST receipt survives, the trim census sums — the honest ladder evidence.
-    static Fin<CurveTrace> Ladder(CurveOp.SidePasses s, Op? key) =>
-        s.Passes < 1
-            ? Fin.Fail<CurveTrace>(GeometryFault.DegenerateInput($"side-passes:{s.Passes}").ToError())
-            : toSeq(Enumerable.Range(0, s.Passes))
-                .TraverseM(i => Parametric.Apply(new ParametricOp.Offset(s.Profile, s.Frame, s.Side.Sign * (s.Offset + i * s.StepOver), s.Refine), key)
-                    .Map(static r => (ParametricResult.Offsets)r))
-                .As()
-                .Map(static results => (CurveTrace)new CurveTrace.Curves(
-                    new Arr<NurbsForm.Curve>([.. results.SelectMany(static o => o.Curves)]),
-                    Some(results.OrderByDescending(static o => o.Receipt.Achieved).First().Receipt),
-                    results.Sum(static o => o.TrimmedCrossings),
-                    results.Sum(static o => o.KeptSegments)));
+    private static Fin<CurveTrace> Ladder(CurveOp.SidePasses request, Op? key) =>
+        Range(0, request.Policy.Distances.Count)
+            .Traverse(pass => {
+                double distance = request.Policy.Distances[pass];
+                return Parametric.Apply(new ParametricOp.Offset(
+                        request.Profile,
+                        request.Frame,
+                        request.Side.Sign * distance,
+                        request.Policy.Refine), key)
+                    .Bind(result => Expect<ParametricResult, ParametricResult.Offsets>(result, "curve:side-passes"))
+                    .Map(offset => (Pass: pass, Distance: distance, Offset: offset));
+            })
+            .As()
+            .Map(static results => (CurveTrace)new CurveTrace.Passes(
+                new Arr<PassCurve>([.. results.SelectMany(static result =>
+                    result.Offset.Curves.Select(curve => new PassCurve(result.Pass, result.Distance, curve)))]),
+                results.Map(static result => result.Offset.Receipt).ToArr(),
+                results.Sum(static result => result.Offset.TrimmedCrossings),
+                results.Sum(static result => result.Offset.KeptSegments)));
 
-    // Outline admission COMPOSES the arc owner's bridge — ArcAlgebra.Densify chord-samples the bulged spans at the
-    // deviation tolerance (the hand-rolled span walk this page carried was the cross-page duplication) — and the
-    // approximation is EVIDENCED: the receipt carries the chord tolerance as the bound deviation, so a consumer
-    // gate distinguishes an approximated outline from a raw sample fit (which stays receipt-None).
-    static Fin<CurveTrace> AdmitOf(CurveSource source, Op? key) =>
+    private static Fin<CurveTrace> AdmitOf(CurveSource source, Op? key) =>
         source.Switch(
-            samples: s => Nurbs.Of(NurbsWire.CurveThrough(s.Points, s.Fit), key)
-                .Map(static form => (CurveTrace)new CurveTrace.Curves([(NurbsForm.Curve)form], None, 0, 0)),
-            outline: o => {
-                Arr<Point3d> points = ArcAlgebra.Densify(o.Profile, o.ArcChord).Vertices;
-                return Nurbs.Of(NurbsWire.CurveThrough(points, o.Fit), key)
-                    .Map(form => (CurveTrace)new CurveTrace.Curves(
-                        [(NurbsForm.Curve)form], Some(new RefineReceipt(o.ArcChord, o.ArcChord, 0, points.Count)), 0, 0));
-            });
+            state: key,
+            samples: static (k, s) => Nurbs.Of(NurbsWire.CurveThrough(s.Points, s.Fit), k)
+                .Bind(static form => Expect<NurbsForm, NurbsForm.Curve>(form, "curve:fit"))
+                .Map(static curve => (CurveTrace)new CurveTrace.Fitted(curve)),
+            outline: static (k, o) =>
+                from receipt in ArcAlgebra.Densify(o.Profile, o.ChordError)
+                from form in Nurbs.Of(NurbsWire.CurveThrough(receipt.Result.Vertices, o.Fit), k)
+                from curve in Expect<NurbsForm, NurbsForm.Curve>(form, "curve:outline-fit")
+                select (CurveTrace)new CurveTrace.Densified(curve, receipt));
 
-    // Region PROVES every loop closed before the kernel call — the prose claim without the gate was the hole.
-    static Fin<CurveTrace> RegionOf(CurveOp.Region r, Op? key) =>
-        r.Loops.Exists(static c => !c.IsClosed)
+    private static Fin<CurveTrace> SmoothOf(CurveOp.Smooth request, Op? key) =>
+        from result in Parametric.Apply(new ParametricOp.Reconstruct(
+            request.Path,
+            request.Policy.Fit,
+            request.Policy.Samples), key)
+        from refit in Expect<ParametricResult, ParametricResult.Refit>(result, "curve:smooth")
+        select (CurveTrace)new CurveTrace.Refit(refit.Curve, refit.Receipt);
+
+    private static Fin<CurveTrace> RegionOf(CurveOp.Region request, Op? key) =>
+        request.Loops.IsEmpty || request.Loops.Exists(static curve => !curve.IsClosed)
             ? Fin.Fail<CurveTrace>(GeometryFault.DegenerateInput("region:open-loop").ToError())
-            : Parametric.Fill(r.Loops, r.Plane, policy: null, key)
-                .Map(static result => {
-                    var overlay = (ArrangementResult.Overlay)result;
-                    return (CurveTrace)new CurveTrace.Outlines(overlay.Loops.Map(static chain =>
-                        new Loop(new Arr<Point3d>([.. chain.Points]), Closed: true).AsCcw()));
-                });
+            : from result in Parametric.Fill(request.Loops, request.Plane, request.Policy, key)
+              from overlay in Expect<ArrangementResult, ArrangementResult.Overlay>(result, "curve:region")
+              from loops in overlay.Loops.Traverse(chain => LowerChain(chain, request.Tolerance)).As()
+              select (CurveTrace)new CurveTrace.Regions(loops, overlay.Receipt);
+
+    private static Fin<CurveTrace> LowerOf(CurveOp.Lower request, Op? key) =>
+        from result in Parametric.Apply(new ParametricOp.Divide(request.Path, request.Rule), key)
+        from division in Expect<ParametricResult, ParametricResult.Division>(result, "curve:lower")
+        let repeatsClosure = request.Path.IsClosed
+            && division.Points.Count > 1
+            && division.Points[0].DistanceTo(division.Points[division.Points.Count - 1]) <= request.Tolerance.Absolute.Value
+        let vertices = repeatsClosure
+            ? new Arr<Point3d>([.. division.Points.Take(division.Points.Count - 1)])
+            : division.Points
+        from loop in Loop.Admit(vertices, request.Path.IsClosed, [], request.Tolerance)
+        select (CurveTrace)new CurveTrace.Lowered(loop);
+
+    private static Fin<Loop> LowerChain(Chain chain, Context tolerance) {
+        if (!chain.Closed) return Fin.Fail<Loop>(GeometryFault.DegenerateInput("region:open-result").ToError());
+        Arr<Point3d> points = new([.. chain.Points]);
+        Arr<Point3d> vertices = points.Count > 1
+            && points[0].DistanceTo(points[points.Count - 1]) <= tolerance.Absolute.Value
+                ? new Arr<Point3d>([.. points.Take(points.Count - 1)])
+                : points;
+        return Loop.Admit(vertices, closed: true, [], tolerance);
+    }
+
+    // The union-bounded narrow: TUnion pins the kernel result family so an unrelated type can never reach the probe.
+    private static Fin<T> Expect<TUnion, T>(TUnion value, string locus)
+        where TUnion : class
+        where T : class, TUnion =>
+        value is T expected
+            ? Fin.Succ(expected)
+            : Fin.Fail<T>(GeometryFault.DegenerateInput(locus).ToError());
 }
 ```
 
 ```mermaid
 ---
 config:
-  layout: elk
   theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
+    accTitle: Free-form curve algebra dispatch
+    accDescr: One curve operation fold promotes loop inputs, invokes the parametric kernel, preserves typed receipts, and delivers pass curves, frames, rebuilt curves, and lowered outlines to their consumers.
     Loop["owner#atoms Loop"] -->|Admit promote| Alg["CurveAlgebra.Apply(CurveOp)"]
     Alg -->|"Offset ladder · Stations · Divide · Reconstruct · Intersect2D · Fill"| Kernel["kernel Parametric.Apply / Fill / Nurbs.Of"]
     Kernel -->|"Offsets · StationField · Division · Refit · Crossings · Overlay"| Alg
-    Alg -->|"Curves + worst receipt + trim census"| Pocket["Toolpath 2.5D pocket-profile · turning ZX passes"]
+    Alg -->|"Curves + all receipts + trim census"| Pocket["Toolpath 2.5D pocket-profile · turning ZX passes"]
     Alg -->|"Frames + FrameDefect gate at consumer"| Post["Posting/program stations"]
     Alg -->|"Smoothed curve + Refit receipt"| Machine["Kinematics/machine 5-axis fairing"]
     Alg -->|"Outlines zero-bulge"| Line["algebra line owner"]
     Line -.->|"arc profiles ride arcs"| Arcs["arcs kerf lane"]
+    linkStyle 2,3,5 stroke:#50FA7B,color:#F8F8F2
+    linkStyle 7 stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dasharray:4 6
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    class Alg,Kernel primary
+    class Pocket,Post,Machine success
+    class Loop data
+    class Line,Arcs boundary
 ```

@@ -268,7 +268,7 @@ const codexPrompt = (label, task, schema, o) => {
 // usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus) — the caller owns the re-dispatch, the sonnet
 // wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (the batch's assigned files) so
 // a failed lane's territory is exact even when it died.
-const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus'); // native fallback twins; fable is never a fallback
 const nativeLane = (task, o) => {
     // Path authority: a native lane may not follow the session cwd, so the product mints ABSOLUTE under ROOT while the
     // receipt returns the repo-relative form codex lanes report — the aggregation reads one consistent `report` shape.

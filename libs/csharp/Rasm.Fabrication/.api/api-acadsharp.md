@@ -28,6 +28,8 @@
 |  [05]   | `ACadSharp.IO.NotificationEventArgs`    | event payload   | `Message`/`NotificationType`/`Exception` — the recoverable-error record      |
 |  [06]   | `ACadSharp.IO.NotificationType`         | enum            | `NotImplemented=-1`, `None`, `Warning`, `Error` — the severity discriminator |
 |  [07]   | `ACadSharp.CadDocument`                 | model root      | the read drawing — `Entities`/`ModelSpace`/`BlockRecords`/`Header`           |
+|  [08]   | `ACadSharp.Header.CadHeader`            | header record   | `InsUnits : UnitsType` — the `$INSUNITS` insertion-unit slot                 |
+|  [09]   | `ACadSharp.Types.Units.UnitsType`       | enum            | the insertion-unit vocabulary of `InsUnits`                                  |
 
 [PUBLIC_TYPE_SCOPE]: entity collections on the document
 - rail: fabrication
@@ -58,6 +60,7 @@ The per-type member spelling is the row-owned axis below: `LwPolyline`/`Polyline
 |  [09]   | `Circle`            | full circle         | `Circle : Entity, ICurve` — `Center`/`Radius`/`Normal`/`Thickness` closed circle     |
 |  [10]   | `Spline`            | NURBS spline        | `Spline : Entity` — native-tessellated control-point/knot spline                     |
 |  [11]   | `Insert`            | block reference     | placed/arrayed nested-block reference with package-owned explode + transform         |
+|  [12]   | `Entity` base       | provenance          | `Layer : Tables.Layer` + `Color : Color` — `.Name`/`.Index` (ACI)                    |
 
 [PUBLIC_TYPE_SCOPE]: curve sampling, bulge-to-arc factories, and block flatten (ACadSharp-owned, the tessellation the boundary composes)
 - rail: fabrication

@@ -2,7 +2,7 @@ export const meta = {
     name: 'stack-ts',
     whenToUse: 'Iterative adversarial hardening of the docs/stacks/typescript code doctrine; re-run until cold passes find nothing.',
     description:
-        "Adversarial HARDEN engine for the docs/stacks/typescript code doctrine. Every page is SUSPECT until it survives attack — naive, shallow, or illusory by default, rebuilt ground-up wherever the attack finds weakness — but the settled atlas roster is challenged with disqualifying evidence, never re-decided from zero. Inventory rules the real disk state and the Gate rules the file set BEFORE per-file work (structure challenge: merge/split/kill/rename only on disqualifying evidence, applies structure only) — true data dependence, kept. Then each FILE runs its own initial -> critique -> redteam pipeline, ALL files concurrent under one pool cap — the chain is the file's own stage dependence, never a corpus barrier. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal fable corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep. Every per-file stage and the corpus sweep carry a required-but-usually-empty harvest attestation RESTRICTED to reviewer/laws/constitution altitudes (the run authors docs/stacks/typescript, so a stacks lesson is already owned and never nominated); when the pooled nominations are non-empty, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal, never re-editing a docs/stacks/typescript page). SUPREMACY LAW: python and csharp stacks are BOTH the floor, never the ceiling. Every edit is scoped to docs/stacks/typescript. Takes no args.",
+        "Adversarial HARDEN engine for the docs/stacks/typescript code doctrine. Every page is SUSPECT until it survives attack — naive, shallow, or illusory by default, rebuilt ground-up wherever the attack finds weakness — but the settled atlas roster is challenged with disqualifying evidence, never re-decided from zero. Inventory rules the real disk state and the Gate rules the file set BEFORE per-file work (structure challenge: merge/split/kill/rename only on disqualifying evidence, applies structure only) — true data dependence, kept. Then each FILE runs its own initial -> critique -> redteam pipeline, ALL files concurrent under one pool cap — the chain is the file's own stage dependence, never a corpus barrier. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal fable corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep. Every per-file stage and the corpus sweep carry a required-but-usually-empty harvest attestation RESTRICTED to reviewer/laws/constitution altitudes (the run authors docs/stacks/typescript, so a stacks lesson is already owned and never nominated); when the pooled nominations are non-empty, ONE terminal opus doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal, never re-editing a docs/stacks/typescript page). SUPREMACY LAW: python and csharp stacks are BOTH the floor, never the ceiling. Every edit is scoped to docs/stacks/typescript. Takes no args.",
     phases: [
         {
             title: 'Inventory',
@@ -23,7 +23,7 @@ export const meta = {
         },
         {
             title: 'Doctrine',
-            detail: 'terminal doctrine lander (fable), fires only on non-empty pooled harvest RESTRICTED to reviewer/laws/constitution (the run owns docs/stacks/typescript); refutation-first, land-nothing legal',
+            detail: 'terminal doctrine lander (opus), fires only on non-empty pooled harvest RESTRICTED to reviewer/laws/constitution (the run owns docs/stacks/typescript); refutation-first, land-nothing legal',
         },
     ],
 };
@@ -809,7 +809,7 @@ const doctrine = HARVEST_ROWS.length
               'whose coupling no longer holds, land a coupling this run proved.\n' +
               'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
               'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-          { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+          { label: 'doctrine', phase: 'Doctrine', model: 'opus', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
       )
     : null;
 

@@ -1,20 +1,20 @@
 # [RASM_FABRICATION_CAPABILITY]
 
-The capability owner closes the fabrication specification truth tranche over process-capability indices, SPC limits, distribution fit, Monte-Carlo tolerance stackup, procedure heat-input evidence, and plan-admission verdicts. `Capability.Assess` emits the terminal `CapabilityReport`: the five `CapabilityMetric` rows (Cp/Cpk/Pp/Ppk/Cpm) each DERIVING its value from its own policy columns, the subgroup-lane control limits with `Instant` stamps and an out-of-control census, MathNet-backed fitted residual distributions with quantile projection, drift fit, the per-frame Monte-Carlo stackup quantile beside its analytic RSS, and the owner#atoms `CapabilityVerdict`. The SPC lane is subgroup-COMPLETE: subgroup size `1` runs the I-MR moving-range law, sizes `2-10` the X-bar/R constants, sizes above `10` the X-bar/S lane under the generated `c4(n) = 4(n−1)/(4n−3)` approximation — within-subgroup sigma is `R̄/d₂`, `MR̄/1.128`, or `s̄/c4` per lane, never the standard deviation OF the spreads. `Capability.Gate` projects historical process capability — the report-fed `CapabilityHistory` ledger the owner#run Inspect arm enrolls every terminal report into — into the minimal input-carried verdict the plan reads before cutting, and fail-closes when no report has enrolled for the demanded pair; `Capability.Achievable` answers the tolerance side of the same ledger — the finest grade a process has passing evidence for, the derivation `ToleranceZone.AchievableMm` is input-carried FROM. The report remains terminal here, the verdict mints on owner#atoms, and `FabricationFault.CapabilityShortfall`/`StackupExceeded` stay the two failure rails.
+The capability owner closes fabrication specification truth over capability indices and confidence intervals, SPC limits and run rules, distribution-fit evidence, serial-dependence and measurement-system evidence, replayable correlated tolerance stackup, procedure heat-input evidence, and plan-admission verdicts. `Capability.Assess` emits one terminal `CapabilityReport`: the five `CapabilityMetric` rows derive their values from row columns; I-MR, X-bar/R, and X-bar/S emit limit rows plus `SpcViolation` windows on the plotted statistic's sigma; the distribution union selects normal, lognormal, gamma, or generated Student-t candidates by empirical CDF error; and the stackup receipt records the seed, correlation, sensitivities, tail quantile, and analytic RSS. X-bar/S constants derive from the exact gamma-ratio `c4(n)` composed in the log domain, never a rational approximation and never a raw-Gamma quotient that overflows for large subgroups. `Capability.Gate` and `Capability.Achievable` consume input-carried `CapabilityHistory` evidence; this page owns no ambient history store and performs no enrollment effect.
 
 ## [01]-[INDEX]
 
-- [01]-[CAPABILITY]: owns `CapabilityMetric` (five column-deriving index rows), `CapabilityDistribution` with its quantile projection, `SpcChart`, `ControlConstant` (A2/D3/D4/d₂ columns), `CapabilityTolerance`, `CapabilityRow`, `SpcLimitRow` with the violation census, `StackupReceipt` with the RSS column, `CapabilityReport`, the report-fed `CapabilityHistory` ledger, and the ONE `Capability` surface — `Assess`, `Gate`, and `Achievable`.
+- [01]-[CAPABILITY]: owns `CapabilityMetric`, the fitted `CapabilityDistribution` union, `SpcChart`/`SpcRule`/`ControlConstant`, the demand and evidence rows, input-carried `CapabilityHistory`, and the one `Capability` surface — `Assess`, `Gate`, and `Achievable`.
 
 ## [02]-[CAPABILITY]
 
-- Owner: `CapabilityMetric` the five index rows (`cp`/`cpk`/`pp`/`ppk`/`cpm`) whose `ShortTerm`/`OneSided`/`TargetCentered` columns ARE the formula — the row's `Of(moment, tolerance)` derivation reads only its own columns, so a new metric is one row and zero enumerated arms; `CapabilityDistribution` the fitted residual distribution union over `Normal` and `LogNormal` with the moment-matched lognormal law (`s² = ln(1+cv²)`, `µ = ln(mean) − s²/2`) and the `Quantile` projection through `Normal.InvCDF`; `SpcChart` the chart-family rows spanning X-bar/R, I-MR, and X-bar/S; `ControlConstant` the generated subgroup constants carrying `d₂` beside A2/D3/D4; `CapabilityTolerance` the spec demand row; `CapabilityRow` the typed index evidence; `SpcLimitRow` the `Instant`-stamped control-limit evidence carrying its out-of-control count; `StackupReceipt` the Monte-Carlo receipt carrying the trial quantile AND the analytic RSS; `CapabilityReport` the terminal report with the derived natural-bound projection; `Capability` the static owner exposing `Assess`, `Gate`, and `Achievable`.
-- Cases: `CapabilityMetric` rows 5; `CapabilityDistribution` cases 2 — `NormalFit` and `LogNormalFit`, selected by the residual MINIMUM sign (a nonnegative-support sample fits lognormal), never a quantile heuristic; `SpcChart` rows 5 — `xbar`/`range`/`individuals`/`moving-range`/`s`; `ControlConstant` rows 9 for subgroup sizes 2-10, sizes above 10 GENERATED through `c4(n)`/`B3(n)`/`B4(n)` — the roster never caps the lane; `Capability.Assess` runs the same row set for single-process probing rows and whole-plan inspect projections; `Capability.Gate` reads the newest enrolled `CapabilityHistory` row for a `(ProcessKind, grade number)` pair and returns only `CapabilityVerdict` — a pair with no enrolled report is a failing verdict, never a silent pass.
-- Entry: `public static Fin<CapabilityReport> Assess(Seq<ResidualSample> samples, CapabilityTolerance tolerance)` · `public static CapabilityVerdict Gate(ProcessKind process, ItGrade grade)` · `public static Option<double> Achievable(ProcessKind process, DiameterStep diameter)` — the shared locks plus the ledger's tolerance-side projection; `Assess` admits the demand row first (a non-positive Monte-Carlo count or subgroup size is `GeometryFault.DegenerateInput`, never an unguarded `Max` over an empty trial set) and routes `FabricationFault.StackupExceeded(chain, accumulated, bound).ToError()` when the stackup quantile crosses the assembly bound; plan admission routes `FabricationFault.CapabilityShortfall(process, cpk, demanded).ToError()` from a failing `Gate` verdict.
-- Auto: `Assess` receives probing evidence already folded through K17 `ResidualSample` rows, projects the residual series off `ResidualSample.Distance`, and delegates the summary moment to kernel K18 — `Stat.Of(values, Op.Of(name: "capability:residual"))` returning `Fin<Stat>`, the tolerance provenance stamped AFTER the fold as `stat with { Context = StatContext.Tolerance(band, stat.Minimum, stat.Maximum) }` so the verdict re-proves against the receipt's own extrema; a local Welford accumulator never appears, overall sigma is `sqrt(Variance)`, and within sigma is the subgroup-lane spread law. Distribution fit uses MathNet `Normal`/`LogNormal`; capability demand reads `Normal.InvCDF`; Monte-Carlo stackup draws one standardized deviation PER CHAIN FRAME per trial, scales each by `width/6`, sums the trial, and reads the `1 − TailProbability` order statistic over the sorted trials; drift trend uses `Fit.Line`; SPC rows stamp `Instant`, apply the lane constants, and census points beyond their own limits. The heat-input evidence reads the `ComplianceRow.Numeric` case rows for `EssentialVariable.HeatInput` — presence gates before the all-pass fold — and never re-evaluates WPS bands.
-- Receipt: `CapabilityReport` is the terminal typed evidence consumed by traveler/report rows and enrolled into the `CapabilityHistory` ledger by the owner#run Inspect arm (`CapabilityHistory.Enroll(report)` — the newest row per `(process, grade number)` pair wins); its derived `Natural` projection reads the fitted distribution's `±3σ` quantiles; `CapabilityVerdict` is the owner#atoms plan-admission leaf and carries only pass/fail, Cpk, and demanded IT grade.
-- Packages: `Rasm.Domain` (`Stat.Of`/`StatContext.Tolerance`/`Op.Of` — K18), `Rasm.Analysis` (`ResidualSample` — K17, the `.Distance` residual scalar), MathNet.Numerics (`Fit.Line`), MathNet.Numerics.Distributions (`Normal`, `LogNormal`, `Normal.InvCDF`, `IContinuousDistribution.Sample`), NodaTime (`Instant` SPC/report stamps), `Spec/tolerance#TOLERANCE` (`ItGrade`, `DiameterStep`, `ItToleranceLaw`, `ToleranceChain`), `Joining/procedure#WELD_PROCEDURE` (`ComplianceRow.Numeric`, `EssentialVariable.HeatInput`), `Process/owner#FABRICATION_OWNER` (`CapabilityVerdict`), `Process/faults#FAULT_BAND` (`CapabilityShortfall` 2722, `StackupExceeded` 2729), Thinktecture.Runtime.Extensions, LanguageExt.Core (`Fin`/`Option`/`Seq`/`Arr`/`Atom`, `guard`), BCL inbox.
-- Growth: a new capability index is one `CapabilityMetric` row — its columns select the formula, zero projection arms; a new residual distribution is one `CapabilityDistribution` case lowering to `IContinuousDistribution` with its quantile arm; a new subgroup lane is one `SpcChart` row pair and one lane arm in the spread law; a new stackup method is one policy row inside the report fold. The public surface stays `Assess`, `Gate`, and `Achievable`.
+- Owner: `CapabilityMetric` owns index formula columns; `CapabilityDistribution` owns family parameters, quantiles, and empirical fit error; `SpcChart` and `SpcRule` own control-limit and run-rule vocabularies; `ControlConstant` owns the tabulated X-bar/R constants; `CapabilityTolerance` carries confidence, measurement, and replay inputs; `CapabilityReport` conserves metric, interval, control, distribution, dependence, drift, stackup, procedure, and verdict evidence.
+- Cases: `CapabilityMetric` rows 5; `CapabilityDistribution` cases 4 — normal, lognormal, gamma, and Student-t, the positive-support families moment-matched and support-gated, Student-t degrees generated from a parameter row sequence, and all candidates ranked by empirical CDF error; `SpcChart` rows 5; `SpcRule` rows 4; `ControlConstant` rows 9 for subgroup sizes 2-10, while larger groups derive exact X-bar/S constants from the `SpecialFunctions.GammaLn` log-domain gamma ratio — finite for every admitted subgroup size.
+- Entry: `public static Fin<CapabilityReport> Assess(Seq<ResidualSample> samples, CapabilityTolerance tolerance)` · `public static Fin<CapabilityVerdict> Gate(ProcessKind process, ItGrade grade, Seq<CapabilityHistory> history)` · `public static Option<double> Achievable(ProcessKind process, DiameterStep diameter, Seq<CapabilityHistory> history)`; `Assess` accumulates every independent demand fault through `Validation` before any statistical fold and routes `FabricationFault.StackupExceeded` when the replayable tail quantile crosses the assembly bound.
+- Auto: `Assess` accumulates independent demand faults through the `Op` admission channel — `Fault.OutOfRange` carrying the violating scalar and its requirement, `InvalidInput` for structural shape — rejects incomplete fixed subgroups, delegates moments to `Stat.Of`, stamps `StatContext.Tolerance`, and re-enters `Op.AcceptValue`. Candidate distributions lower through verified MathNet constructors and CDF/InvCDF members. `Distance.Pearson` derives lag-one correlation and effective sample size, carried uncertainty derives the measurement-system verdict, and normal-quantile intervals record the confidence policy. Seeded sampling draws one common and one independent standardized residual per contributor, mixes them by the carried correlation, applies signed sensitivity, and takes absolute magnitude only after summation. SPC emits limit rows plus generated sliding-window run-rule violations whose zone widths read the plotted statistic's sigma — `WithinSigma/√n` for subgroup means, `WithinSigma` for individuals; drift uses `Fit.Line`; heat-input evidence composes `ComplianceRow.Numeric` without re-evaluating WPS bands. History projection preserves procedure and measurement qualification, and both plan gates fail closed when either predicate fails.
+- Receipt: `CapabilityReport` is terminal typed evidence consumed by traveler/report rows; `CapabilityHistory` is an input-carried durable-ledger projection keyed by `(ProcessKind, grade number)` whose newest row wins. `CapabilityVerdict` remains the owner#atoms plan-admission leaf.
+- Packages: `Rasm.Domain` (`Stat.Of`/`StatContext.Tolerance`/`Op`/`Op.AcceptValue`/`Fault.OutOfRange`), `Rasm.Analysis` (`ResidualSample`), MathNet.Numerics (`Fit.Line`, `Distance.Pearson`, `SpecialFunctions.GammaLn`), MathNet.Numerics.Distributions (`Normal`, `LogNormal`, `Gamma`, `StudentT`, `Normal.InvCDF`, `Gamma.InvCDF`, `StudentT.InvCDF`, `IUnivariateDistribution.CumulativeDistribution`, `IDistribution.RandomSource`), NodaTime (`Instant`), `Spec/tolerance`, `Joining/procedure`, `Process/owner`, `Process/faults`, Thinktecture.Runtime.Extensions, LanguageExt.Core (`Fin`/`Validation`/`Option`/`Seq`/`Arr`, `guard`), BCL inbox.
+- Growth: a capability index is one `CapabilityMetric` row; a residual family is one `CapabilityDistribution` case plus candidate-generation and total quantile arms; an SPC rule is one `SpcRule` row; stackup variation extends policy data, never the entrypoint family.
 - Boundary: kernel `Distribution.Of` is internal and never crosses — empirical quantiles this page needs derive from the FITTED distribution through `Normal.InvCDF`, never a hand-rolled order-statistics owner beside the kernel's; Welford and tolerance provenance stay on `Stat.Of`/`StatContext.Tolerance`; a second sample-moment accumulator, a hand-rolled Gaussian inverse, a custom random sampler, a local WPS heat-input checker, a local IT grade demand table, a seeded or ambient process-history table outside the declared `CapabilityHistory` ledger, an unsafe missing-history lookup, a `Tolerance` alias shadowing the sibling static owner, or a result case carrying `CapabilityReport` is the deleted form. Attribute charts (p/np/c/u) stay out until an attribute-count evidence rail exists — `ResidualSample` is variables data. `CapabilityReport` remains terminal here; only `CapabilityVerdict` crosses into owner#atoms and plan input.
 
 ```csharp signature
@@ -28,7 +28,6 @@ using Rasm.Analysis;
 using Rasm.Domain;
 using Rasm.Fabrication.Joining;
 using Rasm.Fabrication.Process;
-using Rasm.Numerics;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
@@ -70,6 +69,19 @@ public sealed partial class SpcChart {
     public static readonly SpcChart Sigma = new("s");
 }
 
+[SmartEnum<string>]
+public sealed partial class SpcRule {
+    public static readonly SpcRule BeyondThreeSigma = new("beyond-3s", window: 1, minimum: 1, sigma: 3.0, sameSide: false);
+    public static readonly SpcRule TwoOfThreeBeyondTwoSigma = new("two-of-three-2s", window: 3, minimum: 2, sigma: 2.0, sameSide: true);
+    public static readonly SpcRule FourOfFiveBeyondOneSigma = new("four-of-five-1s", window: 5, minimum: 4, sigma: 1.0, sameSide: true);
+    public static readonly SpcRule EightOnOneSide = new("eight-one-side", window: 8, minimum: 8, sigma: 0.0, sameSide: true);
+
+    public int Window { get; }
+    public int Minimum { get; }
+    public double Sigma { get; }
+    public bool SameSide { get; }
+}
+
 [SmartEnum<int>]
 public sealed partial class ControlConstant {
     public static readonly ControlConstant N2 = new(2, 1.880, 0.000, 3.267, 1.128);
@@ -95,23 +107,42 @@ public abstract partial record CapabilityDistribution {
     public abstract IContinuousDistribution Distribution { get; }
     public abstract double Mean { get; }
     public abstract double Sigma { get; }
+    public abstract double FitError { get; }
 
-    // Quantiles through the ONE verified inverse: the lognormal quantile is exp of the underlying normal quantile.
+    // Quantiles through the ONE verified inverse per family: the lognormal quantile is exp of the underlying normal quantile.
     public double Quantile(double p) =>
         this.Switch(
             normalFit: n => Normal.InvCDF(n.Mu, n.StdDev, p),
-            logNormalFit: l => Math.Exp(Normal.InvCDF(l.Mu, l.StdDev, p)));
+            logNormalFit: l => Math.Exp(Normal.InvCDF(l.Mu, l.StdDev, p)),
+            gammaFit: g => Gamma.InvCDF(g.Shape, g.Rate, p),
+            studentFit: s => StudentT.InvCDF(s.Location, s.Scale, s.Freedom, p));
 
-    public sealed record NormalFit(double Mu, double StdDev) : CapabilityDistribution {
+    public sealed record NormalFit(double Mu, double StdDev, double Error) : CapabilityDistribution {
         public override IContinuousDistribution Distribution => new Normal(Mu, StdDev);
         public override double Mean => Mu;
         public override double Sigma => StdDev;
+        public override double FitError => Error;
     }
 
-    public sealed record LogNormalFit(double Mu, double StdDev) : CapabilityDistribution {
+    public sealed record LogNormalFit(double Mu, double StdDev, double Error) : CapabilityDistribution {
         public override IContinuousDistribution Distribution => new LogNormal(Mu, StdDev);
         public override double Mean => Math.Exp(Mu + (StdDev * StdDev / 2.0));
         public override double Sigma => Math.Sqrt((Math.Exp(StdDev * StdDev) - 1.0) * Math.Exp((2.0 * Mu) + (StdDev * StdDev)));
+        public override double FitError => Error;
+    }
+
+    public sealed record GammaFit(double Shape, double Rate, double Error) : CapabilityDistribution {
+        public override IContinuousDistribution Distribution => new Gamma(Shape, Rate);
+        public override double Mean => Shape / Rate;
+        public override double Sigma => Math.Sqrt(Shape) / Rate;
+        public override double FitError => Error;
+    }
+
+    public sealed record StudentFit(double Location, double Scale, double Freedom, double Error) : CapabilityDistribution {
+        public override IContinuousDistribution Distribution => new StudentT(Location, Scale, Freedom);
+        public override double Mean => Location;
+        public override double Sigma => Scale * Math.Sqrt(Freedom / (Freedom - 2.0));
+        public override double FitError => Error;
     }
 }
 
@@ -125,6 +156,11 @@ public sealed record CapabilityTolerance(
     int SubgroupSize,
     int MonteCarloSamples,
     double TailProbability,
+    double Confidence,
+    double MeasurementUncertaintyMm,
+    int RandomSeed,
+    double CommonCorrelation,
+    Arr<double> Sensitivities,
     Seq<ComplianceRow> ProcedureEvidence,
     Instant At) {
     public double WidthMm => UpperSpecMm - LowerSpecMm;
@@ -155,21 +191,39 @@ public sealed record CapabilityMoment(double Mean, double WithinSigma, double Ov
 
 public sealed record CapabilityRow(CapabilityMetric Metric, double Value, double Demanded, bool Pass);
 
+public sealed record CapabilityInterval(CapabilityMetric Metric, double Lower, double Upper, double Confidence);
+
 public sealed record SpcLimitRow(SpcChart Chart, Instant At, double Center, double Lower, double Upper, int Violations);
+
+public sealed record SpcViolation(SpcRule Rule, int StartSubgroup, int EndSubgroup, double FurthestSigma);
 
 public sealed record DriftRow(double Intercept, double Slope);
 
-public sealed record StackupReceipt(ToleranceChain Chain, double AccumulatedMm, double RssMm, double BoundMm, bool Pass);
+public sealed record CapabilityDependence(double LagOneCorrelation, double EffectiveSampleSize, bool MeasurementSystemSuitable);
+
+public sealed record StackupReceipt(
+    ToleranceChain Chain,
+    double AccumulatedMm,
+    double RssMm,
+    double BoundMm,
+    int RandomSeed,
+    double CommonCorrelation,
+    Arr<double> Sensitivities,
+    bool Pass);
 
 public sealed record CapabilityReport(
     ProcessKind Process,
     ItGrade Grade,
     Seq<CapabilityRow> Rows,
+    Seq<CapabilityInterval> Intervals,
     Seq<SpcLimitRow> Limits,
+    Seq<SpcViolation> Violations,
     CapabilityDistribution Distribution,
+    CapabilityDependence Dependence,
     DriftRow Drift,
     StackupReceipt Stackup,
     Seq<ComplianceRow> ProcedureEvidence,
+    bool ProcedureQualified,
     CapabilityVerdict Verdict,
     Instant At) {
     // The natural process limits: the fitted ±3σ quantile pair — a projection, never stored state.
@@ -180,45 +234,84 @@ public sealed record CapabilityReport(
 public static class Capability {
     const double MovingRangeD2 = 1.128;
 
+    static readonly Op CapabilityOp = Op.Of(name: "fabrication:capability");
+
     // Assessment composes K17 residual evidence and the K18 summary fold; no local streaming-moment owner exists here.
+    // Demand admission rides the Op channel: OutOfRange carries the violating scalar, InvalidInput the structural shape.
     public static Fin<CapabilityReport> Assess(Seq<ResidualSample> samples, CapabilityTolerance tolerance) =>
-        from _1 in guard(tolerance.MonteCarloSamples >= 1,
-            GeometryFault.DegenerateInput($"capability:monte-carlo:{tolerance.MonteCarloSamples}").ToError()).ToFin()
+        from _ in Seq(
+            guard(double.IsFinite(tolerance.LowerSpecMm) && double.IsFinite(tolerance.UpperSpecMm) && tolerance.LowerSpecMm < tolerance.UpperSpecMm,
+                new Fault.OutOfRange("capability:spec-window", tolerance.UpperSpecMm - tolerance.LowerSpecMm, "finite width > 0", Some(CapabilityOp)) as Error).ToValidation(),
+            guard(tolerance.SubgroupSize >= 1,
+                new Fault.OutOfRange("capability:subgroup", tolerance.SubgroupSize, ">= 1", Some(CapabilityOp)) as Error).ToValidation(),
+            guard(tolerance.MonteCarloSamples >= 1,
+                new Fault.OutOfRange("capability:monte-carlo", tolerance.MonteCarloSamples, ">= 1", Some(CapabilityOp)) as Error).ToValidation(),
+            guard(double.IsFinite(tolerance.TailProbability) && tolerance.TailProbability is > 0.0 and < 0.5,
+                new Fault.OutOfRange("capability:tail", tolerance.TailProbability, "(0, 0.5)", Some(CapabilityOp)) as Error).ToValidation(),
+            guard(double.IsFinite(tolerance.Confidence) && tolerance.Confidence is > 0.0 and < 1.0,
+                new Fault.OutOfRange("capability:confidence", tolerance.Confidence, "(0, 1)", Some(CapabilityOp)) as Error).ToValidation(),
+            guard(double.IsFinite(tolerance.MeasurementUncertaintyMm) && tolerance.MeasurementUncertaintyMm >= 0.0,
+                new Fault.OutOfRange("capability:measurement-uncertainty", tolerance.MeasurementUncertaintyMm, "finite >= 0", Some(CapabilityOp)) as Error).ToValidation(),
+            guard(double.IsFinite(tolerance.CommonCorrelation) && tolerance.CommonCorrelation is >= 0.0 and < 1.0,
+                new Fault.OutOfRange("capability:correlation", tolerance.CommonCorrelation, "[0, 1)", Some(CapabilityOp)) as Error).ToValidation(),
+            guard(tolerance.Sensitivities.Count == tolerance.Chain.Frames.Count,
+                new Fault.OutOfRange("capability:sensitivity-arity", tolerance.Sensitivities.Count, "= chain frame count", Some(CapabilityOp)) as Error).ToValidation(),
+            guard(tolerance.Sensitivities.ForAll(static value => double.IsFinite(value) && value != 0.0),
+                CapabilityOp.InvalidInput()).ToValidation())
+            .Traverse(static validation => validation)
+            .As()
+            .ToFin()
         from series in Series(samples, tolerance.SubgroupSize)
         from moment in Moments(series, tolerance)
-        let fit = Fit(moment)
+        let fit = Fit(series, moment)
         from stackup in Stackup(tolerance, fit)
         let rows = Rows(moment, tolerance)
+        let dependence = Dependence(series, tolerance)
         let cpk = rows.Find(static r => r.Metric == CapabilityMetric.Cpk)
-        let verdict = new CapabilityVerdict(
-            cpk.Map(static r => r.Pass).IfNone(false) && tolerance.HeatInputQualified,
+        let limits = Limits(series, tolerance)
+        from verdict in CapabilityVerdict.Admit(
             cpk.Map(static r => r.Value).IfNone(0.0),
-            tolerance.Grade.Number)
+            tolerance.DemandedCpk,
+            tolerance.Grade.Number,
+            procedureQualified: tolerance.HeatInputQualified,
+            measurementSystemSuitable: dependence.MeasurementSystemSuitable)
         select new CapabilityReport(
             tolerance.Process,
             tolerance.Grade,
             rows,
-            Limits(series, tolerance),
+            Intervals(rows, dependence, tolerance.Confidence),
+            limits,
+            RunRules(series, moment, tolerance.SubgroupSize),
             fit,
+            dependence,
             Drift(series),
             stackup,
             tolerance.ProcedureEvidence,
+            tolerance.HeatInputQualified,
             verdict,
             tolerance.At);
 
-    // Gate projects the newest enrolled ledger row into owner#atoms. FAIL-CLOSED: a (process, grade-number) pair with
-    // no enrolled terminal report is a failing verdict — plan admission lowers it to CapabilityShortfall 2722, so no
-    // material is ever cut on absent capability evidence.
-    public static CapabilityVerdict Gate(ProcessKind process, ItGrade grade) =>
-        CapabilityHistory.Of(process, grade.Number).Match(
-            Some: row => new CapabilityVerdict(row.Cpk >= row.DemandedCpk, row.Cpk, grade.Number),
-            None: () => new CapabilityVerdict(Pass: false, Cpk: 0.0, grade.Number));
+    // Gate projects the newest input-carried row and fail-closes when no process/grade evidence exists; the
+    // verdict CARRIES its qualification evidence — an unqualified row keeps its true Cpk and fails Pass typed.
+    public static Fin<CapabilityVerdict> Gate(ProcessKind process, ItGrade grade, Seq<CapabilityHistory> history) =>
+        CapabilityHistory.Of(process, grade.Number, history).Match(
+            Some: row => CapabilityVerdict.Admit(
+                row.Cpk,
+                row.DemandedCpk,
+                grade.Number,
+                procedureQualified: row.ProcedureQualified,
+                measurementSystemSuitable: row.MeasurementSystemSuitable),
+            None: () => CapabilityVerdict.Admit(
+                cpk: 0.0, demandedCpk: double.MaxValue, demandedItGrade: grade.Number,
+                procedureQualified: false, measurementSystemSuitable: false));
 
-    // The tolerance side of the same ledger: the finest grade with passing enrolled evidence, lowered to millimetres
-    // at the queried diameter step — the derivation ToleranceZone.AchievableMm is input-carried FROM.
-    public static Option<double> Achievable(ProcessKind process, DiameterStep diameter) =>
-        CapabilityHistory.Rows
-            .Filter(row => row.Process == process && row.Cpk >= row.DemandedCpk)
+    // The tolerance side selects the finest passing grade and lowers it through the generated IT law.
+    public static Option<double> Achievable(ProcessKind process, DiameterStep diameter, Seq<CapabilityHistory> history) =>
+        history
+            .Filter(row => row.Process == process
+                && row.ProcedureQualified
+                && row.MeasurementSystemSuitable
+                && row.Cpk >= row.DemandedCpk)
             .Map(static row => row.GradeNumber)
             .OrderBy(static g => g).ToSeq().HeadOrNone()
             .Bind(g => ItToleranceLaw.Micrometers(g, diameter.GeometricMeanMm).ToOption())
@@ -226,10 +319,11 @@ public static class Capability {
 
     static Fin<CapabilitySeries> Series(Seq<ResidualSample> samples, int subgroupSize) {
         if (samples.IsEmpty)
-            return Fin.Fail<CapabilitySeries>(GeometryFault.DegenerateInput("capability:empty-sample").ToError());
+            return Fin.Fail<CapabilitySeries>(CapabilityOp.InvalidInput());
         // Lane admission: size 1 needs two samples for a moving range; any size must divide at least one subgroup.
-        if (subgroupSize < 1 || subgroupSize > samples.Count || (subgroupSize == 1 && samples.Count < 2))
-            return Fin.Fail<CapabilitySeries>(GeometryFault.DegenerateInput($"capability:subgroup-size:{subgroupSize}/{samples.Count}").ToError());
+        if (subgroupSize < 1 || subgroupSize > samples.Count || (subgroupSize == 1 && samples.Count < 2)
+            || (subgroupSize > 1 && samples.Count % subgroupSize != 0))
+            return Fin.Fail<CapabilitySeries>(new Fault.OutOfRange("capability:subgroup-size", subgroupSize, $"partitions {samples.Count} samples", Some(CapabilityOp)));
         Arr<double> residuals = samples.Map(static s => s.Distance).ToArr();
         if (subgroupSize == 1) {
             Arr<double> moving = toSeq(Enumerable.Range(1, residuals.Count - 1))
@@ -252,14 +346,17 @@ public static class Capability {
 
     // K18 owns the summary fold; the tolerance verdict stamps AFTER against the receipt's own extrema (the stats-page
     // law). Within sigma is the lane spread law — R̄/d₂, MR̄/1.128, or s̄/c4 — never the std dev OF the spreads.
-    static Fin<CapabilityMoment> Moments(CapabilitySeries series, CapabilityTolerance tolerance) =>
-        Stat.Of(series.ResidualMm.ToSeq(), Op.Of(name: "capability:residual"))
-            .Map(stat => stat with { Context = StatContext.Tolerance(tolerance.WidthMm / 2.0, stat.Minimum, stat.Maximum) })
-            .Map(stat => new CapabilityMoment(
-                stat.Mean,
+    static Fin<CapabilityMoment> Moments(CapabilitySeries series, CapabilityTolerance tolerance) {
+        Op key = Op.Of(name: "capability:residual");
+        return from stat in Stat.Of(series.ResidualMm.ToSeq(), key)
+               let stamped = stat with { Context = StatContext.Tolerance(tolerance.WidthMm / 2.0, stat.Minimum, stat.Maximum) }
+               from accepted in key.AcceptValue(value: stamped)
+               select new CapabilityMoment(
+                accepted.Mean,
                 WithinSigma(series, tolerance.SubgroupSize),
-                Math.Sqrt(stat.Variance),
-                stat.Minimum));
+                Math.Sqrt(accepted.Variance),
+                accepted.Minimum);
+    }
 
     static double WithinSigma(CapabilitySeries series, int subgroupSize) {
         double spread = series.SubgroupSpreadMm.Average();
@@ -270,15 +367,37 @@ public static class Capability {
         };
     }
 
-    // Fit selection by support: a residual series that never crosses zero fits lognormal; parameters moment-match
-    // (s² = ln(1+cv²), µ = ln(mean) − s²/2) so the fitted mean and sigma reproduce the sample moments.
-    static CapabilityDistribution Fit(CapabilityMoment moment) {
-        if (moment.Minimum < 0.0)
-            return new CapabilityDistribution.NormalFit(moment.Mean, moment.OverallSigma);
+    // Candidate space is data: normal plus a generated Student-t freedom ladder, the positive-support families
+    // (moment-matched lognormal and gamma) joining only when support admits them. The minimum empirical-CDF error
+    // selects the family; support never selects the family by itself.
+    static CapabilityDistribution Fit(CapabilitySeries series, CapabilityMoment moment) {
+        double sigma = double.Max(moment.OverallSigma, double.Epsilon);
+        Seq<CapabilityDistribution> candidates = Seq<CapabilityDistribution>(new CapabilityDistribution.NormalFit(moment.Mean, sigma, 0.0))
+            + Seq(3.0, 5.0, 10.0, 30.0).Map(freedom =>
+                (CapabilityDistribution)new CapabilityDistribution.StudentFit(moment.Mean, sigma * Math.Sqrt((freedom - 2.0) / freedom), freedom, 0.0));
+        if (moment.Minimum <= 0.0)
+            return candidates.Map(candidate => WithError(candidate, FitError(candidate, series.ResidualMm))).OrderBy(static candidate => candidate.FitError).Head;
         double mean = double.Max(moment.Mean, double.Epsilon);
         double cv = moment.OverallSigma / mean;
         double s = Math.Sqrt(Math.Log(1.0 + (cv * cv)));
-        return new CapabilityDistribution.LogNormalFit(Math.Log(mean) - (s * s / 2.0), s);
+        candidates = candidates
+            .Add(new CapabilityDistribution.LogNormalFit(Math.Log(mean) - (s * s / 2.0), s, 0.0))
+            .Add(new CapabilityDistribution.GammaFit((mean / sigma) * (mean / sigma), mean / (sigma * sigma), 0.0));
+        return candidates.Map(candidate => WithError(candidate, FitError(candidate, series.ResidualMm))).OrderBy(static candidate => candidate.FitError).Head;
+    }
+
+    static CapabilityDistribution WithError(CapabilityDistribution candidate, double error) =>
+        candidate.Switch(
+            normalFit: n => new CapabilityDistribution.NormalFit(n.Mu, n.StdDev, error),
+            logNormalFit: l => new CapabilityDistribution.LogNormalFit(l.Mu, l.StdDev, error),
+            gammaFit: g => new CapabilityDistribution.GammaFit(g.Shape, g.Rate, error),
+            studentFit: s => new CapabilityDistribution.StudentFit(s.Location, s.Scale, s.Freedom, error));
+
+    static double FitError(CapabilityDistribution candidate, Arr<double> values) {
+        Arr<double> ordered = values.OrderBy(static value => value).ToArr();
+        return toSeq(Enumerable.Range(0, ordered.Count))
+            .Map(index => Math.Abs(candidate.Distribution.CumulativeDistribution(ordered[index]) - ((index + 0.5) / ordered.Count)))
+            .Max();
     }
 
     static Seq<CapabilityRow> Rows(CapabilityMoment moment, CapabilityTolerance tolerance) =>
@@ -286,6 +405,34 @@ public static class Capability {
             double value = metric.Of(moment, tolerance);
             return new CapabilityRow(metric, value, tolerance.DemandedCpk, value >= tolerance.DemandedCpk);
         });
+
+    static CapabilityDependence Dependence(CapabilitySeries series, CapabilityTolerance tolerance) {
+        double correlation = series.ResidualMm.Count < 3
+            ? 0.0
+            : double.Clamp(
+                1.0 - Distance.Pearson(series.ResidualMm.SkipLast(1), series.ResidualMm.Skip(1)),
+                -0.99,
+                0.99);
+        double effective = double.Clamp(
+            series.ResidualMm.Count * (1.0 - correlation) / (1.0 + correlation),
+            2.0,
+            series.ResidualMm.Count);
+        return new CapabilityDependence(
+            correlation,
+            effective,
+            tolerance.MeasurementUncertaintyMm <= tolerance.WidthMm / 10.0);
+    }
+
+    static Seq<CapabilityInterval> Intervals(Seq<CapabilityRow> rows, CapabilityDependence dependence, double confidence) {
+        double z = Normal.InvCDF(0.0, 1.0, (1.0 + confidence) / 2.0);
+        double n = dependence.EffectiveSampleSize;
+        return rows.Map(row => {
+            double error = row.Metric.OneSided
+                ? Math.Sqrt((1.0 / (9.0 * n)) + ((row.Value * row.Value) / (2.0 * (n - 1.0))))
+                : row.Value / Math.Sqrt(2.0 * (n - 1.0));
+            return new CapabilityInterval(row.Metric, double.Max(0.0, row.Value - (z * error)), row.Value + (z * error), confidence);
+        });
+    }
 
     // One limit-row pair per lane; Violations is the beyond-limits census — the out-of-control verdict rides the row.
     static Seq<SpcLimitRow> Limits(CapabilitySeries series, CapabilityTolerance tolerance) {
@@ -303,6 +450,25 @@ public static class Capability {
             new SpcLimitRow(spread, tolerance.At, s, sLo, sHi, series.SubgroupSpreadMm.Count(v => v < sLo || v > sHi)));
     }
 
+    // Zone widths read the sigma of the PLOTTED statistic — subgroup means carry WithinSigma/√n, individuals
+    // WithinSigma — so the run rules and the Limits lane agree on where 1σ/2σ/3σ sit for the same report.
+    static Seq<SpcViolation> RunRules(CapabilitySeries series, CapabilityMoment moment, int subgroupSize) {
+        double chartSigma = double.Max(moment.WithinSigma / Math.Sqrt(subgroupSize), double.Epsilon);
+        return toSeq(SpcRule.Items).Bind(rule =>
+            toSeq(Enumerable.Range(0, int.Max(0, series.SubgroupMeanMm.Count - rule.Window + 1))).Choose(start => {
+                Arr<double> window = series.SubgroupMeanMm.Skip(start).Take(rule.Window).ToArr();
+                int positive = window.Count(value => value - moment.Mean > rule.Sigma * chartSigma);
+                int negative = window.Count(value => moment.Mean - value > rule.Sigma * chartSigma);
+                int breaches = rule.SameSide
+                    ? int.Max(positive, negative)
+                    : window.Count(value => Math.Abs(value - moment.Mean) > rule.Sigma * chartSigma);
+                double furthest = window.Map(value => Math.Abs(value - moment.Mean) / chartSigma).Max();
+                return breaches >= rule.Minimum
+                    ? Some(new SpcViolation(rule, start, start + rule.Window - 1, furthest))
+                    : Option<SpcViolation>.None;
+            }));
+    }
+
     static DriftRow Drift(CapabilitySeries series) {
         double[] x = Enumerable.Range(0, series.ResidualMm.Count).Select(i => (double)i).ToArray();
         double[] y = series.ResidualMm.ToArray();
@@ -314,42 +480,77 @@ public static class Capability {
     // summed, and read at the 1 − TailProbability order statistic; the analytic RSS rides the receipt as cross-check.
     static Fin<StackupReceipt> Stackup(CapabilityTolerance tolerance, CapabilityDistribution fit) {
         IContinuousDistribution distribution = fit.Distribution;
+        distribution.RandomSource = new Random(tolerance.RandomSeed);
         double sigma = double.Max(fit.Sigma, double.Epsilon);
         Arr<double> widths = tolerance.Chain.Frames.Map(static f => f.Zone.WidthMm).ToArr();
+        double commonScale = Math.Sqrt(tolerance.CommonCorrelation);
+        double independentScale = Math.Sqrt(1.0 - tolerance.CommonCorrelation);
         Arr<double> trials = toSeq(Enumerable.Range(0, tolerance.MonteCarloSamples))
-            .Map(_ => widths.Fold(0.0, (sum, w) => sum + (Math.Abs((distribution.Sample() - fit.Mean) / sigma) * w / 6.0)))
+            .Map(_ => {
+                double common = (distribution.Sample() - fit.Mean) / sigma;
+                double signed = toSeq(Enumerable.Range(0, widths.Count)).Fold(0.0, (sum, index) => {
+                    double independent = (distribution.Sample() - fit.Mean) / sigma;
+                    double correlated = (commonScale * common) + (independentScale * independent);
+                    return sum + (correlated * widths[index] * tolerance.Sensitivities[index] / 6.0);
+                });
+                return Math.Abs(signed);
+            })
             .OrderBy(static t => t).ToArr();
         double accumulated = trials[(int)Math.Ceiling((trials.Count - 1) * (1.0 - tolerance.TailProbability))];
-        double rss = 3.0 * Math.Sqrt(widths.Fold(0.0, static (a, w) => a + ((w / 6.0) * (w / 6.0))));
+        Arr<double> contributors = toSeq(Enumerable.Range(0, widths.Count))
+            .Map(index => widths[index] * tolerance.Sensitivities[index] / 6.0)
+            .ToArr();
+        double variance = toSeq(Enumerable.Range(0, contributors.Count)).Fold(0.0, (sum, i) =>
+            sum + (contributors[i] * contributors[i])
+            + (2.0 * tolerance.CommonCorrelation * toSeq(Enumerable.Range(i + 1, contributors.Count - i - 1))
+                .Fold(0.0, (covariance, j) => covariance + (contributors[i] * contributors[j]))));
+        double rss = 3.0 * Math.Sqrt(double.Max(0.0, variance));
         return accumulated <= tolerance.Chain.BoundMm
-            ? Fin.Succ(new StackupReceipt(tolerance.Chain, accumulated, rss, tolerance.Chain.BoundMm, Pass: true))
+            ? Fin.Succ(new StackupReceipt(
+                tolerance.Chain,
+                accumulated,
+                rss,
+                tolerance.Chain.BoundMm,
+                tolerance.RandomSeed,
+                tolerance.CommonCorrelation,
+                tolerance.Sensitivities,
+                Pass: true))
             : Fin.Fail<StackupReceipt>(FabricationFault.StackupExceeded(tolerance.Chain, accumulated, tolerance.Chain.BoundMm).ToError());
     }
 
-    // Shewhart S-lane constants generated, never rostered: c4 ≈ 4(n−1)/(4n−3), B3/B4 derive from it.
-    static double C4(int n) => 4.0 * (n - 1) / ((4.0 * n) - 3.0);
+    // Shewhart S-lane constants from the exact gamma ratio composed in the LOG domain: GammaLn keeps c4 finite for
+    // every admitted subgroup size where a raw Gamma(n/2) quotient overflows to NaN; B3/B4 derive from the same value.
+    static double C4(int n) =>
+        Math.Exp(SpecialFunctions.GammaLn(n / 2.0) - SpecialFunctions.GammaLn((n - 1.0) / 2.0)) / Math.Sqrt((n - 1.0) / 2.0);
     static double B3(int n) => Math.Max(0.0, 1.0 - (3.0 * Math.Sqrt(1.0 - (C4(n) * C4(n))) / C4(n)));
     static double B4(int n) => 1.0 + (3.0 * Math.Sqrt(1.0 - (C4(n) * C4(n))) / C4(n));
 }
 
-// The report-fed process-capability ledger: the owner#run Inspect arm enrolls every terminal report, so Gate and
-// Achievable read REAL history — never a seeded static table. Keyed by (process, grade NUMBER) so a demanded grade
-// re-derived with a different allowance factor still finds its evidence; newest row per pair wins.
-public sealed record CapabilityHistory(ProcessKind Process, int GradeNumber, double Cpk, double DemandedCpk, Instant At) {
-    static readonly Atom<Map<(ProcessKind, int), CapabilityHistory>> Ledger =
-        Atom(Map<(ProcessKind, int), CapabilityHistory>());
+// Durable-ledger projection carried into the pure capability fold. Enrollment and storage are orchestration effects;
+// this owner only resolves the newest row for the process/grade identity.
+public sealed record CapabilityHistory(
+    ProcessKind Process,
+    int GradeNumber,
+    double Cpk,
+    double DemandedCpk,
+    bool ProcedureQualified,
+    bool MeasurementSystemSuitable,
+    Instant At) {
+    public static Option<CapabilityHistory> From(CapabilityReport report) =>
+        report.Rows.Find(static row => row.Metric == CapabilityMetric.Cpk)
+            .Map(row => new CapabilityHistory(
+                report.Process,
+                report.Grade.Number,
+                row.Value,
+                row.Demanded,
+                report.ProcedureQualified,
+                report.Dependence.MeasurementSystemSuitable,
+                report.At));
 
-    internal static Seq<CapabilityHistory> Rows => toSeq(Ledger.Value.Values);
-
-    public static Option<CapabilityHistory> Of(ProcessKind process, int gradeNumber) =>
-        Ledger.Value.Find((process, gradeNumber));
-
-    public static Option<CapabilityHistory> Enroll(CapabilityReport report) =>
-        report.Rows.Find(static r => r.Metric == CapabilityMetric.Cpk).Map(cpk => {
-            CapabilityHistory row = new(report.Process, report.Grade.Number, cpk.Value, cpk.Demanded, report.At);
-            Ledger.Swap(rows => rows.AddOrUpdate((row.Process, row.GradeNumber), row));
-            return row;
-        });
+    public static Option<CapabilityHistory> Of(ProcessKind process, int gradeNumber, Seq<CapabilityHistory> history) =>
+        history.Filter(row => row.Process == process && row.GradeNumber == gradeNumber)
+            .OrderByDescending(static row => row.At)
+            .HeadOrNone();
 }
 ```
 
@@ -385,11 +586,11 @@ flowchart LR
     Residual["ResidualSample rows (K17 inspect evidence)"] -->|"Distance"| Assess["Capability.Assess"]
     Stat["Stat.Of + StatContext.Tolerance (K18)"] -->|"Fin&lt;Stat&gt;"| Assess
     Tol["CapabilityTolerance: grade + chain + heat-input rows"] -->|"demand"| Assess
-    Assess -->|"fit + InvCDF + Sample + Fit.Line"| MathNet["MathNet Normal/LogNormal"]
+    Assess -->|"fit + InvCDF + Sample + Fit.Line"| MathNet["MathNet Normal/LogNormal/Gamma/StudentT"]
     Assess -->|"I-MR · X-bar/R · X-bar/S"| Spc["lane limits + violation census"]
     Assess -->|"terminal"| Report["CapabilityReport rows + limits + stackup"]
     Assess -.->|"2729"| Stackup["FabricationFault.StackupExceeded"]
-    Report -->|"Inspect arm enrolls"| History["CapabilityHistory ledger (process, grade number)"]
+    Report -->|"CapabilityHistory.From"| History["durable-ledger projection (process, grade number)"]
     History -->|"newest row · fail-closed"| Gate["Capability.Gate"]
     History -->|"finest passing grade"| Achievable["Capability.Achievable → AchievableMm carry"]
     Gate -->|"leaf"| Verdict["CapabilityVerdict owner#atoms"]

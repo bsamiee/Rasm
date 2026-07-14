@@ -2816,7 +2816,8 @@
           "System.IO.Hashing": "[10.0.9, )",
           "System.Numerics.Tensors": "[10.0.9, )",
           "TYoshimura.DoubleDouble": "[5.0.8, )",
-          "Thinktecture.Runtime.Extensions": "[10.4.0, )"
+          "Thinktecture.Runtime.Extensions": "[10.4.0, )",
+          "Wacton.Unicolour": "[8.0.0, )"
         }
       },
       "rasm.apphost": {

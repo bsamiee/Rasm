@@ -2,7 +2,7 @@ export const meta = {
     name: 'ideate',
     whenToUse: 'Rebuild a folder IDEAS and TASK pool to world-class when the deferred idea or task pool is stale or thin.',
     description:
-        'Rebuild a folder IDEAS + TASKS card pool to world-class: survey the realized corpus and research the real domain, author the genuinely-deferred idea/task pool, then fix-in-place constructive critique + hostile adversarial redteam. Language-agnostic (cards are markdown governed by the card schema). Authors NO design pages (that is the rebuild-* workflows) and aligns nothing pre-existing for its own sake (that is align-cards) — this is the greenfield/expansion pool generator. Every agent call takes a slot in one agent-level scheduler so the true in-flight agent count stays at cap while all folder chains run concurrently; within a folder the survey -> ideate -> critique -> redteam chain holds because each stage consumes the prior stage\'s landed cards, and a folder above the survey page cap runs two page-slice survey agents whose maps merge before the ideate stage. Survey lanes (including the page-slice splits) run read-only on gpt-5.6-terra dispatched through sonnet codex wrappers (CODEX flag; false restores native opus); ideate and redteam stay fable writers, and critique runs as ONE gpt-5.6-sol codex lane per folder (workspace-write; cardlog to disk, receipt on the wire; the redteam reads it from disk as refutation targets and folds its verified files into the folder record). Every stage writes BOTH ends of every Ripple itself — a cross-folder counterpart is authored or repaired directly in the sibling folder\'s card files in the same pass under the current-state law; nothing routes to a later phase. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest, folded forward through the redteam and the orphan drain; one terminal doctrine lander then adjudicates the pooled harvest against the docs/laws admission bar (land-nothing legal) before the run closes. The terminal stays the single fold-forward orphan drain, not a round-based DRAIN LOOP: Ripples land both ends in-pass by design and the cardlog carries no {files, claim} backlog, so nothing pools across stages. args = optional scope (e.g. "libs/python/geometry"); empty = all of libs.',
+        "Rebuild a folder IDEAS + TASKS card pool to world-class: survey the realized corpus and research the real domain, author the genuinely-deferred idea/task pool, then fix-in-place constructive critique + hostile adversarial redteam. Language-agnostic (cards are markdown governed by the card schema). Authors NO design pages (that is the rebuild-* workflows) and aligns nothing pre-existing for its own sake (that is align-cards) — this is the greenfield/expansion pool generator. Every agent call takes a slot in one agent-level scheduler so the true in-flight agent count stays at cap while all folder chains run concurrently; within a folder the survey -> ideate -> critique -> redteam chain holds because each stage consumes the prior stage's landed cards, and a folder above the survey page cap runs two page-slice survey agents whose maps merge before the ideate stage. Survey lanes (including the page-slice splits) run read-only on gpt-5.6-terra dispatched through sonnet codex wrappers (CODEX flag; false restores native opus); ideate and redteam run opus writers, and critique runs as ONE gpt-5.6-sol codex lane per folder (workspace-write; cardlog to disk, receipt on the wire; the redteam reads it from disk as refutation targets and folds its verified files into the folder record). Every stage writes BOTH ends of every Ripple itself — a cross-folder counterpart is authored or repaired directly in the sibling folder's card files in the same pass under the current-state law; nothing routes to a later phase. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest, folded forward through the redteam and the orphan drain; the run's single fable seat is one terminal doctrine lander that adjudicates the pooled harvest against the docs/laws admission bar with full-repo authority (land-nothing legal) before the run closes. The terminal stays the single fold-forward orphan drain, not a round-based DRAIN LOOP: Ripples land both ends in-pass by design and the cardlog carries no {files, claim} backlog, so nothing pools across stages. args = optional scope (e.g. \"libs/python/geometry\"); empty = all of libs.",
     phases: [
         {
             title: 'Survey',
@@ -336,7 +336,7 @@ const run = (prompt, opts) => agent(prompt + '\n\n' + TLM(opts.label), opts);
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content to the lane report, and returns mechanical
 // orchestration data. Lane law rides developer-instructions (role split — recon law for read-only survey lanes, fix law for the in-place critique
 // lane); the prompt carries only the task; the output contract sits LAST. surveyPrompt/critiquePrompt feed codex-primary lanes and carry a neutral
-// register (a hostile stance makes codex over-probe); the native fable ideatePrompt/redteamPrompt keep the estate register — same substance.
+// register (a hostile stance makes codex over-probe); the native opus ideatePrompt/redteamPrompt keep the estate register — same substance.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const laneLaw = (schema, o) =>
     (o.fix
@@ -437,10 +437,10 @@ const codexPrompt = (label, task, schema, o) => {
     ].join('\n\n');
 };
 // Every codex-dispatched lane routes here: terra by default, sol where o.model says so; CODEX=false restores a fully native run. QUOTA FALLBACK: a
-// codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->fable,
+// codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->opus,
 // luna->sonnet) — the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the
 // ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
-const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus'); // native fallback twins; fable's ONE seat is the terminal doctrine lander, never a fallback
 const nativeLane = (task, o) =>
     agent(
         task +
@@ -677,7 +677,7 @@ const ideateFolder = async (u) => {
     const ideateOpts = (suffix) => ({
         label: 'ideate:' + nameOf(folder) + suffix,
         phase: 'Ideate',
-        model: 'fable',
+        model: 'opus',
         schema: CARDLOG_SCHEMA,
         effort: 'high',
         stallMs: STALL,
@@ -695,7 +695,7 @@ const ideateFolder = async (u) => {
             writes: true,
             fix: true,
             model: 'gpt-5.6-sol',
-            nativeModel: 'fable',
+            nativeModel: 'opus',
             clockMs: CRIT_CLOCK,
             scope: [folder],
             hl: { arr: 'files', group: '' },
@@ -708,7 +708,7 @@ const ideateFolder = async (u) => {
     const rtOpts = (suffix) => ({
         label: 'redteam:' + nameOf(folder) + suffix,
         phase: 'Redteam',
-        model: 'fable',
+        model: 'opus',
         schema: CARDLOG_SCHEMA,
         effort: 'high',
         stallMs: STALL,
@@ -765,7 +765,7 @@ const fireDrain = (suffix) =>
                 'files, beyondFolder, verdict. The critique `harvest` is NOT folded here: the doctrine lander reads every ' +
                 "critique cardlog's nominations directly from these same paths, so your `harvest` holds only nominations your " +
                 'own consolidation pass mints (usually none).',
-            { label: 'drain:orphans' + suffix, phase: 'Redteam', model: 'fable', effort: 'high', schema: CARDLOG_SCHEMA, stallMs: STALL },
+            { label: 'drain:orphans' + suffix, phase: 'Redteam', model: 'opus', effort: 'high', schema: CARDLOG_SCHEMA, stallMs: STALL },
         ),
     );
 const drained = ORPHANS.length ? (await fireDrain('')) || (await retryLane(() => fireDrain(':a1'))) : null;
@@ -792,8 +792,10 @@ log(
         JSON.stringify(verdicts) +
         (failed.length ? ' — FAILED (reported, run continues): ' + failed.join(', ') : ''),
 );
-// DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations from every landed cardlog
-// adjudicated against the live docs/laws surfaces; refutation-first, land-nothing legal. Fires only when non-empty.
+// DOCTRINE LANDER: the run's durable-learning terminal AND its ONE fable seat — full-repo authority over the live
+// docs/laws surfaces absorbs every residual, so the premium judgment spend concentrates where scope is widest; every
+// folder chain rides opus. Pooled harvest nominations from every landed cardlog adjudicated refutation-first against the
+// admission bar, land-nothing legal. Fires only when non-empty.
 const HARVEST_ROWS = complete.concat(folded).flatMap((r) => stages.flatMap((k) => (r.logs[k] && r.logs[k].harvest) || []));
 // The doctrine lander is the ONLY transport for the sol critique cardlogs' nominations — it reads each from its deterministic
 // path directly, so it fires whenever a critique cardlog exists (ORPHANS), even with no wire nominations and a dead drain.

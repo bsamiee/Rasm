@@ -46,6 +46,8 @@ The portable core is `name` and `description`; every other field is loader polic
 - [HOOKS]: `hooks` arms lifecycle hooks scoped to the skill's activation — they load with the skill and disarm on exit; hook craft is the hooks-builder skill.
 - [FORK]: `context: fork` runs the body in a forked subagent context, with `agent` choosing the subagent type — the skill becomes a dispatch instead of an in-context load. Fork demands an actionable task in the body; a guidelines-only body forked receives its guidelines with no prompt and returns nothing.
 - [ARGUMENTS]: `arguments` names positional slots and `argument-hint` supplies their autocomplete; `$ARGUMENTS`, `$ARGUMENTS[N]`, and `$N` substitute them into the body, and absent placeholders append the raw arguments after the body.
+- [SHELL]: `shell` selects the interpreter for `` !`command` `` pre-injection lines — `bash` by default, `powershell` under `CLAUDE_CODE_USE_POWERSHELL_TOOL=1`. An injection line runs before the body reaches the model and replaces itself with the command's output.
+- [SUBSTRATE]: The body addresses bundled files and scripts by `${CLAUDE_SKILL_DIR}/...`, which expands to the bundle directory; a bare relative path resolves against the session working directory, not the bundle, and breaks whenever the skill fires from elsewhere.
 
 Invocation policy resolves to one of three modes: model-invoked (listed description, autonomous selection), operator-invoked (`disable-model-invocation: true`, zero listing cost), or ambient (`user-invocable: false`, listed but never a command). The mode is chosen by who reliably remembers the skill exists and whether firing has side effects.
 

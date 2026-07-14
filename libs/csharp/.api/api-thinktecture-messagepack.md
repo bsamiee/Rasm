@@ -61,7 +61,6 @@
 
 [LOCAL_ADMISSION]:
 - A MessagePack wire profile registers one resolver chain. Per-type generated-owner formatters are derived by the resolver and cache, not hand-authored beside each value object or smart enum.
-- Keep the neuecc `MessagePack` engine catalogue in `api-messagepack.md`; this page owns only the Thinktecture bridge package.
 - A type carrying an explicit `[MessagePackFormatter]` is skipped by resolver policy so the explicit formatter remains the owner.
 
 [RAIL_LAW]:

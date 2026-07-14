@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The standing hostile PROSE + STRUCTURE rebuild for any libs/ planning corpus: pass target folders (a package folder, a branch, several, any language mix); it censuses each folder .planning pages + README/ARCHITECTURE, then per folder runs frame-recon -> reframe-writer -> critique -> red-team CONCURRENTLY, destroying imported frames and rebuilding every page template-true at the docgen bar while conserving ALL semantic content, then one terminal drain loop and a doctrine lander close the run.',
     description:
-        'The hostile prose/structure rebuild of planning corpora — the ANTI-ANCHORING engine, sibling to the rebuild engine on the prose dimension and sharing its substrate verbatim. Fence CODE bodies (signatures, types, cases, fields, bodies, design decisions) are UNTOUCHED surfaces; fence comments, section-divider grammar, page structure, README/ARCHITECTURE shape, seam representations, and every durable prose line are the territory. The prime mandate: an IMPORTED FRAME is the prime contaminant — a page wearing another corpus styling (a libs/ spec wearing docs/stacks card framing, a doc predating the docgen templates) poisons every future rebuild that reads it as context and inherits its shape; reframe destroys the frame, rebuilds the page template-true to its own file kind, and conserves ALL semantic content and law (capability conservation is absolute — it deletes noise and frames, never meaning). args = a target folder, an array of folders, or a targets object; empty = no-op; targets may MIX languages, each deriving its file-kind templates and casing from its own branch. Plan (1 sonnet) censuses the target folders into per-folder units with page counts. Per unit, a pipelined chain: (a) FRAME RECON — one gpt-5.6-terra codex lane (read-only, recon law) maps frame defects as FINDINGS never prescriptions — imported/cross-corpus frame poison, drift from the docgen README/ARCHITECTURE/spec templates, text seam-maps that should be mermaid, dead/no-op prose, comment-discipline violations inside fences, section-grammar violations (CLAUDE.md section 09), and the docgen defect classes (STALE_MIRROR, TWIN_TRUTH, META_FRAME, ENUMERATION_ANCHOR, REPORT_FRAME, hedges) — anchored, with coverage; (b) REFRAME WRITER — fable, ordered to load the docgen, skill-writer, and mermaid-diagramming skills BEFORE any edit, reading docs/standards/ (all four pages), the docgen templates, and docs/laws/ at source, then rebuilding README.md + ARCHITECTURE.md template-true (they predate the templates — full re-frame per docgen rewriting.md, never inheriting the source frame), converting text seam maps to one clean mermaid diagram, re-framing poisoned pages, culling dead prose, and repairing comment discipline inside fences WITHOUT touching fence code, running the docgen prose gate to zero FAILs; (c) SOL CRITIQUE — a gpt-5.6-sol codex lane (workspace-write, native-twin fable), predicate-positive conformance audit against the docgen register/templates/section grammar, fixing in place, fixlog to disk; (d) FABLE RED-TEAM — predicate-negative with fold-forward duty, hunting RESIDUAL ANCHORING (any page still carrying the old frame, poisoned styling, a stale mirror, twin truth) under the counterfactual: would a cold agent rebuilding from this page inherit poison? Close: pooled deferred rows drain through the terminal fable DRAIN LOOP; pooled harvest nominations route through the doctrine lander; orphaned critique fixlogs drain with the backlog. Nothing follows the drain.',
+        'The hostile prose/structure rebuild of planning corpora — the ANTI-ANCHORING engine, sibling to the rebuild engine on the prose dimension and sharing its substrate verbatim. Fence CODE bodies (signatures, types, cases, fields, bodies, design decisions) are UNTOUCHED surfaces; fence comments, section-divider grammar, page structure, README/ARCHITECTURE shape, seam representations, and every durable prose line are the territory. The prime mandate: an IMPORTED FRAME is the prime contaminant — a page wearing another corpus styling (a libs/ spec wearing docs/stacks card framing, a doc predating the docgen templates) poisons every future rebuild that reads it as context and inherits its shape; reframe destroys the frame, rebuilds the page template-true to its own file kind, and conserves ALL semantic content and law (capability conservation is absolute — it deletes noise and frames, never meaning). args = a target folder, an array of folders, or a targets object; empty = no-op; targets may MIX languages, each deriving its file-kind templates and casing from its own branch. Plan (1 sonnet) censuses the target folders into per-folder units with page counts. Per unit, a pipelined chain: (a) FRAME RECON — one gpt-5.6-terra codex lane (read-only, recon law) maps frame defects as FINDINGS never prescriptions — imported/cross-corpus frame poison, drift from the docgen README/ARCHITECTURE/spec templates, text seam-maps that should be mermaid, dead/no-op prose, comment-discipline violations inside fences, section-grammar violations (CLAUDE.md section 09), and the docgen defect classes (STALE_MIRROR, TWIN_TRUTH, META_FRAME, ENUMERATION_ANCHOR, REPORT_FRAME, hedges) — anchored, with coverage; (b) REFRAME WRITER — opus, ordered to load the docgen, skill-writer, and mermaid-diagramming skills BEFORE any edit, reading docs/standards/ (all four pages), the docgen templates, and docs/laws/ at source, then rebuilding README.md + ARCHITECTURE.md template-true (they predate the templates — full re-frame per docgen rewriting.md, never inheriting the source frame), converting text seam maps to one clean mermaid diagram, re-framing poisoned pages, culling dead prose, and repairing comment discipline inside fences WITHOUT touching fence code, running the docgen prose gate to zero FAILs; (c) SOL CRITIQUE — a gpt-5.6-sol codex lane (workspace-write, native-twin opus), predicate-positive conformance audit against the docgen register/templates/section grammar, fixing in place, fixlog to disk; (d) RED-TEAM — opus, predicate-negative with fold-forward duty, hunting RESIDUAL ANCHORING (any page still carrying the old frame, poisoned styling, a stale mirror, twin truth) under the counterfactual: would a cold agent rebuilding from this page inherit poison? Close: pooled deferred rows drain through the terminal fable DRAIN LOOP (the run ONE fable seat, full-repo authority); pooled harvest nominations route through the doctrine lander; orphaned critique fixlogs drain with the backlog. Nothing follows the drain.',
     phases: [
         {
             title: 'Plan',
@@ -12,7 +12,7 @@ export const meta = {
         },
         {
             title: 'Reframe',
-            detail: 'all folder units concurrent under the agent-level slot cap: per unit a gpt-5.6-terra frame-recon lane (read-only) then reframe-writer (fable), critique (gpt-5.6-sol codex lane, fixlog to disk), red-team (fable, folding the critique rows forward) chained behind their own unit; navigation-fact handoffs, libs-wide bounded ripple authority',
+            detail: 'all folder units concurrent under the agent-level slot cap: per unit a gpt-5.6-terra frame-recon lane (read-only) then reframe-writer (opus), critique (gpt-5.6-sol codex lane, fixlog to disk), red-team (opus, folding the critique rows forward) chained behind their own unit; navigation-fact handoffs, libs-wide bounded ripple authority',
         },
         {
             title: 'Close',
@@ -32,7 +32,7 @@ const RETRY_BACKOFFS = [60000, 1800000]; // agent() returns null causeless, so t
 const WRAPPER_STALL = 1500000; // stallMs never observes a live blocking MCP call (run-proven: a 43-min blocked wrapper under a 25-min stall survived) — this guards only out-of-call wrapper wedges; the watchdog clocks below are the binding bound
 const LANE_CLOCK = 2700000; // codex-lane wall-clock watchdog (~2.5x the frame-recon read median): a nested-call wedge inside codex otherwise holds the slot to the session MCP ceiling
 const CRIT_CLOCK = 4500000; // sol-critique watchdog: a full conformance audit plus fixes over a dense folder legitimately runs long; the ceiling exists for wedges, never depth
-const CODEX = true; // frame-recon + critique lanes run on gpt-5.6 via the codex wrapper; false restores native lanes (terra->opus, sol->fable)
+const CODEX = true; // frame-recon + critique lanes run on gpt-5.6 via the codex wrapper; false restores native lanes (terra->opus, sol->opus)
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -721,10 +721,10 @@ const codexPrompt = (label, task, schema, o) => {
     ].join('\n\n');
 };
 // Every codex-dispatched lane routes here: terra by default, sol where o.model says so; CODEX=false restores a native run. QUOTA FALLBACK: a codex
-// receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->fable,
+// receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus, sol->opus,
 // luna->sonnet); the caller owns re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR so
 // a failed lane's unmapped territory is exact even when the lane died before writing anything.
-const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus'); // native fallback twins; fable's ONE seat is the terminal fixer, never a fallback
 const nativeLane = (task, o) =>
     agent(
         task +
@@ -1100,8 +1100,8 @@ const processUnit = async (u) => {
     const framed = frame && frame.ok ? frame : null;
     const unmapped = framed ? [] : [{ lane: 'frame:' + tag, scope: u.folder }];
     if (!framed) log(tag + ' — frame recon did not land; writer cold-reads the frame');
-    // (b) reframe writer: fable authors the ground-up template-true rebuild in place; a dead critical writer earns bounded re-dispatch.
-    const wopt = (label) => ({ label, phase: 'Reframe', model: 'fable', effort: 'high', schema: REFRAME_LOG, stallMs: STALL });
+    // (b) reframe writer: opus authors the ground-up template-true rebuild in place; a dead critical writer earns bounded re-dispatch.
+    const wopt = (label) => ({ label, phase: 'Reframe', model: 'opus', effort: 'high', schema: REFRAME_LOG, stallMs: STALL });
     const fix =
         (await slot(() => run(writerPrompt(L, u, framed, unmapped), wopt('reframe:' + tag)))) ||
         (await retryLane(() => slot(() => run(writerPrompt(L, u, framed, unmapped), wopt('reframe:' + tag + ':r1')))));
@@ -1120,15 +1120,15 @@ const processUnit = async (u) => {
             writes: true,
             fix: true,
             model: 'gpt-5.6-sol',
-            nativeModel: 'fable',
+            nativeModel: 'opus',
             clockMs: CRIT_CLOCK,
             scope: [u.folder],
             hl: { arr: 'files' },
         }),
     );
     const critR = crit && crit.ok ? crit : null;
-    // (d) fable red-team: predicate-negative, folds the critique fixlog`s operational rows forward; terminal stage of the unit chain.
-    const ropt = (label) => ({ label, phase: 'Reframe', model: 'fable', effort: 'high', schema: REVIEW_LOG, stallMs: STALL });
+    // (d) opus red-team: predicate-negative, folds the critique fixlog`s operational rows forward; terminal stage of the unit chain.
+    const ropt = (label) => ({ label, phase: 'Reframe', model: 'opus', effort: 'high', schema: REVIEW_LOG, stallMs: STALL });
     const rt =
         (await slot(() => run(redteamPrompt(L, u, framed, unmapped, nav, critR, critReport), ropt('rt:' + tag)))) ||
         (await retryLane(() => slot(() => run(redteamPrompt(L, u, framed, unmapped, nav, critR, critReport), ropt('rt:' + tag + ':r1')))));
@@ -1198,8 +1198,9 @@ if (!LANDED.length) {
 
 phase('Close');
 const LANDED_LANGS = [...new Set(LANDED.map((f) => langOf(f)).filter(Boolean))];
-// Terminal DRAIN LOOP: one serial fable closer per round takes the residual set, verifies every row against live disk (freshness is
-// its duty — no concurrent writers, no collisions), fixes at root, and loops until empty; a round without shrinkage stops with the
+// Terminal DRAIN LOOP: the run's ONE fable seat — full-repo authority absorbs every residual, so the premium judgment concentrates where
+// scope is widest; every unit-chain and doctrine lane rides opus/sol. One serial fable closer per round takes the residual set, verifies
+// every row against live disk (freshness is its duty — no concurrent writers, no collisions), fixes at root, and loops until empty; a round without shrinkage stops with the
 // blocked set final. Every round re-receives the FULL tranche set (index rows, orphan fixlogs, backlog): the checkpoint ledger is the
 // consumption truth, so a dead or partial round loses nothing and a live one skips what it already receipted — only the backlog narrows.
 let fixer = null;
@@ -1237,7 +1238,7 @@ const doctrine =
               run(doctrinePrompt(POOLED_HARVEST, ORPHANS), {
                   label: 'doctrine',
                   phase: 'Close',
-                  model: 'fable',
+                  model: 'opus',
                   effort: 'high',
                   schema: DOCTRINE_SCHEMA,
                   stallMs: STALL,

@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The standing RESEARCH-row resolution pass for any libs/ planning corpus: pass folder targets (sub-folder / package root, any number, any language mix); it censuses every research row as an epistemic-debt entry, clusters the debts by verification route, verifies each at its route, then bakes confirmed spellings and DELETES resolved rows, sharpens the unresolvable, and closes with a critique/red-team chain, a deferred drain, and one doctrine landing.',
     description:
-        'RESEARCH-row resolution engine over libs/{csharp,python,typescript} planning corpora. args = a folder target, an array of folder paths, or a targets object; empty = no-op. A research row is a writer epistemic debt — an exact question plus its verification route, recorded instead of a guessed member spelling. Census (terra codex, read-only) reads every page under the targets and extracts each research row (the C# [NN]-[RESEARCH] section entries, the inline RESEARCH re-verify rows, and the version-blocked capability rows) as an anchored {page, anchor, question, route, routeFamily, routeKey, symbols} entry with coverage; one lane per folder, large folders split by page count. Cluster (plain orchestrator code, no agent) groups the entries by verification route family — same host DLL, package, .api catalog, or doc source. Verify runs one lane per cluster, the route deciding the lane: assay-decompile clusters run NATIVE (a read-only codex sandbox cannot run uv/tools.assay, so they are native by construction); .api catalog and doc-file clusters ride terra codex lanes reading the catalogs; external-doc clusters run a native Context7 lane; each writes {question, page, anchor, verdict, evidence, spelling} verdicts to disk. Apply (one fable writer per folder, pipelined) reads the folder verdicts plus the pages, bakes each confirmed spelling into its fence, corrects each refuted assumption at its root, DELETES each resolved research row entirely (no tombstones, no resolved notes), and SHARPENS each unresolvable row in place with a better question and route; docgen loads before durable prose edits, the prose gate returns zero FAILs, and the fixlog carries harvest. A sol critique (codex, fix, fable twin) then a fable red-team fold-forward per the chain law attack a baked spelling not actually verified, a deleted row whose fact never landed in the fence, and a surviving row that verification already answered. Close: a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one doctrine lander over the pooled harvest.',
+        'RESEARCH-row resolution engine over libs/{csharp,python,typescript} planning corpora. args = a folder target, an array of folder paths, or a targets object; empty = no-op. A research row is a writer epistemic debt — an exact question plus its verification route, recorded instead of a guessed member spelling. Census (terra codex, read-only) reads every page under the targets and extracts each research row (the C# [NN]-[RESEARCH] section entries, the inline RESEARCH re-verify rows, and the version-blocked capability rows) as an anchored {page, anchor, question, route, routeFamily, routeKey, symbols} entry with coverage; one lane per folder, large folders split by page count. Cluster (plain orchestrator code, no agent) groups the entries by verification route family — same host DLL, package, .api catalog, or doc source. Verify runs one lane per cluster, the route deciding the lane: assay-decompile clusters run NATIVE (a read-only codex sandbox cannot run uv/tools.assay, so they are native by construction); .api catalog and doc-file clusters ride terra codex lanes reading the catalogs; external-doc clusters run a native Context7 lane; each writes {question, page, anchor, verdict, evidence, spelling} verdicts to disk. Apply (one opus writer per folder, pipelined) reads the folder verdicts plus the pages, bakes each confirmed spelling into its fence, corrects each refuted assumption at its root, DELETES each resolved research row entirely (no tombstones, no resolved notes), and SHARPENS each unresolvable row in place with a better question and route; docgen loads before durable prose edits, the prose gate returns zero FAILs, and the fixlog carries harvest. A sol critique (codex, fix, opus twin) then an opus red-team fold-forward per the chain law attack a baked spelling not actually verified, a deleted row whose fact never landed in the fence, and a surviving row that verification already answered. Close: a fable drain loop — the one fable seat of the run, full-repo authority absorbing every residual — over the pooled deferred backlog and orphaned critique fixlogs, then one opus doctrine lander over the pooled harvest.',
     phases: [
         {
             title: 'Discover',
@@ -20,11 +20,11 @@ export const meta = {
         },
         {
             title: 'Apply',
-            detail: 'per folder pipelined: fable bakes confirmed spellings, corrects refuted assumptions, DELETES resolved rows, sharpens the unresolvable; then a sol critique and a fable red-team fold-forward per the chain law',
+            detail: 'per folder pipelined: opus bakes confirmed spellings, corrects refuted assumptions, DELETES resolved rows, sharpens the unresolvable; then a sol critique and an opus red-team fold-forward per the chain law',
         },
         {
             title: 'Close',
-            detail: 'a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one fable doctrine lander over the pooled harvest',
+            detail: 'a fable drain loop (the one fable seat) over the pooled deferred backlog and orphaned critique fixlogs, then one opus doctrine lander over the pooled harvest',
         },
     ],
 };
@@ -582,9 +582,9 @@ const codexPrompt = (label, task, schema, o) => {
 };
 // Every codex-dispatched receipt lane routes here: terra by default, sol where o.model says so; CODEX=false restores
 // a fully native run. QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME
-// task natively at the role Claude twin (terra->opus, sol->fable, luna->sonnet). The roster row carries `scope` from
+// task natively at the role Claude twin (terra->opus, sol->opus, luna->sonnet). The roster row carries `scope` from
 // the ORCHESTRATOR so a failed lane unmapped territory is exact even when the lane died before writing anything.
-const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus'); // native fallback twins; fable's ONE seat is the terminal fixer, never a fallback
 const nativeLane = (task, o) =>
     run(
         task +
@@ -1018,7 +1018,7 @@ const verifyPrompt = (L, cluster, reg) =>
             'confirmed without the route output in `evidence`; an unrun route is `unresolvable`, never an optimistic confirm.',
     ].join('\n\n');
 
-// reg selects STANCE by the EXECUTING model: apply + red-team run native fable ('claude'), the sol critique runs codex ('codex').
+// reg selects STANCE by the EXECUTING model: apply + red-team run native opus ('claude'), the sol critique runs codex ('codex').
 const applyPreamble = (L, folder, scopes, reg) => [
     CONTEXT(L),
     STANCE(L, reg),
@@ -1360,7 +1360,7 @@ const built = (
                 const applyOpts = (suffix) => ({
                     label: 'apply:' + tag + suffix,
                     phase: 'Apply',
-                    model: 'fable',
+                    model: 'opus',
                     effort: 'high',
                     schema: FIXLOG_SCHEMA,
                     stallMs: STALL,
@@ -1379,7 +1379,7 @@ const built = (
                         writes: true,
                         fix: true,
                         model: 'gpt-5.6-sol',
-                        nativeModel: 'fable',
+                        nativeModel: 'opus',
                         clockMs: CRIT_CLOCK,
                         scope: [...new Set(folderEntries.map((e) => e.page))],
                         hl: { arr: 'files' },
@@ -1393,7 +1393,7 @@ const built = (
                 const rtOpts = (suffix) => ({
                     label: 'rt:' + tag + suffix,
                     phase: 'Apply',
-                    model: 'fable',
+                    model: 'opus',
                     effort: 'high',
                     schema: REVIEW_SCHEMA,
                     stallMs: STALL,
@@ -1440,7 +1440,9 @@ if (!RESOLVED.length) {
 
 phase('Close');
 const RESOLVED_LANGS = [...new Set(RESOLVED.map((f) => langOf(f)).filter(Boolean))];
-// Terminal DRAIN LOOP: one serial fable closer per round verifies every row against live disk, fixes at root, loops until
+// Terminal DRAIN LOOP: the run's ONE fable seat — full-repo authority absorbs every residual, so the premium judgment spend
+// concentrates where scope is widest; every apply, critique, and red-team lane rides opus/sol. One serial fable closer per
+// round verifies every row against live disk, fixes at root, loops until
 // empty; a round without shrinkage stops with the blocked set final. Every round re-receives the FULL tranche set — index
 // rows, orphan fixlogs, and the residual backlog — because the checkpoint ledger receipts consumption, so a dead or partial
 // round loses nothing and a live one skips what it already landed; only the backlog narrows round over round.
@@ -1498,7 +1500,7 @@ const doctrine =
                       'whose coupling no longer holds, land a coupling this run proved.\n' +
                       'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
                       'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-                  { label: 'doctrine', phase: 'Close', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+                  { label: 'doctrine', phase: 'Close', model: 'opus', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
               ),
           )
         : null;

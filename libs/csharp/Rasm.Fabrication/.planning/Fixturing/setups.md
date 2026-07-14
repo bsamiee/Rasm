@@ -1,25 +1,27 @@
 # [RASM_FABRICATION_SETUPS]
 
-The setup scheduler owns reorientation planning across fixtures, datum lineage, WCS assignment, reach admission, and current-stock clamp safety. `Setup.Schedule<TOp>(Seq<TOp>, SchedulePolicy<TOp>) → Fin<SetupSchedule>` folds operation precedence and datum dependencies into one QuikGraph DAG, searches legal operation-to-setup partitions under machine axis reach and fixture keep-out clearance with a genuine best-cost pruning bound, assigns each setup to the dialect WCS roster, and emits the typed setup plan that posting renders, probing datums consume, traveler pages carry, and derivation composes during the setup/assembly stage. The scheduler is GENERIC over the operation element: `TOp` is the caller's operation INSTANCE type and every discriminant — identity key, predecessors, datum sources, fixture, axis demand, reach probes, guard, compatibility, frame, score — is a `SchedulePolicy<TOp>` delegate column, so the 4-row `Process/physics` `Operation` kind vocabulary never caps the scheduler at kind granularity (N pockets are N instances under the caller's key, never one collapsed vertex), and the operation-instance vocabulary lands as a caller-side `TOp` with zero scheduler edits. Identity is caller-owned and STABLE: the `Key` delegate is a required constructor argument on every policy including `Direct` — a process-randomized `string.GetHashCode` identity is the deleted form, because the key indexes the operation dictionary and the precedence graph and must survive process restarts.
+`Setup.Schedule<TOp>` is the reorientation, datum-lineage, work-offset, reach, fixture, and objective owner. The caller supplies stable operation identity and every operation-specific projection through `SchedulePolicy<TOp>`; the scheduler never collapses physical operation instances into an operation-kind vocabulary.
 
-A setup is a physical reorientation, so `Setup` carries its 6-DOF part-to-machine `Plane Frame` beside the fixture, datum, and reachable-op set — the geometric fact that lets posting emit offset VALUES rather than a bare WCS index, gives probing's datum reconciliation a nominal frame to correct against, and lets per-setup stock snapshots transform between orientations; the policy's `Frame` column supplies it when a new setup opens. Clamp-on-machined-face admission composes the ONE published `Workholding.MachinedHit` witness — the setups-local vertex-or-edge re-derivation is the deleted weaker-witness form — and reach admission composes `Workholding.Clears` per policy reach segment. Datum lineage across machining flips is THIS page's law (`DatumLineageBroken` 2726); assembly's join cycle stays 2737 — two lineage laws, two owners.
+`Setup` carries its part-to-machine `Plane`, fixture, datum, work-offset slot, and operation keys. Candidate admission accumulates machine compatibility, typed kinematic evidence, guard evidence, workholding equilibrium, corridor clearance, and machined-stock evidence into `SetupEvidence`. `SetupDecision` records whether a candidate extends an existing setup or opens a new one and preserves the evidence that justified the branch.
 
-Wire posture: HOST-LOCAL. `SetupSchedule` crosses only in-process seams — `Posting/program` composes `Setup.Schedule` for its WCS prologue rows, `Documentation/traveler` carries the plan rows, `Process/derivation` lowers its setup stage here; no type on this page sits between wire and rail.
+The search uses a real lower bound: each state carries committed cost and remaining `LowerBound` values, and both objective pruning and candidate physical infeasibility return `None` rather than manufacturing a domain fault. A rejected existing setup therefore cannot prevent the same branch from opening a new setup. A complete solution records both searched cost and proven lower-bound evidence. WCS assignment consumes an explicit `WcsSlots` roster; it never derives controller syntax from an ordinal.
+
+Wire posture: HOST-LOCAL. `SetupSchedule` crosses only in-process posting, probing, derivation, and documentation seams.
 
 ## [01]-[INDEX]
 
-- [01]-[SETUP_SCHEDULER]: owns `Setup` as the complex value object with its part-to-machine frame, the WCS roster assignment rows, the setup-chain datum lineage payload, the QuikGraph precedence/reachability fold, the bounded branch-and-bound setup partition, and the one generic `Setup.Schedule` entry.
+- [01]-[SETUP_SCHEDULER]: owns stable operation identity, lineage validation, typed candidate admission, bounded setup partitioning, WCS allocation, decisions, and proof-bearing schedule receipts.
 
 ## [02]-[SETUP_SCHEDULER]
 
-- Owner: `Setup` `[ComplexValueObject]` owns the fixture, the part-to-machine `Frame`, the WCS datum, and the reachable operation key set for one reorientation; `WcsFamily`/`WcsSlot` owns dialect-roster assignment; `WcsDatum` owns setup index, slot, anchor operation, and lineage producers; `SetupChain` owns the datum-lineage diagnostic payload; `SchedulePolicy<TOp>` owns machine, dialect, and the ten operation-instance delegate columns; `ScheduleState` the search accumulator; `SetupSchedule` owns the receipt including the searched objective cost.
-- Cases: `WcsFamily` rows 2 — `base` for G54-G59.x slots and `extended` for G54.1-Pn/G154/G505 roster slots; graph edge families 2 — operation precedence and datum lineage; placement cases 2 — extend an existing compatible setup or open a new setup with its policy-supplied frame; failures 3 — `SetupInfeasible` 2717 for axis/reach/guard/WCS exhaustion, `DatumLineageBroken` 2726 for cycles or undatumed references, `ClampOnMachinedFace` 2727 for op-N fixtures landing on op-N-1 machined stock (the witness vertex from `Workholding.MachinedHit`).
-- Entry: `public static Fin<SetupSchedule> Schedule<TOp>(Seq<TOp> operations, SchedulePolicy<TOp> policy)` — the one scheduler fold: build graph → DAG gate → datum reachability gate → source-first operation order → bounded branch-and-bound setup partition → WCS assignment → transitive reduction receipt.
-- Auto: `Build` folds every operation key into a `BidirectionalGraph<int, SEdge<int>>` and adds `Predecessors(op) → op` plus `DatumSources(op) → op`; `CheckLineage` rejects non-DAG graphs with `DatumLineageBroken(SetupChain)` and verifies each declared source reaches its consumer through `TreeBreadthFirstSearch`; the Kahn order is `SourceFirstBidirectionalTopologicalSort` — the catalogued bidirectional-graph member, never the edge-list `SourceFirstTopologicalSort` on the wrong receiver; `Search` owns the NP-hard partition half, enumerating existing-setup and new-setup placements with the best-so-far cost as a PRUNING BOUND — a partial state whose accumulated cost already meets the incumbent is cut before recursion, the bound the prose always promised and the body now carries; `Admit` checks `Machine.AxisCount`, folds `Workholding.Clears` over the policy reach segments, applies the policy guard, and gates the current `StockSnapshot` through `Workholding.MachinedHit` on the `Fin` rail; `WcsSlot.Of` binds setup k against `PostDialect.Wcs.Total`. Admission gates stay first-fault by design: inside the search interior a refusal PRUNES a branch, so accumulating every independent violation would spend the search budget decorating states the bound discards.
-- Receipt: `SetupSchedule` carries the ordered `Setup` rows (each with its frame), setup-to-WCS assignment rows, the reduced operation precedence pairs, and the searched `Cost`; posting renders assigned rows and offset values off the frames, probing consumes datum anchors and nominal frames, traveler consumes the plan, derivation composes the receipt, and no schedule timestamp or program block rides this page.
-- Packages: QuikGraph (`BidirectionalGraph`/`SEdge`, `AlgorithmExtensions` `IsDirectedAcyclicGraph`/`SourceFirstBidirectionalTopologicalSort`/`TreeBreadthFirstSearch`/`ComputeTransitiveReduction`), `Process/owner#FABRICATION_OWNER` (`StockSnapshot`/`Edge3`), `Process/family#PROCESS_FAMILY` (`Machine.AxisCount`, `PostDialect.Wcs`), `Fixturing/workholding#WORKHOLDING` (`Fixture`/`Workholding.Clears`/`Workholding.MachinedHit`), `Process/faults#FAULT_BAND` (2717/2726/2727), Rhino.Geometry (`Plane`), Thinktecture, LanguageExt.Core, BCL inbox.
+- Owner: `Setup` owns one physical orientation; `WcsSlot` and `WcsDatum` own controller allocation; `KinematicReceipt`, `SetupEvidence`, and `SetupDecision` own admission proof; `SchedulePolicy<TOp>` owns every caller-supplied discriminant and policy value; `ScheduleState` owns search state; `SetupSchedule` owns the final proof.
+- Cases: placement extends an admissible existing setup or opens an admissible new setup. Graph edges carry operation precedence or datum lineage. `SetupInfeasible`, `DatumLineageBroken`, and `ClampOnMachinedFace` remain distinct typed failures.
+- Entry: `Schedule<TOp>(Seq<TOp>, SchedulePolicy<TOp>) -> Fin<SetupSchedule>` validates identity and policy before any dictionary construction, validates lineage, orders operations, searches partitions, allocates WCS rows, and emits the reduced precedence proof.
+- Auto: QuikGraph owns DAG admission, source-first order, strongly connected cycle evidence, and transitive reduction. `Admit` retains compatibility, reach, load, holding, clearance, guard, and machined-hit evidence after their boundary operations succeed; a clamp-free setup carries `Option.None` holding, never a synthesized infinite capacity. `Search` carries `Option<ScheduleState>` for ordinary branch pruning and `Fin` only for domain or boundary failure, and an operation never lands earlier than the setups its precedence and datum sources occupy.
+- Receipt: `SetupSchedule` carries ordered setups, WCS assignments, reduced precedence, per-operation decisions and evidence, objective cost, and proven lower bound.
+- Packages: `Rasm`, `RhinoCommon`, `QuikGraph`, `Thinktecture.Runtime.Extensions`, and `LanguageExt.Core`.
 - Growth: a new setup objective is one `SchedulePolicy.Score` term; a new datum law is one graph edge-family fold; a new reach window is one `ReachSegments` projection; a new controller offset roster remains one `PostDialect.Wcs` row and no posting fallback; the operation-instance vocabulary lands as the caller's `TOp` with a real key — zero scheduler edits.
-- Boundary: setup scheduling lives here and a posting-side default WCS assignment is the deleted form; datum lineage lives here and an assembly precedence cycle is still `AssemblyPrecedenceCyclic` 2737; magazine eviction stays magazine-owned and never enters the setup partition; the clamp-on-machined-face verdict is `Workholding.MachinedHit` and a setups-local vertex/edge re-derivation is the deleted weaker-witness form; a hand-rolled topological sort, a raw WCS string row, a hash-derived operation identity, or a second fixture keep-out solver is the deleted form; the QuikGraph builder mutations (`AddVertexRange`/`AddVerticesAndEdge`) are the page's named platform-forced statement seam — the graph container is imperative by construction — and every non-graph body is expression-shaped.
+- Boundary: caller identity must be stable and collision-free; policy validation precedes dictionary or graph admission; search pruning is not a fault; WCS values come from the carried roster; workholding and kinematic receipts remain typed; and no posting-side default or setup-local geometry solver exists.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -43,8 +45,6 @@ public sealed partial class WcsFamily {
     public static readonly WcsFamily Extended = new("extended");
 }
 
-public readonly record struct SetupPlacement(Option<int> Existing);
-
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 public readonly record struct WcsSlot(WcsFamily Family, int Ordinal) {
     public static Fin<WcsSlot> Of(int setup, PostDialect dialect, int operation) =>
@@ -59,24 +59,72 @@ public readonly record struct WcsDatum(int Setup, WcsSlot Slot, int AnchorOperat
 
 public sealed record SetupChain(Seq<int> Operations, Seq<(int Before, int After)> Lineage);
 
+public readonly record struct KinematicReceipt(Arr<double> Axes, double JacobianCondition, double ClearanceMm) {
+    public bool Reachable => Axes.Count > 0 && Axes.ForAll(double.IsFinite) && double.IsFinite(JacobianCondition) && JacobianCondition > 0.0 &&
+        double.IsFinite(ClearanceMm) && ClearanceMm >= 0.0;
+}
+
+// Holding is Option-carried: None states a clamp-free setup where holding equilibrium is INAPPLICABLE — a minted
+// infinite-capacity receipt was the rejected fiction that let a physically unconstrained setup read as proven.
+public readonly record struct SetupEvidence(
+    int Operation,
+    bool Compatible,
+    KinematicReceipt Reach,
+    Option<HoldingReceipt> Holding,
+    Seq<(Edge3 Segment, bool Clear)> Clearance,
+    bool Guarded,
+    Option<Point3d> MachinedHit);
+
+public readonly record struct SetupDecision(int Operation, int Setup, bool Extended, double IncrementalCost, SetupEvidence Evidence);
+
 // Frame is the 6-DOF part-to-machine reorientation the setup IS: posting emits offset VALUES off it, probing
-// corrects against it, per-setup snapshots transform through it — never index arithmetic alone.
-[ComplexValueObject]
-public sealed partial record Setup(Fixture Fixture, Plane Frame, WcsDatum Datum, Arr<int> ReachableOps) {
+// corrects against it, per-setup snapshots transform through it — never index arithmetic alone. An interior
+// product of already-admitted values: plain record, no second admission gate.
+public sealed record Setup(Fixture Fixture, Plane Frame, WcsDatum Datum, Arr<int> ReachableOps) {
     public static Fin<SetupSchedule> Schedule<TOp>(Seq<TOp> operations, SchedulePolicy<TOp> policy) {
         Arr<TOp> opRows = operations.ToArr();
-        IReadOnlyDictionary<int, TOp> byKey = opRows.ToDictionary(policy.Key);
-        BidirectionalGraph<int, SEdge<int>> graph = Build(opRows, policy);
+        return Validate(opRows, policy).Bind(_ => {
+            IReadOnlyDictionary<int, TOp> byKey = opRows.ToDictionary(policy.Key);
+            BidirectionalGraph<int, SEdge<int>> graph = Build(opRows, policy);
+            return CheckLineage(graph).Bind(_ => Search(
+                    order: graph.SourceFirstBidirectionalTopologicalSort().ToArr(), cursor: 0, state: ScheduleState.Empty,
+                    bound: double.PositiveInfinity, operations: byKey, policy: policy)
+                .Bind(result => result.Match(
+                    Some: state => Finalize(state, graph),
+                    None: () => Fin.Fail<SetupSchedule>(FabricationFault.SetupInfeasible(0, policy.MaxSetups).ToError()))));
+        });
+    }
 
-        return CheckLineage(opRows, byKey, graph, policy).Bind(_ =>
-            Search(
-                order: graph.SourceFirstBidirectionalTopologicalSort().ToArr(),
-                cursor: 0,
-                state: ScheduleState.Empty,
-                bound: double.PositiveInfinity,
-                operations: byKey,
-                policy: policy)
-            .Bind(state => Finalize(state, graph)));
+    static Fin<Unit> Validate<TOp>(Arr<TOp> operations, SchedulePolicy<TOp> policy) {
+        Set<int> keys = toSet(operations.Map(policy.Key));
+        Seq<Validation<Error, Unit>> policyGate = Seq(
+            (policy.MaxSetups > 0 && policy.Holding.Valid && !policy.WcsSlots.IsEmpty && policy.WcsSlots.Count <= policy.Dialect.Wcs.Total &&
+             policy.WcsSlots.Distinct().Count() == policy.WcsSlots.Count
+                ? Fin.Succ(unit) : Fin.Fail<Unit>(GeometryFault.DegenerateInput("setup:policy").ToError())).ToValidation());
+        // The roster is an arbitrary DISTINCT sub-roster of the dialect slot space — a shop reserves G54 for the
+        // vise and hands the scheduler the rest; forcing the canonical ordinal prefix made the roster derivable
+        // data. Each row proves only dialect admission; `WcsSlot.Of` stays the canonical derivation `Direct` uses.
+        Seq<Validation<Error, Unit>> slots = policy.WcsSlots.Map((slot, index) =>
+            (slot.Family == WcsFamily.Base && slot.Ordinal >= 0 && slot.Ordinal < policy.Dialect.Wcs.Slots) ||
+            (slot.Family == WcsFamily.Extended && slot.Ordinal >= 1 && slot.Ordinal <= policy.Dialect.Wcs.Extended)
+                ? Fin.Succ(unit).ToValidation()
+                : Fin.Fail<Unit>(GeometryFault.DegenerateInput($"setup:wcs-slot:{index}").ToError()).ToValidation()).ToSeq();
+        Seq<Validation<Error, Unit>> duplicates = operations.GroupBy(policy.Key)
+            .Filter(static group => group.Count() > 1)
+            .Map(group => Fin.Fail<Unit>(FabricationFault.SetupInfeasible(group.Key, group.Count()).ToError()).ToValidation())
+            .ToSeq();
+        Seq<Validation<Error, Unit>> references = operations.ToSeq().Bind(operation =>
+            policy.Predecessors(operation).Concat(policy.DatumSources(operation)).Map(reference =>
+                keys.Contains(reference)
+                    ? Fin.Succ(unit).ToValidation()
+                    : Fin.Fail<Unit>(FabricationFault.DatumLineageBroken(
+                        new SetupChain(Seq1(policy.Key(operation)), Seq1((reference, policy.Key(operation))))).ToError()).ToValidation()));
+        Seq<Validation<Error, Unit>> bounds = operations.ToSeq().Map(operation =>
+            double.IsFinite(policy.LowerBound(operation)) && policy.LowerBound(operation) >= 0.0 && policy.Frame(operation).IsValid
+                ? Fin.Succ(unit).ToValidation()
+                : Fin.Fail<Unit>(GeometryFault.DegenerateInput($"setup:operation-policy:{policy.Key(operation)}").ToError()).ToValidation());
+        return policyGate.Concat(slots).Concat(duplicates).Concat(references).Concat(bounds)
+            .Traverse(static validation => validation).As().ToFin().Map(static _ => unit);
     }
 
     // QuikGraph's builder is a mutable container: the AddVertexRange/AddVerticesAndEdge loop is the page's named
@@ -94,100 +142,119 @@ public sealed partial record Setup(Fixture Fixture, Plane Frame, WcsDatum Datum,
         return graph;
     }
 
-    static Fin<Unit> CheckLineage<TOp>(
-        Arr<TOp> operations,
-        IReadOnlyDictionary<int, TOp> byKey,
-        BidirectionalGraph<int, SEdge<int>> graph,
-        SchedulePolicy<TOp> policy) =>
-        !graph.IsDirectedAcyclicGraph()
-            ? Fin.Fail<Unit>(FabricationFault.DatumLineageBroken(Chain(graph)).ToError())
-            : operations.ToSeq()
-                .Traverse(operation =>
-                    policy.Predecessors(operation).Concat(policy.DatumSources(operation))
-                        .ForAll(source => byKey.ContainsKey(source) && Reaches(graph, source, policy.Key(operation)))
-                        ? Fin.Succ(unit)
-                        : Fin.Fail<Unit>(FabricationFault.DatumLineageBroken(Chain(graph)).ToError()))
-                .As()
-                .Map(static _ => unit);
+    // Acyclicity is the ONE lineage gate left after Validate: reference existence is Validate's references leg,
+    // and every predecessor/datum edge reaches its target by construction of Build.
+    static Fin<Unit> CheckLineage(BidirectionalGraph<int, SEdge<int>> graph) =>
+        graph.IsDirectedAcyclicGraph()
+            ? Fin.Succ(unit)
+            : Fin.Fail<Unit>(FabricationFault.DatumLineageBroken(Cycles(graph)).ToError());
 
-    static bool Reaches(BidirectionalGraph<int, SEdge<int>> graph, int source, int target) =>
-        graph.TreeBreadthFirstSearch(source)(target, out _);
+    static SetupChain Cycles(BidirectionalGraph<int, SEdge<int>> graph) {
+        Dictionary<int, int> labels = new();
+        graph.StronglyConnectedComponents(labels);
+        Set<int> cyclic = toSet(labels.GroupBy(static row => row.Value).Where(static group => group.Count() > 1).SelectMany(static group => group.Select(static row => row.Key)));
+        return new SetupChain(cyclic.ToSeq(), graph.Edges.Filter(edge => cyclic.Contains(edge.Source) && cyclic.Contains(edge.Target))
+            .Map(static edge => (edge.Source, edge.Target)).ToSeq());
+    }
 
     // Bounded branch-and-bound: the incumbent's cost is the pruning bound — a partial state whose accumulated
     // cost already meets it is cut before recursion, and each candidate tightens the bound for its siblings.
-    static Fin<ScheduleState> Search<TOp>(
+    static Fin<Option<ScheduleState>> Search<TOp>(
         Arr<int> order,
         int cursor,
         ScheduleState state,
         double bound,
         IReadOnlyDictionary<int, TOp> operations,
         SchedulePolicy<TOp> policy) =>
-        state.Cost >= bound
-            ? Fin.Fail<ScheduleState>(FabricationFault.SetupInfeasible(cursor, state.Setups.Count).ToError())
+        state.Cost + order.Skip(cursor).Sum(key => policy.LowerBound(operations[key])) >= bound
+            ? Fin.Succ(Option<ScheduleState>.None)
             : cursor == order.Count
-                ? Fin.Succ(state)
+                ? Fin.Succ(Some(state))
                 : Candidates(state, operations[order[cursor]], policy).Fold(
-                    Fin.Fail<ScheduleState>(FabricationFault.SetupInfeasible(order[cursor], state.Setups.Count).ToError()),
-                    (best, placement) => Better(
-                        best,
+                    Fin.Succ(Option<ScheduleState>.None),
+                    (best, placement) => best.Bind(incumbent =>
                         Place(state, operations[order[cursor]], placement, policy)
-                            .Bind(next => Search(order, cursor + 1, next, BoundOf(best, bound), operations, policy))));
+                            .Bind(next => next.Match(
+                                Some: admitted => Search(order, cursor + 1, admitted, BoundOf(incumbent, bound), operations, policy),
+                                None: static () => Fin.Succ(Option<ScheduleState>.None)))
+                            .Map(candidate => Better(incumbent, candidate))));
 
-    static double BoundOf(Fin<ScheduleState> best, double bound) =>
-        best.Match(Succ: incumbent => Math.Min(incumbent.Cost, bound), Fail: _ => bound);
+    static double BoundOf(Option<ScheduleState> best, double bound) =>
+        best.Match(Some: incumbent => Math.Min(incumbent.Cost, bound), None: () => bound);
 
-    static Seq<SetupPlacement> Candidates<TOp>(ScheduleState state, TOp operation, SchedulePolicy<TOp> policy) =>
-        toSeq(Range(0, state.Setups.Count)
-            .Filter(index => policy.Compatible(state.Setups[index].Fixture, policy.Fixture(operation)))
-            .Map(index => new SetupPlacement(Some(index))))
-            .Add(new SetupPlacement(None))
-            .Filter(candidate =>
-                candidate.Existing.IsSome || state.Setups.Count < Math.Min(policy.MaxSetups, policy.Dialect.Wcs.Total));
+    // Extend-candidates never precede a predecessor's setup: posting emits setups in array order, so an operation
+    // may land only at or after the highest setup its precedence and datum sources already occupy — otherwise a
+    // successor executes physically before its lineage source.
+    static Seq<Option<int>> Candidates<TOp>(ScheduleState state, TOp operation, SchedulePolicy<TOp> policy) =>
+        policy.Predecessors(operation).Concat(policy.DatumSources(operation))
+            .Bind(source => state.Decisions.Filter(decision => decision.Operation == source).Map(static decision => decision.Setup))
+            .Fold(0, Math.Max) switch {
+            var floor => toSeq(Enumerable.Range(floor, Math.Max(0, state.Setups.Count - floor)))
+                .Map(Some)
+                .Add(None)
+                .Filter(candidate =>
+                    candidate.IsSome || state.Setups.Count < Math.Min(policy.MaxSetups, policy.WcsSlots.Count)),
+        };
 
-    static Fin<ScheduleState> Place<TOp>(ScheduleState state, TOp operation, SetupPlacement placement, SchedulePolicy<TOp> policy) =>
-        placement.Existing.Match(
+    static Fin<Option<ScheduleState>> Place<TOp>(ScheduleState state, TOp operation, Option<int> placement, SchedulePolicy<TOp> policy) =>
+        placement.Match(
             Some: index =>
-                Admit(operation, state.Setups[index].Fixture, policy).Map(_ =>
-                    state with {
-                        Setups = state.Setups.SetItem(
-                            index,
-                            state.Setups[index] with { ReachableOps = state.Setups[index].ReachableOps.Add(policy.Key(operation)) }),
-                        Cost = state.Cost + policy.Score(operation, state.Setups[index], true)
-                    }),
+                Admit(operation, state.Setups[index], policy).Bind(evidence =>
+                    evidence.Match(
+                        Some: admitted => Commit(state, operation, state.Setups[index], index, extends: true, admitted, policy).Map(Some),
+                        None: static () => Fin.Succ(Option<ScheduleState>.None))),
             None: () =>
-                WcsSlot.Of(state.Setups.Count, policy.Dialect, policy.Key(operation)).Bind(slot => {
-                    Fixture fixture = policy.Fixture(operation);
+                policy.Fixture(operation).Bind(fixture => {
+                    WcsSlot slot = policy.WcsSlots[state.Setups.Count];
                     WcsDatum datum = new(state.Setups.Count, slot, policy.Key(operation), policy.DatumSources(operation));
-                    Setup setup = new(fixture, policy.Frame(operation), datum, Arr(policy.Key(operation)));
-                    return Admit(operation, fixture, policy).Map(_ =>
-                        state with {
-                            Setups = state.Setups.Add(setup),
-                            Cost = state.Cost + policy.Score(operation, setup, false)
-                        });
+                    Setup setup = new(fixture, policy.Frame(operation), datum, Arr<int>());
+                    return Admit(operation, setup, policy).Bind(evidence =>
+                        evidence.Match(
+                            Some: admitted => Commit(state, operation, setup, state.Setups.Count, extends: false, admitted, policy).Map(Some),
+                            None: static () => Fin.Succ(Option<ScheduleState>.None)));
                 }));
 
-    // First-fault by design: a refusal PRUNES the branch, so accumulating independent violations would spend the
-    // search budget on states the bound discards. The machined-face gate composes the ONE published witness.
-    static Fin<Unit> Admit<TOp>(TOp operation, Fixture fixture, SchedulePolicy<TOp> policy) =>
-        policy.RequiredAxes(operation) > policy.Machine.AxisCount
-            ? Fin.Fail<Unit>(FabricationFault.SetupInfeasible(policy.Key(operation), policy.Machine.AxisCount).ToError())
-            : policy.ReachSegments(operation).Exists(segment => !Workholding.Clears(segment, fixture))
-                ? Fin.Fail<Unit>(FabricationFault.SetupInfeasible(policy.Key(operation), fixture.Zones.Count).ToError())
-                : !policy.Guard(operation, fixture)
-                    ? Fin.Fail<Unit>(FabricationFault.SetupInfeasible(policy.Key(operation), fixture.Zones.Count).ToError())
-                    : fixture.Current.Match(
-                        Some: snapshot => Workholding.MachinedHit(fixture, snapshot).Bind(hit => hit.Match(
-                            Some: point => Fin.Fail<Unit>(FabricationFault.ClampOnMachinedFace(policy.Key(operation), point).ToError()),
-                            None: () => Fin.Succ(unit))),
-                        None: () => Fin.Succ(unit));
+    static Fin<ScheduleState> Commit<TOp>(ScheduleState state, TOp operation, Setup setup, int index, bool extends,
+        SetupEvidence evidence, SchedulePolicy<TOp> policy) {
+        double increment = policy.Score(operation, setup, extends);
+        if (!double.IsFinite(increment) || increment < 0.0)
+            return Fin.Fail<ScheduleState>(GeometryFault.DegenerateInput($"setup:score:{policy.Key(operation)}").ToError());
+        Setup admitted = setup with { ReachableOps = setup.ReachableOps.Add(policy.Key(operation)) };
+        return Fin.Succ(state with {
+            Setups = extends ? state.Setups.SetItem(index, admitted) : state.Setups.Add(admitted),
+            Cost = state.Cost + increment,
+            LowerBoundCost = state.LowerBoundCost + policy.LowerBound(operation),
+            Decisions = state.Decisions.Add(new SetupDecision(policy.Key(operation), index, extends, increment, evidence)),
+        });
+    }
+
+    // Boundary failures abort the search; an admissible boundary result whose physical predicates fail prunes only that candidate.
+    static Fin<Option<SetupEvidence>> Admit<TOp>(TOp operation, Setup setup, SchedulePolicy<TOp> policy) =>
+        policy.Reach(policy.Machine, operation, setup).Bind(reach =>
+            (setup.Fixture.Clamps.IsEmpty
+                ? Fin.Succ(Option<HoldingReceipt>.None)
+                : policy.Load(operation)
+                    .ToFin(FabricationFault.SetupInfeasible(policy.Key(operation), setup.Fixture.Clamps.Count).ToError())
+                    .Bind(load => Workholding.Restrains(setup.Fixture, load, policy.Holding).Map(Some)))
+            .Bind(holding => policy.ReachSegments(operation)
+                .Traverse(segment => Workholding.Clears(segment, setup.Fixture)
+                    .Map(clear => (Segment: segment, Clear: clear)).ToValidation())
+                .As().ToFin().Bind(clearance => setup.Fixture.Current.Match(
+                        Some: snapshot => Workholding.MachinedHit(setup.Fixture, snapshot),
+                        None: static () => Fin.Succ(Option<Point3d>.None))
+                    .Bind(hit => {
+                        bool compatible = policy.Compatible(operation, setup), guarded = policy.Guard(operation, setup.Fixture);
+                        SetupEvidence evidence = new(policy.Key(operation), compatible, reach, holding, clearance, guarded, hit);
+                        bool accepted = compatible && reach.Reachable && clearance.ForAll(static row => row.Clear) && guarded &&
+                            holding.ForAll(static receipt => receipt.Holds) && hit.IsNone;
+                        return Fin.Succ(accepted ? Some(evidence) : Option<SetupEvidence>.None);
+                    }))));
 
     // One objective: the searched Cost. The old Better delegate was a second objective beside Score — deleted.
-    static Fin<ScheduleState> Better(Fin<ScheduleState> current, Fin<ScheduleState> candidate) =>
+    static Option<ScheduleState> Better(Option<ScheduleState> current, Option<ScheduleState> candidate) =>
         current.Match(
-            Succ: best => candidate.Match(
-                Succ: next => next.Cost < best.Cost ? candidate : current,
-                Fail: _ => current),
-            Fail: _ => candidate);
+            Some: best => candidate.Match(Some: next => next.Cost < best.Cost ? candidate : current, None: () => current),
+            None: () => candidate);
 
     static Fin<SetupSchedule> Finalize(ScheduleState state, BidirectionalGraph<int, SEdge<int>> graph) =>
         Fin.Succ(new SetupSchedule(
@@ -197,10 +264,10 @@ public sealed partial record Setup(Fixture Fixture, Plane Frame, WcsDatum Datum,
                 .Edges
                 .Map(edge => (edge.Source, edge.Target))
                 .ToSeq(),
-            state.Cost));
+            state.Decisions,
+            state.Cost,
+            state.LowerBoundCost));
 
-    static SetupChain Chain(BidirectionalGraph<int, SEdge<int>> graph) =>
-        new(graph.Vertices.ToSeq(), graph.Edges.Map(edge => (edge.Source, edge.Target)).ToSeq());
 }
 
 public readonly record struct WcsAssignment(int Setup, WcsSlot Slot);
@@ -211,50 +278,98 @@ public sealed record SchedulePolicy<TOp>(
     Machine Machine,
     PostDialect Dialect,
     int MaxSetups,
+    Seq<WcsSlot> WcsSlots,
     Func<TOp, int> Key,
     Func<TOp, Seq<int>> Predecessors,
     Func<TOp, Seq<int>> DatumSources,
-    Func<TOp, Fixture> Fixture,
+    Func<TOp, Fin<Fixture>> Fixture,
     Func<TOp, Plane> Frame,
-    Func<TOp, int> RequiredAxes,
     Func<TOp, Seq<Edge3>> ReachSegments,
     Func<TOp, Fixture, bool> Guard,
-    Func<Fixture, Fixture, bool> Compatible,
+    Func<TOp, Setup, bool> Compatible,
+    Func<Machine, TOp, Setup, Fin<KinematicReceipt>> Reach,
+    Func<TOp, Option<CutLoad>> Load,
+    HoldingPhysics Holding,
+    Func<TOp, double> LowerBound,
     Func<TOp, Setup, bool, double> Score) {
     // The context-free floor: one setup, world frame, no precedence, no datums, clamp-free fixture — Schedule over
     // an empty operation set yields the empty schedule and posting's WCS prologue degrades to absence. The caller
     // supplies its own stable key; there is no hash-derived default.
     public static SchedulePolicy<TOp> Direct(Machine machine, PostDialect dialect, Func<TOp, int> key) => new(
         machine, dialect, MaxSetups: 1,
+        WcsSlots: toSeq(Enumerable.Range(0, dialect.Wcs.Total)).Map(index => index < dialect.Wcs.Slots
+            ? new WcsSlot(WcsFamily.Base, index)
+            : new WcsSlot(WcsFamily.Extended, index - dialect.Wcs.Slots + 1)),
         Key: key, Predecessors: static _ => Seq<int>(), DatumSources: static _ => Seq<int>(),
-        Fixture: static _ => Fixturing.Fixture.Free, Frame: static _ => Plane.WorldXY, RequiredAxes: static _ => 3,
+        Fixture: static _ => Fin.Succ(Fixturing.Fixture.Free), Frame: static _ => Plane.WorldXY,
         ReachSegments: static _ => Seq<Edge3>(), Guard: static (_, _) => true, Compatible: static (_, _) => true,
+        Reach: static (_, _, _) => Fin.Succ(new KinematicReceipt(Arr(0.0, 0.0, 0.0), JacobianCondition: 1.0, ClearanceMm: double.MaxValue)),
+        Load: static _ => None,
+        Holding: HoldingPhysics.SteelOnSteel,
+        LowerBound: static _ => 0.0,
         Score: static (_, _, extends) => extends ? 0.0 : 1.0);
 }
 
-public sealed record ScheduleState(Arr<Setup> Setups, double Cost) {
-    public static ScheduleState Empty => new(Arr<Setup>(), 0.0);
+public sealed record ScheduleState(Arr<Setup> Setups, Seq<SetupDecision> Decisions, double Cost, double LowerBoundCost) {
+    public static ScheduleState Empty => new(Arr<Setup>(), Seq<SetupDecision>(), 0.0, 0.0);
 }
 
-public sealed record SetupSchedule(Arr<Setup> Setups, Seq<WcsAssignment> Wcs, Seq<(int Before, int After)> Precedence, double Cost);
+public sealed record SetupSchedule(Arr<Setup> Setups, Seq<WcsAssignment> Wcs, Seq<(int Before, int After)> Precedence,
+    Seq<SetupDecision> Decisions, double Cost, double ProvenLowerBound);
 ```
 
 ```mermaid
 ---
 config:
-  layout: elk
   theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    titleColor: "#D6BCFA"
+    clusterBkg: "#21222C"
+    clusterBorder: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
-    Ops["Seq&lt;TOp&gt; (caller's operation instances)"] -->|"precedence + datum edges"| Graph["QuikGraph BidirectionalGraph"]
-    Graph -->|"IsDirectedAcyclicGraph + TreeBreadthFirstSearch"| Lineage["SetupChain datum lineage"]
-    Lineage -->|"SourceFirstBidirectionalTopologicalSort"| Search["bounded branch-and-bound partition"]
-    Machine["Machine.AxisCount"] --> Search
-    Holding["Fixture + Workholding.Clears + Workholding.MachinedHit"] --> Search
-    Guard["Guard verdict"] --> Search
-    Dialect["PostDialect.Wcs roster"] -->|"WcsSlot.Of"| Search
-    Search -->|"ComputeTransitiveReduction"| Schedule["SetupSchedule setups · frames · WCS · precedence · cost"]
-    Schedule -->|"render assigned rows + offset values"| Program["Posting/program"]
-    Schedule -->|"datum anchors + nominal frames"| Probe["Verify/probing"]
-    Schedule -->|setup plan rows| Traveler["Documentation/traveler"]
+    accTitle: Setup schedule search and proof
+    accDescr: Typed operations pass identity and lineage validation, enter a branch-and-bound setup partition whose fixture, reach, load, and work-offset admission produces either one proven schedule or one typed infeasibility.
+    Operations([Operation instances]) --> Validate[Validate identity and policy]
+    Validate --> Graph[Build precedence graph]
+    Graph --> Lineage{Lineage valid?}
+    Lineage -->|no| Fault[/Typed fault/]
+    Lineage -->|yes| Search[Search setup partitions]
+    Policy[(Admission policy)] -.-> Search
+    Search --> Admit[Accumulate candidate evidence]
+    Admit --> Bound[Apply objective bound]
+    Bound --> Solution{Solution found?}
+    Solution -->|no| Fault
+    Solution -->|yes| Schedule[/Setup schedule/]
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
+    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
+    class Operations boundary
+    class Validate,Graph,Lineage,Search,Admit,Bound,Solution primary
+    class Policy data
+    class Fault error
+    class Schedule success
+    linkStyle 3,9 stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+    linkStyle 5 stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dasharray:4 6
+    linkStyle 10 stroke:#50FA7B,color:#F8F8F2
 ```

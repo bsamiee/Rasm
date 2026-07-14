@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'Campaign closure gate: after a rebuild campaign lands, verify the whole target corpus against its root DECISION/brief and fix every miss in place. args = {doc, root} or an array of such pairs; campaigns verify in parallel lanes. The resolver finalizes each campaign in-run — findings resolve as edits, never as a report; a doctrine lander closes the run only when a pass pools a durable nomination.',
     description:
-        'Cold-verify pass over one or more landed campaigns. Per campaign: one sonnet plan partitions the target folder into balanced verification slices; gpt-5.6-terra (codex) verifiers fan out through sonnet dispatch wrappers (CODEX flag; false restores native opus), each reading the root doc IN FULL plus its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance lane: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts; a per-language-branch verifier owns the cross-libs ripple lane: every sibling seam ledger, consumer anchor, counterpart obligation, and frozen wire name the campaign touches outside the target root). Every verifier runs a mandatory second-pass self-verify: each finding adversarially re-derived from disk before return, vague or unconfirmed findings deleted, and a clean verdict asserted only after the second hostile pass returns empty. ONE terminal fable resolver then finalizes the campaign with LIBS-WIDE ripple authority — verifier findings are SIGNALS, not law: it re-verifies each on disk, implements the strongest fix where a suggestion was weak or short-sighted, hunts and fixes what the verifiers missed on its own authority, resolves every ripple its edits expose anywhere under libs/ (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), and pushes touched pages past the ruling per the floor law. The resolver is retry-guarded and appends each harvest nomination to a deterministic .jsonl as it is minted; when any campaign pools a non-empty nomination OR its resolver dies, ONE terminal fable doctrine lander adjudicates against docs/laws (refutation-first, land-nothing legal), sweeping the disk harvest files so a dead finalize loses none. Otherwise no phase follows the resolver.',
+        'Cold-verify pass over one or more landed campaigns. Per campaign: one sonnet plan partitions the target folder into balanced verification slices; gpt-5.6-terra (codex) verifiers fan out through sonnet dispatch wrappers (CODEX flag; false restores native opus), each reading the root doc IN FULL plus its slice pages IN FULL, hunting missing/wrong/faked/naive work with typed anchored findings (one verifier owns the governance lane: index docs, manifest rows, csproj/README registries, .api anchors, acceptance traces, rider receipts; a per-language-branch verifier owns the cross-libs ripple lane: every sibling seam ledger, consumer anchor, counterpart obligation, and frozen wire name the campaign touches outside the target root). Every verifier runs a mandatory second-pass self-verify: each finding adversarially re-derived from disk before return, vague or unconfirmed findings deleted, and a clean verdict asserted only after the second hostile pass returns empty. ONE terminal fable resolver then finalizes the campaign with LIBS-WIDE ripple authority — verifier findings are SIGNALS, not law: it re-verifies each on disk, implements the strongest fix where a suggestion was weak or short-sighted, hunts and fixes what the verifiers missed on its own authority, resolves every ripple its edits expose anywhere under libs/ (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), and pushes touched pages past the ruling per the floor law. The resolver is retry-guarded and appends each harvest nomination to a deterministic .jsonl as it is minted; when any campaign pools a non-empty nomination OR its resolver dies, ONE terminal opus doctrine lander adjudicates against docs/laws (refutation-first, land-nothing legal), sweeping the disk harvest files so a dead finalize loses none. Otherwise no phase follows the resolver.',
     phases: [
         { title: 'Plan', detail: 'per campaign: enumerate pages, partition into balanced slices', model: 'sonnet' },
         {
@@ -18,8 +18,8 @@ export const meta = {
         },
         {
             title: 'Doctrine',
-            detail: 'terminal doctrine lander (fable), fires on pooled harvest or a dead resolver: sweeps each resolver harvest .jsonl from disk, adjudicates nominations against docs/laws, refutation-first, land-nothing legal',
-            model: 'fable',
+            detail: 'terminal doctrine lander (opus), fires on pooled harvest or a dead resolver: sweeps each resolver harvest .jsonl from disk, adjudicates nominations against docs/laws, refutation-first, land-nothing legal',
+            model: 'opus',
         },
     ],
 };
@@ -402,7 +402,7 @@ const codexPrompt = (label, task, schema, o) => {
 // usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus) — the caller owns the re-dispatch, the sonnet
 // wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's
 // unmapped territory is exact even when the lane died before writing anything.
-const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus'); // native fallback twins; fable's ONE seat is the terminal resolver, never a fallback
 const nativeLane = (task, o) =>
     run(
         task +
@@ -636,8 +636,9 @@ const lanes = await parallel(
             JSON.stringify(unmapped) +
             ' ROSTER: ' +
             JSON.stringify(roster);
-        // Terminal writer: a dead resolver retries with a suffixed label; a final death isolates the campaign, never the run —
-        // its harvest survives on disk for the lander. Operational FIXLOG rows ride the wire only for the run summary.
+        // Terminal writer: the run's ONE fable seat — full-repo authority absorbs every residual, so the premium judgment concentrates here.
+        // A dead resolver retries with a suffixed label; a final death isolates the campaign, never the run — its harvest survives on disk for
+        // the lander. Operational FIXLOG rows ride the wire only for the run summary.
         const fireResolve = (suffix) =>
             run(resolveTask, {
                 label: 'resolve:' + tag + suffix,
@@ -694,7 +695,7 @@ const doctrine =
                   'whose coupling no longer holds, land a coupling this run proved.\n' +
                   'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
                   'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-              { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+              { label: 'doctrine', phase: 'Doctrine', model: 'opus', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
           )
         : null;
 

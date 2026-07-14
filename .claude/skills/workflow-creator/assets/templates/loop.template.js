@@ -13,7 +13,7 @@ export const meta = {
 
 const RESULT_SCHEMA = {
     type: 'object',
-    additionalProperties: false, // STRICT: required must list every property — codex --output-schema rejects anything less
+    additionalProperties: false, // STRICT profile: false here + every property in required — the same shape serves codex --output-schema unchanged
     required: ['items'],
     properties: {
         items: { type: 'array', items: { type: 'string' } },

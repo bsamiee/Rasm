@@ -1,39 +1,45 @@
 # [RASM_FABRICATION_DERIVATION]
 
-The plan-derivation orchestrator: `Derivation.Plan` the ONE `Run(Derive)` lowering — a typed stage rail manufacturability → routing → fleet → setup → assembly → program → documentation folded as ONE `Fin`-bound expression, each stage a fold over its owning plane's entry, the whole pipeline depth-gated by the `DeriveDepth` policy row (`assess-only` stops after the DfM gate, `route` after the fleet match, `full-plan` runs the rail to documentation intent). Every `DerivePolicy` column is LIVE: `Quantity` gates degenerate lots typed and rides the plan-key census, `Document` rides the census as recorded traveler intent, and the setup stage composes `Fixturing/setups` `Setup.Schedule` when `Operations`+`Setups` carry the schedule inputs — an inert policy member is the named defect this rail forbids. The stage vocabulary is the `DerivationStage` `[SmartEnum<string>]` — seven ordered rows, ONE per rail segment — and it is fault-load-bearing: `FabricationFault.RoutingInfeasible` 2730 carries the exhausted stage row, so a component that passes DfM but matches no machine fails typed AT `fleet`, never as a silent empty plan. The rail ORCHESTRATES and never re-derives: process routing is `Spec/manufacturability`'s verdict (this rail consumes the `DfmReport` routing rows), machine matching is `Kinematics/fleet`'s join (`Fleet.Capable` — the EMPTY match set is fleet's valid verdict and THIS page's fault), the setup partition is `Fixturing/setups`' fold (its 2717/2726/2727 faults pass through unre-cased), join precedence is `Fixturing/assembly`'s graph (`Assembly.Sequence`), and the plan RECORDS rather than emits — every `PlannedStep.Program` key stays `Option.None` until `Run(Post)` runs over a produced `Motion`; a derivation that invokes posting intra-run is the deleted form. The capability gate stays input-carried: the rail READS `input.Capability` onto the plan and NEVER invokes `Capability.Gate` intra-run — the spec→plan→verify→capability loop closes run-N→run-N+1 exactly as `ResidualStock` does, the standing cycle-break restated, never re-opened.
+`Derivation.Plan` is the one `Run(Derive)` lowering. `DerivePolicy` separates assessment, routing, and full-plan payload timing. `LotPolicy` admits quantity, batch size, release, due date, and predecessor lots. `OperationDemand` models each cut, join, form, additive, inspection, or finish instance with process, quantity, precedence, and evidence. The full rail composes manufacturability, fleet, assembly, operation completion, and setup owners; inferred thermal joins inherit the reduced `AssemblyPlan.Precedence` graph before `Setup.Schedule` partitions them. Each `PlannedStep` carries the exact operation ids assigned to its setup and machine.
 
-The result is the owner's `FabricationResult.FabricationPlan` — `Seq<PlannedStep>` (primary-process step from the ranked `MachineMatch` head under the `PreferProcess`/`PreferMachine` policy overrides, plus one weld step per THERMAL final join re-classified through the public `JoinClass.Classify` over the component's `ComponentConnection` rows), the input-carried `Option<CapabilityVerdict>`, the artifact key ledger (EMPTY at derivation — egress stages append as they run), and the plan's own `ContentKey` under the `plan` egress row. The page also REALIZES the deferred cross-package growth seam: `FabricationProjector : IElementProjection` — the seam interface `Project(ProjectionContext) → Fin<GraphDelta>` (`Rasm.Element` `Projection/projection#IElementProjection`), registered as ONE row in the app-wired `Seq<IElementProjection>` that `ProjectionAssembly.Assemble` folds (the registration lives in app wiring by the seam's own law; the Materials `ComponentProjector` is the peer exemplar at `Projection/component#[05]`). The projector is the REVERSE direction of the `Ingress/element` seam — element.md READS the graph through `ElementGraph.Bake` into `AdmittedComponent`, the projector LOWERS fabrication facts back onto the graph as a `ctx.Owns`-gated `GraphDelta` monoid fold over `(NodeId, FabricationResult)` pairs: a `FabricationPlan` fact authors a content-addressed `Node.PropertySet` (plan key + step census) bound by `Relationship.Assign(element, node, AssignKind.PropertyDefinition)`, a `Placement` fact authors a `Node.QuantitySet` whose `NestWasteArea` row stays the frozen SI-m² wire key Compute decodes (`MeasureValue.OfSi` over the remnant area sum) — content-addressed nodes so re-projection dedups, every other result case lowering nothing.
+`FabricationPlan` separates requested artifact kinds from produced artifact keys and carries its case-derived `DerivationStage` ceiling, the DfM-ranked `Routing` process rows — the assessment ceiling's own evidence, so an assess-only run returns the ranked route verdict rather than an empty shell — retained fleet-route evidence, and admitted executable steps. A full plan whose realized operation set is empty fails typed at the `Operations` stage instead of composing an executable-free success. Its content key covers ceiling, ranked routing, lot timing and predecessors, capability, requested outputs, full work discriminants, operation precedence and evidence, retained routes, and setup assignments through a length-prefixed little-endian byte layout. `FabricationProjector` captures every result case as a content-addressed property or quantity set, and `ProjectionContext.Header.Tolerance` supplies the canonicalization policy.
 
 Wire posture: HOST-LOCAL. The plan crosses only the in-process seam — `FabricationPlan` to the caller and `Verify/estimation`'s quote lane (`Estimate.Of` prices the composed plan; derivation never prices), plan facts to the element graph through the ONE projector registration row; the stage vocabulary never sits between wire and rail.
 
 ## [01]-[INDEX]
 
-- [01]-[DERIVATION]: owns the `DerivationStage` seven-row stage vocabulary, the `DeriveDepth` ceiling policy, the `DerivePolicy` carrier the owner `Derive` case threads, the `Derivation.Plan` stage rail composing manufacturability/fleet/assembly and recording setup/program/documentation intent, and the `FabricationProjector : IElementProjection` registration row — the one plan-derivation surface `owner#run`'s landed `derive` arm lowers to.
+- [01]-[DERIVATION]: `DerivationStage`, `LotPolicy`, `WorkKind`, `OperationDemand`, `DerivePolicy`, the single `Derivation.Plan` rail, and `FabricationProjector`.
 
 ## [02]-[DERIVATION]
 
-- Owner: `DerivationStage` `[SmartEnum<string>]` the ordered stage vocabulary (`manufacturability`/`routing`/`fleet`/`setup`/`assembly`/`program`/`documentation`, each carrying `Order`) — fault-payload load-bearing on `RoutingInfeasible` 2730; `DeriveDepth` `[SmartEnum<string>]` the ceiling policy (`assess-only`→manufacturability, `route`→fleet, `full-plan`→documentation), `Admits(stage)` the one gating relation; `DerivePolicy` the case carrier — depth, target quantity (gated ≥ 1, census-carried), the shop `MachineFleet`, the `DfmPolicy`/`AssemblyPolicy` plane policies threaded through, the setup-stage inputs (`Seq<Operation> Operations` + `Option<SchedulePolicy<Operation>> Setups` — empty inputs keep the single-setup posture), `PreferProcess`/`PreferMachine` overrides as Options, the documentation toggle (census-carried intent); `Derivation` the static surface owning `Plan`; `FabricationProjector` the `IElementProjection` implementation lowering plan and placement facts onto the element graph.
-- Cases: `DerivationStage` rows 7; `DeriveDepth` rows 3; the stage rail is ONE `Fin` LINQ expression — quantity gate → DfM gate → routing rows → fleet match → depth-gated setup partition → depth-gated assembly → compose; `Setup.Schedule<TOp>(Seq<TOp>, SchedulePolicy<TOp>) → Fin<SetupSchedule>` (`Fixturing/setups`) is the TYPE contract the setup stage composes when the policy carries operations and a schedule policy — the primary step then EXPANDS to one `PlannedStep` per `SetupSchedule.Setups` row (`PlannedStep.Setup` reads the partition index), and `0` single-setup when the policy carries none; program and documentation are RECORDING stages by law (keys `None`; the `Document` toggle and `Quantity` ride the plan's content-key census so intent changes the plan identity, never a side channel).
-- Entry: `public static Fin<FabricationResult> Plan(FabricationPolicy.Derive policy, FabricationInput input)` — satisfies the landed owner arm `derive: static (i, p) => Derivation.Plan(p, i)`; `Fin<T>` routes kernel `GeometryFault.DegenerateInput` on a degenerate lot (`Quantity < 1` — the `guard` ingress) or a component the fleet join cannot bound, routes `RoutingInfeasible` 2730 at the exhausted stage (empty routing rows at `routing`, empty feasible match at `fleet`), and passes plane faults through unre-cased (`SetupInfeasible` 2717/`DatumLineageBroken` 2726/`ClampOnMachinedFace` 2727 are setups', `AssemblyPrecedenceCyclic` 2737 is assembly's, DfM verdicts are receipts and a DfM REJECTION routes 2730 at `manufacturability`).
-- Auto: `Plan` gates the lot quantity, binds `Manufacturability.Assess(component, policy.Dfm)` (`Spec/manufacturability` — Spec OWNS routing; the rail reads `DfmReport.Routing`, the ranked admitted `ProcessKind` rows, as the TYPE contract), filters the rows by `PreferProcess`, folds `Fleet.Capable(component, policy.Fleet)` and filters by routing membership + `PreferMachine`, gates emptiness per stage, depth-gates `Setup.Schedule(policy.Operations, schedulePolicy)` when the policy carries the inputs, depth-gates `Assembly.Sequence(component, policy.Assembly)`, then composes: the primary steps from the ranked match head (one per schedule setup row, or the single-setup step), weld steps for thermal final joins (`JoinClass.Classify` re-read over `Connections` — the plan altitude never re-derives precedence, it honors `AssemblyPlan.Steps` order), `input.Capability` carried, artifacts empty, the key minted over the quantity/document/step canonical census. `Verify/estimation` consumes the composed plan on its quote lane (`Estimate.Of(FabricationResult, EstimateBasis) → Fin<CostReceipt>` — the Verify page's fixed contract; machine rates read off `MachineMatch.Instance.HourlyRate`, never a derivation rate table).
-- Receipt: `FabricationPlan` IS the derivation evidence — typed steps, carried verdict, key ledger, content key; the `DfmReport`/`MachineMatch`/`AssemblyPlan` stage receipts stay plane-local per the ruling-5 payload discipline, never on the result case.
-- Packages: `Process/owner#FABRICATION_OWNER` (`AdmittedComponent`/`PlannedStep`/`FabricationPlan`/`EgressKind`/`ContentKey` — composed), `Process/family#PROCESS_FAMILY` (`ProcessKind`/`Machine` axes), `Process/physics#CUT_PARAMETER` (`Operation` — the setup-stage element vocabulary), `Spec/manufacturability` (`Manufacturability.Assess` → `DfmReport` — the routing verdict), `Kinematics/fleet#MACHINE_FLEET` (`Fleet.Capable` → ranked `MachineMatch`), `Fixturing/setups#SETUP_SCHEDULER` (`Setup.Schedule<TOp>` → `SetupSchedule` — the composed setup partition), `Fixturing/assembly#ASSEMBLY` (`Assembly.Sequence` → `AssemblyPlan`; `JoinClass.Classify`), `Geometry2D/algebra#POLYGON_ALGEBRA` (`Area` — the remnant waste fold), `Rasm.Element` (`IElementProjection`/`ProjectionContext`/`GraphDelta`/`Node`/`NodeId`/`Relationship`/`AssignKind` + the `ValueBag`/`PropertyValue`/`MeasureValue`/`PropertyName` property vocabulary — the projection seam floor and its delta-authoring surface), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox; landed seam: `Spec/capability` (`Capability.Gate` produces the verdict the NEXT run's input carries).
-- Growth: a new rail segment is one `DerivationStage` row + one stage fold in the ONE expression; a new ceiling is one `DeriveDepth` row; a new plan fact is one `PlannedStep` column ripple on owner#atoms; a new lowered element fact is one `Lower` row on the projector; a persisted plan is the `plan` `ArtifactKind` enrollment ripple riding this page; zero new entrypoint surface.
-- Boundary: `Derivation.Plan` is the ONE orchestrator and a second public plan fold, a per-stage public API, or a plane re-derivation (routing logic here, a fleet filter here, a precedence sort here) is the deleted form; the plan RECORDS and a derivation that posts programs or renders documents intra-run is the deleted form; `RoutingInfeasible` mints ONLY here and a plane-minted routing fault is the rejected form; the `DfmReport` read is the `Routing` rows ONLY — a derivation reaching into per-feature DfM verdicts is the seam violation; the capability read is `input.Capability` and an intra-run `Capability.Gate` call is the named cycle re-opening; the plan keys under `EgressKind.Plan` — the one-row owner#atoms growth this landing carries; the projector registers as ONE app-wired row and a Fabrication-side `Assemble` call, second projector, or graph-authoring re-derivation is the deleted form.
+- Owner: `DerivationStage` owns the ordered ceiling vocabulary. `LotPolicy` owns admitted lot timing and batching. `WorkKind` and `OperationDemand` own executable work instances. `DerivePolicy` gives assessment, routing, and full-plan requests distinct payloads while deriving the stage ceiling directly from the case. `Derivation` owns `Plan`, and `FabricationProjector` owns fabrication-fact projection.
+- Cases: `WorkKind` carries cut, join, form, additive, inspect, and finish work. `DerivePolicy.Assessment` carries only lot and DfM policy; `Routing` adds fleet and preferences; `FullPlan` adds assembly, operations, setup, and artifact intent. Without a schedule policy, full-plan work groups by process in setup `0`; with one, each setup expands by reachable operation ids and then by process.
+- Entry: `Plan(FabricationPolicy.Derive, FabricationInput)` routes empty routing or machine sets to `RoutingInfeasible` — every policy case, assessment included, admits `DfmReport.Routing` through the one `RouteOf` rail — accumulates full-plan DAG and preferred-pair defects before execution, passes setup and assembly faults without re-casing, and rejects any operation whose required process has no machine match.
+- Auto: DfM supplies ranked process routes, fleet supplies capable machine matches, assembly supplies reduced join precedence, operation completion generates missing thermal joins through admitted demands, and setup supplies operation partitions. `RequestedArtifacts` changes plan identity but not the empty produced-artifact ledger. Canonical bytes encode every identity-bearing collection in deterministic order and every variable-length string with a length prefix.
+- Receipt: `FabricationPlan` is the derivation evidence: case-derived ceiling, DfM-ranked `Routing` rows, retained `MachineMatch` routes, admitted steps, carried verdict, key ledger, and content key. `DfmReport` and `AssemblyPlan` remain stage-local because the terminal result carries their ranked-route and plan projections at every ceiling.
+- Packages: `AdmittedComponent`, `PlannedStep`, `FabricationPlan`, `EgressKind`, `ContentKey`, `ProcessKind`, `Machine`, and `Operation` provide package vocabulary. `Manufacturability.Assess`, `Fleet.Capable`, `Setup.Schedule<TOp>`, `Assembly.Sequence`, the `AssemblyPlan.Joints` class census, `ArcAlgebra.ArcArea`, and `Capability.Gate` provide stage operations. `Rasm.Element` supplies `IElementProjection`, `ProjectionContext`, `GraphDelta`, graph nodes and relations, and the property and measure vocabularies. Thinktecture.Runtime.Extensions, LanguageExt.Core, and the BCL complete the substrate.
+- Growth: a rail segment is one ordered `DerivationStage` row and one fold arm; a work modality is one `WorkKind` case; a route or plan fact widens the existing `FabricationPlan` receipt and canonical-byte projection; an element fact extends the existing total `Lower` arm for its owning result case.
+- Boundary: `Derivation.Plan` owns orchestration, `RoutingInfeasible`, and plan identity. DfM owns routing evidence, fleet owns machine matches, assembly owns precedence, setup owns partitions, and later `Run(Post)` and `Run(Document)` calls own artifact production.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
+using System.Buffers;
+using System.Buffers.Binary;
+using System.Globalization;
+using System.Linq;
+using System.Text;
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Element;                       // IElementProjection · ProjectionContext · GraphDelta · Node · NodeId · Relationship · AssignKind ·
-                                          // PropertyName · PropertyValue · MeasureValue · Dimension · InheritanceMode · PropertySource
-using Rasm.Fabrication.Fixturing;         // Assembly.Sequence · AssemblyPolicy · AssemblyPlan · JoinClass · JoinPhase · Setup · SchedulePolicy · SetupSchedule
-using Rasm.Fabrication.Geometry2D;        // PolygonAlgebra.Area — the remnant-area fold behind the NestWasteArea wire row
-using Rasm.Fabrication.Kinematics;        // Fleet.Capable · MachineFleet · MachineMatch
-using Rasm.Fabrication.Spec;              // Manufacturability.Assess · DfmPolicy · DfmReport (TYPE contract — Spec owns routing)
+using QuikGraph;
+using QuikGraph.Algorithms;
+using Rasm.Element;
+using Rasm.Fabrication.Fixturing;
+using Rasm.Fabrication.Geometry2D;
+using Rasm.Fabrication.Kinematics;
+using Rasm.Fabrication.Spec;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using QuantityBag = Rasm.Element.ValueBag<Rasm.Element.MeasureValue>;   // the Element global aliases stop at its assembly line
+using QuantityBag = Rasm.Element.ValueBag<Rasm.Element.MeasureValue>;
 using PropertyBag = Rasm.Element.ValueBag<Rasm.Element.PropertyValue>;
 
 namespace Rasm.Fabrication.Process;
@@ -45,149 +51,491 @@ public sealed partial class DerivationStage {
     public static readonly DerivationStage Manufacturability = new("manufacturability", order: 1);
     public static readonly DerivationStage Routing = new("routing", order: 2);
     public static readonly DerivationStage Fleet = new("fleet", order: 3);
-    public static readonly DerivationStage Setup = new("setup", order: 4);
-    public static readonly DerivationStage Assembly = new("assembly", order: 5);
-    public static readonly DerivationStage Program = new("program", order: 6);
-    public static readonly DerivationStage Documentation = new("documentation", order: 7);
+    public static readonly DerivationStage Assembly = new("assembly", order: 4);
+    public static readonly DerivationStage Operations = new("operations", order: 5);
+    public static readonly DerivationStage Setup = new("setup", order: 6);
+    public static readonly DerivationStage Program = new("program", order: 7);
+    public static readonly DerivationStage Documentation = new("documentation", order: 8);
 
     public int Order { get; }
 }
 
-[SmartEnum<string>]
-public sealed partial class DeriveDepth {
-    public static readonly DeriveDepth AssessOnly = new("assess-only", DerivationStage.Manufacturability);
-    public static readonly DeriveDepth Route = new("route", DerivationStage.Fleet);
-    public static readonly DeriveDepth FullPlan = new("full-plan", DerivationStage.Documentation);
+// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
+// Plane policies remain owned by their planes, while the derivation case carries the selected composition data.
+public sealed record LotPolicy {
+    private LotPolicy(int quantity, int batchSize, DateTimeOffset release, DateTimeOffset due, Arr<UInt128> predecessors) =>
+        (Quantity, BatchSize, Release, Due, Predecessors) = (quantity, batchSize, release, due, predecessors);
 
-    public DerivationStage Ceiling { get; }
+    public int Quantity { get; }
+    public int BatchSize { get; }
+    public DateTimeOffset Release { get; }
+    public DateTimeOffset Due { get; }
+    public Arr<UInt128> Predecessors { get; }
 
-    public bool Admits(DerivationStage stage) => stage.Order <= Ceiling.Order;
+    public static Fin<LotPolicy> Admit(int quantity, int batchSize, DateTimeOffset release, DateTimeOffset due, Arr<UInt128> predecessors) =>
+        quantity >= 1 && batchSize >= 1 && batchSize <= quantity && due >= release
+        && predecessors.Distinct().Count == predecessors.Count
+            ? Fin.Succ(new LotPolicy(quantity, batchSize, release, due, predecessors))
+            : Fin.Fail<LotPolicy>(GeometryFault.DegenerateInput("derive:lot").ToError());
 }
 
-// --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
-// The Derive-case carrier: plane policies thread THROUGH (Dfm is Spec's, Assembly is Fixturing's, the setup pair is
-// setups'), the shop fleet is registry data, the overrides are Options — the component itself rides the policy CASE,
-// never a new input field; every column is read by the rail (an inert policy member is the named defect).
-public sealed record DerivePolicy(
-    DeriveDepth Depth,
-    int Quantity,
-    MachineFleet Fleet,
-    DfmPolicy Dfm,
-    AssemblyPolicy Assembly,
-    Seq<Operation> Operations,
-    Option<SchedulePolicy<Operation>> Setups,
-    Option<ProcessKind> PreferProcess,
-    Option<Machine> PreferMachine,
-    bool Document);
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record WorkKind {
+    private WorkKind() { }
+
+    public sealed record Cut(Operation Operation) : WorkKind;
+    public sealed record Join(int Connection) : WorkKind;
+    public sealed record Form(int Feature) : WorkKind;
+    public sealed record Additive(int Region) : WorkKind;
+    public sealed record Inspect(string Feature) : WorkKind;
+    public sealed record Finish(string Specification) : WorkKind;
+}
+
+public sealed record OperationDemand {
+    private OperationDemand(int id, WorkKind work, ProcessKind process, int quantity, Set<int> predecessors, Seq<ContentKey> evidence) =>
+        (Id, Work, Process, Quantity, Predecessors, Evidence) = (id, work, process, quantity, predecessors, evidence);
+
+    public int Id { get; }
+    public WorkKind Work { get; }
+    public ProcessKind Process { get; }
+    public int Quantity { get; }
+    public Set<int> Predecessors { get; }
+    public Seq<ContentKey> Evidence { get; }
+
+    public static Fin<OperationDemand> Admit(
+        int id,
+        WorkKind work,
+        ProcessKind process,
+        int quantity,
+        Set<int> predecessors,
+        Seq<ContentKey> evidence) =>
+        id >= 0 && quantity >= 1 && !predecessors.Contains(id) && Valid(work)
+            ? Fin.Succ(new OperationDemand(id, work, process, quantity, predecessors, evidence))
+            : Fin.Fail<OperationDemand>(GeometryFault.DegenerateInput("derive:operation-demand").ToError());
+
+    internal static OperationDemand Join(int id, int connection) =>
+        new(id, new WorkKind.Join(connection), ProcessKind.Weld, 1, Set<int>(), Seq<ContentKey>());
+
+    internal Fin<OperationDemand> WithPredecessors(Set<int> predecessors) =>
+        Admit(Id, Work, Process, Quantity, Predecessors + predecessors, Evidence);
+
+    private static bool Valid(WorkKind work) => work.Switch(
+        cut: static _ => true,
+        join: static value => value.Connection >= 0,
+        form: static value => value.Feature >= 0,
+        additive: static value => value.Region >= 0,
+        inspect: static value => !string.IsNullOrWhiteSpace(value.Feature),
+        finish: static value => !string.IsNullOrWhiteSpace(value.Specification));
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record DerivePolicy(LotPolicy Lot, DfmPolicy Dfm) {
+    public sealed record Assessment(LotPolicy Lot, DfmPolicy Dfm) : DerivePolicy(Lot, Dfm);
+    public sealed record Routing(
+        LotPolicy Lot,
+        DfmPolicy Dfm,
+        MachineFleet Fleet,
+        Option<ProcessKind> PreferProcess,
+        Option<Machine> PreferMachine) : DerivePolicy(Lot, Dfm);
+    public sealed record FullPlan(
+        LotPolicy Lot,
+        DfmPolicy Dfm,
+        MachineFleet Fleet,
+        AssemblyPolicy Assembly,
+        Seq<OperationDemand> Operations,
+        Option<SchedulePolicy<OperationDemand>> Setups,
+        Option<ProcessKind> PreferProcess,
+        Option<Machine> PreferMachine,
+        Set<EgressKind> RequestedArtifacts) : DerivePolicy(Lot, Dfm);
+
+    public DerivationStage Ceiling => Switch(
+        assessment: static _ => DerivationStage.Manufacturability,
+        routing: static _ => DerivationStage.Fleet,
+        fullPlan: static _ => DerivationStage.Documentation);
+}
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Derivation {
-    // The ONE stage rail: quantity gate -> DfM gate -> routing rows -> fleet match -> setup partition -> assembly ->
-    // compose; program/documentation RECORD — Run(Post)/Run(Document) emit.
     public static Fin<FabricationResult> Plan(FabricationPolicy.Derive policy, FabricationInput input) =>
-        from _ in guard(policy.Policy.Quantity >= 1, GeometryFault.DegenerateInput($"derive:quantity:{policy.Policy.Quantity}").ToError()).ToFin()
         from dfm in Manufacturability.Assess(policy.Component, policy.Policy.Dfm)
-        from routed in RouteOf(dfm, policy.Component, policy.Policy)
-        from matches in MatchOf(policy.Component, policy.Policy, routed)
-        from setups in SetupsOf(policy.Policy)
-        from joins in JoinsOf(policy.Component, policy.Policy)
-        select Compose(policy.Component, policy.Policy, input, matches, setups, joins);
+        from result in policy.Policy.Switch<Fin<FabricationResult>>(
+            state: (Component: policy.Component, Input: input, Dfm: dfm),
+            assessment: static (state, request) =>
+                from routed in RouteOf(state.Dfm, state.Component, None)
+                from composed in Compose(
+                    state.Component, request.Ceiling, request.Lot, Set<EgressKind>(), state.Input,
+                    routed, Seq<MachineMatch>(), Seq<OperationDemand>(), None)
+                select composed,
+            routing: static (state, request) =>
+                from routed in RouteOf(state.Dfm, state.Component, request.PreferProcess)
+                from matches in MatchOf(state.Component, request.Fleet, routed, request.PreferMachine)
+                from composed in Compose(
+                    state.Component, request.Ceiling, request.Lot, Set<EgressKind>(), state.Input,
+                    routed, matches, Seq<OperationDemand>(), None)
+                select composed,
+            fullPlan: static (state, request) =>
+                from _ in Validate(request)
+                from routed in RouteOf(state.Dfm, state.Component, request.PreferProcess)
+                from matches in MatchOf(state.Component, request.Fleet, routed, request.PreferMachine)
+                from joins in JoinsOf(state.Component, request.Assembly)
+                from operations in OperationsOf(state.Component, request.Operations, joins)
+                from gate in operations.IsEmpty
+                    ? Fin.Fail<Unit>(FabricationFault.RoutingInfeasible(state.Component.RepresentationKey, DerivationStage.Operations).ToError())
+                    : Fin.Succ(unit)
+                from setups in SetupsOf(request.Setups, operations)
+                from composed in Compose(
+                    state.Component, request.Ceiling, request.Lot, request.RequestedArtifacts, state.Input,
+                    routed, matches, operations, setups)
+                select composed)
+        select result;
 
-    // TYPE contract (Spec/manufacturability, concurrent): DfmReport.Routing — the ranked admitted ProcessKind rows.
-    static Fin<Seq<ProcessKind>> RouteOf(DfmReport dfm, AdmittedComponent component, DerivePolicy policy) {
-        if (!policy.Depth.Admits(DerivationStage.Routing)) return Fin.Succ(Seq<ProcessKind>());
-        Seq<ProcessKind> routed = policy.PreferProcess.Match(p => dfm.Routing.Filter(r => r == p), () => dfm.Routing);
+    private static Fin<Seq<ProcessKind>> RouteOf(
+        DfmReport dfm,
+        AdmittedComponent component,
+        Option<ProcessKind> preferred) {
+        Seq<ProcessKind> routed = preferred.Match(p => dfm.Routing.Filter(r => r == p), () => dfm.Routing);
         return routed.IsEmpty
             ? Fin.Fail<Seq<ProcessKind>>(FabricationFault.RoutingInfeasible(component.RepresentationKey, DerivationStage.Routing).ToError())
             : Fin.Succ(routed);
     }
 
-    static Fin<Seq<MachineMatch>> MatchOf(AdmittedComponent component, DerivePolicy policy, Seq<ProcessKind> routed) =>
-        !policy.Depth.Admits(DerivationStage.Fleet) ? Fin.Succ(Seq<MachineMatch>())
-        : Fleet.Capable(component, policy.Fleet).Bind(matches => {
-            Seq<MachineMatch> admitted = matches
-                .Filter(m => routed.Contains(m.Process))
-                .Filter(m => policy.PreferMachine.Match(k => m.Instance.Kind == k, () => true));
-            return admitted.IsEmpty
-                ? Fin.Fail<Seq<MachineMatch>>(FabricationFault.RoutingInfeasible(component.RepresentationKey, DerivationStage.Fleet).ToError())
-                : Fin.Succ(admitted);
-        });
+    private static Fin<Seq<MachineMatch>> MatchOf(
+        AdmittedComponent component,
+        MachineFleet fleet,
+        Seq<ProcessKind> routed,
+        Option<Machine> preferred) =>
+        from matches in Fleet.Capable(component, fleet)
+          let admitted = matches
+              .Filter(match => routed.Contains(match.Process))
+              .Filter(match => preferred.Match(machine => match.Instance.Kind == machine, static () => true))
+          from nonEmpty in admitted.IsEmpty
+              ? Fin.Fail<Seq<MachineMatch>>(FabricationFault.RoutingInfeasible(component.RepresentationKey, DerivationStage.Fleet).ToError())
+              : Fin.Succ(admitted)
+          select nonEmpty;
 
-    // The setup stage COMPOSES Fixturing/setups when the policy carries the schedule inputs; setups' faults
-    // (2717/2726/2727) pass through unre-cased. Empty inputs keep the single-setup recording posture.
-    static Fin<Option<SetupSchedule>> SetupsOf(DerivePolicy policy) =>
-        policy.Depth.Admits(DerivationStage.Setup) && !policy.Operations.IsEmpty
-            ? policy.Setups.Match(
-                Some: sp => Setup.Schedule(policy.Operations, sp).Map(Some),
+    // Precedence edges resolve through the realized connection-to-demand correspondence; an edge whose predecessor
+    // connection produced no demand is dropped instead of minting a dangling id no operation carries.
+    private static Fin<Seq<OperationDemand>> OperationsOf(
+        AdmittedComponent component,
+        Seq<OperationDemand> explicitOperations,
+        Option<AssemblyPlan> joins) {
+        Map<int, int> joinDemands = toMap(explicitOperations.Bind(static demand => demand.Work.Switch(
+            state: demand.Id,
+            cut: static (_, _) => Seq<(int Connection, int Demand)>(),
+            join: static (id, work) => Seq1((Connection: work.Connection, Demand: id)),
+            form: static (_, _) => Seq<(int Connection, int Demand)>(),
+            additive: static (_, _) => Seq<(int Connection, int Demand)>(),
+            inspect: static (_, _) => Seq<(int Connection, int Demand)>(),
+            finish: static (_, _) => Seq<(int Connection, int Demand)>())));
+        int next = explicitOperations.IsEmpty ? 0 : explicitOperations.Map(static demand => demand.Id).Max() + 1;
+        Seq<int> inferred = Range(0, component.Connections.Count)
+            .Filter(connection => !joinDemands.ContainsKey(connection)
+                && joins.Bind(plan => plan.Joints.Find(joint => joint.Index == connection))
+                    .Map(static joint => joint.Specification.Class.Thermal).IfNone(false))
+            .ToSeq();
+        Map<int, int> demandOf = inferred.Fold(joinDemands, (map, connection) => map.Add(connection, next + connection));
+        return inferred
+            .Traverse(connection => OperationDemand.Join(next + connection, connection).WithPredecessors(
+                joins.Map(plan => plan.Precedence
+                    .Filter(edge => edge.After == connection)
+                    .Bind(edge => demandOf.Find(edge.Before).ToSeq())
+                    .ToSet()).IfNone(Set<int>())))
+            .As()
+            .Map(rows => explicitOperations + rows);
+    }
+
+    private static Fin<Option<SetupSchedule>> SetupsOf(
+        Option<SchedulePolicy<OperationDemand>> policy,
+        Seq<OperationDemand> operations) =>
+        !operations.IsEmpty
+            ? policy.Match(
+                Some: schedule => Setup.Schedule(operations, schedule).Map(Some),
                 None: () => Fin.Succ(Option<SetupSchedule>.None))
             : Fin.Succ(Option<SetupSchedule>.None);
 
-    // Assembly precedence is Fixturing/assembly's graph; its faults pass through unre-cased.
-    static Fin<Option<AssemblyPlan>> JoinsOf(AdmittedComponent component, DerivePolicy policy) =>
-        policy.Depth.Admits(DerivationStage.Assembly) && !component.Connections.IsEmpty
-            ? Assembly.Sequence(component, policy.Assembly).Map(Some)
+    private static Fin<Option<AssemblyPlan>> JoinsOf(AdmittedComponent component, AssemblyPolicy policy) =>
+        !component.Connections.IsEmpty
+            ? Assembly.Sequence(component, policy).Map(Some)
             : Fin.Succ(Option<AssemblyPlan>.None);
 
-    static FabricationResult Compose(AdmittedComponent component, DerivePolicy policy, FabricationInput input,
-        Seq<MachineMatch> matches, Option<SetupSchedule> setups, Option<AssemblyPlan> joins) {
-        Seq<PlannedStep> steps = StepsOf(component, matches, setups, joins);
-        return new FabricationResult.FabricationPlan(steps, input.Capability, Seq<ContentKey>(), KeyOf(component, policy, steps));
+    private static Fin<FabricationResult> Compose(
+        AdmittedComponent component,
+        DerivationStage ceiling,
+        LotPolicy lot,
+        Set<EgressKind> requestedArtifacts,
+        FabricationInput input,
+        Seq<ProcessKind> routing,
+        Seq<MachineMatch> matches,
+        Seq<OperationDemand> operations,
+        Option<SetupSchedule> setups) =>
+        from steps in ceiling.Order >= DerivationStage.Fleet.Order && !operations.IsEmpty
+            ? StepsOf(component, matches, operations, setups)
+            : Fin.Succ(Seq<PlannedStep>())
+        select (FabricationResult)new FabricationResult.FabricationPlan(
+            ceiling,
+            routing,
+            matches,
+            steps,
+            input.Capability,
+            requestedArtifacts,
+            Seq<ContentKey>(),
+            KeyOf(component, ceiling, lot, requestedArtifacts, routing, operations, matches, steps, input.Capability));
+
+    private static Fin<Unit> Validate(DerivePolicy.FullPlan policy) {
+        Set<int> ids = policy.Operations.Map(static demand => demand.Id).ToSet();
+        Seq<SEdge<int>> edges = policy.Operations.Bind(demand => demand.Predecessors
+            .Map(predecessor => new SEdge<int>(predecessor, demand.Id)));
+        Seq<Validation<Error, Unit>> gates = Seq(
+            Gate(ids.Count == policy.Operations.Count, "derive:duplicate-operation"),
+            Gate(policy.Operations.ForAll(demand => demand.Predecessors.ForAll(ids.Contains)), "derive:missing-predecessor"),
+            Gate(edges.IsDirectedAcyclicGraph(), "derive:cyclic-operations"),
+            Gate(policy.PreferProcess.Match(process => policy.PreferMachine
+                .Map(machine => machine.Admits(process)).IfNone(true), static () => true), "derive:preferred-pair"));
+        return gates.Traverse(static gate => gate).As().ToFin().Map(static _ => unit);
     }
 
-    // Primary steps from the ranked head — one per schedule setup row when the partition landed, the single-setup
-    // step otherwise; one weld step per THERMAL final join in AssemblyPlan.Steps order — the plan honors assembly's
-    // precedence, never re-sorts it. Program keys stay None until Run(Post).
-    static Seq<PlannedStep> StepsOf(AdmittedComponent component, Seq<MachineMatch> matches, Option<SetupSchedule> setups, Option<AssemblyPlan> joins) {
-        Seq<PlannedStep> steps = matches
-            .Filter(static m => m.Process != ProcessKind.Weld).HeadOrNone()
-            .Map(m => setups.Match(
-                Some: s => toSeq(Enumerable.Range(0, s.Setups.Count)).Map(k => new PlannedStep(k, m.Process, m.Instance.Kind, Setup: k, Program: None)),
-                None: () => Seq1(new PlannedStep(0, m.Process, m.Instance.Kind, Setup: 0, Program: None))))
-            .IfNone(Seq<PlannedStep>());
-        Option<MachineMatch> torch = matches.Filter(static m => m.Process == ProcessKind.Weld).HeadOrNone();
-        foreach (JoinStep join in joins.Map(static p => p.Steps).IfNone(Seq<JoinStep>()))
-            if (join.Phase == JoinPhase.Final && Thermal(component, join))
-                torch.IfSome(m => steps = steps.Add(new PlannedStep(steps.Count, ProcessKind.Weld, m.Instance.Kind, Setup: 0, Program: None)));
-        return steps;
+    private static Validation<Error, Unit> Gate(bool valid, string locus) =>
+        (valid ? Fin.Succ(unit) : Fin.Fail<Unit>(GeometryFault.DegenerateInput(locus).ToError())).ToValidation();
+
+    // Each setup partitions operation identities before process-specific machine selection.
+    private static Fin<Seq<PlannedStep>> StepsOf(
+        AdmittedComponent component,
+        Seq<MachineMatch> matches,
+        Seq<OperationDemand> operations,
+        Option<SetupSchedule> setups) {
+        Seq<(int Setup, Arr<int> Operations)> partitions = setups.Match(
+            Some: schedule => Range(0, schedule.Setups.Count)
+                .Map(index => (Setup: index, Operations: schedule.Setups[index].ReachableOps))
+                .ToSeq(),
+            None: () => Seq1((Setup: 0, Operations: operations.Map(static demand => demand.Id).ToArr())));
+        Seq<(int Setup, ProcessKind Process, Arr<int> Operations)> work = partitions.Bind(partition =>
+            operations
+                .Filter(demand => partition.Operations.Contains(demand.Id))
+                .Map(static demand => demand.Process)
+                .Distinct()
+                .Map(process => (
+                    partition.Setup,
+                    Process: process,
+                    Operations: operations
+                        .Filter(demand => partition.Operations.Contains(demand.Id) && demand.Process == process)
+                        .Map(static demand => demand.Id)
+                        .ToArr())));
+        return work.Zip(Range(0, work.Count), static (row, order) => (row, order))
+            .Traverse(row => matches.Find(match => match.Process == row.row.Process)
+                .ToFin(FabricationFault.RoutingInfeasible(component.RepresentationKey, DerivationStage.Fleet).ToError())
+                .Bind(match => PlannedStep.Admit(
+                    row.order, row.row.Process, match.Instance.Kind, row.row.Setup, row.row.Operations, None)))
+            .As()
+            .Map(static steps => steps.ToSeq());
     }
 
-    static bool Thermal(AdmittedComponent component, JoinStep join) =>
-        join.Joint >= 0 && join.Joint < component.Connections.Count
-        && JoinClass.Classify(component.Connections[join.Joint].RealizingKey).Map(static k => k.Thermal).IfNone(false);
+    // Lot policy, requested artifacts, operation topology, and planned steps participate in plan identity.
+    private static ContentKey KeyOf(
+        AdmittedComponent component,
+        DerivationStage ceiling,
+        LotPolicy lot,
+        Set<EgressKind> requestedArtifacts,
+        Seq<ProcessKind> routing,
+        Seq<OperationDemand> operations,
+        Seq<MachineMatch> routes,
+        Seq<PlannedStep> steps,
+        Option<CapabilityVerdict> capability) {
+        ArrayBufferWriter<byte> writer = new();
+        Write(writer, "rasm:fabrication-plan:v1");
+        Write(writer, component.RepresentationKey);
+        Write(writer, ceiling.Key);
+        Write(writer, routing.Count);
+        foreach (ProcessKind process in routing) Write(writer, process.Key);
+        Write(writer, lot.Quantity);
+        Write(writer, lot.BatchSize);
+        Write(writer, lot.Release.UtcDateTime.Ticks);
+        Write(writer, lot.Due.UtcDateTime.Ticks);
+        Write(writer, lot.Predecessors.Count);
+        foreach (UInt128 predecessor in lot.Predecessors.Order()) Write(writer, predecessor);
+        Write(writer, requestedArtifacts.Count);
+        foreach (EgressKind artifact in requestedArtifacts.OrderBy(static kind => kind.Key)) Write(writer, artifact.Key);
+        Write(writer, operations.Count);
+        foreach (OperationDemand demand in operations.OrderBy(static demand => demand.Id)) Write(writer, demand);
+        Write(writer, routes.Count);
+        foreach (MachineMatch route in routes.OrderBy(static route => route.Instance.Id).ThenBy(static route => route.Process.Key)) Write(writer, route);
+        Write(writer, steps.Count);
+        foreach (PlannedStep step in steps.OrderBy(static step => step.Order)) Write(writer, step);
+        capability.Match(
+            Some: value => {
+                Write(writer, 1);
+                Write(writer, value.Cpk);
+                Write(writer, value.DemandedCpk);
+                Write(writer, value.DemandedItGrade);
+                return unit;
+            },
+            None: () => { Write(writer, 0); return unit; });
+        return ContentKey.Of(EgressKind.Plan, writer.WrittenSpan);
+    }
 
-    // The plan keys under EgressKind.Plan over the quantity/document/step canonical census — lot size and traveler
-    // intent are plan IDENTITY, so two lots of one geometry never share a key.
-    static ContentKey KeyOf(AdmittedComponent component, DerivePolicy policy, Seq<PlannedStep> steps) =>
-        ContentKey.Of(EgressKind.Plan, System.Text.Encoding.UTF8.GetBytes(
-            $"{component.RepresentationKey:x32}|q{policy.Quantity}|d{(policy.Document ? 1 : 0)}|{string.Join(';', steps.Map(static s => $"{s.Order}:{s.Process.Key}:{s.Machine.Key}:{s.Setup}"))}"));
+    private static void Write(ArrayBufferWriter<byte> writer, OperationDemand demand) {
+        Write(writer, demand.Id);
+        Write(writer, demand.Process.Key);
+        Write(writer, demand.Quantity);
+        Write(writer, demand.Predecessors.Count);
+        foreach (int predecessor in demand.Predecessors.Order()) Write(writer, predecessor);
+        Write(writer, demand.Evidence.Count);
+        foreach (ContentKey evidence in demand.Evidence.OrderBy(static key => key.Kind.Key).ThenBy(static key => key.Digest)) Write(writer, evidence);
+        demand.Work.Switch(
+            state: writer,
+            cut: static (sink, value) => { Write(sink, "cut"); Write(sink, value.Operation.Key); return unit; },
+            join: static (sink, value) => { Write(sink, "join"); Write(sink, value.Connection); return unit; },
+            form: static (sink, value) => { Write(sink, "form"); Write(sink, value.Feature); return unit; },
+            additive: static (sink, value) => { Write(sink, "additive"); Write(sink, value.Region); return unit; },
+            inspect: static (sink, value) => { Write(sink, "inspect"); Write(sink, value.Feature); return unit; },
+            finish: static (sink, value) => { Write(sink, "finish"); Write(sink, value.Specification); return unit; });
+    }
+
+    private static void Write(ArrayBufferWriter<byte> writer, PlannedStep step) {
+        Write(writer, step.Order);
+        Write(writer, step.Process.Key);
+        Write(writer, step.Machine.Key);
+        Write(writer, step.Setup);
+        Write(writer, step.Operations.Count);
+        foreach (int operation in step.Operations.Order()) Write(writer, operation);
+        step.Program.Match(
+            Some: key => { Write(writer, 1); Write(writer, key); return unit; },
+            None: () => { Write(writer, 0); return unit; });
+    }
+
+    private static void Write(ArrayBufferWriter<byte> writer, MachineMatch route) {
+        Write(writer, route.Instance.Id);
+        Write(writer, route.Instance.Kind.Key);
+        Write(writer, route.Process.Key);
+        Write(writer, route.Checks.Envelope ? 1 : 0);
+        Write(writer, route.Checks.Topology ? 1 : 0);
+        Write(writer, route.Checks.Spindle ? 1 : 0);
+        Write(writer, route.Checks.ToolCapacity ? 1 : 0);
+        Write(writer, route.Checks.Material ? 1 : 0);
+        Write(writer, route.Checks.Grade ? 1 : 0);
+        Write(writer, route.Checks.Station ? 1 : 0);
+        Write(writer, route.EnvelopeHeadroom);
+        Write(writer, route.GradeMargin);
+        Write(writer, route.Score);
+    }
+
+    private static void Write(ArrayBufferWriter<byte> writer, ContentKey key) {
+        Write(writer, key.Kind.Key);
+        Write(writer, key.Digest);
+    }
+
+    private static void Write(ArrayBufferWriter<byte> writer, UInt128 value) {
+        Span<byte> span = writer.GetSpan(16);
+        BinaryPrimitives.WriteUInt64LittleEndian(span, (ulong)value);
+        BinaryPrimitives.WriteUInt64LittleEndian(span[8..], (ulong)(value >> 64));
+        writer.Advance(16);
+    }
+
+    private static void Write(ArrayBufferWriter<byte> writer, double value) =>
+        Write(writer, BitConverter.DoubleToInt64Bits(value == 0.0 ? 0.0 : value));
+
+    private static void Write(ArrayBufferWriter<byte> writer, long value) {
+        BinaryPrimitives.WriteInt64LittleEndian(writer.GetSpan(8), value);
+        writer.Advance(8);
+    }
+
+    private static void Write(ArrayBufferWriter<byte> writer, int value) {
+        BinaryPrimitives.WriteInt32LittleEndian(writer.GetSpan(4), value);
+        writer.Advance(4);
+    }
+
+    private static void Write(ArrayBufferWriter<byte> writer, string value) {
+        int length = Encoding.UTF8.GetByteCount(value);
+        Write(writer, length);
+        Encoding.UTF8.GetBytes(value, writer.GetSpan(length));
+        writer.Advance(length);
+    }
 }
 
 // --- [COMPOSITION] ----------------------------------------------------------------------------------------------------------------------------------
-// The deferred growth seam REALIZED: ONE registration row in the app-wired Seq<IElementProjection> that
-// ProjectionAssembly.Assemble folds — the Materials ComponentProjector is the peer exemplar, the wiring is the apps'.
-public sealed class FabricationProjector(Seq<(NodeId Element, FabricationResult Fact)> facts, double tolerance) : IElementProjection {
-    // Reverse of Ingress/element's Bake read: ctx.Owns-gated fabrication facts lower onto the graph as a
-    // GraphDelta monoid fold — per-fact deltas built on Empty and Merge-folded, the seam exemplar's shape.
+public sealed class FabricationProjector(Seq<(NodeId Element, FabricationResult Fact)> facts) : IElementProjection {
     public Fin<GraphDelta> Project(ProjectionContext ctx) =>
-        Fin.Succ(facts.Filter(f => ctx.Owns(f.Element))
-            .Fold(GraphDelta.Empty.Reheader(ctx.Header), (acc, f) => acc.Merge(Lower(f.Element, f.Fact, tolerance))));
+        facts.Filter(fact => ctx.Owns(fact.Element))
+            .Traverse(fact => Lower(fact.Element, fact.Fact, ctx.Header.Tolerance))
+            .As()
+            .Map(deltas => deltas.Fold(GraphDelta.Empty.Reheader(ctx.Header), static (acc, delta) => acc.Merge(delta)));
 
-    // A plan fact authors the step-census PropertySet; a placement fact authors the QuantitySet whose NestWasteArea
-    // row is the frozen SI-m2 wire key Compute decodes; every other case lowers nothing. Nodes are content-addressed
-    // (Relabel over the id-excluded canonical bytes) so re-projection dedups to one node.
-    static GraphDelta Lower(NodeId element, FabricationResult fact, double tolerance) => fact switch {
-        FabricationResult.FabricationPlan plan => Author(element, new Node.PropertySet(NodeId.Content(default), plan.Steps.Fold(
-            PropertyBag.Empty("Rasm_Fabrication_Plan", InheritanceMode.OccurrenceWins, PropertySource.Derived)
-                .With(PropertyName.Create("PlanKey"), new PropertyValue.Text($"{plan.Key.Digest:x32}")),
-            static (bag, s) => bag.With(PropertyName.Create($"Step{s.Order:00}"), new PropertyValue.Text($"{s.Process.Key}:{s.Machine.Key}:s{s.Setup}")))), tolerance),
-        FabricationResult.Placement nest => Author(element, new Node.QuantitySet(NodeId.Content(default),
-            QuantityBag.Empty("Rasm_Fabrication_Nest", InheritanceMode.OccurrenceWins, PropertySource.Derived)
-                .With(PropertyName.Create("NestWasteArea"), MeasureValue.OfSi(Dimension.Create(2, 0, 0, 0, 0, 0, 0),
-                    nest.Remnants.Map(static r => Math.Abs(PolygonAlgebra.Area(r.Boundary))).Sum() / 1e6))), tolerance),
-        _ => GraphDelta.Empty,
-    };
+    // Relabeling content-addresses projected definitions, so repeated projections deduplicate by payload.
+    private static Fin<GraphDelta> Lower(NodeId element, FabricationResult fact, double tolerance) => fact.Switch(
+        state: (Element: element, Tolerance: tolerance),
+        hiddenLineResult: static (state, hidden) => Fin.Succ(Properties(state.Element, "Rasm_Fabrication_HiddenLine", Seq(
+            ("Visible", hidden.Visible.Count.ToString(CultureInfo.InvariantCulture)),
+            ("Hidden", hidden.Hidden.Count.ToString(CultureInfo.InvariantCulture)),
+            ("Silhouette", hidden.Silhouette.Count.ToString(CultureInfo.InvariantCulture))), state.Tolerance)),
+        motion: static (state, motion) => Fin.Succ(Properties(state.Element, "Rasm_Fabrication_Motion", Seq(
+            ("Moves", motion.Moves.Count.ToString(CultureInfo.InvariantCulture)),
+            ("JointSamples", motion.Joints.Count.ToString(CultureInfo.InvariantCulture)),
+            ("Duration", Decimal(motion.Duration)),
+            ("CellRecords", motion.CellCode.Count.ToString(CultureInfo.InvariantCulture))), state.Tolerance)),
+        placement: static (state, nest) => nest.Remnants
+            .Traverse(static remnant => ArcAlgebra.ArcArea(remnant.Boundary).Map(static area => Math.Abs(area)))
+            .As()
+            .Map(areas => Author(state.Element, new Node.QuantitySet(NodeId.Content(ReadOnlySpan<byte>.Empty),
+                    QuantityBag.Empty("Rasm_Fabrication_Nest", InheritanceMode.OccurrenceWins, PropertySource.Derived)
+                        .With(PropertyName.Create("NestWasteArea"), MeasureValue.OfSi(
+                            Dimension.Create(2, 0, 0, 0, 0, 0, 0), areas.Sum() / 1e6))), state.Tolerance)
+                .Merge(Properties(state.Element, "Rasm_Fabrication_Placement", Seq(
+                    ("Parts", nest.Parts.Count.ToString(CultureInfo.InvariantCulture)),
+                    ("Utilization", Decimal(nest.Utilization)),
+                    ("Unplaced", nest.Unplaced.ToString(CultureInfo.InvariantCulture)),
+                    ("Remnants", nest.Remnants.Count.ToString(CultureInfo.InvariantCulture)),
+                    ("Key", Key(nest.Key))), state.Tolerance))),
+        additiveResult: static (state, additive) => Fin.Succ(Properties(state.Element, "Rasm_Fabrication_Additive", Seq(
+            ("Moves", additive.Moves.Count.ToString(CultureInfo.InvariantCulture)),
+            ("Layers", additive.Layers.ToString(CultureInfo.InvariantCulture)),
+            ("Artifacts", additive.Artifacts.Count.ToString(CultureInfo.InvariantCulture))), state.Tolerance)),
+        verificationResult: static (state, verification) => Fin.Succ(Properties(state.Element, "Rasm_Fabrication_Verification", Seq(
+            ("Snapshots", verification.Snapshots.Count.ToString(CultureInfo.InvariantCulture)),
+            ("Gouges", verification.Gouges.Count.ToString(CultureInfo.InvariantCulture)),
+            ("UncutVolume", Decimal(verification.UncutVolume)),
+            ("OvercutVolume", Decimal(verification.OvercutVolume)),
+            ("AirCutRatio", Decimal(verification.AirCutRatio)),
+            ("ResidualKey", Key(verification.Residual.Key))), state.Tolerance)),
+        inspectionResult: static (state, inspection) => Fin.Succ(Properties(state.Element, "Rasm_Fabrication_Inspection", Seq(
+            ("Features", inspection.Features.Count.ToString(CultureInfo.InvariantCulture)),
+            ("Accepted", inspection.Features.Count(static feature => feature.Pass.Exists(static pass => pass)).ToString(CultureInfo.InvariantCulture)),
+            ("Rejected", inspection.Features.Count(static feature => feature.Pass.Exists(static pass => !pass)).ToString(CultureInfo.InvariantCulture)),
+            ("MaxDeviation", Decimal(inspection.Features.Fold(0.0, static (maximum, feature) => Math.Max(maximum, feature.DeviationMm))))), state.Tolerance)),
+        postedProgram: static (state, program) => Fin.Succ(Properties(state.Element, "Rasm_Fabrication_Program", Seq(
+            ("Blocks", program.Blocks.Count.ToString(CultureInfo.InvariantCulture)),
+            ("Key", Key(program.Key))), state.Tolerance)),
+        travelerDocument: static (state, traveler) => Fin.Succ(Properties(state.Element, "Rasm_Fabrication_Traveler", Seq(
+            ("ComposedArtifacts", traveler.Composed.Count.ToString(CultureInfo.InvariantCulture)),
+            ("Key", Key(traveler.Key))), state.Tolerance)),
+        fabricationPlan: static (state, plan) => Fin.Succ(Author(state.Element, new Node.PropertySet(NodeId.Content(ReadOnlySpan<byte>.Empty),
+            plan.Routes.Zip(Range(0, plan.Routes.Count), static (route, index) => (route, index)).Fold(
+                plan.Steps.Fold(
+                    PropertyBag.Empty("Rasm_Fabrication_Plan", InheritanceMode.OccurrenceWins, PropertySource.Derived)
+                        .With(PropertyName.Create("Ceiling"), new PropertyValue.Text(plan.Ceiling.Key))
+                        .With(PropertyName.Create("Routing"), new PropertyValue.Text(
+                            string.Join(',', plan.Routing.Map(static process => process.Key))))
+                        .With(PropertyName.Create("PlanKey"), new PropertyValue.Text(Key(plan.Key)))
+                        .With(PropertyName.Create("RequestedArtifacts"), new PropertyValue.Text(
+                            string.Join(',', plan.RequestedArtifacts.OrderBy(static artifact => artifact.Key).Select(static artifact => artifact.Key)))),
+                    static (bag, step) => bag.With(PropertyName.Create($"Step{step.Order:00}"), new PropertyValue.Text(
+                        $"{step.Process.Key}:{step.Machine.Key}:s{step.Setup}:o{string.Join(',', step.Operations)}"))),
+                static (bag, row) => bag.With(PropertyName.Create($"Route{row.index:00}"), new PropertyValue.Text(
+                    $"{row.route.Instance.Id}:{row.route.Process.Key}:{Decimal(row.route.Score)}")))), state.Tolerance)),
+        formedResult: static (state, formed) => Fin.Succ(Properties(state.Element, "Rasm_Fabrication_Formed", Seq(
+            ("FlatLoops", formed.FlatPattern.Count.ToString(CultureInfo.InvariantCulture)),
+            ("Bends", formed.Bends.Count.ToString(CultureInfo.InvariantCulture)),
+            ("SpringbackMaxDeg", Decimal(formed.SpringbackMaxDeg)),
+            ("Key", Key(formed.Key))), state.Tolerance)));
 
-    static GraphDelta Author(NodeId element, Node draft, double tolerance) {
+    private static GraphDelta Properties(NodeId element, string set, Seq<(string Key, string Value)> rows, double tolerance) =>
+        Author(element, new Node.PropertySet(NodeId.Content(ReadOnlySpan<byte>.Empty), rows.Fold(
+            PropertyBag.Empty(set, InheritanceMode.OccurrenceWins, PropertySource.Derived),
+            static (bag, row) => bag.With(PropertyName.Create(row.Key), new PropertyValue.Text(row.Value)))), tolerance);
+
+    private static string Decimal(double value) => value.ToString("R", CultureInfo.InvariantCulture);
+
+    private static string Key(ContentKey key) => $"{key.Kind.Key}:{key.Digest:x32}";
+
+    private static GraphDelta Author(NodeId element, Node draft, double tolerance) {
         Node node = draft.Relabel(NodeId.Content(draft.ToCanonicalBytes(tolerance)));
         return GraphDelta.Empty.Put(node).Link(new Relationship.Assign(element, node.Id, AssignKind.PropertyDefinition));
     }
@@ -197,23 +545,54 @@ public sealed class FabricationProjector(Seq<(NodeId Element, FabricationResult 
 ```mermaid
 ---
 config:
-  layout: elk
   theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
+    accTitle: Fabrication derivation rail
+    accDescr: A derive request advances through manufacturability, routing, fleet matching, assembly precedence, operation demand, and setup scheduling before one canonical plan feeds estimation and element projection.
     Derive["owner Run(Derive) landed arm"] --> Plan["Derivation.Plan stage rail"]
     Plan -->|1 manufacturability| Dfm["Spec/manufacturability Assess → DfmReport.Routing"]
     Plan -->|2 routing PreferProcess filter| Routed["ranked ProcessKind rows"]
     Plan -->|3 fleet| Matches["Kinematics/fleet Fleet.Capable → MachineMatch"]
-    Plan -->|"4 setup Setup.Schedule(Operations, policy) depth-gated"| Setup["SetupSchedule → one PlannedStep per Setup row"]
-    Plan -->|5 assembly depth-gated| Joins["Fixturing/assembly Assembly.Sequence → AssemblyPlan"]
-    Plan -.->|6 program RECORDS Option.None| Post["Run(Post) emits later"]
-    Plan -.->|7 documentation toggle| Doc["Run(Document) composes later"]
-    Routed --> Compose["Compose → FabricationPlan(Steps, input.Capability, artifacts, plan key)"]
+    Plan -->|4 assembly depth-gated| Joins["Fixturing/assembly Assembly.Sequence → AssemblyPlan"]
+    Plan -->|5 operations depth-gated| Operations["OperationDemand with assembly precedence"]
+    Plan -->|"6 setup Setup.Schedule(Operations, policy) depth-gated"| Setup["SetupSchedule → one PlannedStep per Setup row"]
+    Plan -.->|7 program intent| Post["Run(Post) emits later"]
+    Plan -.->|8 requested artifacts| Doc["Run(Document) composes later"]
+    Routed --> Compose["Compose → FabricationPlan(Steps, capability, requests, artifacts, key)"]
     Matches --> Compose
     Joins --> Compose
     Compose -->|quote lane| Estimate["Verify/estimation Estimate.Of"]
     Compose -->|plan facts| Projector["FabricationProjector : IElementProjection — one app-wired registration row"]
     Projector -->|"GraphDelta (NestWasteArea frozen wire)"| Graph["Rasm.Element graph"]
     Capability["Spec/capability Gate"] -.->|CapabilityVerdict input-carried run-N→N+1| Plan
+    linkStyle 7,8,15 stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dasharray:4 6
+    linkStyle 14 stroke:#8BE9FD,color:#F8F8F2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    class Plan,Dfm,Routed,Matches,Joins,Operations,Setup primary
+    class Compose,Estimate,Projector success
+    class Capability data
+    class Derive,Post,Doc,Graph boundary
 ```

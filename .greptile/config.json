@@ -2,10 +2,9 @@
     "strictness": 1,
     "commentTypes": ["logic", "syntax"],
     "triggerOnUpdates": true,
-    "triggerOnDrafts": false,
+    "triggerOnDrafts": true,
     "statusCheck": true,
     "statusCommentsEnabled": true,
-    "updateExistingSummaryComment": true,
     "fixWithAI": true,
     "shouldUpdateDescription": false,
     "updateSummaryOnly": false,
@@ -36,45 +35,59 @@
     },
     "rules": [
         {
-            "id": "greenfield-only",
-            "rule": "No compat shims, [Obsolete] aliases, backwards-compat wrappers, or migration helpers. Aggressive API breaking with every call site updated in the same change.",
+            "id": "entry-point-sprawl",
+            "rule": "One polymorphic entry per rail, discriminating on input shape. Parallel entry points, modality-named siblings, get/getMany/getById families, and direction-named twins of one correspondence are defects; demand absorption into the one owner, never a new sibling.",
             "severity": "high",
-            "enabled": true
+            "enabled": true,
+            "scope": ["libs/**", "tools/**", ".claude/**"]
+        },
+        {
+            "id": "downstream-knob-spam",
+            "rule": "Judge every surface from its consumers: a parameter a policy value or input shape reconstructs is knob spam; configuration ceremony pushed onto callers, or orchestration a consumer must hand-write, is a defect. Demand internalized lifecycle, routing, and policy with zero capability sacrifice.",
+            "severity": "medium",
+            "enabled": true,
+            "scope": ["libs/**", "tools/**", ".claude/**"]
+        },
+        {
+            "id": "code-body-collapse",
+            "rule": "A long imperative body is a defect wherever a denser expression-shaped form exists: demand fold, combinator, table-driven, or generator forms over hand-rolled loops and branching, and demand surfaces and object types collapse into fewer, denser, richer owners.",
+            "severity": "medium",
+            "enabled": true,
+            "scope": ["libs/**", "tools/**", ".claude/**"]
         },
         {
             "id": "monadic-rails",
-            "rule": "Domain logic rides typed result/effect rails — C# monadic results, TypeScript Effect with tagged faults, Python typed results. Raw exceptions or dual error paradigms crossing domain boundaries are defects.",
+            "rule": "Domain logic — in design-page code fences and tooling source alike — rides typed result/effect rails. Raw exceptions in domain flow, or dual error paradigms crossing one boundary, are defects.",
             "severity": "high",
             "enabled": true,
-            "scope": ["**/*.cs", "**/*.ts", "**/*.py"]
+            "scope": ["libs/**", "tools/**"]
         },
         {
-            "id": "polymorphic-dispatch",
-            "rule": "One function owns all modalities of a concern, discriminating on input shape. get/getMany/getById proliferation, function spam, and singleton helper files where an owning surface exists are defects.",
-            "severity": "medium",
-            "enabled": true,
-            "scope": ["**/*.cs", "**/*.ts", "**/*.py"]
-        },
-        {
-            "id": "central-package-management",
-            "rule": "NuGet versions live only in Directory.Packages.props, hand-edited. TypeScript dependencies are registry packages via pnpm with the committed lockfile; vendored SDKs are defects. Version movement is forward-only: a downgrade or stale floor without a recorded reason is a defect.",
+            "id": "greenfield-only",
+            "rule": "No compat shims, [Obsolete] aliases, backwards-compat wrappers, or migration helpers. Aggressive API breaking with every call site updated in the same change is the sanctioned path.",
             "severity": "high",
-            "scope": ["**/*.csproj", "Directory.Packages.props", "**/package.json", "**/pyproject.toml"],
             "enabled": true
         },
         {
             "id": "fence-as-product",
-            "rule": "Code fences in planning design pages are the work product: transcription-complete signatures verified against the folder's .api/ catalogue. Abstract sketches, pseudo-code fences, hand-waved contracts, and wrapper or grab-bag abstractions inside fences are defects.",
+            "rule": "Code fences in planning design pages are the work product: transcription-complete declarations verified against the folder's .api/ catalogue. Abstract sketches, pseudo-code fences, hand-waved contracts, and phantom members are defects.",
             "severity": "high",
-            "scope": ["libs/.planning/**", "libs/**/.planning/**"],
-            "enabled": true
+            "enabled": true,
+            "scope": ["libs/**"]
+        },
+        {
+            "id": "central-package-custody",
+            "rule": "Package versions live only in the central manifests, hand-edited; vendored SDKs are defects. Version movement is forward-only — a downgrade or stale floor without a recorded reason is a defect, and a sanctioned pin carries an inline comment stating exactly what breaks without it.",
+            "severity": "high",
+            "enabled": true,
+            "scope": ["**/*.csproj", "Directory.Packages.props", "**/package.json", "**/pyproject.toml"]
         },
         {
             "id": "workflow-determinism",
             "rule": "Workflow scripts are deterministic orchestration: schema-typed agent outputs, bounded loops, stage products written to disk with path receipts. Bare promises, unbounded polling, wall-clock branching, and subagents instructed to wait are defects.",
             "severity": "medium",
-            "scope": [".claude/workflows/**"],
-            "enabled": true
+            "enabled": true,
+            "scope": [".claude/workflows/**"]
         }
     ]
 }
