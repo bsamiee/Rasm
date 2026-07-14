@@ -23,10 +23,11 @@ const IMPL_FAN = 3; // max implement agents fanned per folder, and only over dis
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the no-shrinkage progress gate (no remaining shrinkage -> stop) is the real bound
-const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical writer; the count bounds spend, the backoff buys recovery time
-const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
-const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
-const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
+const RETRY_BACKOFFS = [60000, 1800000]; // agent() returns null causeless, so the ladder covers both death classes: a fast first attempt catches transient transport deaths, the long second waits out a usage-limit window
+const WRAPPER_STALL = 1500000; // stallMs never observes a live blocking MCP call (run-proven: a 43-min blocked wrapper under a 25-min stall survived) — this guards only out-of-call wrapper wedges; the watchdog clocks below are the binding bound
+const LANE_CLOCK = 2700000; // codex-lane wall-clock watchdog (~2.5x observed peer median): a nested-call wedge inside codex otherwise holds the slot to the session MCP ceiling
+const CRIT_CLOCK = 5400000; // sol critique watchdog (operator-default tier): a dense-batch conformance pass legitimately runs long; the ceiling exists for wedges, never depth
+const ROOT_DIR = '/Users/bardiasamiee/Documents/99.Github/Rasm';
 const ROOT = 'libs/python';
 const SHARED_API = 'libs/python/.api';
 const CENTRAL = 'pyproject.toml';
@@ -182,16 +183,19 @@ const DISCOVERY_SCHEMA = {
 // the per-page navigation map, anchors, coverage) stays on disk at `report`; only status + count + headline
 // plus the structural rows the orchestrator fans and seams over (order/cards/gates/ripples/malformed)
 // travel inline. `cards` = {slug, pages} per open card — the page-disjointness proof, nothing more.
+// `thread` is the codex MCP threadId — the rollout-file key under ~/.codex/sessions/ AND the `codex exec
+// resume` handle, so a dead codex lane stays joinable and recoverable; native lanes return ''.
 const RECEIPT = {
     type: 'object',
     additionalProperties: false,
-    required: ['ok', 'report', 'entries', 'headline', 'failure', 'order', 'cards', 'gates', 'ripples', 'malformed'],
+    required: ['ok', 'report', 'entries', 'headline', 'failure', 'thread', 'order', 'cards', 'gates', 'ripples', 'malformed'],
     properties: {
         ok: { type: 'boolean' },
         report: { type: 'string' },
         entries: { type: 'integer' },
         headline: { type: 'string' },
         failure: { type: 'string' },
+        thread: { type: 'string' },
         order: { type: 'array', items: { type: 'string' } },
         cards: { type: 'array', items: CARD_REF },
         gates: { type: 'array', items: GATE_ROW },
@@ -200,17 +204,19 @@ const RECEIPT = {
     },
 };
 
-// Thin wire receipt for the sol critique lane: its FIXLOG product stays on disk at `report`.
+// Thin wire receipt for the sol critique lane: its FIXLOG product stays on disk at `report`; `thread` carries
+// the codex MCP threadId (rollout-store key + resume handle), native twin returns ''.
 const LANE_RECEIPT = {
     type: 'object',
     additionalProperties: false,
-    required: ['ok', 'report', 'entries', 'headline', 'failure'],
+    required: ['ok', 'report', 'entries', 'headline', 'failure', 'thread'],
     properties: {
         ok: { type: 'boolean' },
         report: { type: 'string' },
         entries: { type: 'integer' },
         headline: { type: 'string' },
         failure: { type: 'string' },
+        thread: { type: 'string' },
     },
 };
 
@@ -362,7 +368,9 @@ const DOCTRINE_SCHEMA = {
 // --- [DOCTRINE] ------------------------------------------------------------------------
 
 const FB =
-    ' (the `.api` catalogs, Context7/exa/tavily for the official surface, and the `nuget` MCP for NuGet-side members own the fallback when assay is unavailable)';
+    ' (the `.api` catalogs, Context7/exa/tavily for the official surface, and the `nuget` MCP for NuGet-side members — ' +
+    'version/deprecation lookups only, `get_latest_package_version`-class calls, never a full `get_package_context` dump on a ' +
+    'large package — own the fallback when assay is unavailable)';
 
 const LAW = [
     'Rasm monorepo, libs/python planning corpus (markdown specs of intended Python module designs). CLAUDE.md manifest + WORKSPACE_LAW strata ' +
@@ -649,16 +657,32 @@ const pool = async (items, cap, worker) => {
     await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()));
     return out;
 };
-// Bounded re-dispatch for a dead CRITICAL writer (usage-limit or transport death): attempt-counted, backoff before each attempt;
-// the final death isolates the lane but NEVER the chain — every downstream stage still runs against current disk.
+// Bounded re-dispatch for a dead CRITICAL writer: attempt-counted with a per-attempt backoff (fast first for a transient
+// death, long second for a usage-limit window); the final death isolates the lane but NEVER the chain — every downstream
+// stage still runs against current disk.
 const retryLane = async (fn) => {
-    for (let a = 0; a < RETRY_ATTEMPTS; a++) {
-        await sleep(RETRY_BACKOFF);
+    for (const backoff of RETRY_BACKOFFS) {
+        await sleep(backoff);
         const r = await fn();
         if (r) return r;
     }
     return null;
 };
+
+// Run telemetry: every lane brackets itself on ONE shared ledger — one O_APPEND line per event, `<utc-iso> | <label> | <event>[ | <verdict> | <count>]`.
+// The ledger is the workflow-agnostic observability seam a watcher tails for phase/stall/failure signals; native lanes self-stamp through the `run`
+// dispatch owner, codex lanes are stamped by their sonnet wrapper around the blocking MCP call so the bracket times the codex call itself.
+const LEDGER_LOG = ROOT_DIR + '/' + SCRATCH + '/run-telemetry.log';
+const TLM = (label) =>
+    'TELEMETRY (mechanical): FIRST act — one Bash append of one line to `' +
+    LEDGER_LOG +
+    '`: `<utc-iso> | ' +
+    label +
+    ' | start` (shell `>>` with `date -u +%FT%TZ`; never rewrite the file). FINAL act before returning — append the matching ' +
+    '`<utc-iso> | ' +
+    label +
+    ' | end | <one-word verdict> | <primary entry count>`. A lane that cannot finish appends `| fail | <reason slug>` instead of `end`.';
+const run = (prompt, opts) => agent(prompt + '\n\n' + TLM(opts.label), opts);
 
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
@@ -683,13 +707,16 @@ const laneLaw = (schema, o) =>
           'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
           'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
           '</verification>') +
-    '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
+    '\n\n<tool_bounds>\nA nested MCP tool call is bounded: prefer the lightest variant that answers the question (a version ' +
+    'lookup over a full package-context dump), give every such call a hard time budget, and when a call does not settle ' +
+    'promptly, record the item as a gap/unverified row and move on — an unbounded wait on one lookup never stalls the task.\n' +
+    '</tool_bounds>\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
-    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+    const root = ROOT_DIR;
     const report = root + '/' + base + '-report.json';
     const model = o.model || 'gpt-5.6-terra';
     return [
@@ -697,7 +724,12 @@ const codexPrompt = (label, task, schema, o) => {
             model +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
+        '(1) Load the `codex` skill via the Skill tool FIRST — its [09] sessions and recovery law governs this call. Then call ' +
+            'ToolSearch with query "select:mcp__codex__codex,mcp__codex__codex-reply", and append one Bash line to `' +
+            LEDGER_LOG +
+            '`: `<utc-iso> | ' +
+            label +
+            ' | codex-start` (shell `>>` with `date -u +%FT%TZ`; never rewrite the file).',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
             '", sandbox=' +
@@ -708,12 +740,14 @@ const codexPrompt = (label, task, schema, o) => {
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
             'VERBATIM. ' +
             (o.writes
-                ? 'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane writes ' +
-                  "its report as its final act — run step (3)'s verification first, and a valid report proceeds to step (4) as success. " +
-                  'Only a missing or invalid report earns ONE identical retry (a second writer over the same pages is the last resort); ' +
-                  'a failed retry with no valid report returns the error through step (4).'
-                : 'If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the error through ' +
-                  'step (4).'),
+                ? "On any call error run the codex skill's blocking-caller recovery ladder with this lane's disk product at " +
+                  report +
+                  ' — verify it FIRST (the lane writes it as its final act; a valid report proceeds to step (4) as success); the ' +
+                  'reply nudge tells the session to finish the TASK and write the report file as specified; a fresh identical call ' +
+                  'is the last resort (a second writer over the same pages).'
+                : "On any call error run the codex skill's blocking-caller recovery ladder — this lane writes no product itself, so " +
+                  'the reply re-emission of the complete final-message JSON is the first rung and one identical retry the second; a ' +
+                  'failed ladder skips step (3) and returns through step (4).'),
         'LANE LAW:\n\n' + laneLaw(schema, o),
         // writes lanes author their own report (final act) — the sandbox admits it; the wrapper only verifies.
         'TASK:\n\n' +
@@ -735,12 +769,12 @@ const codexPrompt = (label, task, schema, o) => {
               report +
               ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
               'failure returns through step (4) with the error.',
-        o.receipt(base),
+        o.receipt(base, label),
     ].join('\n\n');
 };
 const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
-    agent(task + o.nativeTail(SCRATCH + '/' + fileTag(o.label) + '-report.json'), {
+    run(task + o.nativeTail(SCRATCH + '/' + fileTag(o.label) + '-report.json'), {
         label: o.label,
         phase: o.phase,
         model: o.nativeModel || twinOf(o.model),
@@ -750,34 +784,49 @@ const nativeLane = (task, o) =>
     });
 // The discovery lane routes here: gpt-5.6-terra wrapper when CODEX (a read-only mapping lane — recon law,
 // never fix), the native twin otherwise. The row carries `scope` from the ORCHESTRATOR (never the lane's
-// self-report) so a failed lane's territory is exact even when the lane died before writing anything.
-const discoveryReceipt = (base) =>
-    '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
+// self-report) so a failed lane's territory is exact even when the lane died before writing anything. The
+// codex call races a wall-clock watchdog: the ceiling frees the slot with the standard dead-lane shape while
+// the abandoned call runs on harness-side as an ignored zombie and the codex session stays recoverable via the rollout store.
+const discoveryReceipt = (base, label) =>
+    '(4) One Bash append of one line to the same ledger: `<utc-iso> | ' +
+    label +
+    ' | codex-end | <ok or fail> | <entries> | <threadId from the result envelope>` — the threadId keys the codex-side session ' +
+    'record, so it is never omitted. Then parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
     base +
-    '-report.json, entries=(tasks.length + ideas.length), headline="<entries> open cards | <status tallies>", failure empty, and copy ' +
+    '-report.json, entries=(tasks.length + ideas.length), headline="<entries> open cards | <status tallies>", failure empty, ' +
+    'thread=the threadId from the result envelope, and copy ' +
     'order, cards=(tasks + ideas projected to {slug,pages}), gates, ripples, and malformed from malformed_ripples verbatim from the ' +
-    'result. On a second tool error return ok=false, entries=0, report and headline empty, every structural array empty, and failure ' +
-    'equal to the error text VERBATIM.';
+    'result. On a second tool error return ok=false, entries=0, report and headline empty, every structural array empty, ' +
+    'thread=the threadId if any envelope returned one else empty, and failure equal to the error text VERBATIM.';
 const discoveryTail = (report) =>
     '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
     report +
     ' (Write tool, absolute path under the repo root): ' +
     JSON.stringify(DISCOVERY_SCHEMA) +
     ' — then return ONLY the receipt: ok, report path, entries = open tasks + ideas count, ' +
-    'one-line mechanical headline (card count + status counts), failure empty, plus order, cards ({slug, pages} per open ' +
+    'one-line mechanical headline (card count + status counts), failure empty, thread empty, plus order, cards ({slug, pages} per open ' +
     'card), gates, ripples, and malformed (= malformed_ripples) transcribed exactly from the product.';
 const recon = (task, o) => {
     const opts = { ...o, writes: !!o.writes, receipt: discoveryReceipt, nativeTail: discoveryTail, wire: RECEIPT };
     return (
         CODEX
-            ? agent(codexPrompt(o.label, task, DISCOVERY_SCHEMA, opts), {
-                  label: 'terra:' + o.label,
-                  phase: o.phase,
-                  model: 'sonnet',
-                  effort: 'low',
-                  schema: RECEIPT,
-                  stallMs: o.stallMs || CODEX_STALL,
-              }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
+            ? Promise.race([
+                  agent(codexPrompt(o.label, task, DISCOVERY_SCHEMA, opts), {
+                      label: 'terra:' + o.label,
+                      phase: o.phase,
+                      model: 'sonnet',
+                      effort: 'low',
+                      schema: RECEIPT,
+                      stallMs: o.stallMs || WRAPPER_STALL,
+                  }),
+                  sleep(o.clockMs || LANE_CLOCK).then(() => ({
+                      ok: false,
+                      report: '',
+                      entries: 0,
+                      headline: '',
+                      failure: 'watchdog: wall-clock ceiling — call abandoned, slot freed; session recoverable via the rollout store',
+                  })),
+              ]).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
             : nativeLane(task, opts)
     ).then((r) => ({
         lane: o.label,
@@ -787,6 +836,7 @@ const recon = (task, o) => {
         entries: (r && r.entries) || 0,
         headline: (r && r.headline) || '',
         failure: (r && r.failure) || (r ? '' : 'lane died'),
+        thread: (r && r.thread) || '',
         order: (r && r.order) || [],
         cards: (r && r.cards) || [],
         gates: (r && r.gates) || [],
@@ -799,29 +849,43 @@ const folderName = (p) => p.split('/').filter(Boolean).pop() || p;
 // Sol critique lane: one blocking Codex MCP call at the operator-default tier in a workspace-write sandbox — a FIX lane
 // (persistence + post-edit verification law), FIXLOG product to disk, thin receipt on the wire; CODEX=false (or a quota
 // fallback) restores the native fable twin writing the same product to the same path.
-const critiqueReceipt = (base) =>
-    '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
+const critiqueReceipt = (base, label) =>
+    '(4) One Bash append of one line to the same ledger: `<utc-iso> | ' +
+    label +
+    ' | codex-end | <ok or fail> | <entries> | <threadId from the result envelope>` — the threadId keys the codex-side session ' +
+    'record, so it is never omitted. Then parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
     base +
-    '-report.json, entries=the length of result["realized"], headline="<entries> realized | verdict <verdict>", and failure ' +
-    'empty. On a second tool error return ok=false, entries=0, report and headline empty, and failure equal to the error text VERBATIM.';
+    '-report.json, entries=the length of result["realized"], headline="<entries> realized | verdict <verdict>", ' +
+    'thread=the threadId from the result envelope, and failure ' +
+    'empty. On a second tool error return ok=false, entries=0, report and headline empty, thread=the threadId if any envelope ' +
+    'returned one else empty, and failure equal to the error text VERBATIM.';
 const critiqueTail = (report) =>
     '\n\nPRODUCT TO DISK: write your COMPLETE fix-log as one JSON file matching this schema at ' +
     report +
     ' (Write tool, absolute path under the repo root): ' +
     JSON.stringify(FIXLOG_SCHEMA) +
-    ' — then return ONLY the receipt: ok, report path, entries = realized count, one-line mechanical headline, failure empty.';
+    ' — then return ONLY the receipt: ok, report path, entries = realized count, one-line mechanical headline, failure empty, thread empty.';
 const solLane = (task, o) => {
     const opts = { ...o, model: 'gpt-5.6-sol', writes: true, fix: true, receipt: critiqueReceipt, nativeTail: critiqueTail, wire: LANE_RECEIPT };
     return (
         CODEX
-            ? agent(codexPrompt(o.label, task, FIXLOG_SCHEMA, opts), {
-                  label: 'sol:' + o.label,
-                  phase: o.phase,
-                  model: 'sonnet',
-                  effort: 'low',
-                  schema: LANE_RECEIPT,
-                  stallMs: SOL_STALL,
-              }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
+            ? Promise.race([
+                  agent(codexPrompt(o.label, task, FIXLOG_SCHEMA, opts), {
+                      label: 'sol:' + o.label,
+                      phase: o.phase,
+                      model: 'sonnet',
+                      effort: 'low',
+                      schema: LANE_RECEIPT,
+                      stallMs: WRAPPER_STALL,
+                  }),
+                  sleep(o.clockMs || CRIT_CLOCK).then(() => ({
+                      ok: false,
+                      report: '',
+                      entries: 0,
+                      headline: '',
+                      failure: 'watchdog: wall-clock ceiling — call abandoned, slot freed; session recoverable via the rollout store',
+                  })),
+              ]).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
             : nativeLane(task, opts)
     )
         .then((r) => ({
@@ -830,8 +894,9 @@ const solLane = (task, o) => {
             entries: (r && r.entries) || 0,
             headline: (r && r.headline) || '',
             failure: (r && r.failure) || (r ? '' : 'lane died'),
+            thread: (r && r.thread) || '',
         }))
-        .catch(() => ({ ok: false, report: '', entries: 0, headline: '', failure: 'lane died' }));
+        .catch(() => ({ ok: false, report: '', entries: 0, headline: '', failure: 'lane died', thread: '' }));
 };
 
 // Page-disjointness is PROVEN, never assumed: every ordered card must carry >=1 verified page, gate pairs merge, and
@@ -1301,24 +1366,21 @@ const runFolder = async (target) => {
                     groups.map((g, gi) => async () => {
                         await stagger();
                         const fire = (suffix) =>
-                            agent(
-                                implementPrompt(target, groupSeq(t, g), GROUPNOTE, t.report, SCRATCH + '/ownpass-impl-' + tag + '-g' + gi + '.md'),
-                                {
-                                    label: 'implement:' + tag + ':g' + gi + suffix,
-                                    phase: 'Realize',
-                                    schema: FIXLOG_SCHEMA,
-                                    model: 'fable',
-                                    effort: 'high',
-                                    stallMs: STALL,
-                                },
-                            );
+                            run(implementPrompt(target, groupSeq(t, g), GROUPNOTE, t.report, SCRATCH + '/ownpass-impl-' + tag + '-g' + gi + '.md'), {
+                                label: 'implement:' + tag + ':g' + gi + suffix,
+                                phase: 'Realize',
+                                schema: FIXLOG_SCHEMA,
+                                model: 'fable',
+                                effort: 'high',
+                                stallMs: STALL,
+                            });
                         return (await fire('')) || (await retryLane(() => fire(':r1')));
                     }),
                 )
             ).filter(Boolean);
         } else {
             const fire = (suffix) =>
-                agent(implementPrompt(target, seq, '', t.report, SCRATCH + '/ownpass-impl-' + tag + '.md'), {
+                run(implementPrompt(target, seq, '', t.report, SCRATCH + '/ownpass-impl-' + tag + '.md'), {
                     label: 'implement:' + tag + suffix,
                     phase: 'Realize',
                     schema: FIXLOG_SCHEMA,
@@ -1344,7 +1406,7 @@ const runFolder = async (target) => {
         const critOk = !!(crit && crit.ok);
         await stagger();
         const fireRt = (suffix) =>
-            agent(redteamPrompt(target, seq, t.report, critReport, critOk, SCRATCH + '/ownpass-rt-' + tag + '.md'), {
+            run(redteamPrompt(target, seq, t.report, critReport, critOk, SCRATCH + '/ownpass-rt-' + tag + '.md'), {
                 label: 'redteam:' + tag + suffix,
                 phase: 'Realize',
                 schema: REDTEAM_SCHEMA,
@@ -1436,7 +1498,7 @@ if (PINS_NEEDED) {
     phase('Pins');
     for (let round = 0; round < DRAIN_ROUNDS; round++) {
         const fire = (suffix) =>
-            agent(pinPrompt(pinsReported, seamsReported, ORPHANS, residuals, round), {
+            run(pinPrompt(pinsReported, seamsReported, ORPHANS, residuals, round), {
                 label: (round ? 'pins:r' + round : 'pins') + suffix,
                 phase: 'Pins',
                 schema: PIN_SCHEMA,
@@ -1461,7 +1523,7 @@ const HARVEST_ROWS = done.flatMap((r) => r.logs.flatMap((l) => l.harvest || []))
 let doctrine = null;
 if (HARVEST_ROWS.length || ORPHANS.length || (PINS_NEEDED && !pinlog)) {
     phase('Pins');
-    doctrine = await agent(doctrinePrompt(HARVEST_ROWS, ORPHANS), {
+    doctrine = await run(doctrinePrompt(HARVEST_ROWS, ORPHANS), {
         label: 'doctrine',
         phase: 'Pins',
         schema: DOCTRINE_SCHEMA,

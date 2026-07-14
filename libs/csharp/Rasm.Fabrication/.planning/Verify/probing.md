@@ -1,24 +1,24 @@
 # [RASM_FABRICATION_PROBING]
 
-Probe inspection owns in-process metrology: posting emits the `G31`/`G38` probe nodes, this page owns their cycle semantics, AppHost or typed manual ingress supplies measured points, setup supplies WCS datum assignment, kernel registration/fitting/sampling surfaces solve datum reconciliation, and capability receives the residual tranche. `Probe.Inspect` is the `FabricationPolicy.Inspect` case body and returns the owner-safe `FabricationResult.InspectionResult`; the richer probe report, QIF MeasurementResults projection, datum offsets, and capability report remain terminal inside the Verify plane.
+Probe inspection owns in-process metrology: posting emits the `G31`/`G38` probe nodes, this page owns their cycle semantics, decoded telemetry slices or typed manual rows supply measured points (caller-injected data — the AppHost transport never crosses the strata), setup supplies WCS datum assignment, kernel registration/fitting/sampling surfaces solve datum reconciliation, and capability receives the residual tranche. `Probe.Inspect` is the `FabricationPolicy.Inspect` case body and returns the owner-safe `FabricationResult.InspectionResult`; the richer probe report, QIF MeasurementResults projection, datum offsets, and capability report remain terminal inside the Verify plane. The cycle verdict is LOAD-BEARING: measured features derive ONLY from cycle-admitted contacts — a rejected optional-direction touch is receipt evidence and never a measurement — and every contact compensates the stylus ball radius along the approach direction before any feature projects, because a touch probe reports the ball CENTER, not the surface.
 
 ## [01]-[INDEX]
 
-- [01]-[PROBE_INSPECTION]: owns `ProbeCycle`, `MeasurementSource`, `DatumPolicy`, `SamplingPolicy`, `InspectPolicy`, measured-feature receipts, QIF MeasurementResults projection, WCS reconciliation, capability feed, and the one `Probe.Inspect` entry.
+- [01]-[PROBE_INSPECTION]: owns `ProbeCycle`, `MeasurementSource`, `DatumPolicy`, `SamplingPolicy`, `InspectPolicy`, stylus compensation, measured-feature receipts, QIF MeasurementResults projection, WCS reconciliation, capability feed, and the one `Probe.Inspect` entry.
 
 ## [02]-[PROBE_INSPECTION]
 
-- Owner: `ProbeCycle` owns controller probe-cycle row semantics for posting AST `G31`/`G38` nodes; `InspectPolicy` owns targets, cycles, datum, sampling, source, optional capability tolerance, and the clock seam.
-- Ingress: `MeasurementSource` owns honest ingress from decoded AppHost telemetry, typed manual rows, or declared fixture-synthetic carriage.
-- Kernels: `DatumPolicy` owns setup datum reuse, ICP best-fit, and substitute primitive fitting; `SamplingPolicy` owns CMM grid generation through `SampleKind` and residual projection through `ConformanceMetric` evidence.
+- Owner: `ProbeCycle` owns controller probe-cycle row semantics for posting AST `G31`/`G38` nodes; `InspectPolicy` owns targets, cycles, datum, sampling, source, stylus radius, optional capability tolerance, and the clock seam.
+- Ingress: `MeasurementSource` owns honest ingress from decoded telemetry slices, typed manual rows, or declared fixture-synthetic carriage — the frames are caller-injected data records, never a transport reference.
+- Kernels: `DatumPolicy` owns setup datum reuse, ICP best-fit over the kernel `AlignKind`/`AlignmentPolicy` six-row dispatcher (`Rasm.Processing` — `AlignDetailed` the entry, `AlignmentReceipt` the gated evidence), and substitute primitive fitting over K26 `FitKind`; `SamplingPolicy` owns CMM grid generation through `SampleKind` and residual projection through `ConformanceMetric` evidence, and its `Kind` row stamps the report so the sampling law is receipt-recoverable.
 - Cases: `ProbeCycle` rows `g31` · `g38.2` · `g38.3` · `g38.4` · `g38.5`; `MeasurementSource` cases `Telemetry` · `Manual` · `FixtureSynthetic`; `DatumPolicy` cases `Setup` · `BestFit` · `Substitute`.
 - Entry: `public static Fin<FabricationResult> Probe.Inspect(InspectPolicy policy, FabricationInput input)` — the exact `FabricationPolicy.Inspect` arm; `Fin<T>` routes `FabricationFault.ProbeOvertravel(at, limit).ToError()` for cycle travel beyond the limit and kernel faults from registration, primitive fitting, sampling, or capability.
-- Auto: `Inspect` samples target features through the `SamplingPolicy.Grid` K37 delegate, admits measurements only from `MeasurementSource`, then EXECUTES the cycle law per `ProbeCyclePlan` before any feature projects — signed travel along the target approach from the plan's approach point, toward/away direction admission, the tighter of plan and target travel limits, required-hit exhaustion routing `ProbeOvertravel` and optional-hit misses landing typed `Hit: false` receipts, uniformly over telemetry, manual, and fixture-synthetic ingress — and folds nominal/measured deltas into `ResidualSample` rows through `SamplingPolicy.Residual`.
-- Reconcile: `Setup` reads the assigned `WcsDatum`; `BestFit` composes K16 `AlignKind`/`AlignmentPolicy`; `Substitute` composes K26 `FitKind`; QIF MeasurementResults rows feed `Spec/capability`; the return stays the owner-safe result case.
-- Receipt: `ProbeReport` carries cycle receipts, datum offsets, measured-feature rows, QIF MeasurementResults, optional `CapabilityReport`, and an `Instant` stamp; `FabricationResult.InspectionResult` carries `Seq<(Point3d Nominal, Point3d Measured)>` plus `MaxDeviation` only.
-- Packages: `Process/owner#FABRICATION_OWNER` (`Move`, `FabricationInput`, `FabricationResult`), `Posting/program#CUT_PROGRAM` (`GNode` probe rows), `Fixturing/setups#SETUP_SCHEDULER` (`WcsDatum`), `Spec/capability#CAPABILITY` (`Capability.Assess`, `CapabilityReport`, `CapabilityTolerance`), kernel K16 (`AlignKind`, `AlignmentPolicy`), K17 (`ResidualSample`, `ConformanceMetric`), K26 (`FitKind`), K37 (`SampleKind`), NodaTime (`IClock`, `Instant`), Rhino.Geometry, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
-- Growth: a new controller probe cycle is one `ProbeCycle` row and one posting AST row; a new measurement ingress is one `MeasurementSource` case; a new datum reconciliation path is one `DatumPolicy` case carrying its kernel delegate; a new inspection grid is one `SampleKind` policy row; the public surface stays `Probe.Inspect`.
-- Boundary: cycle rendering stays posting-owned and cycle semantics stay here; transport stays AppHost-owned and only decoded telemetry rows enter; fixture-synthetic rows require the explicit `FixtureSynthetic` case and never masquerade as measured telemetry; work-offset assignment stays setup-owned while probing reconciles deltas; capability keeps `CapabilityReport` terminal and only owner#atoms-safe `InspectionResult` crosses the fabrication result case.
+- Auto: `Inspect` samples target features through the `SamplingPolicy.Grid` K37 delegate, admits measurements only from `MeasurementSource`, EXECUTES the cycle law per `ProbeCyclePlan` — signed travel along the target approach from the plan's approach point, toward/away direction admission, the tighter of plan and target travel limits, required-hit exhaustion routing `ProbeOvertravel` and optional-hit misses landing typed `Hit: false` receipts with `Option<ManualMeasurement>.None` (never a sentinel row), uniformly over telemetry, manual, and fixture-synthetic ingress — compensates each ADMITTED contact by `StylusRadiusMm` along the unit approach, and folds nominal/compensated deltas into `ResidualSample` rows through `SamplingPolicy.Residual`. Features derive from the admitted cycle receipts, never the raw measurement sequence.
+- Reconcile: `Setup` reads the assigned `WcsDatum`; `BestFit` composes the kernel ICP dispatcher; `Substitute` composes K26 `FitKind`; QIF MeasurementResults rows feed `Spec/capability`; the return stays the owner-safe result case.
+- Receipt: `ProbeReport` carries cycle receipts, datum offsets, measured-feature rows, QIF MeasurementResults with the sampling `Kind` stamp, optional `CapabilityReport`, and an `Instant` stamp; `FabricationResult.InspectionResult` carries `Seq<(Point3d Nominal, Point3d Measured)>` plus `MaxDeviation` only.
+- Packages: `Process/owner#FABRICATION_OWNER` (`Move`, `FabricationInput`, `FabricationResult`), `Posting/program#CUT_PROGRAM` (`GNode` probe rows), `Fixturing/setups#SETUP_SCHEDULER` (`WcsDatum`), `Spec/capability#CAPABILITY` (`Capability.Assess`, `CapabilityReport`, `CapabilityTolerance`), kernel `Rasm.Processing` (`AlignKind`, `AlignmentPolicy` — the verified six-row ICP dispatcher), K17 (`ResidualSample`, `ConformanceMetric`), K26 (`FitKind`), K37 (`SampleKind`), NodaTime (`IClock`, `Instant`), Rhino.Geometry, Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox.
+- Growth: a new controller probe cycle is one `ProbeCycle` row and one posting AST row; a new measurement ingress is one `MeasurementSource` case; a new datum reconciliation path is one `DatumPolicy` case carrying its kernel delegate; a new inspection grid is one `SampleKind` policy row; probe pre-travel and lobing calibration land as columns beside `StylusRadiusMm` when a calibration receipt rides the policy; the public surface stays `Probe.Inspect`.
+- Boundary: cycle rendering stays posting-owned and cycle semantics stay here; transport stays AppHost-owned and only decoded data rows enter — a `Rasm.AppHost` type in this plane is the strata violation; fixture-synthetic rows require the explicit `FixtureSynthetic` case and never masquerade as measured telemetry; work-offset assignment stays setup-owned while probing reconciles deltas; capability keeps `CapabilityReport` terminal and only owner#atoms-safe `InspectionResult` crosses the fabrication result case; a feature projected from a raw measurement that bypassed its cycle verdict, an uncompensated ball-center contact, or a sentinel no-contact measurement row is the deleted form.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -57,7 +57,7 @@ public sealed partial class ProbeCycle {
 public abstract partial record MeasurementSource {
     private MeasurementSource() { }
 
-    public sealed record Telemetry(Seq<AppHostProbeFrame> Frames) : MeasurementSource;
+    public sealed record Telemetry(Seq<ProbeFrame> Frames) : MeasurementSource;
     public sealed record Manual(Seq<ManualMeasurement> Rows) : MeasurementSource;
     public sealed record FixtureSynthetic(Seq<ManualMeasurement> Rows, TestCarriage Carriage) : MeasurementSource;
 }
@@ -89,10 +89,13 @@ public sealed record InspectPolicy(
     DatumPolicy Datum,
     SamplingPolicy Sampling,
     MeasurementSource Source,
+    double StylusRadiusMm,
     Option<CapabilityTolerance> Capability,
     IClock Clock);
 
-public sealed record AppHostProbeFrame(int Feature, Point3d Position, double Travel, double Limit, Instant At, string Device, string DataItem);
+// The decoded telemetry SLICE — caller-injected data; Device/DataItem identify the transport-side origin
+// without any transport type crossing the strata.
+public sealed record ProbeFrame(int Feature, Point3d Position, double Travel, double Limit, Instant At, string Device, string DataItem);
 
 public sealed record ManualMeasurement(int Feature, Point3d Measured, Instant At, string Source);
 
@@ -104,9 +107,9 @@ public sealed record WorkOffsetDelta(WcsDatum Datum, Vector3d Translation, Vecto
 
 public sealed record DatumReceipt(DatumPolicy Policy, Seq<WorkOffsetDelta> Offsets, int SnapshotCount);
 
-public sealed record ProbeCycleReceipt(ProbeCyclePlan Plan, ManualMeasurement Measurement, bool Hit, Instant At);
+public sealed record ProbeCycleReceipt(ProbeCyclePlan Plan, Option<ManualMeasurement> Measurement, bool Hit, Instant At);
 
-public sealed record QifMeasurementResults(Seq<MeasuredFeature> Features, Seq<ResidualSample> Residuals, Option<CapabilityReport> Capability, Instant At);
+public sealed record QifMeasurementResults(SampleKind Sampling, Seq<MeasuredFeature> Features, Seq<ResidualSample> Residuals, Option<CapabilityReport> Capability, Instant At);
 
 public sealed record ProbeReport(
     Seq<ProbeCycleReceipt> Cycles,
@@ -122,7 +125,7 @@ public static class Probe {
         from targets in policy.Sampling.Grid(input, policy.Targets)
         from measurements in Measurements(policy.Source)
         from cycles in EvaluateCycles(policy.Cycles, targets, measurements)
-        from features in Features(measurements, targets, policy)
+        from features in Features(cycles, targets, policy)
         from datum in Reconcile(policy.Datum, input, features)
         from capability in AssessCapability(features, policy)
         let at = policy.Clock.GetCurrentInstant()
@@ -130,7 +133,7 @@ public static class Probe {
             cycles,
             datum,
             features,
-            new QifMeasurementResults(features, features.Map(static feature => feature.Residual), capability, at),
+            new QifMeasurementResults(policy.Sampling.Kind, features, features.Map(static feature => feature.Residual), capability, at),
             MaxDeviation(features),
             at)
         select ToResult(report);
@@ -141,24 +144,41 @@ public static class Probe {
             manual: static manual => Fin.Succ(manual.Rows),
             fixtureSynthetic: static fixture => Fin.Succ(fixture.Rows));
 
-    static Fin<ManualMeasurement> Frame(AppHostProbeFrame frame) =>
+    static Fin<ManualMeasurement> Frame(ProbeFrame frame) =>
         frame.Travel > frame.Limit
             ? Fin.Fail<ManualMeasurement>(new FabricationFault.ProbeOvertravel(frame.Position, frame.Limit).ToError())
             : Fin.Succ(new ManualMeasurement(frame.Feature, frame.Position, frame.At, $"{frame.Device}:{frame.DataItem}"));
 
-    static Fin<Seq<MeasuredFeature>> Features(Seq<ManualMeasurement> rows, Seq<FeatureTarget> targets, InspectPolicy policy) =>
-        rows.TraverseM(row => Feature(row, targets, policy)).As();
+    // Features derive ONLY from cycle-admitted contacts (Hit: true, Measurement: Some) — the cycle verdict
+    // gates the projection; a raw-measurement bypass is the deleted parallel derivation. The admitted point
+    // compensates the stylus ball radius along the unit approach BEFORE the delta folds.
+    static Fin<Seq<MeasuredFeature>> Features(Seq<ProbeCycleReceipt> cycles, Seq<FeatureTarget> targets, InspectPolicy policy) =>
+        cycles.Filter(static receipt => receipt.Hit)
+            .Bind(receipt => receipt.Measurement.Map(row => (receipt, row)).ToSeq())
+            .TraverseM(pair => Feature(pair.row, targets, policy))
+            .As();
 
     static Fin<MeasuredFeature> Feature(ManualMeasurement row, Seq<FeatureTarget> targets, InspectPolicy policy) =>
         targets.Find(target => target.Feature == row.Feature).Match(
-            Some: target => Fin.Succ(new MeasuredFeature(
-                row.Feature,
-                target.Nominal,
-                row.Measured,
-                target.Nominal.DistanceTo(row.Measured),
-                policy.Sampling.Residual(target, row.Measured, row.At),
-                row.At)),
+            Some: target => {
+                Point3d compensated = Compensate(row.Measured, target.Approach, policy.StylusRadiusMm);
+                return Fin.Succ(new MeasuredFeature(
+                    row.Feature,
+                    target.Nominal,
+                    compensated,
+                    target.Nominal.DistanceTo(compensated),
+                    policy.Sampling.Residual(target, compensated, row.At),
+                    row.At));
+            },
             None: () => Fin.Fail<MeasuredFeature>(GeometryFault.DegenerateInput($"probe:target-missing:{row.Feature}").ToError()));
+
+    // A touch probe reports the ball CENTER; the surface point sits one ball radius further along the
+    // approach direction.
+    static Point3d Compensate(Point3d center, Vector3d approach, double stylusRadiusMm) {
+        Vector3d direction = approach;
+        direction.Unitize();
+        return center + direction * stylusRadiusMm;
+    }
 
     static Fin<DatumReceipt> Reconcile(DatumPolicy datum, FabricationInput input, Seq<MeasuredFeature> features) =>
         datum.Switch(
@@ -176,8 +196,8 @@ public static class Probe {
     // source: signed travel along the target approach from the plan's approach point, direction admission
     // (toward/away), the tighter of the plan and target travel limits, and required-hit semantics. A contact
     // past the limit — or a required-hit exhaustion, which is physically the probe running to its limit —
-    // routes ProbeOvertravel 2720; an optional-hit miss is a typed Hit-false receipt. Every receipt's Hit is
-    // EVALUATED truth, never a stamped constant.
+    // routes ProbeOvertravel 2720; an optional-hit miss is a typed Hit-false receipt carrying Measurement:
+    // None. Every receipt's Hit is EVALUATED truth, never a stamped constant.
     static Fin<Seq<ProbeCycleReceipt>> EvaluateCycles(Seq<ProbeCyclePlan> plans, Seq<FeatureTarget> targets, Seq<ManualMeasurement> measurements) =>
         plans.TraverseM(plan => targets.Find(t => t.Feature == plan.Feature).Match(
             None: () => Fin.Fail<ProbeCycleReceipt>(GeometryFault.DegenerateInput($"probe:cycle-target-missing:{plan.Feature}").ToError()),
@@ -188,7 +208,7 @@ public static class Probe {
         return measurement.Match(
             None: () => plan.Cycle.RequiresHit
                 ? Fin.Fail<ProbeCycleReceipt>(new FabricationFault.ProbeOvertravel(plan.Approach.To, limit).ToError())
-                : Fin.Succ(new ProbeCycleReceipt(plan, new ManualMeasurement(plan.Feature, plan.Approach.To, Instant.MinValue, "no-contact"), Hit: false, Instant.MinValue)),
+                : Fin.Succ(new ProbeCycleReceipt(plan, None, Hit: false, Instant.MinValue)),
             Some: row => {
                 Vector3d direction = target.Approach;
                 direction.Unitize();
@@ -198,7 +218,7 @@ public static class Probe {
                     ? Fin.Fail<ProbeCycleReceipt>(new FabricationFault.ProbeOvertravel(row.Measured, limit).ToError())
                     : !admitted && plan.Cycle.RequiresHit
                         ? Fin.Fail<ProbeCycleReceipt>(new FabricationFault.ProbeOvertravel(row.Measured, limit).ToError())
-                        : Fin.Succ(new ProbeCycleReceipt(plan, row, Hit: admitted, row.At));
+                        : Fin.Succ(new ProbeCycleReceipt(plan, Some(row), Hit: admitted, row.At));
             });
     }
 

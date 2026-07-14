@@ -1,25 +1,25 @@
 # [RASM_FABRICATION_AUDIT]
 
-The additive layer-stack pre-flight: `Audit.Preflight(SliceStack, AuditPolicy) → Fin<AuditReceipt>` — the one scan over the kernel K3 slice stack that finds the build-killing stack defects BEFORE a scan path or support forest is committed: floating islands, enclosed resin traps, downward-mouthed suction cups, unsupported overhang area, and build-volume wall proximity. The walk is raster-first: each layer's solid occupancy rasterizes over a `Span2D<byte>` grid (cell parity through the shared `Loop.Covers` exact containment over the stack's contour forest — even-odd over covering closed contours, never a hand-rolled point-in-polygon), a two-pass union-find connected-component labeling runs per layer, and CROSS-LAYER ADJACENCY is the label-overlap lineage between layer *i* and *i−1* — the island test is the unanchored-below component, the cavity classification the vertical void-column walk. The defect census is TYPED: `LayerDefect` one `[Union]` — `Island` · `ResinTrap` · `SuctionCup` · `OverhangArea` · `TouchingBound` — each case carrying its layer locus and measured payload, never a severity string.
+The additive layer-stack pre-flight: `Audit.Preflight(SliceStack, AuditPolicy) → Fin<AuditReceipt>` — the one scan over the kernel K3 slice stack that finds the build-killing stack defects BEFORE a scan path or support forest is committed: floating islands, enclosed resin traps, downward-mouthed suction cups, unsupported overhang area, and build-volume wall proximity on ALL THREE axes. The walk is raster-first: each layer's solid occupancy rasterizes over a `Span2D<byte>` grid (cell parity through the shared `Loop.Covers` exact containment over the stack's contour forest — even-odd over covering closed contours, never a hand-rolled point-in-polygon), a two-pass union-find connected-component labeling runs per layer, and CROSS-LAYER ADJACENCY is the label-overlap lineage between layer *i* and *i−1* — the island test is the unanchored-below component, the cavity classification the vertical void-column walk whose terminal verdict DISPATCHES through the `CavityState` row's own defect column (the vocabulary selects the executable behavior, never a decorative label beside branch conditions). The defect census is TYPED: `LayerDefect` one `[Union]` — `Island` · `ResinTrap` · `SuctionCup` · `OverhangArea` · `TouchingBound` — each case carrying its layer locus and measured payload, never a severity string.
 
-Ownership splits are law. The overhang LAW is ONE — `overhangᵢ = layerᵢ \ offset(layerᵢ₋₁, tanα·h)`, the `Additive/support#SUPPORT` census formula — audit evaluates it at raster altitude as an AREA receipt and subtracts the landed `SupportPlan.Planar` sparse regions when the plan rides the policy, so a supported overhang is never a defect and the region-exact structure builder stays support's; a second exact census here is the deleted form. The voxel lane stays `Verify/removal` (PicoGK `BoolSubtract` material-removal truth — audit is the pre-print STACK scanner, removal the post-program REMOVAL verifier, two moments never one owner). This page is RECEIPTS-ONLY: no fault arm mints or routes (a defect is a receipt row the consumer gates on; a degenerate stack routes kernel `DegenerateInput`); the receipts ride the `Run(Verify)` pipeline as its additive pre-flight lane beside the landed `Verify/removal` arm — the TYPE-contract seam, stated not simulated.
+Ownership splits are law. The overhang LAW is ONE — `overhangᵢ = layerᵢ \ offset(layerᵢ₋₁, tanα·h)`, the `Additive/support#SUPPORT` census formula — audit evaluates it at raster altitude as an AREA receipt over a EUCLIDEAN disk dilation (the Chebyshev square over-supports diagonals), subtracts the landed `SupportPlan.Planar` sparse regions when the plan rides the policy, and gates the residual against the policy noise floor, so a supported overhang is never a defect and the region-exact structure builder stays support's; a second exact census here is the deleted form. Trap volume integrates PER-INTERVAL layer heights off `Elevations` — a first-interval constant over a variable stack is the named uniform-height fiction. The voxel lane stays `Verify/removal` (PicoGK material-removal truth — audit is the pre-print STACK scanner, removal the post-program REMOVAL verifier, two moments never one owner). This page is RECEIPTS-ONLY: no fault arm mints or routes (a defect is a receipt row the consumer gates on; a degenerate stack routes kernel `DegenerateInput`); the receipts ride the `Run(Verify)` pipeline as its additive pre-flight lane beside the landed `Verify/removal` arm — the TYPE-contract seam, stated not simulated.
 
 Wire posture: HOST-LOCAL. The `AuditReceipt` crosses only the in-process seam — the additive plane's gate before `Scan.Plan`/`Support.Grow` commit, the production orientation loop, the traveler's quality rows; no defect row sits between wire and rail.
 
 ## [01]-[INDEX]
 
-- [01]-[AUDIT]: owns the `CavityState` void-column vocabulary, the `AuditPolicy` scan knobs, the `LayerDefect` five-case defect union, the `AuditReceipt` census evidence, and the ONE `Audit.Preflight` walk — per-layer `Span2D` occupancy + union-find labeling, cross-layer label lineage, the top-down void-column classification, the raster overhang evaluation under support's one census law, and the build-wall proximity gate.
+- [01]-[AUDIT]: owns the `CavityState` void-column vocabulary with its defect-minting column, the `AuditPolicy` scan knobs, the `LayerDefect` five-case defect union, the `AuditReceipt` census evidence, and the ONE `Audit.Preflight` walk — per-layer `Span2D` occupancy + union-find labeling, cross-layer label lineage, the top-down void-column classification with per-interval volume integration, the raster overhang evaluation under support's one census law, and the three-axis build-wall proximity gate.
 
 ## [02]-[AUDIT]
 
-- Owner: `CavityState` `[SmartEnum<string>]` the void-column classification (`open-top` vented up, clean · `mouth-down` capped above, open at the plate — the suction cup · `sealed` capped both ways — the resin trap) with the transition law owned by the downward walk; `AuditPolicy` the scan knobs (`CellMm` raster pitch, `MinIslandAreaMm2` noise floor, `OverhangAngleDeg` the census angle, `BoundMarginMm` wall proximity, `Option<BoundingBox>` build volume, `Option<SupportPlan>` the landed support plan whose sparse regions discharge overhang defects); `LayerDefect` the five-case `[Union]` — `Island(Layer, AreaMm2, At)` · `ResinTrap(CapLayer, VolumeMm3)` · `SuctionCup(MouthLayer, MouthAreaMm2)` · `OverhangArea(Layer, AreaMm2)` · `TouchingBound(Layer, ClearanceMm)`; `AuditReceipt` the census (layer count, defect rows, per-kind counts, the `Clean` conjunction); `Audit` the static surface owning `Preflight`.
-- Cases: `LayerDefect` cases 5; `CavityState` rows 3 — the walk carries open void columns top-down: a column still open at the stack top is `open-top`; a column capped by solid above and still open when layer 0 arrives is `mouth-down`; a column capped above whose footprint closes before layer 0 is `sealed` at the closing layer; the island lineage — a layer-*i* solid component whose label overlap against layer *i−1* occupancy is EMPTY and whose area clears the noise floor (layer 0 sits on the plate and mints none); the overhang evaluation — solid cells beyond the dilated prior layer (the raster analog of the one census offset), support-plan cells subtracted before the area sums.
+- Owner: `CavityState` `[SmartEnum<string>]` the void-column classification (`open-top` vented up, clean · `mouth-down` capped above, open at the plate — the suction cup · `sealed` capped both ways — the resin trap), each row carrying its `[UseDelegateFromConstructor]` `Defect(layer, measure)` column — the walk classifies, the ROW mints; `AuditPolicy` the scan knobs (`CellMm` raster pitch, `MinIslandAreaMm2` and `MinOverhangAreaMm2` noise floors, `OverhangAngleDeg` the census angle, `BoundMarginMm` wall proximity, `Option<BoundingBox>` build volume, `Option<SupportPlan>` the landed support plan whose sparse regions discharge overhang defects); `LayerDefect` the five-case `[Union]` — `Island(Layer, AreaMm2, At)` · `ResinTrap(CapLayer, VolumeMm3)` · `SuctionCup(MouthLayer, MouthAreaMm2)` · `OverhangArea(Layer, AreaMm2)` · `TouchingBound(Layer, ClearanceMm)`; `AuditReceipt` the census (layer count, defect rows, per-kind counts, the `Clean` conjunction); `Audit` the static surface owning `Preflight`.
+- Cases: `LayerDefect` cases 5; `CavityState` rows 3 — the walk carries open void columns top-down: a never-capped column is `open-top` (its row mints nothing — the None delegate IS the law); a column capped by solid above and still open when layer 0 arrives is `mouth-down`; a column capped above whose footprint closes before layer 0 is `sealed` at the closing layer, its volume the per-interval `Σ n·cellArea·hᵢ` integral; the island lineage — a layer-*i* solid component whose label overlap against layer *i−1* occupancy is EMPTY and whose area clears the noise floor (layer 0 sits on the plate and mints none); the overhang evaluation — solid cells beyond the Euclidean-dilated prior layer, support-plan cells subtracted, the residual gated by `MinOverhangAreaMm2`.
 - Entry: `public static Fin<AuditReceipt> Preflight(SliceStack stack, AuditPolicy policy)` — the ONE scan; `Fin<T>` routes kernel `GeometryFault.DegenerateInput` on an empty stack or a degenerate raster pitch; NO fabrication fault arm — the receipts-only law (the defect census IS the verdict, the consumer gates).
-- Auto: `Preflight` binds the stack bound once, rasterizes each layer (cell parity over `Loop.Covers` against the layer's closed contours — `SliceStack.LayerAt`/`IsOpen` walked as the contour truth, open chains never occupy), labels components with the two-pass union-find over the `Span2D<byte>` occupancy, then folds three passes: the island pass (label lineage against layer *i−1*), the void pass (hole cells = root-covered non-solid; columns tracked top-down through overlap lineage, classified by `CavityState` at closure), and the overhang/bound pass (dilated-prior difference minus support cells; wall distance against the build box). `Additive/scanpath`/`Additive/production` gate on the receipt before committing vectors/orientation; the `Run(Verify)` integration rides the landed `Verify/removal` arm.
+- Auto: `Preflight` binds the stack bound once, rasterizes each layer (cell parity over `Loop.Covers` against the layer's closed contours — `SliceStack.LayerAt` chains walked as the contour truth via `Chain.Points`/`Chain.Closed`, open chains never occupy), labels components with the two-pass union-find over the `Span2D<byte>` occupancy (row-wise scans ride `GetRowSpan`), then folds four passes: the island pass (label lineage against layer *i−1*), the void pass (hole cells = root-covered non-solid; columns tracked top-down through overlap lineage, classified by `CavityState` at closure and minted through the row column), the overhang pass (Euclidean-dilated-prior difference minus support cells, floor-gated), and the bound pass (XY wall distance AND the layer elevation against the build box Z extent). `Additive/scanpath`/`Additive/production` gate on the receipt before committing vectors/orientation; the `Run(Verify)` integration rides the landed `Verify/removal` arm.
 - Receipt: `AuditReceipt` IS the typed evidence — the defect rows with layer loci and measured areas/volumes, the per-kind census, the `Clean` conjunction; no severity strings, no boolean-only verdict, no defect silently dropped by a floor without the floor being policy.
-- Packages: `Rasm.Meshing` (`SliceStack` K3 — `LayerAt`/`IsOpen`/`LayerCount`/`Elevations` walked as the layer truth, verified on `Meshing/slice.md`), `Process/owner#FABRICATION_OWNER` (`Loop.Covers` — the ONE exact containment), `Additive/support#SUPPORT` (`SupportPlan.Planar` sparse regions — the census law's owner, composed), CommunityToolkit.HighPerformance (`Span2D<byte>`/`AsSpan2D` dense-plane views — the shared `api-highperformance.md` rows), `Rasm.Numerics` (`GeometryFault`), `Rhino.Geometry` (`Point3d`/`BoundingBox`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox; landed seams: `Verify/removal` (the voxel lane + the `Run(Verify)` arm the receipts ride), `Additive/implicit` (a lattice-shell trap re-check rides the voxel lane, never this raster).
-- Growth: a new stack defect is one `LayerDefect` case + one pass term; a finer trap volume is the voxel lane's re-check when `implicit`/`removal` land; anisotropic raster pitch is one policy column; a per-material trap-severity policy is the consumer's gate, never a receipt column; zero new surface.
-- Boundary: audit SCANS and never builds — support structures are `Additive/support`'s, scan vectors `Additive/scanpath`'s, and the overhang LAW is support's one census (audit evaluates, subtracts the plan, reports area); the voxel truth is the `Verify/removal`/`implicit` lane and a PicoGK call here is the split-owner defect; containment is `Loop.Covers` and a hand-rolled point-in-polygon is the deleted form; receipts-only — a fault arm minted here violates the registry law; the raster is evaluation altitude and a raster-derived STRUCTURE (a support region, a scan cell) is the named overreach.
+- Packages: `Rasm.Meshing` (`SliceStack` K3 — `LayerAt`/`IsOpen`/`LayerCount`/`Elevations`/`X`/`Y` walked as the layer truth; `Chain.Points`/`Chain.Closed` the contour projection), `Process/owner#FABRICATION_OWNER` (`Loop.Covers` — the ONE exact containment), `Additive/support#SUPPORT` (`SupportPlan.Planar` sparse regions — the census law's owner, composed), CommunityToolkit.HighPerformance (`Span2D<byte>`/`AsSpan2D`/`GetRowSpan` dense-plane views — the shared `api-highperformance.md` rows), `Rasm.Numerics` (`GeometryFault`), `Rhino.Geometry` (`Point3d`/`BoundingBox`), Thinktecture.Runtime.Extensions, LanguageExt.Core, BCL inbox; landed seams: `Verify/removal` (the voxel lane + the `Run(Verify)` arm the receipts ride), `Additive/implicit` (a lattice-shell trap re-check rides the voxel lane, never this raster).
+- Growth: a new stack defect is one `LayerDefect` case + one pass term; a new cavity verdict is one `CavityState` row carrying its defect column; a finer trap volume is the voxel lane's re-check when `implicit`/`removal` land; anisotropic raster pitch is one policy column; a per-material trap-severity policy is the consumer's gate, never a receipt column; zero new surface.
+- Boundary: audit SCANS and never builds — support structures are `Additive/support`'s, scan vectors `Additive/scanpath`'s, and the overhang LAW is support's one census (audit evaluates, subtracts the plan, reports area); the voxel truth is the `Verify/removal`/`implicit` lane and a PicoGK call here is the split-owner defect; containment is `Loop.Covers` and a hand-rolled point-in-polygon is the deleted form; the cavity verdict dispatches through the `CavityState` row column and a branch minting defect cases beside the vocabulary is the decorative-vocabulary defect; receipts-only — a fault arm minted here violates the registry law; the raster is evaluation altitude and a raster-derived STRUCTURE (a support region, a scan cell) is the named overreach. Named kernel exemption: the raster occupancy, union-find labeling, and per-layer pass bodies are measured `Span2D` grid kernels — statement-shaped by declaration; the defect census they feed folds immutably.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
@@ -28,7 +28,7 @@ using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Fabrication.Additive;          // SupportPlan — the census law's owner; sparse regions discharge overhang defects
 using Rasm.Fabrication.Process;           // Loop.Covers — the ONE exact containment
-using Rasm.Meshing;                       // SliceStack (K3) — LayerAt/IsOpen/LayerCount/Elevations
+using Rasm.Meshing;                       // SliceStack (K3) — LayerAt/IsOpen/LayerCount/Elevations/X/Y · Chain.Points/Closed
 using Rasm.Numerics;
 using Rhino.Geometry;
 using Thinktecture;
@@ -37,19 +37,23 @@ using static LanguageExt.Prelude;
 namespace Rasm.Fabrication.Verify;
 
 // --- [TYPES] --------------------------------------------------------------------------------------------------------------------------------------
-// Void-column classification: open-top vents (clean), mouth-down is the suction cup, sealed the resin trap.
+// Void-column classification WITH its defect column: the walk classifies a closing column, the ROW mints —
+// open-top vents (the None delegate IS the clean verdict), mouth-down is the suction cup, sealed the resin trap.
 [SmartEnum<string>]
 public sealed partial class CavityState {
-    public static readonly CavityState OpenTop = new("open-top");
-    public static readonly CavityState MouthDown = new("mouth-down");
-    public static readonly CavityState Sealed = new("sealed");
+    public static readonly CavityState OpenTop = new("open-top", static (_, _) => None);
+    public static readonly CavityState MouthDown = new("mouth-down", static (layer, measure) => Some<LayerDefect>(new LayerDefect.SuctionCup(layer, measure)));
+    public static readonly CavityState Sealed = new("sealed", static (layer, measure) => Some<LayerDefect>(new LayerDefect.ResinTrap(layer, measure)));
+
+    [UseDelegateFromConstructor]
+    public partial Option<LayerDefect> Defect(int layer, double measure);
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------------------------------------------------------------
 public sealed record AuditPolicy(
-    double CellMm, double MinIslandAreaMm2, double OverhangAngleDeg, double BoundMarginMm,
+    double CellMm, double MinIslandAreaMm2, double MinOverhangAreaMm2, double OverhangAngleDeg, double BoundMarginMm,
     Option<BoundingBox> Build, Option<SupportPlan> Supports) {
-    public static readonly AuditPolicy Lpbf = new(CellMm: 0.25, MinIslandAreaMm2: 0.5, OverhangAngleDeg: 45.0, BoundMarginMm: 2.0, Build: None, Supports: None);
+    public static readonly AuditPolicy Lpbf = new(CellMm: 0.25, MinIslandAreaMm2: 0.5, MinOverhangAreaMm2: 0.5, OverhangAngleDeg: 45.0, BoundMarginMm: 2.0, Build: None, Supports: None);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -86,7 +90,8 @@ public sealed record Grid(double MinX, double MinY, double Cell, int Rows, int C
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------------------------------------------------------------
 public static class Audit {
-    // The ONE pre-flight scan: rasterize → label → three passes (island lineage, void columns, overhang/bound).
+    // The ONE pre-flight scan: rasterize → label → four passes (island lineage, void columns, overhang/floor,
+    // three-axis bounds). Named kernel exemption: the grid bodies below are measured Span2D kernels.
     public static Fin<AuditReceipt> Preflight(SliceStack stack, AuditPolicy policy) {
         if (stack.LayerCount == 0 || policy.CellMm <= 1e-6)
             return Fin.Fail<AuditReceipt>(GeometryFault.DegenerateInput($"audit:stack-{stack.LayerCount}-cell-{policy.CellMm}").ToError());
@@ -97,7 +102,7 @@ public static class Audit {
             Islands(rasters, grid, policy)
                 .Concat(Cavities(rasters, grid, stack))
                 .Concat(Overhangs(rasters, grid, stack, policy))
-                .Concat(Bounds(rasters, grid, policy));
+                .Concat(Bounds(rasters, grid, stack, policy));
         return Fin.Succ(new AuditReceipt(stack.LayerCount, defects,
             Islands: defects.Count(static d => d is LayerDefect.Island),
             Traps: defects.Count(static d => d is LayerDefect.ResinTrap),
@@ -106,28 +111,34 @@ public static class Audit {
             BoundHits: defects.Count(static d => d is LayerDefect.TouchingBound)));
     }
 
-    // Occupancy by even-odd parity over Loop.Covers against the layer's CLOSED contours; open chains never
-    // occupy. Solid vs hole resolves by parity; hole cells (root-covered, not solid) are the void plane.
+    // Occupancy by even-odd parity over Loop.Covers against the layer's CLOSED contours (Chain.Points is the
+    // kernel spelling); open chains never occupy. Solid vs hole resolves by parity; hole cells (root-covered,
+    // not solid) are the void plane.
     sealed record LayerRaster(byte[,] Solid, byte[,] Void, int[,] Labels, int LabelCount) {
         public static LayerRaster Of(SliceStack stack, int layer, Grid grid) {
             var loops = stack.LayerAt(layer).Filter(static c => c.Closed)
-                .Map(static c => new Loop(toSeq(c.Polyline).SkipLast(1).ToArr(), Closed: true)).ToArr();
+                .Map(static c => new Loop(toSeq(c.Points).SkipLast(1).ToArr(), Closed: true)).ToArr();
             byte[,] solid = new byte[grid.Rows, grid.Cols];
             byte[,] voids = new byte[grid.Rows, grid.Cols];
             Span2D<byte> s = solid.AsSpan2D(), v = voids.AsSpan2D();
-            for (int r = 0; r < grid.Rows; r++)
+            for (int r = 0; r < grid.Rows; r++) {
+                Span<byte> sRow = s.GetRowSpan(r), vRow = v.GetRowSpan(r);
                 for (int c = 0; c < grid.Cols; c++) {
                     int covering = loops.Count(l => l.Covers(grid.Center(r, c)));
-                    if (covering % 2 == 1) s[r, c] = 1;
-                    else if (covering > 0) v[r, c] = 1;
+                    if (covering % 2 == 1) sRow[c] = 1;
+                    else if (covering > 0) vRow[c] = 1;
                 }
+            }
             (int[,] labels, int count) = Label(s, grid);
             return new LayerRaster(solid, voids, labels, count);
         }
 
+        // Euclidean disk dilation — the census offset is a Minkowski DISK; the Chebyshev square over-supports
+        // diagonal overhangs.
         public bool AnyWithin(int r, int c, int radius, Grid grid) {
             for (int dr = -radius; dr <= radius; dr++)
                 for (int dc = -radius; dc <= radius; dc++) {
+                    if (dr * dr + dc * dc > radius * radius) continue;
                     int rr = r + dr, cc = c + dc;
                     if (rr >= 0 && rr < grid.Rows && cc >= 0 && cc < grid.Cols && Solid[rr, cc] == 1) return true;
                 }
@@ -135,22 +146,33 @@ public static class Audit {
         }
 
         public bool SolidOver(byte[,] cells, Grid grid) {
-            for (int r = 0; r < grid.Rows; r++)
+            Span2D<byte> mine = Solid.AsSpan2D(), theirs = cells.AsSpan2D();
+            for (int r = 0; r < grid.Rows; r++) {
+                Span<byte> a = mine.GetRowSpan(r), b = theirs.GetRowSpan(r);
                 for (int c = 0; c < grid.Cols; c++)
-                    if (cells[r, c] == 1 && Solid[r, c] == 1) return true;
+                    if (b[c] == 1 && a[c] == 1) return true;
+            }
             return false;
         }
     }
 
     static (byte[,], int) Intersect(byte[,] a, byte[,] b, Grid grid) {
         byte[,] outCells = new byte[grid.Rows, grid.Cols]; int n = 0;
-        for (int r = 0; r < grid.Rows; r++) for (int c = 0; c < grid.Cols; c++) if (a[r, c] == 1 && b[r, c] == 1) { outCells[r, c] = 1; n++; }
+        Span2D<byte> sa = a.AsSpan2D(), sb = b.AsSpan2D(), so = outCells.AsSpan2D();
+        for (int r = 0; r < grid.Rows; r++) {
+            Span<byte> ra = sa.GetRowSpan(r), rb = sb.GetRowSpan(r), ro = so.GetRowSpan(r);
+            for (int c = 0; c < grid.Cols; c++) if (ra[c] == 1 && rb[c] == 1) { ro[c] = 1; n++; }
+        }
         return (outCells, n);
     }
 
     static (byte[,], int) Subtract(byte[,] a, byte[,] b, Grid grid) {
         byte[,] outCells = new byte[grid.Rows, grid.Cols]; int n = 0;
-        for (int r = 0; r < grid.Rows; r++) for (int c = 0; c < grid.Cols; c++) if (a[r, c] == 1 && b[r, c] == 0) { outCells[r, c] = 1; n++; }
+        Span2D<byte> sa = a.AsSpan2D(), sb = b.AsSpan2D(), so = outCells.AsSpan2D();
+        for (int r = 0; r < grid.Rows; r++) {
+            Span<byte> ra = sa.GetRowSpan(r), rb = sb.GetRowSpan(r), ro = so.GetRowSpan(r);
+            for (int c = 0; c < grid.Cols; c++) if (ra[c] == 1 && rb[c] == 0) { ro[c] = 1; n++; }
+        }
         return (outCells, n);
     }
 
@@ -196,28 +218,31 @@ public static class Audit {
         return found;
     }
 
-    // Void-column walk, top-down: a column capped by solid above classifies at closure — still open at
-    // layer 0 is mouth-down (suction cup), footprint closing earlier is sealed (resin trap at the cap).
+    // Void-column walk, top-down: volume integrates PER-INTERVAL heights off Elevations; a column capped by
+    // solid above classifies at closure and MINTS THROUGH ITS CavityState ROW — still open at layer 0 is
+    // mouth-down (suction cup), footprint closing earlier is sealed (resin trap at the cap); a never-capped
+    // column is open-top by construction and its row mints nothing.
     static Seq<LayerDefect> Cavities(LayerRaster[] rasters, Grid grid, SliceStack stack) {
         Seq<LayerDefect> found = Seq<LayerDefect>();
-        double h = rasters.Length > 1 ? Math.Abs(stack.Elevations[1] - stack.Elevations[0]) : 1.0;
-        var open = new System.Collections.Generic.List<(int CapLayer, byte[,] Cells, int Count)>();
+        var open = new System.Collections.Generic.List<(int CapLayer, byte[,] Cells, double VolumeMm3)>();
         for (int i = rasters.Length - 2; i >= 0; i--) {
+            double h = Math.Abs(stack.Elevations[i + 1] - stack.Elevations[i]);
             for (int k = open.Count - 1; k >= 0; k--) {
-                (int cap, byte[,] cells, int count) = open[k];
+                (int cap, byte[,] cells, double volume) = open[k];
                 (byte[,] survived, int n) = Intersect(cells, rasters[i].Void, grid);
-                if (n == 0) { found = found.Add(new LayerDefect.ResinTrap(cap, count * grid.CellArea * h)); open.RemoveAt(k); }
-                else if (i == 0) { found = found.Add(new LayerDefect.SuctionCup(0, n * grid.CellArea)); open.RemoveAt(k); }
-                else open[k] = (cap, survived, count + n);
+                if (n == 0) { found = found.Concat(CavityState.Sealed.Defect(cap, volume).ToSeq()); open.RemoveAt(k); }
+                else if (i == 0) { found = found.Concat(CavityState.MouthDown.Defect(0, n * grid.CellArea).ToSeq()); open.RemoveAt(k); }
+                else open[k] = (cap, survived, volume + n * grid.CellArea * h);
             }
             (byte[,] fresh, int born) = Subtract(rasters[i].Void, rasters[i + 1].Void, grid);
-            if (born > 0 && rasters[i + 1].SolidOver(fresh, grid)) open.Add((i + 1, fresh, born));
+            if (born > 0 && rasters[i + 1].SolidOver(fresh, grid)) open.Add((i + 1, fresh, born * grid.CellArea * h));
         }
         return found;
     }
 
-    // Raster evaluation of support's ONE census law: solid beyond the dilated prior layer, support-plan
-    // sparse cells discharged before the area sums — the exact-region builder stays Additive/support's.
+    // Raster evaluation of support's ONE census law: solid beyond the Euclidean-dilated prior layer,
+    // support-plan sparse cells discharged before the area sums, the residual gated by the policy floor —
+    // the exact-region builder stays Additive/support's.
     static Seq<LayerDefect> Overhangs(LayerRaster[] rasters, Grid grid, SliceStack stack, AuditPolicy policy) {
         Seq<LayerDefect> found = Seq<LayerDefect>();
         for (int i = 1; i < rasters.Length; i++) {
@@ -229,17 +254,18 @@ public static class Audit {
                 for (int c = 0; c < grid.Cols; c++)
                     if (rasters[i].Solid[r, c] == 1 && !rasters[i - 1].AnyWithin(r, c, dilate, grid) && !supported.Exists(l => l.Covers(grid.Center(r, c))))
                         cells++;
-            if (cells > 0) found = found.Add(new LayerDefect.OverhangArea(i, cells * grid.CellArea));
+            if (cells * grid.CellArea >= policy.MinOverhangAreaMm2) found = found.Add(new LayerDefect.OverhangArea(i, cells * grid.CellArea));
         }
         return found;
     }
 
-    // Wall proximity: the tightest solid-cell-to-build-wall distance per layer against the margin.
-    static Seq<LayerDefect> Bounds(LayerRaster[] rasters, Grid grid, AuditPolicy policy) =>
+    // Three-axis wall proximity: the tightest solid-cell-to-wall distance per layer over X/Y AND the layer
+    // elevation against the build box Z extent — a stack taller than the chamber can never pass clean.
+    static Seq<LayerDefect> Bounds(LayerRaster[] rasters, Grid grid, SliceStack stack, AuditPolicy policy) =>
         policy.Build.Match(
             None: () => Seq<LayerDefect>(),
             Some: box => toSeq(Enumerable.Range(0, rasters.Length)).Bind(i => {
-                double clearance = double.MaxValue;
+                double clearance = Math.Min(stack.Elevations[i] - box.Min.Z, box.Max.Z - stack.Elevations[i]);
                 for (int r = 0; r < grid.Rows; r++)
                     for (int c = 0; c < grid.Cols; c++)
                         if (rasters[i].Solid[r, c] == 1) {
@@ -258,14 +284,16 @@ config:
   theme: base
 ---
 flowchart LR
-    Stack["kernel SliceStack (K3) LayerAt · IsOpen · Elevations"] --> Raster["Span2D occupancy via Loop.Covers parity"]
+    Stack["kernel SliceStack (K3) LayerAt · Chain.Points · Elevations"] --> Raster["Span2D occupancy via Loop.Covers parity"]
     Raster --> Ccl["two-pass union-find CCL per layer"]
     Ccl --> IslandPass["island lineage: no overlap vs layer i−1"]
-    Ccl --> VoidPass["void columns top-down → CavityState {open-top · mouth-down · sealed}"]
-    Ccl --> OverhangPass["raster census (support's ONE law) − SupportPlan.Sparse"]
+    Ccl --> VoidPass["void columns top-down → CavityState row mints the defect (per-interval volume)"]
+    Ccl --> OverhangPass["Euclidean raster census (support's ONE law) − SupportPlan.Sparse, floor-gated"]
+    Ccl --> BoundPass["three-axis wall proximity (XY walls + Z extent)"]
     IslandPass --> Receipt["AuditReceipt typed LayerDefect census"]
     VoidPass --> Receipt
     OverhangPass --> Receipt
+    BoundPass --> Receipt
     Receipt -->|pre-commit gate| Additive["scanpath.Plan · support.Grow · production orientation"]
     Receipt -.->|"rides the Run(Verify) arm"| Removal["Verify/removal — the voxel lane"]
 ```

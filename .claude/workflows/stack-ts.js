@@ -34,6 +34,8 @@ const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const ROOT = 'docs/stacks/typescript';
+const ROOT_DIR = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute repo root; the telemetry ledger resolves against it, cwd-drift-proof
+const SCRATCH = '.claude/scratch/stack-ts'; // per-instance run scratch — this workflow takes no args, so the name IS the instance
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -463,6 +465,21 @@ const DOCTRINE = [
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+// Run telemetry: every lane brackets itself on ONE shared ledger — one O_APPEND line per event, `<utc-iso> | <label> | <event>[ | <verdict> | <count>]`.
+// The ledger is the workflow-agnostic observability seam a watcher tails for phase/stall/failure signals; every native lane self-stamps through the `run` dispatch owner.
+const LEDGER_LOG = ROOT_DIR + '/' + SCRATCH + '/run-telemetry.log';
+const TLM = (label) =>
+    'TELEMETRY (mechanical): FIRST act — one Bash append of one line to `' +
+    LEDGER_LOG +
+    '`: `<utc-iso> | ' +
+    label +
+    ' | start` (shell `>>` with `date -u +%FT%TZ`; never rewrite the file). FINAL act before returning — append the matching ' +
+    '`<utc-iso> | ' +
+    label +
+    ' | end | <one-word verdict> | <primary entry count>`. A lane that cannot finish appends `| fail | <reason slug>` instead of `end`.';
+const run = (prompt, opts) => agent(prompt + '\n\n' + TLM(opts.label), opts);
+
 // The single scheduler for every agent-bearing task in the run: CAP tasks in flight, staggered launch.
 const pool = async (items, cap, worker) => {
     const out = new Array(items.length);
@@ -472,14 +489,14 @@ const pool = async (items, cap, worker) => {
         gate = gate.then(() => sleep(STAGGER_MS));
         return gate;
     };
-    const run = async () => {
+    const drain = async () => {
         while (next < items.length) {
             const i = next++;
             await launch();
             out[i] = await worker(items[i], i);
         }
     };
-    await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()));
+    await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => drain()));
     return out;
 };
 const nameOf = (p) => (p.indexOf(ROOT + '/') === 0 ? p.slice(ROOT.length + 1) : p);
@@ -657,7 +674,7 @@ const corpusPrompt = (ordered, residuals, failed) =>
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 phase('Inventory');
-const inv = await agent(
+const inv = await run(
     'TASK: DISCOVERY — the read-only reconnaissance grounding every downstream stage; read-only is its ONLY concession. ' +
         'Enumerate from the SOURCE OF TRUTH, never memory: fd/ls the real page set under ' +
         ROOT +
@@ -680,7 +697,7 @@ log('Inventory: ' + invFiles.length + ' TS doctrine pages under ' + ROOT + '; CA
 phase('Gate');
 // The gate receives facts only — path, order, capability map — never the inventory's weak/strong verdict (an assessment, not evidence).
 const gateRows = invFiles.map((f) => ({ path: f.path, order: f.order, map: f.map }));
-const arch = await agent(
+const arch = await run(
     [
         DOCTRINE,
         '',
@@ -717,7 +734,7 @@ if (!ordered.length) {
 phase('Harden');
 const results = (
     await pool(ordered, CAP, async (page) => {
-        const init = await agent(authorPrompt(page, ordered, charters.get(page)), {
+        const init = await run(authorPrompt(page, ordered, charters.get(page)), {
             label: 'initial:' + nameOf(page),
             phase: 'Harden',
             schema: FIXLOG_SCHEMA,
@@ -725,14 +742,14 @@ const results = (
             stallMs: STALL,
         });
         if (!init) return { page, failed: true, logs: [] }; // failure isolation: a dead initial skips its file's reviews; the run continues
-        const crit = await agent(critiquePrompt(page, ordered, charters.get(page)), {
+        const crit = await run(critiquePrompt(page, ordered, charters.get(page)), {
             label: 'critique:' + nameOf(page),
             phase: 'Harden',
             schema: FIXLOG_SCHEMA,
             effort: 'high',
             stallMs: STALL,
         });
-        const rt = await agent(redteamPrompt(page, ordered, charters.get(page)), {
+        const rt = await run(redteamPrompt(page, ordered, charters.get(page)), {
             label: 'redteam:' + nameOf(page),
             phase: 'Harden',
             schema: FIXLOG_SCHEMA,
@@ -763,7 +780,7 @@ log(
 );
 
 phase('Corpus');
-const corpus = await agent(corpusPrompt(ordered, RESIDUALS, FAILED), {
+const corpus = await run(corpusPrompt(ordered, RESIDUALS, FAILED), {
     label: 'corpus',
     phase: 'Corpus',
     model: 'fable',
@@ -777,7 +794,7 @@ const corpus = await agent(corpusPrompt(ordered, RESIDUALS, FAILED), {
 phase('Doctrine');
 const HARVEST_ROWS = results.flatMap((r) => (r.logs || []).flatMap((l) => (l && l.harvest) || [])).concat((corpus && corpus.harvest) || []);
 const doctrine = HARVEST_ROWS.length
-    ? await agent(
+    ? await run(
           'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` ' +
               'FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. Load ' +
               'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +

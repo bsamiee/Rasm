@@ -22,9 +22,11 @@ export const meta = {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const ROOT_DIR = '/Users/bardiasamiee/Documents/99.Github/Rasm';
 const CORE_PAGES = 4;
 const STALL = 300000;
-const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
+const WRAPPER_STALL = 1500000; // stallMs never observes a live blocking MCP call (run-proven: a 43-min blocked wrapper under a 25-min stall survived) — this guards only out-of-call wrapper wedges; the watchdog clock below is the binding bound
+const LANE_CLOCK = 2700000; // codex recon-lane wall-clock watchdog (~2.5x the observed lane median): a nested-call wedge inside codex otherwise holds the slot to the session MCP ceiling
 const CODEX = true; // recon lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
 const TRACKS = {
@@ -123,16 +125,19 @@ const SCRATCH =
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+// `thread` is the codex MCP threadId — the rollout-file key under ~/.codex/sessions/ AND the `codex exec resume` handle,
+// so a dead codex lane stays joinable and recoverable; native lanes return ''.
 const DOSSIER_RECEIPT = {
     type: 'object',
     additionalProperties: false,
-    required: ['ok', 'report', 'entries', 'headline', 'failure'],
+    required: ['ok', 'report', 'entries', 'headline', 'failure', 'thread'],
     properties: {
         ok: { type: 'boolean' },
         report: { type: 'string' },
         entries: { type: 'integer' },
         headline: { type: 'string' },
         failure: { type: 'string' },
+        thread: { type: 'string' },
     },
 };
 
@@ -268,14 +273,30 @@ const HARVEST_LAW =
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
-const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical write pass; the count bounds spend, the backoff buys recovery time
-const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
-// Bounded re-dispatch for a dead CRITICAL write pass (usage-limit or transport death — agent() returned null): attempt-counted
-// with a backoff before each; the final death isolates the pass but NEVER the chain — every later pass and the final track still
-// run, and each pass derives its own findings from disk, so a dead predecessor removes grounding, never the stage.
+
+// Run telemetry: every native writer lane brackets itself on ONE shared ledger — one O_APPEND line per event,
+// `<utc-iso> | <label> | <event>[ | <verdict> | <count>]`. The ledger is the workflow-agnostic observability seam a watcher
+// tails for phase/stall/failure signals; native lanes self-stamp through the `run` dispatch owner, codex lanes are stamped by
+// their sonnet wrapper around the blocking MCP call so the bracket times the codex call itself.
+const LEDGER_LOG = ROOT_DIR + '/' + SCRATCH + '/run-telemetry.log';
+const TLM = (label) =>
+    'TELEMETRY (mechanical): FIRST act — one Bash append of one line to `' +
+    LEDGER_LOG +
+    '`: `<utc-iso> | ' +
+    label +
+    ' | start` (shell `>>` with `date -u +%FT%TZ`; never rewrite the file). FINAL act before returning — append the matching ' +
+    '`<utc-iso> | ' +
+    label +
+    ' | end | <one-word verdict> | <primary entry count>`. A lane that cannot finish appends `| fail | <reason slug>` instead of `end`.';
+const run = (prompt, opts) => agent(prompt + '\n\n' + TLM(opts.label), opts);
+
+const RETRY_BACKOFFS = [60000, 1800000]; // agent() returns null causeless, so the ladder covers both death classes: a fast first attempt catches transient transport deaths, the long second waits out a usage-limit window
+// Bounded re-dispatch for a dead CRITICAL write pass (agent() returned null): attempt-counted with a per-attempt backoff; the
+// final death isolates the pass but NEVER the chain — every later pass and the final track still run, and each pass derives its
+// own findings from disk, so a dead predecessor removes grounding, never the stage.
 const retryLane = async (fn) => {
-    for (let a = 0; a < RETRY_ATTEMPTS; a++) {
-        await sleep(RETRY_BACKOFF);
+    for (const backoff of RETRY_BACKOFFS) {
+        await sleep(backoff);
         const r = await fn();
         if (r) return r;
     }
@@ -301,8 +322,9 @@ const dossierPath = (name, lane) => SCRATCH + '/' + name + '-recon-' + lane + '-
 const LANE_CHARGE = {
     scope:
         'Build a factual dossier of the estate scope below: file inventories with one-line states, package/consumer matrices from ' +
-        'manifests and lockfiles, config cross-references, upstream versions where staleness is suspected (the nuget MCP, PyPI, npm), ' +
-        'and exact file:line anchors for everything notable.',
+        'manifests and lockfiles, config cross-references, upstream versions where staleness is suspected (the nuget MCP for ' +
+        'version/deprecation lookups only — `get_latest_package_version`-class calls, never a full `get_package_context` dump on a ' +
+        'large package — plus PyPI and npm), and exact file:line anchors for everything notable.',
     libs:
         'Build the LIBS-COMPLEXITY dossier for the estate scope below: map the relevant libs/ planning corpus in depth — every package ' +
         'folder with its domains, owners, seams, receipt families, and wire shapes, each with exact file:line anchors — as facts the ' +
@@ -320,7 +342,7 @@ const reconPrompt = (t, name, lane) =>
     '. Write the complete dossier to ' +
     dossierPath(name, lane) +
     ' (mkdir -p the folder), then return ' +
-    'the receipt: ok, report=that path, entries=count of dossier rows, headline=mechanical tally, failure="" (or the error). ' +
+    'the receipt: ok, report=that path, entries=count of dossier rows, headline=mechanical tally, thread="", failure="" (or the error). ' +
     'SCOPE: ' +
     t.scope;
 
@@ -340,40 +362,55 @@ const laneLaw = (schema, o) =>
     'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
     'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
     '</verification>' +
+    '\n\n<tool_bounds>\nA nested MCP tool call is bounded: prefer the lightest variant that answers the question (a version ' +
+    'lookup over a full package-context dump), give every such call a hard time budget, and when a call does not settle ' +
+    'promptly, record the item as a gap/unverified row and move on — an unbounded wait on one lookup never stalls the task.\n' +
+    '</tool_bounds>' +
     '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 const codexRecon = (task, o) => {
-    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
     const model = o.model || 'gpt-5.6-terra';
+    const label = o.label;
     return [
         'DISPATCH ROLE: ' +
             model +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
+        '(1) Load the `codex` skill via the Skill tool FIRST — its [09] sessions and recovery law governs this call. Then call ' +
+            'ToolSearch with query "select:mcp__codex__codex,mcp__codex__codex-reply", and append one Bash line to `' +
+            LEDGER_LOG +
+            '`: `<utc-iso> | ' +
+            label +
+            ' | codex-start` (shell `>>` with `date -u +%FT%TZ`; never rewrite the file).',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
             '", sandbox="workspace-write" (the task writes its one dossier file), cwd=' +
-            JSON.stringify(root) +
+            JSON.stringify(ROOT_DIR) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors, do NOT immediately retry: an abandoned workspace-write call usually completes server-side and the ' +
-            'lane writes its dossier as its final act — run step (3) FIRST, and a present, non-empty dossier proceeds to step (4) as success. ' +
-            'Only a missing or empty dossier earns ONE identical retry (a second writer over the same path is the last resort); a failed retry ' +
-            'with no dossier returns the error through step (4).',
+            "VERBATIM. On any call error run the codex skill's blocking-caller recovery ladder with this lane's disk product at " +
+            o.product +
+            ' — verify it FIRST (the lane writes its dossier as its final act; a present, non-empty dossier proceeds to step (4) ' +
+            'as success); the reply nudge tells the session to finish the TASK and write the dossier file as specified; a fresh ' +
+            'identical call is the last resort (a second writer over the same path).',
         'LANE LAW:\n\n' + laneLaw(o.schema, o),
         'TASK:\n\n' + task,
-        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text — the ' +
-            'receipt JSON the lane earns by writing its dossier to disk. Parse that content, then verify the dossier landed with ' +
-            'one Bash call: test -s ' +
+        '(3) The tool result is a JSON envelope {threadId, content} whose content holds the final-message receipt JSON. Verify the ' +
+            'dossier landed with one Bash call: test -s ' +
             o.product +
             '. A missing or empty file means the dossier write was lost behind an ok receipt — return ok=false, entries=0, report ' +
-            'and headline empty, and failure="dossier missing or empty at ' +
+            'and headline empty, thread=the threadId if the envelope returned one else empty, and failure="dossier missing or empty at ' +
             o.product +
-            '"; otherwise return the parsed receipt VERBATIM as your structured output.',
-        '(4) On a second tool error return ok=false, entries=0, report and headline empty, and failure equal to the error ' + 'text VERBATIM.',
+            '".',
+        '(4) One Bash append of one line to the same ledger: `<utc-iso> | ' +
+            label +
+            ' | codex-end | <ok or fail> | <entries> | <threadId from the result envelope>` — the threadId keys the codex-side ' +
+            'session record, so it is never omitted. Then parse the envelope content for the receipt, set thread=the threadId from ' +
+            'the result envelope, and return the parsed receipt VERBATIM as your structured output. On an unrecovered ladder return ' +
+            'ok=false, entries=0, report and headline empty, thread=the threadId if any envelope returned one else empty, and ' +
+            'failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the
@@ -388,7 +425,7 @@ const nativeLane = (task, o) =>
         effort: 'high',
         schema: o.schema,
         stallMs: o.stallMs || STALL,
-    });
+    }).then((r) => (r ? { ...r, thread: (r && r.thread) || '' } : r));
 const reconLane = (t, name, lane, ph) => {
     const task = reconPrompt(t, name, lane);
     // The estate sweep spans whole test/tool/config trees plus the libs planning corpus — a wider call budget than a bounded page batch.
@@ -401,17 +438,24 @@ const reconLane = (t, name, lane, ph) => {
         calls: 120,
         stallMs: STALL,
     };
-    const dead = () => ({ ok: false, report: dossierPath(name, lane), entries: 0, headline: '', failure: 'lane died' });
+    const dead = () => ({ ok: false, report: dossierPath(name, lane), entries: 0, headline: '', failure: 'lane died', thread: '' });
+    const wrapper = { label: 'terra:' + o.label, phase: ph, model: 'sonnet', effort: 'low', schema: DOSSIER_RECEIPT, stallMs: WRAPPER_STALL };
+    // WATCHDOG: the race frees the slot and hands the chain the standard dead-lane shape at the wall-clock ceiling; the abandoned
+    // call keeps running harness-side as an ignored zombie (a late dossier in scratch is harmless), and the codex session stays
+    // recoverable through the rollout store. Cancellation does not exist on this surface — slot recovery is the whole point.
     return (
         CODEX
-            ? agent(codexRecon(task, o), {
-                  label: 'terra:' + o.label,
-                  phase: ph,
-                  model: 'sonnet',
-                  effort: 'low',
-                  schema: DOSSIER_RECEIPT,
-                  stallMs: CODEX_STALL,
-              }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+            ? Promise.race([
+                  agent(codexRecon(task, o), wrapper),
+                  sleep(o.clockMs || LANE_CLOCK).then(() => ({
+                      ok: false,
+                      report: '',
+                      entries: 0,
+                      headline: '',
+                      failure: 'watchdog: wall-clock ceiling — call abandoned, slot freed; session recoverable via the rollout store',
+                      thread: '',
+                  })),
+              ]).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
             : nativeLane(task, o)
     )
         .then((r) => r || dead())
@@ -456,8 +500,8 @@ const passPrompt = (t, name, tier, reconRows) =>
 // because every later pass and the final track derive their own findings from disk (a dead predecessor removes grounding, never a stage).
 const passOpts = (label, phase) => ({ model: 'fable', effort: 'high', phase, label, schema: PASS_RECEIPT });
 const runPass = (t, name, tier, reconRows, label, phase) =>
-    agent(passPrompt(t, name, tier, reconRows), passOpts(label, phase)).then(
-        (r) => r || retryLane(() => agent(passPrompt(t, name, tier, reconRows), passOpts(label + ':r1', phase))),
+    run(passPrompt(t, name, tier, reconRows), passOpts(label, phase)).then(
+        (r) => r || retryLane(() => run(passPrompt(t, name, tier, reconRows), passOpts(label + ':r1', phase))),
     );
 
 // Doctrine lander: adjudicates pooled harvest nominations against the live doctrine surfaces; an estate run owns test/tool/config
@@ -524,7 +568,7 @@ const RESIDUALS = allPasses.flatMap((p) => p.residuals || []);
 let doctrine = null;
 if (HARVEST_ROWS.length) {
     phase('Doctrine');
-    doctrine = await agent(doctrinePrompt(HARVEST_ROWS, RESIDUALS), {
+    doctrine = await run(doctrinePrompt(HARVEST_ROWS, RESIDUALS), {
         label: 'doctrine',
         phase: 'Doctrine',
         model: 'fable',
