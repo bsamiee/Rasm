@@ -175,7 +175,7 @@ const DOCTRINE_SCHEMA = {
 const FIXLOG = {
     type: 'object',
     additionalProperties: false,
-    required: ['files', 'built', 'beyond', 'blocked', 'harvest', 'summary'],
+    required: ['files', 'built', 'beyond', 'blocked', 'declined', 'harvest', 'summary'],
     properties: {
         files: { type: 'array', items: { type: 'string' } },
         built: {
@@ -214,6 +214,8 @@ const FIXLOG = {
                 },
             },
         },
+        // one line per covering beyond-doc underutilized-capability entry NOT composed: the disk fact or doctrine law forbidding it — empty attests every covering ambition landed
+        declined: { type: 'array', items: { type: 'string' } },
         harvest: HARVEST,
         summary: { type: 'string' },
     },
@@ -256,6 +258,19 @@ const LAWS_READ =
     'topology row whose [SURFACE] your edits touch binds its obligated counterparts into the SAME pass, and every patterns row ' +
     'binds each branch it names.';
 
+// OWN PASS FIRST — the executor's binding input ladder: rung 1 is a DISK ARTIFACT written from the doc + pages before any recon
+// report opens; the reports may only ADD [recon]-tagged rows, and a diff dominated by them fails the ladder (the golden-platter tripwire).
+const OWN_PASS = (artifact) =>
+    'OWN PASS FIRST — the input ladder is binding, in order: (1) your own blind pass over the doc and pages, (2) the recon report ' +
+    'files. Rung (1) is the PRIMARY product and it is a DISK ARTIFACT, not a reading step: read the doc IN FULL and cold-read every ' +
+    'target page from CURRENT disk, then WRITE your own build-and-ambition list to `' +
+    artifact +
+    '` — the pages the doc rules, the owner each demands, the collapse and capability gaps you see, and every ripple your reading ' +
+    'exposes — BEFORE opening any recon report. The reports may only ADD rows to that file, each tagged [recon]; reading the doc ' +
+    'without writing the list is a failed rung, not a cold pass. Rung (2) grounds, extends, and widens YOUR pass — it never scopes, ' +
+    'substitutes for, or caps it. TRIPWIRE: a diff dominated by [recon]-tagged rows has failed — the maps cover a MINORITY of what ' +
+    'the campaign demands, and the majority of your edits come from your own reading of the doc and pages.';
+
 const HARVEST_LAW =
     'HARVEST (required key, usually empty): nominate ONLY findings that generalize beyond this campaign — a collapse pattern ' +
     'reusable across folders, a naivety class no doctrine clause names, a review rule that would have caught a defect BEFORE ' +
@@ -266,25 +281,36 @@ const HARVEST_LAW =
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend, the backoff buys recovery time
+const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
+// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a backoff before each; the
+// final death isolates the lane but NEVER the chain — the terminal doctrine lander still runs against current disk.
+const retryLane = async (fn) => {
+    for (let a = 0; a < RETRY_ATTEMPTS; a++) {
+        await sleep(RETRY_BACKOFF);
+        const r = await fn();
+        if (r) return r;
+    }
+    return null;
+};
+
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split, battery-validated); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
+// Every realize codex lane is read-only investigation (the executor is a native fable writer), so the lane law is the
+// context-gathering budget + stop rule alone — no write-lane persistence arm the shape never dispatches.
 const laneLaw = (schema, o) =>
-    (o.fix
-        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
-          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
-          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
-          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
-        : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
-          'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
-          (o.calls || 60) +
-          ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
-          'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
-          'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
-          'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
-          'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
-          '</verification>') +
+    '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
+    'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
+    (o.calls || 60) +
+    ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
+    'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
+    'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
+    'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
+    'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
+    '</verification>' +
     '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
@@ -303,9 +329,7 @@ const codexPrompt = (label, task, schema, o) => {
         '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
-            '", sandbox=' +
-            (o.writes ? '"workspace-write"' : '"read-only"') +
-            ', cwd=' +
+            '", sandbox="read-only", cwd=' +
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
@@ -374,6 +398,7 @@ const lanes = await parallel(
     CAMPS.map((c) => async () => {
         const tag = c.root.split('/').pop();
         const lang = langOf(c.root);
+        const execArtifact = SCRATCH + '/execute-' + tag + '-ownpass.md';
         const plan = await agent(
             CTX(c) +
                 '\n\nTASK: thin enumerate (read-only). Union (a) every design page under ' +
@@ -384,7 +409,9 @@ const lanes = await parallel(
                 'the union as one dependency-ordered list (foundations before consumers, per the doc where it rules an order).',
             { label: 'plan:' + tag, phase: 'Plan', model: 'opus', effort: 'high', schema: PLAN, stallMs: STALL },
         );
-        const pages = (plan && plan.pages) || [];
+        // Guard the opus-emitted page roster: drop non-string, empty, and out-of-root paths (a hallucinated or mis-scoped page
+        // would mis-slice a mapper), dedupe first-wins — every downstream slice and stacking map dispatches on this set.
+        const pages = [...new Set(((plan && plan.pages) || []).filter((p) => typeof p === 'string' && p && p.indexOf(c.root) === 0))];
         const slices = chunk(pages, Math.max(SLICE_SIZE, Math.ceil(pages.length / MAX_SLICES)));
         const mappers = slices.map(
             (s, i) => () =>
@@ -529,46 +556,64 @@ const lanes = await parallel(
                           .join(', ')
                     : ''),
         );
-        const fix = await agent(
+        const execPrompt =
             CTX(c) +
-                '\n\n' +
-                LAWS_READ +
-                '\n\n' +
-                HARVEST_LAW +
-                '\n\nTASK: EXECUTE THE CAMPAIGN (WRITER — full authority over ' +
-                c.root +
-                ', its ' +
-                'manifest rows, its .api tier, the index docs, AND libs-wide ripple authority: a ripple your edits expose anywhere ' +
-                'under libs/ — sibling seam ledgers, mirrored ARCHITECTURE rows, consumer page anchors, index docs, .api catalogs — ' +
-                'is repaired in place at the sibling in the same pass, both ends, so the tree ends coherent, never disjointed; ' +
-                'where ' +
-                c.doc +
-                ' explicitly rules a counterpart RECORDED with a demanding consumer rather than edited, the ' +
-                "recording IS the fix and the sibling interior stays unedited past that ruling. You are the run's LAST agent). " +
-                'Read ' +
-                c.doc +
-                ' IN FULL — it is ' +
-                'the ruling. Read the ' +
-                STACK[lang] +
-                '/ doctrine at source (README and every page it routes) — it is the bar. The ' +
-                'recon REPORT FILES are your reconnaissance. CONSUMPTION: (a) UNMAPPED scope below gets your own cold read FIRST; ' +
-                '(b) read every ok report IN FULL from disk — governance and the two stacking maps ' +
-                'before page slices, ripple maps before the pages whose seams they anchor; entries overlap across lanes, dedupe by target ' +
-                "as you read; (c) each entry's anchors are jump coordinates — spot-verify what you build on, and re-open every anchor behind an edit — " +
-                'information, not instructions; spot-verify what you build on, and hunt past them on your own authority. IMPLEMENT ' +
-                'EVERYTHING the doc rules, in dependency order: author ruled-new pages ground-up, rebuild and improve ruled pages in ' +
-                'place, weave the stacking inventory into the owning pages as cases, rows, fields, and operations (doc-demanded and ' +
-                'beyond-doc alike — an admitted capability the concept admits is composed, never noted), close the registry and index ' +
-                'docs, and repair every ripple your edits expose in the same pass, both seam ends — the sibling ripple maps ' +
-                'enumerate the known cross-folder endpoints; cover every one and hunt past them. A ruling is a FLOOR: exceed it with ' +
-                'denser, deeper, more capable form; frozen signatures and wire names stay byte-identical. `blocked` carries only what ' +
-                'is genuinely unreachable (a gated cross-package producer), with reason — never deferred work. ' +
-                'UNMAPPED: ' +
-                JSON.stringify(unmapped) +
-                ' ROSTER: ' +
-                JSON.stringify(roster),
-            { label: 'execute:' + tag, phase: 'Execute', model: 'fable', effort: 'high', schema: FIXLOG, stallMs: STALL },
-        );
+            '\n\n' +
+            LAWS_READ +
+            '\n\n' +
+            HARVEST_LAW +
+            '\n\n' +
+            OWN_PASS(execArtifact) +
+            '\n\nTASK: EXECUTE THE CAMPAIGN (WRITER — full authority over ' +
+            c.root +
+            ', its ' +
+            'manifest rows, its .api tier, the index docs, AND libs-wide ripple authority: a ripple your edits expose anywhere ' +
+            'under libs/ — sibling seam ledgers, mirrored ARCHITECTURE rows, consumer page anchors, index docs, .api catalogs — ' +
+            'is repaired in place at the sibling in the same pass, both ends, so the tree ends coherent, never disjointed; ' +
+            'where ' +
+            c.doc +
+            ' explicitly rules a counterpart RECORDED with a demanding consumer rather than edited, the ' +
+            "recording IS the fix and the sibling interior stays unedited past that ruling. You are the run's LAST agent). " +
+            'Read ' +
+            c.doc +
+            ' IN FULL — it is ' +
+            'the ruling. Read the ' +
+            STACK[lang] +
+            '/ doctrine at source (README and every page it routes) — it is the bar. The ' +
+            'recon REPORT FILES are your reconnaissance. CONSUMPTION (rung 2, AFTER your OWN PASS FIRST artifact lands): (a) ' +
+            'UNMAPPED scope below gets your own cold read FIRST; ' +
+            '(b) read every ok report IN FULL from disk — governance and the two stacking maps ' +
+            'before page slices, ripple maps before the pages whose seams they anchor; entries overlap across lanes, dedupe by target ' +
+            "as you read; (c) each entry's anchors are jump coordinates — spot-verify what you build on, and re-open every anchor behind an edit — " +
+            'information, not instructions; spot-verify what you build on, and hunt past them on your own authority. IMPLEMENT ' +
+            'EVERYTHING the doc rules, in dependency order: author ruled-new pages ground-up, rebuild and improve ruled pages in ' +
+            'place, weave the stacking inventory into the owning pages as cases, rows, fields, and operations (doc-demanded and ' +
+            'beyond-doc alike — an admitted capability the concept admits is composed, never noted). CAPABILITY-COMPLETENESS IS ' +
+            'MANDATORY, NOT OPTIONAL: for every owner you author or rebuild, the body implements what its names and prose promise — ' +
+            'a named-but-omitted capability is a defect you close NOW, at the same bar as any doc ruling. Every beyond-doc ' +
+            'underutilized-capability entry the stacking maps surface that a target page’s concept admits resolves EXPLICITLY: ' +
+            'composed into the owning page, or a one-line `declined` entry naming the disk fact or doctrine law that forbids it — an ' +
+            'entry neither composed nor justified-declined is a silent loss. Close the registry and index ' +
+            'docs, and repair every ripple your edits expose in the same pass, both seam ends — the sibling ripple maps ' +
+            'enumerate the known cross-folder endpoints; cover every one and hunt past them. A ruling is a FLOOR: exceed it with ' +
+            'denser, deeper, more capable form; frozen signatures and wire names stay byte-identical. `blocked` carries only what ' +
+            'is genuinely unreachable (a gated cross-package producer), with reason — never deferred work. ' +
+            'UNMAPPED: ' +
+            JSON.stringify(unmapped) +
+            ' ROSTER: ' +
+            JSON.stringify(roster);
+        // CHAIN CONTINUATION: the executor is the campaign's CRITICAL write lane — its death loses the whole campaign's landed
+        // work, so a usage-limit or transport death earns bounded re-dispatch; the retry re-runs against CURRENT disk, composing
+        // its own partial edits. The final death isolates this campaign; sibling campaigns and the doctrine terminal still run.
+        const execOpts = (suffix) => ({
+            label: 'execute:' + tag + suffix,
+            phase: 'Execute',
+            model: 'fable',
+            effort: 'high',
+            schema: FIXLOG,
+            stallMs: STALL,
+        });
+        const fix = (await agent(execPrompt, execOpts(''))) || (await retryLane(() => agent(execPrompt, execOpts(':r1'))));
         return {
             campaign: c.root,
             lanes: roster.length,
@@ -577,6 +622,7 @@ const lanes = await parallel(
             built: (fix && fix.built && fix.built.length) || 0,
             beyond: (fix && fix.beyond && fix.beyond.length) || 0,
             blocked: (fix && fix.blocked) || [],
+            declined: (fix && fix.declined) || [],
             harvest: (fix && fix.harvest) || [],
             summary: (fix && fix.summary) || '',
         };

@@ -312,7 +312,8 @@ const FINDINGS_SCHEMA = {
                     'acceptance',
                 ],
                 properties: {
-                    claimKey: S, // <class>|<owner>|<primary symbol or absence route> — stable across lanes, never lane wording
+                    // Schema-enforced key grammar: prose alone fractured into 4+ formats across one run's lanes, defeating cross-lane dedupe.
+                    claimKey: { type: 'string', pattern: '^[a-z0-9_-]+(\\.[a-z0-9_-]+){3}$' },
                     target: S, // short display label for the defect
                     files: { type: 'array', items: S }, // files the fixer must open or edit first
                     class: { type: 'string', enum: ['missing', 'wrong', 'faked', 'naive', 'drift', 'phantom'] },
@@ -336,10 +337,33 @@ const FIXER_SCHEMA = {
     // Required-but-possibly-empty `beyond` is an attestation: the fixer's own hunt ran, not only the signal list.
     type: 'object',
     additionalProperties: false,
-    required: ['files', 'indexApplied', 'resolved', 'backlogDrained', 'beyond', 'rejected', 'remaining', 'harvest', 'summary'],
+    required: [
+        'files',
+        'indexApplied',
+        'resolved',
+        'backlogDrained',
+        'beyond',
+        'rejected',
+        'remaining',
+        'harvest',
+        'tranches',
+        'ideaLedger',
+        'summary',
+    ],
     properties: {
         files: { type: 'array', items: S },
         harvest: HARVEST,
+        tranches: { type: 'array', items: S }, // one checkpoint receipt line per tranche fed this round — a fed tranche absent here is unconsumed
+        ideaLedger: {
+            // One row per dossier idea — a prose-only silent-drop prohibition has dropped silently; the required ledger makes every fate visible.
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['idea', 'fate', 'note'],
+                properties: { idea: S, fate: { type: 'string', enum: ['landed', 'carded', 'declined'] }, note: S },
+            },
+        },
         indexApplied: {
             type: 'array',
             items: { type: 'object', additionalProperties: false, required: ['doc', 'action'], properties: { doc: S, action: S } },
@@ -948,11 +972,15 @@ const EVIDENCE_LAW =
     'FINDING FORM — you deliver TRUTH, never an implementation: `claim` states the observed defect; `mechanism` states WHY it ' +
     'fails the law as fact; `anchors` carry one coordinate per row (role names what it proves; `note` is the shortest literal ' +
     'witness under 20 words, or empty when path+line suffice; an `absence` anchor names where the expected thing was searched ' +
-    'and not found); `owner` names the canonical owner that must absorb the resolution (the owning axis, roster, registry, or ' +
+    'and not found); a `defect` anchor lands ON the line implementing the mechanism — a nearby declaration or a blank line ' +
+    'taxes the consumer, whose re-open of every anchor is mandatory — and every anchor path resolves on current disk at emit: ' +
+    'a phantom or doubled-segment path is a dead read the consumer inherits; `owner` names the canonical owner that must ' +
+    'absorb the resolution (the owning axis, roster, registry, or ' +
     'seam vocabulary — never a new local shape); `reject` lists forms the repair must not take; `acceptance` the signals ' +
     'proving resolution. NEVER write add/replace/implement/promote/delete as instruction — the writer owns the design, you the ' +
-    'constraint boundary. `claimKey` follows one mechanical grammar — <package>.<page-stem>.<owner>.<defect-slug>, all ' +
-    'lowercase, dot-separated — so the same defect keys identically from any lane by construction. BODY PROOF: a claim of ' +
+    'constraint boundary. `claimKey` follows one mechanical grammar — <package>.<page-stem>.<owner>.<defect-slug>, exactly ' +
+    'four dot-separated lowercase segments (e.g. `appui.dashboards.lttb.unwired-decimator`) — so the same defect keys ' +
+    'identically from any lane by construction, and cross-lane corroboration of one defect surfaces as one key. BODY PROOF: a claim of ' +
     'inert/discarded/not-emitted/erased behavior anchors the IMPLEMENTING body (the generated partial, delegate, or extension ' +
     'body where the behavior would live), never the call site alone — a call-site-only inertness claim is unverified. ' +
     '`severity` binds to consequence (blocker = run-blocking, major = corpus correctness, minor = local cleanup), never prose ' +
@@ -1427,11 +1455,10 @@ const redteamPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, nav
                       'path FIRST; absent or unparseable, your cold attack is the only review this batch gets: judge from CURRENT ' +
                       'disk alone)') +
                 ' — read it IN FULL; its edits and verdicts are refutation targets judged against CURRENT disk, never a ' +
-                'settled record. FOLD-FORWARD DUTY: its surviving `seamsTouched`, `deltas`, `deferred`, `beyondMap`, ' +
-                '`indexRows`, and `harvest` rows fold into YOUR return, re-verified against current disk and deduped — your ' +
-                "fix-log is the batch's consolidated record. `harvest` folding is MECHANICAL, never judgment: every critique " +
-                'harvest row you cannot REFUTE with a disk fact rides your return verbatim — dedupe is the only legal drop, ' +
-                'and a refuted row is dropped with its refuting fact named in `summary`, never silently.',
+                'settled record. FOLD-FORWARD DUTY: its surviving `seamsTouched`, `deltas`, `deferred`, `beyondMap`, and ' +
+                '`indexRows` rows fold into YOUR return, re-verified against current disk and deduped — your ' +
+                "fix-log is the batch's consolidated record. Its `harvest` rows are NOT yours to fold: the doctrine lander " +
+                'sweeps every critique fixlog from disk directly — nomination transport never rides a living fold.',
             GIT_GROUND,
             'TASK: ADVERSARIAL ARCHITECT RED-TEAM; fix EACH page in place: ' +
                 batch.map((p) => p.page).join(', ') +
@@ -1497,7 +1524,7 @@ const finderPrompt = (L, pages, i, seams, reg) =>
             'anchored graded findings.',
     ].join('\n\n');
 
-const govFinderPrompt = (L, pkgs, pages, rows, reg) =>
+const govFinderPrompt = (L, pkgs, pages, rows, seams, backlog, reg) =>
     [
         CONTEXT(L),
         HUNT,
@@ -1513,7 +1540,18 @@ const govFinderPrompt = (L, pkgs, pages, rows, reg) =>
             'package manifest are cross-checked THREE ways (a README-advertised package missing from the folder manifest, a ' +
             'folder row absent from the central manifest, a central version with no consumer in the folder) — every leg walked, ' +
             'never sampled. A disagreement between any two surfaces is a `drift` finding; a claim about a landed page is verified against the ' +
-            'page on CURRENT disk, never against the claim. PENDING INDEX ROWS — the terminal fixer applies these after you; a ' +
+            'page on CURRENT disk, never against the claim. REQUIRED PROBE — the seam registry: cross-check each package ' +
+            'ARCHITECTURE.md seam map against the branch `' +
+            L.root +
+            '/.planning/ARCHITECTURE.md` [02]-[SEAMS] registry — a cross-package edge present in one and absent from the other ' +
+            'is a `drift` finding. REQUIRED PROBE — foreign counterparts: for every row below whose file or counterpart lies ' +
+            'OUTSIDE the audited packages, read that foreign page on CURRENT disk and grade the obligation — already satisfied ' +
+            "(drop), real and open (a finding at the owning end), or MIS-FRAMED because it contradicts the foreign owner's " +
+            "standing ruling (a `wrong` finding at the row's origin page, never a demand on the foreign owner). SEAMS: " +
+            JSON.stringify(seams) +
+            ' DEFERRED: ' +
+            JSON.stringify(backlog) +
+            '. PENDING INDEX ROWS — the terminal fixer applies these after you; a ' +
             'gap these rows already close is DROPPED, not reported: ' +
             JSON.stringify(rows) +
             '. Return typed anchored graded findings.',
@@ -1578,7 +1616,9 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
             'census and ideas dossier, the index-row apply, the own hunt). HARVEST FILE: append each `harvest` nomination to `' +
             SCRATCH +
             '/fixer-harvest.jsonl` (one JSON row per line) the moment it is minted — the doctrine lander sweeps the file, so a ' +
-            'killed round loses no nomination; your returned `harvest` carries the same rows.',
+            'killed round loses no nomination; your returned `harvest` carries the same rows. Your returned `tranches` lists ' +
+            'the checkpoint receipt line of every tranche fed this round — a fed tranche absent from that list is unconsumed, ' +
+            'and the round has failed its mandate.',
         "TASK: TERMINAL FIX (WRITER — the run's LAST agent, nothing follows you): full write authority over the landed corpus, " +
             'libs-wide ripple authority with the expand-form bound LIFTED (collapse, rename, and contract are yours now that no ' +
             "sibling writer runs), and the run's SOLE writer for the owning-package index docs (ARCHITECTURE.md + README.md), " +
@@ -1604,9 +1644,9 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
                 orphans.length
                     ? '(2b) CRITIQUE FIXLOGS — every batch critique, folded-forward or orphaned (a live redteam folds judgment-lossy and a ' +
                       'dead one folds nothing); the paths are deterministic, so one absent on disk is skipped with a one-line note in ' +
-                      '`summary`, never an error — read each present file IN FULL, drain the seam/deferred/index rows still open under ' +
-                      "the same law (a row a redteam already landed disk-resolves and drops), and fold each fixlog's surviving harvest " +
-                      'rows into your own `harvest` return, re-verified and deduped: ' +
+                      '`summary`, never an error — read each present file IN FULL and drain the seam/deferred/index rows still open under ' +
+                      'the same law (a row a redteam already landed disk-resolves and drops); the fixlog `harvest` arrays are the doctrine ' +
+                      "lander's to sweep, never yours to fold: " +
                       JSON.stringify(orphans) +
                       '.'
                     : '',
@@ -1621,7 +1661,9 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
                       'leaves ideas unclaimed or landed at one end of a cross-folder seam only): an unclaimed or half-landed idea is ' +
                       'yours — land it at its owner to full depth, finish the missing seam end, or reject with reason; an idea whose ' +
                       'remaining work genuinely exceeds a terminal pass returns as a fully-specified card in the owning IDEAS.md, never ' +
-                      'a silent drop: ' +
+                      'a silent drop. Your returned `ideaLedger` carries one row PER DOSSIER IDEA — fate landed|carded|declined with ' +
+                      'the landing page, the card, or the forbidding disk fact in `note`; a dossier idea absent from the ledger is the ' +
+                      'silent drop the ledger exists to kill: ' +
                       JSON.stringify(ideas) +
                       '.'
                     : '',
@@ -1972,8 +2014,9 @@ const LANDED = built.filter((d) => d.fix).flatMap((d) => d.pages.map((p) => p.pa
 const ROWS = built.flatMap((d) => ((d.fix && d.fix.indexRows) || []).concat((d.rt && d.rt.indexRows) || []));
 const SEAM_ROWS = built.flatMap((d) => ((d.fix && d.fix.seamsTouched) || []).concat((d.rt && d.rt.seamsTouched) || []));
 const BACKLOG = built.flatMap((d) => ((d.fix && d.fix.deferred) || []).concat((d.rt && d.rt.deferred) || []));
-// EVERY critique fixlog reaches the fixer — keyed on the DETERMINISTIC path, never the receipt: a dead wrapper does not erase a
-// written fixlog, a live redteam's fold is judgment-lossy anyway, and rows already landed disk-resolve and drop in the sweep.
+// EVERY critique fixlog reaches the fixer (operational rows) AND the doctrine lander (harvest arrays) — keyed on the
+// DETERMINISTIC path, never the receipt: nomination transport never rides a living agent's fold; a live folder has returned
+// zero of a fixlog's nomination rows under an explicit mechanical mandate, so the adjudicator reads the disk artifact itself.
 const ORPHANS = built.filter((d) => d.critReport).map((d) => d.critReport);
 log(
     'Build: ' +
@@ -1999,9 +2042,10 @@ const LANDED_LANGS = [...new Set(LANDED.map((p) => langOf(p)).filter(Boolean))];
 const finderTasks = LANDED_LANGS.flatMap((k) => {
     const langPages = LANDED.filter((p) => langOf(p) === k);
     const langSeams = SEAM_ROWS.filter((s) => langOf(s.file) === k || langOf(s.counterpart) === k);
+    const langBacklog = BACKLOG.filter((r) => (r.files || []).some((f) => langOf(f) === k));
     return chunk(langPages, FINDER_PAGES)
         .map((pages, i) => ({ gov: false, lang: k, pages, seams: langSeams, i }))
-        .concat([{ gov: true, lang: k, pkgs: [...new Set(langPages.map(pkgOf))], pages: langPages }]);
+        .concat([{ gov: true, lang: k, pkgs: [...new Set(langPages.map(pkgOf))], pages: langPages, seams: langSeams, backlog: langBacklog }]);
 });
 const found = (
     await Promise.all(
@@ -2009,7 +2053,7 @@ const found = (
             slot(() =>
                 t.gov
                     ? recon(
-                          (reg) => govFinderPrompt(LANG[t.lang], t.pkgs, t.pages, ROWS, reg),
+                          (reg) => govFinderPrompt(LANG[t.lang], t.pkgs, t.pages, ROWS, t.seams, t.backlog, reg),
                           ropts('finder:gov:' + t.lang, 'Close', FINDINGS_SCHEMA, t.pkgs, { arr: 'findings', group: 'class' }),
                       )
                     : recon(
@@ -2088,9 +2132,10 @@ for (let round = 0; round < DRAIN_ROUNDS; round++) {
 // DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations adjudicated against
 // the live doctrine surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws.
 const HARVEST_ROWS = built.flatMap((d) => ((d.fix && d.fix.harvest) || []).concat((d.rt && d.rt.harvest) || [])).concat(fixerHarvest);
-// A dead fixer still fires the lander: its nominations live only in the incremental harvest file the prompt sweeps.
+// A dead fixer still fires the lander (its nominations live in the incremental harvest file), and critique fixlogs on disk
+// fire it too — the lander is those arrays' ONLY transport.
 const doctrine =
-    HARVEST_ROWS.length || !fixer
+    HARVEST_ROWS.length || ORPHANS.length || !fixer
         ? await slot(() =>
               agent(
                   ROOT_LAW +
@@ -2104,6 +2149,10 @@ const doctrine =
                       SCRATCH +
                       '/fixer-harvest.jsonl` (absent = none): rows there missing from NOMINATIONS are nominations too — a killed ' +
                       'fixer round reaches you only through that file.\n' +
+                      'Also read the `harvest` array of every critique fixlog at these deterministic paths (an absent or invalid ' +
+                      'file skips; no other agent transports these rows): ' +
+                      JSON.stringify(ORPHANS) +
+                      ' — dedupe them against NOMINATIONS and adjudicate them identically.\n' +
                       'ADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on ' +
                       'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
                       'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +

@@ -11,6 +11,9 @@ export const meta = {
 const STALL = 480000;
 const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const CODEX = true; // survey/strata + deep research lanes run on gpt-5.6-terra via the codex wrapper; false restores native lanes
+const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane (the author): the count bounds spend, the backoff buys recovery time
+const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
+const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root; the terminal adjudicator + every codex cwd pin it (lanes do not reliably inherit launch cwd)
 
 const LANG = {
     python: {
@@ -197,12 +200,13 @@ const DOCTRINE_SCHEMA = {
 const AUTHOR_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['brief', 'verdict_count', 'evidence_rows', 'thesis'],
+    required: ['brief', 'verdict_count', 'evidence_rows', 'thesis', 'declinedCandidates'],
     properties: {
         brief: { type: 'string' },
         verdict_count: { type: 'number' },
         evidence_rows: { type: 'number' },
         thesis: { type: 'string' },
+        declinedCandidates: { type: 'array', items: { type: 'string' } }, // one line per roster candidate NOT landed: the disk fact or law forbidding it — empty attests every candidate landed
     },
 };
 
@@ -298,6 +302,11 @@ const REVIEW_SCHEMA = {
 };
 
 // --- [DOCTRINE] ------------------------------------------------------------------------
+
+const ROOT_PIN =
+    'WORKING ROOT: ' +
+    ROOT +
+    ' — every relative repo path resolves against this absolute root; read, write, and edit ONLY under it, never another checkout.';
 
 const ROSTER_LAW =
     'PACKAGE ROSTER LAW: central version ownership per the language manifest; per-package catalogs live in the .api tiers and every ' +
@@ -401,33 +410,43 @@ const preOf = (t, corpus, reg) => {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death — agent() returned null): attempt-counted, a
+// backoff before each attempt sized to a limit reset. The final death isolates the lane, NEVER the chain — every downstream
+// stage still runs against current disk.
+const retryLane = async (fn) => {
+    for (let a = 0; a < RETRY_ATTEMPTS; a++) {
+        await sleep(RETRY_BACKOFF);
+        const r = await fn();
+        if (r) return r;
+    }
+    return null;
+};
+
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split, battery-validated); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const dossierOf = (label) => SCRATCH + '/' + fileTag(label) + '-dossier.md';
+// Every codex lane here is a READ/survey lane — writes its dossier + JSON report, never in-place page edits; one context-gathering
+// + verification + output-contract law serves them all, so no fix/persistence fork exists.
 const laneLaw = (schema, o) =>
-    (o.fix
-        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
-          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
-          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
-          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
-        : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
-          'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
-          (o.calls || 60) +
-          ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
-          'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
-          'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
-          'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
-          'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
-          '</verification>') +
+    '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
+    'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
+    (o.calls || 60) +
+    ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
+    'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
+    'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
+    'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
+    'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
+    '</verification>' +
     '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
-    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+    const root = ROOT;
     const report = root + '/' + base + '-report.json';
     const dossier = root + '/' + base + '-dossier.md'; // writes lanes author this markdown alongside the JSON report
     const model = o.model || 'gpt-5.6-terra';
@@ -446,8 +465,14 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
-            'error through step (4).',
+            'VERBATIM. ' +
+            (o.writes
+                ? 'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane writes ' +
+                  "its report and dossier as its final act — run step (3)'s verification first, and a valid report proceeds to step (4) " +
+                  'as success. Only a missing or invalid report earns ONE identical retry (a second writer over the same paths is the ' +
+                  'last resort); a failed retry with no valid report returns the error through step (4).'
+                : 'If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the error through ' +
+                  'step (4).'),
         'LANE LAW:\n\n' + laneLaw(schema, o),
         // writes lanes author both the JSON report (final act) and the markdown dossier; the wrapper only verifies both landed.
         'TASK:\n\n' +
@@ -589,18 +614,30 @@ const authorPrompt = (pre, t, out, roster, unmapped) =>
             'applies), [07] OUT_OF_SCOPE. The brief is SINGLE-PHASE and decision-complete per the section utility law: the rebuild engine consumes it ' +
             'directly, no second document ever follows it, and every structural hinge is DECIDED — a ruled default plus the deciding criteria that would ' +
             'flip it. HEADER LAW: line 3 of the brief is the campaign line, 1-3 lines: its track order relative to the corpus, the Workflow invocation ' +
-            '(rebuild.js args), and its one sequencing constraint. SOURCES — CONSUMPTION PROTOCOL, in order: (a) UNMAPPED scope below is your direct-hunt ' +
-            "queue — a failed lane's territory gets your own cold read FIRST; (b) read every ok survey REPORT FILE IN FULL from disk, shared-surface " +
+            '(rebuild.js args), and its one sequencing constraint. SOURCES — CONSUMPTION PROTOCOL, in order: (a) OWN PASS FIRST — cold-read the target ' +
+            '`.planning` design pages from CURRENT disk and WRITE your own structural verdict-candidate + defect list to ' +
+            SCRATCH +
+            '/' +
+            out.replace(/\.md$/, '') +
+            '-ownpass.md BEFORE opening any survey report or dossier; the reports may only ADD [recon]-tagged rows to that file, and a brief whose ' +
+            'binding verdicts map one-to-one onto the survey candidates has FAILED this rung — the majority of the verdicts come from your own read, ' +
+            'with the .api tiers, cross-folder census, and strata left survey-offloaded; (b) UNMAPPED scope below is your direct-hunt ' +
+            'queue — but each row carries `reportProbe`: a dead lane usually WROTE its report before its wrapper died, so open that path ' +
+            "FIRST (valid JSON there is the lane's real product, consumed like any ok report), and only a missing/invalid probe falls to " +
+            'your own cold read; (c) read every ok survey REPORT FILE IN FULL from disk, shared-surface ' +
             "lanes (api-tiers, census, strata, ecosystem) before the corpus halves, and read each report's `dossier` markdown IN FULL alongside it; " +
-            'entries overlap across lanes — cluster by target as you read; (c) entries are EVIDENCE with jump-coordinate anchors, never settled law: ' +
+            'entries overlap across lanes — cluster by target as you read; (d) entries are EVIDENCE with jump-coordinate anchors, never settled law: ' +
             're-verify on disk every anchor behind a claim the brief makes (MANDATORY); navigation-only entries re-verify only when touched; a verdict ' +
-            'candidate is pressure you adopt, strengthen, or reject on your own authority. Plus the corpus as law. ' +
-            'UNMAPPED: ' +
-            JSON.stringify(unmapped) +
-            ' ROSTER: ' +
+            'candidate is pressure you adopt, strengthen, or reject on your own authority. Plus the corpus as law. Every ROSTER candidate resolves ' +
+            'EXPLICITLY in [04]: landed as a mine-to-depth or ADD/INTEGRATE/REPLACE row, or a one-line `declinedCandidates` entry naming the forbidding ' +
+            'disk fact or law (license, proven redundancy on a named stronger owner, feed-verified currency failure) — a candidate neither landed nor ' +
+            'justified-declined is a silent loss the passes and review charge back. ' +
+            (unmapped.length ? 'UNMAPPED: ' + JSON.stringify(unmapped) + ' ' : '') +
+            'ROSTER: ' +
             JSON.stringify(roster) +
             '. Every claim anchored; agent-facing declarative; no ' +
-            'provenance, no hedging, no restated doctrine. Return the path + counts + a one-line thesis.',
+            'provenance, no hedging, no restated doctrine. Return the path + counts + a one-line thesis + the `declinedCandidates` ledger (empty ' +
+            'attests every roster candidate landed).',
     ].join('\n');
 const passPrompts = (pre, brief) => [
     [
@@ -703,8 +740,10 @@ const reviewPrompts = (scope) => [
         LAWS_READ,
         HARVEST_LAW,
         'TASK: PASS 3 of 3 — RED-TEAM COLD READ, the last hands on this corpus. Read the whole set twice as its future ' +
-            'implementing agents will: hostile, fresh, lens-by-lens — counterfactual (would faithful execution actually produce world-class folders, ' +
-            'or is a brief load-bearing on an unstated assumption?), long-tail (rare-but-real cases no brief covers), boundary (every cross-folder and ' +
+            'implementing agents will: hostile, fresh, lens-by-lens — counterfactual (name the central assumption a brief stands on — the chosen ' +
+            'owner split, the folder partition, the hand-enumerated roster — derive the corpus form with it removed, and where the rebuilt form is ' +
+            'stronger BUILD IT into the brief in place; "the current shape also works" is never a refutation), long-tail (rare-but-real cases no brief ' +
+            'covers), boundary (every cross-folder and ' +
             'cross-language seam honest?), sprawl (do two briefs quietly plan the same owner twice?), completeness (is any [03] target unreachable ' +
             'from the verdicts as written?). Fix in place; return the corpus verdict + residual risks.',
     ].join('\n'),
@@ -813,7 +852,12 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
     ).filter(Boolean);
     const surveyed = roster.filter((r) => r.ok);
     const total = surveyed.reduce((a, r) => a + r.entries, 0);
-    const unmapped = roster.filter((r) => !r.ok).flatMap((r) => r.scope.map((s) => ({ lane: r.lane, scope: s })));
+    // A not-ok receipt does not prove an absent product: the codex lane writes its report as its final act, so a wrapper that died
+    // after the write leaves a valid report on disk. Each unmapped row carries the DETERMINISTIC report path (orchestrator-computed
+    // from the lane label) so the author probes it before cold-deriving — the report path never depends on the dead receipt.
+    const unmapped = roster
+        .filter((r) => !r.ok)
+        .flatMap((r) => r.scope.map((s) => ({ lane: r.lane, scope: s, reportProbe: SCRATCH + '/' + fileTag(r.lane) + '-report.json' })));
     log(
         P +
             ' survey: ' +
@@ -833,15 +877,20 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
     );
 
     phase(P + ' author');
-    const authored = await agent(authorPrompt(preClaude, t, out, roster, unmapped), {
-        label: 'author:' + name.toLowerCase(),
-        phase: P + ' author',
-        effort: 'high',
-        schema: AUTHOR_SCHEMA,
-        stallMs: STALL,
-    });
+    // The author is the target's one CRITICAL lane: its death produces no brief, so refine has nothing to edit AND the waterfall
+    // corpus never gains this brief for downstream targets. Attempt-counted re-dispatch before the target isolates — the loop
+    // still advances to the next target (chain continues), only this one drops.
+    const fireAuthor = (suffix) =>
+        agent(authorPrompt(preClaude, t, out, roster, unmapped), {
+            label: 'author:' + name.toLowerCase() + suffix,
+            phase: P + ' author',
+            effort: 'high',
+            schema: AUTHOR_SCHEMA,
+            stallMs: STALL,
+        });
+    const authored = (await fireAuthor('')) || (await retryLane(() => fireAuthor(':r1')));
     if (!authored) {
-        log(P + ': author produced nothing — aborting this target; resume re-runs it.');
+        log(P + ': author produced nothing after retries — isolating this target; resume re-runs it.');
         continue;
     }
     log(P + ' author: ' + authored.brief + ' — ' + authored.verdict_count + ' verdicts, ' + authored.evidence_rows + ' E-rows');
@@ -931,7 +980,8 @@ let doctrine = null;
 if (harvestRows.length) {
     phase('doctrine');
     doctrine = await agent(
-        'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` ' +
+        ROOT_PIN +
+            '\n\nTASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` ' +
             'FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. Load ' +
             'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
             '`mermaid-diagramming` before touching any diagram. ' +

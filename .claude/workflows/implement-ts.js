@@ -2,7 +2,7 @@ export const meta = {
     name: 'implement-ts',
     whenToUse: 'Realize open cards into design-page code fences across the TypeScript target folders.',
     description:
-        "Realize every open IDEAS/TASKLOG card across the libs/typescript capability folders (core, security, data, runtime, ui, iac) into deep design-page code FENCES at the docs/stacks/typescript bar (Effect-TS rails, Schema-first boundaries, one canonical owner per concept, exhaustive discriminated unions, zero any/throw/enum), repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified members, seam targets) and never verdicts; it runs read-only on gpt-5.6-terra dispatched through a sonnet codex wrapper (CODEX flag; false restores the native inherit-model lane), lands its full product on disk under .claude/scratch/implement-ts, and returns a thin receipt plus a jq-extracted structural skeleton on the wire; the implement stage reads the report IN FULL from disk, and when the skeleton proves page-disjoint card groups it fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope same-language counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central pnpm-workspace.yaml catalog pin (+ its catalog: manifest row) and the area ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal opus writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest, folded forward through the redteam; the terminal stage is a DRAIN LOOP over the pooled deferred backlog plus orphaned critique fixlogs that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one fable doctrine lander adjudicates the pooled harvest against the docs/laws admission bar (land-nothing legal) before the run closes. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-api. TypeScript-only. args = a target path string, an array of paths, or empty for all capability folders. The language-wide libs/typescript/.planning is out of scope.",
+        "Realize every open IDEAS/TASKLOG card across the libs/typescript capability folders (core, security, data, runtime, ui, iac) into deep design-page code FENCES at the docs/stacks/typescript bar (Effect-TS rails, Schema-first boundaries, one canonical owner per concept, exhaustive discriminated unions, zero any/throw/enum), repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified members, seam targets) and never verdicts; it runs read-only on gpt-5.6-terra dispatched through a sonnet codex wrapper (CODEX flag; false restores the native inherit-model lane), lands its full product on disk under .claude/scratch/implement-ts, and returns a thin receipt plus a jq-extracted structural skeleton on the wire; the implement stage reads the report IN FULL from disk, and when the skeleton proves page-disjoint card groups it fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope same-language counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central pnpm-workspace.yaml catalog pin (+ its catalog: manifest row) and the area ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal opus writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest, folded forward through the redteam; the terminal stage is a DRAIN LOOP over the pooled deferred backlog plus every critique fixlog that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one fable doctrine lander adjudicates the pooled harvest against the docs/laws admission bar (land-nothing legal) before the run closes. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of rebuild-api. TypeScript-only. args = a target path string, an array of paths, or empty for all capability folders. The language-wide libs/typescript/.planning is out of scope.",
     phases: [
         {
             title: 'Realize',
@@ -10,7 +10,7 @@ export const meta = {
         },
         {
             title: 'Pins',
-            detail: 'a terminal DRAIN LOOP: one serial opus single-writer per round applies every reported pnpm-workspace.yaml catalog pin + its catalog: row in the owning package.json and every reported ARCHITECTURE.md [02]-[SEAMS] row, drains the orphaned critique fixlogs (a folder whose redteam died) and the pooled deferred backlog against live disk, and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate; then one fable doctrine lander adjudicates the pooled harvest nominations against the docs/laws admission bar (land-nothing legal). Runs only when pins, seams, orphans, backlog, or harvest exist',
+            detail: 'a terminal DRAIN LOOP: one serial opus single-writer per round applies every reported pnpm-workspace.yaml catalog pin + its catalog: row in the owning package.json and every reported ARCHITECTURE.md [02]-[SEAMS] row, sweeps every critique fixlog (folded-forward or orphaned) and drains the pooled deferred backlog against live disk, and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate; then one fable doctrine lander adjudicates the pooled harvest nominations against the docs/laws admission bar (land-nothing legal). Runs only when pins, seams, orphans, backlog, or harvest exist',
             model: 'opus',
         },
     ],
@@ -41,16 +41,21 @@ const CODEX = true;
 // --- [INPUTS] --------------------------------------------------------------------------
 
 const norm = (t) => {
-    const s = String(t).trim();
+    const s = String(t).trim().replace(/\/+$/, '');
     return s.indexOf('libs/') === 0 ? s : ROOT + '/' + s;
 };
-const TARGETS = Array.isArray(args)
+// Route guard: a target must live under the TypeScript branch root. A stray libs/csharp or libs/python arg passes `norm` unchanged (it already
+// starts with libs/), so without this filter it would dispatch a TS-doctrine chain over a foreign branch — rejected here, never normalized into scope.
+const routed = (t) => t === ROOT || t.indexOf(ROOT + '/') === 0;
+const REQUESTED = Array.isArray(args)
     ? args.filter(Boolean).map(norm)
     : args && typeof args === 'object' && Array.isArray(args.targets)
       ? args.targets.filter(Boolean).map(norm)
       : typeof args === 'string' && args.trim() && args.trim().toUpperCase() !== 'ALL'
         ? [norm(args)]
         : DEFAULT_TARGETS;
+const TARGETS = REQUESTED.filter(routed);
+const REJECTED = REQUESTED.filter((t) => !routed(t));
 // Per-instance scratch dir — per-lane report files + grounding dossiers + per-batch seam-ledger files. Minted deterministically from the
 // resolved TARGETS (clock/randomness would break resume): one FLAT dir per instance, a basename slug plus an FNV-1a tail so distinct
 // target sets never share a directory and a resume rehydrates the same one; an empty/defaulted scope hashes over the resolved defaults.
@@ -184,41 +189,32 @@ const DISCOVERY_SCHEMA = {
     },
 };
 
-// Thin wire receipt + mechanically-extracted skeleton: the discovery PRODUCT (statuses, theses,
-// coverage, the full navigation dossier) stays on disk at `report`; only status + count + headline
-// plus the structural rows the orchestrator fans and seams over (order/cards/gates/ripples/malformed)
-// travel inline. `cards` = {slug, pages} per open card — the page-disjointness proof, nothing more.
-const RECEIPT = {
+// One strict-object composer: a shared field core plus a stage's earned extra keys. Twin literals drift on the next edit; one composer never does.
+const strictObj = (core, extra) => ({
     type: 'object',
     additionalProperties: false,
-    required: ['ok', 'report', 'entries', 'headline', 'failure', 'order', 'cards', 'gates', 'ripples', 'malformed'],
-    properties: {
-        ok: { type: 'boolean' },
-        report: { type: 'string' },
-        entries: { type: 'integer' },
-        headline: { type: 'string' },
-        failure: { type: 'string' },
-        order: { type: 'array', items: { type: 'string' } },
-        cards: { type: 'array', items: CARD_REF },
-        gates: { type: 'array', items: GATE_ROW },
-        ripples: { type: 'array', items: RIPPLE_ROW },
-        malformed: { type: 'array', items: MALFORMED_ROW },
-    },
+    required: Object.keys(core).concat(Object.keys(extra)),
+    properties: Object.assign({}, core, extra),
+});
+// The thin wire-receipt core every lane returns: status + count + headline; the PRODUCT stays on disk at `report`.
+const RECEIPT_CORE = {
+    ok: { type: 'boolean' },
+    report: { type: 'string' },
+    entries: { type: 'integer' },
+    headline: { type: 'string' },
+    failure: { type: 'string' },
 };
-
-// Thin wire receipt for the sol critique lane: its FIXLOG product stays on disk at `report`.
-const LANE_RECEIPT = {
-    type: 'object',
-    additionalProperties: false,
-    required: ['ok', 'report', 'entries', 'headline', 'failure'],
-    properties: {
-        ok: { type: 'boolean' },
-        report: { type: 'string' },
-        entries: { type: 'integer' },
-        headline: { type: 'string' },
-        failure: { type: 'string' },
-    },
-};
+// Discovery receipt = the core plus the structural skeleton the orchestrator fans and seams over (order/cards/gates/ripples/malformed); the discovery
+// PRODUCT (statuses, theses, coverage, the full navigation dossier) stays on disk. `cards` = {slug, pages} per open card — the page-disjointness proof,
+// nothing more. The sol critique lane returns the bare core — its FIXLOG product stays on disk at `report`.
+const RECEIPT = strictObj(RECEIPT_CORE, {
+    order: { type: 'array', items: { type: 'string' } },
+    cards: { type: 'array', items: CARD_REF },
+    gates: { type: 'array', items: GATE_ROW },
+    ripples: { type: 'array', items: RIPPLE_ROW },
+    malformed: { type: 'array', items: MALFORMED_ROW },
+});
+const LANE_RECEIPT = strictObj(RECEIPT_CORE, {});
 
 // Required-but-possibly-empty `ripples`/`pins`/`seams` are attestations: ripple repair ran in-pass,
 // and pin + seam rows are the run's only single-writer handoffs — empty attests none arose, never a skip.
@@ -278,79 +274,56 @@ const HARVEST = {
     },
 };
 
-const FIXLOG_SCHEMA = {
-    type: 'object',
-    additionalProperties: false,
-    required: ['folder', 'verdict', 'ripples', 'pins', 'seams', 'harvest', 'summary', 'realized', 'deferred', 'collapsed'],
-    properties: {
-        folder: { type: 'string' },
-        verdict: { type: 'string', enum: ['realized', 'refined', 'clean'] },
-        realized: { type: 'array', items: { type: 'string' } },
-        deferred: {
-            type: 'array',
-            items: {
-                type: 'object',
-                additionalProperties: false,
-                required: ['slug', 'reason'],
-                properties: { slug: { type: 'string' }, reason: { type: 'string' } },
-            },
+// ONE fix-log core serves every writer stage (implement + sol critique); the red-team adds only the card-status keys its terminal-close charter earns.
+// declinedIdeas is honestly attestable by both writers — each is a rebuilder that realizes or justifies-declines a covering ambition.
+const LOG_CORE = {
+    folder: { type: 'string' },
+    verdict: { type: 'string', enum: ['realized', 'refined', 'clean'] },
+    realized: { type: 'array', items: { type: 'string' } },
+    deferred: {
+        type: 'array',
+        items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['slug', 'reason'],
+            properties: { slug: { type: 'string' }, reason: { type: 'string' } },
         },
-        collapsed: { type: 'string' },
-        ripples: RIPPLES,
-        pins: PINS,
-        seams: SEAMS,
-        harvest: HARVEST,
-        summary: { type: 'string' },
     },
+    collapsed: { type: 'string' },
+    ripples: RIPPLES,
+    pins: PINS,
+    seams: SEAMS,
+    harvest: HARVEST,
+    // one line per covering idea/underutilized-capability row NOT landed: the disk fact or doctrine law forbidding it — empty attests every covering ambition landed
+    declinedIdeas: { type: 'array', items: { type: 'string' } },
+    summary: { type: 'string' },
 };
-
-const REDTEAM_SCHEMA = {
-    type: 'object',
-    additionalProperties: false,
-    required: ['folder', 'verdict', 'ripples', 'pins', 'seams', 'harvest', 'closed', 'reopened', 'summary', 'realized', 'deferred', 'collapsed'],
-    properties: {
-        folder: { type: 'string' },
-        verdict: { type: 'string', enum: ['realized', 'refined', 'clean'] },
-        realized: { type: 'array', items: { type: 'string' } },
-        deferred: {
-            type: 'array',
-            items: {
-                type: 'object',
-                additionalProperties: false,
-                required: ['slug', 'reason'],
-                properties: { slug: { type: 'string' }, reason: { type: 'string' } },
+const FIXLOG_SCHEMA = strictObj(LOG_CORE, {});
+const REDTEAM_SCHEMA = strictObj(LOG_CORE, {
+    // the red-team is the SOLE card-status owner: closed carries the disposition + adversarially-verified strength, reopened the demoted/blocked cards
+    closed: {
+        type: 'array',
+        items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['slug', 'disposition', 'strength'],
+            properties: {
+                slug: { type: 'string' },
+                disposition: { type: 'string', enum: ['complete', 'dropped'] },
+                strength: { type: 'string', enum: ['strong', 'partial', 'weak'] },
             },
         },
-        collapsed: { type: 'string' },
-        ripples: RIPPLES,
-        pins: PINS,
-        seams: SEAMS,
-        harvest: HARVEST,
-        closed: {
-            type: 'array',
-            items: {
-                type: 'object',
-                additionalProperties: false,
-                required: ['slug', 'disposition', 'strength'],
-                properties: {
-                    slug: { type: 'string' },
-                    disposition: { type: 'string', enum: ['complete', 'dropped'] },
-                    strength: { type: 'string', enum: ['strong', 'partial', 'weak'] },
-                },
-            },
-        },
-        reopened: {
-            type: 'array',
-            items: {
-                type: 'object',
-                additionalProperties: false,
-                required: ['slug', 'reason'],
-                properties: { slug: { type: 'string' }, reason: { type: 'string' } },
-            },
-        },
-        summary: { type: 'string' },
     },
-};
+    reopened: {
+        type: 'array',
+        items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['slug', 'reason'],
+            properties: { slug: { type: 'string' }, reason: { type: 'string' } },
+        },
+    },
+});
 
 const PIN_SCHEMA = {
     type: 'object',
@@ -591,6 +564,19 @@ const HARVEST_LAW =
     '"absent" plus the surfaces searched). A card-local fix never nominates; an empty array is the normal verdict — the terminal doctrine ' +
     'lander refutes weak rows, so nominate substance, never volume.';
 
+// OWN PASS FIRST — the binding input ladder: rung 1 is a DISK ARTIFACT written before the discovery report opens, never a
+// reading step; the report may only ADD [recon]-tagged rows, and a diff dominated by them fails the ladder.
+const OWN_PASS = (artifact) =>
+    'OWN PASS FIRST — the input ladder is binding, in order: (1) your own blind hostile pass, (2) the discovery navigation ' +
+    'map. Rung (1) is the PRIMARY product and it is a DISK ARTIFACT, not a reading step: cold-read every card body and target ' +
+    'page from CURRENT disk and WRITE your own defect-and-ambition list to `' +
+    artifact +
+    '` — collapse targets, naivety kills, charter-completeness gaps, and every capability a card names or a fence promises but ' +
+    'the body omits — BEFORE opening the discovery report. The report may only ADD rows to that file, each tagged [recon]; ' +
+    'reading the pages without writing the list is a failed rung, not a cold pass. Rung (2) grounds, extends, and widens YOUR ' +
+    'pass — it never scopes, substitutes for, or caps it. TRIPWIRE: a diff dominated by [recon]-tagged rows has failed — the ' +
+    'discovery map covers a MINORITY of what the realization demands, and the majority of your edits come from your own attack.';
+
 const DOCTRINE = [LAW, '', LAWS, '', CARD, '', BARHUNT, '', ULTRA, '', PATLAW, '', BOUNDARIES, '', CURRENT, '', PROSE, '', COMMENTS].join('\n');
 
 const GROUPNOTE =
@@ -610,6 +596,18 @@ const INFO_LAW =
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend, the backoff buys recovery time
+const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on a reset or an operator credit top-up; each attempt waits the window out first
+// Bounded re-dispatch for a dead CRITICAL writing/terminal lane (usage-limit or transport death — agent() returned null): attempt-counted with a
+// backoff before each attempt; the final death isolates the LANE, never the chain — every downstream stage still runs against current disk.
+const retryLane = async (fn) => {
+    for (let a = 0; a < RETRY_ATTEMPTS; a++) {
+        await sleep(RETRY_BACKOFF);
+        const r = await fn();
+        if (r) return r;
+    }
+    return null;
+};
 // One shared launch gate: chain heads and implement-fan members alike pass it, so every pooled start stays staggered.
 let gate = Promise.resolve();
 const stagger = () => {
@@ -634,12 +632,17 @@ const pool = async (items, cap, worker) => {
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split, battery-validated); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
+const ownpassPath = (label) => SCRATCH + '/' + fileTag(label) + '-ownpass.md';
 const laneLaw = (schema, o) =>
     (o.fix
-        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
-          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
-          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
-          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
+        ? '<completion_bar>\nDone is every realized fence in your named scope audited to its full depth with its fixlog entry ' +
+          'written — proof-complete, never effort-spent, never early. Complete every named move before yielding; do not stop at ' +
+          'analysis or a partial edit. If the chosen approach resists, pick the next-best one and proceed; a move the territory ' +
+          'genuinely admits no edit for returns as a deferred row naming its blocker. Your layer is review-and-repair of the named ' +
+          'scope: a finding outside it lands as a typed deferred row, never an edit — and re-verifying unchanged work or re-reading ' +
+          'covered territory adds no evidence; move to the next deliverable instead.\n</completion_bar>\n\n<verification>\nAfter ' +
+          'editing, re-read each changed file and confirm it is coherent and nothing it carried was lost. Fix what fails before ' +
+          'yielding; a check you did not run is never claimed as run.\n</verification>'
         : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
           'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
           (o.calls || 60) +
@@ -672,8 +675,14 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
-            'error through step (4).',
+            'VERBATIM. ' +
+            (o.writes
+                ? 'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane writes ' +
+                  "its report as its final act — run step (3)'s verification first, and a valid report proceeds to step (4) as success. " +
+                  'Only a missing or invalid report earns ONE identical retry (a second writer over the same pages is the last resort); ' +
+                  'a failed retry with no valid report returns the error through step (4).'
+                : 'If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the error through ' +
+                  'step (4).'),
         'LANE LAW:\n\n' + laneLaw(schema, o),
         // writes lanes author their own report (final act) — the sandbox admits it; the wrapper only verifies.
         'TASK:\n\n' +
@@ -911,16 +920,18 @@ const discoverPrompt = (folder) =>
             'product ONLY; edit nothing (discovery is the sole read-only stage).',
     ].join('\n');
 
-const implementPrompt = (folder, rpt, seq, note) =>
+const implementPrompt = (folder, rpt, seq, note, ownpass) =>
     [
         DOCTRINE,
+        '',
+        OWN_PASS(ownpass),
         '',
         'TASK: IMPLEMENT — realize the open cards of `' +
             folder +
             '` into deep design-page FENCES at the ULTRA-ADVANCED bar. DISCOVERY REPORT: ' +
             'read ' +
             rpt +
-            " IN FULL from disk FIRST — the folder's navigation-facts reconnaissance (every open card with status/thesis/verified " +
+            " IN FULL from disk AFTER your OWN PASS FIRST artifact lands — the folder's navigation-facts reconnaissance (every open card with status/thesis/verified " +
             'pages, ripple classifications, gates, malformed ripples, the per-page navigation map ({page, files, anchors, members, composed, ' +
             'underutilized, seams, stacking}), and the lane `coverage`): FACTS with jump-coordinate anchors, never verdicts and never a reading ' +
             'ceiling — spot-verify what you build on, re-open every anchor behind an edit, hunt past the map on your own authority, and give its ' +
@@ -950,7 +961,11 @@ const implementPrompt = (folder, rpt, seq, note) =>
             'order (admit raw ONCE through a `Schema` parse at the boundary -> canonical owner -> weave every cross-cutting concern as an Effect ' +
             'combinator/layer/decorator over a thin pure core -> compose through ONE unified `Effect`/`Either`/`Option` rail -> project + egress, BOTH ' +
             'ingress and egress parameterized with generics at depth). Collapse parallel interfaces/types/classes into ONE tagged discriminated union with ' +
-            'EXHAUSTIVE `Match.exhaustive` dispatch; Schema-refined brands where primitives are overloaded. ZERO `any`/implicit-any/unsafe `as`/non-null `!`, NO ' +
+            'EXHAUSTIVE `Match.exhaustive` dispatch; Schema-refined brands where primitives are overloaded. CAPABILITY-COMPLETENESS IS MANDATORY, NOT ' +
+            'OPTIONAL: for every owner you author, the body implements what its names and prose promise — a named-but-omitted capability is a defect you ' +
+            'close NOW, at the same bar as any bar finding. Every chosen idea and every discovery `underutilized`-capability row your pages’ concepts ' +
+            'admit resolves EXPLICITLY: land it in a deepened fence, or record a one-line `declinedIdeas` entry naming the disk fact or doctrine law that ' +
+            'forbids it — an ambition neither landed nor justified-declined is a silent loss the red-team charges back. ZERO `any`/implicit-any/unsafe `as`/non-null `!`, NO ' +
             'runtime `enum`, NO `throw` in domain logic, `import type` explicit. Resolve any [BLOCKED] card inline (read published types in node_modules / ' +
             '`assay api`). RIPPLES ARE YOURS: repair every ripple your cards carry in this same pass per the RIPPLE law — align each in-scope seam to the ' +
             'counterpart page as it NOW stands on disk, realize each 1-hop out-of-scope same-language counterpart card fence and align both ends, land ' +
@@ -960,7 +975,7 @@ const implementPrompt = (folder, rpt, seq, note) =>
             '` catalog pin + `catalog:` row reported in `pins`, never edited; a landed cross-folder ' +
             "seam's `ARCHITECTURE.md` `[02]-[SEAMS]` row reported in `seams`, never edited. Do NOT close any card — the area red-team owns card status. " +
             'High-signal prose all-backticked, comment hygiene, fix-in-place (read-then-extend, preserve capability). Return verdict + realized slugs + ' +
-            'deferred (any card you could not realize, with reason) + collapsed (before->after counts) + ripples + pins + seams + harvest + ' +
+            'deferred (any card you could not realize, with reason) + collapsed (before->after counts) + ripples + pins + seams + declinedIdeas + harvest + ' +
             'summary. ' +
             HARVEST_LAW +
             (note ? '\n' + note : ''),
@@ -968,9 +983,11 @@ const implementPrompt = (folder, rpt, seq, note) =>
 
 // critiquePrompt feeds the sol codex lane (+ native fable twin): neutral stance — hostile register degrades
 // codex, safe for the twin; the hostile pass is redteam (native).
-const critiquePrompt = (folder, seq, report) =>
+const critiquePrompt = (folder, seq, report, ownpass) =>
     [
         DOCTRINE,
+        '',
+        OWN_PASS(ownpass),
         '',
         'TASK: DOCTRINAL-CONFORMANCE AUDIT + CHARTER-COMPLETENESS + FIX IN PLACE across `' +
             folder +
@@ -1033,13 +1050,15 @@ const critiquePrompt = (folder, seq, report) =>
             'consistency per the doctrine, and prose + comment hygiene. FIX every hit NOW wherever it lives per WRITE-FULLY; report any central ' +
             '`' +
             CENTRAL +
-            '` row in `pins`. Return verdict + realized + deferred + collapsed + ripples + pins + seams + harvest + summary. ' +
+            '` row in `pins`. Return verdict + realized + deferred + collapsed + ripples + pins + seams + declinedIdeas + harvest + summary. ' +
             HARVEST_LAW,
     ].join('\n');
 
-const redteamPrompt = (folder, seq, report, critRep) =>
+const redteamPrompt = (folder, seq, report, critOk, critReport, ownpass) =>
     [
         DOCTRINE,
+        '',
+        OWN_PASS(ownpass),
         '',
         'TASK: ADVERSARIAL RED-TEAM + FIX IN PLACE + TERMINAL CLOSE across `' +
             folder +
@@ -1048,14 +1067,19 @@ const redteamPrompt = (folder, seq, report, critRep) =>
             'proof is ON THE DESIGN. The cards realized this turn (read each FULL body):\n' +
             seq +
             '\n' +
-            (critRep
+            (critOk
                 ? 'PRIOR CLAIMS (UNVERIFIED): the sol critique fixlog is ON DISK at `' +
-                  critRep +
+                  critReport +
                   '` — read it IN FULL from disk; its edits and verdicts are refutation targets you judge against CURRENT disk, never a settled ' +
-                  'record. FOLD-FORWARD DUTY: its surviving `ripples`, `pins`, `seams`, `deferred`, and `harvest` rows are folded into YOUR return ' +
-                  "(re-verified against current disk, deduped) — your return is the folder's consolidated record; a dropped critique row is a " +
-                  'silent loss.'
-                : 'PRIOR CLAIMS: the critique lane did not land — your cold attack is the only review this folder gets; judge from CURRENT disk alone.') +
+                  'record. FOLD-FORWARD DUTY: its surviving `ripples`, `pins`, `seams`, `deferred`, and `declinedIdeas` rows are folded into YOUR return ' +
+                  "(re-verified against current disk, deduped) — your return is the folder's consolidated record; a dropped row is a silent loss. " +
+                  '`harvest` folding is MECHANICAL, never judgment: every critique harvest row you cannot REFUTE with a disk fact rides your return ' +
+                  'verbatim — dedupe is the only legal drop, and a refuted row is dropped with its refuting fact named in `summary`, never silently.'
+                : 'PRIOR CLAIMS: the sol critique receipt did not confirm — but its fixlog MAY still be ON DISK at `' +
+                  critReport +
+                  '` (the report path is DETERMINISTIC, and a dead wrapper never erases a fixlog the lane already wrote): read it if present and fold ' +
+                  'its surviving rows forward under the same duty; if genuinely absent, your cold attack is the only review this folder gets — judge ' +
+                  'from CURRENT disk alone.') +
             '\nThe discovery report at `' +
             report +
             '` carries the navigation map from disk — facts with anchors, never verdicts; consult it for verified members, seam targets, and ' +
@@ -1066,9 +1090,12 @@ const redteamPrompt = (folder, seq, report, critRep) =>
             folder +
             '/.api`), and the sibling pages at their CURRENT on-disk ' +
             'state. Attack relentlessly and REPAIR every defect in place — no soft-pedalling, no could/should, a fix never a ledger.',
-        'PRIMARY LENS — fundamental design, multi-faceted: (A) COUNTERFACTUAL on the core choice — is the owner, the union algebra, and the dispatch ' +
-            'form categorically the strongest the doctrine admits, or does a denser tagged-union owner, a branded type, or a DEEPER Effect/Schema ' +
-            'primitive collapse the whole fence? If a fundamentally stronger design exists, rebuild to it — never defend the incumbent. (B) ' +
+        'PRIMARY LENS — fundamental design, multi-faceted: (A) COUNTERFACTUAL on the core owner/algebra/dispatch — a counterfactual REBUILDS the ' +
+            'design with its central assumption removed, never merely questions it: name the assumption the current shape stands on (the chosen owner ' +
+            'kind, the hand-enumerated space, the call-site dispatch, the naive `Promise`/`try`-`catch` glue), derive the form the fence takes WITHOUT ' +
+            'it — a denser tagged-union owner, a Schema-derived table, a parameterized generator over the enumerated space, a DEEPER Effect/Schema ' +
+            'primitive — and where the rebuilt form is stronger, BUILD IT IN PLACE; a stronger design once seen is never defended against, and "the ' +
+            'current shape also works" is not a refutation. (B) ' +
             'ANTICIPATORY_COLLAPSE — compute the DIFF OF THE NEXT FEATURE: when the next case/dimension/modality/provider arrives, does it land as ONE ' +
             'union case with every consumer broken loudly at type-check (exhaustive dispatch)? If it would touch multiple sites, reshape so the ' +
             'growth axis is a case, row, policy value, or layer swap. (C) LONG-TAIL + MULTI-DIMENSIONAL — attack every input/output/edge/failure mode ' +
@@ -1102,7 +1129,7 @@ const redteamPrompt = (folder, seq, report, critRep) =>
             'clause still thin), `weak` (charter not met). CLOSE only `strong` cards per the CARD CLOSURE law; a ripple card whose seam you cannot ' +
             'verify landed on BOTH ends on current disk stays OPEN with that reason; honestly RE-OPEN every card you cannot bring to `strong`, with a ' +
             'one-line reason (a real out-of-run or cross-language dependency). The orchestrator DEMOTES any card closed below `strong`, so never ' +
-            'inflate. Return verdict + realized + deferred + collapsed + ripples + pins + seams + harvest + closed [{slug, disposition, strength}] + ' +
+            'inflate. Return verdict + realized + deferred + collapsed + ripples + pins + seams + declinedIdeas + harvest + closed [{slug, disposition, strength}] + ' +
             'reopened [{slug, reason}] + summary. ' +
             HARVEST_LAW,
     ].join('\n');
@@ -1112,39 +1139,68 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
         round
             ? 'DRAIN ROUND ' +
               round +
-              ' — every backlog row below was verified STILL-OPEN by the prior round; the pins, seam rows, and orphan fixlogs are already ' +
-              'applied. Realize or repair each row at its root NOW; a row you genuinely cannot land carries its named blocker and owner in `remaining`.'
+              ' — the backlog rows below were verified STILL-OPEN by the prior round; realize or repair each at its root NOW, and a row you ' +
+              'genuinely cannot land carries its named blocker and owner in `remaining`. Every other tranche re-arrives in FULL so a dead or ' +
+              'partial prior round loses nothing — the checkpoint ledger is the consumption truth: skip every tranche it receipts, drain the rest.'
             : '',
         LAW,
         '',
         PROSE,
         '',
+        'CHECKPOINT LEDGER: `' +
+            SCRATCH +
+            '/pins-checkpoint.md` — read it FIRST and skip every tranche it already receipts (an interrupted drain re-enters, never restarts); ' +
+            'append one line per tranche AS EACH COMPLETES (each critique fixlog drained, the backlog block, the pin apply, the seam apply). ' +
+            'HARVEST FILE: append each `harvest` nomination to `' +
+            SCRATCH +
+            '/pins-harvest.jsonl` (one JSON row per line) the moment it is minted — the doctrine lander sweeps that file, so a killed round loses ' +
+            'no nomination; your returned `harvest` carries the same rows.',
         "TASK: TERMINAL SINGLE-WRITER + BACKLOG DRAIN — you are the run's SOLE writer for the shared manifests (`" +
             CENTRAL +
-            '` catalog + the owning `catalog:` ' +
-            'manifest, `libs/typescript/package.json` or the root `package.json`) and for every area `ARCHITECTURE.md` `[02]-[SEAMS]` section, and its ' +
-            'LAST agent. ORPHANED CRITIQUE FIXLOGS (folders whose redteam never landed, so these on-disk ' +
-            "fixlogs' `pins`, `seams`, and `harvest` rows were never folded forward — read each IN FULL from disk, apply the pin and seam rows " +
-            "under the same law as the reported rows below, and fold each fixlog's surviving harvest rows into your own `harvest` return, " +
-            're-verified against current disk and deduped): ' +
-            JSON.stringify(orphans) +
-            '. PINS: apply each reported catalog pin + `catalog:` row below exactly once, preserving the existing group/order and deduping ' +
-            'semantically identical rows; verify each package + version against the published registry (Context7/exa/tavily against the official package ' +
-            'docs; `uv run python -m tools.assay api` over node_modules once installed) before applying; confirm the area README group and ' +
-            '`.api/<package>.md` catalog landed, repairing a missing folder-local part in place. SEAM ROWS: upsert each reported {file, row} into the ' +
-            "named file's `[02]-[SEAMS]` section exactly once, preserving the section's row format and order and deduping semantically identical rows; " +
-            'a missing file or absent `[02]-[SEAMS]` section rejects the row. Reject any unverifiable or malformed row as {target, reason} — never apply ' +
-            'it silently. BACKLOG DRAIN (deferred cards the folder chains could not realize — re-verify each {files, claim} on CURRENT disk, realize ' +
-            'any whose gate landed this run in a sibling folder now that every chain has closed, reject what disk already resolved): ' +
-            JSON.stringify(backlog, null, 1) +
-            '. PINS:\n' +
-            JSON.stringify(pins, null, 1) +
-            '\nSEAM ROWS:\n' +
-            JSON.stringify(seams, null, 1) +
-            '\nReturn applied + seam_rows_applied + rejected + summary, and `remaining` carrying ONLY backlog rows verified still-open on current ' +
-            'disk and genuinely blocked, each claim naming its blocker and owner; a row disk already resolved is culled with proof in `rejected`, and ' +
-            'an empty `remaining` attests the drain closed. ' +
-            HARVEST_LAW,
+            '` catalog + the owning `catalog:` manifest, `libs/typescript/package.json` or the root `package.json`) and for every area ' +
+            '`ARCHITECTURE.md` `[02]-[SEAMS]` section, and its LAST agent.\nTRANCHE ORDER IS EXECUTION ORDER — the capability tranches (the ' +
+            'critique-fixlog drain and the deferred-card backlog) precede the mechanical manifest and seam application by design; never demote ' +
+            'irreplaceable card realization behind a pin row a later round trivially re-applies.\n' +
+            [
+                orphans.length
+                    ? '(1) CRITIQUE FIXLOGS — every folder critique fixlog, folded-forward or orphaned (a live redteam folds judgment-lossy and a ' +
+                      'dead one folds nothing, so a row a redteam already landed disk-resolves and drops); the paths are DETERMINISTIC, so one ' +
+                      'absent on disk is skipped with a one-line note in `summary`, never an error — read each present file IN FULL, apply its ' +
+                      'surviving pin and seam rows under the law below, drain its still-open ripple/deferred rows at their root, and fold each ' +
+                      "fixlog's surviving harvest rows into your own `harvest` return, re-verified against current disk and deduped: " +
+                      JSON.stringify(orphans) +
+                      '.'
+                    : '',
+                backlog.length
+                    ? '(2) DEFERRED BACKLOG (deferred cards the folder chains could not realize — re-verify each {files, claim} on CURRENT disk, ' +
+                      'realize any whose gate landed this run in a sibling folder now that every chain has closed, reject what disk already ' +
+                      'resolved): ' +
+                      JSON.stringify(backlog, null, 1) +
+                      '.'
+                    : '',
+                pins.length
+                    ? '(3) PINS: apply each reported catalog pin + `catalog:` row below exactly once, preserving the existing group/order and ' +
+                      'deduping semantically identical rows; verify each package + version against the published registry (Context7/exa/tavily ' +
+                      'against the official package docs; `uv run python -m tools.assay api` over node_modules once installed) before applying; ' +
+                      'confirm the area README group and `.api/<package>.md` catalog landed, repairing a missing folder-local part in place: ' +
+                      JSON.stringify(pins, null, 1) +
+                      '.'
+                    : '',
+                seams.length
+                    ? "(4) SEAM ROWS: upsert each reported {file, row} into the named file's `[02]-[SEAMS]` section exactly once, preserving the " +
+                      "section's row format and order and deduping semantically identical rows; a missing file or absent `[02]-[SEAMS]` section " +
+                      'rejects the row: ' +
+                      JSON.stringify(seams, null, 1) +
+                      '.'
+                    : '',
+                'Reject any unverifiable or malformed row as {target, reason} — never apply it silently. Return applied + seam_rows_applied + ' +
+                    'rejected + summary, and `remaining` carrying ONLY backlog rows verified still-open on current disk and genuinely blocked, each ' +
+                    'claim naming its blocker and owner; a row disk already resolved is culled with proof in `rejected`, and an empty `remaining` ' +
+                    'attests the drain closed. ' +
+                    HARVEST_LAW,
+            ]
+                .filter(Boolean)
+                .join('\n'),
     ]
         .filter(Boolean)
         .join('\n');
@@ -1156,6 +1212,10 @@ const doctrinePrompt = (rows) =>
     'load `mermaid-diagramming` before touching any diagram. ' +
     "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
     JSON.stringify(rows) +
+    '\nAlso sweep `' +
+    SCRATCH +
+    '/pins-harvest.jsonl` (absent = none): rows there missing from NOMINATIONS are nominations too — a killed pins-drain round reaches you ' +
+    'only through that file.' +
     '\nADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on CURRENT disk; LAND NOTHING is a ' +
     'first-class verdict.\nTOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row whose ' +
     'coupling no longer holds, land a coupling this run proved.\nGATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched ' +
@@ -1163,8 +1223,12 @@ const doctrinePrompt = (rows) =>
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+// A request that named only foreign-branch paths resolved to zero routed targets — a mis-run, never a full sweep: skip loudly (the empty/ALL
+// default already routes to DEFAULT_TARGETS, so this fires only on an explicit all-foreign arg set).
+if (REQUESTED.length && !TARGETS.length) return { skipped: true, reason: 'every requested target routed outside ' + ROOT, rejected: REJECTED };
+
 phase('Realize');
-log('Pooling ' + TARGETS.length + ' folder chain(s) at CAP=' + CAP);
+log('Pooling ' + TARGETS.length + ' folder chain(s) at CAP=' + CAP + (REJECTED.length ? '; rejected (off-branch): ' + REJECTED.join(', ') : ''));
 const runFolder = async (target) => {
     const tag = folderName(target);
     try {
@@ -1190,50 +1254,68 @@ const runFolder = async (target) => {
                 await parallel(
                     groups.map((g, gi) => async () => {
                         await stagger();
-                        return agent(implementPrompt(target, t.report, groupSeq(t, g), GROUPNOTE), {
-                            label: 'implement:' + tag + ':g' + gi,
-                            phase: 'Realize',
-                            schema: FIXLOG_SCHEMA,
-                            model: 'fable',
-                            effort: 'high',
-                            stallMs: STALL,
-                        });
+                        const label = 'implement:' + tag + ':g' + gi;
+                        // The own-pass artifact keys on the base label, so a retry appends to the SAME cold-pass list — the attempt suffix is wire-only.
+                        const build = (l) =>
+                            agent(implementPrompt(target, t.report, groupSeq(t, g), GROUPNOTE, ownpassPath(label)), {
+                                label: l,
+                                phase: 'Realize',
+                                schema: FIXLOG_SCHEMA,
+                                model: 'fable',
+                                effort: 'high',
+                                stallMs: STALL,
+                            });
+                        return (await build(label)) || (await retryLane(() => build(label + ':r1')));
                     }),
                 )
             ).filter(Boolean);
         } else {
-            const one = await agent(implementPrompt(target, t.report, seq, ''), {
-                label: 'implement:' + tag,
+            const label = 'implement:' + tag;
+            const build = (l) =>
+                agent(implementPrompt(target, t.report, seq, '', ownpassPath(label)), {
+                    label: l,
+                    phase: 'Realize',
+                    schema: FIXLOG_SCHEMA,
+                    model: 'fable',
+                    effort: 'high',
+                    stallMs: STALL,
+                });
+            const one = (await build(label)) || (await retryLane(() => build(label + ':r1')));
+            impls = one ? [one] : [];
+        }
+        // CHAIN CONTINUATION: a dead implement never severs the reviews — the critique's conformance audit and the redteam's terminal close still
+        // realize + repair the pages against CURRENT disk (a partial implement leaves partial fences; a fully dead one leaves the unrealized cards
+        // the reviewers, as rebuilders, own). Navigation simply arrives empty; only a dead DISCOVERY (no worklist, no report path) isolates the folder.
+        const implFailed = !impls.length;
+        await stagger();
+        // Sol critique: fixlog to disk, receipt on the wire; the redteam folds its rows forward. The report path is DETERMINISTIC — computed here,
+        // never lifted from the receipt — so a critique that wrote its fixlog before a wrapper-ceiling death is still folded (redteam + ORPHANS read disk).
+        const crit = await solLane(critiquePrompt(target, seq, t.report, ownpassPath('critique:' + tag)), {
+            label: 'critique:' + tag,
+            phase: 'Realize',
+        });
+        const critOk = !!(crit && crit.ok);
+        const critReport = SCRATCH + '/' + fileTag('critique:' + tag) + '-report.json';
+        await stagger();
+        const redLabel = 'redteam:' + tag;
+        const buildRed = (l) =>
+            agent(redteamPrompt(target, seq, t.report, critOk, critReport, ownpassPath(redLabel)), {
+                label: l,
                 phase: 'Realize',
-                schema: FIXLOG_SCHEMA,
+                schema: REDTEAM_SCHEMA,
                 model: 'fable',
                 effort: 'high',
                 stallMs: STALL,
             });
-            impls = one ? [one] : [];
-        }
-        if (!impls.length) return { folder: target, failed: true, empty: false, logs: [], red: null, cross_lang: cross, malformed }; // failure isolation: a dead implement skips its reviews
-        // Sol critique: fixlog to disk, receipt on the wire; the redteam folds its rows forward,
-        // and a folder whose redteam dies leaves the fixlog ORPHANED for the terminal single-writer.
-        await stagger();
-        const crit = await solLane(critiquePrompt(target, seq, t.report), { label: 'critique:' + tag, phase: 'Realize' });
-        const critRep = crit.ok ? crit.report : '';
-        await stagger();
-        const red = await agent(redteamPrompt(target, seq, t.report, critRep), {
-            label: 'redteam:' + tag,
-            phase: 'Realize',
-            schema: REDTEAM_SCHEMA,
-            model: 'fable',
-            effort: 'high',
-            stallMs: STALL,
-        });
+        const red = (await buildRed(redLabel)) || (await retryLane(() => buildRed(redLabel + ':r1')));
         return {
             folder: target,
             failed: false,
             empty: false,
+            implFailed,
             logs: [...impls, red].filter(Boolean),
             red,
-            critReport: critRep && !red ? critRep : '',
+            critReport,
             cross_lang: cross,
             malformed,
         };
@@ -1254,6 +1336,7 @@ const done = (await pool(TARGETS, CAP, runFolder)).filter(Boolean);
 const failed = done.filter((r) => r.failed).map((r) => r.folder);
 const emptyFolders = done.filter((r) => r.empty).map((r) => r.folder);
 const active = done.filter((r) => !r.failed && !r.empty);
+const implDiedFolders = active.filter((r) => r.implFailed).map((r) => r.folder); // implement died but the reviews still ran against current disk
 const crossLang = done.flatMap((r) => r.cross_lang || []);
 const deferred = done.flatMap((r) => r.logs.flatMap((l) => (l.deferred || []).map((d) => ({ folder: r.folder, slug: d.slug, reason: d.reason }))));
 const ripplesRepaired = done.flatMap((r) => r.logs.flatMap((l) => l.ripples || []));
@@ -1287,47 +1370,52 @@ log(
         ' pin(s) + ' +
         seamsReported.length +
         ' seam row(s) reported' +
+        (implDiedFolders.length ? '; implement died (reviews ran): ' + implDiedFolders.join(', ') : '') +
         (failed.length ? '; failed: ' + failed.join(', ') : ''),
 );
 
 // --- [PINS]
 
+// EVERY critique fixlog reaches the drain — a live redteam folds rows forward, but the fold is judgment-lossy and a dead redteam
+// orphans the whole log; the terminal sweep re-verifies all of them, and rows a redteam already landed disk-resolve and drop.
 const ORPHANS = done.map((r) => r.critReport || '').filter(Boolean);
 // The deferred cards a folder chain could not realize become the drain backlog in {files, claim} form.
 const BACKLOG = deferred.map((d) => ({ files: [], claim: d.folder + ' [' + d.slug + ']: ' + d.reason }));
-// Terminal DRAIN LOOP: one serial opus single-writer per round applies the reported pins + seam rows and the orphaned
-// critique fixlogs once (round 0), then drains the pooled deferred backlog against live disk, re-feeding the still-open
-// remainder; a round cap plus a no-shrinkage progress gate bound the loop, and the blocked remainder rides the run return.
+// Terminal DRAIN LOOP: one serial opus single-writer per round. EVERY round re-receives the FULL tranche set (pins, seams, orphans, backlog); the
+// disk checkpoint ledger is the consumption truth, so a receipted tranche skips and a dead-or-partial round loses nothing — only `residuals` narrows
+// via `remaining`. The round itself gets attempt-counted re-dispatch; a round cap plus a no-shrinkage progress gate bound the loop, and the genuinely
+// blocked remainder rides the run return.
+const pinsRan = !!(pinsReported.length || seamsReported.length || ORPHANS.length || BACKLOG.length);
 let pinlog = null;
 let pinHarvest = [];
 let residuals = BACKLOG;
-let orphanQueue = ORPHANS;
 let lastOpen = Infinity;
-if (pinsReported.length || seamsReported.length || ORPHANS.length || BACKLOG.length) {
+if (pinsRan) {
     phase('Pins');
     for (let round = 0; round < DRAIN_ROUNDS; round++) {
-        pinlog = await agent(pinPrompt(round ? [] : pinsReported, round ? [] : seamsReported, orphanQueue, residuals, round), {
-            label: round ? 'pins:r' + round : 'pins',
-            phase: 'Pins',
-            schema: PIN_SCHEMA,
-            model: 'opus',
-            effort: 'high',
-            stallMs: STALL,
-        });
-        if (!pinlog) break; // dead round: the fed-in residual and orphan sets survive to the run return, never zeroed by a lost closer
+        const fire = (suffix) =>
+            agent(pinPrompt(pinsReported, seamsReported, ORPHANS, residuals, round), {
+                label: (round ? 'pins:r' + round : 'pins') + suffix,
+                phase: 'Pins',
+                schema: PIN_SCHEMA,
+                model: 'opus',
+                effort: 'high',
+                stallMs: STALL,
+            });
+        pinlog = (await fire('')) || (await retryLane(() => fire(':a1')));
+        if (!pinlog) break; // dead round after retries: the residual/orphan sets survive to the run return, every disk tranche checkpoint-re-enterable
         pinHarvest = pinHarvest.concat(pinlog.harvest || []);
         const open = pinlog.remaining || [];
-        orphanQueue = [];
         residuals = open;
         if (!open.length || open.length >= lastOpen) break;
         lastOpen = open.length;
     }
 }
-// DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations adjudicated against the live
-// docs/laws surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws. Fires only when non-empty.
+// DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations adjudicated against the live docs/laws surfaces; refutation-first,
+// land-nothing legal, admission law owned by docs/laws. A dead pins round still fires it: those nominations live only in the pins-harvest.jsonl it sweeps.
 const HARVEST_ROWS = done.flatMap((r) => r.logs.flatMap((l) => l.harvest || [])).concat(pinHarvest);
 let doctrine = null;
-if (HARVEST_ROWS.length) {
+if (HARVEST_ROWS.length || (pinsRan && !pinlog)) {
     phase('Pins');
     doctrine = await agent(doctrinePrompt(HARVEST_ROWS), {
         label: 'doctrine',
@@ -1342,9 +1430,11 @@ if (HARVEST_ROWS.length) {
 return {
     root: ROOT,
     targets: TARGETS,
+    rejected_targets: REJECTED,
     realized_folders: active.map((r) => r.folder),
     empty_folders: emptyFolders,
     realize_failed: failed,
+    impl_died: implDiedFolders,
     deferred,
     ripples_repaired: ripplesRepaired.length,
     closed_count,
