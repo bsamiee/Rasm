@@ -1,6 +1,6 @@
 # [RASM_ELEMENT_ARCHITECTURE]
 
-Domain map of `Rasm.Element` — the lowest AEC-DOMAIN seam between the `Rasm` kernel and the AEC peers `{Rasm.Materials, Rasm.Bim, Rasm.Fabrication}`. Each sub-domain folder maps to exactly one namespace, every sub-domain composes the one `ElementGraph` and lowers onto the one `ElementFault` band, and the peers depend up on the `IElementProjection`/`IGraphConstraint` contracts, aligning by the content-keyed graph rather than by referencing each other.
+Domain map of `Rasm.Element` — the lowest AEC-DOMAIN seam between the `Rasm` kernel and the AEC peers `{Rasm.Materials, Rasm.Bim, Rasm.Fabrication}`. Each sub-domain folder maps to exactly one FOLDER-TRUE namespace — a file at `<SubFolder>/<File>.cs` declares `namespace Rasm.Element.<SubFolder>;` per `dotnet_style_namespace_match_folder`, cross-subfolder consumption riding explicit `using Rasm.Element.<SubFolder>;` rows — every sub-domain composes the one `ElementGraph` and lowers onto the one `ElementFault` band, and the peers depend up on the `IElementProjection`/`IGraphConstraint` contracts, aligning by the content-keyed graph rather than by referencing each other.
 
 ## [01]-[DOMAIN_MAP]
 

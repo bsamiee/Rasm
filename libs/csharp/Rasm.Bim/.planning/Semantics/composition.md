@@ -9,14 +9,14 @@ The IFC material PROJECTOR lowering the live GeometryGym `IfcMaterialSelect` sur
 ## [02]-[MATERIAL_COMPOSITION]
 
 - Owner: `MaterialProjection` the static BIDIRECTIONAL GeometryGym↔seam material projector — the `Project` ingress folding one `IfcMaterialSelect` runtime entity into one seam `Node.Material` (discriminating the entity, building the seam `MaterialComposition` through the seam smart-constructors, minting the content-keyed node id), and the `AuthorComposition`/`AuthorUsage` egress re-authoring a seam `Material` node back onto the GeometryGym material-definition family the `Projection/egress#IFC_EGRESS` `Emit` composes. The seam owns the `MaterialComposition` `[Union]`, the `MaterialLayer`/`MaterialConstituent` rows, the `ProfileRef`, the `Relations/relation#EDGE_ALGEBRA` `MaterialUsage`, and the `MaterialPropertySet` engineering-property family; this page declares NONE of them — it composes the seam vocabulary, mapping the GeometryGym material-assembly entities onto it and back.
-- Entry: `MaterialProjection.Project(IfcMaterialSelect relatingMaterial, double tolerance, Op key)` is the live-entity promotion the `Projection/semantic#SEMANTIC_PROJECTOR` projector composes when folding an `IfcRelAssociatesMaterial.RelatingMaterial` (the parameter IS the typed `IfcMaterialSelect` the property carries — a `BaseClassIfc` admission is the deleted weak form) — discriminating the runtime entity (`IfcMaterialLayerSetUsage` unwraps its `ForLayerSet` and `IfcMaterialProfileSetUsage` its `ForProfileSet`, the usage payload riding the `Associate` edge not this node; `IfcMaterialLayerSet` folds its `MaterialLayers`, `IfcMaterialProfileSet` its WHOLE `MaterialProfiles` list (the declared `CompositeProfile` the keyed section when present, the IFC-ordered head row the seam `MaterialId` pin), `IfcMaterialConstituentSet` its `MaterialConstituents.Values`, a bare `IfcMaterial` folds to `Single`) — and returns one content-keyed seam `Node.Material`; `Fin<T>` aborts on an unresolvable material-select entity (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) and the seam `MaterialComposition` admission aborts a degenerate set (`ElementFault.ValueRejected`), each lifting BARE (the band IS the `Expected` `Code`; no `.ToError()` hop). `MaterialProjection.AuthorComposition(DatabaseIfc db, Node.Material material, IIfcProfileStore profiles)` is the egress entry the `Emit` composes — it authors the type-level `MaterialComposition` ONCE (`Single`→`IfcMaterial`, `LayerSet`→`IfcMaterialLayerSet`, `ProfileSet`→`IfcMaterialProfileSet`, `ConstituentSet`→`IfcMaterialConstituentSet`), folds the seam `MaterialPropertySet` set onto the `IfcMaterialProperties` named Psets as TYPED columns (each case field a `MeasureValue`/label/boolean plus row evidence where available, never a lossy double), and reconstitutes a `ProfileSet`'s `IfcProfileDef` from the injected `profiles` store (`Fin<T>` aborting `BimFault.DanglingReference` keyed on the page `Egress` gate on an unresolved profile); `MaterialProjection.AuthorUsage(IfcMaterialDefinition definition, MaterialUsage usage)` wraps that shared definition in the per-occurrence `IfcMaterialLayerSetUsage`/`IfcMaterialProfileSetUsage` the `Associate` edge carries [C7], returning the bare definition for `MaterialUsage.None`.
+- Entry: `MaterialProjection.Project(IfcMaterialSelect relatingMaterial, double tolerance, IIfcProfileStore profiles, Op key)` is the live-entity promotion the `Projection/semantic#SEMANTIC_PROJECTOR` projector composes when folding an `IfcRelAssociatesMaterial.RelatingMaterial` (the parameter IS the typed `IfcMaterialSelect` the property carries — a `BaseClassIfc` admission is the deleted weak form) — discriminating the runtime entity (`IfcMaterialLayerSetUsage` unwraps its `ForLayerSet` and `IfcMaterialProfileSetUsage` its `ForProfileSet`, the usage payload riding the `Associate` edge not this node; `IfcMaterialLayerSet` folds its `MaterialLayers`, `IfcMaterialProfileSet` its WHOLE `MaterialProfiles` list (the declared `CompositeProfile` the keyed section when present, the IFC-ordered head row the seam `MaterialId` pin), `IfcMaterialConstituentSet` its `MaterialConstituents.Values`, a bare `IfcMaterial` folds to `Single`) — and returns one content-keyed seam `Node.Material`; `Fin<T>` aborts on an unresolvable material-select entity (`Model/faults#FAULT_BAND` `BimFault.ModelRejected`) and the seam `MaterialComposition` admission aborts a degenerate set (`ElementFault.ValueRejected`), each lifting BARE (the band IS the `Expected` `Code`; no `.ToError()` hop). `MaterialProjection.AuthorComposition(DatabaseIfc db, Node.Material material, IIfcProfileStore profiles)` is the egress entry the `Emit` composes — it authors the type-level `MaterialComposition` ONCE (`Single`→`IfcMaterial`, `LayerSet`→`IfcMaterialLayerSet`, `ProfileSet`→`IfcMaterialProfileSet`, `ConstituentSet`→`IfcMaterialConstituentSet`), folds the seam `MaterialPropertySet` set onto the `IfcMaterialProperties` named Psets as TYPED columns (each case field a `MeasureValue`/label/boolean plus row evidence where available, never a lossy double), and reconstitutes a `ProfileSet`'s `IfcProfileDef` from the injected `profiles` store (`Fin<T>` aborting `BimFault.DanglingReference` keyed on the page `Egress` gate on an unresolved profile); `MaterialProjection.AuthorUsage(IfcMaterialDefinition definition, MaterialUsage usage)` wraps that shared definition in the per-occurrence `IfcMaterialLayerSetUsage`/`IfcMaterialProfileSetUsage` the `Associate` edge carries [C7], returning the bare definition for `MaterialUsage.None`.
 - Auto: `Project` reads the `IfcMaterialSelect` runtime type and builds the seam `MaterialComposition` through the seam `Of`-prefixed smart-constructors (the `Fin`-railing `MaterialComposition.OfLayerSet`/`OfConstituentSet` owning the empty-set / non-positive-thickness / unnormalized-fraction admission, the total `OfSingle`/`OfProfileSet` lifted into `Fin` for the `Mint` fold), then mints the seam `Node.Material` whose id is the kernel seed-zero `XxHash128` over the seam `Node.ToCanonicalBytes` (id excluded) so two structurally-identical materials dedup to one node; `LayersOf` folds each `IfcMaterialLayer` onto a seam `MaterialLayer` carrying its `MaterialId`, a `MeasureValue` thickness over `Dimension.LengthDim` coerced to SI metres by the model's `IfcUnitAssignment.ScaleSI(LENGTHUNIT)` factor (the native `LayerThickness` is mm in most Revit/ArchiCAD exports, never pre-SI) and admitted through `MeasureValue.OfSi` so the seam carries the SI scalar `MeasureValue.Of` otherwise mandates, and its layer name; `ConstituentsOf` folds each `IfcMaterialConstituent` (read through the `Dictionary.Values`) onto a seam `MaterialConstituent` carrying its `MaterialId`, category, and `Fraction`; `ProfileRefOf` projects the KEYED section — the set's declared `IfcCompositeProfileDef` `CompositeProfile` when a compound set carries one (the combined built-up geometry, decompile-confirmed settable), else the primary row's `Profile` — onto a neutral `ProfileRef` whose `ContentKey` is the kernel seed-zero `XxHash128` `ContentHash.Of` over the tag-namespaced `IfcProfileDef` STEP (the full parametric section preserved in the content-addressed store; the ONE kernel hasher the `Model/elements#REPRESENTATION_KEYS` keyer also composes, never the up-stratum `Rasm.Compute` `InterchangeIdentity` [H7]), the `Designation` the keyed profile's name (the primary's as fallback), the `Standard` left to the one-hop catalog resolution — a multi-row set with NO declared composite keys its primary, the per-row `(Material, Profile, Priority, Category)` spread being the seam compound arm's; the typed engineering property sets are the AUTHORED lane's (the `Rasm.Materials` `ComponentProjector` lowers its catalog-backed `MaterialPropertySet` rows), so the IFC-ingest `Node.Material` carries an empty `Seq<MaterialPropertySet>` — the imported `IfcMaterialDefinition.HasProperties` material Psets (public `SET<IfcMaterialProperties>`, decompile-confirmed) have NO seam landing surface yet, because the typed family is full-vector by construction and a partial imported Pset must not fabricate the missing columns; the imported-material-property lane is seam-owned `MaterialWire` work recorded at the seam, never a page-local parallel row.
 - Receipt: the seam `Node.Material` is the material evidence the `Projection/semantic#SEMANTIC_PROJECTOR` projector lands and the `Graph/element#ELEMENT_GRAPH` `Bake` fold reads through the `Associate` edge into `element.Materials` (a `BakedMaterial` carrying the node plus its occurrence `MaterialUsage` — the seam Bake-folded accessor, DISTINCT from the `Rasm.Materials` projection-input `MaterialBinding` and the type→occurrence `TypeBinding`), the `Model/query#ELEMENT_SET` material predicate matches by `MaterialId` or composition modality, the `Review/validation#IDS_FACETS` Material facet matches against, and the `Semantics/properties#BASE_QUANTITIES` layered-volume takeoff reads from the `LayerSet` thicknesses; the layer build-up, the section material, and the constituent mix each carry their real composition on one seam node, never a parallel layer/profile/constituent record family.
 - Packages: GeometryGymIFC_Core, Rasm.Element, Rasm, Thinktecture.Runtime.Extensions, LanguageExt.Core
 - Growth: a new material-assembly modality is one seam `MaterialComposition` union arm (the seam's, not this page's) plus one `Project` switch arm reading the next `IfcMaterialSelect` entity; a new assembly-row field is one column on the seam `MaterialLayer`/`MaterialConstituent`; a new section catalog is one `ProfileRef.Standard` token the `Rasm.Materials` projector resolves, never a seam edit; a new emitted material property is one typed `IfcPropertySingleValue` column the value-typed ctor overload selects on the matching `AuthorPropertySet` arm (a new EN 15978 module is one `LifecycleStage` row the environmental fold iterates, never a hand-added column), never a per-property egress branch and never a re-widened double-only `Pset`; never a per-element-class material type, never a Bim `BimMaterial` record beside the seam node, and never a parallel material store.
 - Boundary: the material model is the seam `Node.Material` + `MaterialComposition` and a Bim `BimMaterial`/`BimMaterialComposition`/`MaterialLayer`/`MaterialProfile`/`LayerSetUsage`/`ProfileSetUsage`/`ProfileDefKind`/`ProfileDims` re-declaration is the deleted form — the seam owns the algebra, this page owns only the GeometryGym discrimination that fills it; the retired `BimMaterial` record, the `BimElement.Materials` typed column, and the `BimModel.Project` material fold are GONE, a material being a seam node the `Bake` fold reads; the occurrence usage rides the `Associate` edge `MaterialUsage` payload [C7] and threading `LayerSetUsage`/`ProfileSetUsage` onto this composition node is the named seam violation — the type-level SET structure is shared, the per-occurrence geometric binding is the edge's; the `ProfileSet` arm carries a neutral `ProfileRef` (`Standard` + `Designation` + content key), NOT a VividOrange section type and NOT inline `IfcParameterizedProfileDef` dimensions — the full parametric section is preserved in the content-addressed store the `ContentKey` keys and the canonical section properties resolve one-hop to the catalog above the seam, so a profile-name-only `ProfileRef` that drops the content key is the deleted form, the content key is the kernel seed-zero `XxHash128` `ContentHash.Of` (the up-stratum `Rasm.Compute` `InterchangeIdentity` being the H7 strata defect), and the keyed section of a compound set is its declared `CompositeProfile` over the primary row (a `.Head`-only read that drops a declared composite is the deleted form); the GeometryGym `IfcMaterialLayerSet`/`IfcMaterialLayerSetUsage`/`IfcMaterialProfileSet`/`IfcMaterialProfileSetUsage`/`IfcMaterialConstituentSet`/`IfcMaterial` surface (`.api/api-geometrygym-ifc` material families) is consumed as settled vocabulary through the `IfcMaterialSelect` discrimination and a hand-rolled material-assembly reader is the deleted form; the `MaterialLayer` thickness coerces the NATIVE-unit `LayerThickness` to SI metres through the model's `ScaleSI(LENGTHUNIT)` factor and admits through `MeasureValue.OfSi` over `Dimension.LengthDim` (the inverse `/ScaleSI` applied on egress for a non-SI target model) — a bare double, the raw `MeasureValue` ctor that bypasses the owner's SI admission, OR treating the native length as already-SI (the mm-vs-metre import trap a Revit export springs) is the named defect; the section geometry binds by content-hash reference and a RhinoCommon profile field or an in-process BRep evaluation is the named seam violation; an unresolvable material-select entity lifts `Model/faults#FAULT_BAND` `BimFault.ModelRejected` BARE (band 2600 IS the `Expected` `Code`, the ingress on `ctx.Key` and the egress on the page `Egress` gate) and the seam `MaterialComposition` admission lifts `ElementFault.ValueRejected` BARE on a degenerate set, a `.ToError()` lowering hop (or a hand-built `Error.New(2600, …)`) bypassing the typed case being the named seam defect; the EGRESS reads the seam `Material` node + the `Associate` edge `MaterialUsage` ONLY — a Materials `MaterialAssignmentWire`/`MaterialPropertyWire` carrier crossing into this owner is the deleted form (those Materials wires are retired, the material egress reading the projected seam subgraph), the type-level composition authored ONCE and the per-occurrence usage wrapping it so a wall and its mirror share one `IfcMaterialLayerSet` with two `IfcMaterialLayerSetUsage` instances, every authored material resolving through the db-scoped `MaterialOf` memo so one `IfcMaterial` per `(db, name)` serves every layer/constituent/profile/node (a fresh `IfcMaterial` per row is the named duplicate-entity bloat, the same memo shape the `ClassificationSystem` dictionary-source egress holds), the `IfcMaterialProperties` Pset attaching to the authored `IfcMaterialDefinition` and the `ProfileSet` `IfcProfileDef` reconstituting one-hop from the content-addressed STEP with a composite def re-stamping `CompositeProfile` on the authored set (a parametric dimension re-folded onto the seam being the deleted form).
 
-```csharp contract
+```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
@@ -24,11 +24,16 @@ using GeometryGym.Ifc;
 using LanguageExt;
 using NodaTime;
 using NodaTime.Text;
+using Rasm.Bim;
+using Rasm.Bim.Projection;
 using Rasm.Domain;
-using Rasm.Element;
+using Rasm.Element.Composition;
+using Rasm.Element.Graph;
+using Rasm.Element.Properties;
+using Rasm.Element.Relations;
 using static LanguageExt.Prelude;
 
-namespace Rasm.Bim;
+namespace Rasm.Bim.Semantics;
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
 // The one GeometryGym->seam material lowering: IfcMaterialSelect -> seam Node.Material carrying the seam
@@ -57,12 +62,12 @@ public static class MaterialProjection {
     // public GG select interface all six admitted cases implement) — a BaseClassIfc admission is the deleted weak form.
     // The deprecated IfcMaterialList also implements the select and lands on the boundary arm BY LAW: the seam
     // MaterialComposition trichotomy-plus-single is frozen and IfcMaterialList is never admitted.
-    public static Fin<Node.Material> Project(IfcMaterialSelect relatingMaterial, double tolerance, Op key) =>
+    public static Fin<Node.Material> Project(IfcMaterialSelect relatingMaterial, double tolerance, IIfcProfileStore profiles, Op key) =>
         relatingMaterial switch {
             IfcMaterialLayerSetUsage u    => Optional(u.ForLayerSet).ToFin(new BimFault.ModelRejected(key, "material-layer-set-usage-unbound")).Bind(set => LayerSetOf(set, tolerance, key)),
-            IfcMaterialProfileSetUsage u  => Optional(u.ForProfileSet).ToFin(new BimFault.ModelRejected(key, "material-profile-set-usage-unbound")).Bind(set => ProfileSetOf(set, tolerance, key)),
+            IfcMaterialProfileSetUsage u  => Optional(u.ForProfileSet).ToFin(new BimFault.ModelRejected(key, "material-profile-set-usage-unbound")).Bind(set => ProfileSetOf(set, tolerance, profiles, key)),
             IfcMaterialLayerSet set       => LayerSetOf(set, tolerance, key),
-            IfcMaterialProfileSet set     => ProfileSetOf(set, tolerance, key),
+            IfcMaterialProfileSet set     => ProfileSetOf(set, tolerance, profiles, key),
             IfcMaterialConstituentSet set => Mint(set.Name ?? "", tolerance, MaterialComposition.OfConstituentSet(ConstituentsOf(set), key)),
             IfcMaterial material          => Mint(material.Name ?? "", tolerance, Fin.Succ<MaterialComposition>(MaterialComposition.OfSingle(MaterialId.Of(material.Name ?? "")))),
             _                             => Fin.Fail<Node.Material>(new BimFault.ModelRejected(key, $"material-select-unresolved:{relatingMaterial.GetType().Name}")),
@@ -75,13 +80,14 @@ public static class MaterialProjection {
     // declared composite keys its primary while the per-row material/priority/category spread awaits the seam
     // compound arm. The node MaterialKey is the IFC set name; the composition carries its own materials.
     static Fin<Node.Material> LayerSetOf(IfcMaterialLayerSet set, double tolerance, Op key) =>
-        Mint(set.Name ?? "", tolerance, MaterialComposition.OfLayerSet(LayersOf(set), key));
+        LayersOf(set).Bind(layers => Mint(set.Name ?? "", tolerance, MaterialComposition.OfLayerSet(layers, key)));
 
-    static Fin<Node.Material> ProfileSetOf(IfcMaterialProfileSet set, double tolerance, Op key) =>
-        set.MaterialProfiles.AsIterable().Head
-            .ToFin(new BimFault.ModelRejected(key, $"material-profile-set-empty:{set.Name}"))
-            .Bind(primary => Mint(set.Name ?? "", tolerance,
-                Fin.Succ<MaterialComposition>(MaterialComposition.OfProfileSet(MaterialId.Of(primary.Material?.Name ?? set.Name ?? ""), ProfileRefOf(set, primary)))));
+    static Fin<Node.Material> ProfileSetOf(IfcMaterialProfileSet set, double tolerance, IIfcProfileStore profiles, Op key) =>
+        from primary in set.MaterialProfiles.AsIterable().Head.ToFin(new BimFault.ModelRejected(key, $"material-profile-set-empty:{set.Name}"))
+        from profile in ProfileRefOf(set, primary, profiles, key)
+        from material in Mint(set.Name ?? "", tolerance,
+            Fin.Succ<MaterialComposition>(MaterialComposition.OfProfileSet(MaterialId.Of(primary.Material?.Name ?? set.Name ?? ""), profile)))
+        select material;
 
     // The model's length-unit -> SI-metre factor (ScaleSI returns 1.0 when no length unit is declared, so a unitless or
     // SI model needs no branch). GeometryGym stores IfcMaterialLayer.LayerThickness in the model's NATIVE units (mm in
@@ -95,14 +101,13 @@ public static class MaterialProjection {
     // LayerThickness is coerced to SI metres by the model's LengthScale and admitted through MeasureValue.OfSi (the
     // SI-native seam entry stamping the Dimension.LengthDim canonical symbol), never the raw record ctor that strands
     // a mm value as a "metre" measure (the mm-vs-metre import trap).
-    static Seq<MaterialLayer> LayersOf(IfcMaterialLayerSet set) {
+    static Fin<Seq<MaterialLayer>> LayersOf(IfcMaterialLayerSet set) {
         double lengthScale = LengthScale(set.Database);
         return set.MaterialLayers.AsIterable()
-            .Map(layer => new MaterialLayer(
-                MaterialId.Of(layer.Material?.Name ?? ""),
-                MeasureValue.OfSi(Dimension.LengthDim, layer.LayerThickness * lengthScale),
-                layer.Name ?? ""))
-            .ToSeq();
+            .ToSeq()
+            .TraverseM(layer => MeasureValue.OfSi(Dimension.LengthDim, layer.LayerThickness * lengthScale)
+                .Map(thickness => new MaterialLayer(MaterialId.Of(layer.Material?.Name ?? ""), thickness, layer.Name ?? "")))
+            .As();
     }
 
     static Seq<MaterialConstituent> ConstituentsOf(IfcMaterialConstituentSet set) =>
@@ -121,11 +126,11 @@ public static class MaterialProjection {
     // composite — the settable IfcCompositeProfileDef, decompile-confirmed) else the primary row's Profile, so a
     // composite-declared compound set preserves its FULL parametric geometry in the content-addressed store and a
     // standard section resolves one-hop to the VividOrange catalog [M7].
-    static ProfileRef ProfileRefOf(IfcMaterialProfileSet set, IfcMaterialProfile primary) {
+    static Fin<ProfileRef> ProfileRefOf(IfcMaterialProfileSet set, IfcMaterialProfile primary, IIfcProfileStore profiles, Op key) {
         IfcProfileDef? keyed = set.CompositeProfile ?? primary.Profile;
-        return new("",
-            keyed?.ProfileName is { Length: > 0 } designation ? designation : primary.Profile?.ProfileName ?? "",
-            ContentHash.Of(System.Text.Encoding.UTF8.GetBytes(string.Concat("ifc-profile ", keyed?.StringSTEP() ?? ""))));
+        return Optional(keyed)
+            .ToFin(new BimFault.ModelRejected(key, $"material-profile-missing:{set.Name}"))
+            .Map(profile => profiles.Preserve(profile, key));
     }
 
     // The content-keyed seam Material node from a built composition: mint the id from its own canonical bytes (id
@@ -184,23 +189,26 @@ public static class MaterialProjection {
 
     // The per-occurrence usage [C7]: a generated TOTAL Switch over the closed MaterialUsage union wraps the shared
     // definition in the IfcMaterialLayerSetUsage/ProfileSetUsage the Associate edge carries — a new usage arm breaks
-    // this at compile time, never a runtime-silent _ — returning the bare definition for None or a definition/usage kind
-    // mismatch (impossible by construction: a LayerSet usage always pairs a LayerSet composition). The neutral
+    // this at compile time, never a runtime-silent _. A definition/usage modality mismatch faults at this boundary;
+    // returning the bare definition would silently erase the occurrence binding. The neutral
     // LayerSetDirection/DirectionSense map to the GeometryGym enums inline (the inverse of the ingress Projection/
     // semantic#RELATION_ALGEBRA UsageOf); the in-range CardinalPoint int casts to IfcCardinalPointReference. The
     // layer-usage ReferenceExtent has NO public GG write channel (4-arg ctor only, setter non-public — decompile-
     // confirmed): the seam LayerSet.ReferenceExtent is ingest-only here; the profile-usage setter is public and round-trips.
-    public static IfcMaterialSelect AuthorUsage(IfcMaterialDefinition definition, MaterialUsage usage) => usage.Switch(
-        none:       _ => (IfcMaterialSelect)definition,
-        layerSet:   u => definition is IfcMaterialLayerSet ls
-                           ? new IfcMaterialLayerSetUsage(ls,
-                                 u.Direction switch { LayerSetDirection.Axis1 => IfcLayerSetDirectionEnum.AXIS1, LayerSetDirection.Axis2 => IfcLayerSetDirectionEnum.AXIS2, _ => IfcLayerSetDirectionEnum.AXIS3 },
-                                 u.Sense == DirectionSense.Positive ? IfcDirectionSenseEnum.POSITIVE : IfcDirectionSenseEnum.NEGATIVE,
-                                 u.OffsetFromReferenceLine)
-                           : (IfcMaterialSelect)definition,
-        profileSet: u => definition is IfcMaterialProfileSet ps
-                           ? new IfcMaterialProfileSetUsage(ps, (IfcCardinalPointReference)u.CardinalPoint.Key) { ReferenceExtent = u.ReferenceExtent }
-                           : (IfcMaterialSelect)definition);
+    public static Fin<IfcMaterialSelect> AuthorUsage(IfcMaterialDefinition definition, MaterialUsage usage) => usage.Switch(
+        none:       _ => FinSucc((IfcMaterialSelect)definition),
+        layerSet:   u => definition is IfcMaterialLayerSet set
+            ? FinSucc<IfcMaterialSelect>(new IfcMaterialLayerSetUsage(set,
+                u.Direction switch { LayerSetDirection.Axis1 => IfcLayerSetDirectionEnum.AXIS1, LayerSetDirection.Axis2 => IfcLayerSetDirectionEnum.AXIS2, _ => IfcLayerSetDirectionEnum.AXIS3 },
+                u.Sense == DirectionSense.Positive ? IfcDirectionSenseEnum.POSITIVE : IfcDirectionSenseEnum.NEGATIVE,
+                u.OffsetFromReferenceLine.Map(static value => value.Si / LengthScale(set.Database)).IfNone(double.NaN)))
+            : FinFail<IfcMaterialSelect>(new BimFault.CodecReject(Egress, $"layer-usage-on:{definition.GetType().Name}")),
+        profileSet: u => definition is IfcMaterialProfileSet set
+            ? FinSucc<IfcMaterialSelect>(new IfcMaterialProfileSetUsage(set,
+                (IfcCardinalPointReference)u.CardinalPoint.Map(static point => point.Key).IfNone((int)IfcCardinalPointReference.MID)) {
+                    ReferenceExtent = u.ReferenceExtent.Map(static value => value.Si / LengthScale(set.Database)).IfNone(double.NaN),
+                })
+            : FinFail<IfcMaterialSelect>(new BimFault.CodecReject(Egress, $"profile-usage-on:{definition.GetType().Name}")));
 
     // The seam MaterialPropertySet -> its IFC material Pset (IfcMaterialProperties : IfcExtendedProperties named set on
     // the IfcMaterialDefinition): one TOTAL generated Switch over the closed ELEVEN-case discipline family (a new case

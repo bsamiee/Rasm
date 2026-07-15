@@ -32,7 +32,7 @@ using CommunityToolkit.HighPerformance.Buffers;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
-using Rasm.Element;
+using Rasm.Element.Composition;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rasm.Numerics;

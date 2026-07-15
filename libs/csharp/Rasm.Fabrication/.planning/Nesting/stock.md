@@ -42,7 +42,7 @@ using System.Numerics;
 using Thinktecture;
 using Rasm.Fabrication.Process;
 using Rasm.Numerics;
-using Rasm.Element;
+using Rasm.Element.Composition;
 using RectangleBinPacking;
 using static LanguageExt.Prelude;
 

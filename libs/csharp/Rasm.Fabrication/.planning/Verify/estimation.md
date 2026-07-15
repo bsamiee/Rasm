@@ -25,7 +25,7 @@ Wire posture: HOST-LOCAL. The `CostReceipt`/`QuoteReceipt` cross only the in-pro
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Element;
+using Rasm.Element.Composition;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Joining;
 using Rasm.Fabrication.Kinematics;

@@ -22,7 +22,7 @@ THE FRAME-LOCAL SHADING KERNEL. The closed BSDF lobe family and its frame-local 
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 using LanguageExt;                       // Fin, Seq, Option
 using Rasm.Domain;
-using Rasm.Element;                      // FaultBand — the cross-federation band-allocation registry
+using Rasm.Element.Projection;                      // FaultBand — the cross-federation band-allocation registry
 using Rhino;                             // RhinoMath.ZeroTolerance — the one degeneracy epsilon
 using Rhino.Geometry;
 using Thinktecture;

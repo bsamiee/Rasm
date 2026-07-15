@@ -33,7 +33,9 @@ using LanguageExt;
 using Microsoft.Extensions.Caching.Hybrid;
 using NodaTime;
 using Pgvector.EntityFrameworkCore;
-using Rasm.Element;
+using Rasm.Element.Graph;
+using Rasm.Element.Projection;
+using Rasm.Element.Properties;
 using Thinktecture;
 using Rasm.Persistence.Element;                   // FaultBand — the one band registry (graph#FAULT_TABLES)
 using Expected = Rasm.Domain.Expected;            // the federation fault-band base — NOT LanguageExt.Common.Expected

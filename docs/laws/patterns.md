@@ -9,5 +9,6 @@ Pattern law binding two or more language branches. A row admitted here binds eve
 |  [01]   | a derived artifact keys on the content hash of its source; cache validity is key equality, never path or mtime  | C#, Python, tooling |
 |  [02]   | root and anchor discovery walks upward to a sentinel file, never a fixed `parents[N]` depth or a cwd assumption | Python, C#, tooling |
 |  [03]   | an operational rail returns one typed envelope; failure rides the envelope, never sentinel values in data rows  | all branches        |
+|  [04]   | a wire token admits only its exact emission spelling; a tolerant parse re-emitting normalized forks the key     | all branches        |
 
-The C# wire spells the content key `XxHash128`.
+The C# wire spells the content key `XxHash128`, and cross-runtime peers compare wire tokens byte-wise — the emitting owner's spelling is the admission grammar.

@@ -155,6 +155,19 @@
 |  [18]   | `IfcMaterialProfile`         | geometry | profile-material row                                                                       |
 |  [19]   | `IfcMaterialLayer`           | geometry | material-layer row                                                                         |
 |  [20]   | `IfcMaterialConstituent`     | geometry | material-constituent row                                                                   |
+|  [21]   | `IfcPropertyReferenceValue`  | geometry | reference property with an `IfcObjectReferenceSelect` target                               |
+|  [22]   | `IfcInteger`                 | geometry | signed integer scalar                                                                      |
+|  [23]   | `IfcReal`                    | geometry | finite real scalar                                                                         |
+|  [24]   | `IfcBinary`                  | geometry | binary scalar                                                                              |
+|  [25]   | `IfcDate`                    | geometry | calendar-date scalar                                                                       |
+|  [26]   | `IfcDateTime`                | geometry | local date-time scalar                                                                     |
+|  [27]   | `IfcTime`                    | geometry | local-time scalar                                                                          |
+|  [28]   | `IfcDuration`                | geometry | ISO duration scalar                                                                        |
+|  [29]   | `IfcTimeStamp`               | geometry | Unix-time scalar                                                                           |
+
+[PROPERTY_REFERENCE_MEMBERS]: `IfcPropertyReferenceValue` constructs from `(DatabaseIfc db, string name)` or `(string name, IfcObjectReferenceSelect obj)` and carries settable `UsageName` and `PropertyReference`.
+
+[SCALAR_VALUE_MEMBERS]: `IfcInteger(long)` carries `Magnitude`; `IfcReal(double)` carries `Magnitude`; `IfcBinary(byte[])` carries `Binary`; `IfcDate(DateTime)`, `IfcDateTime(DateTime)`, the parameterless `IfcTime` with settable `Value`, `IfcDuration` with settable `Years`/`Months`/`Days`/`Hours`/`Minutes`/`Seconds`, and `IfcTimeStamp(int)` expose the scalar family the neutral typed value seam preserves.
 
 [LAYER_SET_USAGE_MEMBERS]: `IfcMaterialLayerSetUsage` carries `ForLayerSet` (`IfcMaterialLayerSet`), `LayerSetDirection` (`IfcLayerSetDirectionEnum`), `DirectionSense` (`IfcDirectionSenseEnum`), `OffsetFromReferenceLine` (`double`), and `ReferenceExtent` (`double`), the layer-set size perpendicular to the layers and the fourth `MaterialUsage.LayerSet` argument.
 
@@ -270,8 +283,11 @@
 |  [13]   | `IfcBoundaryCondition`             | boundary-condition base and egress re-stamp surface                                             |
 |  [14]   | `IfcStructuralLoadConfiguration`   | varying structural line action                                                                  |
 |  [15]   | `IfcRelConnectsStructuralMember`   | member-to-connection relation                                                                   |
-|  [16]   | `IfcRelConnectsStructuralActivity` | structural-activity binding                                                                     |
-|  [17]   | `IfcRelAssignsToGroup`             | group membership assignment                                                                     |
+|  [16]   | `IfcRelConnectsWithEccentricity`   | eccentric member-to-connection relation under `IfcRelConnectsStructuralMember`                 |
+|  [17]   | `IfcRelConnectsStructuralActivity` | structural-activity binding                                                                     |
+|  [18]   | `IfcRelAssignsToGroup`             | group membership assignment                                                                     |
+
+[ECCENTRIC_CONNECTION_MEMBERS]: `IfcRelConnectsWithEccentricity` extends `IfcRelConnectsStructuralMember` and carries public settable `ConnectionConstraint` as `IfcConnectionGeometry` (schema-mandatory — `BuildStringSTEP` writes its StepId unconditionally); the public ctor is `(IfcStructuralMember, IfcStructuralConnection, IfcConnectionGeometry)`.
 
 [BOUNDARY_CONDITION_CTORS]: `IfcBoundaryCondition` spans `IfcBoundaryNodeCondition` and `IfcBoundaryEdgeCondition`; `IfcBoundaryNodeCondition` constructs from `(db)`, `(db, name, 6x bool restraints)`, or `(db, name, 3x IfcTranslationalStiffnessSelect + 3x IfcRotationalStiffnessSelect)`.
 
@@ -300,8 +316,11 @@
 |  [08]   | `IfcRelServicesBuildings`            | binds a system to the spatial structures it serves                                          |
 |  [09]   | `IfcRelConnectsPortToElement`        | connects an `IfcDistributionPort` to its owning distribution element                        |
 |  [10]   | `IfcRelConnectsPorts`                | port-to-port connection edge; `RelatingPort`, `RelatedPort`, `RealizingElement`             |
+|  [11]   | `IfcRelFlowControlElements`          | flow-control binding under `IfcRelConnects`; public pair is `RelatingPort`/`RelatedElement` |
 
 [BUILT_SYSTEM_MEMBERS]: `IfcBuiltSystem` carries `PredefinedType` as `IfcBuiltSystemTypeEnum`; the assembly contains no `IfcBuildingSystem` member.
+
+[FLOW_CONTROL_MEMBERS]: `IfcRelFlowControlElements` extends `IfcRelConnects` and exposes settable `RelatingPort` (`IfcPort`) and `RelatedElement` (`IfcElement`) — GG deviates from the schema attribute pair (`RelatingFlowElement`/`RelatedControlElements` are absent from the decompiled surface), so the wire reads the real members.
 
 [ZONE_MEMBERS]: `IfcZone` carries `LongName`, constructs from `(IfcSpatialElement, string, List<IfcSpace>)`, and has no `PredefinedType`.
 
@@ -561,8 +580,12 @@
 |  [20]   | `IfcBearingTypeEnum`                  | geometry | bearing kind                                  |
 |  [21]   | `IfcMaterialProfileSetUsage`          | geometry | element profile-set usage                     |
 |  [22]   | `IfcCircleProfileDef`                 | geometry | circular profile and nominal-diameter carrier |
+|  [23]   | `IfcVibrationIsolator`                | geometry | isolation-bearing element component           |
+|  [24]   | `IfcVibrationIsolatorTypeEnum`        | geometry | vibration-isolator kind                       |
 
 [CONNECTS_ELEMENTS_MEMBERS]: `IfcRelConnectsElements` carries `RelatingElement` and `RelatedElement` as `IfcElement`, plus `ConnectionGeometry` as `IfcConnectionGeometry`.
+
+[VIBRATION_ISOLATOR_MEMBERS]: `IfcVibrationIsolator` extends `IfcElementComponent` and carries `PredefinedType` as `IfcVibrationIsolatorTypeEnum` (`NOTDEFINED`, `USERDEFINED`, `COMPRESSION`, `SPRING`, `BASE`) — the isolation bearing seated between two elements; the attached-to-one-element `IfcVibrationDamper` is a distinct component, not a connection realizer.
 
 [REALIZING_CONNECTION_MEMBERS]: `IfcRelConnectsWithRealizingElements` extends `IfcRelConnectsElements`, carries read-only `RealizingElements` as `SET<IfcElement>`, and holds internal `ConnectionType` for the realizing-fastener relation.
 
@@ -825,7 +848,8 @@
 - repository: `DatabaseIfc` is the entity store, enumerable as `IEnumerable<BaseClassIfc>` and indexable by STEP id or GlobalId
 - context: `DatabaseIfc.Context` is the active `IfcContext`; `DatabaseIfc.Project` narrows to `IfcProject` when the context is a project
 - factory: `DatabaseIfc.Factory` (`FactoryIfc`) vends canonical axes, origins, placements, application, and owner history bound to that database
-- traversal: `BaseClassIfc.Extract<T>()` collects all reachable entities assignable to `T`; entity reflection uses `BaseClassIfc.GetType`/`Construct`
+- factory construction: `FactoryIfc.Construct(string className)` builds an entity by class name through `BaseClassIfc.Construct` and REGISTERS it on the owning database (the db-bound mint the egress re-author invokes); `FactoryIfc.ConstructProduct`/`ConstructElement(string className, IfcObjectDefinition host, IfcObjectPlacement, IfcProductDefinitionShape[, IfcDistributionSystem])` are the hosted product mints
+- traversal: `BaseClassIfc.Extract<T>()` collects all reachable entities assignable to `T`; entity reflection uses `BaseClassIfc.GetType`/`Construct` (the static db-free construct — the factory member above is the db-registering form)
 
 [IDENTITY]:
 - every `IfcRoot` carries `GlobalId`, `Guid`, `OwnerHistory`, `Name`, `Description`

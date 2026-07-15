@@ -540,7 +540,8 @@ using NodaTime;
 using ParquetSharp;
 using ParquetSharp.Arrow;
 using ParquetSharp.Encryption;
-using Rasm.Element;
+using Rasm.Element.Graph;
+using Rasm.Element.Projection;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Persistence.Query;

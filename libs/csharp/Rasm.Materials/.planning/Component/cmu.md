@@ -2,30 +2,30 @@
 
 THE CMU SEED PAGE GROUNDED IN ASTM C90 + TMS 602-16/-22 + ACI 216.1 + NCMA TEK 6-2C. A concrete block is one `ComponentRow` minted by the ONE generator `CmuSeed.Rows : Context -> Fin<Seq<ComponentRow>>` — `ComponentFamily.Cmu` (`ComponentClass.Minor`, `DetailLane.None`, `admits: CellularRectangle`, `crossNominal: GrossRectangleMm.WidthMm`, `rows: CmuSeed.Rows`), never a `ConcreteBlock` type and never a bespoke payload record. The prior `CmuSection`/`CmuShape`/`CmuCell` records and the per-family `ComponentCatalogue.BuildCmuRows`/`CmuSections` folds are DELETED with zero column loss: the bed-plane geometry lands as the parent `SectionProfile.CellularRectangle` (`WidthMm` the through-wall thickness — the family cross nominal, `DepthMm` the along-wall unit length, `Seq<VoidCell>` the per-cell fill-state lattice the private `Lattice` generator lays from the ASTM face-shell/end-web/cross-web columns); the vocabulary stays on the six kept FORM-law SmartEnums (`CmuGrade`/`CmuStrength`/`CmuDensity`/`CmuAggregate`/`CmuSpecialUnit`/`CmuFinish`); the realization columns ride the typed `CmuRow` table with per-column provenance. `NetSection`/`GroutedSection` COLLAPSE onto the ONE `SectionSolver.Solve` `CellularRectangle` arm: the `VoidCell.Grouted` flag selects the result through one code path — the seeded lattice yields the AS-BUILT net (only ungrouted cells void, a fully-grouted unit the solid rectangle), and the DESIGN net is the same solve over `Cells.Map(c => c with { Grouted = false })` — so this page calls no solver and owns no perimeter builder.
 
-Because `ComponentFamily.Cmu` is `DetailLane.None` (no `PropertyBag` — the brief widens only masonry and glazing), the fire/thermal/self-weight/equivalent-thickness receipts RE-HOME as the ONE `CmuPhysics` typed receipt over `(SectionProfile.CellularRectangle, CmuDensity, CmuAggregate)` — every quantity is a per-face or per-length ratio in which the unit height cancels exactly, so the receipt is computable at seed time and by any axis-holding consumer without a bag — `CmuSeed.Table` is the designation-keyed frozen join handing any consumer those axes off the M7-resolved `Component`. The prism strength stays the registered `CmuStrength` row (`f'm` + the two TMS 602 mortar columns), feeding `capacity#SECTION_CAPACITY` `MasonryCompression(FmMpa, NetAreaMm2, SectionModulusXMm3, SectionModulusYMm3, SlendernessReduction, FrMpa)` together with the M7-cached as-built section (both net moduli, so the biaxial unity folds each moment against ITS axis) — the `FrMpa` flexural-tension column rides the `masonry#MASONRY_FAMILY` `RuptureModulus` Table `9.1.9.2` row keyed by `MortarSystem`/`MortarType` beside this page's `f'm`; `CmuStrength.RequiredUnitMpa`/`Resolve` keep the `masonry#MASONRY_FAMILY` `MortarType` unit-strength-method seam. The coursing module survives as the `CmuSeed.Module` projection onto the parent `ComponentUnit` (height + the ASTM coordinating joint) — the seed-table datum the future Generation course row reads (`Rasm.Generation`).
+Because `ComponentFamily.Cmu` is `DetailLane.None`, `CmuPhysics` owns fire rating, thermal resistance, self-weight, equivalent thickness, solid fraction, and grout fraction over `(SectionProfile.CellularRectangle, CmuDensity, CmuAggregate)` without a duplicate bag. `CmuSeed.Table` is the `ComponentId`-keyed typed join from an M7-resolved component to its strength, density, aggregate, finish, and molding axes. `CmuStrength` carries the TMS 602 `f'm` and optional Type-N unit-strength columns, `RuptureModulus` supplies the mortar-keyed flexural-tension input, and `CmuSeed.Module` projects the authored height plus coordinating joint onto `ComponentUnit`.
 
 ## [01]-[INDEX]
 
-- [02]-[CMU_FAMILY]: the six kept SmartEnums (`CmuGrade` ASTM C90 unit grade + IFC profile subtype, `CmuStrength` TMS 602-16/-22 Table 2 with the `MortarType` inversion, `CmuDensity` oven-dry density + conductivity, `CmuAggregate` ACI 216.1 fire aggregate, `CmuSpecialUnit` molding geometry, `CmuFinish` architectural surface), the `CmuRow` provenance-columned seed table, the `CmuPhysics` fire/thermal/mass receipt with the `Coring` bucket, and the `CmuSeed` generator (`Rows` fold + `Module` coursing projection + the `Table` designation-keyed axis join + the private `Lattice`).
+- [02]-[CMU_FAMILY]: the six kept SmartEnums (`CmuGrade` ASTM C90 unit grade, `CmuStrength` TMS 602-16/-22 Table 2 with the `MortarType` inversion, `CmuDensity` oven-dry density + conductivity, `CmuAggregate` ACI 216.1 fire aggregate, `CmuSpecialUnit` molding geometry, `CmuFinish` architectural surface), the `CmuRow` provenance-columned seed table, the `CmuPhysics` fire/thermal/mass receipt with the `Coring` bucket, and the `CmuSeed` generator (`Rows` fold + `Module` coursing projection + the `Table` `ComponentId`-keyed axis join + the private `Lattice`).
 - [03]-[RESEARCH]: realized decisions.
 
 ## [02]-[CMU_FAMILY]
 
-- Owner: `CmuSeed` the ONE generator; `CmuPhysics` the ONE physical receipt; the six FORM-law SmartEnums (runtime key lookup + derivation columns, so they STAY per `SEED_ROW_LAW` tier 3); `CmuRow` the AUTHORED standards table (no admitted producer exists); `CmuSeed.Table` the designation-keyed frozen axis join a bag-free consumer pairs with the M7-resolved `Component.Profile` (the `DetailLane.None` landing surface — the brief forbids a cmu lane flip, so the seed join is the one legal axis path).
+- Owner: `CmuSeed` the ONE generator; `CmuPhysics` the ONE physical receipt; the six FORM-law SmartEnums (runtime key lookup + derivation columns, so they STAY per `SEED_ROW_LAW` tier 3); `CmuRow` the AUTHORED standards table (no admitted producer exists); `CmuSeed.Table` the `ComponentId`-keyed frozen axis join a bag-free consumer pairs with the M7-resolved `Component.Profile` (the `DetailLane.None` landing surface — the brief forbids a cmu lane flip, so the seed join is the one legal axis path).
 - Cases: grade {hollow/solid × load-bearing} (ASTM C90); strength {f2000..f3000} (TMS 602-16/-22 Table 2, `f'm` + the two mortar columns, PUBLISHED); density {lightweight <1680, medium 1680–2000, normal ≥2000 kg/m³}; aggregate {six rows over the four ACI 216.1 / IBC `722.3.2` categories, each its 1-hour equivalent thickness}; special {standard, bond-beam, knockout, channel, lintel, sash, control-joint, open-end}; finish {precision, split-face, scored, ground, ribbed}. A unit is one `CmuRow`; a new grade/strength/density/aggregate/special/finish is one case/row — never a per-block type.
-- Entry: `CmuSeed.Rows(Context) : Fin<Seq<ComponentRow>>` — `Traverse`, never `Choose`: a grade/form mismatch faults `ComponentFault.Family` (the TYPED axis singletons make an unknown grade/strength/density/aggregate key UNREPRESENTABLE — no per-axis `TryGet` lift exists to miss), a degenerate lattice, out-of-bounds cell, or overlapping cell faults `ComponentFault.Dimension` inside `CellularRectangle.Of`, and any failure ABORTS `ComponentCatalogue.Of` loudly. Every row seeds `Sectioned: true` — an empty-lattice solid row solves as the full rectangle, a grouted row as its as-built net, so the M7 map carries every cmu unit.
+- Entry: `CmuSeed.Rows(Context) : Fin<Seq<ComponentRow>>` traverses the typed table and proves grade/form plus fill/reinforcement correspondence before constructing the lattice. Invalid counts or bar presence fault `ComponentFault.Dimension`; degenerate, out-of-bounds, or overlapping cells fault inside `CellularRectangle.Of`; every failure aborts the catalogue. Every row seeds `Sectioned: true`, so the M7 map carries the admitted as-built section.
 - Packages: Rasm.Numerics (`PositiveMagnitude` via the parent profile factories), Rasm.Domain (`Context`/`Op`), Rasm.Element (`MaterialId`), Thinktecture.Runtime.Extensions (`[SmartEnum]`, generated `TryGet`/`Items`; `libs/csharp/.api/api-thinktecture-runtime-extensions.md`), LanguageExt.Core (`Traverse`/`Fin`), the parent `component#COMPONENT_OWNER`/`#SECTION_PROFILE` owners. The cmu generative data is AUTHORED in-fence; ONLY the section integral crosses to VividOrange, through the parent solver (`.api/api-vividorange-sections-sectionproperties.md`).
 - Growth: a new ASTM unit (metric A-series, half-high, architectural) is one `CmuRow`; a grouting/reinforcing variant is row columns (`GroutedCells`/`ReinforcedCells`/`RebarBarMm`); molding and finish variants are `CmuSpecialUnit`/`CmuFinish` rows the host extrudes — never a parallel section owner, never a solver edit.
-- Boundary: column provenance per `SEED_ROW_LAW` — every dimensional and strength value PUBLISHED (ASTM C90-14 Table 1 face-shell/web minima, TMS 602 Table 2 strengths, ACI 216.1 aggregate thicknesses, ASTM C476 grout density); the web law is the SPLIT `2·EndWebMm + (cells−1)·CrossWebMm` span, never one uniform web; an open-end (`EndWebsPresent: false`) unit drops its end webs so the end cells run to the unit ends. The wire spelling stays `CmuGrade.IfcSubtype` row data (`IfcArbitraryProfileDefWithVoids` for a multi-cell hollow — the single-void `IfcRectangleHollowProfileDef` cannot carry two distinct cells — `IfcRectangleProfileDef` for a solid), resolved at the `Rasm.Bim` egress; the element stamp is `IfcBinding.Supertype(ComponentFamily.Cmu.Class)` (`IfcElementComponent` + `NOTDEFINED`). `DraftDegrees`/`FaceShellFlareMm` and the molding/finish fractions are captured generative columns the host materialization reads off the seed table and the SmartEnum rows — `VoidCell` carries fill-state only, and no bag exists on this family.
+- Boundary: column provenance per `SEED_ROW_LAW` — every dimensional and strength value PUBLISHED (ASTM C90-14 Table 1 face-shell/web minima, TMS 602 Table 2 strengths, ACI 216.1 aggregate thicknesses, ASTM C476 grout density); the web law is the SPLIT `2·EndWebMm + (cells−1)·CrossWebMm` span, never one uniform web; an open-end (`EndWebsPresent: false`) unit drops its end webs so the end cells run to the unit ends. The wire spelling is the AS-BUILT occupancy derivation `CmuPhysics.IfcSubtypeOf(cell)` (`IfcArbitraryProfileDefWithVoids` iff any UNGROUTED cell remains — the single-void `IfcRectangleHollowProfileDef` cannot carry two distinct cells — `IfcRectangleProfileDef` for a solid or fully-grouted lattice), the derived token carried to the `Rasm.Bim` egress as row DATA it reads — Bim references no AEC peer, so the wire spelling is never a cross-package call; the manufacturing grade never contradicts the grouted state; the element stamp is `IfcBinding.Supertype(ComponentFamily.Cmu.Class)` (`IfcElementComponent` + `NOTDEFINED`). `DraftDegrees`/`FaceShellFlareMm` and the molding/finish fractions are captured generative columns the host materialization reads off the seed table and the SmartEnum rows — `VoidCell` carries fill-state only, and no bag exists on this family.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
-using System.Collections.Frozen;                     // FrozenDictionary — the CmuSeed.Table designation-keyed axis join
+using System.Collections.Frozen;                     // FrozenDictionary — the CmuSeed.Table ComponentId-keyed axis join
 using LanguageExt;                                   // Fin, Option, Seq, Traverse
 using Rasm.Domain;                                   // Context, Op
-using Rasm.Element;                                  // MaterialId (the substance/appearance rows the seed assigns)
+using Rasm.Element.Composition;                                  // MaterialId (the substance/appearance rows the seed assigns)
+using Rasm.Element.Properties;
 using Thinktecture;                                  // [SmartEnum], KeyMemberEqualityComparer, ComparerAccessors, TryGet/Items
-using Rasm.Materials.Component;                      // Component/ComponentRow/ComponentFamily/ComponentFault/ComponentStandard/ComponentAuthority/ComponentUnit/Coring/IfcBinding/SectionProfile/VoidCell (the parent owners)
 using static LanguageExt.Prelude;
 
 // The cmu seed declares in the ONE Rasm.Materials.Component namespace; MortarType, CmuStrength, and every parent owner
@@ -34,51 +34,55 @@ using static LanguageExt.Prelude;
 namespace Rasm.Materials.Component;
 
 // --- [TYPES] -------------------------------------------------------------------------------
-// The unit grade: hollow/solid crossed with load-bearing (ASTM C90 loadbearing, C129 the non-loadbearing spec),
-// carrying the IFC profile subtype the Bim egress resolves. A multi-cell HOLLOW unit serializes as
-// IfcArbitraryProfileDefWithVoids (explicit per-cell voids); a SOLID or fully-grouted unit as the outer
-// IfcRectangleProfileDef. A new grade is one case.
+// The unit grade: hollow/solid crossed with load-bearing (ASTM C90 loadbearing, C129 the non-loadbearing spec) —
+// a MANUFACTURING classification, deliberately independent of fill state. The IFC profile subtype is NOT a grade
+// column: it follows the AS-BUILT cell occupancy through CmuPhysics.IfcSubtypeOf, so a fully-grouted hollow unit
+// never emits a void-bearing subtype. A new grade is one case.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CmuGrade {
-    public static readonly CmuGrade HollowLoadBearing    = new("hollow-load-bearing",     loadBearing: true,  hollow: true,  ifcSubtype: "IfcArbitraryProfileDefWithVoids");
-    public static readonly CmuGrade HollowNonLoadBearing = new("hollow-non-load-bearing", loadBearing: false, hollow: true,  ifcSubtype: "IfcArbitraryProfileDefWithVoids");
-    public static readonly CmuGrade SolidLoadBearing     = new("solid-load-bearing",      loadBearing: true,  hollow: false, ifcSubtype: "IfcRectangleProfileDef");
-    public static readonly CmuGrade SolidNonLoadBearing  = new("solid-non-load-bearing",  loadBearing: false, hollow: false, ifcSubtype: "IfcRectangleProfileDef");
+    public static readonly CmuGrade HollowLoadBearing    = new("hollow-load-bearing",     loadBearing: true,  hollow: true);
+    public static readonly CmuGrade HollowNonLoadBearing = new("hollow-non-load-bearing", loadBearing: false, hollow: true);
+    public static readonly CmuGrade SolidLoadBearing     = new("solid-load-bearing",      loadBearing: true,  hollow: false);
+    public static readonly CmuGrade SolidNonLoadBearing  = new("solid-non-load-bearing",  loadBearing: false, hollow: false);
     public bool LoadBearing { get; }
     public bool Hollow { get; }
-    public string IfcSubtype { get; }
 }
 
 // The TMS 602-16/-22 Table 2 specified-masonry-strength class: FmMpa IS the specified f'm (the assemblage strength the
 // design seam reads, NOT the unit strength); the two PUBLISHED net-area UNIT-strength columns key the mortar band
-// (Type M/S the lower, Type N the higher; the empty Type-N cells for f2750/f3000 carry +Infinity so a Type-N unit
-// never qualifies). The five rows are the standard's published classes — registered DATA, never a caller double.
+// (Type M/S the lower, Type N the higher; the empty Type-N cells for f2750/f3000 are `None`).
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class CmuStrength {
-    public static readonly CmuStrength F2000 = new("f2000", fmMpa: 13.79, netUnitMsMpa: 13.79, netUnitNMpa: 18.27);
-    public static readonly CmuStrength F2250 = new("f2250", fmMpa: 15.51, netUnitMsMpa: 17.93, netUnitNMpa: 23.44);
-    public static readonly CmuStrength F2500 = new("f2500", fmMpa: 17.24, netUnitMsMpa: 22.41, netUnitNMpa: 28.96);
-    public static readonly CmuStrength F2750 = new("f2750", fmMpa: 18.96, netUnitMsMpa: 26.89, netUnitNMpa: double.PositiveInfinity);
-    public static readonly CmuStrength F3000 = new("f3000", fmMpa: 20.69, netUnitMsMpa: 31.03, netUnitNMpa: double.PositiveInfinity);
+    public static readonly CmuStrength F2000 = new("f2000", fmMpa: 13.79, netUnitMsMpa: 13.79, netUnitNMpa: Some(18.27));
+    public static readonly CmuStrength F2250 = new("f2250", fmMpa: 15.51, netUnitMsMpa: 17.93, netUnitNMpa: Some(23.44));
+    public static readonly CmuStrength F2500 = new("f2500", fmMpa: 17.24, netUnitMsMpa: 22.41, netUnitNMpa: Some(28.96));
+    public static readonly CmuStrength F2750 = new("f2750", fmMpa: 18.96, netUnitMsMpa: 26.89, netUnitNMpa: Option<double>.None);
+    public static readonly CmuStrength F3000 = new("f3000", fmMpa: 20.69, netUnitMsMpa: 31.03, netUnitNMpa: Option<double>.None);
     public double FmMpa { get; }              // the specified masonry compressive strength f'm (MPa) — the capacity#SECTION_CAPACITY MasonryCompression input
     public double NetUnitMsMpa { get; }       // required net-area unit strength with Type M or S mortar (MPa), PUBLISHED
-    public double NetUnitNMpa { get; }        // required net-area unit strength with Type N mortar (MPa); +Infinity where the column is empty
+    public Option<double> NetUnitNMpa { get; }
 
     // The mortar-band column read through the generated exhaustive Switch — a new MortarType row breaks HERE at
     // compile time, never an ==-chain a new row silently falls past. Type O/K sit below the TMS 602 loadbearing
     // floor and qualify for no class.
-    public double RequiredUnitMpa(MortarType mortar) => mortar.Switch(
-        m: () => NetUnitMsMpa, s: () => NetUnitMsMpa, n: () => NetUnitNMpa,
-        o: static () => double.PositiveInfinity, k: static () => double.PositiveInfinity);
+    public Option<double> RequiredUnitMpa(MortarType mortar) => mortar.Switch(
+        state: this,
+        m: static strength => Some(strength.NetUnitMsMpa),
+        s: static strength => Some(strength.NetUnitMsMpa),
+        n: static strength => strength.NetUnitNMpa,
+        o: static _ => Option<double>.None,
+        k: static _ => Option<double>.None);
 
     // The unit-strength method, inverted: the HIGHEST f'm class the supplied net-area unit strength qualifies for
     // under the mortar band — the descending-by-f'm scan's first passing row; a below-floor unit rails None.
     public static Option<CmuStrength> Resolve(double netUnitStrengthMpa, MortarType mortar) =>
-        toSeq(Items.OrderByDescending(static c => c.FmMpa))
-            .Filter(c => netUnitStrengthMpa >= c.RequiredUnitMpa(mortar))
-            .Head;
+        !double.IsFinite(netUnitStrengthMpa) || netUnitStrengthMpa <= 0.0
+            ? Option<CmuStrength>.None
+            : toSeq(Items.OrderByDescending(static c => c.FmMpa))
+                .Filter(c => c.RequiredUnitMpa(mortar).Exists(required => netUnitStrengthMpa >= required))
+                .Head;
 }
 
 // The ASTM C90 oven-dry-density classification (published 1360–2320 kg/m³ banded at 1680 / 2000): the self-weight and
@@ -221,6 +225,13 @@ public readonly record struct CmuPhysics(
             _       => cell.Cells.Count >= 3 ? Coring.Hollow3Cell : Coring.Hollow2Cell,
         };
     }
+
+    // The IFC profile subtype on the AS-BUILT basis: any UNGROUTED cell demands the explicit per-void
+    // IfcArbitraryProfileDefWithVoids (the single-void IfcRectangleHollowProfileDef cannot carry two distinct
+    // cells); a solid or fully-grouted lattice is the outer IfcRectangleProfileDef. Derived from the ONE occupancy
+    // fact the lattice carries — never a grade column that contradicts the grouted state.
+    public static string IfcSubtypeOf(SectionProfile.CellularRectangle cell) =>
+        cell.Cells.Exists(static c => !c.Grouted) ? "IfcArbitraryProfileDefWithVoids" : "IfcRectangleProfileDef";
 }
 
 // --- [TABLES] ------------------------------------------------------------------------------
@@ -251,12 +262,14 @@ public static class CmuSeed {
         new CmuRow("cmu.8in-splitface",  CmuGrade.HollowLoadBearing,    CmuStrength.F2000, CmuDensity.Medium,      CmuAggregate.NormalWeight, 190.0, 190.0, 390.0, 32.0, 32.0, 25.0, 2) { Finish = CmuFinish.SplitFace },
         new CmuRow("cmu.8in-halfhigh",   CmuGrade.HollowNonLoadBearing, CmuStrength.F2000, CmuDensity.Lightweight, CmuAggregate.ExpandedSlag, 190.0, 90.0,  390.0, 32.0, 32.0, 25.0, 2));
 
-    // The designation-keyed axis join for bag-free consumers (DetailLane.None carries no PropertyBag): a Compute
-    // fire/thermal runner or the host resolves the Component off the graph, joins THIS row by designation for the
-    // CmuDensity/CmuAggregate/CmuStrength axes and the demold/molding columns, then CmuPhysics.Of(profile,
-    // row.Density, row.Aggregate) computes the identical receipt anywhere — one frozen map, never a per-consumer scan.
-    public static readonly FrozenDictionary<string, CmuRow> Table =
-        AstmRows.ToFrozenDictionary(static r => r.Designation, static r => r);
+    // The TYPED axis join for bag-free consumers (DetailLane.None carries no PropertyBag), keyed by the SAME
+    // ComponentId the resolved Component carries: the consumer holds the M7 ResolvedComponent and makes ONE keyed
+    // lookup — Table[component.Designation] — for the CmuDensity/CmuAggregate/CmuStrength axes and the demold/molding
+    // columns, then CmuPhysics.Of(profile, row.Density, row.Aggregate) computes the identical receipt anywhere. Both
+    // key spaces mint from the identical designation column of the identical rows, so seed and canonical component
+    // correspondence cannot drift — no string side lookup, no per-consumer scan.
+    public static readonly FrozenDictionary<ComponentId, CmuRow> Table =
+        AstmRows.ToFrozenDictionary(static r => ComponentId.Create(r.Designation), static r => r);
 
     // The ONE generator fold (RAIL law): Traverse, never Choose — a grade/lattice form mismatch, an out-of-bounds or
     // overlapping cell, or a Component.Of rejection ABORTS ComponentCatalogue.Of loudly. The per-axis TryGet lifts are
@@ -266,6 +279,13 @@ public static class CmuSeed {
     public static Fin<Seq<ComponentRow>> Rows(Context context) =>
         AstmRows.Traverse(r =>
             from formed in guard(r.Grade.Hollow == (r.Cells > 0), ComponentFault.Family(context.Key, $"<cmu-grade-form-mismatch:{r.Designation}>"))
+            from occupied in guard(
+                r.Cells >= 0
+                    && r.GroutedCells >= 0 && r.GroutedCells <= r.Cells
+                    && r.ReinforcedCells >= 0 && r.ReinforcedCells <= r.Cells
+                    && double.IsFinite(r.RebarBarMm)
+                    && (r.ReinforcedCells == 0 ? r.RebarBarMm == 0.0 : r.RebarBarMm > 0.0),
+                ComponentFault.Dimension(context.Key, $"<cmu-fill-reinforcement-mismatch:{r.Designation}>"))
             from profile in SectionProfile.CellularRectangle.Of(r.WMm, r.LMm, Lattice(r, r.Special.EndWebsPresent), context.Key)
             let cell = (SectionProfile.CellularRectangle)profile
             from item in Component.Of(
@@ -299,11 +319,11 @@ public static class CmuSeed {
 
 ## [03]-[RESEARCH]
 
-- [SEED_PARADIGM]: REALIZED — the bespoke `CmuSection`/`CmuShape`/`CmuCell` payload records, the `ComponentSection.Cmu` arm, and the per-family `ComponentCatalogue.BuildCmuRows`/`CmuSections` folds are DELETED with zero column loss: geometry rides `SectionProfile.CellularRectangle` + the `VoidCell` fill-state lattice, vocabulary the six kept SmartEnums, realization columns the provenance-columned `CmuRow` table. `CmuSeed.Rows` is the ONE `Traverse` generator (the prior `.Choose(...ToOption())` fault-swallow DELETED — a malformed row aborts the catalogue loudly); every row is `Sectioned: true`, and the `hollow == (Cells > 0)` grade/form guard rejects a transcription error the old fold silently seeded.
+- [SEED_PARADIGM]: REALIZED — geometry rides `SectionProfile.CellularRectangle` plus the `VoidCell` occupancy lattice, vocabulary rides the six policy SmartEnums, and authored realization axes ride `CmuRow`. `CmuSeed.Rows` is one fail-loud `Traverse`; its admission proves `hollow == (Cells > 0)`, bounds grout and reinforcement counts to the lattice, and requires a finite positive bar diameter exactly when reinforcement exists. `Lattice` never truncates an over-count, manufactures a negative cell count as a solid, or emits reinforced occupancy without a bar.
 - [BED_PLANE_ORIENTATION]: REALIZED — the cmu `CellularRectangle` is the BED-PLANE section: `WidthMm` the through-wall thickness (the family `crossNominal` read, preserving the prior 190 mm cross dimension), `DepthMm` the along-wall unit length, cells min-corner-stationed along the depth axis between the end/cross webs. `SectionSolver.Solve` over this plane IS the TMS 402 net cross-section (net area under axial compression, both-axis moduli for out-of-plane flexure) — the receipt `DepthMm`/`WidthMm` columns now carry length/thickness where the deleted per-family solver carried thickness/length, a value-level re-orientation inside the frozen column set, membership `Sectioned`-pinned.
 - [FILL_STATE_ONE_PASS]: REALIZED — `NetSection`/`GroutedSection` COLLAPSE onto the ONE `CellularRectangle` solve arm: `Curves.RectWithVoids` voids ONLY ungrouted cells, so the seeded lattice yields the AS-BUILT net the M7 map caches (a fully-grouted unit the solid rectangle, the open-end reinforced unit its exact per-cell net) and the DESIGN net is the same solve over `Cells.Map(c => c with { Grouted = false })` — a data transform, never a second solver path or a page-local perimeter builder.
-- [PHYSICS_REHOME]: REALIZED — `ComponentFamily.Cmu` is `DetailLane.None` (the brief widens only masonry + glazing), so the fire/thermal/self-weight/equivalent-thickness receipts re-home as the ONE `CmuPhysics` typed receipt over `(CellularRectangle, CmuDensity, CmuAggregate)`: `te = (gross − ungrouted void)/length`, `R = clamp((te/cn)^1.7, 0, 4)` (ACI 216.1 power law, `cn` the aggregate row), self-weight `(net·ρ_dry + grout·ρ_C476)·g/L`, and the NCMA TEK 6-2C isothermal-planes R whose face-shell and core width DERIVE from the widest cell — every term a per-face/per-length ratio in which the unit height cancels exactly, so no bag is needed and the receipt computes identically at seed and downstream. The axes LAND on `CmuSeed.Table` — the designation-keyed frozen row join a bag-free consumer pairs with the M7-resolved `Component.Profile` (`CmuPhysics.Of(profile, row.Density, row.Aggregate)`), zero bag, zero lane widening; the Compute runner that reads it stays next-campaign forward work per `[CONSUMER_RIPPLE_RULES]`.
-- [STRENGTH_SEAM]: REALIZED — `CmuStrength` stays the registered TMS 602-16/-22 Table 2 data (`f'm` + the two mortar columns, `+Infinity` for the empty Type-N cells); `RequiredUnitMpa(mortar)` keys the `masonry#MASONRY_FAMILY` `MortarType` band by identity and `Resolve` inverts the table to the richest qualifying class; the widened `capacity#SECTION_CAPACITY` `SectionCapacity.Lift(CmuStrength, ComputedSection, double, RuptureModulus, MortarSystem, MortarType)` reads `FmMpa` plus the M7-cached as-built section (net area AND both net moduli — the biaxial unity's per-axis `φMnx`/`φMny` inputs) and resolves the `MasonryCompression.FrMpa` flexural-tension column on the `masonry#MASONRY_FAMILY` `RuptureModulus` Table `9.1.9.2` row — the grouted-lattice fact selects the hollow-grouted vs hollow-ungrouted row, `CmuPhysics.GroutedCellFraction` is the TMS partial-grout interpolation fraction the footnote path (`RuptureModulus.PartialGrout`) consumes — while the TMS 402 member-stability bracket (`[1 - (h/140r)²]` at `h/r <= 99`, `(70r/h)²` above) stays a placement-level caller input — this unit-section vocabulary never computes member height.
-- [COURSING_MODULE]: REALIZED — `CmuSeed.Module(row, key)` projects the seed row onto the parent `ComponentUnit` (width/height/length + `height + 9.5` coursing rise), the datum the future Generation course row reads (`Rasm.Generation`); the head-joint run advance is `LengthMm + StandardJointThicknessMm` over the same `ComponentStandard` column, so the retired `RunModuleMm`/`ToUnit` carry no lost data. The half-high row's 90 mm height stays live through this projection.
-- [GENERATIVE_COLUMNS]: REALIZED — `DraftDegrees`, `FaceShellFlareMm`, the `CmuSpecialUnit` molding fractions, and the `CmuFinish` relief columns are captured generative geometry the host materialization and the `Rasm.Bim` surface-style egress read off the seed table and the SmartEnum rows; `VoidCell` carries fill-state only (the brief-frozen shape), and the wire spelling stays `CmuGrade.IfcSubtype` row data resolved at the Bim boundary (`IfcArbitraryProfileDefWithVoids` multi-cell, `IfcRectangleProfileDef` solid/fully-grouted).
-- [SOURCING]: no admitted producer for the ASTM C90/TMS 602/ACI 216.1 rosters exists, so every column stays AUTHORED/PUBLISHED. The `CmuPhysics` axes land on `CmuSeed.Table` — the designation-keyed seed join is the ONE legal landing, `component.md` lane-law unedited.
+- [PHYSICS_REHOME]: REALIZED — `ComponentFamily.Cmu` is `DetailLane.None`, so `CmuPhysics` owns `te = (gross − ungrouted void)/length`, the ACI 216.1 fire power law, self-weight, solid/grout fractions, and the NCMA TEK 6-2C isothermal-planes resistance over `(CellularRectangle, CmuDensity, CmuAggregate)`. `CmuSeed.Table` pairs the M7-resolved `ComponentId` with those axes in one typed lookup, and `CmuPhysics.Of(profile, row.Density, row.Aggregate)` reconstructs the receipt without lane widening.
+- [STRENGTH_SEAM]: REALIZED — `CmuStrength` stays the registered TMS 602 Table `2` data (`f'm` plus the Type M/S requirement and the `Option<double>` Type N requirement); an empty published Type N cell is `None`, never an infinite strength sentinel. `RequiredUnitMpa(mortar)` keys the `masonry#MASONRY_FAMILY` `MortarType` band by identity, and `Resolve` inverts the table to the richest qualifying class after rejecting non-finite or non-positive input. The `capacity#SECTION_CAPACITY` lift reads `FmMpa` plus the M7-cached as-built section and resolves the `MasonryCompression.FrMpa` flexural-tension column on the `masonry#MASONRY_FAMILY` `RuptureModulus` row.
+- [COURSING_MODULE]: REALIZED — `CmuSeed.Module(row, key)` projects the seed row onto the parent `ComponentUnit` (width/height/length + `height + 9.5` coursing rise); the head-joint run advance is `LengthMm + StandardJointThicknessMm` over the same `ComponentStandard` column, so the retired `RunModuleMm`/`ToUnit` carry no lost data. The half-high row's 90 mm height stays live through this projection.
+- [GENERATIVE_COLUMNS]: REALIZED — `DraftDegrees`, `FaceShellFlareMm`, the `CmuSpecialUnit` molding fractions, and the `CmuFinish` relief columns are captured generative geometry the host materialization and the `Rasm.Bim` surface-style egress read off the seed table and the SmartEnum rows; `VoidCell` carries fill-state only (the brief-frozen shape), and the wire spelling is the occupancy derivation `CmuPhysics.IfcSubtypeOf` (`IfcArbitraryProfileDefWithVoids` iff any ungrouted cell, `IfcRectangleProfileDef` solid/fully-grouted), the derived token riding to the Bim boundary as row DATA — the `CmuGrade.IfcSubtype` grade column is the DELETED form, since a fully-grouted hollow unit contradicted its own row.
+- [SOURCING]: no admitted producer for the ASTM C90/TMS 602/ACI 216.1 rosters exists, so every column stays AUTHORED/PUBLISHED. The `CmuPhysics` axes land on `CmuSeed.Table` — the `ComponentId`-keyed seed join is the ONE legal landing, `component.md` lane-law unedited.

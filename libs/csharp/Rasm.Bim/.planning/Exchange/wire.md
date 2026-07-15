@@ -27,9 +27,10 @@ using GeometryGym.Ifc;
 using LanguageExt;
 using NodaTime;
 using Rasm;
-using Rasm.Element;
+using Rasm.Element.Graph;
+using Rasm.Element.Projection;
 using static LanguageExt.Prelude;
-using ReleaseVersion = Rasm.Element.ReleaseVersion;   // the seam schema currency the wire stamps — disambiguated from
+using ReleaseVersion = Rasm.Element.Graph.ReleaseVersion;   // the seam schema currency the wire stamps — disambiguated from
                                                       // GeometryGym.Ifc.ReleaseVersion, which only Sniff/ReleaseMap touch.
 
 namespace Rasm.Bim;
@@ -77,8 +78,9 @@ public sealed record IfcWire(
         BimIo.ImportIfc(Format, Bytes, ctx.Key)
             .MapFail(error => new BimFault.ModelRejected(ctx.Key, $"wire-decode:{error.Message}"))
             .Bind(db => ProjectionAssembly.Assemble(
-                Seq<IElementProjection>(new SemanticProjector(db, reconciler, profiles)),
-                Seq<IGraphConstraint>(new IfcLegality()),
+                ProjectionSuite.Of(
+                    Seq<IElementProjection>(new SemanticProjector(db, reconciler, profiles)),
+                    Seq<IGraphConstraint>(new IfcLegality())),
                 ElementGraph.Genesis(ctx.Header), ctx).Map(static r => r.Graph));
 
     // Content negotiation across the IFC serializations a peer admits (STEP > ifcXML > ifcJSON by interop breadth) —

@@ -597,11 +597,12 @@ public static partial class StructuralAnalysis {
         from resp   in Solve(model)
         let checks   = model.Members.Bind(m => Check(m, resp[m.Id], code, model.Policy))
         let govern   = toSeq(checks.OrderByDescending(static c => c.Utilization)).Head
+        from ratios in checks.TraverseM(static c => AssessmentFact.Ratio($"{c.Member.Value}/{c.State.Key}", c.Utilization)).As()
+        from maxU in AssessmentFact.Ratio("max-utilization", govern.Map(static g => g.Utilization).IfNone(0.0))
         select AssessmentResult.Of(
             request.Route,
-            checks.Map(static c => AssessmentFact.Ratio($"{c.Member.Value}/{c.State.Key}", c.Utilization))
-                .Append(Seq(
-                    AssessmentFact.Ratio("max-utilization", govern.Map(static g => g.Utilization).IfNone(0.0)),
+            ratios.Append(Seq(
+                    maxU,
                     govern.Map(static g => AssessmentFact.Reference("governing-member", g.Member)).IfNone(AssessmentFact.Text("governing-member", "none")),
                     AssessmentFact.Text("governing-limit-state", govern.Map(static g => g.State.Key).IfNone("none")))),
             govern.Map(static g => g.Utilization).IfNone(0.0),
@@ -716,11 +717,12 @@ public static partial class StructuralAnalysis {
         let demands = SpectralDemands(model, lowered, modal, spec, periods)
         let checks  = model.Members.Bind(m => Check(m, demands[m.Id], code, model.Policy))
         let govern  = toSeq(checks.OrderByDescending(static c => c.Utilization)).Head
+        from ratios in checks.TraverseM(static c => AssessmentFact.Ratio($"{c.Member.Value}/{c.State.Key}", c.Utilization)).As()
+        from participation in AssessmentFact.Ratio("modal-mass-participation", gate)
         select AssessmentResult.Of(
             request.Route,
-            checks.Map(static c => AssessmentFact.Ratio($"{c.Member.Value}/{c.State.Key}", c.Utilization))
-                .Append(Seq(
-                    AssessmentFact.Ratio("modal-mass-participation", gate),
+            ratios.Append(Seq(
+                    participation,
                     AssessmentFact.Text("modal-combination", spec.Combination.Key))),
             govern.Map(static g => g.Utilization).IfNone(0.0),
             new Provenance("StructuralAnalysis", request.Route.Standard, request.Route.SolverVersion, clocks.Now));

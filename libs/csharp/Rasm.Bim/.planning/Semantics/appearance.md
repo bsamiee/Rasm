@@ -27,7 +27,7 @@ using System.Collections.Frozen;
 using GeometryGym.Ifc;
 using LanguageExt;
 using Rasm.Domain;
-using Rasm.Element;
+using Rasm.Element.Graph;
 using Thinktecture;
 using static LanguageExt.Prelude;
 

@@ -39,13 +39,17 @@ using Ply.Net;
 using pxr;
 using Rasm;
 using Rasm.Domain;
-using Rasm.Element;
+using Rasm.Element.Classification;
+using Rasm.Element.Graph;
+using Rasm.Element.Projection;
+using Rasm.Element.Properties;
+using Rasm.Element.Relations;
 using SharpGLTF.Schema2;
 using Thinktecture;
 using static LanguageExt.Prelude;
 using Matrix4x4 = System.Numerics.Matrix4x4;   // the instance-transform currency — disambiguated from Assimp.Matrix4x4
-using Node = Rasm.Element.Node;                // the seam node union owns the bare name; the SharpGLTF scene node is qualified
-using Vector3 = System.Numerics.Vector3;       // the numerics coordinate this boundary fold speaks — never the seam Rasm.Element.Vector3
+using Node = Rasm.Element.Graph.Node;          // the seam node union owns the bare name; the SharpGLTF scene node is qualified
+using Vector3 = System.Numerics.Vector3;       // the numerics coordinate this boundary fold speaks — never the seam Rasm.Element.Graph.Vector3
 
 namespace Rasm.Bim;
 

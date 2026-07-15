@@ -2,13 +2,13 @@
 
 THE POLYMORPHIC COMPONENT OWNER. One `Component` record is the canonical standardized-TYPE concept every steel/timber member, masonry/CMU/IGU unit, sheet-goods board, and rebar/fastener/connector/joint part parameterizes: a closed `SectionProfile` cross-section algebra (a FIELD, never a peer union of per-family payloads), an `IfcBinding` row stamp, a `Coring` void class, a `ComponentStandard` receipt, two independent `MaterialId` slots, and an `Option<PropertyBag>` detail whose presence is a TYPE LAW of the family's `DetailLane`. One `ComponentFamily` `[SmartEnum<string>]` is THE policy row: each of the ten rows {masonry · cmu · steel · timber · glazing · reinforcement · fastener · connector · joint · panel} carries its `ComponentClass`, its `DetailLane`, its profile-admission predicate, its cross-nominal selector, and its `<Family>Seed.Rows` fold — so a NEW FAMILY is one row plus one seed page with zero central edits, and a NEW PART is one seed row with zero type edits. The prior `ComponentSection` ten-arm payload union, its five lockstep switches (`Family`/`CrossNominalMm`/`GrossRectangleMm`/`IfcEntity`/`PredefinedToken`), the cross-file `Detail` switch, and `ParametricSection` are the DELETED forms: every former switch is now a stored column, a base-constructor fact, a family delegate, or a field read.
 
-This page also owns the ONE section-computation spine: `SectionSolver.Solve` is the single exhaustive generated `Switch` over the closed `SectionProfile` axis — a new arm is compiler-forced HERE and nowhere else. Every solvable arm routes the ONE `VividOrange.Sections.SectionProperties` Green's-theorem integral through the ONE twenty-column `Admit` lift, then a topology supplement: `Curves` lowers each arm onto the TYPED `VividOrange.IProfiles` floor contract (`IRectangle`/`IRoundedRectangle`/`IRectangularHollow`/`IRoundedRectangularHollow`/`ICircle`/`ICircularHollow`/`IEllipse`/`IIParallelFlange`/`ICustomI`/`IChannel`/`IC`/`ITee`/`IAngle`/`IZ`/`ITrapezoid`) so the solver's internal part decomposition (`TrapezoidalPart` + `EllipseQuarterPart`) integrates fillets and curved edges EXACTLY — a faceted `LocalPolyline2d` loop survives only where no typed contract exists (`CellularRectangle` multi-void, `Corrugated` fold, `FilletTriangle`, `Outline`); `Forms` supplies the plastic/torsion/warping/shear/asymmetry closed forms, including the relocated `steel#STEEL_FAMILY` open-thin-walled algebra (`OpenI`/`MonoI`/`OpenChannel`/`OpenCee`/`MonoTee`/`OpenAngle`/`PointSymmetricZ`) and the carrier-free `.Utility` kernels (`SectionModuli`/`Inertiae`/`Areas`) where a singly-symmetric arm needs elastic moduli. `ComputedSection` stays the FROZEN twenty-column receipt (`[FROZEN_INVARIANTS]`), `ComponentCatalogue.Of` the ONE fail-loud `Traverse` fold computing BOTH frozen maps in one pass, `ComponentResolution` the byte-identical M7 one-hop, `QuantityRow` the one typed-mint owner `Projection/component#COMPONENT_PROJECTOR` `SeamSection` and `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` `Admit` compose, and `ComponentDetail` the relocated seed-time bag constructors every `Realization`/`Product`-lane seed composes. The page composes the `Rasm.Numerics` kernel `PositiveMagnitude`, the `Rasm.Domain` `Op`/`Context`/`Expected`/`AcceptValidated` rail, the `Rasm.Element` seam (`MaterialId`, `ProfileRef`, `FaultBand`, the `MeasureValue`/`QuantityType`/`Dimension`/`PropertyBag`/`DetailSchema` property vocabulary), and the VividOrange profile/section floor. `ProfileRef`/`ProfileSet`/`SectionProperties`/`ComputedSection` stay seam-canonical — the rename STOPS at the Materials boundary.
+This page also owns the ONE section-computation spine: `SectionSolver.Solve` is the single exhaustive generated `Switch` over the closed `SectionProfile` axis — a new arm is compiler-forced HERE and nowhere else. Every solvable arm routes the ONE `VividOrange.Sections.SectionProperties` Green's-theorem integral through the ONE twenty-column `Admit` lift, then a topology supplement: `Curves` lowers each arm onto the TYPED `VividOrange.IProfiles` floor contract (`IRectangle`/`IRoundedRectangle`/`IRectangularHollow`/`IRoundedRectangularHollow`/`ICircle`/`ICircularHollow`/`IEllipse`/`IIParallelFlange`/`ICustomI`/`IChannel`/`IC`/`ITee`/`IAngle`/`IZ`) or an exact `Perimeter`; the typed contracts let the solver decompose fillets and curved edges through `TrapezoidalPart` + `EllipseQuarterPart`, while the `Perimeter` path preserves multi-void, corrugated, offset-trapezium, triangle, and free-outline geometry. `Forms` supplies the plastic/torsion/warping/shear/asymmetry closed forms, including the relocated `steel#STEEL_FAMILY` open-thin-walled algebra (`OpenI`/`MonoI`/`OpenChannel`/`OpenCee`/`MonoTee`/`OpenAngle`/`PointSymmetricZ`) and the carrier-free `.Utility` kernels (`SectionModuli`/`Inertiae`/`Areas`) where a singly-symmetric arm needs elastic moduli. `ComputedSection` stays the FROZEN twenty-column receipt (`[FROZEN_INVARIANTS]`), `ComponentCatalogue.Of` the ONE fail-loud `Traverse` fold computing BOTH frozen maps in one pass, `ComponentResolution` the byte-identical M7 one-hop, `QuantityRow` the one typed-mint owner `Projection/component#COMPONENT_PROJECTOR` `SeamSection` and `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` `Admit` compose, and `ComponentDetail` the relocated seed-time bag constructors every `Realization`/`Product`-lane seed composes. The page composes the `Rasm.Numerics` kernel `PositiveMagnitude`, the `Rasm.Domain` `Op`/`Context`/`Expected`/`AcceptValidated` rail, the `Rasm.Element` seam (`MaterialId`, `ProfileRef`, `FaultBand`, the `MeasureValue`/`QuantityType`/`Dimension`/`PropertyBag`/`DetailSchema` property vocabulary), and the VividOrange profile/section floor. `ProfileRef`/`ProfileSet`/`SectionProperties`/`ComputedSection` stay seam-canonical — the rename STOPS at the Materials boundary.
 
 ## [01]-[INDEX]
 
 - [02]-[COMPONENT_OWNER]: `ComponentId`, `ComponentClass`, `DetailLane`, `CoringClass`/`Coring`, `ComponentAuthority`, `IfcBinding`, the `ComponentFamily` policy row, the band-2300 `ComponentFault` (registry read), `ComponentUnit`, `ComponentStandard`, and the `Component` record with its ONE polymorphic `Of` admission.
-- [03]-[SECTION_PROFILE]: `VoidCell`, `Ply`, and the closed `SectionProfile` `[Union]` — named `PositiveMagnitude` dimensions, gross bounding facts as base-constructor state, and one railed `Of` factory per arm.
-- [04]-[SECTION_SOLVER]: `SectionSupplement`, `SectionSolver.Solve` (the ONE exhaustive dispatch), the twenty-column `Admit` lift, the RC gross-outline `ProfileOf`, the `Curves` typed-contract perimeter table, and the `Forms` closed-form supplement table carrying the relocated steel open-thin-walled algebra.
+- [03]-[SECTION_PROFILE]: `VoidCell`, the bounded `PlyRole` vocabulary, `Ply`, and the closed `SectionProfile` `[Union]` — named `PositiveMagnitude` dimensions, gross bounding facts as base-constructor state, and one railed `Of` factory per arm.
+- [04]-[SECTION_SOLVER]: `SectionSupplement`, `SectionSolver.Solve` (the ONE exhaustive dispatch), the twenty-column `Admit` lift, the profile-faithful RC-outline `ProfileOf`, the `Curves` typed-contract perimeter table, and the `Forms` closed-form supplement table carrying the relocated steel open-thin-walled algebra.
 - [05]-[COMPUTED_SECTION]: the FROZEN twenty-field receipt + `GoverningRadiusMm`.
 - [06]-[CATALOGUE]: `ComponentRow`, `ComponentCatalogue.Of`/`Lookup` — the fail-loud one-pass fold over `ComponentFamily.Items`.
 - [07]-[QUANTITY_ROW]: the one typed-mint `[SmartEnum]` the seam lift and the property ingress compose.
@@ -20,10 +20,10 @@ This page also owns the ONE section-computation spine: `SectionSolver.Solve` is 
 
 - Owner: `Component` over the ten-row `ComponentFamily` policy axis; `ComponentId` the `family.designation` key; `ComponentFault` band 2300 read from the `FaultBand` registry; `IfcBinding` the Materials-side IFC pair as ROW DATA (was two 10-arm switches); `DetailLane` the bag-presence law; `Coring`/`CoringClass` the cross-family void class; `ComponentUnit`/`ComponentStandard` the shared dimensional and regional receipts.
 - Cases: one `Component` shape across all ten families — `Family` (the policy row), `Designation`, `Profile` (the `SectionProfile` arm), `Ifc` (the stored `IfcBinding` row), `Coring`, `Standard`, `SubstanceId`/`AppearanceId` (independent `MaterialId` slots — a coated rebar keeps capacity steel and epoxy appearance distinct), `Detail` (`Option<PropertyBag>`, `Some` iff the family lane is not `None`). Every former `ComponentSection` switch is a field read (`IfcEntity`/`PredefinedToken`), a family delegate (`CrossNominalMm`), or base-constructor state (`GrossRectangleMm`).
-- Entry: `Component.Of(family, designation, profile, ifc, coring, standard, substanceId, appearanceId, detail, key)` — ONE polymorphic admission guarding ONLY Component-owned invariants: the `ComponentId` format, the family/profile admission predicate, the coring range, the laminate build, and the lane/detail consistency (the deleted `Detail` switch's totality, now a type law). The `CrossNominalMm > 0` guard is DELETED as unrepresentable — the value is a `PositiveMagnitude` by construction.
+- Entry: `Component.Of(family, designation, profile, ifc, coring, standard, substanceId, appearanceId, detail, key)` guards the exact `family.designation` grammar, family-prefix ownership, family/profile admission, coring, and lane/detail consistency. `SectionProfile.Layered.Of` owns ply-stack closure because every admitted layered value must be valid before a `Component` exists.
 - Packages: Rasm.Numerics (project — `PositiveMagnitude`), Rasm.Domain (project — `Op`/`Context`/`Expected`/`AcceptValidated`), Rasm.Element (project — `MaterialId`, `ProfileRef`, `FaultBand`, `MeasureValue`/`QuantityType`/`Dimension`/`PropertyBag`/`PropertyName`/`PropertyValue`/`DetailSchema`), Thinktecture.Runtime.Extensions (`[Union]`/`[SmartEnum<string>]`/`[ValueObject<string>]`/`[UseDelegateFromConstructor]`, generated exhaustive `Switch`, `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`; `libs/csharp/.api/api-thinktecture-runtime-extensions.md`), LanguageExt.Core (`Fin`/`Seq`/`Traverse`/`guard` — rails-and-effects doctrine substrate), VividOrange.IProfiles + VividOrange.Profiles.Perimeter + VividOrange.Geometry + VividOrange.Sections.SectionProperties + UnitsNet (`Rasm.Materials/.api` catalogues), BCL inbox (`FrozenDictionary`).
 - Growth: a new part is one seed row; a new family is one `ComponentFamily` row plus one seed page (no union edit, no switch edit, no `.Concat` edit); a new section shape is one `SectionProfile` arm plus one compiler-forced `Solve` arm (buildingSMART profile-schema cadence, never thing cadence); a new fault is one `ComponentFault` case; a new structural column is one `ComputedSection` field every solvable arm fills; a new detail row is one `DetailSchema`-named tuple in a seed bag; a new typed mint is one `QuantityRow` row.
-- Boundary: `ComponentFault` derives `Expected` (`IValidationError<ComponentFault>`), its `Code` the `FaultBand.Component` registry read — disjointness is type-enforced, never prose. `IfcBinding` strings stay NEUTRAL here; the generated `Rasm.Bim` roster is the validation authority (composition-time `IfcLegality`, egress-time `AdmitPredefined`, design-time emitter stamp audit) — Materials never references `Rasm.Bim`. Seed pages in child sub-namespaces (`Masonry`/`Cmu`/`Steel`/`Panel`/`Reinforcement`) resolve through file-local aliases so the policy rows read `<Family>Seed.Rows` uniformly.
+- Boundary: `ComponentFault` derives `Expected` (`IValidationError<ComponentFault>`), its `Code` the `FaultBand.Component` registry read — disjointness is type-enforced, never prose. `IfcBinding` strings stay NEUTRAL here; the generated `Rasm.Bim` roster is the validation authority (composition-time `IfcLegality`, egress-time `AdmitPredefined`, design-time emitter stamp audit) — Materials never references `Rasm.Bim`. Every seed page declares the ONE flat `Rasm.Materials.Component` namespace — the `Component/` folder is one namespace under `dotnet_style_namespace_match_folder = true:error` — so the policy rows bind `<Family>Seed.Rows` by bare name with no alias.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
@@ -32,33 +32,44 @@ using System.Globalization;                          // CultureInfo.InvariantCul
 using LanguageExt;
 using Rasm.Numerics;                                  // PositiveMagnitude — the kernel >0-finite magnitude (Atoms.cs)
 using Rasm.Domain;                                   // Op, Context, Expected, AcceptValidated
-using Rasm.Element;                                  // MaterialId, ProfileRef, FaultBand, MeasureValue/QuantityType/PropertyBag/PropertyName/PropertyValue/DetailSchema
+using Rasm.Element.Composition;      // MaterialId, ProfileRef
+using Rasm.Element.Projection;       // FaultBand
+using Rasm.Element.Properties;       // MeasureValue, QuantityType, PropertyBag, PropertyName, PropertyValue, DetailSchema, Dimension
 using Thinktecture;
 using UnitsNet;                                      // Length — the typed profile-contract dimension currency
 using VividOrange.Geometry;                          // LocalPoint2d, LocalPolyline2d, ILocalPoint2d, ILocalPolyline2d
-using VividOrange.Profiles;                          // IProfile + the typed parametric contracts (IRectangle/ICircle/IEllipse/II/IC/IZ/ITee/IAngle/ITrapezoid/…), Perimeter
+using VividOrange.Profiles;                          // IProfile + the typed parametric contracts (IRectangle/ICircle/IEllipse/II/IC/IZ/ITee/IAngle/…), Perimeter
 using VividOrange.Sections.SectionProperties.Utility; // Areas/Inertiae/SectionModuli — the carrier-free Green's-theorem kernels
 using Expected = Rasm.Domain.Expected;               // the kernel Expected (parameterless ctor + virtual Code/Category), NOT LanguageExt.Common.Expected
-using Dimension = Rasm.Element.Dimension;            // the seam 7-exponent measure Dimension (Rasm.Numerics.Dimension, the count atom, is unused here)
-using SectionProperties = VividOrange.Sections.SectionProperties.SectionProperties;   // the solver carrier; the seam Rasm.Element.SectionProperties is prose-only on this page
+using Dimension = Rasm.Element.Properties.Dimension;            // the seam 7-exponent measure Dimension (Rasm.Numerics.Dimension, the count atom, is unused here)
+using SectionProperties = VividOrange.Sections.SectionProperties.SectionProperties;   // the solver carrier; the seam Rasm.Element.Composition.SectionProperties is prose-only on this page
 using static LanguageExt.Prelude;
 
 // component#COMPONENT_OWNER owns Component/ComponentClass/ComponentFamily/ComponentId/ComponentFault/DetailLane/
-// IfcBinding/Coring/CoringClass/ComponentUnit/ComponentStandard/ComponentAuthority/SectionProfile/VoidCell/Ply/
-// SectionSolver/ComputedSection/ComponentRow/ComponentCatalogue/QuantityRow/ComponentDetail/ComponentResolution.
+// IfcBinding/Coring/CoringClass/ComponentUnit/ComponentStandard/ComponentAuthority/SectionProfile/VoidCell/PlyRole/
+// Ply/SectionSolver/ComputedSection/ComponentRow/ComponentCatalogue/QuantityRow/ComponentDetail/ComponentResolution.
 // Every <Family>Seed declares in this ONE Rasm.Materials.Component namespace (the <Family>Seed naming keeps rows
 // collision-free), so the ComponentFamily policy rows bind SteelSeed.Rows/MasonrySeed.Rows/… by bare name — no alias.
 namespace Rasm.Materials.Component;
 
 // --- [TYPES] -------------------------------------------------------------------------------
-// The component key: 'family.designation' (steel.w14x90, masonry.us-modular, cmu.8in-hollow) — a '.'-separated non-empty
-// token; the family discriminant rides the prefix so every family keys uniformly.
+// The component key is exactly `family.designation`: one non-edge separator and two non-empty tokens. Component.Of
+// proves that the prefix equals the selected ComponentFamily key.
 [ValueObject<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public readonly partial struct ComponentId {
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
-        validationError = string.IsNullOrWhiteSpace(value) || !value.Contains('.') ? new ValidationError("<component-id requires 'family.designation'>") : null;
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        if (string.IsNullOrWhiteSpace(value)) {
+            validationError = new ValidationError("<component-id requires 'family.designation'>");
+            return;
+        }
+
+        int separator = value.IndexOf('.');
+        validationError = separator <= 0 || separator != value.LastIndexOf('.') || separator == value.Length - 1
+            ? new ValidationError("<component-id requires 'family.designation'>")
+            : null;
+    }
 }
 
 // The structural-class discriminant, a THREE-row axis: Primary a space-bounding one-piece member (geometry-on-type,
@@ -149,8 +160,8 @@ public sealed partial class ComponentFamily {
     public static readonly ComponentFamily Masonry       = new("masonry",       ComponentClass.Minor,   DetailLane.Realization, admits: static p => p is SectionProfile.Rectangle or SectionProfile.CellularRectangle,                                    crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: MasonrySeed.Rows);
     public static readonly ComponentFamily Cmu           = new("cmu",           ComponentClass.Minor,   DetailLane.None,        admits: static p => p is SectionProfile.CellularRectangle,                                                                crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: CmuSeed.Rows);
     public static readonly ComponentFamily Steel         = new("steel",         ComponentClass.Primary, DetailLane.None,        admits: static p => p is SectionProfile.Catalogued or SectionProfile.RectangleHollow or SectionProfile.CircleHollow or SectionProfile.ColdFormedC, crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: SteelSeed.Rows);
-    public static readonly ComponentFamily Timber        = new("timber",        ComponentClass.Primary, DetailLane.None,        admits: static p => p is SectionProfile.Rectangle or SectionProfile.Layered,                                              crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: TimberSeed.Rows);
-    public static readonly ComponentFamily Glazing       = new("glazing",       ComponentClass.Minor,   DetailLane.Product,     admits: static p => p is SectionProfile.Layered,                                                                           crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: GlazingSeed.Rows);
+    public static readonly ComponentFamily Timber        = new("timber",        ComponentClass.Primary, DetailLane.None,        admits: static p => p is SectionProfile.Rectangle || p is SectionProfile.Layered l && l.Plies.ForAll(static ply => ply.Role == PlyRole.Longitudinal || ply.Role == PlyRole.Transverse), crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: TimberSeed.Rows);
+    public static readonly ComponentFamily Glazing       = new("glazing",       ComponentClass.Minor,   DetailLane.Product,     admits: static p => p is SectionProfile.Layered l && l.Plies.ForAll(static ply => ply.Role == PlyRole.Pane || ply.Role == PlyRole.Interlayer || ply.Role == PlyRole.Cavity),               crossNominal: static p => p.GrossRectangleMm.DepthMm, rows: GlazingSeed.Rows);
     public static readonly ComponentFamily Reinforcement = new("reinforcement", ComponentClass.Minor,   DetailLane.Realization, admits: static p => p is SectionProfile.Circle,                                                                            crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: ReinforcementSeed.Rows);
     public static readonly ComponentFamily Fastener      = new("fastener",      ComponentClass.Minor,   DetailLane.Realization, admits: static p => p is SectionProfile.Circle,                                                                            crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: FastenerSeed.Rows);
     public static readonly ComponentFamily Connector     = new("connector",     ComponentClass.Minor,   DetailLane.Realization, admits: static p => p is SectionProfile.Rectangle or SectionProfile.Outline,                                              crossNominal: static p => p.GrossRectangleMm.WidthMm, rows: ConnectorSeed.Rows);
@@ -225,15 +236,13 @@ public readonly record struct ComponentStandard(string Region, double StandardJo
 
 // The ONE standardized-type owner — profile + IFC stamp + seed-built detail replace the section union; every former
 // switch is a field read or a family-delegate read. Of guards Component-owned invariants only: the ComponentId format,
-// the family/profile admission, the coring range, the laminate build, and the lane/detail consistency (a None-lane
+// the family/profile admission, the coring range, and the lane/detail consistency (a None-lane
 // family carries no bag; a Realization/Product-lane family always carries one). Dimensional admission already happened
 // in the SectionProfile Of factories — a Component never re-proves a PositiveMagnitude the kernel admitted.
 public sealed record Component(
     ComponentFamily Family, ComponentId Designation, SectionProfile Profile, IfcBinding Ifc,
     Coring Coring, ComponentStandard Standard, MaterialId SubstanceId, MaterialId AppearanceId,
     Option<PropertyBag> Detail) {
-
-    const double LaminateBuildTolMm = 0.5;   // ply-sum-vs-overall closure: half a millimetre absorbs published rounding, never a missing ply
 
     public ComponentClass Class => Family.Class;
     public string IfcEntity => Ifc.Entity;
@@ -248,11 +257,10 @@ public sealed record Component(
         from id in ComponentId.Validate(designation, CultureInfo.InvariantCulture, out ComponentId built) is { } error
             ? Fin.Fail<ComponentId>(ComponentFault.Designation(key, $"<malformed-designation:{designation}:{error.Message}>"))
             : Fin.Succ(built)
+        from owned in guard(id.Value.StartsWith($"{family.Key}.", StringComparison.Ordinal),
+            ComponentFault.Designation(key, $"<designation-family-mismatch:{family.Key}:{id.Value}>"))
         from admitted in guard(family.Admits(profile), ComponentFault.Family(key, $"<family-profile-mismatch:{family.Key}>"))
         from voided in guard(coring.VoidFraction is >= 0.0 and < 1.0, ComponentFault.Coring(key, $"<void-fraction-out-of-range:{coring.VoidFraction:R}>"))
-        from laminated in guard(profile is not SectionProfile.Layered laminate
-                || Math.Abs(laminate.Plies.Sum(static p => p.ThicknessMm.Value) - laminate.OverallMm.Value) <= LaminateBuildTolMm,
-            ComponentFault.Dimension(key, $"<laminate-build-mismatch:{designation}>"))
         from laned in guard(detail.IsSome == (family.Lane != DetailLane.None),
             ComponentFault.Family(key, $"<detail-lane-mismatch:{family.Key}:{family.Lane}>"))
         select new Component(family, id, profile, ifc, coring, standard, substanceId, appearanceId, detail);
@@ -261,18 +269,46 @@ public sealed record Component(
 
 ## [03]-[SECTION_PROFILE]
 
-- Owner: `SectionProfile` the closed cross-section `[Union]` — the `IfcParameterizedProfileDef` set carried natively with NAMED `PositiveMagnitude` dimensions, widened by the domain arms the ten families need (`CellularRectangle` per-cell voids, `Layered` plies, `Corrugated` deck fold, `Nominal` bond-line, `Catalogued` published identity, `Outline` typed free tail); `VoidCell` the fill-state cell row; `Ply` the laminate row.
+- Owner: `SectionProfile` the closed cross-section `[Union]` — the `IfcParameterizedProfileDef` set carried natively with NAMED `PositiveMagnitude` dimensions, widened by the domain arms the ten families need (`CellularRectangle` per-cell voids, `Layered` plies, `Corrugated` deck fold, `Nominal` bond-line, `Catalogued` published identity, `Outline` typed free tail); `VoidCell` the fill-state cell row; `PlyRole` the BOUNDED layer-semantics vocabulary; `Ply` the laminate row.
 - Cases: twenty-one arms; gross bounding `(WidthMm, DepthMm)` facts are BASE-CONSTRUCTOR STATE declared once per arm — no interior switch exists on this axis; the ONE dispatch site is `SectionSolver.Solve`. Growth cadence is the profile schema (buildingSMART parameterized-profile set), never thing cadence.
 - Entry: construction is RAILED — each arm carries an `Of` factory returning `Fin<SectionProfile>` that lifts magnitudes through `key.AcceptValidated<PositiveMagnitude>` AND validates the non-magnitude slots (non-negative finite fillets/edges, finite slopes/offsets, cell containment PLUS pairwise cell disjointness — an overlapping lattice double-subtracts the net section and voids silently, so it faults at admission — wall-vs-envelope closure) on `ComponentFault.Dimension`; seed folds construct through `Of` INSIDE their `Traverse`, never a throwing lift. `Catalogued` constructs direct — its payload is already-admitted `SteelShape` state.
-- Boundary: `VoidCell` is MIN-CORNER anchored in the profile's `[0,WidthMm]×[0,DepthMm]` corner frame (the convention `MasonryCells.Of` and the cmu lattice emit); `Grouted` drives the as-built net (only ungrouted cells void), the grouted fraction, self-weight, and the parallel-path thermal split; `Reinforced` marks bar-bearing cells; geometry-only cells collapse as-built physics to the ungrouted case. `NonNegativeMagnitude` does not exist in `Rasm.Numerics` (verified) — the non-negative/finite edge check is the inline `Edge` guard inside `Of` (R8 resolved).
+- Boundary: `VoidCell` is MIN-CORNER anchored in the profile's `[0,WidthMm]×[0,DepthMm]` corner frame (the convention `MasonryVoids.Cells` and the cmu lattice emit); `Grouted` drives the as-built net (only ungrouted cells void), the grouted fraction, self-weight, and the parallel-path thermal split; `Reinforced` marks bar-bearing cells; geometry-only cells collapse as-built physics to the ungrouted case. `Ply.Role` is the BOUNDED `PlyRole` row, never a free string: `Longitudinal`/`Transverse` are the timber structural discriminants, `Pane`/`Interlayer`/`Cavity` the glazing stack semantics, and the panel face/core rows carry appearance-facing policy. `ComponentFamily.Admits` proves the lane subset, so a known panel role cannot enter timber and a known timber role cannot enter glazing. The human-readable `IfcMaterialLayer.Name` is a BOUNDARY projection over `(Material, Role, ordinal)` — an unknown role is unrepresentable, and no consumer parses a role string. `NonNegativeMagnitude` does not exist in `Rasm.Numerics` (verified) — the non-negative/finite edge check is the inline `Edge` guard inside `Of` (R8 resolved).
 
 ```csharp signature
+// --- [TYPES] -------------------------------------------------------------------------------
+// The bounded layer-semantics vocabulary a Ply carries: timber orientation, glazing stack position, and panel
+// face/core material function share one identity regime and one IFC layer-name boundary. Facing is panel appearance
+// policy data; every timber/glazing/core row is false.
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+public sealed partial class PlyRole {
+    public static readonly PlyRole Longitudinal        = new("0",                       facing: false);
+    public static readonly PlyRole Transverse          = new("90",                      facing: false);
+    public static readonly PlyRole Pane                = new("pane",                    facing: false);
+    public static readonly PlyRole Interlayer          = new("interlayer",              facing: false);
+    public static readonly PlyRole Cavity              = new("cavity",                  facing: false);
+    public static readonly PlyRole PaperFace           = new("paper-face",              facing: true);
+    public static readonly PlyRole GlassMatFacer       = new("glass-mat-facer",         facing: true);
+    public static readonly PlyRole FoilFacer           = new("foil-facer",              facing: true);
+    public static readonly PlyRole GlassFiberMatFacer  = new("glass-fiber-mat-facer",   facing: true);
+    public static readonly PlyRole GlassMeshScrim      = new("glass-mesh-scrim",        facing: true);
+    public static readonly PlyRole GypsumCore          = new("gypsum-core",             facing: false);
+    public static readonly PlyRole VeneerPly           = new("veneer-ply",              facing: false);
+    public static readonly PlyRole StrandLayer         = new("strand-layer",            facing: false);
+    public static readonly PlyRole CementAggregateCore = new("cement-aggregate-core",   facing: false);
+    public static readonly PlyRole FoamCore            = new("foam-core",               facing: false);
+    public static readonly PlyRole MembraneCore        = new("membrane-core",           facing: false);
+    public bool Facing { get; }
+}
+
 // --- [MODELS] ------------------------------------------------------------------------------
 // Fill-state rides the cell: Grouted drives the as-built net section (only ungrouted cells void), the grouted-cell
 // fraction, self-weight, and the parallel-path thermal split; Reinforced marks the bar-bearing cells. XMm/YMm are the
 // MIN-CORNER in the profile's [0,Width]x[0,Depth] corner frame; WidthMm/HeightMm the first/second-axis extents.
 public readonly record struct VoidCell(double XMm, double YMm, double WidthMm, double HeightMm, bool Grouted = false, bool Reinforced = false);
-public readonly record struct Ply(MaterialId Material, PositiveMagnitude ThicknessMm, string Role);
+
+public readonly record struct Ply(MaterialId Material, PositiveMagnitude ThicknessMm, PlyRole Role);
 
 // The closed cross-section vocabulary. CONSTRUCTION IS RAILED: each arm's Of lifts magnitudes and validates the
 // non-magnitude slots on ComponentFault.Dimension — a negative fillet, NaN slope, or out-of-bounds cell faults loud
@@ -339,6 +375,8 @@ public abstract partial record SectionProfile {
         public static Fin<SectionProfile> Of(double depthMm, double widthMm, double webMm, double flangeMm, double filletMm, double edgeMm, double flangeSlopeDeg, Op key) =>
             from d in key.Pm(depthMm) from b in key.Pm(widthMm) from tw in key.Pm(webMm) from tf in key.Pm(flangeMm)
             from f in key.Edge(filletMm) from e in key.Edge(edgeMm) from s in key.Slope(flangeSlopeDeg)
+            from fits in guard(tw.Value < b.Value && 2.0 * tf.Value < d.Value && 2.0 * f <= Math.Min(b.Value - tw.Value, d.Value - 2.0 * tf.Value),
+                ComponentFault.Dimension(key, $"<i-profile-members-consume-envelope:{depthMm:R}x{widthMm:R}>"))
             select (SectionProfile)new IShape(d, b, tw, tf, f, e, s);
     }
 
@@ -346,6 +384,9 @@ public abstract partial record SectionProfile {
         public static Fin<SectionProfile> Of(double depthMm, double topWidthMm, double bottomWidthMm, double webMm, double topFlangeMm, double bottomFlangeMm, double filletMm, Op key) =>
             from d in key.Pm(depthMm) from bt in key.Pm(topWidthMm) from bb in key.Pm(bottomWidthMm)
             from tw in key.Pm(webMm) from tt in key.Pm(topFlangeMm) from tb in key.Pm(bottomFlangeMm) from f in key.Edge(filletMm)
+            from fits in guard(tw.Value < Math.Min(bt.Value, bb.Value) && tt.Value + tb.Value < d.Value
+                    && 2.0 * f <= Math.Min(Math.Min(bt.Value, bb.Value) - tw.Value, d.Value - tt.Value - tb.Value),
+                ComponentFault.Dimension(key, $"<asymmetric-i-members-consume-envelope:{depthMm:R}>"))
             select (SectionProfile)new AsymmetricIShape(d, bt, bb, tw, tt, tb, f);
     }
 
@@ -353,13 +394,17 @@ public abstract partial record SectionProfile {
         public static Fin<SectionProfile> Of(double depthMm, double widthMm, double webMm, double flangeMm, double filletMm, double edgeMm, double flangeSlopeDeg, Op key) =>
             from d in key.Pm(depthMm) from b in key.Pm(widthMm) from tw in key.Pm(webMm) from tf in key.Pm(flangeMm)
             from f in key.Edge(filletMm) from e in key.Edge(edgeMm) from s in key.Slope(flangeSlopeDeg)
+            from fits in guard(tw.Value < b.Value && 2.0 * tf.Value < d.Value && 2.0 * f <= Math.Min(b.Value - tw.Value, d.Value - 2.0 * tf.Value),
+                ComponentFault.Dimension(key, $"<channel-members-consume-envelope:{depthMm:R}x{widthMm:R}>"))
             select (SectionProfile)new Channel(d, b, tw, tf, f, e, s);
     }
 
     public sealed record ColdFormedC(PositiveMagnitude DepthMm, PositiveMagnitude WidthMm, PositiveMagnitude WallMm, PositiveMagnitude GirthMm, double InnerFilletMm) : SectionProfile(WidthMm, DepthMm) {
         public static Fin<SectionProfile> Of(double depthMm, double widthMm, double wallMm, double girthMm, double innerFilletMm, Op key) =>
             from d in key.Pm(depthMm) from b in key.Pm(widthMm) from t in key.Pm(wallMm) from g in key.Pm(girthMm) from f in key.Edge(innerFilletMm)
-            from lipped in guard(g.Value < d.Value / 2.0, ComponentFault.Dimension(key, $"<cee-lip-exceeds-half-depth:{girthMm:R}>"))
+            from lipped in guard(2.0 * t.Value < Math.Min(d.Value, b.Value) && g.Value + t.Value < b.Value && g.Value < d.Value / 2.0
+                    && f <= Math.Min(b.Value - 2.0 * t.Value, d.Value / 2.0 - t.Value),
+                ComponentFault.Dimension(key, $"<cee-wall-or-lip-consumes-envelope:{depthMm:R}x{widthMm:R}>"))
             select (SectionProfile)new ColdFormedC(d, b, t, g, f);
     }
 
@@ -368,6 +413,8 @@ public abstract partial record SectionProfile {
             from d in key.Pm(depthMm) from b in key.Pm(widthMm) from tw in key.Pm(webMm) from tf in key.Pm(flangeMm)
             from f in key.Edge(filletMm) from fe in key.Edge(flangeEdgeMm) from we in key.Edge(webEdgeMm)
             from fs in key.Slope(flangeSlopeDeg) from ws in key.Slope(webSlopeDeg)
+            from fits in guard(tw.Value < b.Value && tf.Value < d.Value && 2.0 * f <= Math.Min(b.Value - tw.Value, d.Value - tf.Value),
+                ComponentFault.Dimension(key, $"<tee-members-consume-envelope:{depthMm:R}x{widthMm:R}>"))
             select (SectionProfile)new Tee(d, b, tw, tf, f, fe, we, fs, ws);
     }
 
@@ -375,6 +422,8 @@ public abstract partial record SectionProfile {
         public static Fin<SectionProfile> Of(double depthMm, double widthMm, double thicknessMm, double filletMm, double edgeMm, double legSlopeDeg, Op key) =>
             from d in key.Pm(depthMm) from b in key.Pm(widthMm) from t in key.Pm(thicknessMm)
             from f in key.Edge(filletMm) from e in key.Edge(edgeMm) from s in key.Slope(legSlopeDeg)
+            from fits in guard(t.Value < Math.Min(d.Value, b.Value) && 2.0 * f <= Math.Min(d.Value - t.Value, b.Value - t.Value),
+                ComponentFault.Dimension(key, $"<angle-leg-consumes-envelope:{depthMm:R}x{widthMm:R}>"))
             select (SectionProfile)new Angle(d, b, t, f, e, s);
     }
 
@@ -382,11 +431,13 @@ public abstract partial record SectionProfile {
         public static Fin<SectionProfile> Of(double depthMm, double flangeWidthMm, double webMm, double flangeMm, double filletMm, double edgeMm, Op key) =>
             from d in key.Pm(depthMm) from b in key.Pm(flangeWidthMm) from tw in key.Pm(webMm) from tf in key.Pm(flangeMm)
             from f in key.Edge(filletMm) from e in key.Edge(edgeMm)
+            from fits in guard(tw.Value < 2.0 * b.Value && 2.0 * tf.Value < d.Value && 2.0 * f <= d.Value - 2.0 * tf.Value,
+                ComponentFault.Dimension(key, $"<zed-members-consume-envelope:{depthMm:R}x{flangeWidthMm:R}>"))
             select (SectionProfile)new Zed(d, b, tw, tf, f, e);
     }
 
     // PJP/CJP groove-weld prep envelope; TopOffsetMm the one-sided bevel shift (signed, finite).
-    public sealed record Trapezium(PositiveMagnitude BottomWidthMm, PositiveMagnitude TopWidthMm, PositiveMagnitude DepthMm, double TopOffsetMm) : SectionProfile(Wider(BottomWidthMm, TopWidthMm), DepthMm) {
+    public sealed record Trapezium(PositiveMagnitude BottomWidthMm, PositiveMagnitude TopWidthMm, PositiveMagnitude DepthMm, double TopOffsetMm) : SectionProfile(TrapezoidSpan(BottomWidthMm, TopWidthMm, TopOffsetMm), DepthMm) {
         public static Fin<SectionProfile> Of(double bottomWidthMm, double topWidthMm, double depthMm, double topOffsetMm, Op key) =>
             from bb in key.Pm(bottomWidthMm) from bt in key.Pm(topWidthMm) from d in key.Pm(depthMm) from o in key.Slope(topOffsetMm)
             select (SectionProfile)new Trapezium(bb, bt, d, o);
@@ -408,11 +459,14 @@ public abstract partial record SectionProfile {
     }
 
     // Boards, IGUs, membranes; glazing seeds pass widthMm = overallMm preserving the prior square gross projection.
-    // The ply-sum-vs-overall closure is Component.Of's laminate guard — one owner, never re-checked here.
     public sealed record Layered(Seq<Ply> Plies, PositiveMagnitude OverallMm, PositiveMagnitude WidthMm) : SectionProfile(WidthMm, OverallMm) {
+        const double BuildToleranceMm = 0.5;
+
         public static Fin<SectionProfile> Of(Seq<Ply> plies, double overallMm, double widthMm, Op key) =>
             from stacked in guard(!plies.IsEmpty, ComponentFault.Dimension(key, "<layered-profile-empty>"))
             from o in key.Pm(overallMm) from w in key.Pm(widthMm)
+            from closed in guard(Math.Abs(plies.Sum(static p => p.ThicknessMm.Value) - o.Value) <= BuildToleranceMm,
+                ComponentFault.Dimension(key, $"<layered-profile-build-mismatch:{overallMm:R}>"))
             select (SectionProfile)new Layered(plies, o, w);
     }
 
@@ -432,6 +486,10 @@ public abstract partial record SectionProfile {
     }
 
     static PositiveMagnitude Wider(PositiveMagnitude a, PositiveMagnitude b) => a.Value >= b.Value ? a : b;
+    static PositiveMagnitude TrapezoidSpan(PositiveMagnitude bottom, PositiveMagnitude top, double offset) {
+        double topMin = (bottom.Value - top.Value) / 2.0 + offset;
+        return PositiveMagnitude.Create(Math.Max(bottom.Value, topMin + top.Value) - Math.Min(0.0, topMin));
+    }
 }
 
 // --- [BOUNDARIES] --------------------------------------------------------------------------
@@ -452,8 +510,8 @@ file static class Admit {
 ## [04]-[SECTION_SOLVER]
 
 - Owner: `SectionSolver` — ONE solver replaces every per-family perimeter builder: one generated exhaustive `Switch` over the closed profile axis routes the ONE `new SectionProperties((IProfile)…)` Green's-theorem integral (decompile-verified: both `SectionProperties(IProfile)` and `SectionProperties(ISection)` constructors exist) through the ONE twenty-column `Admit` lift plus a `SectionSupplement` topology row; `Curves` the per-arm profile table; `Forms` the per-arm supplement table.
-- Cases: `Curves` lowers each arm onto the TYPED `VividOrange.IProfiles` contract — decompile-verified: `ProfileParts.GetParts` dispatches on `IDoubleAngle`/`IAngle`/`IC`/`IDoubleChannel`/`IChannel`/`ICircularHollow`/`ICircle`/`ICruciform`/`ICustomI`/`IEllipseHollow`/`IEllipse`/`IIParallelFlange`/`II`/`IRectangularHollow`/`IRoundedRectangularHollow`/`IRoundedRectangle`/`IRectangle`/`ITee`/`ITrapezoid`/`IZ` and decomposes fillets, rounded HSS corners, and circular/elliptical edges into EXACT `EllipseQuarterPart`s (an unknown non-`IPerimeter` profile THROWS, so every `Curves` output is a verified-dispatch member by construction); `Areas.CalculateArea(IProfile)` short-circuits an `IPerimeter` to the polyline path, which carries the void-bearing and free-fold arms (`CellularRectangle`/`Corrugated`/`FilletTriangle`/`Outline`).
-- Entry: `SectionSolver.Solve(profile, key)` the one dispatch; `SectionSolver.ProfileOf(widthMm, depthMm, key)` the RC gross-outline entry the `reinforcement#RC_SECTION` consumer feeds (preserved from the retired `ParametricSection`, now minting the typed `IRectangle` contract).
+- Cases: `Curves` lowers each arm onto a verified `VividOrange.IProfiles` contract or a typed `Perimeter`. The `Perimeter` path owns multi-void, corrugated, asymmetric-trapezium, triangle, and free-outline geometry; `Trapezium.TopOffsetMm` therefore changes the integrated centroid and moments instead of disappearing through the symmetric `ITrapezoid` contract.
+- Entry: `SectionSolver.Solve(profile, key)` the one dispatch; `SectionSolver.ProfileOf(profile, key)` the PROFILE-FAITHFUL RC-outline entry the `reinforcement#RC_SECTION` consumer feeds — one generated total Switch over the closed `SectionProfile` axis reusing the `Curves` table, so a circular column feeds its true `ICircle` and every arm its own typed contract (the retired `ParametricSection` width×depth bounding-rectangle entry is the deleted narrowing).
 - Boundary: `Forms` carries the RELOCATED `steel#STEEL_FAMILY` `SteelStiffness` open-thin-walled algebra (`OpenI`/`MonoI`/`OpenChannel`/`OpenCee`/`MonoTee`/`OpenAngle`/`PointSymmetricZ` fill `Iw` and the asymmetry columns; `FromCatalogue` keys the same cores by `SteelClass`); the singly-symmetric arms source elastic moduli from the carrier-free `.Utility` kernels (`SectionModuli.CalculateSectionModulusYy/Zz`, `Inertiae`, `Areas`) — the direct static path the catalogue documents — never a second carrier. `Layered`/`Nominal` are unsectioned by design and fault loudly if a mis-flagged `Sectioned` row reaches them. A supplement column that is non-positive or non-finite rails `ComponentFault.Section` at the lift, and the lazy carrier reads trap in ONE `Try` lift so a degenerate `Outline` perimeter's THROW rails the same slot (NaN and throw alike) — a degenerate section never seeds the seam and no `VividOrange` exception escapes the boundary.
 
 ```csharp signature
@@ -472,34 +530,62 @@ public readonly record struct SectionSupplement(
 public static class SectionSolver {
     public static Fin<ComputedSection> Solve(SectionProfile profile, Op key) =>
         profile.Switch(
-            rectangle:         r => Admit(Curves.Rect(r.WidthMm.Value, r.DepthMm.Value), r, Forms.SolidRectangle(r), key),
-            cellularRectangle: c => Admit(Curves.RectWithVoids(c.WidthMm.Value, c.DepthMm.Value, c.Cells), c, Forms.NetRectangle(c), key),
-            rectangleHollow:   r => Admit(Curves.RectTube(r), r, Forms.BoxTube(r), key),
-            roundedRectangle:  r => Admit(Curves.RoundedRect(r), r, Forms.SolidRounded(r), key),
-            circle:            c => Admit(Curves.Disc(c), c, Forms.SolidCircle(c), key),
-            circleHollow:      c => Admit(Curves.Ring(c), c, Forms.Pipe(c), key),
-            ellipse:           e => Admit(Curves.Ellipse(e), e, Forms.SolidEllipse(e), key),
-            iShape:            i => Admit(Curves.I(i), i, Forms.OpenI(i), key),
-            asymmetricIShape:  i => Admit(Curves.AsymI(i), i, Forms.MonoI(i), key),
-            channel:           u => Admit(Curves.U(u), u, Forms.OpenChannel(u), key),
-            coldFormedC:       c => Admit(Curves.Cee(c), c, Forms.OpenCee(c), key),
-            tee:               t => Admit(Curves.T(t), t, Forms.MonoTee(t), key),
-            angle:             l => Admit(Curves.L(l), l, Forms.OpenAngle(l), key),
-            zed:               z => Admit(Curves.Z(z), z, Forms.PointSymmetricZ(z), key),
-            trapezium:         t => Admit(Curves.Trapezoid(t), t, Forms.SolidTrapezoid(t), key),
-            filletTriangle:    f => Admit(Curves.RightTriangle(f), f, Forms.SolidTriangle(f), key),
-            corrugated:        d => Admit(Curves.Deck(d), d, Forms.ThinFold(d), key),
-            layered:           _ => ComponentFault.Section(key, "<unsectioned-profile:layered>"),
-            nominal:           _ => ComponentFault.Section(key, "<unsectioned-profile:nominal>"),
-            catalogued:        c => Admit(c.Shape.Profile, c, Forms.FromCatalogue(c.Shape), key),
-            outline:           o => Admit(o.Boundary, o, Forms.Integrated(o), key));
+            state: key,
+            rectangle:         static (k, r) => Admit(Curves.Rect(r.WidthMm.Value, r.DepthMm.Value), r, Forms.SolidRectangle(r), k),
+            cellularRectangle: static (k, c) => Admit(Curves.RectWithVoids(c.WidthMm.Value, c.DepthMm.Value, c.Cells), c, Forms.NetRectangle(c), k),
+            rectangleHollow:   static (k, r) => Admit(Curves.RectTube(r), r, Forms.BoxTube(r), k),
+            roundedRectangle:  static (k, r) => Admit(Curves.RoundedRect(r), r, Forms.SolidRounded(r), k),
+            circle:            static (k, c) => Admit(Curves.Disc(c), c, Forms.SolidCircle(c), k),
+            circleHollow:      static (k, c) => Admit(Curves.Ring(c), c, Forms.Pipe(c), k),
+            ellipse:           static (k, e) => Admit(Curves.Ellipse(e), e, Forms.SolidEllipse(e), k),
+            iShape:            static (k, i) => Admit(Curves.I(i), i, Forms.OpenI(i), k),
+            asymmetricIShape:  static (k, i) => Admit(Curves.AsymI(i), i, Forms.MonoI(i), k),
+            channel:           static (k, u) => Admit(Curves.U(u), u, Forms.OpenChannel(u), k),
+            coldFormedC:       static (k, c) => Admit(Curves.Cee(c), c, Forms.OpenCee(c), k),
+            tee:               static (k, t) => Admit(Curves.T(t), t, Forms.MonoTee(t), k),
+            angle:             static (k, l) => Admit(Curves.L(l), l, Forms.OpenAngle(l), k),
+            zed:               static (k, z) => Admit(Curves.Z(z), z, Forms.PointSymmetricZ(z), k),
+            trapezium:         static (k, t) => Admit(Curves.Trapezoid(t), t, Forms.SolidTrapezoid(t), k),
+            filletTriangle:    static (k, f) => Admit(Curves.RightTriangle(f), f, Forms.SolidTriangle(f), k),
+            corrugated:        static (k, d) => Admit(Curves.Deck(d), d, Forms.ThinFold(d), k),
+            layered:           static (k, _) => ComponentFault.Section(k, "<unsectioned-profile:layered>"),
+            nominal:           static (k, _) => ComponentFault.Section(k, "<unsectioned-profile:nominal>"),
+            catalogued:        static (k, c) => Admit(c.Shape.Profile, c, Forms.FromCatalogue(c.Shape), k),
+            outline:           static (k, o) => Admit(o.Boundary, o, Forms.Integrated(o), k));
 
-    // The RC gross-outline entry the reinforcement RC path and capacity.md feed — the retired ParametricSection.ProfileOf
-    // admission preserved, now minting the TYPED IRectangle contract so the RC concrete outline integrates exactly.
-    public static Fin<IProfile> ProfileOf(double widthMm, double depthMm, Op key) =>
-        widthMm > 0.0 && depthMm > 0.0 && double.IsFinite(widthMm) && double.IsFinite(depthMm)
-            ? Fin.Succ(Curves.Rect(widthMm, depthMm))
-            : ComponentFault.Dimension(key, $"<component-perimeter-degenerate:{widthMm:R}x{depthMm:R}>");
+    // The RC concrete-outline entry the reinforcement RC path and capacity.md feed, PROFILE-FAITHFUL: one generated
+    // total Switch reuses the SAME Curves table Solve routes, so a circular column or drilled shaft feeds
+    // ConcreteSection its true ICircle and a trapezoidal member its integrated Perimeter (VividOrange ConcreteSection
+    // and FaceReinforcementLayer.GetPath(IProfile, …) are profile-polymorphic) instead of a bounding IRectangle —
+    // the (widthMm, depthMm) rectangle-only entry is the DELETED narrowing that lowered every non-rectangular RC
+    // outline to its bounding box and starved RebarLayout.PerimeterCount of its natural geometry. A grouted cellular
+    // unit contributes its GROSS rectangle (the fully-grouted net solid IS the gross — the as-built ungrouted net
+    // stays Solve's); the unsectioned Layered/Nominal arms fault exactly as Solve does. Arm dimensional admission
+    // rides each SectionProfile case's own base-constructor proof, so no dimension re-proves here.
+    public static Fin<IProfile> ProfileOf(SectionProfile profile, Op key) =>
+        profile.Switch(
+            state: key,
+            rectangle:         static (_, r) => Fin.Succ(Curves.Rect(r.WidthMm.Value, r.DepthMm.Value)),
+            cellularRectangle: static (_, c) => Fin.Succ(Curves.Rect(c.WidthMm.Value, c.DepthMm.Value)),
+            rectangleHollow:   static (_, r) => Fin.Succ(Curves.RectTube(r)),
+            roundedRectangle:  static (_, r) => Fin.Succ(Curves.RoundedRect(r)),
+            circle:            static (_, c) => Fin.Succ(Curves.Disc(c)),
+            circleHollow:      static (_, c) => Fin.Succ(Curves.Ring(c)),
+            ellipse:           static (_, e) => Fin.Succ(Curves.Ellipse(e)),
+            iShape:            static (_, i) => Fin.Succ(Curves.I(i)),
+            asymmetricIShape:  static (_, i) => Fin.Succ(Curves.AsymI(i)),
+            channel:           static (_, u) => Fin.Succ(Curves.U(u)),
+            coldFormedC:       static (_, c) => Fin.Succ(Curves.Cee(c)),
+            tee:               static (_, t) => Fin.Succ(Curves.T(t)),
+            angle:             static (_, l) => Fin.Succ(Curves.L(l)),
+            zed:               static (_, z) => Fin.Succ(Curves.Z(z)),
+            trapezium:         static (_, t) => Fin.Succ(Curves.Trapezoid(t)),
+            filletTriangle:    static (_, f) => Fin.Succ(Curves.RightTriangle(f)),
+            corrugated:        static (_, d) => Fin.Succ(Curves.Deck(d)),
+            layered:           static (k, _) => ComponentFault.Section(k, "<unsectioned-profile:layered>"),
+            nominal:           static (k, _) => ComponentFault.Section(k, "<unsectioned-profile:nominal>"),
+            catalogued:        static (_, c) => Fin.Succ(c.Shape.Profile),
+            outline:           static (_, o) => Fin.Succ((IProfile)o.Boundary));
 
     // The retired ParametricSection.Admit twenty-column PositiveMagnitude lift, widened to read the SectionSupplement's
     // Iw/ShearCentreY/ShearCentreZ/Monosymmetry instead of hardcoded zeros — one lift for all twenty-one solvable arms.
@@ -531,7 +617,7 @@ public static class SectionSolver {
         from avy in Section(s.Avy, key)
         from avz in Section(s.Avz, key)
         from perim in Section(p.Perim, key)
-        from signed in guard(double.IsFinite(s.Iw) && double.IsFinite(s.ShearCentreY) && double.IsFinite(s.ShearCentreZ) && double.IsFinite(s.Monosymmetry),
+        from signed in guard(s.Iw >= 0.0 && double.IsFinite(s.Iw) && double.IsFinite(s.ShearCentreY) && double.IsFinite(s.ShearCentreZ) && double.IsFinite(s.Monosymmetry),
             ComponentFault.Section(key, "<section-supplement-nonfinite>"))
         select new ComputedSection(area, ix, iy, sx, sy, rx, ry, zx, zy, jj, IwMm6: s.Iw, avy, avz,
             DepthMm: source.GrossRectangleMm.DepthMm, WidthMm: source.GrossRectangleMm.WidthMm, HeatedPerimeterMm: perim,
@@ -570,8 +656,14 @@ public static class SectionSolver {
         public static IProfile L(SectionProfile.Angle l) => new AngleRow(Mm(l.DepthMm.Value), Mm(l.WidthMm.Value), Mm(l.ThicknessMm.Value), Mm(l.ThicknessMm.Value));
         public static IProfile Z(SectionProfile.Zed z) =>                    // thin-gauge Z: one uniform IZ.Thickness = WebMm; FlangeMm feeds Forms only
             new ZedRow(Mm(z.DepthMm.Value), Mm(z.FlangeWidthMm.Value), Mm(z.FlangeWidthMm.Value), Mm(z.WebMm.Value), Mm(z.EdgeMm), Mm(z.EdgeMm));
-        public static IProfile Trapezoid(SectionProfile.Trapezium t) =>      // ITrapezoid is axis-symmetric; TopOffsetMm shifts no area moment about the bending axes
-            new TrapezoidRow(Mm(t.DepthMm.Value), Mm(t.TopWidthMm.Value), Mm(t.BottomWidthMm.Value));
+        public static IProfile Trapezoid(SectionProfile.Trapezium t) {
+            double topMin = (t.BottomWidthMm.Value - t.TopWidthMm.Value) / 2.0 + t.TopOffsetMm;
+            double shift = -Math.Min(0.0, topMin);
+            return new Perimeter(new List<ILocalPoint2d> {
+                Pt(shift, 0.0), Pt(shift + t.BottomWidthMm.Value, 0.0),
+                Pt(shift + topMin + t.TopWidthMm.Value, t.DepthMm.Value), Pt(shift + topMin, t.DepthMm.Value),
+            });
+        }
         public static IProfile RightTriangle(SectionProfile.FilletTriangle f) =>
             new Perimeter(new List<ILocalPoint2d> { Pt(0.0, 0.0), Pt(f.LegMm.Value, 0.0), Pt(0.0, f.Leg2Mm.Value) });
 
@@ -742,15 +834,16 @@ public static class SectionSolver {
         public static SectionSupplement FromCatalogue(SteelShape s) {
             double d = s.Section.DepthMm.Value, b = s.Section.WidthMm.Value, tw = s.Section.WebMm.Value, tf = s.Section.FlangeMm.Value;
             return s.Class.Switch(
-                iShape:      () => OpenIDims(d, b, tw, tf),
-                uShape:      () => ChannelDims(d, b, tw, tf),
-                lShape:      () => new SectionSupplement(1.5 * Sx(s.Profile), 1.5 * Sy(s.Profile), (b + d) * tw * tw * tw / 3.0, d * tw, b * tw, ShearCentreY: 0.5 * b, ShearCentreZ: 0.5 * (d - tf), Monosymmetry: 0.45 * (d - tf)),
-                doubleAngle: () => new SectionSupplement(1.6 * Sx(s.Profile), 1.5 * Sy(s.Profile), 2.0 * (b + d) * tw * tw * tw / 3.0, 2.0 * d * tw, 2.0 * b * tw, ShearCentreZ: 0.5 * (d - tf), Monosymmetry: 0.9 * (d - tf)),
-                hssRect:     () => new SectionSupplement(0.25 * (b * d * d - Math.Max(0.0, b - 2.0 * tw) * Math.Pow(Math.Max(0.0, d - 2.0 * tw), 2.0)), 0.25 * (d * b * b - Math.Max(0.0, d - 2.0 * tw) * Math.Pow(Math.Max(0.0, b - 2.0 * tw), 2.0)), ClosedRectJ(b, d, tw), 2.0 * d * tw, 2.0 * b * tw),
-                hssRound:    () => RoundTube(d, tw),
-                tee:         () => new SectionSupplement(1.7 * Sx(s.Profile), 0.85 * Sy(s.Profile), (b * tf * tf * tf + (d - tf) * tw * tw * tw) / 3.0, d * tw, 5.0 / 3.0 * b * tf, ShearCentreZ: 0.5 * (d - tf), Monosymmetry: 0.9 * (d - tf)),
-                composite:   () => OpenIDims(d, b, tw, tf),    // steel core is its I-shape; the slab adds capacity, not stiffness, here
-                coldFormed:  () => new SectionSupplement(Sx(s.Profile), Sy(s.Profile), (d - 2.0 * tw) * tw * tw * tw / 3.0 + 2.0 * b * tw * tw * tw / 3.0, d * tw, d * tw, ShearCentreZ: 0.5 * (d - tf)));
+                state: (Shape: s, D: d, B: b, Tw: tw, Tf: tf),
+                iShape:      static x => OpenIDims(x.D, x.B, x.Tw, x.Tf),
+                uShape:      static x => ChannelDims(x.D, x.B, x.Tw, x.Tf),
+                lShape:      static x => new SectionSupplement(1.5 * Sx(x.Shape.Profile), 1.5 * Sy(x.Shape.Profile), (x.B + x.D) * x.Tw * x.Tw * x.Tw / 3.0, x.D * x.Tw, x.B * x.Tw, ShearCentreY: 0.5 * x.B, ShearCentreZ: 0.5 * (x.D - x.Tf), Monosymmetry: 0.45 * (x.D - x.Tf)),
+                doubleAngle: static x => new SectionSupplement(1.6 * Sx(x.Shape.Profile), 1.5 * Sy(x.Shape.Profile), 2.0 * (x.B + x.D) * x.Tw * x.Tw * x.Tw / 3.0, 2.0 * x.D * x.Tw, 2.0 * x.B * x.Tw, ShearCentreZ: 0.5 * (x.D - x.Tf), Monosymmetry: 0.9 * (x.D - x.Tf)),
+                hssRect:     static x => new SectionSupplement(0.25 * (x.B * x.D * x.D - Math.Max(0.0, x.B - 2.0 * x.Tw) * Math.Pow(Math.Max(0.0, x.D - 2.0 * x.Tw), 2.0)), 0.25 * (x.D * x.B * x.B - Math.Max(0.0, x.D - 2.0 * x.Tw) * Math.Pow(Math.Max(0.0, x.B - 2.0 * x.Tw), 2.0)), ClosedRectJ(x.B, x.D, x.Tw), 2.0 * x.D * x.Tw, 2.0 * x.B * x.Tw),
+                hssRound:    static x => RoundTube(x.D, x.Tw),
+                tee:         static x => new SectionSupplement(1.7 * Sx(x.Shape.Profile), 0.85 * Sy(x.Shape.Profile), (x.B * x.Tf * x.Tf * x.Tf + (x.D - x.Tf) * x.Tw * x.Tw * x.Tw) / 3.0, x.D * x.Tw, 5.0 / 3.0 * x.B * x.Tf, ShearCentreZ: 0.5 * (x.D - x.Tf), Monosymmetry: 0.9 * (x.D - x.Tf)),
+                composite:   static x => OpenIDims(x.D, x.B, x.Tw, x.Tf),
+                coldFormed:  static x => new SectionSupplement(Sx(x.Shape.Profile), Sy(x.Shape.Profile), (x.D - 2.0 * x.Tw) * x.Tw * x.Tw * x.Tw / 3.0 + 2.0 * x.B * x.Tw * x.Tw * x.Tw / 3.0, x.D * x.Tw, x.D * x.Tw, ShearCentreZ: 0.5 * (x.D - x.Tf)));
         }
 
         // Roark Table 10.1 solid-rectangle St-Venant J (a/b the long/short side) and the Bredt closed thin-walled tube
@@ -789,7 +882,6 @@ file sealed record CeeRow(Length Height, Length Width, Length WebThickness, Leng
 file sealed record TeeRow(Length Height, Length Width, Length WebThickness, Length FlangeThickness) : ITee { public string Description => nameof(TeeRow); }
 file sealed record AngleRow(Length Height, Length Width, Length WebThickness, Length FlangeThickness) : IAngle { public string Description => nameof(AngleRow); }
 file sealed record ZedRow(Length Height, Length TopFlangeWidth, Length BottomFlangeWidth, Length Thickness, Length TopLip, Length BottomLip) : IZ { public string Description => nameof(ZedRow); }
-file sealed record TrapezoidRow(Length Height, Length TopWidth, Length BottomWidth) : ITrapezoid { public string Description => nameof(TrapezoidRow); }
 ```
 
 ## [05]-[COMPUTED_SECTION]
@@ -832,7 +924,7 @@ public readonly record struct ComputedSection(
 ## [06]-[CATALOGUE]
 
 - Owner: `ComponentRow` the campaign row currency (`[ROW_CURRENCIES]`); `ComponentCatalogue` the ONE fold computing BOTH frozen maps in one pass.
-- Cases: `Sectioned` freezes the section-map membership per ROW — every steel/cmu row true, timber `!CrossPly`, panel true only for structural deck rows, everything else false — so `graph.SectionOf` `Some`/`None` results are value-identical to the prior per-family selection; widening membership is a flagged next-campaign column flip.
+- Cases: `Sectioned` freezes the section-map membership per ROW — every steel/cmu row true, timber `!CrossPly`, panel true only for structural deck rows, everything else false — so `graph.SectionOf` `Some`/`None` results are value-identical to the prior per-family selection; membership changes only through the owning seed row.
 - Entry: `ComponentCatalogue.Of(context)` — the ten-way and four-way `.Concat` folds are DELETED into the `ComponentFamily.Items` fold; `Traverse` is the rail (a seed row `Component.Of` rejects, a `Sectioned` row `SectionSolver.Solve` cannot solve, or a cross-seed `ComponentId` collision, ABORTS the build TYPED — never a `Choose`/`ToOption` swallow and never the raw frozen-map duplicate-key throw); `Lookup` preserved. The composition root binds `Of`'s `Fin` ONCE and passes `catalogue.Rows`/`catalogue.Sections` into `ComponentResolution.Build`.
 
 ```csharp signature
@@ -894,7 +986,10 @@ public sealed partial class QuantityRow {
     public Dimension Dim { get; }
     public double Scale { get; }
     public string Unit { get; }
-    public MeasureValue OfSi(double value) => MeasureValue.OfSi(Type, Dim, value * Scale);
+    // The input contract is the row's NATIVE catalog basis — the Scale column's source unit (mm-power section rows, SI physics rows) —
+    // scaled ONCE to SI here; a genuine SI magnitude enters through a Scale-1.0 row unchanged. The prior OfSi name lied
+    // about the input basis, double-scaling a true SI caller.
+    public Fin<MeasureValue> OfNative(double native) => MeasureValue.OfSi(Type, Dim, native * Scale);
 }
 ```
 
@@ -910,7 +1005,8 @@ The relocated seed-time bag constructors — the `Projection/component.md` `Deta
 public static class ComponentDetail {
     public static (PropertyName, PropertyValue) Joint(string kind) => (DetailSchema.JointType, DetailSchema.Realization.Joint(kind));
     public static (PropertyName, PropertyValue) Token(PropertyName name, string value) => (name, new PropertyValue.Text(value));
-    public static (PropertyName, PropertyValue) Measured(PropertyName name, Dimension dim, double si) => (name, new PropertyValue.Measure(MeasureValue.OfSi(dim, si)));
+    public static Fin<(PropertyName, PropertyValue)> Measured(PropertyName name, Dimension dim, double si) =>
+        MeasureValue.OfSi(dim, si).Map(value => (name, (PropertyValue)new PropertyValue.Measure(value)));
 
     public static PropertyBag RealizationRows(params (PropertyName Name, PropertyValue Value)[] rows) =>
         rows.ToSeq().Fold(DetailSchema.Realization.Bag(), static (bag, r) => bag.With(r.Name, r.Value));
@@ -952,8 +1048,8 @@ public static class ComponentResolution {
 ## [10]-[RESEARCH]
 
 - [SECTION_PROFILE_ALGEBRA]: REALIZED — `ComponentSection` and its ten bespoke payload records are DELETED with zero column loss: geometry landed as `SectionProfile` named `PositiveMagnitude` dims (gross facts base-constructor state), vocabulary stayed on the seed-page SmartEnums, realization columns ride seed rows and seed-built bags. The five lockstep switches and the cross-file `Detail` switch are field reads, family delegates, or type law. Each arm's railed `Of` factory routes `key.AcceptValidated<PositiveMagnitude>` (R8 spelling) and guards the non-magnitude slots inline — `NonNegativeMagnitude` verified ABSENT from `Rasm.Numerics`, so the fillet/edge slots carry the inline `Edge` guard (R8 resolved by verification).
-- [TYPED_CONTRACT_CURVES]: REALIZED — `Curves` lowers sixteen arms onto the decompile-verified `VividOrange.IProfiles` contracts (`IRectangle`/`IRectangularHollow`/`IRoundedRectangle`/`IRoundedRectangularHollow`/`ICircle`/`ICircularHollow`/`IEllipse`/`IIParallelFlange`/`ICustomI`/`IChannel`/`IC`/`ITee`/`IAngle`/`IZ`/`ITrapezoid`) so `ProfileParts.GetParts` integrates fillets and curved edges via EXACT `EllipseQuarterPart`s; `IRoundedRectangularHollow` verified NOT to extend `IRectangularHollow`, so the rounded record cannot fall to the sharp arm. The `IPerimeter` polyline path (short-circuited first by every `.Utility` kernel, verified) carries `CellularRectangle`/`Corrugated`/`FilletTriangle`/`Outline`. The VividOrange unknown-profile throw is unreachable by construction — every `Curves` output is a dispatch member.
-- [STEEL_ALGEBRA_RELOCATION]: REALIZED — the `steel#STEEL_FAMILY` `SteelStiffness` open-thin-walled algebra lands in `Forms` (`OpenI`/`OpenChannel`/`MonoTee`/`OpenAngle` cores verbatim; `MonoI`/`OpenCee`/`PointSymmetricZ` the widened singly-symmetric/point-symmetric arms; `FromCatalogue` keys the same cores by `SteelClass` over the admitted `SectionDims`), the singly-symmetric factors carried as policy values over the carrier-free `.Utility` kernel moduli (`SectionModuli.CalculateSectionModulusYy/Zz` — the direct static path). R4 stands: if VividOrange's typed-part decomposition natively fills cold-formed C/Z shear-centre/warping, `OpenCee`/`PointSymmetricZ` re-class to VENDOR columns; until then the relocated algebra fills them.
+- [TYPED_CONTRACT_CURVES]: REALIZED — `Curves` lowers every arm onto a decompile-verified `VividOrange.IProfiles` contract or the package `Perimeter` contract. The `IPerimeter` path carries `CellularRectangle`, `Corrugated`, offset `Trapezium`, `FilletTriangle`, and `Outline`; its offset trapezium preserves the authored top translation in gross width, centroid, inertia, and modulus.
+- [STEEL_ALGEBRA_RELOCATION]: REALIZED — the `steel#STEEL_FAMILY` `SteelStiffness` open-thin-walled algebra lands in `Forms` (`OpenI`/`OpenChannel`/`MonoTee`/`OpenAngle` cores verbatim; `MonoI`/`OpenCee`/`PointSymmetricZ` the widened singly-symmetric/point-symmetric arms; `FromCatalogue` keys the same cores by `SteelClass` over the admitted `SectionDims`), and the singly-symmetric factors ride policy values over the carrier-free `.Utility` kernel moduli (`SectionModuli.CalculateSectionModulusYy/Zz`). The catalogued profile floor does not fill cold-formed C/Z shear-centre and warping columns, so `OpenCee` and `PointSymmetricZ` own them.
 - [CATALOGUE_ONE_PASS]: REALIZED — `ComponentCatalogue.Of` folds `ComponentFamily.Items` through `Traverse` (fail-loud: a malformed seed row, an unsolvable `Sectioned` row, or a cross-seed designation collision aborts the build typed — the frozen-map duplicate-key throw never escapes the rail); the ten-way/four-way `.Concat` folds and the per-family `ComponentCatalogue` static classes are DELETED. `ComponentResolution` byte-identical; `Sectioned` pins today's `graph.SectionOf` membership.
-- [QUANTITY_AND_DETAIL_OWNERS]: REALIZED — `QuantityRow` is the one typed-mint table (`SeamSection` locals and Properties triples deleted at their pages); `ComponentDetail` the relocated public bag constructors every `Realization`/`Product` seed composes at seed time. Both live HERE because Projection and Properties both compose them and this owner is their shared parent.
-- [SEED_NAMESPACE]: the seed-page namespace split (masonry/cmu/steel/panel/reinforcement in child leaves; timber/glazing/fastener/connector/joint in the parent) is bridged by the prelude aliases.
+- [QUANTITY_AND_DETAIL_OWNERS]: REALIZED — `QuantityRow` is the one typed-mint table (`SeamSection` locals and Properties triples deleted at their pages), and its `OfSi` preserves the seam's finite-gated `Fin<MeasureValue>`; `ComponentDetail` is the relocated public bag-constructor owner every `Realization`/`Product` seed composes at seed time, with `Measured` preserving the same rail through the `(PropertyName, PropertyValue)` row. Both live HERE because Projection and Properties compose them and this owner is their shared parent.
+- [SEED_NAMESPACE]: every seed page declares the flat `Rasm.Materials.Component` namespace — the `Component/` folder is ONE namespace under `dotnet_style_namespace_match_folder = true:error`, the `<Family>Seed` naming keeps owners collision-free, and the policy rows bind `<Family>Seed.Rows` by bare name; the child-leaf split and its prelude aliases are the deleted form.

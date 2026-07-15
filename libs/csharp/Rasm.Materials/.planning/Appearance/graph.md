@@ -24,7 +24,7 @@ using LanguageExt;
 using QuikGraph;                                  // AdjacencyGraph, SEdge — the shared graph substrate (folder-local admission, central pin)
 using QuikGraph.Algorithms;                       // AlgorithmExtensions: IsDirectedAcyclicGraph, SourceFirstTopologicalSort
 using Rasm.Domain;                                // Context, Op
-using Rasm.Element;                               // MaterialId — the SEAM material-identity owner, composed not re-declared
+using Rasm.Element.Composition;                               // MaterialId — the SEAM material-identity owner, composed not re-declared
 using Rasm.Materials.Appearance.Bsdf;             // MaterialFault (band 2450, the one appearance fault) composed from bsdf#SHADING_FRAME
 using Rasm.Numerics;                               // Direction, VectorFrame
 using Rhino;                                      // UnitSystem (the GraphContext.Tolerant model-unit seed)
@@ -303,7 +303,7 @@ public sealed record CompiledGraph(Seq<AppearanceNode> Order, PortId Sink, HashM
 
 ```csharp signature
 // (Continues the Rasm.Materials.Appearance.Graph compilation unit — the [02] prelude's usings, including
-// `using Rasm.Element;` and `using Wacton.Unicolour.Datasets;`, are in scope; no duplicate import block.)
+// `using Rasm.Element.Composition;` and `using Wacton.Unicolour.Datasets;`, are in scope; no duplicate import block.)
 
 // --- [TYPES] -------------------------------------------------------------------------------
 // MaterialId is a CROSS-PACKAGE identity owned by the SEAM (`Rasm.Element` `Composition/material#MATERIAL_COMPOSITION`

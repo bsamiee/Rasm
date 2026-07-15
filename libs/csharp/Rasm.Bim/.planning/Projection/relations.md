@@ -6,19 +6,35 @@ The roster is ONE owner widened on one axis — a new IFC relationship is one `I
 
 ## [01]-[INDEX]
 
-- [01]-[RELATION_ALGEBRA]: `IfcRelKind` the full `IfcRel*` roster `[SmartEnum<string>]` (the neutral `EdgeAxis`+`SubKind` it lowers onto, plus the relating/related IFC inverse-attribute names directionality round-trips on — decompile-censused over the complete concrete node-to-node `IfcRelationship` subtree), the `EdgeAxis` five neutral lowering targets, and the `EdgeProjection` fold lowering every relationship onto a neutral `Relationship` edge — the FanOut/Pair generic families, the ordinal-carrying ordered-nest `Generic` arm, the inverted `Assign` arms (`DefinesByType`/`AssignsToGroup`), the realizing `Connect`, the `DefinesProperties` property/quantity attachment, the `Structural` member↔connection/member↔activity `Generic` edges (the `Model/structural#STRUCTURAL_PROJECTION` `StructuralProjection.Attrs` 6-DOF restraint + full load family + `LoadKind`/`Case` payload and the `AtStart` discriminant off `StructuralProjection.AxisOf` topology; the analytical axis content-keyed in `Representations` by `Model/elements#REPRESENTATION_KEYS` `IfcRepresentation.Keys`, never baked onto the node), the `SpatialBoundaries` space↔surface `Generic` edges, and the `MaterialEdges` `Associate` material edge carrying the occurrence-usage payload [C7].
+- [01]-[RELATION_ALGEBRA]: `IfcRelKind` the full `IfcRel*` roster `[SmartEnum<string>]` (the neutral `EdgeAxis`+`SubKind` it lowers onto, plus the relating/related IFC inverse-attribute names directionality round-trips on — decompile-censused over the complete concrete node-to-node `IfcRelationship` subtree), the `EdgeAxis` five neutral lowering targets, and the `EdgeProjection` fold lowering every relationship onto a neutral `Relationship` edge — the FanOut/Pair generic families, the ordinal-carrying ordered-nest `Generic` arm, the inverted `Assign` arms (`DefinesByType`/`AssignsToGroup`), the realizing `Connect`, the `DefinesProperties` property/quantity attachment, the `Structural` member↔connection/member↔activity `Generic` edges (the `Model/structural#STRUCTURAL_PROJECTION` `StructuralProjection.Attrs` 6-DOF restraint + full load family + `LoadKind`/`Case` payload and the `StructuralProjection.AtStart` start/end discriminant, the eccentric subtype's mandatory `ConnectionConstraint` content-keyed through the store; the analytical axis content-keyed in `Representations` by `Model/elements#REPRESENTATION_KEYS` `IfcRepresentation.Keys`, never baked onto the node), the `SpatialBoundaries` space↔surface `Generic` edges, and the `MaterialEdges` `Associate` material edge carrying the occurrence-usage payload [C7].
 
 ## [02]-[RELATION_ALGEBRA]
 
 - Owner: `IfcRelKind` the `[SmartEnum<string>]` carrying the WHOLE row-driven `IfcRel*` roster keyed on the relationship entity name — each row carrying the neutral `EdgeAxis` it folds onto (`Compose`/`Assign`/`Connect`/`Void`/`Generic`), the neutral `SubKind` token the typed case takes (the `ComposeKind`/`AssignKind`/`ConnectKind`/`VoidKind` key, empty for `Generic`), and the relating-side/related-side IFC inverse-attribute names directionality round-trips on [C5]; `EdgeAxis` the five neutral lowering targets; `EdgeProjection` the static fold lowering every relationship family onto neutral `Relationship` edges. The neutral cases carry a typed `SubKind`, never a wire-name or an attribute bag — the IFC wire-name + inverse live on the `IfcRelKind` ROW and reconstruct at egress through the reverse index, and only `Generic` carries the wire-name and the per-edge attribute payload.
 - Cases: the row-driven roster — `IfcRelAggregates`/`IfcRelNests`/`IfcRelContainedInSpatialStructure`/`IfcRelReferencedInSpatialStructure` (`Compose`), `IfcRelConnectsElements`/`IfcRelConnectsWithRealizingElements`/`IfcRelConnectsPorts` (`Connect`), `IfcRelDefinesByType`/`IfcRelAssignsToGroup` (`Assign`), `IfcRelVoidsElement`/`IfcRelFillsElement` (`Void`) — PLUS the families that ride `Generic` because no neutral sub-kind fits: `IfcRelConnectsPortToElement` (the port↔element shape distinct from port↔port), `IfcRelConnectsPathElements` (wall-join priorities), `IfcRelConnectsStructuralMember`/`IfcRelConnectsStructuralActivity`, `IfcRelConnectsStructuralElement` (the 2x3 element↔idealized-member binding), `IfcRelSpaceBoundary`, `IfcRelInterferesElements`, `IfcRelSequence`, `IfcRelCoversBldgElements`/`IfcRelCoversSpaces`, `IfcRelAssignsToControl`/`Process`/`Product`/`Actor`, `IfcRelDeclares`, `IfcRelServicesBuildings`, `IfcRelProjectsElement` (the additive-feature counterpart of `Voids`), `IfcRelAdheresToElement` (IFC4.3 surface features), `IfcRelFlowControlElements` (the GG port→controlled-element surface), `IfcRelPositions` (IFC4.3 positioning-element→products), `IfcRelDefinesByObject` (declaring-object typing) — each lands its neutral edge carrying the IFC wire-name and the directionality/inverse on the `Generic` payload, so no relationship among the covered node-to-node families is dropped and none re-opens the IFC schema strata leak on the seam. `IfcRelAssociatesMaterial` (the `Associate` material edge with its `MaterialUsage` payload), `IfcRelDefinesByProperties` (the `Assign.PropertyDefinition` bag attachment — its `IfcRelOverridesProperties` subtype rides the same `Extract<T>`), and the structural/space-boundary payloads ride DEDICATED folds, not the generic row path.
-- Entry: `EdgeProjection.All(IfcProject project, Map<string,NodeId> rooted, double tolerance, Op key)` folds every relationship family into a `Seq<Relationship>` — the `FanOut`/`Pair` generic helpers read the relating/related `GlobalId`s, resolve them through the `rooted` map, look up the `IfcRelKind` row, and construct the neutral edge through `row.Edge`; the ordered `IfcRelNests` alone bypasses `row.Edge` and lands one `Relationship.Generic(IfcRelKind.Nests.Key, …)` per child carrying the zero-based `SemanticProjector.NestOrdinal` attribute (a dimensionless `PropertyValue.Measure` over `QuantityType.Count`) so `RelatedObjects` `LIST` order round-trips; the `Assign` arms (`DefinesByType`/`AssignsToGroup`) are INVERTED (the seam `Assign` is `Subject`(occurrence)→`Definition`(type/group), the inverse of the IFC relating→related), so they read each related occurrence as the subject and the relating type/group as the definition; the realizing `Connect` reads the `RealizingElements` head into the seam `Connect.Realizing` option; `DefinesProperties` lands the `IfcRelDefinesByProperties` (whose `RelatingPropertyDefinition` is a SET) property/quantity attachment as `Assign(occurrence, definition, PropertyDefinition)` per (occurrence, definition) pair; `Structural` lands `IfcRelConnectsStructuralMember` (member→connection, the 6-DOF restraint off `IfcStructuralConnection.AppliedCondition`→`IfcBoundaryNodeCondition` riding the payload) and `IfcRelConnectsStructuralActivity` (item→load, the applied force/moment off `IfcStructuralActivity.AppliedLoad`→`IfcStructuralLoadSingleForce` riding the payload) as `Generic` edges; `SpatialBoundaries` lands `IfcRelSpaceBoundary` (space→bounding-surface, the THREE-valued `BoundaryLevel` discriminant riding the payload — `"2nd"`/`"1st"` for the exact subtype the egress refined-construct re-authors, `""` for a base instance) as `Generic` edges; `MaterialEdges` lands the `Associate` material edges with the occurrence-usage payload [C7]; `Fin<T>` aborts on a dangling endpoint (`BimFault.DanglingReference`).
+- Entry: `EdgeProjection.All(IfcProject project, Map<string,NodeId> rooted, double tolerance, UnitScale scale, IIfcProfileStore profiles, Op key)` folds every relationship family into a `Seq<Relationship>` — `scale` the per-projection native→SI coercion every measured payload (structural spring/force, material usage offset/extent) multiplies through — the `FanOut`/`Pair` generic helpers read the relating/related `GlobalId`s, resolve them through the `rooted` map, look up the `IfcRelKind` row, and construct the neutral edge through `row.Edge`; the ordered `IfcRelNests` alone bypasses `row.Edge` and lands one `Relationship.Generic(IfcRelKind.Nests.Key, …)` per child carrying the zero-based `SemanticProjector.NestOrdinal` attribute (a `PropertyValue.Integer` ordinal) so `RelatedObjects` `LIST` order round-trips; the `Assign` arms (`DefinesByType`/`AssignsToGroup`) are INVERTED (the seam `Assign` is `Subject`(occurrence)→`Definition`(type/group), the inverse of the IFC relating→related), so they read each related occurrence as the subject and the relating type/group as the definition; the realizing `Connect` FANS OUT one edge per `RealizingElements` member over the same `(From, To)` pair — the seam `Connect.Realizing` option carries one realizer per edge, so a multi-realizer joint (plate + bolts) survives whole and egress re-groups the fan into ONE `IfcRelConnectsWithRealizingElements` carrying every member (the `.Head` slice that dropped every realizer past the first is the deleted form); `DefinesProperties` lands the `IfcRelDefinesByProperties` (whose `RelatingPropertyDefinition` is a SET) property/quantity attachment as `Assign(occurrence, definition, PropertyDefinition)` per (occurrence, definition) pair; `Structural` lands `IfcRelConnectsStructuralMember` (member→connection, the 6-DOF restraint off `IfcStructuralConnection.AppliedCondition`→`IfcBoundaryNodeCondition` riding the payload) and `IfcRelConnectsStructuralActivity` (item→load, the applied force/moment off `IfcStructuralActivity.AppliedLoad`→`IfcStructuralLoadSingleForce` riding the payload) as `Generic` edges; `SpatialBoundaries` lands `IfcRelSpaceBoundary` (space→bounding-surface, the THREE-valued `BoundaryLevel` discriminant riding the payload — `"2nd"`/`"1st"` for the exact subtype the egress refined-construct re-authors, `""` for a base instance) as `Generic` edges; `MaterialEdges` lands the `Associate` material edges with the occurrence-usage payload [C7]; `Fin<T>` aborts on a dangling endpoint (`BimFault.DanglingReference`).
 - Auto: `row.Edge(relating, related)` dispatches the `EdgeAxis` onto the seam case constructed with the row's neutral `SubKind` (a `Compose` of `ComposeKind.Get(SubKind)`, an `Assign` of `AssignKind.Get(SubKind)`, a `Connect` of `ConnectKind.Get(SubKind)` with no realizing node, a `Void` of `VoidKind.Get(SubKind)`) or a `Generic(Key, …)` carrying the IFC wire-name; the structural/space-boundary `Generic` edges carry their typed payload (the 6-DOF restraint booleans, the SI force/moment measures, the boundary level) as `PropertyValue` attribute entries the `Rasm.Compute` runners read by wire-name; the material `Associate` edge threads the `Semantics/composition#MATERIAL_COMPOSITION` occurrence-usage payload [C7] (`LayerSetDirection`/`DirectionSense`/`OffsetFromReferenceLine`, `CardinalPoint`/`ReferenceExtent`) as the seam's typed `MaterialUsage` (`LayerSet`/`ProfileSet`), never a `PropertyValue` attribute bag, the `ProfileSet` usage admitted through the seam `MaterialUsage.ProfileSet.Of` cardinal-point gate.
 - Packages: GeometryGymIFC_Core, Rasm.Element, Thinktecture.Runtime.Extensions, LanguageExt.Core
-- Growth: a new IFC relationship is one `IfcRelKind` row (its axis, sub-kind, inverse-attribute names, and the `Inverted` flag that re-orients the egress for an inverted-direction family) plus, when it carries a payload, one dedicated `EdgeProjection` arm; a new directionality is the row's relating/related columns; the neutral five-axis algebra absorbs the case and `Generic` absorbs the residue — never a parallel `RelationshipKind` on the seam and never a dropped family among the covered node-to-node relationships. A relationship to a NON-node IFC resource (an `IfcRelAssociatesDocument`/`Library`/`Constraint`/`Approval`/`Dataset`/`ProfileDef`/`ProfileProperties` definition association, an `IfcRelDefinesByTemplate` template binding, an `IfcRelAssignsToResource`) is a SEPARATE Growth axis — a new seam `Node` case plus its row — never silently in scope of the covered set. A payload a rider subtype adds beyond its base edge (`IfcRelAssignsToGroupByFactor.Factor`, `IfcRelConnectsWithEccentricity.ConnectionConstraint`, the `IfcRelOverridesProperties` override semantics) is a NAMED bounded drop until a carrier lands: the factor has no seam slot on the typed `Assign` case, the eccentric constraint is an `IfcConnectionGeometry` the geometry-inline prohibition keeps off the attrs (so the eccentricity binding re-emits as the base member binding — a bare subtype without its MANDATORY constraint is schema-invalid), and the override binding re-emits as plain `IfcRelDefinesByProperties` (no `AssignKind` override row exists on the seam vocabulary) — each a next-campaign payload/row on the `NestOrdinal` precedent, never a silent loss; the space-boundary LEVEL by contrast is a solved rider — the three-valued `BoundaryLevel` attr drives the egress refined-construct, so the exact subtype round-trips today.
+- Growth: a new IFC relationship is one `IfcRelKind` row (its axis, sub-kind, inverse-attribute names, and the `Inverted` flag that re-orients the egress for an inverted-direction family) plus, when it carries a payload, one dedicated `EdgeProjection` arm; a new directionality is the row's relating/related columns; the neutral five-axis algebra absorbs the case and `Generic` absorbs the residue — never a parallel `RelationshipKind` on the seam and never a dropped family among the covered node-to-node relationships. A relationship to a NON-node IFC resource (an `IfcRelAssociatesDocument`/`Library`/`Constraint`/`Approval`/`Dataset`/`ProfileDef`/`ProfileProperties` definition association, an `IfcRelDefinesByTemplate` template binding, an `IfcRelAssignsToResource`) is a SEPARATE Growth axis — a new seam `Node` case plus its row — never silently in scope of the covered set. A payload a rider subtype adds beyond its base edge is either SOLVED or a NAMED bounded drop, never silent: the eccentricity and the space-boundary level are solved riders — the `IfcRelConnectsWithEccentricity` `ConnectionConstraint` content-keys through the store's STEP-fragment lane onto the `EccentricityKey` attr and egress reconstitutes the exact subtype, and the three-valued `BoundaryLevel` attr drives the egress refined-construct — while `IfcRelAssignsToGroupByFactor.Factor` (no seam slot on the typed `Assign` case) and the `IfcRelOverridesProperties` override semantics (no `AssignKind` override row; re-emits as plain `IfcRelDefinesByProperties`) remain next-campaign payload/rows on the `NestOrdinal` precedent.
 - Boundary: the seam `Relationship` is the NEUTRAL edge algebra plus `Generic` — the seam carries no typed `IfcRel*` case and re-introducing seventeen typed IFC cases is the deleted form the critique fixed [C5]; the IFC names/directionality/inverse and the long-tail families live HERE on the Bim side, the neutral case carrying only its `SubKind` and the IFC wire-name reconstructing at egress through the reverse index, the `Generic` passthrough carrying any residue of the covered node-to-node families so a dropped family among them is the named defect (a relationship to a non-node IFC resource is a Growth axis — a new seam `Node` case — never a covered residue); directionality is preserved by the row's relating/related orientation and, for the inverted `Assign` family, the row's `Inverted` flag the egress re-orients on (`ReauthorRelationships` swaps the seam `Subject`/`Definition` back to the IFC relating/related before `Author`), never inferred at the call site; the material occurrence-usage rides the `Associate` edge's typed `MaterialUsage` payload [C7] and a parallel usage node is the deleted form; the structural/space-boundary connectivity rides the NEUTRAL `Generic` wire-name payload, never a typed IFC relationship case, so the strata stay IFC-schema-free; the nest order contract is the egress-declared `SemanticProjector.NestOrdinal` attribute on the `Generic("IfcRelNests", …)` edges — egress groups those edges by relating endpoint and authors ONE ordered `IfcRelNests` from the ordinal sort, while an authored `Compose{Nest}` edge keeps its frozen `(Compose, "nest")` reverse-index row, so the ingest routing and the typed case never collide.
 
 ```csharp signature
+using System.Collections.Frozen;
+using System.Reflection;
+using GeometryGym.Ifc;
+using LanguageExt;
+using LanguageExt.Common;
+using Rasm.Bim;
+using Rasm.Bim.Semantics;
+using Rasm.Element.Graph;
+using Rasm.Element.Properties;
+using Rasm.Element.Relations;
+using Thinktecture;
+using static LanguageExt.Prelude;
+using Op = Rasm.Domain.Op;
+
+namespace Rasm.Bim.Projection;
+
 // --- [TYPES] ------------------------------------------------------------------------------
 // The five neutral lowering targets — which seam Relationship case a row folds onto. Distinct from the seam's
 // consumer-facing RelationshipKind: this is the Bim-side projector dispatch over which the Edge switch and the egress
@@ -145,15 +161,15 @@ public static class EdgeProjection {
     // One fold over the whole relationship roster: the generic FanOut/Pair families through row.Edge, the inverted Assign
     // arms (DefinesByType/AssignsToGroup), the realizing Connect, and the dedicated payload-bearing folds (DefinesProperties/
     // Structural/SpatialBoundaries/MaterialEdges). A dangling endpoint faults [DanglingReference].
-    public static Fin<Seq<Relationship>> All(IfcProject project, Map<string, NodeId> rooted, double tolerance, Op key) {
+    public static Fin<Seq<Relationship>> All(IfcProject project, Map<string, NodeId> rooted, double tolerance, UnitScale scale, IIfcProfileStore profiles, Op key) {
         var edges = Decomposition(project, rooted, key)
             .Concat(Connections(project, rooted, key))
             .Concat(Assignments(project, rooted, key))
             .Concat(Generics(project, rooted, key))
             .Concat(DefinesProperties(project, rooted, key))
-            .Concat(Structural(project, rooted, key))
+            .Concat(Structural(project, rooted, profiles, key))
             .Concat(SpatialBoundaries(project, rooted, key))
-            .Concat(Seq(MaterialEdges(project, rooted, tolerance, key)));
+            .Concat(Seq(MaterialEdges(project, rooted, tolerance, scale, profiles, key)));
         return edges.TraverseM(identity).As().Map(static rels => rels.Flatten().ToSeq());
     }
 
@@ -161,9 +177,8 @@ public static class EdgeProjection {
         FanOut(project.Extract<IfcRelAggregates>(), IfcRelKind.Aggregates, rooted, key,
             static r => r.RelatingObject?.GlobalId ?? "", static r => r.RelatedObjects.Select(static o => o.GlobalId)),
         // AMENDMENT ordered-nest carrier: RelatedObjects is a schema LIST, so INGEST routes every nest through
-        // Generic stamping the ONE egress-declared SemanticProjector.NestOrdinal attribute (zero-based child index
-        // as a dimensionless Measure — the seam ten-case PropertyValue carries no integer case, so Measure IS the
-        // typed integer spelling). Ordinals are PER-PARENT CONTINUOUS across relations — IsNestedBy is a schema SET,
+        // Generic stamping the ONE egress-declared SemanticProjector.NestOrdinal attribute as the seam Integer arm.
+        // Ordinals are PER-PARENT CONTINUOUS across relations — IsNestedBy is a schema SET,
         // so a parent with N IfcRelNests would collide per-relation zero-based indices and the egress per-parent
         // merge would interleave nondeterministically; the parent-grouped running index keeps the merged order total.
         // The typed Compose{Nest} case and its canonical bytes stay byte-identical for authored graphs, whose
@@ -176,7 +191,7 @@ public static class EdgeProjection {
                 from parent in Resolve(rooted, group.Key, key)
                 from part in Resolve(rooted, child.GlobalId, key)
                 select (Relationship)new Relationship.Generic(IfcRelKind.Nests.Key, parent, part,
-                    Map((SemanticProjector.NestOrdinal, (PropertyValue)new PropertyValue.Measure(MeasureValue.OfSi(QuantityType.Count, Dimension.Dimensionless, ordinal)))))))
+                    Map((SemanticProjector.NestOrdinal, (PropertyValue)new PropertyValue.Integer(ordinal))))))
             .AsIterable().TraverseM(identity).As().Map(static e => e.ToSeq()),
         FanOut(project.Extract<IfcRelContainedInSpatialStructure>(), IfcRelKind.ContainedInStructure, rooted, key,
             static r => r.RelatingStructure?.GlobalId ?? "", static r => r.RelatedElements.Select(static o => o.GlobalId)),
@@ -213,18 +228,29 @@ public static class EdgeProjection {
         Pair(project.Extract<IfcRelFlowControlElements>(), IfcRelKind.FlowControl, rooted, key,
             static r => r.RelatingPort?.GlobalId ?? "", static r => r.RelatedElement?.GlobalId ?? ""),
         // The 2x3 element<->idealized-member binding; Extract<IfcRelConnectsStructuralMember> separately returns
-        // IfcRelConnectsWithEccentricity, whose edge rides the Structural fold — its ConnectionConstraint
-        // (IfcConnectionGeometry) stays off the attrs by the geometry-inline prohibition [M2], a named drop.
+        // IfcRelConnectsWithEccentricity, whose edge rides the Structural fold — its mandatory ConnectionConstraint
+        // content-keys through the store's STEP-fragment lane onto the EccentricityKey attr (never inlined [M2]).
         Pair(project.Extract<IfcRelConnectsStructuralElement>(), IfcRelKind.ConnectsStructElement, rooted, key,
             static r => r.RelatingElement?.GlobalId ?? "", static r => r.RelatedStructuralMember?.GlobalId ?? ""),
         // IfcRelConnectsWithRealizingElements subtypes the medium-less IfcRelConnectsElements base directly, so it rides
-        // the seam ConnectKind.Element with the realizing head in the Connect.Realizing option — realization is the FIELD,
+        // the seam ConnectKind.Element with the realizing member in the Connect.Realizing option — realization is the FIELD,
         // never a sub-kind row (a ConnectKind.Realizing token is the deleted phantom the seam vocabulary rejects) [C5].
-        project.Extract<IfcRelConnectsWithRealizingElements>().AsIterable().Select(rel =>
-            from a in Resolve(rooted, rel.RelatingElement?.GlobalId ?? "", key)
-            from b in Resolve(rooted, rel.RelatedElement?.GlobalId ?? "", key)
-            select (Relationship)new Relationship.Connect(a, b, ConnectKind.Element,
-                rel.RealizingElements.AsIterable().Head.Bind(re => rooted.Find(re.GlobalId))))
+        // RealizingElements is a SET<IfcElement> [1:?]: the fold FANS OUT one Connect edge per realizing member over the
+        // same (From, To) pair — a moment connection realized by a plate AND its bolts lands N edges, one per realizer —
+        // so the whole realizing family survives (the .Head slice dropped every member past the first, the closed
+        // cardinality defect); egress re-groups the fan by endpoint pair into ONE relation carrying every member. A
+        // schema-invalid EMPTY set and an unrooted realizer both fault typed; neither can masquerade as a base connect.
+        project.Extract<IfcRelConnectsWithRealizingElements>().AsIterable().SelectMany(rel =>
+            rel.RealizingElements.AsIterable().ToSeq() switch {
+                { IsEmpty: true } => Seq(FinFail<Relationship>(new BimFault.ModelRejected(
+                    key,
+                    $"realizing-elements-empty:{rel.GlobalId}"))),
+                var members => members.Map(member =>
+                    from a in Resolve(rooted, rel.RelatingElement?.GlobalId ?? "", key)
+                    from b in Resolve(rooted, rel.RelatedElement?.GlobalId ?? "", key)
+                    from r in Resolve(rooted, member.GlobalId, key)
+                    select (Relationship)new Relationship.Connect(a, b, ConnectKind.Element, Some(r))),
+            })
             .AsIterable().TraverseM(identity).As().Map(static e => e.ToSeq()));
 
     // The Assign family is INVERTED: the seam Assign is Subject(occurrence)->Definition(type/group), the inverse of the
@@ -286,22 +312,32 @@ public static class EdgeProjection {
     // idealized member to its connection, IfcRelConnectsStructuralActivity binds a load activity to a structural item — the
     // 6-DOF restraint (fixity + SI spring) and the full IfcStructuralLoad family are lowered through the DEDICATED
     // Model/structural#STRUCTURAL_PROJECTION StructuralProjection.Attrs owner (never a local boolean-only/single-force-only
-    // reader) — Attrs(rel) builds the WHOLE edge payload in ONE call (restraint + skew frame + SupportedLength + AtStart;
-    // load + Station), so a local two-step over the connection/activity entity is the deleted form. So a
-    // Rasm.Compute frame solve reads graph.SupportsOf/graph.LoadsOf off these edges and resolves the analytical axis BY
-    // CONTENT KEY from Representations (content-keyed by IfcRepresentation.Keys, never an Enrich bake) — never re-reading IFC, never a defaulted support joint or load case.
-    static Seq<Fin<Seq<Relationship>>> Structural(IfcProject project, Map<string, NodeId> rooted, Op key) => Seq(
+    // reader) — the Fin-railed Attrs(rel, key) builds the WHOLE edge payload in ONE call (restraint + skew frame +
+    // SupportedLength + AtStart; load + Station), so a local two-step over the connection/activity entity is the deleted
+    // form and a malformed structural measure faults typed on this rail. The eccentric subtype
+    // preserves its MANDATORY payload: an IfcRelConnectsWithEccentricity's ConnectionConstraint (an IfcConnectionGeometry
+    // the inline prohibition keeps off the attrs [M2]) content-keys through the store's STEP-fragment lane and rides the
+    // EccentricityKey attr — the ProfileRef/ProfileStepKey idiom — so egress reconstitutes the exact subtype instead of
+    // degrading it to the base member binding (a bare eccentric subtype without its constraint is schema-invalid; the
+    // silent downgrade was the closed loss). So a Rasm.Compute frame solve reads graph.SupportsOf/graph.LoadsOf off these
+    // edges and resolves the analytical axis BY CONTENT KEY from Representations (content-keyed by IfcRepresentation.Keys,
+    // never an Enrich bake) — never re-reading IFC, never a defaulted support joint or load case.
+    static Seq<Fin<Seq<Relationship>>> Structural(IfcProject project, Map<string, NodeId> rooted, IIfcProfileStore profiles, Op key) => Seq(
         project.Extract<IfcRelConnectsStructuralMember>().AsIterable().Select(rel =>
             from m in Resolve(rooted, rel.RelatingStructuralMember?.GlobalId ?? "", key)
             from c in Resolve(rooted, rel.RelatedStructuralConnection?.GlobalId ?? "", key)
+            from attrs in StructuralProjection.Attrs(rel, key)
             select (Relationship)new Relationship.Generic(IfcRelKind.ConnectsStructMember.Key, m, c,
-                StructuralProjection.Attrs(rel)))
+                rel is IfcRelConnectsWithEccentricity { ConnectionConstraint: { } constraint }
+                    ? attrs.AddOrUpdate(SemanticProjector.EccentricityKey,
+                        new PropertyValue.Text(profiles.Preserve(constraint, key).ToString()))
+                    : attrs))
             .AsIterable().TraverseM(identity).As().Map(static e => e.ToSeq()),
         project.Extract<IfcRelConnectsStructuralActivity>().AsIterable().Select(rel =>
             from item in Resolve(rooted, (rel.RelatingElement as IfcRoot)?.GlobalId ?? "", key)
             from act in Resolve(rooted, rel.RelatedStructuralActivity?.GlobalId ?? "", key)
-            select (Relationship)new Relationship.Generic(IfcRelKind.ConnectsStructActivity.Key, item, act,
-                StructuralProjection.Attrs(rel)))
+            from attrs in StructuralProjection.Attrs(rel, key)
+            select (Relationship)new Relationship.Generic(IfcRelKind.ConnectsStructActivity.Key, item, act, attrs))
             .AsIterable().TraverseM(identity).As().Map(static e => e.ToSeq()));
 
     // The energy/spatial space-boundary graph onto neutral Generic edges [C5]: IfcRelSpaceBoundary binds a space to its
@@ -319,17 +355,23 @@ public static class EdgeProjection {
     // The material Associate edges [C7]: each related element binds the projected Material node (the content-keyed id the
     // Materials fold lands) through an Associate edge carrying the occurrence MaterialUsage (the LayerSet direction/sense/
     // offset or the ProfileSet cardinal-point/extent), so a wall and its mirror share one LayerSet node with two usages;
-    // the ProfileSet usage admits through the seam MaterialUsage.ProfileSet.Of cardinal-point gate.
-    static Fin<Seq<Relationship>> MaterialEdges(IfcProject project, Map<string, NodeId> rooted, double tolerance, Op key) =>
-        project.Extract<IfcRelAssociatesMaterial>().AsIterable().SelectMany(rel => rel.RelatedObjects.Select(o =>
-            from element in Resolve(rooted, o.GlobalId, key)
-            from material in MaterialNode(rel.RelatingMaterial, tolerance, key)
-            from usage in UsageOf(rel.RelatingMaterial, key)
-            select (Relationship)new Relationship.Associate(element, material, usage)))
-            .AsIterable().TraverseM(identity).As().Map(static e => e.ToSeq());
+    // the ProfileSet usage admits through the seam MaterialUsage.ProfileSet.Of cardinal-point gate. The material node and
+    // usage bind ONCE PER RELATION and the related objects fan over the pair — the per-(rel, object) re-projection ran the
+    // whole composition fold N times per relation, the deleted quadratic form the MaterialIndex law already names.
+    // RelatingMaterial is schema-mandatory, so a null read is a malformed file faulting typed HERE (the node-side
+    // Materials fold Optional-skips the same null — this edge rail is the one fault site, per the fault-site law).
+    static Fin<Seq<Relationship>> MaterialEdges(
+        IfcProject project, Map<string, NodeId> rooted, double tolerance, UnitScale scale, IIfcProfileStore profiles, Op key) =>
+        project.Extract<IfcRelAssociatesMaterial>().AsIterable().Select(rel =>
+            from relating in Optional(rel.RelatingMaterial).ToFin(new BimFault.ModelRejected(key, $"material-relation-unbound:{rel.GlobalId}"))
+            from material in MaterialNode(relating, tolerance, profiles, key)
+            from usage in UsageOf(relating, scale, key)
+            from elements in rel.RelatedObjects.AsIterable().ToSeq().TraverseM(o => Resolve(rooted, o.GlobalId, key)).As()
+            select elements.Map(element => (Relationship)new Relationship.Associate(element, material, usage)))
+            .AsIterable().TraverseM(identity).As().Map(static e => e.Flatten().ToSeq());
 
-    static Fin<NodeId> MaterialNode(IfcMaterialSelect select, double tolerance, Op key) =>
-        MaterialProjection.Project(select, tolerance, key).Map(static m => m.Id);
+    static Fin<NodeId> MaterialNode(IfcMaterialSelect select, double tolerance, IIfcProfileStore profiles, Op key) =>
+        MaterialProjection.Project(select, tolerance, profiles, key).Map(static m => m.Id);
 
     // The IFC occurrence material usage -> the seam's typed MaterialUsage [C7]: an IfcMaterialLayerSetUsage lowers to
     // MaterialUsage.LayerSet (direction/sense/offset/extent — all four IFC occurrence parameters), an
@@ -337,19 +379,33 @@ public static class EdgeProjection {
     // with no occurrence usage to MaterialUsage.None. The ReferenceExtent (the layer-set size perpendicular to the layers,
     // IfcMaterialLayerSetUsage.ReferenceExtent decompile-confirmed .api/api-geometrygym-ifc row 12) is the 4th seam ctor
     // arg — without it an asymmetric wall finish (a reference line that does not bisect the buildup) is dropped at ingest.
-    static Fin<MaterialUsage> UsageOf(IfcMaterialSelect select, Op key) => select switch {
-        IfcMaterialLayerSetUsage u => Fin.Succ<MaterialUsage>(new MaterialUsage.LayerSet(
-            u.LayerSetDirection switch {
-                IfcLayerSetDirectionEnum.AXIS1 => LayerSetDirection.Axis1,
-                IfcLayerSetDirectionEnum.AXIS2 => LayerSetDirection.Axis2,
-                _                              => LayerSetDirection.Axis3,
-            },
-            u.DirectionSense == IfcDirectionSenseEnum.POSITIVE ? DirectionSense.Positive : DirectionSense.Negative,
-            u.OffsetFromReferenceLine,
-            u.ReferenceExtent)),
-        IfcMaterialProfileSetUsage u => MaterialUsage.ProfileSet.Of((int)u.CardinalPoint, u.ReferenceExtent, key),
+    static Fin<MaterialUsage> UsageOf(IfcMaterialSelect select, UnitScale scale, Op key) => select switch {
+        IfcMaterialLayerSetUsage u =>
+            from offset in Length(u.OffsetFromReferenceLine, scale)
+            from extent in Length(u.ReferenceExtent, scale)
+            from usage in MaterialUsage.LayerSet.Of(
+                u.LayerSetDirection switch {
+                    IfcLayerSetDirectionEnum.AXIS1 => LayerSetDirection.Axis1,
+                    IfcLayerSetDirectionEnum.AXIS2 => LayerSetDirection.Axis2,
+                    _                              => LayerSetDirection.Axis3,
+                },
+                u.DirectionSense == IfcDirectionSenseEnum.POSITIVE ? DirectionSense.Positive : DirectionSense.Negative,
+                offset, extent, key)
+            select usage,
+        IfcMaterialProfileSetUsage u =>
+            from extent in Length(u.ReferenceExtent, scale)
+            from usage in MaterialUsage.ProfileSet.Of(OptionalCardinal(u.CardinalPoint), extent, key)
+            select usage,
         _ => Fin.Succ<MaterialUsage>(new MaterialUsage.None()),
     };
+
+    static Fin<Option<MeasureValue>> Length(double native, UnitScale scale) =>
+        double.IsFinite(native)
+            ? MeasureValue.OfSi(Dimension.LengthDim, native * scale.Factor(Dimension.LengthDim)).Map(Some)
+            : FinSucc(Option<MeasureValue>.None);
+
+    static Option<int> OptionalCardinal(IfcCardinalPointReference point) =>
+        point == IfcCardinalPointReference.MID ? Option<int>.None : Some((int)point);
 
     // The space-boundary level discriminant -> the egress-declared SemanticProjector.BoundaryLevel attr, THREE-valued
     // because the runtime type is: "2nd"/"1st" name the exact subtype the egress refined-construct re-authors, "" the
@@ -388,6 +444,6 @@ public static class EdgeProjection {
 
 ## [03]-[RESEARCH]
 
-- [RELATION_NEUTRALITY]: the neutral five-axis `Relationship` algebra (`Compose`/`Assign`/`Associate`/`Connect`/`Void`) plus `Generic` passthrough grounds against `ELEMENT-REBUILD-PLAN.md` §4-RT C5 — the seam carries NO typed `IfcRel*` case, so the `IfcRelKind` row carries the neutral `EdgeAxis`+`SubKind` it lowers onto, the typed case taking only its `SubKind` (`ComposeKind`/`AssignKind`/`ConnectKind`/`VoidKind` per `Rasm.Element/Relations/relation#EDGE_ALGEBRA`) and the IFC wire-name reconstructing at egress through the `ByNeutral` reverse index, while the long-tail families ride `Generic(wireName, …)`; the `Assign` family is INVERTED at ingest (the seam `Assign(Subject, Definition)` is the inverse of the IFC relating→related), the realizing `Connect` reads `IfcRelConnectsWithRealizingElements.RealizingElements` (`SET<IfcElement>`) into the seam `Connect.Realizing` option, and the material occurrence-usage `LayerSetUsage`/`ProfileSetUsage` rides the `Associate` edge `MaterialUsage` payload [C7] (the `ProfileSet` usage through the seam `MaterialUsage.ProfileSet.Of` cardinal-point gate), the `MaterialUsage.ProfileSet` private ctor forcing every admission through `Of`. The ordered-nest ordinal carrier executes the campaign amendment: `IfcRelNests.RelatedObjects` is decompile-confirmed `LIST<IfcObjectDefinition>` (the lone ordered related-side in the subtree) while `IsNestedBy` is a SET — a parent may carry MULTIPLE nest relations — so the ingest lands `Generic("IfcRelNests", parent, child, {NestOrdinal})` per child with a PER-PARENT-CONTINUOUS zero-based ordinal as a dimensionless `Measure` over `QuantityType.Count` (the seam ten-case `PropertyValue` carries no integer case; per-relation indices would collide at the egress per-parent merge and interleave nondeterministically), the frozen `Compose{Nest}` case and its canonical bytes untouched.
-- [ROSTER_CENSUS]: the roster covers the FULL concrete node-to-node `IfcRelationship` subtree of the live GeometryGym 25.7.30 assembly, enumerated by decompile census — the additions over the prior roster are `IfcRelProjectsElement` (`RelatingElement`/`RelatedFeatureElement`), `IfcRelAdheresToElement` (`RelatingElement`/`RelatedSurfaceFeatures` `SET<IfcSurfaceFeature>`), `IfcRelFlowControlElements` (GG's REAL public pair `RelatingPort`/`RelatedElement`; the schema's `RelatingFlowElement`/`RelatedControlElements` are absent from the decompiled surface), `IfcRelPositions` (`RelatingPositioningElement`/`RelatedProducts` `SET<IfcProduct>`), `IfcRelDefinesByObject` (`RelatingObject`/`RelatedObjects` `SET<IfcObject>`), and `IfcRelConnectsStructuralElement` (`RelatingElement`/`RelatedStructuralMember`), every member decompile-verified. Rider subtypes land through their base `Extract<T>`: `IfcRelAssignsToGroupByFactor` (public `Factor`, no seam slot — named drop), `IfcRelConnectsWithEccentricity` (public `ConnectionConstraint` `IfcConnectionGeometry` — geometry-prohibited off attrs [M2], re-emitting as the base member binding because the constraint is schema-MANDATORY on the subtype), `IfcRelOverridesProperties` (rides `DefinesProperties`, re-emitting as plain `IfcRelDefinesByProperties` — the override semantics await a seam `AssignKind` row, a named drop), `IfcRelSpaceBoundary1stLevel`/`2ndLevel` (the `SpatialBoundaries` three-valued `BoundaryLevel` discriminant — the egress refined-construct re-authors the EXACT subtype, so the level round-trips), and the 2x3 control tails `IfcRelAssignsTasks`/`IfcRelAssignsToProjectOrder` (ride `AssignsToControl`, re-emitting as the base wire-name — bounded). The NON-node associations the Growth axis defends are the complete residue: `IfcRelAssociatesApproval`/`Constraint`/`Dataset`/`Document`/`Library`/`ProfileDef`/`ProfileProperties`, `IfcRelDefinesByTemplate`, `IfcRelAssignsToResource` (`IfcRelAssociatesClassification` is owned by `Semantics/classification#CLASSIFICATION_AXIS`, `IfcRelAssociatesMaterial` by the `MaterialEdges` fold); `IfcRelInteractionRequirements`/`IfcRelOccupiesSpaces` do not exist on the GG surface.
-- [STRUCTURAL_ENERGY_LOWERING]: the `DefinesProperties`/`Structural`/`SpatialBoundaries` `EdgeProjection` folds lower the structural idealization and the energy/spatial CONNECTIVITY onto the seam graph so `Rasm.Compute` reads it off the neutral `Generic` edges (`ELEMENT-REBUILD-PLAN.md` §4E). The member surface is decompile-verified against the live GeometryGym 25.7.30 (`.api/api-geometrygym-ifc`): `IfcRelDefinesByProperties.RelatedObjects` (`SET<IfcObjectDefinition>`) + `RelatingPropertyDefinition` (a `SET<IfcPropertySetDefinition>`, fanned out per pair); `IfcRelConnectsStructuralMember.RelatingStructuralMember`/`RelatedStructuralConnection` and `IfcRelConnectsStructuralActivity.RelatingElement` (`IfcStructuralActivityAssignmentSelect`, read through the `IfcRoot` cast)/`RelatedStructuralActivity` are the edge endpoints the `Structural` fold resolves, the restraint/load PAYLOAD (the 6-DOF fixity + SI spring per DOF, the full `IfcStructuralLoad` family, and the neutral `LoadKind`/`Case` tokens) delegated to the dedicated `Model/structural#STRUCTURAL_PROJECTION` `StructuralProjection.Attrs` owner and the `AtStart` start/end discriminant to `StructuralProjection.AtStart` — never a local boolean-only/single-force reader; `IfcRelSpaceBoundary.RelatingSpace` (`IfcSpaceBoundarySelect`, read through the `IfcRoot` cast)/`RelatedBuildingElement` + the `IfcRelSpaceBoundary2ndLevel` discriminant (the `PhysicalOrVirtualBoundary`/`InternalOrExternalBoundary` enums are GeometryGym internal fields with no public getter, so the seam lowers only the publicly-readable boundary level, never an internal-field reflection read). The structural curve member's idealized analytical axis is content-keyed in `Representations` by `IfcRepresentation.Keys` (the polymorphic representation content-keyer), NEVER inlined as a coordinate field on the `Object` node (an inline `Axis`/`BoundaryPolygon` member is the deleted §4-RT-M2 violation) — the heavy display geometry likewise content-hashed on `RepresentationContentHash`, materializing it in-process being the geometry evaluation the projector boundary (and `Model/elements#REPRESENTATION_KEYS`) forbids — so `Rasm.Compute` RESOLVES the analytical axis/footprint one-hop BY CONTENT KEY from the blob store rather than re-deriving it.
+- [RELATION_NEUTRALITY]: the neutral `Relationship` algebra plus `Generic` passthrough keeps IFC names and directionality on the `IfcRelKind` row while payload-bearing families stay on their existing typed seam cases. The inverted `Assign` rows re-orient through the row policy, realizing connections fan over the complete realizing set and regroup at egress, and material usage rides the `Associate` payload. Ordered nests land `Generic("IfcRelNests", parent, child, {NestOrdinal})` with one per-parent-continuous `PropertyValue.Integer` ordinal, so the `LIST` order survives without overloading the physical-measure domain.
+- [ROSTER_CENSUS]: the roster covers the FULL concrete node-to-node `IfcRelationship` subtree of the catalogued GeometryGym assembly, enumerated by decompile census — the additions over the prior roster are `IfcRelProjectsElement` (`RelatingElement`/`RelatedFeatureElement`), `IfcRelAdheresToElement` (`RelatingElement`/`RelatedSurfaceFeatures` `SET<IfcSurfaceFeature>`), `IfcRelFlowControlElements` (GG's REAL public pair `RelatingPort`/`RelatedElement`; the schema's `RelatingFlowElement`/`RelatedControlElements` are absent from the decompiled surface), `IfcRelPositions` (`RelatingPositioningElement`/`RelatedProducts` `SET<IfcProduct>`), `IfcRelDefinesByObject` (`RelatingObject`/`RelatedObjects` `SET<IfcObject>`), and `IfcRelConnectsStructuralElement` (`RelatingElement`/`RelatedStructuralMember`), every member decompile-verified. Rider subtypes land through their base `Extract<T>`: `IfcRelAssignsToGroupByFactor` (public `Factor`, no seam slot — named drop), `IfcRelConnectsWithEccentricity` (public settable `ConnectionConstraint` `IfcConnectionGeometry` and the public `(IfcStructuralMember, IfcStructuralConnection, IfcConnectionGeometry)` ctor, decompile-verified — the constraint content-keys through the store's STEP-fragment lane onto the `EccentricityKey` attr, never inlined [M2], and the egress refined-construct reconstitutes the exact subtype with its constraint restored from the store), `IfcRelOverridesProperties` (rides `DefinesProperties`, re-emitting as plain `IfcRelDefinesByProperties` — the override semantics await a seam `AssignKind` row, a named drop), `IfcRelSpaceBoundary1stLevel`/`2ndLevel` (the `SpatialBoundaries` three-valued `BoundaryLevel` discriminant — the egress refined-construct re-authors the EXACT subtype, so the level round-trips), and the 2x3 control tails `IfcRelAssignsTasks`/`IfcRelAssignsToProjectOrder` (ride `AssignsToControl`, re-emitting as the base wire-name — bounded). `IfcRelConnectsWithRealizingElements.RealizingElements` is a `SET<IfcElement>` `[1:?]` — the ingress fans one `Connect` edge per member and the egress re-groups by endpoint pair, so realizing cardinality is lossless (two separate realizing relations between one endpoint pair merge into one at egress — the per-pair denormalized-but-lossless law). The NON-node associations the Growth axis defends are the complete residue: `IfcRelAssociatesApproval`/`Constraint`/`Dataset`/`Document`/`Library`/`ProfileDef`/`ProfileProperties`, `IfcRelDefinesByTemplate`, `IfcRelAssignsToResource` (`IfcRelAssociatesClassification` is owned by `Semantics/classification#CLASSIFICATION_AXIS`, `IfcRelAssociatesMaterial` by the `MaterialEdges` fold); `IfcRelInteractionRequirements`/`IfcRelOccupiesSpaces` do not exist on the GG surface.
+- [STRUCTURAL_ENERGY_LOWERING]: the `DefinesProperties`/`Structural`/`SpatialBoundaries` `EdgeProjection` folds lower the structural idealization and the energy/spatial CONNECTIVITY onto the seam graph so `Rasm.Compute` reads it off the neutral `Generic` edges (`ELEMENT-REBUILD-PLAN.md` §4E). The member surface is decompile-verified against the catalogued GeometryGym assembly (`.api/api-geometrygym-ifc`): `IfcRelDefinesByProperties.RelatedObjects` (`SET<IfcObjectDefinition>`) + `RelatingPropertyDefinition` (a `SET<IfcPropertySetDefinition>`, fanned out per pair); `IfcRelConnectsStructuralMember.RelatingStructuralMember`/`RelatedStructuralConnection` and `IfcRelConnectsStructuralActivity.RelatingElement` (`IfcStructuralActivityAssignmentSelect`, read through the `IfcRoot` cast)/`RelatedStructuralActivity` are the edge endpoints the `Structural` fold resolves, the restraint/load PAYLOAD (the 6-DOF fixity + SI spring per DOF, the full `IfcStructuralLoad` family, and the neutral `LoadKind`/`Case` tokens) delegated to the dedicated `Model/structural#STRUCTURAL_PROJECTION` `StructuralProjection.Attrs` owner and the `AtStart` start/end discriminant to `StructuralProjection.AtStart` — never a local boolean-only/single-force reader; `IfcRelSpaceBoundary.RelatingSpace` (`IfcSpaceBoundarySelect`, read through the `IfcRoot` cast)/`RelatedBuildingElement` + the `IfcRelSpaceBoundary2ndLevel` discriminant (the `PhysicalOrVirtualBoundary`/`InternalOrExternalBoundary` enums are GeometryGym internal fields with no public getter, so the seam lowers only the publicly-readable boundary level, never an internal-field reflection read). The structural curve member's idealized analytical axis is content-keyed in `Representations` by `IfcRepresentation.Keys` (the polymorphic representation content-keyer), NEVER inlined as a coordinate field on the `Object` node (an inline `Axis`/`BoundaryPolygon` member is the deleted §4-RT-M2 violation) — the heavy display geometry likewise content-hashed on `RepresentationContentHash`, materializing it in-process being the geometry evaluation the projector boundary (and `Model/elements#REPRESENTATION_KEYS`) forbids — so `Rasm.Compute` RESOLVES the analytical axis/footprint one-hop BY CONTENT KEY from the blob store rather than re-deriving it.

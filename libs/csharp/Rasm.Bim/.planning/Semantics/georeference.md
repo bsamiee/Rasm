@@ -25,7 +25,7 @@ using LanguageExt;
 using OSGeo.OSR;
 using ProjNet;
 using ProjNet.CoordinateSystems.Transformations;
-using Rasm.Element;
+using Rasm.Element.Geospatial;
 using Op = Rasm.Domain.Op;                          // the host-neutral kernel operation key; NEVER the Rhino-bound kernel geometry
 using static LanguageExt.Prelude;
 
@@ -177,7 +177,7 @@ public static class GeoReferenceProjector {
 ## [03]-[GEODETIC_TRANSFORM]
 
 - Owner: `GeoTransform` the datum-bridging leg reprojecting raw ordinate spans between two seam `GeoReference` frames — EACH frame resolves its `ProjNET` `CoordinateSystem` off its OWN seam `CrsResolution` (`ManagedCs`: the `Epsg` arm the facade's cached `GetCoordinateSystem(srid)`, the `Wkt` arm the shared `CoordinateSystemFactory.CreateFromWkt` — a GIS-origin CRS with no authority code, where `Epsg` is `None` so an SRID-only build would silently no-op the federation), the ONE facade `CoordinateSystemServices.CreateTransformation(src, dst)` building the managed transform for EVERY resolvable pair (both-EPSG, both-WKT, and the MIXED EPSG↔WKT federation alike) — escalating an exotic datum-grid or dynamic-datum transform `ProjNET` cannot express to the `MaxRev.Gdal.Core` OSR PROJ engine (keyed by `ImportFromEPSG` or `ImportFromWkt` to match the frame's resolution) per the `.api/api-projnet` escalation-seam; `CoordinateServices` the one process-wide `CoordinateSystemServices` (the SRID-keyed CS cache AND the CS-pair transformation build) and `CsFactory` the one WKT parser the `.api/api-projnet` `CRS_TRANSFORM` law names as the single owners. The leg operates on the seam `GeoReference` frame and a `ProjNET`/OSR datum shift folded onto the kernel transform is the named seam violation.
-- Entry: `GeoTransform.Reproject(GeoReference source, GeoReference target, Span<double> ordinates, int stride, Op key)` applies the datum-to-datum transform IN PLACE on the interleaved double ordinate buffer when both frames carry a resolvable CRS (EPSG or WKT) that differs, returning `Fin<Reprojection>` — the typed receipt carrying the engine route, the shifted-vertex count, the forward→inverse round-trip residual, the central-difference anchor `AnchorScale`/`AnchorConvergence` distortion evidence, and the dynamic-datum `EpochDefaulted` posture: the additive cases (a source or target `CrsResolution.Unreferenced`, an identical CRS, or fewer than one full vertex) return `Reprojection.Identity` so the datum leg never blocks a single-datum federation; a `CrsResolution.Wkt` frame whose `Wkt` text is empty (the seam's projection+zone-only state) faults `crs-projection-only-unbuildable` by name — neither engine builds from a bare projection identity; a differing, resolvable pair resolves EACH frame's `CoordinateSystem` through its `Resolution` generated total `Switch` (`ManagedCs`) into the ONE facade `CreateTransformation(src, dst)` managed build (a mixed EPSG↔WKT pair included), runs the strided batch once, escalates to the matching OSR build (`ImportFromEPSG`/`ImportFromWkt`) when `ProjNET` cannot express the transform, and faults `BimFault.CapabilityMiss` BARE only when BOTH engines fail. The buffer is `double` end to end — a survey easting never narrows to `float` (a float32 round-trip drops sub-metre precision on a six-figure easting; the `Semantics/geospatial#GEOSPATIAL_SEAM` precision contract) — and the NTS `CoordinateSequence` flatten plus the `Geometry.Apply` write-back is the geospatial CONSUMER's marshalling, never this owner's, so the leg stays geometry-library-neutral over raw ordinates. Composed BEFORE the downstream host-bound rigid map-conversion offset so a federated model lands in the shared datum before its local-engineering placement applies.
+- Entry: `GeoTransform.Reproject(GeoReference source, GeoReference target, Span<double> ordinates, int stride, Op key)` applies the datum-to-datum transform IN PLACE on the interleaved double ordinate buffer when both frames carry a resolvable CRS (EPSG or WKT) that differs, returning `Fin<Reprojection>` — the typed receipt carrying the engine route, the shifted-vertex count, the forward→inverse round-trip residual, the central-difference anchor `AnchorScale`/`AnchorConvergence` distortion evidence, and the dynamic-datum `EpochDefaulted` posture: the additive cases (a source or target `CrsResolution.Unreferenced`, an identical CRS, or fewer than one full vertex) return `Reprojection.Identity` so the datum leg never blocks a single-datum federation; a `CrsResolution.Projection` frame (the seam's typed projection+zone-only mode) faults `crs-projection-only-unbuildable` by CASE — neither engine builds from a bare projection identity, and the empty-`Wkt` payload sniff is the deleted form; a differing, resolvable pair resolves EACH frame's `CoordinateSystem` through its `Resolution` generated total `Switch` (`ManagedCs`) into the ONE facade `CreateTransformation(src, dst)` managed build (a mixed EPSG↔WKT pair included), runs the strided batch once, escalates to the matching OSR build (`ImportFromEPSG`/`ImportFromWkt`) when `ProjNET` cannot express the transform, and faults `BimFault.CapabilityMiss` BARE only when BOTH engines fail. The buffer is `double` end to end — a survey easting never narrows to `float` (a float32 round-trip drops sub-metre precision on a six-figure easting; the `Semantics/geospatial#GEOSPATIAL_SEAM` precision contract) — and the NTS `CoordinateSequence` flatten plus the `Geometry.Apply` write-back is the geospatial CONSUMER's marshalling, never this owner's, so the leg stays geometry-library-neutral over raw ordinates. Composed BEFORE the downstream host-bound rigid map-conversion offset so a federated model lands in the shared datum before its local-engineering placement applies.
 - Auto: `Reproject` short-circuits when either frame is `CrsResolution.Unreferenced`, when the two CRS identities are equal (same EPSG, or same `Crs` value), or when the buffer holds fewer than one full vertex; otherwise EACH frame resolves its `CoordinateSystem` through its own `Resolution` generated total `Switch` (`ManagedCs` — the `Epsg` arm the facade's cached `GetCoordinateSystem(srid)`, the `Wkt` arm `CsFactory.CreateFromWkt(wkt)`, the `Unreferenced` arm unreachable here since the short-circuit already returned) and the ONE facade `CoordinateServices.CreateTransformation(srcCS, dstCS).MathTransform` builds the managed transform — both-EPSG, both-WKT, and the mixed EPSG↔WKT pair through one build. The `ProjNET` build is lifted through `Try` so a SRID absent from the bundled `SRID.csv`, a WKT `ProjNET` cannot parse, or a datum `ProjNET` cannot express routes the OSR escalation rather than throwing across the boundary; the `ProjNET` apply is the `.api/api-projnet#CRS_TRANSFORM` strided `double` batch run DIRECTLY on the interleaved buffer IN PLACE — a single `MathTransform.Transform(ordinates, ordinates[1..], ordinates[2..], stride, stride, stride)` call over the three ordinate columns of that one `Span<double>`, no staging copy (the buffer is already `double`, so there is no widen/narrow and no `MemoryMarshal.Cast<float,double>` to misread the bytes) and the `TransformCore` `while (num < xs.Length)` walk drives the count off the full-length first column so the last vertex is covered, a `stride` above three leaving the non-position interleave columns untouched; the OSR escalation deinterleaves the position columns into pooled `double[]` x/y/z, runs the one `Semantics/geospatial#RASTER_INGEST` `GeoGdal.Bootstrap` idempotent guard (`GdalBase.ConfigureAll` + `Osr.UseExceptions`), builds two `SpatialReference` keyed to match each frame's resolution (`ImportFromEPSG` for an EPSG frame, `ImportFromWkt` for a WKT frame, `OAMS_TRADITIONAL_GIS_ORDER` pinning lon/lat against the GDAL-3 axis swap) and one `CoordinateTransformation` under the two options gates (`SetBallparkAllowed(false)` — a gridless pair faults, never a coarse ballpark shift; `SetOnlyBest(true)` — a missing best-accuracy operation faults, never a silent lower-accuracy fallback), records either frame's `IsDynamic()` onto the receipt's `EpochDefaulted`, runs one `TransformPoints(count, xs, ys, zs)`, and reinterleaves; on BOTH engines the receipt evidence rides the same shifted anchor — the `GetInverse`/`Inverse()` round-trip residual and the `Distortion` central-difference Jacobian probe are inner-`Try` recorded absences (`NaN`), never leg faults; the datum shift composes BEFORE the rigid offset so a model lands in the shared datum before its local-engineering-frame placement applies.
 - Packages: ProjNET, MaxRev.Gdal.Core, Rasm.Element, Rasm, LanguageExt.Core
 - Growth: a new EPSG, WKT, or mixed CRS pair is the per-frame `ManagedCs` resolution joined by the one facade `CreateTransformation` (the `CoordinateSystemServices` cache resolving EPSG frames from the bundled `SRID.csv`, `CsFactory` parsing WKT frames), never a per-call factory; a new CRS-resolution mode is one arm on the seam `CrsResolution` that breaks this `Switch` at compile time (the seam owns the discriminant, this leg owns the per-mode build); an exotic datum-grid or dynamic datum is the OSR PROJ pipeline's, resolved from the EPSG code or the WKT, never a hand-rolled Bursa-Wolf matrix; a float-buffered consumer widens to `double` at its OWN boundary and calls the one `Span<double>` leg, never a parallel `Span<float>` overload re-admitting the survey-precision-loss footgun; a denser batch is one `MathTransform`/`CoordinateTransformation` overload swap, never a second transform owner and never a per-vertex `ref` loop; a new PROJ pipeline gate is one `CoordinateTransformationOptions` setter row on the one OSR options build, never a second pipeline owner; the coordinate epoch is the seam's — the `GeoReference.Epoch` decimal-year column the OSR leg threads through `SpatialReference.SetCoordinateEpoch` per frame, never a Bim-local epoch knob (an epoch-LESS dynamic frame records `EpochDefaulted`); a new receipt evidence column is one `Reprojection` field fed by the shared anchor probes, never a per-engine receipt sibling.
@@ -238,8 +238,9 @@ public static class GeoTransform {
     // identical CRS, or zero whole vertices returns Reprojection.Identity. ProjNET is the default managed engine; an
     // exotic datum-grid/dynamic-datum transform ProjNET cannot express escalates to the resolution-keyed GDAL OSR
     // build. Faults BimFault.CapabilityMiss bare on a malformed buffer (stride < 3), a projection+zone-only frame
-    // (empty Wkt — neither engine builds from a bare projection identity), an out-of-domain vertex (a non-finite
-    // shifted ordinate — the engine-agnostic domain guard), or a differing resolvable pair both engines fail.
+    // (the typed CrsResolution.Projection case — neither engine builds from a bare projection identity), an
+    // out-of-domain vertex (a non-finite shifted ordinate — the engine-agnostic domain guard), or a differing
+    // resolvable pair both engines fail.
     public static Fin<Reprojection> Reproject(GeoReference source, GeoReference target, Span<double> ordinates, int stride, Op key) {
         // Malformed-buffer guard: a stride below the three position columns would misread the interleave, and a
         // RAGGED length (not a whole number of stride blocks) would drive the full-length xs walk one partial
@@ -257,10 +258,11 @@ public static class GeoTransform {
             || sameFrame || ordinates.Length < stride) {
             return Fin.Succ(Reprojection.Identity);
         }
-        // The seam's third resolvable state — a projection+zone-only CRS (Wkt mode, EMPTY Wkt string) — is admissible on
-        // the seam yet BUILDABLE by neither engine (CreateFromWkt and ImportFromWkt both need the WKT text): fault it by
-        // NAME before two doomed engine builds, so the federation audit reads the real gap (a WKT synthesis from the
-        // projection identity is unbuilt), never a conflated crs-pair-unreconcilable.
+        // The seam's TYPED projection-only state — CrsResolution.Projection, a MapProjection+MapZone identity with no
+        // WKT payload — is admissible on the seam yet BUILDABLE by neither engine (CreateFromWkt and ImportFromWkt
+        // both need the WKT text): fault it by CASE before two doomed engine builds, so the federation audit reads
+        // the real gap (a WKT synthesis from the projection identity is unbuilt), never a conflated
+        // crs-pair-unreconcilable — the seam mode replaced the empty-Wkt payload sniff this leg formerly ran.
         if ((ProjectionOnly(source) | ProjectionOnly(target)).Case is string gap) {
             return Fin.Fail<Reprojection>(new BimFault.CapabilityMiss(key, $"crs-projection-only-unbuildable:{gap}"));
         }
@@ -295,21 +297,23 @@ public static class GeoTransform {
             : Fin.Fail<Reprojection>(new BimFault.CapabilityMiss(key, $"crs-out-of-domain:{source.Resolution.Key}->{target.Resolution.Key}"));
     }
 
-    // The projection+zone-only detector: a Wkt-resolution frame with no WKT text — the seam ProjectedCrs state whose
-    // transform build this leg cannot yet express; the gap string names the projection identity for the fault detail.
+    // The projection+zone-only detector — the seam's TYPED CrsResolution.Projection case (never an empty-Wkt payload
+    // sniff, the deleted form); the gap string names the projection identity for the fault detail.
     static Option<string> ProjectionOnly(GeoReference frame) =>
-        frame.Resolution == CrsResolution.Wkt
-            ? frame.Crs.Bind(static c => c.Wkt.Length == 0 ? Some($"{c.MapProjection}:{c.MapZone}") : Option<string>.None)
+        frame.Resolution == CrsResolution.Projection
+            ? frame.Crs.Map(static c => $"{c.MapProjection}:{c.MapZone}")
             : Option<string>.None;
 
     // Per-frame managed CS resolution keyed by the seam CrsResolution (the seam owns the discriminant, this leg owns
     // the per-mode build — never a re-spelled Epsg.IsSome re-branch): Epsg reads the facade's cached
-    // GetCoordinateSystem(srid), Wkt the one shared CreateFromWkt parser (the projection+zone-only state was already
-    // faulted by name, so this arm never parses an empty string), Unreferenced unreachable (the short-circuit returned).
+    // GetCoordinateSystem(srid), Wkt the one shared CreateFromWkt parser (always a non-empty payload — the seam mode
+    // guarantees it), Projection unreachable (ProjectionOnly already faulted the case by name), Unreferenced
+    // unreachable (the short-circuit returned).
     static Option<CoordinateSystem> ManagedCs(GeoReference frame) =>
         frame.Resolution.Switch(
             epsg: () => frame.Epsg.Map(CoordinateServices.GetCoordinateSystem),
             wkt: () => frame.Crs.Map(static c => CsFactory.CreateFromWkt(c.Wkt)),
+            projection: static () => Option<CoordinateSystem>.None,
             unreferenced: static () => Option<CoordinateSystem>.None);
 
     // The exotic datum escalation: GDAL OSR carries PROJ's full datum-grid + dynamic-datum pipeline ProjNET's managed

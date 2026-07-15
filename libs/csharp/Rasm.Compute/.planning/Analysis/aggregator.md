@@ -77,7 +77,7 @@ public sealed record WindowU(double UwWM2K, double UgWM2K, double UfWM2K, double
 ## [03]-[AGGREGATION_FOLD]
 
 - Owner: `AssemblyAggregator` the static fold kernel over a seam `MaterialComposition` — `Aggregate` (the thermal/mass/vapour/acoustic/mixture/fire receipt), `AggregateEnvironmental` (the EN 15978 cradle-to-grave GWP receipt), `AggregateCost` (the basis-aware supply/install/lifecycle receipt), `AggregateWindow` (the EN ISO 10077-1 whole-window `Uw` receipt over a `Seq<WindowField>`); each composition fold discriminates the composition through the seam's generated total `Switch` (state threaded positionally, the arm `(state, case)`) and folds the per-ply seam `MaterialPropertySet` resolved through ONE `Func<MaterialId, Fin<Seq<MaterialPropertySet>>>` resolver keyed on the composition's native `MaterialId` into a typed `[FOLD_STATE]` accumulator (`LayerFold`/`MixtureFold`/`CarbonFold`) that `Absorb`s one ply and `Project`s the receipt, while `AggregateWindow` folds the runner-resolved glazed/frame fields through the `WindowFold` accumulator — the window is a SIDE-BY-SIDE composition (glazing-in-frame), not the perpendicular through-thickness `MaterialComposition` series the other folds traverse, so it folds a field set the runner assembled from the window's parts rather than re-discriminating the composition union.
-- Entry: `Aggregate(composition, resolve)` over a `LayerSet`/`ConstituentSet` (a `Single`/`ProfileSet` rails — a homogeneous material has no series structure to aggregate, its intrinsic U/STC read seam-direct), plus the rail-twins `AggregateEnvironmental(composition, resolve, overrides, geometry)` and `AggregateCost(composition, resolve, overrides, geometry)` over ANY composition — each the one aggregation entry over the SAME `(composition, resolve, …)` rail; a `LayerSet` folds the series-resistance U `1/U = Rsi + Σ(t_i/λ_i) + Rse`, the `Σ ρ·c·t` areal heat capacity, the `Σ μ·t` vapour `Sd`, the accumulated areal mass `m' = Σ(ρ_i·t_i)` the mass-law STC reads, and the worst-ply fire over the plies, a `ConstituentSet` the `Fraction`-weighted rule-of-mixtures read off `MaterialConstituent.Fraction`, `Fin<T>` aborting ONLY on a ply whose material NODE is absent (the resolver fail) while a ply present-but-missing-a-discipline projects `double.NaN` for that discipline's field, decoupled per discipline so a thermal U survives a layer missing its mechanical density. `AggregateWindow(fields)` folds a window's resolved `Seq<WindowField>` into the EN ISO 10077-1 `WindowU` — `Uw = (Σ Ag·Ug + Σ Af·Uf + Σ lg·Ψg)/(Σ Ag + Σ Af)` — `Fin<T>` railing `ComputeFault.AssessmentInputMissing` on an empty field set or a zero total area (a window with no glazed-or-frame field is the degenerate under-specification, never a `0/0`-`NaN` `Uw` the verdict would band `NotApplicable` as if checked); the runner resolves each field (the glazed `Ug` + frame `Uf` off each part material's `Thermal.UValue.Si`, the glazed area + frame area + visible-glazing edge length off the window's baked `Qto_*BaseQuantities`, the spacer `Ψg` off the window's `Pset` thermal-bridge property) and this kernel folds them, never reading a graph node or a `Rasm.Materials` type.
+- Entry: `Aggregate(composition, resolve)` over a `LayerSet`/`ConstituentSet` (a `Single`/`ProfileSet` rails — a homogeneous material has no series structure to aggregate, its intrinsic U/STC read seam-direct), plus the rail-twins `AggregateEnvironmental(composition, resolve, overrides, geometry)` and `AggregateCost(composition, resolve, overrides, geometry)` over ANY composition — each the one aggregation entry over the SAME `(composition, resolve, …)` rail; a `LayerSet` folds the series-resistance U `1/U = Rsi + Σ(t_i/λ_i) + Rse`, the `Σ ρ·c·t` areal heat capacity, the `Σ μ·t` vapour `Sd`, the accumulated areal mass `m' = Σ(ρ_i·t_i)` the mass-law STC reads, and the worst-ply fire over the plies, a `ConstituentSet` the `Fraction`-weighted rule-of-mixtures read off `MaterialConstituent.Fraction`, `Fin<T>` aborting ONLY on a ply whose material NODE is absent (the resolver fail) while a ply present-but-missing-a-discipline projects `double.NaN` for that discipline's field, decoupled per discipline so a thermal U survives a layer missing its mechanical density. `AggregateWindow(fields)` folds a window's resolved `Seq<WindowField>` into the EN ISO 10077-1 `WindowU` — `Uw = (Σ Ag·Ug + Σ Af·Uf + Σ lg·Ψg)/(Σ Ag + Σ Af)` — `Fin<T>` railing `ComputeFault.AssessmentInputMissing` on an empty field set or a zero total area (a window with no glazed-or-frame field is the degenerate under-specification, never a `0/0`-`NaN` `Uw` the verdict bands `NotApplicable` as if checked); the runner resolves each field (the glazed `Ug` + frame `Uf` off each part material's `Thermal.UValue.Si`, the glazed area + frame area + visible-glazing edge length off the window's baked `Qto_*BaseQuantities`, the spacer `Ψg` off the window's `Pset` thermal-bridge property) and this kernel folds them, never reading a graph node or a `Rasm.Materials` type.
 - Auto: the resolver reads a ply material node's seam property cases (`mid => graph.Material(mid).Map(m => m.Properties).ToFin(...)`) keyed on the composition's `MaterialId` not a graph `NodeId` so the fold reads the composition's OWN plies; the mass-law STC fold accumulates each layer's areal mass `ρ·t` (the same density+thickness it resolves for the heat-capacity, effective-density, and in-plane Voigt effective-modulus `Σ(t·E)/ΣT` folds), then `MassLawBands` evaluates `R(f)=20·log₁₀(m'·f)−47` at each seam `AcousticBand` one-third-octave centre and feeds the resulting per-band SRI vector ONCE through the seam `RatingContour.Stc.Fit` so the assembly STC and the single-material STC share one ASTM-E413 contour-fit kernel; the surface-film resistances `Rsi`/`Rse` (0.13 / 0.04 m²K/W, ISO 6946 interior/exterior) seed the `LayerFold` resistance at the envelope ends so `UValueWM2K` is the reciprocal of the total resistance; the GWP fold scales each ply's per-module `StageGwp` by the BASIS-matching quantity through the SAME `DeclaredQuantity` derivation the cost fold uses — the seam `Environmental.Basis` selecting per-m³ volume / per-m² face area / per-kg `volume × Mechanical.Density.Si` / per-item unit (the per-ply geometric volume `PliesByVolume` distributes — a `LayerSet` layer `Thickness.Si × AreaM2`, a `ConstituentSet` constituent `Fraction × VolumeM3`, a `Single`/`ProfileSet` `VolumeM3` — feeding the per-m³ branch) unless a `PlyQuantity` override supplies the exact declared quantity, and folds the MASS-weighted recycled-content fraction (each ply weighted by its mass `ρ·V`, a ply lacking density excluded from the average); the cost fold reads the seam `Cost.Basis` through that SAME `DeclaredQuantity` owner (per-m³ volume, per-m² area, per-kg `volume × Mechanical.Density.Si`, per-item unit) — both folds sharing ONE basis-aware quantity derivation.
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm.Element (project — `MaterialComposition`, `MaterialLayer`, `MaterialConstituent`, `MaterialPropertySet`, `MaterialPropertyAccess`, `MaterialId`, `AcousticBand`, `LifecycleStage`, `Currency`, `MeasurementBasis`, `RatingContour.Stc.Fit`), BCL inbox.
 - Growth: a new aggregation discipline is one `AssemblyAggregator` fold over the same composition reading the same seam cases into a typed `[FOLD_STATE]` accumulator; the generated total `Switch` over the closed composition family breaks at compile time if the seam adds a composition case, never a runtime-silent `_` arm.
@@ -86,9 +86,9 @@ public sealed record WindowU(double UwWM2K, double UgWM2K, double UfWM2K, double
 ```csharp signature
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public static class AssemblyAggregator {
-    const double RsiWM2K = 0.13;            // ISO 6946 interior surface film
-    const double RseWM2K = 0.04;            // ISO 6946 exterior surface film
-    const double MassLawConstantDb = 47.0;  // field-incidence mass law: R(f) = 20·log10(m'·f) − 47 dB
+    private const double RsiWM2K = 0.13;            // ISO 6946 interior surface film
+    private const double RseWM2K = 0.04;            // ISO 6946 exterior surface film
+    private const double MassLawConstantDb = 47.0;  // field-incidence mass law: R(f) = 20·log10(m'·f) − 47 dB
 
     // Series-resistance U + areal heat capacity + vapour Sd + mass-law STC + in-plane Voigt modulus over a LayerSet,
     // Fraction-weighted rule-of-mixtures effective density/conductivity/modulus over a ConstituentSet, worst-ply fire
@@ -160,16 +160,16 @@ public static class AssemblyAggregator {
     // NaNs the U/Sd, no Mechanical density only the mass-derived STC/effective-density/heat-capacity — it never aborts
     // the U a thermal runner reads, so a thermal assessment is decoupled from a missing density. Only a ply whose
     // material NODE is absent (the resolver Fin.Fail) rails; a present-material-missing-property is a typed not-applicable.
-    static Fin<AssemblyProperty> AggregateLayers(MaterialComposition.LayerSet set, Func<MaterialId, Fin<Seq<MaterialPropertySet>>> resolve) =>
+    private static Fin<AssemblyProperty> AggregateLayers(MaterialComposition.LayerSet set, Func<MaterialId, Fin<Seq<MaterialPropertySet>>> resolve) =>
         set.Layers
             .Fold(Fin.Succ(LayerFold.Seed), (acc, layer) => acc.Bind(state => resolve(layer.Material).Map(props => state.Absorb(layer, props))))
-            .Map(static state => state.Project());
+            .Bind(static state => state.Project());
 
     // A ConstituentSet folds the Fraction-weighted rule-of-mixtures effective density/conductivity; a constituent
     // lacking the discipline NaNs that effective property (a rule-of-mixtures cannot fold over a hole). The series
     // fields (U/areal-heat-capacity/vapour Sd) and the thickness-less STC are double.NaN/0 — a homogeneous mix has
     // NO series structure or areal mass, and NaN is the IsFinite not-applicable signal. Only a missing NODE rails.
-    static Fin<AssemblyProperty> AggregateConstituents(MaterialComposition.ConstituentSet set, Func<MaterialId, Fin<Seq<MaterialPropertySet>>> resolve) =>
+    private static Fin<AssemblyProperty> AggregateConstituents(MaterialComposition.ConstituentSet set, Func<MaterialId, Fin<Seq<MaterialPropertySet>>> resolve) =>
         set.Constituents
             .Fold(Fin.Succ(MixtureFold.Seed), (acc, c) => acc.Bind(state => resolve(c.Material).Map(props => state.Absorb(c, props))))
             .Map(static state => state.Project());
@@ -178,7 +178,7 @@ public static class AssemblyAggregator {
     // divides by): a Single/ProfileSet the element volume, a layer its thickness × face area, a constituent its
     // fraction of the element volume — the one closed total Switch the GWP and cost folds share, so a new composition
     // case breaks both folds at compile time.
-    static Seq<(MaterialId Material, double VolumeM3)> PliesByVolume(MaterialComposition composition, ElementQuantity geometry) =>
+    private static Seq<(MaterialId Material, double VolumeM3)> PliesByVolume(MaterialComposition composition, ElementQuantity geometry) =>
         composition.Switch(
             geometry,
             single:         static (g, s) => Seq((s.Material, g.VolumeM3)),
@@ -186,7 +186,7 @@ public static class AssemblyAggregator {
             layerSet:       static (g, s) => s.Layers.Map(l => (l.Material, l.Thickness.Si * g.AreaM2)),
             constituentSet: static (g, s) => s.Constituents.Map(c => (c.Material, c.Fraction * g.VolumeM3)));
 
-    static Fin<AssemblyCost> Accumulate(Option<AssemblyCost> running, MaterialPropertySet.Cost cost, double qty) =>
+    private static Fin<AssemblyCost> Accumulate(Option<AssemblyCost> running, MaterialPropertySet.Cost cost, double qty) =>
         running.Match(
             Some: r => r.Currency == cost.Currency
                 ? Fin.Succ(r with { SupplyTotal = r.SupplyTotal + cost.SupplyPerUnit * qty, InstallTotal = r.InstallTotal + cost.InstallPerUnit * qty, LifecycleTotal = r.LifecycleTotal + cost.LifecyclePerUnit * qty })
@@ -195,7 +195,7 @@ public static class AssemblyAggregator {
 
     // The seam Cost.Basis selects the geometric quantity the per-unit price scales by; per-kg without a resolved
     // density rails the typed fault (mass is unresolvable), never a silent zero. Total over the four basis rows.
-    static Fin<double> DeclaredQuantity(MeasurementBasis basis, double volumeM3, double areaM2, Option<double> density, MaterialId material) =>
+    private static Fin<double> DeclaredQuantity(MeasurementBasis basis, double volumeM3, double areaM2, Option<double> density, MaterialId material) =>
         basis.Switch(
             (volumeM3, areaM2, density, material),
             perM3:   static s => Fin.Succ(s.volumeM3),
@@ -203,36 +203,39 @@ public static class AssemblyAggregator {
             perItem: static _ => Fin.Succ(1.0),
             perKg:   static s => s.density.Map(d => s.volumeM3 * d).ToFin(Missing($"<cost-per-kg-missing-density:{s.material.Value}>")));
 
-    static ComputeFault Missing(string detail) => new ComputeFault.AssessmentInputMissing(detail);
+    private static ComputeFault Missing(string detail) => new ComputeFault.AssessmentInputMissing(detail);
 
     // The per-ply reads compose the seam MaterialPropertyAccess accessors directly (props.Thermal/.Mechanical/.Fire/
     // .Environmental/.Cost) — never a re-derived is-cast the seam owns: the seam now exposes the FULL typed accessor
     // family (Fire/Cost included), so every discipline read is ONE_HOP off the seam and the local Choose re-derivations are deleted.
-    static Option<double> DensityKgM3(Seq<MaterialPropertySet> props) => props.Mechanical.Map(static m => m.Density.Si);
-    static Option<double> YoungsModulusPa(Seq<MaterialPropertySet> props) => props.Mechanical.Map(static m => m.YoungsModulus.Si);
-    static Option<double> ConductivityWmK(Seq<MaterialPropertySet> props) => props.Thermal.Map(static t => t.Conductivity.Si);
+    private static Option<double> DensityKgM3(Seq<MaterialPropertySet> props) => props.Mechanical.Map(static m => m.Density.Si);
+    private static Option<double> YoungsModulusPa(Seq<MaterialPropertySet> props) => props.Mechanical.Map(static m => m.YoungsModulus.Si);
+    private static Option<double> ConductivityWmK(Seq<MaterialPropertySet> props) => props.Thermal.Map(static t => t.Conductivity.Si);
     // The worst-ply fire envelope reads the EN 13501-2 R (load-bearing) criterion off the seam typed FireResistance —
     // the assembly's structural fire endurance is the minimum LOAD-BEARING rating over the plies, never a single
     // conflated resistance scalar (the deleted form a separating EI wall and a load-bearing R column could not distinguish).
-    static Option<double> FireMinutes(Seq<MaterialPropertySet> props) => props.Fire.Map(static f => (double)f.Resistance.LoadBearingMinutes);
-    static Option<double> PlyOverride(Seq<PlyQuantity> overrides, MaterialId material) => overrides.Find(q => q.Material == material).Map(static q => q.DeclaredQuantity);
+    private static Option<double> FireMinutes(Seq<MaterialPropertySet> props) => props.Fire.Map(static f => (double)f.Resistance.LoadBearingMinutes);
+    private static Option<double> PlyOverride(Seq<PlyQuantity> overrides, MaterialId material) => overrides.Find(q => q.Material == material).Map(static q => q.DeclaredQuantity);
 
     // The field-incidence mass law over the layer set's accumulated areal mass m' (kg·m⁻²): R(f) = 20·log10(m'·f) − 47,
     // evaluated at each seam AcousticBand one-third-octave centre into the per-band SRI vector the seam RatingContour.Stc.Fit
     // contour-fits — so the assembly STC and the single-material STC share ONE ASTM-E413 owner, and a bonded buildup's rating is
     // its combined-mass estimate, never the unphysical per-leaf dB sum that over-predicts a rigidly-connected layer set.
-    static double[] MassLawBands(double massKgM2) {
+    private static double[] MassLawBands(double massKgM2) {
         double[] sri = new double[AcousticBand.Count];
         foreach (AcousticBand band in AcousticBand.Items) { sri[band.Key] = Math.Max(0.0, 20.0 * Math.Log10(massKgM2 * band.CenterHz) - MassLawConstantDb); }
         return sri;
     }
+
+    // The op-key the railed seam RatingContour.Fit window admission stamps; LayerFold.Project preserves that fault.
+    private static readonly Op ContourKey = Op.Of(name: nameof(MassLawBands));
 
     // The per-module Stage accumulation: a FRESH array each ply (never mutated in place) so the carbon fold stays
     // immutable. The seam StageGwp is the DERIVED GwpTotal-per-stage row off the Environmental (ImpactCategory ×
     // LifecycleStage) matrix (Environmental.StageGwp = IndicatorAt(GwpTotal, stage) over the stage band, an
     // ImmutableArray<double> of arity LifecycleStage.Count the seam guarantees at OfEnvironmental admission), so the
     // carbon receipt folds the GwpTotal indicator row the seam projects rather than re-slicing the matrix here.
-    static double[] AddScaled(double[] accumulated, ImmutableArray<double> stage, double scale) {
+    private static double[] AddScaled(double[] accumulated, ImmutableArray<double> stage, double scale) {
         ReadOnlySpan<double> bands = stage.AsSpan();
         double[] next = new double[LifecycleStage.Count];
         for (int i = 0; i < LifecycleStage.Count; i++) { next[i] = accumulated[i] + bands[i] * scale; }
@@ -243,7 +246,7 @@ public static class AssemblyAggregator {
     // The typed per-discipline fold accumulators (private algorithm state co-located with the kernel that folds them):
     // each Absorbs one ply's resolved seam properties and Projects the AssemblyProperty receipt, the per-discipline
     // completeness flags deciding which receipt columns are double.NaN (the not-applicable signal) versus computed.
-    readonly record struct LayerFold(double Resistance, double MassKgM2, double ModulusTPa, double HeatJM2K, double SdM, double ThicknessM, double MinFire, bool Thermal, bool Mechanical) {
+    private readonly record struct LayerFold(double Resistance, double MassKgM2, double ModulusTPa, double HeatJM2K, double SdM, double ThicknessM, double MinFire, bool Thermal, bool Mechanical) {
         public static LayerFold Seed => new(RsiWM2K + RseWM2K, 0.0, 0.0, 0.0, 0.0, 0.0, double.MaxValue, true, true);
 
         public LayerFold Absorb(MaterialLayer layer, Seq<MaterialPropertySet> props) {
@@ -264,9 +267,14 @@ public static class AssemblyAggregator {
 
         // EffectiveYoungsModulusPa is the IN-PLANE (membrane) thickness-weighted Voigt average Σ(t_i·E_i)/ΣT — the
         // iso-strain estimate for a layer set loaded in-plane; out-of-plane bending stiffness (laminate EI) is deferred.
-        public AssemblyProperty Project() => new(
+        public Fin<AssemblyProperty> Project() =>
+            Mechanical && MassKgM2 > 0.0
+                ? RatingContour.Stc.Fit(MassLawBands(MassKgM2), ContourKey).Map(Receipt)
+                : Fin.Succ(Receipt(0));
+
+        private AssemblyProperty Receipt(int stcWeighted) => new(
             UValueWM2K:               Thermal ? 1.0 / Resistance : double.NaN,
-            StcWeighted:              Mechanical && MassKgM2 > 0.0 ? RatingContour.Stc.Fit(MassLawBands(MassKgM2)) : 0,
+            StcWeighted:              stcWeighted,
             EffectiveDensityKgM3:     Mechanical && ThicknessM > 0.0 ? MassKgM2 / ThicknessM : double.NaN,
             EffectiveConductivityWMK: Thermal && Resistance > RsiWM2K + RseWM2K ? ThicknessM / (Resistance - RsiWM2K - RseWM2K) : double.NaN,
             EffectiveYoungsModulusPa: Mechanical && ThicknessM > 0.0 ? ModulusTPa / ThicknessM : double.NaN,
@@ -275,7 +283,7 @@ public static class AssemblyAggregator {
             VapourResistanceSdM:      Thermal ? SdM : double.NaN);
     }
 
-    readonly record struct MixtureFold(double Density, double Conductivity, double ModulusPa, double MinFire, bool Mechanical, bool Thermal) {
+    private readonly record struct MixtureFold(double Density, double Conductivity, double ModulusPa, double MinFire, bool Mechanical, bool Thermal) {
         public static MixtureFold Seed => new(0.0, 0.0, 0.0, double.MaxValue, true, true);
 
         public MixtureFold Absorb(MaterialConstituent c, Seq<MaterialPropertySet> props) {
@@ -306,7 +314,7 @@ public static class AssemblyAggregator {
     // The EN 15978 carbon accumulator: the per-module Stage vector (kgCO2e) and the recycled/total MASS pair the
     // mass-weighted recycled-content fraction divides; Stage is replaced each ply by a fresh AddScaled array (never
     // mutated in place) so the carbon fold stays immutable.
-    readonly record struct CarbonFold(double[] Stage, double RecycledMass, double TotalMass) {
+    private readonly record struct CarbonFold(double[] Stage, double RecycledMass, double TotalMass) {
         public static CarbonFold Seed => new(new double[LifecycleStage.Count], 0.0, 0.0);
         public double WholeLife => Stage.Sum();
     }
@@ -316,7 +324,7 @@ public static class AssemblyAggregator {
     // its area, its lg·Ψg), a frame field only its area·Uf and area (EdgeLengthM = 0 zeroes the edge term). Project
     // area-weights each sub-transmittance and sums the whole-window Uw, railing the typed fault on a zero total area (a
     // window with neither a glazed nor a frame field of positive area — never a 0/0 NaN the consumer would misread).
-    readonly record struct WindowFold(double GlazedUA, double GlazedArea, double FrameUA, double FrameArea, double EdgeBridge) {
+    private readonly record struct WindowFold(double GlazedUA, double GlazedArea, double FrameUA, double FrameArea, double EdgeBridge) {
         public static WindowFold Seed => new(0.0, 0.0, 0.0, 0.0, 0.0);
 
         public WindowFold Absorb(WindowField f) => f.IsGlazed

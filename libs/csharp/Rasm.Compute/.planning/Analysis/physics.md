@@ -53,10 +53,9 @@ public static partial class BuildingPhysics {
 
     // SI dimensions composed from the seam Dimension algebra (no named row exists for these) — the kernel-true
     // discriminator a downstream unit canonicalization re-reads, never a hand-mapped kind. Each composed-dimension fact
-    // builds the 4-arg seam MeasureValue (QuantityType, Dimension, Si, CanonicalUnit) record directly with the
-    // dimension-anonymous QuantityType.OfDimension(dim) discriminator and the CONVENTIONAL unit label OfSi's SiSymbol
-    // cannot supply for an unnamed dimension — never the phantom 3-arg (Dimension, Si, unit) ctor the seam record has no
-    // overload for, and never OfSi(Dimension, _) which would discard the conventional kg/(m2.s)/dB/K/1/m label for "SI".
+    // mints through the seam's LABELED OfSi(QuantityType.OfDimension(dim), dim, si, unit) — the registry-less mint whose
+    // CONVENTIONAL kg/(m2.s)/dB/K/1/m label rides CanonicalUnit under the same finite gate — never a raw record ctor
+    // (private at the seam) and never the unlabeled OfSi(Dimension, _) that would discard the conventional label.
     static readonly Dimension TemperatureDim = Dimension.Create(0, 0, 0, 0, 1, 0, 0);
     static readonly Dimension PerLengthDim = Dimension.Dimensionless.Divide(Dimension.LengthDim);
     static readonly Dimension VapourFluxDim = Dimension.MassDim.Divide(Dimension.AreaDim).Divide(Dimension.DurationDim);
@@ -88,16 +87,20 @@ public static partial class BuildingPhysics {
     // breakdown, threading Uw/U_target (a LOWER Uw is better, so achieved-over-target like the envelope U). A degenerate
     // window (zero total area) rails inside AggregateWindow; a window with a non-empty field set always yields a Uw fact.
     static Fin<(Seq<AssessmentFact> Facts, double Governing)> Window(Seq<WindowField> fields, AssessmentRequest.Thermal request, NodeId id, (Seq<AssessmentFact> Facts, double Governing) state) =>
-        AssemblyAggregator.AggregateWindow(fields).Map(w => {
-            double uRatio = request.Climate.TargetUValueWM2K > 0.0 ? w.UwWM2K / request.Climate.TargetUValueWM2K : 0.0;
-            return (Facts: state.Facts
-                    .Add(AssessmentFact.Measure($"{id.Value}/whole-window-u", MeasureValue.OfSi(Dimension.ThermalTransmittanceDim, w.UwWM2K)))
-                    .Add(AssessmentFact.Measure($"{id.Value}/glazed-u", MeasureValue.OfSi(Dimension.ThermalTransmittanceDim, w.UgWM2K)))
-                    .Add(AssessmentFact.Measure($"{id.Value}/frame-u", MeasureValue.OfSi(Dimension.ThermalTransmittanceDim, w.UfWM2K)))
-                    .Add(AssessmentFact.Measure($"{id.Value}/edge-bridge", new MeasureValue(QuantityType.OfDimension(EdgeBridgeDim), EdgeBridgeDim, w.EdgeBridgeW_K, "W/K")))
-                    .Add(AssessmentFact.Ratio($"{id.Value}/glazed-fraction", w.GlazedFraction)),
-                Governing: Math.Max(state.Governing, uRatio));
-        });
+        from w in AssemblyAggregator.AggregateWindow(fields)
+        from uw in MeasureValue.OfSi(Dimension.ThermalTransmittanceDim, w.UwWM2K)
+        from ug in MeasureValue.OfSi(Dimension.ThermalTransmittanceDim, w.UgWM2K)
+        from uf in MeasureValue.OfSi(Dimension.ThermalTransmittanceDim, w.UfWM2K)
+        from edge in MeasureValue.OfSi(QuantityType.OfDimension(EdgeBridgeDim), EdgeBridgeDim, w.EdgeBridgeW_K, "W/K")
+        from fraction in AssessmentFact.Ratio($"{id.Value}/glazed-fraction", w.GlazedFraction)
+        let uRatio = request.Climate.TargetUValueWM2K > 0.0 ? w.UwWM2K / request.Climate.TargetUValueWM2K : 0.0
+        select (Facts: state.Facts
+                .Add(AssessmentFact.Measure($"{id.Value}/whole-window-u", uw))
+                .Add(AssessmentFact.Measure($"{id.Value}/glazed-u", ug))
+                .Add(AssessmentFact.Measure($"{id.Value}/frame-u", uf))
+                .Add(AssessmentFact.Measure($"{id.Value}/edge-bridge", edge))
+                .Add(fraction),
+            Governing: Math.Max(state.Governing, uRatio));
 
     // The through-thickness envelope branch (the prior RunThermal body): the ISO 6946 series-U from AssemblyAggregator
     // .Aggregate (a LayerSet) or the intrinsic Thermal.UValue (a Single), plus the EN ISO 13788 Glaser condensation fold.
@@ -107,12 +110,15 @@ public static partial class BuildingPhysics {
         from glaser in composition is MaterialComposition.LayerSet set
             ? GlaserOf(set, Resolver(graph), request.Climate)
             : Fin.Succ(GlaserResult.None)
+        from uMeasure in MeasureValue.OfSi(Dimension.ThermalTransmittanceDim, u)
+        from vapour in AssessmentFact.Ratio($"{id.Value}/vapour-utilization", glaser.VapourUtilization)
+        from rate in MeasureValue.OfSi(QuantityType.OfDimension(VapourFluxDim), VapourFluxDim, glaser.CondensationRateKgM2S, "kg/(m2.s)")
         let uRatio = request.Climate.TargetUValueWM2K > 0.0 ? u / request.Climate.TargetUValueWM2K : 0.0
         select (Facts: state.Facts
-                .Add(AssessmentFact.Measure($"{id.Value}/u-value", MeasureValue.OfSi(Dimension.ThermalTransmittanceDim, u)))
+                .Add(AssessmentFact.Measure($"{id.Value}/u-value", uMeasure))
                 .Add(AssessmentFact.Flag($"{id.Value}/condensation-risk", glaser.Condensing))
-                .Add(AssessmentFact.Ratio($"{id.Value}/vapour-utilization", glaser.VapourUtilization))
-                .Add(AssessmentFact.Measure($"{id.Value}/condensation-rate", new MeasureValue(QuantityType.OfDimension(VapourFluxDim), VapourFluxDim, glaser.CondensationRateKgM2S, "kg/(m2.s)")))
+                .Add(vapour)
+                .Add(AssessmentFact.Measure($"{id.Value}/condensation-rate", rate))
                 .Add(AssessmentFact.Text($"{id.Value}/condensation-plane", glaser.PlaneLabel)),
             Governing: Math.Max(state.Governing, Math.Max(uRatio, glaser.VapourUtilization)));
 
@@ -288,11 +294,11 @@ public static partial class BuildingPhysics {
             Fin.Succ((Facts: Seq<AssessmentFact>(), Governing: 0.0)),
             (acc, id) => acc.Bind(state => graph.CompositionOf(id).ToFin(Missing($"<acoustic-element-missing-composition:{id.Value}>"))
                 .Bind(composition => composition is MaterialComposition.LayerSet set
-                    ? AssemblyAggregator.Aggregate(set, Resolver(graph)).Map(property => RateAcoustic(id, property.StcWeighted, None, request, state))
+                    ? AssemblyAggregator.Aggregate(set, Resolver(graph)).Bind(property => RateAcoustic(id, property.StcWeighted, None, request, state))
                     : graph.Material(composition.PrimaryMaterial).Map(static m => m.Properties).ToFin(Missing($"<acoustic-material-absent:{id.Value}>"))
-                        .Map(props => props.Acoustic.Match(
+                        .Bind(props => props.Acoustic.Match(
                             Some: a => RateAcoustic(id, a.Rw, Some(a.Nrc), request, state),   // ISO 717-1 Rw (the SEAM Acoustic carrier's RatingContour.Rw.Fit over the measured SRI spectrum) — judged against the ISO RequiredRw demand, NOT the ASTM E413 StcWeighted contour the assembly mass-law estimate yields
-                            None: () => (state.Facts.Add(AssessmentFact.Text($"{id.Value}/acoustic", "absent")), state.Governing))))))
+                            None: () => FinSucc((state.Facts.Add(AssessmentFact.Text($"{id.Value}/acoustic", "absent")), state.Governing))))))
             .Map(state => AssessmentResult.Of(request.Route, state.Facts, state.Governing,
                 new Provenance("BuildingPhysics", request.Route.Standard, "closed-form", clocks.Now)));
 
@@ -304,12 +310,14 @@ public static partial class BuildingPhysics {
     // The `rating` slot is the SINGLE-material ISO 717-1 Rw (caller passes a.Rw over the measured SRI spectrum, the matched
     // standard for the ISO RequiredRw demand) or the ASSEMBLY ASTM E413 StcWeighted mass-law estimate (the layered buildup
     // exposes no Rw) — a dual-standard single-number slot, never an ISO demand judged against an ASTM rating on the same path.
-    static (Seq<AssessmentFact> Facts, double Governing) RateAcoustic(NodeId id, int rating, Option<double> nrc, AssessmentRequest.Acoustic request, (Seq<AssessmentFact> Facts, double Governing) state) {
-        Seq<AssessmentFact> facts = state.Facts.Add(AssessmentFact.Measure($"{id.Value}/sound-reduction-index", new MeasureValue(QuantityType.OfDimension(Dimension.Dimensionless), Dimension.Dimensionless, rating, "dB")));
-        facts = nrc.Match(Some: n => facts.Add(AssessmentFact.Ratio($"{id.Value}/nrc", n)), None: () => facts);
-        double ratio = request.RequiredRw > 0.0 ? request.RequiredRw / Math.Max(rating, double.Epsilon) : double.NaN;
-        return (facts, Math.Max(state.Governing, ratio));
-    }
+    static Fin<(Seq<AssessmentFact> Facts, double Governing)> RateAcoustic(NodeId id, int rating, Option<double> nrc, AssessmentRequest.Acoustic request, (Seq<AssessmentFact> Facts, double Governing) state) =>
+        from sri in MeasureValue.OfSi(QuantityType.OfDimension(Dimension.Dimensionless), Dimension.Dimensionless, rating, "dB")
+        from facts in nrc.Match(
+            Some: n => AssessmentFact.Ratio($"{id.Value}/nrc", n)
+                .Map(fact => state.Facts.Add(AssessmentFact.Measure($"{id.Value}/sound-reduction-index", sri)).Add(fact)),
+            None: () => FinSucc(state.Facts.Add(AssessmentFact.Measure($"{id.Value}/sound-reduction-index", sri))))
+        let ratio = request.RequiredRw > 0.0 ? request.RequiredRw / Math.Max(rating, double.Epsilon) : double.NaN
+        select (facts, Math.Max(state.Governing, ratio));
 }
 ```
 
@@ -378,9 +386,9 @@ public static partial class BuildingPhysics {
             Fin.Succ((Facts: Seq<AssessmentFact>(), Governing: 0.0)),
             (acc, id) => acc.Bind(state => MemberSection(graph, id).Bind(section =>
                 request.Route == AssessmentRoute.En1993Fire
-                    ? Fin.Succ(SteelFire(section, request, id, state))
+                    ? SteelFire(section, request, id, state)
                     : request.Route == AssessmentRoute.En1992Fire
-                        ? Fin.Succ(ConcreteFire(section, MemberClass(graph, id), request, id, state))
+                        ? ConcreteFire(section, MemberClass(graph, id), request, id, state)
                         : Fin.Fail<(Seq<AssessmentFact> Facts, double Governing)>(Missing($"<fire-route-unhandled:{request.Route.Key}>")))))
             .Map(state => AssessmentResult.Of(request.Route, state.Facts, state.Governing,
                 new Provenance("BuildingPhysics", request.Route.Standard, "closed-form", clocks.Now)));
@@ -397,17 +405,20 @@ public static partial class BuildingPhysics {
     static Fin<SectionProperties> MemberSection(ElementGraph graph, NodeId id) =>
         graph.SectionOf(id).ToFin(Missing($"<fire-member-section-unresolved:{id.Value}>"));
 
-    static (Seq<AssessmentFact> Facts, double Governing) SteelFire(SectionProperties section, AssessmentRequest.Fire request, NodeId id, (Seq<AssessmentFact> Facts, double Governing) state) {
+    static Fin<(Seq<AssessmentFact> Facts, double Governing)> SteelFire(SectionProperties section, AssessmentRequest.Fire request, NodeId id, (Seq<AssessmentFact> Facts, double Governing) state) {
         double sectionFactor = section.HeatedPerimeter.Si / Math.Max(section.Area.Si, double.Epsilon);
         double criticalTempC = CriticalTemperature(request.Utilization);
         double cap = request.RequiredMinutes + CapMarginMinutes;
         SteelFireState march = March(request.Exposure, sectionFactor, criticalTempC, cap);
         double achieved = march.SteelTempC >= criticalTempC ? march.Minutes : cap;
-        return (Facts: state.Facts
-                .Add(AssessmentFact.Measure($"{id.Value}/fire-resistance-minutes", MeasureValue.OfSi(Dimension.DurationDim, achieved * 60.0)))
-                .Add(AssessmentFact.Measure($"{id.Value}/critical-temperature", new MeasureValue(QuantityType.OfDimension(TemperatureDim), TemperatureDim, criticalTempC + 273.15, "K")))
-                .Add(AssessmentFact.Measure($"{id.Value}/section-factor", new MeasureValue(QuantityType.OfDimension(PerLengthDim), PerLengthDim, sectionFactor, "1/m"))),
-            Governing: Math.Max(state.Governing, request.RequiredMinutes / Math.Max(achieved, double.Epsilon)));
+        return from minutes in MeasureValue.OfSi(Dimension.DurationDim, achieved * 60.0)
+               from critical in MeasureValue.OfSi(QuantityType.OfDimension(TemperatureDim), TemperatureDim, criticalTempC + 273.15, "K")
+               from factor in MeasureValue.OfSi(QuantityType.OfDimension(PerLengthDim), PerLengthDim, sectionFactor, "1/m")
+               select (Facts: state.Facts
+                    .Add(AssessmentFact.Measure($"{id.Value}/fire-resistance-minutes", minutes))
+                    .Add(AssessmentFact.Measure($"{id.Value}/critical-temperature", critical))
+                    .Add(AssessmentFact.Measure($"{id.Value}/section-factor", factor)),
+                Governing: Math.Max(state.Governing, request.RequiredMinutes / Math.Max(achieved, double.Epsilon)));
     }
 
     // The EN 1993-1-2 §4.2.5.1 unprotected-steel march: a genuine forward integration of the net convective+radiative
@@ -442,7 +453,7 @@ public static partial class BuildingPhysics {
 
     static double Pow4(double x) { double s = x * x; return s * s; }
 
-    static (Seq<AssessmentFact> Facts, double Governing) ConcreteFire(SectionProperties section, string memberClass, AssessmentRequest.Fire request, NodeId id, (Seq<AssessmentFact> Facts, double Governing) state) {
+    static Fin<(Seq<AssessmentFact> Facts, double Governing)> ConcreteFire(SectionProperties section, string memberClass, AssessmentRequest.Fire request, NodeId id, (Seq<AssessmentFact> Facts, double Governing) state) {
         (double MinDimM, double AxisDistanceM) limits = ConcreteFireLimits(memberClass, request.RequiredMinutes);
         double leastM = section.LeastDimension.Si, axisM = section.AxisDistance.Si;
         // The full EN 1992-1-2 tabulated method: BOTH the minimum cross-section dimension AND the axis distance
@@ -452,13 +463,18 @@ public static partial class BuildingPhysics {
         double dimAchieved  = leastM >= limits.MinDimM ? request.RequiredMinutes : request.RequiredMinutes * leastM / Math.Max(limits.MinDimM, double.Epsilon);
         double axisAchieved = axisM >= limits.AxisDistanceM ? request.RequiredMinutes : request.RequiredMinutes * axisM / Math.Max(limits.AxisDistanceM, double.Epsilon);
         double achieved = Math.Min(dimAchieved, axisAchieved);
-        return (Facts: state.Facts
-                .Add(AssessmentFact.Measure($"{id.Value}/fire-resistance-minutes", MeasureValue.OfSi(Dimension.DurationDim, achieved * 60.0)))
-                .Add(AssessmentFact.Measure($"{id.Value}/required-min-dimension", MeasureValue.OfSi(Dimension.LengthDim, limits.MinDimM)))
-                .Add(AssessmentFact.Measure($"{id.Value}/least-dimension", MeasureValue.OfSi(Dimension.LengthDim, leastM)))
-                .Add(AssessmentFact.Measure($"{id.Value}/required-axis-distance", MeasureValue.OfSi(Dimension.LengthDim, limits.AxisDistanceM)))
-                .Add(AssessmentFact.Measure($"{id.Value}/axis-distance", MeasureValue.OfSi(Dimension.LengthDim, axisM))),
-            Governing: Math.Max(state.Governing, request.RequiredMinutes / Math.Max(achieved, double.Epsilon)));
+        return from minutes in MeasureValue.OfSi(Dimension.DurationDim, achieved * 60.0)
+               from requiredDim in MeasureValue.OfSi(Dimension.LengthDim, limits.MinDimM)
+               from least in MeasureValue.OfSi(Dimension.LengthDim, leastM)
+               from requiredAxis in MeasureValue.OfSi(Dimension.LengthDim, limits.AxisDistanceM)
+               from axis in MeasureValue.OfSi(Dimension.LengthDim, axisM)
+               select (Facts: state.Facts
+                    .Add(AssessmentFact.Measure($"{id.Value}/fire-resistance-minutes", minutes))
+                    .Add(AssessmentFact.Measure($"{id.Value}/required-min-dimension", requiredDim))
+                    .Add(AssessmentFact.Measure($"{id.Value}/least-dimension", least))
+                    .Add(AssessmentFact.Measure($"{id.Value}/required-axis-distance", requiredAxis))
+                    .Add(AssessmentFact.Measure($"{id.Value}/axis-distance", axis)),
+                Governing: Math.Max(state.Governing, request.RequiredMinutes / Math.Max(achieved, double.Epsilon)));
     }
 
     // The EN 1992-1-2 (min cross-section dimension, min axis distance) pair for the required rating and member type: the
@@ -479,4 +495,4 @@ public static partial class BuildingPhysics {
 - [ISO_12354_AND_717]: the layered airborne sound-reduction index is the ISO 12354-1 series fold read from `AssemblyAggregator.Aggregate`, whose per-band SRI rides the SEAM `Composition/acoustic#ACOUSTIC_FOLDS` `RatingContour.Stc.Fit` so the weighted single number and the single-material rating share one ASTM E413 / ISO 717 contour owner — a second contour algorithm is the named defect, so the runner emits the aggregator's `StcWeighted` directly and never recomputes the contour. The single-material `Nrc`/`Rw` are the seam intrinsic folds read off the `Acoustic` case via the composition `PrimaryMaterial` (the `RatingContour.Rw.Fit` ISO 717-1 contour over the material's measured SRI spectrum, the matched standard for the ISO `RequiredRw` demand — the assembly's mass-law `StcWeighted` ASTM E413 estimate is the deliberate asymmetry the buildup's areal-mass-only data supports), never recomputed; the airborne `C`/`Ctr` spectrum-adaptation terms and the flanking `Dn,f,w` deepen as additional folds over the same per-band SRI, while the impact `Ln,w` (ISO 717-2 / IIC) lands through the deferred DESCENDING `RatingContour` row over the assembly normalized-impact spectrum — its material leg the seam `Acoustic.DynamicStiffnessMNPerM3` (the EN 12354-2 floating-floor `ΔL_w` input) — via the shared sign-agnostic `RatingContour.Fit`. The `AssessmentRequest.Acoustic` case carries a `RequiredRw` acceptance target, so the governing ratio is `RequiredRw / Rw` (a higher Rw is better — required-over-achieved) and a real pass/fail verdict bands through `AssessmentVerdict.FromRatio`; a `RequiredRw <= 0` request reverts to the informational rating (governing `double.NaN` → `NotApplicable`, never a misleading `0.0`-ratio `Satisfied`). Ripple counterpart: `Rasm.Element/Composition/acoustic` (the seam `RatingContour` contour family with its public `Stc.Fit`/`Rw.Fit` kernel + the `Nrc`/`Saa` intrinsic folds) and `Rasm.Compute/Analysis/assessment` (the `AssessmentRequest.Acoustic` case carrying the `RequiredRw` acceptance target + its `CanonicalBytes` contribution).
 - [EN_1993_1_2_STEEL_FIRE]: the steel fire resistance is the EN 1993-1-2 critical-temperature method — the unprotected-steel temperature march `Δθa = k_sh·(Am/V)/(c_a·ρa)·ḣnet·Δt` over the exposure's gas curve (ISO 834 standard, the hydrocarbon curve, or the EN 1991-1-2 external curve, each a per-row delegate on `FireExposure`), the net heat flux the convective `α_c·(θg−θa)` (the convection coefficient `α_c` a `FireExposure` column, 25 standard/external and 50 hydrocarbon) plus the radiative `ε·σ·((θg+273)⁴−(θa+273)⁴)` term, integrated at a 5 s step with the EN 1993-1-2 §3.4.1.2 temperature-dependent specific heat `c_a(θa)` (the 735 °C latent-heat singularity included) to the critical temperature `θa,cr = 39.19·ln(1/(0.9674·μ0^3.833)−1) + 482` for the degree of utilization `μ0` (the ambient governing ratio carried on the request, clamped to the EN validity floor `μ0 ≥ 0.013`). The section factor `Am/V` reads the seam `SectionProperties.HeatedPerimeter`/`Area`, so fire and ambient design share one section. This is a genuine incremental integration, never a tabulated approximation; the I-section shadow factor `k_sh = 0.9` refines to `0.9·[Am/V]_box/[Am/V]` once a boxed section factor rides `SectionProperties`, and a protected-steel march lands as one fold adding the insulation `λ_p`/`d_p` term.
 - [EN_1992_1_2_CONCRETE_FIRE]: the concrete fire resistance is the FULL EN 1992-1-2 tabulated method — the member-type `(min cross-section dimension, min axis distance)` pair for the required rating, a member-type-keyed frozen-table lookup (column/beam/slab/wall, Tables 5.2a/5.4/5.5/5.8) read against the seam `SectionProperties.LeastDimension` AND the `AxisDistance` cover, BOTH criteria gating the rating (the achieved resistance the worse-governed of the two, so the GOVERNING axis-distance/cover criterion the prior minimum-dimension-only check could not reach now governs a thin-cover section); the member type reads off the `Object` node `Classification.Code` (the IFC class IfcColumn/IfcBeam/IfcSlab/IfcWall, not the `PredefinedType` sub-type), and the 500 °C isotherm method deepens as a fold over the section thermal field where the tabulated check is insufficient. The two fire models dispatch by route (`en1993-1-2` / `en1992-1-2`) on one `RunFire` kernel, never a parallel steel/concrete fire owner; an unrecognized fire route rails `AssessmentInputMissing` (`<fire-route-unhandled>`) rather than defaulting to the concrete arm, so the EN 1995-1-2 timber-charring growth lands as one explicit dispatch arm broken loudly.
-- [DISCIPLINE_COLLAPSE]: thermal, acoustic, and fire collapse onto ONE `BuildingPhysics` kernel because all three are closed-form ISO/EN folds over an assembly/section read from the concrete graph — distinct from the `Analysis/energy` simulation rail (which builds an OpenStudio model and runs the EnergyPlus subprocess) and the `Analysis/structural` FE rail (which assembles and solves a frame). The shared shape — read the seam composition/section through the `MaterialId`-keyed resolver, fold the ISO/EN closed form, thread the governing ratio through the accumulator, emit one SI-native `AssessmentResult` fact stream — is the `COLLAPSE_SCAN` collapse of three parallel runner types into one `Discipline`-dispatched owner. The verdict derives from the in-scope governing quantity threaded through the fold (`U / U_target` and the vapour utilization for thermal, `RequiredMinutes / achieved` for fire), never a re-parse of the emitted facts and never a sentinel ratio; every measured fact is SI-native through `MeasureValue.OfSi(Dimension, si)` or the raw `MeasureValue` record for a domain-labelled scalar, never the phantom 2-arg `MeasureValue.Of(value, unit)` the seam factory does not expose. Each runner composes the `Analysis/aggregator` for the multi-ply rollup where a layered property is needed.
+- [DISCIPLINE_COLLAPSE]: thermal, acoustic, and fire collapse onto ONE `BuildingPhysics` kernel because all three are closed-form ISO/EN folds over an assembly/section read from the concrete graph — distinct from the `Analysis/energy` simulation rail (which builds an OpenStudio model and runs the EnergyPlus subprocess) and the `Analysis/structural` FE rail (which assembles and solves a frame). The shared shape — read the seam composition/section through the `MaterialId`-keyed resolver, fold the ISO/EN closed form, thread the governing ratio through the accumulator, emit one SI-native `AssessmentResult` fact stream — is the `COLLAPSE_SCAN` collapse of three parallel runner types into one `Discipline`-dispatched owner. The verdict derives from the in-scope governing quantity threaded through the fold (`U / U_target` and the vapour utilization for thermal, `RequiredMinutes / achieved` for fire), never a re-parse of the emitted facts and never a sentinel ratio; every measured fact is SI-native through `MeasureValue.OfSi(Dimension, si)` or the labeled registry-less `OfSi(QuantityType.OfDimension(dim), dim, si, unit)` for a domain-labelled scalar (the seam record ctor is private — a raw `new MeasureValue(...)` does not compile), the Fin threaded at each runner's own fold, never the phantom 2-arg `MeasureValue.Of(value, unit)` the seam factory does not expose. Each runner composes the `Analysis/aggregator` for the multi-ply rollup where a layered property is needed.

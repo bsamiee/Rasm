@@ -33,7 +33,7 @@ When a concern matches several rows, the most specific wins; the carrier axis is
 - Boundary: programs that must be inspected or re-interpreted reify verbs as a closed instruction functor under one interpreter arrow; the request union with total dispatch is the form when they only run.
 
 [SEALED_ADMISSION]:
-- Law: a regular `[Union]` seals through reachability — the private owner constructor closes the case family, one hand-written `public static` factory is the validated ingress, the generated `Switch` the sole egress, and `ConversionFromValue = ConversionOperatorsGeneration.None` deletes the implicit-by-default value-to-union conversion that would bypass the factory; `ConstructorAccessModifier`/`FactoryMethodGeneration` are ad-hoc-only knobs and do not exist here.
+- Law: a regular `[Union]` seals through reachability — the private owner constructor closes the case family, one hand-written `public static` factory is the validated ingress, the generated `Switch` the sole egress, and `ConversionFromValue = ConversionOperatorsGeneration.None` deletes the implicit-by-default value-to-union conversion that bypasses the factory; `ConstructorAccessModifier`/`FactoryMethodGeneration` are ad-hoc-only knobs and do not exist here.
 - Law: `SwitchMapMethodsGeneration.None` deletes the generated dispatch so an extension-block dispatch algebra cannot be bypassed by a second, less-restrictive surface; `SwitchMethods` and `MapMethods` suppress independently.
 - Use: a `private partial record` nested in the owning service when construction must scope to one owner; an internal factory opens the whole assembly, not the enclosing type.
 - Boundary: input validates once at the factory and behavior is reached once through dispatch; positional cases stay constructible with already-admitted payloads, and construction scopes fully to one owner only in the nested form.
@@ -196,6 +196,7 @@ public static class MarkerBoundary {
 [INDEPENDENT_JOIN]:
 - Law: independent arms combine applicatively, dependent steps bind monadically, and the choice is load-bearing — a `Bind` chain over independent arms silently discards all failures after the first.
 - Law: the tuple join `(K<F,A>, ..., K<F,J>).Apply(func)` runs each slot under the carrier's `Apply` — an accumulating carrier reports the union of failures, an effect carrier short-circuits; same call site, same join, the carrier alone switching semantics.
+- Law: slot helpers feeding the tuple join declare the K-kinded return — the `Apply` extensions bind only `(K<F,A>, ...)` receivers, and a concrete-carrier tuple neither infers nor converts at an extension receiver, so a concrete-typed slot family is a dead fence that reads as accumulation until the build; `.As()` re-anchors once after the join.
 - Reject: a branch inside the join — its only legitimate content is total construction over already-dispatched values; a branch is a fourth dispatch smuggled into combination and lifts into its own arm.
 - Boundary: all slots share one `F` by construction, so failure semantics decide once; an expensive slot enters as `Memo` and a short-circuiting carrier leaves it unforced.
 

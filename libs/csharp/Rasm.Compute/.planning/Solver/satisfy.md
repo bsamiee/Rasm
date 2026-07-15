@@ -70,16 +70,17 @@ public static class RuleSatisfaction {
 
     // The verdict as the uniform fact stream a carrying discipline's route writes back: per-rule Flag facts,
     // the SAT witness as dimensionless Measures, the governing ratio 1.0 on UNSAT / 0.0 on SAT / NaN on UNKNOWN.
-    public static Seq<AssessmentFact> Facts(Seq<ComplianceRule> rules, SatisfyVerdict verdict) =>
+    public static Fin<Seq<AssessmentFact>> Facts(Seq<ComplianceRule> rules, SatisfyVerdict verdict) =>
         verdict switch {
             SatisfyVerdict.Satisfiable sat =>
-                rules.Map(static rule => AssessmentFact.Flag($"rule:{rule.Name}", true))
-                    + sat.Witness.Map((name, value) => (name, value)).Values.ToSeq().Map(static pair => AssessmentFact.Ratio($"witness:{pair.name}", pair.value)),
-            SatisfyVerdict.Unsatisfiable unsat =>
+                sat.Witness.Map((name, value) => (name, value)).Values.ToSeq()
+                    .TraverseM(static pair => AssessmentFact.Ratio($"witness:{pair.name}", pair.value)).As()
+                    .Map(witness => rules.Map(static rule => AssessmentFact.Flag($"rule:{rule.Name}", true)) + witness),
+            SatisfyVerdict.Unsatisfiable unsat => FinSucc(
                 rules.Map(rule => AssessmentFact.Flag($"rule:{rule.Name}", !unsat.ViolatedRules.Contains(rule.Name)))
-                    + Seq(AssessmentFact.Text("unsat-core", string.Join(",", unsat.ViolatedRules))),
-            SatisfyVerdict.Unknown unknown => Seq(AssessmentFact.Text("satisfy-unknown", unknown.Reason)),
-            _ => Seq<AssessmentFact>(),
+                    + Seq(AssessmentFact.Text("unsat-core", string.Join(",", unsat.ViolatedRules)))),
+            SatisfyVerdict.Unknown unknown => FinSucc(Seq(AssessmentFact.Text("satisfy-unknown", unknown.Reason))),
+            _ => FinSucc(Seq<AssessmentFact>()),
         };
 }
 

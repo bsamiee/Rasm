@@ -136,17 +136,18 @@ public static class DaylightAnalysis {
         let weather = request.Weather.Bind(w => WeatherIngress.Read(w).ToOption())
         from findings in scene.Targets.Traverse(target => Target(scene, target, weather, request, clocks))
         let govern = findings.Map(f => request.RequiredSunHours > 0.0 ? request.RequiredSunHours / Math.Max(f.SunHours, 1e-9) : double.NaN).Max() | double.NaN
+        from perTarget in findings.TraverseM(f => AssessmentFact.Rows(
+            AssessmentFact.Measure($"{f.Target.Value}/direct-sun-hours", Dimension.DurationDim, f.SunHours * 3600.0),
+            AssessmentFact.Ratio($"{f.Target.Value}/shadow-fraction", f.ShadowFraction),
+            AssessmentFact.Ratio($"{f.Target.Value}/sky-view-factor", f.SkyViewFactor))).As()
+        from skyFacts in weather.Match(
+            Some: w => findings.TraverseM(f => AssessmentFact.Measure($"{f.Target.Value}/perez-diffuse-irradiance", Dimension.IrradianceDim, f.PerezDiffuseWm2)).As()
+                .Map(perez => Seq(AssessmentFact.Text("sky-state", $"perez:{Dominant(w.Hours).Key}")) + perez),
+            // The DEGRADE is a stated fact inline on the result — never a silently-defaulted sky.
+            None: () => FinSucc(Seq(AssessmentFact.Text("sky-state", "geometry-only"))))
         select AssessmentResult.Of(
             request.Route,
-            findings.Bind(f => Seq(
-                AssessmentFact.Measure($"{f.Target.Value}/direct-sun-hours", MeasureValue.OfSi(Dimension.DurationDim, f.SunHours * 3600.0)),
-                AssessmentFact.Ratio($"{f.Target.Value}/shadow-fraction", f.ShadowFraction),
-                AssessmentFact.Ratio($"{f.Target.Value}/sky-view-factor", f.SkyViewFactor)))
-                + weather.Match(
-                    Some: w => Seq(AssessmentFact.Text("sky-state", $"perez:{Dominant(w.Hours).Key}"))
-                        + findings.Map(f => AssessmentFact.Measure($"{f.Target.Value}/perez-diffuse-irradiance", MeasureValue.OfSi(Dimension.IrradianceDim, f.PerezDiffuseWm2))),
-                    // The DEGRADE is a stated fact inline on the result — never a silently-defaulted sky.
-                    None: () => Seq(AssessmentFact.Text("sky-state", "geometry-only"))),
+            perTarget.Bind(static rows => rows) + skyFacts,
             govern,
             new Provenance("DaylightAnalysis", request.Route.Standard, request.Route.SolverVersion, clocks.Now));
 

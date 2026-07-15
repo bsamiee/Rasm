@@ -69,14 +69,15 @@ public static class CirculationAnalysis {
         from findings in Travel(view, request.Policy)
         from capacity in Capacity(view, request.Policy)
         let govern = Governing(findings, capacity, request.Policy)
+        from travel in findings.TraverseM(f => AssessmentFact.Ratio($"{f.Space.Value}/travel-distance", f.TravelM / request.Policy.AllowableTravelM)).As()
+        from deadEnds in findings.Filter(static f => f.DeadEndM > 0.0).TraverseM(f => AssessmentFact.Ratio($"{f.Space.Value}/dead-end", f.DeadEndM / request.Policy.AllowableDeadEndM)).As()
+        from commonPaths in findings.Filter(static f => f.CommonPathM > 0.0).TraverseM(f => AssessmentFact.Ratio($"{f.Space.Value}/common-path", f.CommonPathM / request.Policy.AllowableCommonPathM)).As()
+        from exits in AssessmentFact.Rows(
+            AssessmentFact.Ratio("exit-capacity", capacity.DemandOccupants / Math.Max(1.0, capacity.ThroughputOccupants)),
+            AssessmentFact.Measure("evacuation-throughput", Dimension.Dimensionless, capacity.ThroughputOccupants))
         select AssessmentResult.Of(
             request.Route,
-            findings.Map(f => AssessmentFact.Ratio($"{f.Space.Value}/travel-distance", f.TravelM / request.Policy.AllowableTravelM))
-                + findings.Filter(static f => f.DeadEndM > 0.0).Map(f => AssessmentFact.Ratio($"{f.Space.Value}/dead-end", f.DeadEndM / request.Policy.AllowableDeadEndM))
-                + findings.Filter(static f => f.CommonPathM > 0.0).Map(f => AssessmentFact.Ratio($"{f.Space.Value}/common-path", f.CommonPathM / request.Policy.AllowableCommonPathM))
-                + Seq(
-                    AssessmentFact.Ratio("exit-capacity", capacity.DemandOccupants / Math.Max(1.0, capacity.ThroughputOccupants)),
-                    AssessmentFact.Measure("evacuation-throughput", MeasureValue.OfSi(Dimension.Dimensionless, capacity.ThroughputOccupants)))
+            travel + deadEnds + commonPaths + exits
                 + capacity.Bottleneck.Map(static edge => AssessmentFact.Reference("min-cut-bottleneck", edge.From)),
             govern,
             new Provenance("CirculationAnalysis", request.Route.Standard, request.Route.SolverVersion, clocks.Now));

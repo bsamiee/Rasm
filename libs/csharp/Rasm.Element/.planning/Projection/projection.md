@@ -1,6 +1,6 @@
 # [ELEMENT_PROJECTION]
 
-The cross-stratum alignment seam: TWO instance-interface floors the AEC peers depend up on and implement — aligning by contract without referencing each other — plus the `Assemble` composition CAPABILITY the apps wire over them. `IElementProjection` has ONE polymorphic `Fin<GraphDelta> Project(ProjectionContext ctx)`: each concrete projector (the `Rasm.Bim` `SemanticProjector` over GeometryGym, the `Rasm.Materials` `ComponentProjector` over VividOrange, the `Rasm.Fabrication` `FabricationProjector` over the derivation plane) captures its foreign source INTERNALLY and lowers it onto a `Graph/delta#GRAPH_DELTA` `GraphDelta` through the `Put`/`Link`/`Reheader` builders, so the seam folds deltas and never learns a provider surface. `IGraphConstraint` has ONE `Validation<Error,Unit> Validate(GraphDelta, ElementGraph)` — the IFC-semantic legality Bim implements, disjoint from the seam's structural edge law the two-interface split [M3] fixes. `Assemble` runs the capture→merge→establish→admit→constrain→fold pipeline — projector faults accumulated applicatively through the `Try.lift` funnel, the monoid fold seeded with `ctx.Header`, the merged delta admitted through `Graph/delta#GRAPH_DELTA` `GraphDelta.AdmitOnto` — returning the assembled `ElementGraph` a consumer bakes PLUS the merged `GraphDelta` event body Persistence appends [C1]. The WIRING — projector registration, tessellation adapter, `Graph/element#NODE_MODEL` `GeometrySource` port, DI — is an APP / HOST-BOUNDARY composition-root concern (`Rasm.Rhino`/`Rasm.Grasshopper` today, future standalone/web/sidecar apps). `ProjectionContext` carries the element `NodeId` set (the `Owns` vouch an aspect projector authors within — the owner of each concept mints its `Object` BEFORE assembly under the owner-mints-its-identity law), the target `Header`, the kernel `Op` key, and the NEUTRAL runtime primitives (instant, correlation, tenant) the app supplies. IFC egress (`Emit`) is Bim-INTERNAL, never a seam member.
+The cross-stratum alignment seam: TWO instance-interface floors the AEC peers depend up on and implement — aligning by contract without referencing each other — plus the `Assemble` composition CAPABILITY the apps wire over them. `IElementProjection` has ONE polymorphic `Fin<GraphDelta> Project(ProjectionContext ctx)`: each concrete projector (the `Rasm.Bim` `SemanticProjector` over GeometryGym, the `Rasm.Materials` `ComponentProjector` over VividOrange, the `Rasm.Fabrication` `FabricationProjector` over the derivation plane) captures its foreign source INTERNALLY and lowers it onto a `Graph/delta#GRAPH_DELTA` `GraphDelta` through the `Put`/`Link`/`Reheader` builders, so the seam folds deltas and never learns a provider surface. `IGraphConstraint` has ONE `Validation<Error,Unit> Validate(GraphDelta, ElementGraph)` — the IFC-semantic legality Bim implements, disjoint from the seam's structural edge law the two-interface split [M3] fixes. `Assemble` runs the capture→merge→establish→admit→constrain→fold pipeline over one `ProjectionSuite` — the minting seam the app root builds ONCE from each owning package's factory product (`ProjectionSuite.Of`), so a consumer never names a concrete and never threads loose per-call collections — projector faults accumulated applicatively through the `Try.lift` funnel, the monoid fold seeded with `ctx.Header`, the merged delta admitted through `Graph/delta#GRAPH_DELTA` `GraphDelta.AdmitOnto` — returning the assembled `ElementGraph` a consumer bakes PLUS the merged `GraphDelta` event body Persistence appends [C1]. The WIRING — projector registration, tessellation adapter, `Graph/element#NODE_MODEL` `GeometrySource` port, DI — is an APP / HOST-BOUNDARY composition-root concern (`Rasm.Rhino`/`Rasm.Grasshopper` today, future standalone/web/sidecar apps). `ProjectionContext` carries the element `NodeId` set (the `Owns` vouch an aspect projector authors within — the owner of each concept mints its `Object` BEFORE assembly under the owner-mints-its-identity law), the target `Header`, the kernel `Op` key, and the NEUTRAL runtime primitives (instant, correlation, tenant) the app supplies. IFC egress (`Emit`) is Bim-INTERNAL, never a seam member.
 
 ## [01]-[INDEX]
 
@@ -9,13 +9,13 @@ The cross-stratum alignment seam: TWO instance-interface floors the AEC peers de
 
 ## [02]-[PROJECTION_CONTRACT]
 
-- Owner: `IElementProjection` the projector strategy floor with one `Project`; `ProjectionContext` the projection input (element `NodeId` set + target `Header` + neutral runtime primitives, carrying the `Owns` vouch predicate); `ProjectionAssembly` the static composition capability the seam owns and the apps wire.
-- Entry: `IElementProjection.Project(ProjectionContext ctx)` lowers a concrete projector's captured foreign source onto a `GraphDelta` over the context's element identities, `Fin<T>` carrying the projector's own faults; `ProjectionAssembly.Assemble(projectors, constraints, seed, ctx)` runs the capture→merge→establish→admit→constrain→fold pipeline returning `(ElementGraph Graph, GraphDelta Delta)`; `ProjectionContext.For(elementIds, header, key, at, correlation, tenant)` builds the context from the app's kernel `Op`, clock, correlation, and tenant primitives, `elementIds` carrying the owner-minted Type and Occurrence identities an aspect projector vouches against.
+- Owner: `IElementProjection` the projector strategy floor with one `Project`; `ProjectionContext` the projection input (element `NodeId` set + target `Header` + neutral runtime primitives, carrying the `Owns` vouch predicate); `ProjectionSuite` the minting seam — the one typed registration value the app root builds from each owning package's factory product; `ProjectionAssembly` the static composition capability the seam owns and the apps wire.
+- Entry: `IElementProjection.Project(ProjectionContext ctx)` lowers a concrete projector's captured foreign source onto a `GraphDelta` over the context's element identities, `Fin<T>` carrying the projector's own faults; `ProjectionSuite.Of(projectors, constraints)` mints the registration value — each `IElementProjection`/`IGraphConstraint` arrives as an owning package's OWN factory product (`ComponentProjector.Of(source)` the Materials mint, the Bim `SemanticProjector` mint likewise package-owned), the concrete internal and swappable behind its floor; `ProjectionAssembly.Assemble(suite, seed, ctx)` runs the capture→merge→establish→admit→constrain→fold pipeline over the suite returning `(ElementGraph Graph, GraphDelta Delta)`; the railed `ProjectionContext.For(elementIds, header, key, at, correlation, tenant)` admits a non-empty correlation and normalized non-blank tenant before building the context, `elementIds` carrying the owner-minted Type and Occurrence identities an aspect projector vouches against.
 - Auto: `Assemble` (1) captures each `Project` through `Try.lift` — a thrown foreign exception becomes `ProjectionFailed`, a projector's own returned typed fault (a `BimFault`, a `ProjectionFault`) is preserved unchanged — and accumulates every projector fault applicatively (`.Traverse(...).ToValidation()`, `Error.Combine` unioning the faults so a run where BOTH Bim and Materials fail reports both); (2) on full success seeds the monoid fold with `GraphDelta.Empty.Reheader(ctx.Header)` and merges via `Merge`'s `next.Header`-wins rule; (3) structurally admits the merged delta through `GraphDelta.AdmitOnto` — the validating sibling of the raw persistence `ReplayOnto`, routing through `WorkingGraph.Apply` so `LegalLink` runs per `Link`; (4) validates against every `IGraphConstraint`, accumulating all legality violations; (5) folds onto the seed graph.
 - Receipt: the `Assemble` result is the assembled `ElementGraph` a consumer bakes PLUS the merged `GraphDelta` event body the `Rasm.Persistence` `Version/ledger` appends to the Marten stream (the one model-creating event, never a whole-graph snapshot) [C1].
 - Packages: LanguageExt.Core (`Fin`/`Validation`/`Seq`/`Try` + the `TraverseM`/`Traverse` accumulation split + the `Fold` monoid + `ToValidation`/`ToFin` cross-rail bridges), `Rasm` (the kernel `Op` op-key), NodaTime (`Instant`), System.Collections.Frozen (`FrozenSet`).
 - Growth: a new aspect projector is one `IElementProjection` implementation in its owning package plus one registration row at the app root; a new runtime primitive is one column on `ProjectionContext`; net new Rasm interfaces for the whole rebuild = 2 (`IElementProjection` + `IGraphConstraint`) — the unified Material/Component/Element paradigm adds NO new interface and NO new mint method, both mints being owner-side compositions of the kernel `Graph/element#NODE_MODEL` `NodeId` floor.
-- Boundary: `IElementProjection` is the ONE projector floor with ONE polymorphic `Project` — a per-provider seam method (`ProjectBim`/`ProjectMaterials`) is the deleted form, the concrete held internal and swappable in its owning package; the projector-capture fold is APPLICATIVE and the admit-then-constrain tail MONADIC — the carrier, never a flag, selects the algebra ([APPLICATIVE_CAPTURE]); `Owns` is a PREDICATE, not an authoring helper — the skip-vs-rail policy is the projector's [H12] ([OWNER_MINTS_IDENTITY]); `ctx.Header` is the floor-seeded model header a projector-authored `Reheader` overrides ([HEADER_ESTABLISHMENT]); the runtime primitives are NEUTRAL (kernel `Op`, instant, correlation, tenant) — the seam references no AppHost `ClockPolicy`/`CorrelationId`/`TenantContext` type; the capture funnel is `Try.lift`, never the kernel `Op.Catch`; the projection path admits through `AdmitOnto`, never the raw `ReplayOnto`; the seam owns the `Assemble` CAPABILITY and the app the WIRING — no APP-PLATFORM package hosts the live assembly ([ASSEMBLE_CAPABILITY]); IFC egress (`Emit`) is Bim-INTERNAL because the seam never authors IFC; an instance default-interface-method on either floor is the named defect — defaults derive from a minimal core, never an interface body.
+- Boundary: `IElementProjection` is the ONE projector floor with ONE polymorphic `Project` — a per-provider seam method (`ProjectBim`/`ProjectMaterials`) is the deleted form, the concrete held internal and swappable in its owning package behind that package's minting factory, and `ProjectionSuite.Of` the one registration mint `Assemble` dispatches over (loose per-call projector/constraint collections are the deleted form — selection resolves through the declared minting seam, never provider-specific constructor exposure at a consumer); the projector-capture fold is APPLICATIVE and the admit-then-constrain tail MONADIC — the carrier, never a flag, selects the algebra ([APPLICATIVE_CAPTURE]); `Owns` is a PREDICATE, not an authoring helper — the skip-vs-rail policy is the projector's [H12] ([OWNER_MINTS_IDENTITY]); `ctx.Header` is the floor-seeded model header a projector-authored `Reheader` overrides ([HEADER_ESTABLISHMENT]); the runtime primitives are NEUTRAL (kernel `Op`, instant, correlation, tenant) — the seam references no AppHost `ClockPolicy`/`CorrelationId`/`TenantContext` type; the capture funnel is `Try.lift`, never the kernel `Op.Catch`; the projection path admits through `AdmitOnto`, never the raw `ReplayOnto`; the seam owns the `Assemble` CAPABILITY and the app the WIRING — no APP-PLATFORM package hosts the live assembly ([ASSEMBLE_CAPABILITY]); IFC egress (`Emit`) is Bim-INTERNAL because the seam never authors IFC; an instance default-interface-method on either floor is the named defect — defaults derive from a minimal core, never an interface body.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
@@ -24,23 +24,30 @@ using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
 using Rasm.Domain;
+using Rasm.Element.Graph;
 using static LanguageExt.Prelude;
 
-namespace Rasm.Element;
+namespace Rasm.Element.Projection;
 
 // --- [MODELS] -----------------------------------------------------------------------------
 // The projection input: the element identity set an aspect projector authors WITHIN (Owns gates it), the target
 // Header the fold seeds (LOAD-BEARING, never a dead field), the kernel Op key, and NEUTRAL runtime primitives —
 // no app-platform ClockPolicy/CorrelationId/TenantContext type crosses the seam.
-public sealed record ProjectionContext(
-    FrozenSet<NodeId> ElementIds,
-    Header Header,
-    Op Key,
-    Instant At,
-    Guid CorrelationId,
-    string TenantId) {
-    public static ProjectionContext For(Seq<NodeId> elementIds, Header header, Op key, Instant at, Guid correlation, string tenant) =>
-        new(elementIds.ToFrozenSet(), header, key, at, correlation, tenant);
+public sealed record ProjectionContext {
+    public FrozenSet<NodeId> ElementIds { get; }
+    public Header Header { get; }
+    public Op Key { get; }
+    public Instant At { get; }
+    public Guid CorrelationId { get; }
+    public string TenantId { get; }
+
+    private ProjectionContext(FrozenSet<NodeId> elementIds, Header header, Op key, Instant at, Guid correlationId, string tenantId) =>
+        (ElementIds, Header, Key, At, CorrelationId, TenantId) = (elementIds, header, key, at, correlationId, tenantId);
+
+    public static Fin<ProjectionContext> For(Seq<NodeId> elementIds, Header header, Op key, Instant at, Guid correlation, string tenant) =>
+        correlation == Guid.Empty || string.IsNullOrWhiteSpace(tenant)
+            ? ElementFault.ValueRejected(key, $"<projection-context-correlation-or-tenant-invalid:{correlation}:{tenant}>")
+            : Fin.Succ(new ProjectionContext(elementIds.ToFrozenSet(), header, key, at, correlation, tenant.Trim()));
 
     // The aspect-projector vouch — a PREDICATE, never an authoring helper; the skip-vs-rail policy is the
     // projector's [H12]. The SEMANTIC vouch, complementary to the structural law AdmitOnto runs.
@@ -50,9 +57,25 @@ public sealed record ProjectionContext(
 // --- [SERVICES] ---------------------------------------------------------------------------
 // The projector strategy each AEC peer implements over its captured foreign source — one polymorphic Project lowering
 // onto a GraphDelta, the concrete (Bim SemanticProjector over GeometryGym, Materials ComponentProjector over
-// VividOrange) held internal and swappable in its owning package, so the seam folds deltas and never learns a provider.
+// VividOrange) held internal and swappable in its owning package, reached ONLY through that package's own minting
+// factory returning THIS floor (the ComponentProjector.Of shape), so the seam folds deltas and never learns a provider.
 public interface IElementProjection {
     Fin<GraphDelta> Project(ProjectionContext ctx);
+}
+
+// The MINTING SEAM the open floors pair with (OPEN_FLOOR_DISPATCH): the app composition root folds each owning
+// package's factory product into ONE typed registration value, and Assemble dispatches over the suite — a consumer
+// names the floors and the mint, never a concrete, and never threads loose per-call collections. PRIVATE ctor:
+// Of is the one mint, so registration is a value the root builds once and every assembly run reuses.
+public sealed record ProjectionSuite {
+    public Seq<IElementProjection> Projectors { get; }
+    public Seq<IGraphConstraint> Constraints { get; }
+
+    private ProjectionSuite(Seq<IElementProjection> projectors, Seq<IGraphConstraint> constraints) =>
+        (Projectors, Constraints) = (projectors, constraints);
+
+    public static ProjectionSuite Of(Seq<IElementProjection> projectors, Seq<IGraphConstraint> constraints = default) =>
+        new(projectors, constraints);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -60,26 +83,25 @@ public interface IElementProjection {
 // with ctx.Header (next.Header-wins), admit structurally, constrain, fold — the graph PLUS the event-body delta.
 public static class ProjectionAssembly {
     public static Fin<(ElementGraph Graph, GraphDelta Delta)> Assemble(
-        Seq<IElementProjection> projectors, Seq<IGraphConstraint> constraints,
-        ElementGraph seed, ProjectionContext ctx) =>
-        projectors
+        ProjectionSuite suite, ElementGraph seed, ProjectionContext ctx) =>
+        suite.Projectors
             .Traverse(projector => Capture(projector, ctx).ToValidation()).As()
             .Map(deltas => deltas.Fold(GraphDelta.Empty.Reheader(ctx.Header), static (acc, delta) => acc.Merge(delta)))
             .ToFin()
             .Bind(merged => merged.AdmitOnto(seed, ctx.Key)
-                .Bind(applied => Constrain(constraints, merged, applied.Graph).Map(_ => applied)));
+                .Bind(applied => Constrain(suite.Constraints, merged, applied.Graph).Map(_ => applied)));
 
     // A THROWN foreign call becomes ProjectionFailed with the raw message (the MapFail lambda closes over ctx.Key,
     // never static); a projector's OWN typed fault passes untouched — Run yields Succ(Fail(x)), MapFail no-ops on
     // the outer Succ, Bind surfaces x.
-    static Fin<GraphDelta> Capture(IElementProjection projector, ProjectionContext ctx) =>
+    private static Fin<GraphDelta> Capture(IElementProjection projector, ProjectionContext ctx) =>
         Try.lift<Fin<GraphDelta>>(() => projector.Project(ctx)).Run()
             .MapFail(error => ElementFault.ProjectionFailed(ctx.Key, error.Message))
             .Bind(static fin => fin);
 
     // Composed AFTER the structural admission: the applicative Traverse accumulates ALL violations, .ToFin() carrying
     // the ManyErrors intact so a failure aborts with the FULL report; an empty constraint set admits vacuously.
-    static Fin<Unit> Constrain(Seq<IGraphConstraint> constraints, GraphDelta delta, ElementGraph graph) =>
+    private static Fin<Unit> Constrain(Seq<IGraphConstraint> constraints, GraphDelta delta, ElementGraph graph) =>
         constraints.Traverse(constraint => constraint.Validate(delta, graph)).As().Map(static _ => unit).ToFin();
 }
 ```
@@ -110,4 +132,4 @@ public interface IGraphConstraint {
 - [OWNER_MINTS_IDENTITY]: the OWNER of a concept mints its `Object` under the ONE rooted-identity regime (`Graph/element#NODE_MODEL` `ObjectKind ∈ {Type, Occurrence}`, no content-keyed-vs-rooted bifurcation for an `Object`). `Rasm.Materials` owns Component Types, so the `ComponentProjector` mints the DETERMINISTIC-rooted Type id through the kernel Type-seed `NodeId` derivation — rooted, yet a pure function of the `Object` canonical content with the volatile `Representations` EXCLUDED from the seed, so identical Components dedup to one Type and a later geometry attach (the heavy `Body` content hash) never re-keys it; the determinism is LOAD-BEARING, because a pure-function id is known BEFORE the projection runs and the owner seeds it into `ElementIds` with no minting race. An occurrence-authoring projector (a `SemanticProjector` ingesting an `IfcElement`, an app authoring from scratch) mints the Guid-v7 Occurrence id through `NodeId.Rooted()`, the IFC GlobalId riding a Bim-stored `Object.ExternalId` [H6]. An ASPECT projector mints NOTHING: it authors edges only INTO a context-vouched id through `ProjectionContext.Owns`, composing `ctx.Owns(element) ? Link(...) : ProjectionFault.Unvouched(...)` — the skip-vs-rail policy the projector's, because a pure-isolation run authoring no edge is no fault while a binding to an unvouched element MUST rail, never a silent drop [H12]. The mint-vs-vouch split is per-CONCEPT, not per-projector — the `ComponentProjector` mints the Type it OWNS and vouches the occurrence it BINDS through `Assign.TypeDefinition` in ONE `Project` — replacing the fragile minter-stamps-the-aspect-egress convention, the seam adding no interface and no mint method: both mints are owner-side compositions of the kernel `NodeId` floor.
 - [APPLICATIVE_CAPTURE]: the projector-capture fold is APPLICATIVE, not monadic — projectors are INDEPENDENT, so the `INDEPENDENT_JOIN` law accumulates their faults: `projectors.Traverse(p => Capture(p, ctx).ToValidation()).As()` runs the `Validation` `Apply` over every captured projector and `Error.Combine` unions every foreign fault, where the rejected `.TraverseM`/`.Bind` capture silently discards every fault after the first. The per-projector `Capture` lowers a THROWN foreign exception through the `Try.lift(() => projector.Project(ctx)).Run().MapFail(...).Bind(identity)` funnel — `Try.lift` preserving the raw `error.Message` a bare kernel `Op.Catch` re-wraps as `Fault.InvalidResult` — while a projector's OWN returned typed fault is preserved unchanged, and `.ToValidation()` carries the typed `Expected`-derived case onto the accumulating carrier so the combine keeps each fault recoverable (`error.IsType`/`HasCode`/`Filter` recurse over `ManyErrors`). The SUBSEQUENT admit-then-constrain tail is MONADIC (`.ToFin().Bind(...)`) because the admission depends on the merged delta and the constraint on the admitted candidate — dependence licenses sequence, independence licenses accumulation, the carrier selecting the algebra.
 - [HEADER_ESTABLISHMENT]: `ProjectionContext.Header` is LOAD-BEARING — `Assemble` SEEDS the monoid fold with it as the model-creating header FLOOR (`deltas.Fold(GraphDelta.Empty.Reheader(ctx.Header), Merge)`), so an assembly onto `Graph/element#ELEMENT_GRAPH` `Genesis` freezes under the intended schema/model-view/georeference/tolerance rather than the seed's default (`AdmitOnto` resolves `delta.Header.IfNone(graph.Header)` over the merged delta's resolved header). The precedence is the monoid's `next.Header`-wins rule over a floor-seeded accumulator: a header-less projector's `None` leaves the floor intact, while a PRIMARY projector's authored `Reheader` (a Bim lowering reading `FILE_SCHEMA`/`FILE_NAME`) overrides it — so the ingested schema and `StepHeader` provenance reach the frozen snapshot (the H8 schema-span validation and the H9 owner-history re-emit both read that surviving header). A trailing UNCONDITIONAL `Reheader(ctx.Header)` AFTER the fold clobbers every projector-authored header and defeats H8/H9; a context-carried header no fold reads is the prior dead-field form — both deleted. The `Header` rides the `GraphDelta` event and the frozen snapshot, never the `WorkingGraph`, so the establishment is one floor-seed `Reheader` call, not a header field threaded through the working form.
-- [ASSEMBLE_CAPABILITY]: the seam owns the `Assemble` fold — the composition CAPABILITY — but NOT the wiring: registering the `Seq<IElementProjection>`, binding the imported-IFC tessellation adapter (the `IfcConvert`/`ifcopenshell` companion [M5]), wiring the `Graph/element#NODE_MODEL` `GeometrySource` content-key port over the `Rasm.Persistence` object store, wiring the tabular→element map, and the DI are per-app composition-root concerns (`Rasm.Rhino`/`Rasm.Grasshopper` today), no APP-PLATFORM package hosting them. A projector builds its delta through the `Put`/`Link`/`Reheader` builders — the structural edge law has not yet run on it — so `Assemble` MUST admit through `GraphDelta.AdmitOnto`, never the raw persistence `ReplayOnto`; the projector owning both endpoints authors the `Associate` material edge gated on the `Owns` vouch, the skip-vs-rail law `[OWNER_MINTS_IDENTITY]` fixes — an app-authored wire-side material edge is the deleted form.
+- [ASSEMBLE_CAPABILITY]: the seam owns the `Assemble` fold — the composition CAPABILITY — and the `ProjectionSuite` minting seam its registration crosses, but NOT the wiring: minting the suite from each package's factory product, binding the imported-IFC tessellation adapter (the `IfcConvert`/`ifcopenshell` companion [M5]), wiring the `Graph/element#NODE_MODEL` `GeometrySource` content-key port over the `Rasm.Persistence` object store, wiring the tabular→element map, and the DI are per-app composition-root concerns (`Rasm.Rhino`/`Rasm.Grasshopper` today), no APP-PLATFORM package hosting them. A projector builds its delta through the `Put`/`Link`/`Reheader` builders — the structural edge law has not yet run on it — so `Assemble` MUST admit through `GraphDelta.AdmitOnto`, never the raw persistence `ReplayOnto`; the projector owning both endpoints authors the `Associate` material edge gated on the `Owns` vouch, the skip-vs-rail law `[OWNER_MINTS_IDENTITY]` fixes — an app-authored wire-side material edge is the deleted form.

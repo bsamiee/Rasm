@@ -15,7 +15,7 @@ export const meta = {
         },
         {
             title: 'Ideate',
-            detail: 'per package, two disjoint lanes fired the moment that package map lanes land: the corrections census (the deduped disk-verified fix addendum) and the bigger-ideas worklist (new capability beyond correction under the value bar, mining and transplanting the standing IDEAS.md open pool only after its own pass)',
+            detail: 'per package, two disjoint lanes fired the moment that package map lanes land: the corrections census (the deduped disk-verified fix addendum) and the bigger-ideas worklist (new capability beyond correction under the value bar)',
         },
         {
             title: 'Build',
@@ -23,7 +23,7 @@ export const meta = {
         },
         {
             title: 'Close',
-            detail: 'a read-only finder fan plus one governance finder per language over the landed corpus and seam ledger; ONE terminal fixer drains findings, backlog, and unclaimed census rows; then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas entry one outcome (realized, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations',
+            detail: 'a read-only finder fan plus one governance finder per language over the landed corpus and seam ledger, with two consolidation lanes riding the fan concurrently — a backlog verifier pre-verifying every deferred/census/orphan row into one deduped stale-free work list, and an ideas collator statusing every bigger-ideas entry against disk into one ledger; ONE terminal fixer drains the verified work list and findings, then realizes the ledger remainder; then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas entry one outcome (realized, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations',
         },
     ],
 };
@@ -389,8 +389,62 @@ const FINDINGS_SCHEMA = {
     },
 };
 
-const FIXER_SCHEMA = {
-    // Required-but-possibly-empty `beyond` is an attestation: the fixer's own hunt ran, not only the signal list.
+// The two Close consolidation products, both written pre-fixer so the terminal writer consumes FINAL lists: pre-verified work rows (stale culled with receipts,
+// duplicates merged across stages) and the collated ideas ledger (every bigger-ideas dossier entry statused against current disk).
+const WORK_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['live', 'culled', 'summary'],
+    properties: {
+        live: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['owner', 'files', 'claim', 'anchors', 'source'],
+                properties: {
+                    owner: S, // canonical owner that must absorb the fix — the work list groups by it
+                    files: { type: 'array', items: S },
+                    claim: S,
+                    anchors: { type: 'array', items: ANCHOR_DEFECT },
+                    source: S, // originating stage(s): impl|crit|rt|census, merged rows joined with +
+                },
+            },
+        },
+        culled: {
+            type: 'array',
+            items: { type: 'object', additionalProperties: false, required: ['claim', 'receipt'], properties: { claim: S, receipt: S } },
+        },
+        summary: S,
+    },
+};
+
+const LEDGER_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['entries', 'summary'],
+    properties: {
+        entries: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['idea', 'pkg', 'owner', 'status', 'anchor', 'ground'],
+                properties: {
+                    idea: S, // the dossier entry slug/leader, verbatim
+                    pkg: S,
+                    owner: S, // the owner surface the entry grows on
+                    status: { type: 'string', enum: ['realized', 'unrealized', 'superseded'] },
+                    anchor: S, // realized: landing coordinate; unrealized: the still-true ground; superseded: the superseding coordinate
+                    ground: S, // one-line capability + demand, re-derived from current disk
+                },
+            },
+        },
+        summary: S,
+    },
+};
+
+const FIXER_SCHEMA = {  // Required-but-possibly-empty `beyond` is an attestation: the fixer's own hunt ran, not only the signal list.
     type: 'object',
     additionalProperties: false,
     required: ['files', 'indexApplied', 'resolved', 'backlogDrained', 'beyond', 'rejected', 'remaining', 'harvest', 'summary'],
@@ -1209,11 +1263,11 @@ const ideasPrompt = (L, pkg, mapIndex, dossier) =>
             pkg +
             '` — read-only over the corpus; you WRITE exactly one file, the ideas dossier. The Map phase produced per-SUB-FOLDER ' +
             'deep-map and two-tier .api inventory dossiers; read EVERY dossier listed here IN FULL, then the package charter ' +
-            '(ARCHITECTURE.md + README.md — NOT IDEAS.md, which enters only at POOL MINING below) and the pages your ideas grow on: ' +
+            '(ARCHITECTURE.md + README.md + IDEAS.md) and the pages your ideas grow on: ' +
             JSON.stringify(mapIndex),
         'AUTHOR `' +
             dossier +
-            '` — one markdown dossier, a section per sub-folder plus terminal CROSS-FOLDER and POOL-DISPOSITION sections. Every entry is a NEW ' +
+            '` — one markdown dossier, a section per sub-folder plus a terminal CROSS-FOLDER section. Every entry is a NEW ' +
             'capability the domain admits and the corpus lacks — a new dimension, modality, family, case class, operation ' +
             'family, generator over an enumerated space, or cross-boundary enablement that widens what the package IS — ' +
             'grounded in real domain demand (' +
@@ -1224,15 +1278,6 @@ const ideasPrompt = (L, pkg, mapIndex, dossier) =>
             'PRODUCT, not a defect in the prose. Name the owner it grows on, the domain or catalog ground, the anchor, and WHY ' +
             'it widens the package — never the resulting code, a fence sketch, or a ruled shape. CROSS-FOLDER: an idea whose ' +
             'value crosses the package boundary names BOTH ends and the seam it rides.',
-        'POOL MINING (only AFTER every own entry is authored — the standing pool never scopes, seeds, or caps your own ' +
-            'ideation, and no IDEAS.md is opened before this step): read the owning package IDEAS.md `[1]-[OPEN]` plus the ' +
-            'branch `.planning/IDEAS.md` open cards naming this package, and TRANSPLANT each still-valid card whose owner ' +
-            "intersects the run's target pages into the dossier as a full entry in its owning section — re-derived against " +
-            'current disk and restated in the entry form (owner, ground, anchor, why), never copied verbatim — ADDITIVE to your ' +
-            'own entries, never displacing one. A card current disk already realizes, or whose value you can refute, is NOT ' +
-            'transplanted: record it in the terminal POOL-DISPOSITION section as one fact row (card leader, verdict ' +
-            'realized|refuted, disk anchor) for the close-phase disposition writer. A card outside the target pages stays ' +
-            'untouched and unrecorded. The pool files are READ here, never edited — card closure is the disposition writer\'s.',
         "SECOND-PASS CULL (before returning): re-open every entry's anchor on disk; delete any entry disk already realizes, " +
             'any correction in disguise, and any entry whose value you cannot state as a concrete new capability of a named ' +
             'owner. Boldness is never the cull criterion — the cull removes false and small entries, never ambitious ones; few ' +
@@ -1491,7 +1536,45 @@ const govFinderPrompt = (L, pkgs, pages, rows, reg) =>
             '. Return typed anchored graded findings.',
     ].join('\n\n');
 
-const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orphans, census, round) =>
+const backlogVerifierPrompt = (rows, orphans, census, reg) =>
+    [
+        ROOT_LAW,
+        'Rasm monorepo — the libs/ planning corpora. A hostile rebuild just landed; its build stages deferred cross-scope work ' +
+            'as typed rows, and the corrections censuses carry folder-wide rows the writers only partially claimed.',
+        'TASK: BACKLOG VERIFIER (read-only over the corpus; investigate, do NOT edit). Re-verify every candidate row below ' +
+            'against CURRENT disk and return the consolidated work list the terminal fixer consumes — final, deduped, stale-free.',
+        'DEFERRED ROWS (build stages): ' + JSON.stringify(rows),
+        orphans.length
+            ? 'ORPHANED CRITIQUE FIXLOGS (read each IN FULL from disk; their surviving deferred rows join the candidate pool): ' +
+              JSON.stringify(orphans)
+            : '',
+        'CORRECTIONS CENSUS dossiers (read each IN FULL; every row joins the candidate pool): ' + JSON.stringify(census),
+        'PER CANDIDATE: open the named files on CURRENT disk. A row disk already resolves is CULLED with the resolving anchor ' +
+            'as its receipt. Rows naming the same defect across sources MERGE into one row carrying every anchor and a joined ' +
+            'source tag. A survivor states the defect as FACT with owner, files, and typed anchors — information and constraint ' +
+            'boundary, never a prescribed fix. Group survivors by owner: shared owners and registries before consumers.',
+        REG[reg].selfCheck,
+    ]
+        .filter(Boolean)
+        .join('\n\n');
+
+const ideasCollatorPrompt = (sets, reg) =>
+    [
+        ROOT_LAW,
+        'Rasm monorepo — the libs/ planning corpora. The Ideate phase authored one bigger-ideas dossier per package; the build ' +
+            'stages realized entries at their own discretion.',
+        'TASK: IDEAS COLLATOR (read-only over the corpus; investigate, do NOT edit). Read every dossier IN FULL — ' +
+            JSON.stringify(sets) +
+            ' — and status EVERY entry against CURRENT disk into one collated ledger: realized (the run landed the capability ' +
+            'fully or in a form at least as strong — anchor the landing), unrealized (still valuable and absent — re-derive the ' +
+            'ground from current disk, never copy the stale dossier anchor), or superseded (current disk carries a stronger ' +
+            'form or the doctrine forbids it — anchor the superseding fact). The dossiers are PRE-RUN snapshots; every judgment ' +
+            're-derives from disk. Entries stay ambition and information — never a prescription or a ruled design — and the ' +
+            'ledger is TOTAL: one row per dossier entry, none dropped.',
+        REG[reg].selfCheck,
+    ].join('\n\n');
+
+const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orphans, census, round, work, ideasLedger) =>
     [
         ROOT_LAW,
         round
@@ -1522,6 +1605,19 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
         'CATALOG-APPEND LAW — a page-attested member that verifies against the real surface but lacks a row in the owning ' +
             '`.api` catalog closes by appending the catalog row; stripping a TRUE page attestation to match a lagging catalog ' +
             'is the rejected form.',
+        'DELEGATION — three sanctioned shapes, every fixlog row still yours and no delegate nesting further: ' +
+            '(a) READ-ONLY verification fan — bulk anchor re-opens behind rejections, member spot-checks, seam both-end reads, ' +
+            'returning verdicts. (b) RULED TRANSCRIPTION — edits you have already decided to exact old->new text (index-row ' +
+            'application on non-index files, symbol propagation, spelling repairs) fan to scoped delegates carrying the precise ' +
+            'file+anchor+replacement spec — zero judgment left, zero corpus re-reading needed, and you spot-check each landing. ' +
+            '(c) DISJOINT CLUSTERS — when the verified work list is large and partitions into disjoint-file clusters of ' +
+            'judgment work, at most two full-context writer delegates take whole clusters: each receives its cluster rows plus ' +
+            'the artifact paths it needs, composes its language doctrine in full before writing (a writer without the doctrine ' +
+            'read never writes), and holds a write scope disjoint from yours and each other. The owning-package index docs, ' +
+            'IDEAS.md, and the central manifests never delegate. A delegated row counts resolved ONLY after you verify its ' +
+            'edits on current disk; a delegate that landed nothing returns the row to your own hands in the same round — a ' +
+            'row parked in `remaining` on unverified delegate work is a fabricated blocker. Write delegates ride the Agent ' +
+            'tool with an explicit landing contract, never a fire-and-forget CLI dispatch.',
         GIT_GROUND,
         "TASK: TERMINAL FIX (WRITER — the run's LAST agent, nothing follows you): full write authority over the landed corpus, " +
             'libs-wide ripple authority with the expand-form bound LIFTED (collapse, rename, and contract are yours now that no ' +
@@ -1535,19 +1631,26 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
             'fully-specified card in the named IDEAS.md: ' +
             JSON.stringify(rows) +
             '.\n' +
-            '(2) DEFERRED BACKLOG (second-order and cross-batch ripples — re-verify each {files, claim} on current disk, fix ' +
-            'what holds, reject what disk already resolved): ' +
-            JSON.stringify(backlog) +
-            '.\n' +
-            '(2b) ORPHANED CRITIQUE FIXLOGS (batches whose redteam never landed, so these rows were never folded forward — read ' +
-            "each IN FULL from disk, drain the seam/deferred/index rows under the same law, and fold each fixlog's surviving " +
-            'harvest rows into your own `harvest` return, re-verified and deduped): ' +
-            JSON.stringify(orphans) +
-            '.\n' +
-            '(2c) CORRECTIONS CENSUS dossiers (the writers landed only the rows intersecting their own pages — read each IN ' +
-            'FULL; every row NOT already resolved on current disk is yours: land it at its root or reject with reason): ' +
-            JSON.stringify(census) +
-            '.\n' +
+            (work
+                ? '(2) VERIFIED WORK DOSSIER — ON DISK at ' +
+                  work +
+                  ': every build-stage deferred row, census row, and orphaned-fixlog row pre-verified against current disk by ' +
+                  'the backlog verifier — stale culled with receipts, duplicates merged, survivors grouped by owner. Read it IN ' +
+                  'FULL; every live row is yours: re-open its anchors before the edit (freshness stays yours), fix at root or ' +
+                  'reject with reason. Spot-check a sample of the culled receipts; never re-litigate the culled set.\n'
+                : '(2) DEFERRED BACKLOG (second-order and cross-batch ripples — re-verify each {files, claim} on current disk, fix ' +
+                  'what holds, reject what disk already resolved): ' +
+                  JSON.stringify(backlog) +
+                  '.\n' +
+                  '(2b) ORPHANED CRITIQUE FIXLOGS (batches whose redteam never landed, so these rows were never folded forward — read ' +
+                  "each IN FULL from disk, drain the seam/deferred/index rows under the same law, and fold each fixlog's surviving " +
+                  'harvest rows into your own `harvest` return, re-verified and deduped): ' +
+                  JSON.stringify(orphans) +
+                  '.\n' +
+                  '(2c) CORRECTIONS CENSUS dossiers (the writers landed only the rows intersecting their own pages — read each IN ' +
+                  'FULL; every row NOT already resolved on current disk is yours: land it at its root or reject with reason): ' +
+                  JSON.stringify(census) +
+                  '.\n') +
             '(3) FINDER REPORTS — products ON DISK as JSON report files; the ROSTER receipts are navigation, never the product. ' +
             "CONSUMPTION, in order: (a) UNMAPPED scope is your direct-hunt queue — a failed finder's territory gets your own " +
             'cold read first; (b) read every ok report IN FULL from disk, governance finders before page slices — group findings ' +
@@ -1566,6 +1669,13 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
             '(4) OWN HUNT: hunt PAST the signal list — the hunt classes over the landed pages and governance surface — and fix ' +
             'what the finders missed; `beyond` enumerates those fixes, and an empty `beyond` attests the hunt found nothing, ' +
             'never that it did not run.\n' +
+            (ideasLedger
+                ? '(5) IDEAS REMAINDER — the collated ideas ledger ON DISK at ' +
+                  ideasLedger +
+                  ' statuses every bigger-ideas entry against current disk. After the defect drain, realize each unrealized ' +
+                  'entry at the strongest form disk admits under the ambition law: an entry you decline is not a defect, ' +
+                  'provenance-bound data is never fabricated, and the ideas-disposition writer rules final outcomes after you.\n'
+                : '') +
             'Every ripple an edit exposes is YOURS in the same pass — seam counterparts both ends, consumer sites, index docs, ' +
             "manifest rows, .api anchors; wire-canonical names stay frozen; a foreign-language repair holds that branch's " +
             'doctrine bar. FAILED PAGES (reported, not landed — never author them here; correct any claim that pretends they ' +
@@ -1579,10 +1689,16 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
         .filter(Boolean)
         .join('\n\n');
 
-const dispositionPrompt = (sets, pages) =>
+const dispositionPrompt = (sets, pages, ledgerPath) =>
     [
         ROOT_LAW,
         'Rasm monorepo — the libs/ planning corpora. The run just landed a hostile rebuild over these pages: ' + JSON.stringify(pages) + '.',
+        ledgerPath
+            ? 'NAVIGATION: the collated ideas ledger ON DISK at ' +
+              ledgerPath +
+              ' statuses every entry as of its pre-fixer collation — the fixer may have realized more since, so it routes your ' +
+              'reading order and nothing else; every outcome re-derives from CURRENT disk.'
+            : '',
         'TASK: IDEAS DISPOSITION (WRITER — the sole IDEAS.md author at this point of the run). The Ideate phase produced one ' +
             'bigger-ideas dossier per package — ambition worklists the batch writers realized at their own discretion. Read every ' +
             'dossier IN FULL: ' +
@@ -1601,13 +1717,13 @@ const dispositionPrompt = (sets, pages) =>
             '`libs/.planning/IDEAS.md`. Card form per the authoring standard: a bracketed slug leader plus bullets carrying the ' +
             'capability, what it unlocks, and the gap or technique it draws on — ambition and information, never a prescription, ' +
             'a fence sketch, or a ruled design.',
-        "(4) POOL CLOSURE — each dossier's POOL-DISPOSITION rows are signals, re-verified on current disk: reconcile each " +
-            "target package's IDEAS.md (and the branch pool cards naming it) so the OPEN section ends the run carrying exactly " +
-            'the still-live ambition. A card the run realized moves to `[2]-[CLOSED]` with a one-line disposition; a refuted ' +
-            'card moves to `[2]-[CLOSED]` with the reason; a transplanted-but-unrealized card stays OPEN, refreshed where ' +
-            'current disk staled it; no realized, refuted, or duplicate card remains OPEN.',
+        '(4) POOL HYGIENE — where an outcome touches an existing IDEAS.md open card (a realized entry an open card covers: the ' +
+            'card moves to `[2]-[CLOSED]` with a one-line disposition; a carded entry an open card already covers: dedupe onto ' +
+            'that card), reconcile the card in the same pass. Cards the run\'s entries never touch stay untouched.',
         'Return entries (one row per dossier entry — the disposition is TOTAL), files (every IDEAS.md edited), summary.',
-    ].join('\n\n');
+    ]
+        .filter(Boolean)
+        .join('\n\n');
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -1893,8 +2009,13 @@ const finderTasks = LANDED_LANGS.flatMap((k) => {
         .map((pages, i) => ({ gov: false, lang: k, pages, seams: langSeams, i }))
         .concat([{ gov: true, lang: k, pkgs: [...new Set(langPages.map(pkgOf))], pages: langPages }]);
 });
-const found = (
-    await Promise.all(
+// Two consolidation lanes ride the finder fan CONCURRENTLY: the backlog verifier turns every deferred, census,
+// and orphaned-fixlog candidate into ONE pre-verified work list (stale culled with receipts, duplicates merged),
+// and the ideas collator statuses every bigger-ideas entry against current disk into ONE ledger — the fixer then
+// consumes final lists and the disposition writer rules outcomes, neither re-litigating the pool.
+const IDEA_SETS = PKGS.map((pkg) => ({ pkg, path: (pkgIdeate[pkg] && pkgIdeate[pkg].idea) || '' })).filter((r) => r.path);
+const [found, work, ledger] = await Promise.all([
+    Promise.all(
         finderTasks.map((t) =>
             slot(() =>
                 // Finders are terminal-consumed (the fixer re-verifies anchors but never re-hunts the coverage),
@@ -1916,8 +2037,32 @@ const found = (
                       ),
             ).catch(() => null),
         ),
-    )
-).filter(Boolean);
+    ).then((r) => r.filter(Boolean)),
+    BACKLOG.length || ORPHANS.length || CENSUS_PATHS.length
+        ? slot(() =>
+              recon(
+                  (reg) => backlogVerifierPrompt(BACKLOG, ORPHANS, CENSUS_PATHS, reg),
+                  ropts('verify:backlog', 'Close', WORK_SCHEMA, [], { arr: 'live', group: 'source' }, {
+                      model: 'gpt-5.6-sol',
+                      codexEffort: 'medium',
+                  }),
+              ),
+          ).catch(() => null)
+        : null,
+    IDEA_SETS.length
+        ? slot(() =>
+              recon(
+                  (reg) => ideasCollatorPrompt(IDEA_SETS, reg),
+                  ropts('collate:ideas', 'Close', LEDGER_SCHEMA, [], { arr: 'entries', group: 'status' }, {
+                      model: 'gpt-5.6-sol',
+                      codexEffort: 'medium',
+                  }),
+              ),
+          ).catch(() => null)
+        : null,
+]);
+const WORK = (work && work.ok && work.report) || ''; // the pre-verified work list on disk; '' falls back to the raw sets
+const IDEAS_LEDGER = (ledger && ledger.ok && ledger.report) || '';
 const FOUND = found.filter((f) => f.ok).reduce((a, f) => a + f.entries, 0);
 const UNMAPPED = found.filter((f) => !f.ok).flatMap((f) => f.scope.map((sc) => ({ lane: f.lane, scope: sc })));
 log(
@@ -1946,8 +2091,8 @@ log(
 // and loops until the set is empty; a round without shrinkage stops the loop with the blocked set final.
 let fixer = null;
 let fixerHarvest = [];
-let residuals = BACKLOG;
-let orphanQueue = ORPHANS;
+let residuals = WORK ? [] : BACKLOG;
+let orphanQueue = WORK ? [] : ORPHANS;
 let lastOpen = Infinity;
 for (let round = 0; round < DRAIN_ROUNDS; round++) {
     fixer = await slot(() =>
@@ -1961,8 +2106,10 @@ for (let round = 0; round < DRAIN_ROUNDS; round++) {
                 FAILED,
                 LANDED,
                 orphanQueue,
-                round ? [] : CENSUS_PATHS,
+                round || WORK ? [] : CENSUS_PATHS,
                 round,
+                round ? '' : WORK,
+                round ? '' : IDEAS_LEDGER,
             ),
             wopts(round ? 'fixer:r' + round : 'fixer', 'Close', 'fable', FIXER_SCHEMA),
         ),
@@ -1981,11 +2128,10 @@ for (let round = 0; round < DRAIN_ROUNDS; round++) {
 // so no idea silently evaporates with the scratch dir. DOCTRINE LANDER is the run's durable-learning
 // terminal — pooled harvest nominations adjudicated against the live doctrine surfaces; refutation-first,
 // land-nothing legal, admission law owned by docs/laws.
-const IDEA_SETS = PKGS.map((pkg) => ({ pkg, path: (pkgIdeate[pkg] && pkgIdeate[pkg].idea) || '' })).filter((r) => r.path);
 const HARVEST_ROWS = built.flatMap((d) => ((d.fix && d.fix.harvest) || []).concat((d.rt && d.rt.harvest) || [])).concat(fixerHarvest);
 const [ideas, doctrine] = await Promise.all([
     IDEA_SETS.length
-        ? slot(() => agent(dispositionPrompt(IDEA_SETS, LANDED), wopts('ideas:disposition', 'Close', 'fable', IDEAS_DISP_SCHEMA)))
+        ? slot(() => agent(dispositionPrompt(IDEA_SETS, LANDED, IDEAS_LEDGER), wopts('ideas:disposition', 'Close', 'fable', IDEAS_DISP_SCHEMA)))
         : null,
     HARVEST_ROWS.length
         ? slot(() =>
@@ -1997,7 +2143,12 @@ const [ideas, doctrine] = await Promise.all([
                   "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
                   JSON.stringify(HARVEST_ROWS) +
                   '\nADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on ' +
-                  'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
+                  'CURRENT disk; LAND NOTHING is a first-class verdict. A landing takes the target surface at its OWN form and ' +
+                  'bar: refine-over-add per the admission ladder (harden the existing clause before extending a page before ' +
+                  'minting one); a TRUE nomination weakly stated lands at its strongest true generalization — the nominator ' +
+                  'phrasing is a draft, never the ceiling; and a `stacks` landing conforms to the page-craft grammar — where ' +
+                  'the lesson is code-shaped it hardens the owning family card and its snippet or fence exemplar, never a ' +
+                  'prose bullet appended to a fence-taught region.\n' +
                   'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
                   'whose coupling no longer holds, land a coupling this run proved.\n' +
                   'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +

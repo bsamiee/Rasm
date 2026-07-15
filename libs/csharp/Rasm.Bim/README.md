@@ -49,7 +49,7 @@
 - [30]-[CONNECTION](.planning/Semantics/connection.md): `ConnectionProjection` lowering realizing elements onto seam detail bags and edges.
 - [31]-[GEOREFERENCE](.planning/Semantics/georeference.md): Map-conversion and CRS lowering into the seam `GeoReference` with the reprojection leg.
 - [32]-[GEOSPATIAL](.planning/Semantics/geospatial.md): Site-context projector — Simple-Features algebra and universal vector/raster ingest.
-- [33]-[PROPERTIES](.planning/Semantics/properties.md): Pset/Qto template authority, inheritance classifier, and base-quantity derivation.
+- [33]-[PROPERTIES](.planning/Semantics/properties.md): Pset/Qto template authority, inheritance classifier, base-quantity derivation, and the spec-free template-conformance audit.
 
 ## [02]-[DOMAIN_PACKAGES]
 

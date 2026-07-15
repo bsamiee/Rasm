@@ -27,7 +27,8 @@ using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
 using Npgsql;
-using Rasm.Element;
+using Rasm.Element.Graph;
+using Rasm.Element.Projection;
 using Rasm.Persistence.Element;                   // FaultBand — the Element/graph#FAULT_TABLES registry the band derives from
 using Thinktecture;
 using Expected = Rasm.Domain.Expected;            // the federation fault-band base — the alias wins over LanguageExt.Common.Expected for the bare name

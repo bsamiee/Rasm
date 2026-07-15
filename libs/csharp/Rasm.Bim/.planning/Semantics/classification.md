@@ -1,6 +1,6 @@
 # [BIM_CLASSIFICATION_SYSTEMS]
 
-The standard-systems classification PROJECTOR over the seam `Classification` value an `Object` node carries: one `ClassificationSystem` `[SmartEnum<string>]` standard-systems vocabulary (Uniclass/OmniClass/MasterFormat/Uniformat/ETIM/IfcClassification), each row carrying its bSDD dictionary identity (the version-free `Stem` + the hosted `Version` token deriving the versioned `DictionaryUri` the live resolution and the egress `Location` use) and its code-shape policy, validating a raw code against the system's shape and LOWERING it onto the library-neutral seam `Classification(system, code)` value. The seam owns the generic `Classification/classification#CLASSIFICATION_AXIS` `Classification` `[ComplexValueObject]` (`System` + `Code`, no roster, no dictionary, no regex); this page is the downstream Bim projector the seam names — it owns the standard-systems roster, the bSDD resolution, and the `IfcRelAssociatesClassification` round-trip, lowering a resolved code onto the seam value at ingest and re-authoring that value at egress. A classification is the seam `Classification` VALUE on an `Object` node: `Relations/relation#EDGE_ALGEBRA` is explicit that classification is a value on the node, NOT an edge (the neutral `Associate` edge carries a `Material`/`Appearance` resource, never a classification), so the retired `(GlobalId, system, code)` triple bound to a second stored `BimElement` record is GONE — a query reads `node.Classification.System`/`Code`, never a stringly-keyed lookup against a second element store.
+The standard-systems classification PROJECTOR over the seam `Classification` value an `Object` node carries: one `ClassificationSystem` `[SmartEnum<string>]` standard-systems vocabulary (Uniclass/OmniClass/MasterFormat/Uniformat/ETIM/IfcClassification), each row carrying its bSDD dictionary identity (the version-free `Stem` + the hosted `Version` token deriving the versioned `DictionaryUri` the live resolution and the egress `Location` use) and its code-shape policy, validating a raw code against the system's shape and LOWERING it onto the library-neutral seam `Classification` value — the SIX-member factory `(System, Code, Edition, Source, EditionDate, Title)`: the `(System, Code, Edition)` edition-scoped IDENTITY plus the equality-excluded resolved-annotation bundle. The seam owns the generic `Classification/classification#CLASSIFICATION_AXIS` `Classification` `[ComplexValueObject]` (no roster, no dictionary, no regex); this page is the downstream Bim projector the seam names — it owns the standard-systems roster, the bSDD resolution, and the `IfcRelAssociatesClassification` round-trip, lowering a resolved code onto the seam value at ingest and re-authoring that value at egress. A classification is the seam `Classification` VALUE on an `Object` node: `Relations/relation#EDGE_ALGEBRA` is explicit that classification is a value on the node, NOT an edge (the neutral `Associate` edge carries a `Material`/`Appearance` resource, never a classification), so the retired `(GlobalId, system, code)` triple bound to a second stored `BimElement` record is GONE — a query reads `node.Classification.System`/`Code`, never a stringly-keyed lookup against a second element store.
 
 The round-trip is BIDIRECTIONAL across three entries: `Classify` lowers a validated raw code at authoring ingress, `Ingest` resolves an imported `IfcClassificationReference` back to the seam value at import ingress (the inverse of `Author`, the leg the migration source never had), and `Author` re-authors a node's standard `Classification` onto `IfcRelAssociatesClassification`/`IfcClassificationReference` at egress — the element-classification egress the `Projection/egress#IFC_EGRESS` `Emit` composes per `Object` node, which REPLACES the retired `Rasm.Materials` `MaterialPropertyWire.Classification` half (a material carries no classification; the `Object` node does): the `Rasm.Materials/Projection/component#COMPONENT_PROJECTOR` `ComponentProjector` lands a substance's standard `(system, code)` as the bound element's `Object`-node `Classification` value through its `MaterialBinding` egress, so the element classification this owner round-trips is the one the unified Component projection authored, never a material-wire field. The bSDD resolution stays HERE — the live `BsddClass`/`BsddProperty` dictionary mapping carries the FULL `ClassContract.v1` surface: the class-scoped constraint surface (IFC `DataType` + Pset placement, `ValueKind`, allowed values, XSD `Pattern`, numeric `Bounds`, the seven SI exponents + `Units`, `Status`) that feeds the `Semantics/properties#PROPERTY_TEMPLATES` `PropertyKey` template, the `Review/validation#IDS_FACETS` Classification + Property facets, and the seam `Properties/quantity#MEASURE_VALUE` UnitsNet coercion directly, PLUS the relation set (`classRelations`/`reverseClassRelations` → typed `BsddRelation` rows whose `IsEqualTo`/`IsSynonymOf` edges the `BsddFederation` receipt closes through the shared QuikGraph substrate into cross-standard equivalence — `Translate` lowers an OmniClass code onto its Uniclass peer, a capability unreachable from any code string), the AUTHORITATIVE containment (`parentClassReference`/`hierarchy`/`childClassReferences` → `BsddRef` — the parent a MasterFormat/Uniformat code string does not encode), and the supersession surface (`status`/`replacedObjectCodes`/`replacingObjectCodes`/`deprecationExplanation` — `BsddClass.Admit` refuses to certify a NEW code onto an `Inactive` class, carrying the replacing code in the fault). `BsddResolution.Certify` is the dictionary-certified authoring lowering (`Resolve` → `Admit` → `Classify`) and `BsddResolution.Search` resolves a concept label or IFC entity to candidate codes (`api/Class/Search/v1`) — so a new standard is one `ClassificationSystem` dictionary-identity row shared across `classification`, `properties`, and `validation`. The typed `Model/faults#FAULT_BAND` `BimFault` cases lift BARE onto the `Fin` rail (band 2600 IS the `Expected` `Code`; no `.ToError()` hop), each carrying the kernel `Op` operation context the caller threads.
 
@@ -29,12 +29,13 @@ using LanguageExt;
 using NodaTime;                                       // LocalDate — the seam Classification.EditionDate annotation the Ingest leg lowers off IfcClassification.EditionDate
 using QuikGraph;                                      // the shared graph substrate the BsddFederation equivalence closure folds through (never a hand-rolled BFS)
 using QuikGraph.Algorithms;
-using Rasm.Element;
+using Rasm.Bim;
+using Rasm.Element.Classification;
 using Thinktecture;
 using static LanguageExt.Prelude;
 using Op = Rasm.Domain.Op;                            // the kernel operation key each typed BimFault case carries
 
-namespace Rasm.Bim;
+namespace Rasm.Bim.Semantics;
 
 // --- [MODELS] -----------------------------------------------------------------------------
 // The standard classification-systems roster lowering onto the seam Classification value-object. The type name
@@ -62,6 +63,11 @@ public sealed partial class ClassificationSystem {
     public string Stem { get; }
     public string Version { get; }
     public Regex CodeShape { get; }
+
+    // The key-chaining ctor the [SmartEnum<string>] generator's this(key) overload completes (the corpus
+    // SmartEnum-with-fields shape the IfcRelKind roster also takes).
+    private ClassificationSystem(string key, string title, string stem, string version, Regex codeShape) : this(key) =>
+        (Title, Stem, Version, CodeShape) = (title, stem, version, codeShape);
 
     // The versioned request/egress identity: the live api/Class/v1 lane and the authored Location/Specification carry
     // it; the version-free Stem stays the ingest prefix identity so the two never drift (one row value, one derivation).
@@ -224,18 +230,42 @@ public sealed partial class ClassificationSystem {
 - Receipt: the `BsddClass` is the authoritative classification evidence shared by `classification`, `properties`, and `validation`; the bSDD class-to-property mapping feeds the `Semantics/properties#PROPERTY_TEMPLATES` owner (`PropertyKey.Resolve(cls, schema, dictionary)` unioning the `BsddClass.Properties` dictionary rows OVER the offline `Xbim.Properties` catalogue floor, dictionary-wins), the IDS Classification + Property facets (the class URI is the facet value; `Pattern`/`Bounds`/`AllowedValues` narrow into an `Xbim.InformationSpecifications` `ValueConstraint`; `Status` gates admission), and the seam `MeasureValue` (a dimensioned property's `Exponents` resolve the `UnitsNet` `BaseDimensions`); the `BsddFederation` receipt is the cross-standard translation evidence a multi-standard deliverable reads (`Translate` an OmniClass-classified model onto its Uniclass peers), and `Ancestry` is the authoritative inheritance chain a facet `partOf`/rollup read walks — so a new dictionary is one identity row across all consumers.
 - Packages: Rasm.Element, LanguageExt.Core, QuikGraph, Rasm
 - Growth: a new bSDD dictionary is one `ClassificationSystem` row (stem + version + shape); the live lookup is the same `BsddPort` transport seam; the degradation is the row's local code-shape policy; a new dictionary-declared constraint is one read field on the `BsddClassResponse.ClassProperty` wire projected through `Property`, a new relation kind one `BsddRelationKind` member the closure filter reads, a new resource one query builder on `BsddResolution` (never a port member) — never a parallel evidence record, never a per-system classifier, and never a `Rasm.Persistence` reference; federation growth is more resolved evidence folded into `Of`, zero type edits.
-- Boundary: the bSDD dictionary is the authoritative live source resolved through the dictionary URI — a second hardcoded code-shape table that drifts from the dictionary is the rejected form, the local code-shape policy being the unreachable-degradation fallback only; the `BsddClass.Of` projection reads ONLY the fields the `.api/api-bsdd` catalog enumerates (the wire is `additionalProperties:false`, so an unexpected member signals contract drift, not a capability) and a field absent from the catalog is a phantom; the class-level constraint (`ClassProperty.AllowedValues`/`Min*`/`Max*`/`Pattern`) is read, never silently the property master, so a class that narrows an enumeration is honored; the cross-standard equivalence closure folds the `IsEqualTo`/`IsSynonymOf` relations through the shared `QuikGraph` `ComputeTransitiveClosure` substrate the folder admits — a hand-rolled BFS/union-find over a `Map<>` adjacency is the named rejected form (`.api/api-quikgraph`); the authoritative containment (`parentClassReference`/`hierarchy`) is read for a code that does NOT encode its parent (MasterFormat/Uniformat), and re-deriving containment from the code string where the dictionary states it is the rejected form; supersession gates authoring — `BsddClass.Admit` refuses a NEW code onto an `Inactive` class carrying the `ReplacedBy` code, and silently authoring a superseded class is the named defect; the live fetch rides the `csharp:Compute/Runtime/transport#TRANSPORT_AXIS` transport injected as `BsddPort` (ONE generic `Fetch<TWire>` the page parameterizes by resource — a per-resource port member is the rejected form) and a transport minted here is the named seam violation; `Rasm.Bim` is AEC-domain and depends strictly upward, so the memoization rides Compute's transport and a durable cache is the calling app-platform's concern at the seam, never a `Rasm.Persistence` reference; the resolution degrades to the local policy on a service miss so INGEST never blocks on the service (faulting on unreachability itself is the named defect) while the degraded verdict IS the row's shape gate — a shape-rejected code faults `BimFault.UnmappedClass`, never a fabricated `Active` evidence the dictionary could not have answered for — and only a malformed published-class shape with no `Code`/`Uri` faults `BimFault.CodecReject` lifting BARE off `key`, while `Search` is authoring-only and its transport failure faults `BimFault.CodecReject` (`bsdd-search-unreachable`) because no offline concept-to-code resolution exists — a raw Compute transport error crossing this AEC-domain entry unwrapped is the named boundary defect.
+- Boundary: the bSDD dictionary is the authoritative live source resolved through the dictionary URI — a second hardcoded code-shape table that drifts from the dictionary is the rejected form, the local code-shape policy being the unreachable-degradation fallback only; the `BsddClass.Of` projection reads ONLY the fields the `.api/api-bsdd` catalog enumerates (the wire is `additionalProperties:false`, so an unexpected member signals contract drift, not a capability) and a field absent from the catalog is a phantom; the class-level constraint (`ClassProperty.AllowedValues`/`Min*`/`Max*`/`Pattern`) is read, never silently the property master, so a class that narrows an enumeration is honored; the cross-standard equivalence closure folds the `IsEqualTo`/`IsSynonymOf` relations through the shared `QuikGraph` `ComputeTransitiveClosure` substrate the folder admits — a hand-rolled BFS/union-find over a `Map<>` adjacency is the named rejected form (`.api/api-quikgraph`); the authoritative containment (`parentClassReference`/`hierarchy`) is read for a code that does NOT encode its parent (MasterFormat/Uniformat), and re-deriving containment from the code string where the dictionary states it is the rejected form; supersession gates authoring — `BsddClass.Admit` refuses a NEW code onto an `Inactive` class carrying the `ReplacedBy` code, and silently authoring a superseded class is the named defect; the live fetch rides the `csharp:Compute/Runtime/transport#TRANSPORT_AXIS` transport injected as `BsddPort` (ONE generic `Fetch<TWire>` the page parameterizes by resource — a per-resource port member is the rejected form) and a transport minted here is the named seam violation; `Rasm.Bim` is AEC-domain and depends strictly upward, so the memoization rides Compute's transport and a durable cache is the calling app-platform's concern at the seam, never a `Rasm.Persistence` reference; the resolution degrades to the local policy on a service miss so INGEST never blocks on the service (faulting on unreachability itself is the named defect) while the degraded verdict IS the row's shape gate — a shape-rejected code faults `BimFault.UnmappedClass`, never a fabricated `Active` evidence the dictionary did not answer — and only a malformed published-class shape with no `Code`/`Uri` faults `BimFault.CodecReject` lifting BARE off `key`, while `Search` is authoring-only and its transport failure faults `BimFault.CodecReject` (`bsdd-search-unreachable`) because no offline concept-to-code resolution exists — a raw Compute transport error crossing this AEC-domain entry unwrapped is the named boundary defect.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
 // The bSDD constraint vocabulary the dictionary supplies per property: the value kind selects the seam PropertyValue arm,
 // the status gates IDS admission. ClassPropertyContract.v1 constrains both (.api/api-bsdd rows 02/03).
-public enum BsddValueKind : byte { Single = 0, Range = 1, List = 2, Complex = 3, ComplexList = 4 }
-public enum BsddStatus : byte { Active = 0, Preview = 1, Inactive = 2 }
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+public sealed partial class BsddValueKind {
+    public static readonly BsddValueKind Single = new("Single");
+    public static readonly BsddValueKind Range = new("Range");
+    public static readonly BsddValueKind List = new("List");
+    public static readonly BsddValueKind Complex = new("Complex");
+    public static readonly BsddValueKind ComplexList = new("ComplexList");
+}
+
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+public sealed partial class BsddStatus {
+    public static readonly BsddStatus Active = new("Active");
+    public static readonly BsddStatus Preview = new("Preview");
+    public static readonly BsddStatus Inactive = new("Inactive");
+}
 
 // The six-kind class-relation vocabulary (ClassRelationContract.v1.relationType, catalog order): the IsEqualTo/IsSynonymOf
 // pair feeds the BsddFederation equivalence closure; IsParentOf/IsChildOf/HasPart carry taxonomy and composition context.
-public enum BsddRelationKind : byte { HasReference = 0, IsEqualTo = 1, IsSynonymOf = 2, IsParentOf = 3, IsChildOf = 4, HasPart = 5 }
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
+public sealed partial class BsddRelationKind {
+    public static readonly BsddRelationKind HasReference = new("HasReference");
+    public static readonly BsddRelationKind IsEqualTo = new("IsEqualTo");
+    public static readonly BsddRelationKind IsSynonymOf = new("IsSynonymOf");
+    public static readonly BsddRelationKind IsParentOf = new("IsParentOf");
+    public static readonly BsddRelationKind IsChildOf = new("IsChildOf");
+    public static readonly BsddRelationKind HasPart = new("HasPart");
+}
 
 // --- [MODELS] -----------------------------------------------------------------------------
 // The seven SI base-dimension exponents (L M T I Θ N J) the bSDD property declares (.api/api-bsdd dimension*): the seam
@@ -262,8 +292,8 @@ public readonly record struct BsddRelation(BsddRelationKind Kind, string Related
 // child rows — the AUTHORITATIVE containment a MasterFormat/Uniformat code string does not encode.
 public readonly record struct BsddRef(string Uri, string Name, string Code);
 
-// One authoring-time search hit: the roster row the hit's dictionary resolves to, the identifier-URI tail code
-// (ClassSearchResponseClassContract.v1 carries NO bare code member — the URI tail IS the code authority), and the
+// One authoring-time search hit: the roster row the hit's dictionary resolves to, the wire's own referenceCode
+// (ClassSearchResponseClassContract.v1 — the URI tail only the fallback when a dictionary omits it), and the
 // RelatedIfcEntities aligning the hit to the Model/elements#IFC_CLASS IfcClass entity.
 public readonly record struct BsddHit(ClassificationSystem System, string Code, string Name, string Uri, Seq<string> RelatedIfcEntities);
 
@@ -300,19 +330,19 @@ public sealed record BsddClass(
     public static Fin<BsddClass> Of(BsddClassResponse response, Op key) =>
         string.IsNullOrWhiteSpace(response.Code) || string.IsNullOrWhiteSpace(response.Uri)
             ? Fin.Fail<BsddClass>(new BimFault.CodecReject(key, $"bsdd-class-malformed:{response.Uri}"))
-            : Fin.Succ(new BsddClass(
-                response.Code, response.Name, response.ClassType ?? "", response.Definition ?? "", response.Uri,
-                (response.ClassProperties ?? []).ToSeq().Map(Property),
-                StatusOf(response.Status),
-                (response.RelatedIfcEntityNames ?? []).ToSeq(),
-                (response.ClassRelations ?? []).ToSeq().Map(RelationOf).Somes(),
-                (response.ReverseClassRelations ?? []).ToSeq().Map(RelationOf).Somes(),
-                Optional(response.ParentClassReference).Map(RefOf),
-                (response.Hierarchy ?? []).ToSeq().OrderBy(static item => item.Level).ToSeq().Map(RefOf),
-                (response.ChildClassReferences ?? []).ToSeq().Map(RefOf),
-                (response.ReplacedObjectCodes ?? []).ToSeq(),
-                (response.ReplacingObjectCodes ?? []).ToSeq(),
-                Optional(response.DeprecationExplanation).Filter(static s => s.Length > 0)));
+            : from status in StatusOf(response.Status, key)
+              from properties in (response.ClassProperties ?? []).ToSeq().TraverseM(p => Property(p, key)).As()
+              from relations in (response.ClassRelations ?? []).ToSeq().TraverseM(r => RelationOf(r, key)).As()
+              from reverse in (response.ReverseClassRelations ?? []).ToSeq().TraverseM(r => RelationOf(r, key)).As()
+              select new BsddClass(
+                  response.Code, response.Name, response.ClassType ?? "", response.Definition ?? "", response.Uri,
+                  properties, status, (response.RelatedIfcEntityNames ?? []).ToSeq(), relations, reverse,
+                  Optional(response.ParentClassReference).Map(RefOf),
+                  (response.Hierarchy ?? []).ToSeq().OrderBy(static item => item.Level).ToSeq().Map(RefOf),
+                  (response.ChildClassReferences ?? []).ToSeq().Map(RefOf),
+                  (response.ReplacedObjectCodes ?? []).ToSeq(),
+                  (response.ReplacingObjectCodes ?? []).ToSeq(),
+                  Optional(response.DeprecationExplanation).Filter(static s => s.Length > 0));
 
     // The supersession gate Certify composes: an Inactive class never certifies a NEW authoring code — the fault carries
     // the replacing code so the caller re-authors onto the successor. Preview stays admissible here; the IDS facet owns
@@ -327,15 +357,13 @@ public sealed record BsddClass(
     // dictionary omits propertyCode; the typing (DataType/ValueKind/PredefinedValue), the constraint surface
     // (AllowedValues/Pattern/Bounds), the dimension (the seven Exponents + Units), and the Status — every field grounded
     // in .api/api-bsdd, none fabricated.
-    static BsddProperty Property(BsddClassResponse.ClassProperty p) => new(
-        p.PropertyCode ?? p.Name, p.Name, p.DataType ?? "", p.PropertySet ?? "", p.PredefinedValue ?? "", p.IsRequired,
-        ValueKindOf(p.PropertyValueKind),
-        (p.AllowedValues ?? []).ToSeq().Map(static v => new BsddAllowedValue(v.Value, v.Code ?? "", v.Description ?? "", v.Uri ?? "")),
-        Optional(p.Pattern).Filter(static s => s.Length > 0),
-        BoundsOf(p),
-        ExponentsOf(p),
-        (p.Units ?? []).ToSeq(),
-        StatusOf(p.PropertyStatus));
+    static Fin<BsddProperty> Property(BsddClassResponse.ClassProperty p, Op key) =>
+        from kind in ValueKindOf(p.PropertyValueKind, key)
+        from status in StatusOf(p.PropertyStatus, key)
+        select new BsddProperty(
+            p.PropertyCode ?? p.Name, p.Name, p.DataType ?? "", p.PropertySet ?? "", p.PredefinedValue ?? "", p.IsRequired,
+            kind, (p.AllowedValues ?? []).ToSeq().Map(static v => new BsddAllowedValue(v.Value, v.Code ?? "", v.Description ?? "", v.Uri ?? "")),
+            Optional(p.Pattern).Filter(static s => s.Length > 0), BoundsOf(p), ExponentsOf(p), (p.Units ?? []).ToSeq(), status);
 
     static Option<BsddBounds> BoundsOf(BsddClassResponse.ClassProperty p) =>
         p is { MinInclusive: null, MaxInclusive: null, MinExclusive: null, MaxExclusive: null }
@@ -352,17 +380,25 @@ public sealed record BsddClass(
     // Each ClassRelationContract -> the typed row: an unparseable relationType or a blank relatedClassUri DROPS the row
     // (Somes-filtered) so the federation closure never sees an unaddressable edge — a dictionary minting a new relation
     // kind degrades to context loss on that row, never a fault on the whole class.
-    static Option<BsddRelation> RelationOf(BsddClassResponse.ClassRelation relation) =>
-        Enum.TryParse(relation.RelationType, ignoreCase: true, out BsddRelationKind kind) && Enum.IsDefined(kind) && relation.RelatedClassUri is { Length: > 0 }
-            ? Some(new BsddRelation(kind, relation.RelatedClassUri, relation.RelatedClassName ?? "", Optional(relation.Fraction)))
-            : None;
+    static Fin<BsddRelation> RelationOf(BsddClassResponse.ClassRelation relation, Op key) =>
+        relation.RelatedClassUri is not { Length: > 0 }
+            ? FinFail<BsddRelation>(new BimFault.CodecReject(key, "bsdd-relation-uri-missing"))
+            : BsddRelationKind.TryGet(relation.RelationType, out BsddRelationKind? kind) && kind is { } resolved
+                ? FinSucc(new BsddRelation(resolved, relation.RelatedClassUri, relation.RelatedClassName ?? "", Optional(relation.Fraction)))
+                : FinFail<BsddRelation>(new BimFault.CodecReject(key, $"bsdd-relation-kind-unmapped:{relation.RelationType}"));
 
     static BsddRef RefOf(BsddClassResponse.ClassReference reference) => new(reference.Uri, reference.Name ?? "", reference.Code ?? "");
     static BsddRef RefOf(BsddClassResponse.HierarchyItem item) => new(item.Uri ?? "", item.Name ?? "", item.Code ?? "");
 
-    // Enum.IsDefined closes the TryParse numeric-string trap (a wire "7" parses to an undefined member, never dropped).
-    static BsddValueKind ValueKindOf(string? kind) => Enum.TryParse(kind, ignoreCase: true, out BsddValueKind parsed) && Enum.IsDefined(parsed) ? parsed : BsddValueKind.Single;
-    static BsddStatus StatusOf(string? status) => Enum.TryParse(status, ignoreCase: true, out BsddStatus parsed) && Enum.IsDefined(parsed) ? parsed : BsddStatus.Active;
+    static Fin<BsddValueKind> ValueKindOf(string? kind, Op key) =>
+        BsddValueKind.TryGet(kind ?? "", out BsddValueKind? parsed) && parsed is { } value
+            ? FinSucc(value)
+            : FinFail<BsddValueKind>(new BimFault.CodecReject(key, $"bsdd-value-kind-unmapped:{kind}"));
+
+    static Fin<BsddStatus> StatusOf(string? status, Op key) =>
+        BsddStatus.TryGet(status ?? "", out BsddStatus? parsed) && parsed is { } value
+            ? FinSucc(value)
+            : FinFail<BsddStatus>(new BimFault.CodecReject(key, $"bsdd-status-unmapped:{status}"));
 }
 
 // The cross-standard equivalence receipt: the IsEqualTo/IsSynonymOf relation rows (forward AND reverse — an inbound
@@ -375,7 +411,7 @@ public sealed record BsddFederation(Map<string, Seq<string>> Equivalence, Map<st
     public static BsddFederation Of(Seq<BsddClass> classes) {
         var graph = new AdjacencyGraph<string, SEdge<string>>(allowParallelEdges: false);
         classes.Bind(static cls => (cls.Relations + cls.ReverseRelations)
-                .Filter(static r => r.Kind is BsddRelationKind.IsEqualTo or BsddRelationKind.IsSynonymOf)
+                .Filter(static r => r.Kind == BsddRelationKind.IsEqualTo || r.Kind == BsddRelationKind.IsSynonymOf)
                 .Bind(r => Seq(new SEdge<string>(cls.Uri, r.RelatedUri), new SEdge<string>(r.RelatedUri, cls.Uri))))
             .Iter(edge => graph.AddVerticesAndEdge(edge));
         var closure = graph.ComputeTransitiveClosure(static (source, target) => new SEdge<string>(source, target));
@@ -389,19 +425,23 @@ public sealed record BsddFederation(Map<string, Seq<string>> Equivalence, Map<st
                     .Fold(acc.AddOrUpdate(cls.Uri, cls.Name), static (names, r) => names.AddOrUpdate(r.RelatedUri, r.RelatedName))));
     }
 
-    public Seq<string> EquivalentSet(string classUri) => Equivalence.Find(classUri).IfNone(Seq<string>());
-    public bool Equivalent(string classUriA, string classUriB) => EquivalentSet(classUriA).Contains(classUriB);
+    public Seq<string> EquivalentSet(string classUri) =>
+        Equivalence.Find(classUri).IfNone(Seq<string>()).Add(classUri).Distinct().OrderBy(identity).ToSeq();
+
+    public bool Equivalent(string classUriA, string classUriB) =>
+        string.Equals(classUriA, classUriB, StringComparison.OrdinalIgnoreCase) || EquivalentSet(classUriA).Contains(classUriB);
 
     // The cross-standard lowering: an OmniClass-classified value lowers onto its Uniclass peer as a seam value — the
     // source row's ClassUri addresses the closure, the FIRST peer under the target's version-free Stem wins, and the
     // translated value is edition-unspecified with the resolved concept Title when the closure names it. None when the
     // closure holds no peer under the target stem (never a wrong lowering), None for an unrostered source system.
-    public Option<Classification> Translate(Classification classification, ClassificationSystem target) =>
+    public Seq<Classification> Translate(Classification classification, ClassificationSystem target) =>
         ClassificationSystem.TryGet(classification.System, out ClassificationSystem? system) && system is { } row
             ? EquivalentSet(row.ClassUri(classification.Code))
-                .Find(uri => uri.StartsWith(target.Stem, StringComparison.OrdinalIgnoreCase))
-                .Map(uri => Classification.Create(target.Key, ClassificationSystem.TailCode(uri), "", None, None, Names.Find(uri)))
-            : None;
+                .Filter(uri => uri.StartsWith(target.Stem, StringComparison.OrdinalIgnoreCase))
+                .Distinct().OrderBy(identity)
+                .Map(uri => Classification.Create(target.Key, ClassificationSystem.TailCode(uri), "", None, None, Names.Find(uri))).ToSeq()
+            : Seq<Classification>();
 }
 
 // --- [BOUNDARIES] -------------------------------------------------------------------------
@@ -431,8 +471,9 @@ public sealed record BsddClassResponse(
     public sealed record HierarchyItem(int Level, string? Name, string? Code, string? Uri);
 }
 
-// The bSDD api/Class/Search/v1 wire contract (.api/api-bsdd ClassSearchResponseContract.v1, paged): the hit carries NO
-// bare code member — the identifier-URI tail is the code authority — and the dictionaryUri resolves the roster row.
+// The bSDD api/Class/Search/v1 wire contract (.api/api-bsdd ClassSearchResponseContract.v1, paged): the hit's
+// referenceCode is the code authority (the identifier-URI tail the omitted-code fallback) and the dictionaryUri
+// resolves the roster row.
 public sealed record BsddSearchResponse(int TotalCount, int Offset, int Count, SearchClass[]? Classes) {
     public sealed record SearchClass(
         string? DictionaryUri, string? DictionaryName, string Name, string? ReferenceCode, string Uri,
@@ -493,10 +534,15 @@ public static class BsddResolution {
                 .Fold("", static (acc, row) => $"{acc}&DictionaryUris={System.Uri.EscapeDataString(row.DictionaryUri)}"),
             relatedIfcEntity.Match(Some: static entity => $"&RelatedIfcEntities={System.Uri.EscapeDataString(entity)}", None: static () => ""));
 
+    // The hit's code authority is the wire's own referenceCode (ClassSearchResponseClassContract.v1 carries it —
+    // .api/api-bsdd); the identifier-URI tail is the FALLBACK for a dictionary that omits it, never the primary read.
     static Option<BsddHit> HitOf(BsddSearchResponse.SearchClass hit) =>
         hit.Uri is { Length: > 0 }
             ? ClassificationSystem.ByUri(hit.DictionaryUri ?? hit.Uri)
-                .Map(system => new BsddHit(system, ClassificationSystem.TailCode(hit.Uri), hit.Name, hit.Uri, (hit.RelatedIfcEntityNames ?? []).ToSeq()))
+                .Map(system => new BsddHit(
+                    system,
+                    hit.ReferenceCode is { Length: > 0 } code ? code : ClassificationSystem.TailCode(hit.Uri),
+                    hit.Name, hit.Uri, (hit.RelatedIfcEntityNames ?? []).ToSeq()))
             : None;
 
     // The offline degrade IS the row's code-shape policy applied: a shape-passing code admits as property-free Active
@@ -512,5 +558,5 @@ public static class BsddResolution {
 ## [04]-[RESEARCH]
 
 - [CLASSIFICATION_LOWERING]: the standard-systems roster lowering onto the seam `Classification` grounds against `ELEMENT-REBUILD-PLAN.md` §4B (the `Object` node carries a generic `Classification(system, code)` value-object, NOT `IfcClass`) and the seam `Classification/classification#CLASSIFICATION_AXIS` boundary ("a downstream `Rasm.Bim` projector owns the standard-systems vocabulary, the bSDD resolution, and the `IfcRelAssociatesClassification` round-trip, lowering a resolved code onto a seam `Classification` value at ingest") — so `ClassificationSystem.Classify` validates the code shape and mints the seam `Classification.Create(system, code, "", None, None, None)` (the SIX-member `(System, Code, Edition, Source, EditionDate, Title)` factory; the author/`Classify` path carries no resolved edition/publisher/title so the trailing four are the edition-unspecified `""` then a `None` `Source`/`EditionDate`/`Title` bundle, `Ingest` lowering the root `IfcClassification.Edition`/`Source`/`EditionDate` plus the `IfcClassificationReference.Name` concept title for the imported leg), the seam owning the `Parent`/`Within` containment projections and this page owning only the roster. Classification is a VALUE on the `Object` node and NEVER an edge: the seam `Relations/relation#EDGE_ALGEBRA` is explicit ("classification is a generic value ON the `Object` node, NOT an edge … the seam carries no classification-association relationship", the `Associate` edge carrying a `Material`/`Appearance` resource), so the egress reads `node.Classification` and authors `IfcRelAssociatesClassification` from the value, never from an edge. The fault shape grounds against `Model/faults#FAULT_BAND` (`BimFault` `Expected`-derived, band 2600 IS the `Code`, the typed case lifting BARE off the threaded `Op key` with no `.ToError()` hop — the exact `Classify` `classification-code-reject` and `BsddClass.Of` `bsdd-class-malformed` routings faults.md enumerates) and the sibling `Model/elements#IFC_CLASS` `IfcClass.Resolve(string, Op key)` idiom; the type rename `Classification`→`ClassificationSystem` resolves the migration-source name collision with the seam value-object, and the `BimElement` binding (`ClassificationRef`/`ClassificationCode`) is retired with the `BimElement`/`BimModel` element records per §2/§4B.
-- [BSDD_SERVICE_CONTRACT]: the bSDD RESTful dictionary class/property lookup response shape is GROUNDED against the published buildingSMART bSDD `Dictionaries API` contract (`.api/api-bsdd`) — `api/Class/v1` with `IncludeClassProperties=true` returns the `ClassContract.v1` (`code`/`name`/`uri`/`status`/`classType`/`definition`/`relatedIfcEntityNames[]` plus the `classProperties[]`), each `ClassPropertyContract.v1` carrying `name`/`propertyCode`/`propertySet`/`dataType`/`propertyValueKind`/`predefinedValue`/`isRequired`/`propertyStatus` PLUS the FULL class-scoped constraint surface (`allowedValues[]`, `pattern`, `minInclusive`/`maxInclusive`/`minExclusive`/`maxExclusive`, the seven `dimensionLength`/`dimensionMass`/… exponents, `units[]`) — so `BsddClass.Of` projects the rich `BsddProperty` matching the real wire and feeds the `Semantics/properties#PROPERTY_TEMPLATES` `PropertyKey.Resolve(cls, schema, dictionary)` template (the dictionary rows unioned OVER the offline `Xbim.Properties` catalogue floor), the `Review/validation#IDS_FACETS` Classification + Property facets (the bSDD `pattern`/`min*`/`max*`/`allowedValues` narrow directly into the `Xbim.InformationSpecifications` `ValueConstraint`, `status` gates admission), and the seam `Properties/quantity#MEASURE_VALUE` UnitsNet coercion (the seven `Exponents` resolve the `UnitsNet` `BaseDimensions` 7-vector, `units[]` the source unit) directly — the naive six-field slice the migration source read is the deleted form. The relation/containment/supersession surface is likewise catalog-grounded: `classRelations[]`/`reverseClassRelations[]` are `ClassRelationContract.v1` rows (`relationType` ∈ `HasReference`/`IsEqualTo`/`IsSynonymOf`/`IsParentOf`/`IsChildOf`/`HasPart`, `relatedClassUri` required, `relatedClassName`/`fraction` optional — `IncludeClassRelations`/`IncludeReverseRelations` opt them in), `parentClassReference`/`childClassReferences[]` are `ClassReferenceContract.v1` pointers (`uri` required + `name`/`code`), `hierarchy[]` is the `HierarchyItemContract.v1` ancestor-to-root chain (`level`/`name`/`code`/`uri` — `Ancestry` orders by `level`, root at the head; `hierarchy` and `parentClassReference` arrive by default, no `Include*` toggle), and `replacedObjectCodes[]`/`replacingObjectCodes[]`/`deprecationExplanation` carry the supersession `BsddClass.Admit` gates on; `api/Class/Search/v1` (`SearchText` required, `DictionaryUris[]`/`RelatedIfcEntities[]` repeating array keys) returns the paged `ClassSearchResponseContract.v1` whose `classes[]` rows carry `dictionaryUri`/`dictionaryName`/`name`/`referenceCode`/`uri`/`classType`/`parentClassName`/`relatedIfcEntityNames[]` and NO bare `code` member — the identifier-URI tail is the hit's code authority (`TailCode`), the version-free `Stem` prefix its roster resolution. The equivalence closure folds through the decompile-verified `QuikGraph.Algorithms` `ComputeTransitiveClosure(IEdgeListGraph<TVertex,TEdge>, Func<TVertex,TVertex,TEdge>)` → `BidirectionalGraph` extension over an `AdjacencyGraph<string, SEdge<string>>` (`.api/api-quikgraph`). The LIVE-WIRE leg stays gated on the `csharp:Compute/Runtime/transport#TRANSPORT_AXIS` transport alignment (the `BsddPort` binding rides the injected Compute transport, never a transport minted here), and the in-process degradation to the row's local code-shape policy (`LocalShape`) is the verified settled fallback so ingest never blocks.
+- [BSDD_SERVICE_CONTRACT]: the bSDD RESTful dictionary class/property lookup response shape is GROUNDED against the published buildingSMART bSDD `Dictionaries API` contract (`.api/api-bsdd`) — `api/Class/v1` with `IncludeClassProperties=true` returns the `ClassContract.v1` (`code`/`name`/`uri`/`status`/`classType`/`definition`/`relatedIfcEntityNames[]` plus the `classProperties[]`), each `ClassPropertyContract.v1` carrying `name`/`propertyCode`/`propertySet`/`dataType`/`propertyValueKind`/`predefinedValue`/`isRequired`/`propertyStatus` PLUS the FULL class-scoped constraint surface (`allowedValues[]`, `pattern`, `minInclusive`/`maxInclusive`/`minExclusive`/`maxExclusive`, the seven `dimensionLength`/`dimensionMass`/… exponents, `units[]`) — so `BsddClass.Of` projects the rich `BsddProperty` matching the real wire and feeds the `Semantics/properties#PROPERTY_TEMPLATES` `PropertyKey.Resolve(cls, schema, dictionary)` template (the dictionary rows unioned OVER the offline `Xbim.Properties` catalogue floor), the `Review/validation#IDS_FACETS` Classification + Property facets (the bSDD `pattern`/`min*`/`max*`/`allowedValues` narrow directly into the `Xbim.InformationSpecifications` `ValueConstraint`, `status` gates admission), and the seam `Properties/quantity#MEASURE_VALUE` UnitsNet coercion (the seven `Exponents` resolve the `UnitsNet` `BaseDimensions` 7-vector, `units[]` the source unit) directly — the naive six-field slice the migration source read is the deleted form. The relation/containment/supersession surface is likewise catalog-grounded: `classRelations[]`/`reverseClassRelations[]` are `ClassRelationContract.v1` rows (`relationType` ∈ `HasReference`/`IsEqualTo`/`IsSynonymOf`/`IsParentOf`/`IsChildOf`/`HasPart`, `relatedClassUri` required, `relatedClassName`/`fraction` optional — `IncludeClassRelations`/`IncludeReverseRelations` opt them in), `parentClassReference`/`childClassReferences[]` are `ClassReferenceContract.v1` pointers (`uri` required + `name`/`code`), `hierarchy[]` is the `HierarchyItemContract.v1` ancestor-to-root chain (`level`/`name`/`code`/`uri` — `Ancestry` orders by `level`, root at the head; `hierarchy` and `parentClassReference` arrive by default, no `Include*` toggle), and `replacedObjectCodes[]`/`replacingObjectCodes[]`/`deprecationExplanation` carry the supersession `BsddClass.Admit` gates on; `api/Class/Search/v1` (`SearchText` required, `DictionaryUris[]`/`RelatedIfcEntities[]` repeating array keys) returns the paged `ClassSearchResponseContract.v1` whose `classes[]` rows carry `dictionaryUri`/`dictionaryName`/`name`/`referenceCode`/`uri`/`classType`/`parentClassName`/`relatedIfcEntityNames[]` — `referenceCode` is the hit's code authority and the identifier-URI tail (`TailCode`) the omitted-code fallback, the version-free `Stem` prefix its roster resolution. The equivalence closure folds through the decompile-verified `QuikGraph.Algorithms` `ComputeTransitiveClosure(IEdgeListGraph<TVertex,TEdge>, Func<TVertex,TVertex,TEdge>)` → `BidirectionalGraph` extension over an `AdjacencyGraph<string, SEdge<string>>` (`.api/api-quikgraph`). The LIVE-WIRE leg stays gated on the `csharp:Compute/Runtime/transport#TRANSPORT_AXIS` transport alignment (the `BsddPort` binding rides the injected Compute transport, never a transport minted here), and the in-process degradation to the row's local code-shape policy (`LocalShape`) is the verified settled fallback so ingest never blocks.
 - [CLASSIFICATION_ROUNDTRIP]: the `IfcRelAssociatesClassification`/`IfcClassificationReference` round-trip member spellings confirm against the GeometryGym entity surface (`.api/api-geometrygym-ifc` rows 07/08; `assay api` decompile) so the round-trip is BIDIRECTIONAL: `ClassificationSystem.Author` constructs `new IfcRelAssociatesClassification(IfcClassificationSelect, IfcDefinitionSelect)` over an `IfcClassificationReference(db)` whose `ReferencedSource` is the per-`(db, system, edition)` memoized `new IfcClassification(db, Title){Specification, Edition}` re-stamping the value's `Source`/`EditionDate`, `Identification` the code, `Location` the identifier URI, and `Name` the seam `Title` (`IfcExternalReference.Location`/`Identification`/`Name` and `IfcClassification.Specification`/`Edition`/`Source`/`EditionDate` decompile-confirmed settable; `LocalDate.ToDateTimeUnspecified` the NodaTime outbound) — the egress the `Projection/egress#IFC_EGRESS` `Emit` composes per `Object` node, subsuming the retired `Rasm.Materials` `MaterialPropertyWire.Classification` material-wire half (`ELEMENT-REBUILD-PLAN.md` §6); `ClassificationSystem.Ingest` is the inverse the migration source never had — it walks the `IfcClassificationReference.ReferencedSource` `IfcClassificationReferenceSelect` chain past nested references to the root `IfcClassification` ONCE, resolves the standard system off that root's `Name`, the root's `Specification` dictionary-URI prefix (`IfcClassification.Specification` decompile-confirmed get/set, the IFC4X3 rename of the `[Obsolete]` `Location` — the SAME URI `Author` stamps, so the round-trip self-resolves when a re-export strips per-reference `Location`s and a third-party export carrying only the dictionary-level URI resolves too), and the reference `Location` prefix against the roster, reads the code off `Identification`/`Location`, AND lowers the EDITION-SCOPED annotation bundle off the SAME root — the `Edition` token (seam IDENTITY), the `Source` publisher, and the `EditionDate` revision date (`IfcClassification.Edition`/`Source`/`EditionDate` decompile-confirmed, the `DateTime.MinValue` sentinel folding to a `None` `EditionDate` via NodaTime `LocalDate.FromDateTime`) — so the imported leg lands the FULL six-member seam `Classification` value on the `Object` node rather than an edition-blank, title-`None` reference; the `IfcClassificationReference.ReferencedSource`/`Location`/`Identification`/`Name` + `IfcClassification.Name`/`Edition`/`Source`/`EditionDate` spellings decompile-confirmed (rows 07/08); an unrostered source resolves to `None` so a foreign classification rides the `Projection/relations#RELATION_ALGEBRA` `Generic` passthrough rather than a wrong lowering.

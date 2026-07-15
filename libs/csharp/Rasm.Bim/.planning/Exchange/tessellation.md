@@ -23,7 +23,7 @@ using LanguageExt;
 using NodaTime;
 using Rasm;
 using Rasm.Domain;
-using Rasm.Element;
+using Rasm.Element.Projection;
 using Thinktecture;
 
 namespace Rasm.Bim;

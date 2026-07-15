@@ -31,7 +31,7 @@ using Marten.Events.Daemon;
 using Marten.Events.Projections;
 using NetTopologySuite.Geometries;
 using NodaTime;
-using Rasm.Element;
+using Rasm.Element.Graph;
 using Thinktecture;
 using static LanguageExt.Prelude;
 

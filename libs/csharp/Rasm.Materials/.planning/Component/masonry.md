@@ -1,28 +1,29 @@
 # [MATERIALS_MASONRY]
 
-THE MASONRY SEED PAGE and THE GENERATIVE BOND ALGEBRA. Masonry is one `ComponentFamily` policy row (`ComponentFamily.Masonry`: `ComponentClass.Minor`, `DetailLane.Realization`, admits `SectionProfile.Rectangle` or `SectionProfile.CellularRectangle`, cross-nominal `GrossRectangleMm.WidthMm`, rows `MasonrySeed.Rows`) — a masonry unit is a `Component` row, never a `Brick` type. This page owns the FORM-law vocabularies (`BondKind`/`BondGeometry`/`BondName`/`Orientation`/`Cut`/`ClosureRule`/`SpecialShape`/`MortarProfile`/`MortarType`/`MortarSystem`/`RuptureModulus`/`SizeTolerance`/`SizeRange`), the `MortarJoint` joint specification, the `FrogGeometry`/`Perforation` generative void geometry, the `AUTHORED` regional row table, and the ONE `MasonrySeed.Rows : Context -> Fin<Seq<ComponentRow>>` fold `component#CATALOGUE` `ComponentCatalogue.Of` traverses. The bespoke `MasonryUnit` payload record is DELETED: its `WidthMm`/`HeightMm` cross dimensions are the `SectionProfile.Rectangle`/`CellularRectangle` named dims, its frog/perforation voids are `VoidCell` rows the `MasonryVoids` generator derives volume-equivalently, its vocabulary columns are the kept SmartEnums, and its `LengthMm`/`CourseHeightMm`/tolerance/range/shape realization columns are seed-row values landing in the seed-built `MasonryDetail` bag (`Masonry` widens to `DetailLane.Realization` — the EN 771-1 work-vs-actual envelope, the unit length, and the coursing module have no other landing surface). Every row seeds `Sectioned: false`: a masonry unit is a laid course, not a profiled member, so it is absent from `ComponentCatalogue.Sections`, `graph.SectionOf` resolves `None`, and `SectionSolver` never sees a masonry profile at build; the URM flexural-tension screen rides the `RuptureModulus` TMS 402 Table `9.1.9.2` row keyed by `MortarSystem`/`MortarType` into the `capacity#SECTION_CAPACITY` `MasonryCompression.FrMpa` column through the widened `SectionCapacity.Lift` — the mortar feed off the assemblage, never `MortarType.FlexuralBondMpa` (ASTM C1072 bond data, firewalled from `fr`). The `Bond` axis is a GENERATIVE ALGEBRA: a `BondKind.Template` bond reads its course set by wrapped index, a `BondKind.Generated` bond derives the FULL per-unit packing transform (offset + lateral + rotation) through its own `[UseDelegateFromConstructor]` `Course(index)` delegate, so a new decorative bond is one `BondGeometry` row binding its delegate plus one `BondName` row — never an interpreter arm. The course fold, joint policy, and station projection consuming `CourseTemplate`/`UnitPlacement`/`MortarJoint` are `Rasm.Generation`; the shared `Coring` void class, `VoidCell`, `ComponentUnit`, and `ComponentDetail` bag constructors are `component#COMPONENT_OWNER`; the cmu sibling buckets onto the same `Coring` vocabulary and shares the `CellularRectangle` profile arm.
+THE MASONRY SEED PAGE and THE GENERATIVE BOND ALGEBRA. Masonry is one `ComponentFamily` policy row (`ComponentFamily.Masonry`: `ComponentClass.Minor`, `DetailLane.Realization`, admits `SectionProfile.Rectangle` or `SectionProfile.CellularRectangle`, cross-nominal `GrossRectangleMm.WidthMm`, rows `MasonrySeed.Rows`) — a masonry unit is a `Component` row, never a `Brick` type. This page owns the FORM-law vocabularies (`BondKind`/`BondGeometry`/`BondName`/`Orientation`/`Cut`/`ClosureRule`/`SpecialShape`/`MortarProfile`/`MortarType`/`MortarSystem`/`RuptureModulus`/`SizeTolerance`/`SizeRange`), the `MortarJoint` joint specification, the `FrogGeometry`/`Perforation` generative void geometry, the `AUTHORED` regional row table, and the ONE `MasonrySeed.Rows : Context -> Fin<Seq<ComponentRow>>` fold `component#CATALOGUE` `ComponentCatalogue.Of` traverses. The bespoke `MasonryUnit` payload record is DELETED: its geometry is the BED-PLANE `SectionProfile.Rectangle`/`CellularRectangle` (W through-wall × L along-wall — the cmu-congruent orientation whose net area IS the TMS 402 bed section), its frog/perforation voids are TRUE-GRID `VoidCell` rows the `MasonryVoids` generator stations in that plane (every declared hole at its declared position), its vocabulary columns are the kept SmartEnums, and its `HeightMm`/`CourseHeightMm`/tolerance/range/shape realization columns are seed-row values landing in the seed-built `MasonryDetail` bag (`Masonry` widens to `DetailLane.Realization` — the EN 771-1 work-vs-actual envelope, the unit height, and the coursing module have no other landing surface). Every row seeds `Sectioned: false`: a masonry unit is a laid course, not a profiled member, so it is absent from `ComponentCatalogue.Sections`, `graph.SectionOf` resolves `None`, and `SectionSolver` never sees a masonry profile at build; the URM flexural-tension screen rides the `RuptureModulus` TMS 402 Table `9.1.9.2` row keyed by `MortarSystem`/`MortarType` into the `capacity#SECTION_CAPACITY` `MasonryCompression.FrMpa` column through the `SectionCapacity.Lift(CapacityReceipt)` `CapacityReceipt.Masonry` case — the mortar feed off the assemblage, never `MortarType.FlexuralBondMpa` (ASTM C1072 bond data, firewalled from `fr`). The `Bond` axis is a GENERATIVE ALGEBRA: a `BondKind.Template` bond reads its course set by wrapped index, a `BondKind.Generated` bond derives the FULL per-unit packing transform (offset + lateral + rotation) through its own `[UseDelegateFromConstructor]` `Course(index)` delegate, so a new decorative bond is one `BondGeometry` row binding its delegate plus one `BondName` row — never an interpreter arm. The course fold, joint policy, and station projection consuming `CourseTemplate`/`UnitPlacement`/`MortarJoint` are `Rasm.Generation`; the shared `Coring` void class, `VoidCell`, `ComponentUnit`, and `ComponentDetail` bag constructors are `component#COMPONENT_OWNER`; the cmu sibling buckets onto the same `Coring` vocabulary and shares the `CellularRectangle` profile arm.
 
 ## [01]-[INDEX]
 
-- [02]-[MASONRY_FAMILY]: the retained bond/orientation/cut/closure/special-shape/mortar/tolerance vocabularies with the delegate-bearing `BondGeometry` packing descriptor and the `BondName` template/generated catalogue, the `[ComplexValueObject]` `MortarJoint` ASTM C270 joint specification, the `MortarSystem` cementitious-system rows and the TMS 402 Table `9.1.9.2` `RuptureModulus` modulus-of-rupture table (the `capacity#SECTION_CAPACITY` URM flexural-tension feed), the `FrogGeometry`/`Perforation` void geometry with the ONE `MasonryVoids` owner (the volume-equivalent `VoidCell` generator + the ASTM C652/C216 `Coring` bucket), the EN 771-1 `SizeTolerance`/`SizeRange` work-vs-actual envelope, the `AUTHORED` `MasonryRow` regional table, the seed-built `MasonryDetail` realization bag, and the `MasonrySeed.Rows` fail-loud `Traverse` fold.
+- [02]-[MASONRY_FAMILY]: the retained bond/orientation/cut/closure/special-shape/mortar/tolerance vocabularies with the delegate-bearing `BondGeometry` packing descriptor and the `BondName` template/generated catalogue, the `[ComplexValueObject]` `MortarJoint` ASTM C270 joint specification, the `MortarSystem` cementitious-system rows and the TMS 402 Table `9.1.9.2` `RuptureModulus` modulus-of-rupture table (the `capacity#SECTION_CAPACITY` URM flexural-tension feed), the `FrogGeometry`/`Perforation` void geometry with the ONE `MasonryVoids` owner (the bed-plane `VoidCell` grid generator + the ASTM C652/C216 `Coring` bucket), the EN 771-1 `SizeTolerance`/`SizeRange` work-vs-actual envelope, the `AUTHORED` `MasonryRow` regional table, the seed-built `MasonryDetail` realization bag, and the `MasonrySeed.Rows` fail-loud `Traverse` fold.
 
 ## [02]-[MASONRY_FAMILY]
 
 - Owner: the masonry vocabulary (`BondKind`, `BondGeometry`, `BondName`, `Orientation`, `Cut`, `ClosureRule`, `SpecialShape`, `MortarProfile`, `MortarType`, `MortarSystem`, `RuptureModulus`, `SizeTolerance`, `SizeRange` — all FORM-law `[SmartEnum<string>]`, each stacking `[KeyMemberComparer]` beside `[KeyMemberEqualityComparer]` so ordered key lookup matches the `ComponentFamily` row convention); `UnitPlacement`/`CourseTemplate` the per-unit course transform; `MortarJoint` the generated-admission joint specification; `FrogGeometry`/`Perforation` the generative void geometry; `MasonryVoids` the `VoidCell` derivation + void-class bucket; `MasonryDetail` the seed-time realization bag; `MasonryRow` the `AUTHORED` raw row; `MasonrySeed` the ONE fold the `component#CATALOGUE` composes.
 - Cases: bond {template + generated kinds; a generated bond's `BondGeometry` descriptor computes the full per-unit transform} · orientation {stretcher/header/soldier/sailor/rowlock/shiner, each carrying its run/rise course footprint} · cut {whole/three-quarter/half-bat/quarter-bat/queen-closer/king-closer/bevel, each carrying its cut-plane remainder + plane-normal orientation} · closure {none/queen-closer/king-closer/half-bat} · special-shape {none/bullnose/cownose/plinth/coping/cant/squint/birdsmouth/voussoir, each carrying its profile modifier + the voussoir radial taper} · mortar-profile {concave/v/weathered/struck/raked/flush/beaded/squeezed, each carrying its 3D recess cross-section} · mortar-type {M/S/N/O/K with EN 998-2 class, proportion spec, and C1072 flexural bond} · mortar-system {portland-lime/mortar-cement/masonry-cement/air-entrained-portland-lime, the `ReducedBond` Table `9.1.9.2` column-group discriminant} · rupture-modulus {8 direction×form rows × 4 published MPa columns — the TMS 402 Table `9.1.9.2` `fr` the mortar key dispatches, with the `PartialGrout` footnote interpolation} · tolerance {T1/T2/Tm} · range {R1/R2/Rm} · profile {`Rectangle` a solid unit, `CellularRectangle` a frogged/cored unit whose `VoidCell` rows the `MasonryVoids` generator derives}.
-- Entry: `MasonrySeed.Rows(Context) : Fin<Seq<ComponentRow>>` — the ONE generator fold: each `MasonryRow` proves its coordinating module (`CourseMm = HMm + JointMm` within the published-rounding band), admits its four dimensional columns once through `ComponentUnit.Of`, derives its profile through the railed `SectionProfile.Rectangle.Of`/`CellularRectangle.Of` factory (`MasonryVoids.Cells` supplying the volume-equivalent frog/hole cells), buckets its `Coring` through `MasonryVoids.Bucket`, binds `IfcBinding.Supertype(ComponentFamily.Masonry.Class)` (masonry is a supertype family — the concrete `IfcWall`/`IfcMember` leaf is an occurrence refinement), builds its `MasonryDetail` bag at seed time, and constructs through `Component.Of` INSIDE the `Traverse` — a failed row ABORTS the build, never drops. `BondName.Course(index, key)` resolves a course template or invokes the generated descriptor's delegate; `BondName.Fits(ComponentUnit)` is the aspect-ratio tiling gate over the owner-provided `LengthOverHeight` projection; `SizeTolerance.WorkEnvelopeMm(workMm, declaredMm)` is the EN 771-1 actual-size envelope the coursing tolerance and GLB tessellation read off the bag inputs (`declaredMm` the manufacturer's Tm deviation, zero for the categorial classes).
+- Entry: `MasonrySeed.Rows(Context) : Fin<Seq<ComponentRow>>` — the ONE generator fold: each `MasonryRow` proves its coordinating module (`CourseMm = HMm + JointMm` within the published-rounding band), admits its four dimensional columns once through `ComponentUnit.Of`, derives its BED-PLANE profile through the railed `SectionProfile.Rectangle.Of`/`CellularRectangle.Of` factory (`MasonryVoids.Cells` supplying the true Columns × Rows hole grid and the frog pocket cell), buckets its `Coring` through `MasonryVoids.Bucket`, binds `IfcBinding.Supertype(ComponentFamily.Masonry.Class)` (masonry is a supertype family — the concrete `IfcWall`/`IfcMember` leaf is an occurrence refinement), builds its `MasonryDetail` bag at seed time, and constructs through `Component.Of` INSIDE the `Traverse` — a failed row ABORTS the build, never drops. `BondName.Course(index, key)` resolves a course template or invokes the generated descriptor's delegate; `BondName.Fits(ComponentUnit)` is the aspect-ratio tiling gate over the owner-provided `LengthOverHeight` projection; `SizeTolerance.WorkEnvelopeMm(workMm, declaredMm)` is the EN 771-1 actual-size envelope the coursing tolerance and GLB tessellation read off the bag inputs (`declaredMm` the manufacturer's Tm deviation, zero for the categorial classes).
 - Packages: Rasm (project — `PositiveMagnitude` from `Rasm.Numerics`; `Op`/`Context`/`AcceptValidated` from `Rasm.Domain`), Rasm.Element (project — `MaterialId`, `PropertyBag`), Thinktecture.Runtime.Extensions (`[SmartEnum<string>]`, `[ComplexValueObject]` + generated `ValidateFactoryArguments`/`Validate`, `[UseDelegateFromConstructor]`, `[KeyMemberEqualityComparer]`/`[KeyMemberComparer]`, `ComparerAccessors`), LanguageExt.Core (`Fin`/`Option`/`Seq`/`Traverse` — the fail-loud RAIL law), BCL inbox; NO `VividOrange` — masonry is `AUTHORED` under `SEED_ROW_LAW` (no admitted producer owns EN 771/ASTM C216 masonry-unit tables; every value restates verbatim with per-column provenance).
 - Growth: a new template bond is one `BondName` row carrying its course set; a new generated bond is one `BondGeometry` row binding its `Course` delegate plus one `BondName` row; a new orientation/cut/shape/mortar/tolerance row is one SmartEnum row; a new `fr` direction/form row or cementitious system is one `RuptureModulus`/`MortarSystem` row; a new regional unit is one `MasonryRow` — ZERO type edits, per `[DIFF_OF_NEXT_THING]`. A sibling family lands its own vocabulary on its own seed page.
-- Boundary: this page emits DATA — profiles, vocabulary rows, bags, and the seed fold; it authors no host curve, no IFC entity, and no section. The per-unit rotation/offset a generated bond emits rides `UnitPlacement` columns the spec course fold consumes, never a widened host `Placement`; the mortar 3D recess (`RecessShape`/`SlopeDegrees`/`RecessDepthMm`) is the cross-section the joint solid extrudes and the `Appearance/weathering#WEATHERING` cavity mask reads off `ShadowLine`; `MortarJoint` construction is the generated `[ComplexValueObject]` admission lifted ONCE onto `ComponentFault.Mortar` (the joint-SPEC fault disjoint from `ComponentFault.Bond`, the course-pattern fault); the frog/perforation void is REAL geometry — `MasonryVoids.Cells` derives `VoidCell` rows whose section area fraction equals the pocket/hole volume fraction, so `Curves.RectWithVoids` nets the same fraction `MasonryVoids.Bucket` classes; `IfcBinding` strings stay neutral (the generated `Rasm.Bim` roster validates them composition-time via `IfcLegality` and egress-time via `AdmitPredefined` — Materials never references `Rasm.Bim`); `ComponentFault.Code` reads `FaultBand.Component` through the `[LEG-ELEMENT]` registry.
+- Boundary: this page emits profiles, vocabulary rows, bags, and the seed fold; it authors no host curve or IFC entity. `MasonryVoids.Cells` stations every perforation at its declared bed-plane grid position and preserves void area through an area-equivalent square cell. `Coring` therefore matches the published volume fraction; circular-hole local inertia remains bounded by the explicit square-equivalent section convention rather than being described as exact circular geometry.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
 using LanguageExt;                              // Fin, Option, Seq, Traverse
 using Rasm.Numerics;                             // PositiveMagnitude — the kernel value-object atoms live in Rasm.Numerics, NOT Rasm.Domain
 using Rasm.Domain;                              // Context, Op, AcceptValidated
-using Rasm.Element;                             // MaterialId, PropertyBag, DetailSchema, Dimension (the seam bag currencies MasonryDetail composes)
+using Rasm.Element.Composition;                             // MaterialId, PropertyBag, DetailSchema, Dimension (the seam bag currencies MasonryDetail composes)
+using Rasm.Element.Graph;
+using Rasm.Element.Properties;
 using Thinktecture;                             // [SmartEnum]/[ComplexValueObject]/[UseDelegateFromConstructor]/[KeyMemberEqualityComparer]/[KeyMemberComparer], ComparerAccessors
-using Rasm.Materials.Component;                 // Component/ComponentRow/ComponentUnit/ComponentStandard/ComponentAuthority/ComponentFamily/ComponentFault/ComponentDetail/SectionProfile/VoidCell/Coring/IfcBinding (the parent COMPONENT_OWNER)
 using static LanguageExt.Prelude;               // Seq, toSeq, Some, None
 
 // This page DEFINES the masonry vocabulary the cmu sibling and the generation spec import as
@@ -205,11 +206,12 @@ public sealed partial class RuptureModulus {
     // The mortar-keyed fr read through the generated exhaustive Switch (the cmu#CMU_FAMILY CmuStrength.RequiredUnitMpa
     // pattern — a new MortarType row breaks HERE at compile time, never an ==-chain a row falls past).
     public double FrMpa(MortarSystem system, MortarType mortar) => mortar.Switch(
-        m: () => system.ReducedBond ? McMsMpa : PclMsMpa,
-        s: () => system.ReducedBond ? McMsMpa : PclMsMpa,
-        n: () => system.ReducedBond ? McNMpa : PclNMpa,
-        o: static () => 0.0,
-        k: static () => 0.0);
+        state: (Owner: this, System: system),
+        m: static x => x.System.ReducedBond ? x.Owner.McMsMpa : x.Owner.PclMsMpa,
+        s: static x => x.System.ReducedBond ? x.Owner.McMsMpa : x.Owner.PclMsMpa,
+        n: static x => x.System.ReducedBond ? x.Owner.McNMpa : x.Owner.PclNMpa,
+        o: static _ => 0.0,
+        k: static _ => 0.0);
 
     // The TMS footnote's partial-grout linear interpolation between the two normal-hollow rows; the fraction is the
     // lattice-honest cmu#CMU_FAMILY CmuPhysics.GroutedCellFraction.
@@ -349,12 +351,13 @@ public sealed partial class BondName {
 
     // A template bond reads its course by wrapped index; a generated bond invokes its descriptor's own delegate.
     public Fin<CourseTemplate> Course(int index, Op key) => Kind.Switch(
-        template:  _ => Courses.IsEmpty
-            ? Fin.Fail<CourseTemplate>(ComponentFault.Bond(key, $"<template-bond-empty:{Key}>"))
-            : Fin.Succ(Courses[((index % Courses.Count) + Courses.Count) % Courses.Count]),
-        generated: _ => Geometry
-            .ToFin(ComponentFault.Bond(key, $"<generated-bond-missing-geometry:{Key}>"))
-            .Map(geometry => geometry.Course(index)));
+        state: (Owner: this, Index: index, Key: key),
+        template: static x => x.Owner.Courses.IsEmpty
+            ? Fin.Fail<CourseTemplate>(ComponentFault.Bond(x.Key, $"<template-bond-empty:{x.Owner.Key}>"))
+            : Fin.Succ(x.Owner.Courses[((x.Index % x.Owner.Courses.Count) + x.Owner.Courses.Count) % x.Owner.Courses.Count]),
+        generated: static x => x.Owner.Geometry
+            .ToFin(ComponentFault.Bond(x.Key, $"<generated-bond-missing-geometry:{x.Owner.Key}>"))
+            .Map(geometry => geometry.Course(x.Index)));
 
     static CourseTemplate StretcherCourse(double courseOffset) => new(Seq(new UnitPlacement(Orientation.Stretcher, 0.0, 0.0, 0.0)), courseOffset);
     static CourseTemplate HeaderCourse(double courseOffset) => new(Seq(new UnitPlacement(Orientation.Header, 0.0, 0.0, 0.0)), courseOffset);
@@ -378,9 +381,10 @@ public readonly record struct FrogGeometry(double DepthMm, double LengthFraction
         Present && heightMm > 0.0 ? DepthMm / heightMm * LengthFraction * WidthFraction * (Double ? 2.0 : 1.0) : 0.0;
 }
 
-// The through-perforation grid: Columns x Rows circular holes pierced full-height through the bed faces.
-// VoidFraction is DEFINED geometry — the hole-grid area over the bed face (full-height holes make the area
-// fraction the volume fraction).
+// The through-perforation grid: Columns x Rows circular holes pierced full-height through the bed faces —
+// Columns station along the unit LENGTH, Rows across the through-wall WIDTH. VoidFraction is DEFINED geometry —
+// the hole-grid area over the bed face (full-height holes make the area fraction the volume fraction, exactly the
+// fraction the MasonryVoids bed-plane cells net).
 public readonly record struct Perforation(int Columns, int Rows, double HoleDiameterMm, double EdgeMarginMm) {
     public static readonly Perforation None = new(0, 0, 0.0, 0.0);
     public int HoleCount => Math.Max(0, Columns) * Math.Max(0, Rows);
@@ -432,25 +436,29 @@ public readonly record struct MasonryRow(
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 // The ONE void owner over the frog/perforation geometry pair — the cell derivation AND the coring bucket read the
-// SAME inputs, so both live on one surface. Cells: volume-equivalent VoidCell rows — cell area over W*H equals
-// pocket/hole volume over W*H*L, so Curves.RectWithVoids nets the same fraction Bucket classes and the GLB
-// extrusion reads the same cells. Perforation: one full-height cell per grid COLUMN, width sized to the
-// volumetric fraction, evenly stationed inside the edge margins. Frog: a top-face pocket cell of the
-// volume-equivalent width (footprint length-fraction folded into width) at the pocket depth; a double frog
-// mirrors it onto the bottom face. Cells stay ungrouted/unreinforced — clay masonry has no grout path; the
-// grouted/reinforced VoidCell flags are the cmu sibling's columns.
+// SAME inputs, so both live on one surface. Cells lay the BED-PLANE (W × L) lattice the cmu sibling shares:
+// Perforation stations the FULL Columns × Rows hole grid at its true positions (Columns along the length, Rows
+// across the width — the US modular's 3 cores run along the 194 mm length), each circular hole an AREA-EQUIVALENT
+// square cell of side d·√π/2, so the net bed section, its moments, and the void fraction all follow the declared
+// grid exactly (a through-hole's bed-area fraction IS its volume fraction — the equivalence is identity, never a
+// smeared full-height slot). Frog: one centered pocket-footprint cell whose along-length span scales by
+// DepthMm/H so bed-area fraction equals pocket volume fraction; a double frog doubles the span. Cells stay
+// ungrouted/unreinforced — clay masonry has no grout path; the grouted/reinforced VoidCell flags are the cmu
+// sibling's columns.
 public static class MasonryVoids {
     public static Seq<VoidCell> Cells(FrogGeometry frog, Perforation perforation, double wMm, double hMm, double lMm) {
-        double cellWidth = perforation.Present ? perforation.VoidFraction(lMm, wMm) * wMm / perforation.Columns : 0.0;
+        double side = perforation.HoleDiameterMm * Math.Sqrt(Math.PI) / 2.0;
         Seq<VoidCell> holes = perforation.Present
-            ? toSeq(Enumerable.Range(0, perforation.Columns)).Map(column => {
-                double station = perforation.EdgeMarginMm + (wMm - 2.0 * perforation.EdgeMarginMm) * (column + 0.5) / perforation.Columns;
-                return new VoidCell(station - cellWidth * 0.5, 0.0, cellWidth, hMm);
-            })
+            ? toSeq(Enumerable.Range(0, perforation.Columns)).Bind(col =>
+                toSeq(Enumerable.Range(0, Math.Max(1, perforation.Rows))).Map(row => new VoidCell(
+                    XMm: perforation.EdgeMarginMm + (wMm - 2.0 * perforation.EdgeMarginMm) * (row + 0.5) / Math.Max(1, perforation.Rows) - side * 0.5,
+                    YMm: perforation.EdgeMarginMm + (lMm - 2.0 * perforation.EdgeMarginMm) * (col + 0.5) / perforation.Columns - side * 0.5,
+                    WidthMm: side, HeightMm: side)))
             : Seq<VoidCell>();
+        double frogW = frog.WidthFraction * wMm;
+        double frogL = frog.LengthFraction * lMm * (hMm > 0.0 ? frog.DepthMm / hMm : 0.0) * (frog.Double ? 2.0 : 1.0);
         Seq<VoidCell> pockets = frog.Present
-            ? Seq(new VoidCell((wMm - frog.WidthFraction * frog.LengthFraction * wMm) * 0.5, hMm - frog.DepthMm, frog.WidthFraction * frog.LengthFraction * wMm, frog.DepthMm))
-                + (frog.Double ? Seq(new VoidCell((wMm - frog.WidthFraction * frog.LengthFraction * wMm) * 0.5, 0.0, frog.WidthFraction * frog.LengthFraction * wMm, frog.DepthMm)) : Seq<VoidCell>())
+            ? Seq(new VoidCell((wMm - frogW) * 0.5, (lMm - frogL) * 0.5, frogW, frogL))
             : Seq<VoidCell>();
         return holes + pockets;
     }
@@ -470,18 +478,20 @@ public static class MasonryVoids {
 
 // The seed-built realization bag (Masonry WIDENS to DetailLane.Realization — the dissolved payload's realization
 // columns have no other landing): the EN 771-1 work-vs-actual envelope inputs (SizeTolerance/SizeRange tokens the
-// coursing tolerance and GLB tessellation read), the special-shape token, and the unit length + coursing module
-// the spec course fold reads (the cross dims ride the Profile). Token/Measured/RealizationRows are the relocated
-// component#COMPONENT_DETAIL constructors; the SI mints are the dimension-only MeasureValue.OfSi so an authored
-// and an imported bag content-key identically.
+// coursing tolerance and GLB tessellation read), the special-shape token, and the unit HEIGHT + coursing module
+// the spec course fold reads (the bed-plane W × L dims ride the Profile). Token/Measured/RealizationRows are the
+// relocated component#COMPONENT_DETAIL constructors; the SI mints are the dimension-only MeasureValue.OfSi so an
+// authored and an imported bag content-key identically.
 public static class MasonryDetail {
-    public static PropertyBag Of(PositiveMagnitude lengthMm, PositiveMagnitude courseHeightMm, SizeTolerance tolerance, SizeRange range, SpecialShape shape) =>
-        ComponentDetail.RealizationRows(
+    public static Fin<PropertyBag> Of(PositiveMagnitude heightMm, PositiveMagnitude courseHeightMm, SizeTolerance tolerance, SizeRange range, SpecialShape shape) =>
+        from unitHeight in ComponentDetail.Measured(DetailSchema.UnitHeight, Dimension.LengthDim, heightMm.Value * 1e-3)
+        from courseHeight in ComponentDetail.Measured(DetailSchema.CourseHeight, Dimension.LengthDim, courseHeightMm.Value * 1e-3)
+        select ComponentDetail.RealizationRows(
             ComponentDetail.Token(DetailSchema.SizeTolerance, tolerance.Key),
             ComponentDetail.Token(DetailSchema.SizeRange, range.Key),
             ComponentDetail.Token(DetailSchema.SpecialShape, shape.Key),
-            ComponentDetail.Measured(DetailSchema.UnitLength, Dimension.LengthDim, lengthMm.Value * 1e-3),
-            ComponentDetail.Measured(DetailSchema.CourseHeight, Dimension.LengthDim, courseHeightMm.Value * 1e-3));
+            unitHeight,
+            courseHeight);
 }
 
 // --- [TABLES] ------------------------------------------------------------------------------
@@ -505,11 +515,12 @@ public static class MasonrySeed {
     // carries 67.0 over 57.0 + 9.5) — the same standard authored twice must not diverge; a transposed column faults.
     const double CoursingClosureTolMm = 1.0;
 
-    // The ONE generator fold (RAIL law): Traverse accumulates EVERY failing row's fault (applicative Fin), then the
-    // build aborts — never Choose/ToOption. The coursing-closure gate proves the module column; dimensions admit ONCE
-    // through ComponentUnit.Of; the profile constructs through the railed SectionProfile Of factories (Rectangle solid,
-    // CellularRectangle frogged/cored with the volume-equivalent cells); the Coring bucket, the supertype IfcBinding,
-    // and the seed-built Realization bag land per row; Sectioned: false pins masonry out of the section map
+    // The ONE generator fold (RAIL law): `Fin` traversal aborts on the first failing row and never drops it.
+    // The coursing-closure gate proves the module column; dimensions admit ONCE
+    // through ComponentUnit.Of; the profile constructs through the railed SectionProfile Of factories on the BED
+    // PLANE (Rectangle W × L solid, CellularRectangle frogged/cored with the true-grid cells — the cmu-congruent
+    // orientation whose net area IS the TMS 402 bed section); the Coring bucket, the supertype IfcBinding, and the
+    // seed-built Realization bag land per row; Sectioned: false pins masonry out of the section map
     // (graph.SectionOf None preserved).
     public static Fin<Seq<ComponentRow>> Rows(Context context) =>
         Regional.Traverse(r =>
@@ -517,15 +528,16 @@ public static class MasonrySeed {
                 ComponentFault.Dimension(context.Key, $"<coursing-module-mismatch:{r.Designation}>"))
             from unit in ComponentUnit.Of(r.WMm, r.HMm, r.LMm, r.CourseMm, context.Key)
             from profile in r.Frog.Present || r.Perforation.Present
-                ? SectionProfile.CellularRectangle.Of(r.WMm, r.HMm, MasonryVoids.Cells(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm), context.Key)
-                : SectionProfile.Rectangle.Of(r.WMm, r.HMm, context.Key)
+                ? SectionProfile.CellularRectangle.Of(r.WMm, r.LMm, MasonryVoids.Cells(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm), context.Key)
+                : SectionProfile.Rectangle.Of(r.WMm, r.LMm, context.Key)
+            from detail in MasonryDetail.Of(unit.HeightMm, unit.CourseHeightMm, r.Tolerance, r.Range, r.Shape)
             from item in Component.Of(
                 ComponentFamily.Masonry, r.Designation, profile,
                 IfcBinding.Supertype(ComponentFamily.Masonry.Class),
                 MasonryVoids.Bucket(r.Frog, r.Perforation, r.WMm, r.HMm, r.LMm),
                 new ComponentStandard(r.Region, r.JointMm, r.Authority),
                 substanceId: MaterialId.Of(r.Material), appearanceId: MaterialId.Of(r.Material),
-                detail: Some(MasonryDetail.Of(unit.LengthMm, unit.CourseHeightMm, r.Tolerance, r.Range, r.Shape)),
+                detail: Some(detail),
                 context.Key)
             select new ComponentRow(item, Sectioned: false)).As();
 }
@@ -533,11 +545,12 @@ public static class MasonrySeed {
 
 ## [03]-[RESEARCH]
 
-- [SEED_FOLD_RAIL]: REALIZED — `MasonrySeed.Rows : Context -> Fin<Seq<ComponentRow>>` is the ONE generator fold built by `Traverse` (applicative `Fin` — EVERY failing row's fault accumulates, then the build aborts): the prior `BuildMasonryRows` `.Choose(row => MasonryOf(...).ToOption())` fault-swallow is DELETED, so a malformed row aborts `ComponentCatalogue.Of` loudly instead of silently thinning the catalogue; there are no intentional combinatorial exclusions in the regional table, so no `Filter` predicate precedes construction. The coursing-closure gate proves `CourseMm = HMm + JointMm` within the 1.0 mm published-rounding band per row — the coordinating module and its two source columns are the same print authored twice, so a divergence (or a transposed column) is a transcription fault, the masonry analogue of the panel deck-dims drift guard. Every row seeds `Sectioned: false` — masonry is absent from the section map and `graph.SectionOf` resolves `None` value-identically.
-- [PAYLOAD_DISSOLUTION]: REALIZED — the `MasonryUnit` payload record is DELETED with zero column loss: `WidthMm`/`HeightMm` ride the `SectionProfile.Rectangle`/`CellularRectangle` named dims (the family `crossNominal` delegate reads `GrossRectangleMm.WidthMm`, value-identical to the prior `MasonryUnit.WidthMm` read); the frog/perforation voids ride `VoidCell` rows the `MasonryVoids` generator derives VOLUME-EQUIVALENTLY (cell area fraction over `W*H` equals pocket/hole volume fraction, so the net section `Curves`/`Forms` emit and the `MasonryVoids.Bucket` class agree by construction); `LengthMm`/`CourseHeightMm`/`SizeTolerance`/`SizeRange`/`SpecialShape` land in the seed-built `MasonryDetail` bag (`DetailLane.Realization` — the brief-sanctioned lane widening); `ToUnit` is subsumed by `ComponentUnit.Of` at the seed and `ToCoring`/`VoidFraction` by `MasonryVoids.Bucket` over the kept `FrogGeometry`/`Perforation` math; the `ActualLowMm`/`ActualHighMm` wrapper pair collapses onto `SizeTolerance.WorkEnvelopeMm` (the owning vocabulary).
+- [SEED_FOLD_RAIL]: REALIZED — `MasonrySeed.Rows : Context -> Fin<Seq<ComponentRow>>` is the ONE generator fold built by `Traverse`; `Fin` aborts on the first malformed row, and no row is silently dropped. The coursing-closure gate proves `CourseMm = HMm + JointMm` within the `1.0 mm` published-rounding band per row. Every row seeds `Sectioned: false`, so masonry is absent from the section map and `graph.SectionOf` resolves `None` value-identically.
+- [PAYLOAD_DISSOLUTION]: REALIZED — the `MasonryUnit` payload record is DELETED with zero column loss: the BED-PLANE `WidthMm`/`DepthMm` (W through-wall × L along-wall) ride the `SectionProfile.Rectangle`/`CellularRectangle` named dims (the family `crossNominal` delegate reads `GrossRectangleMm.WidthMm`, value-identical to the prior `MasonryUnit.WidthMm` read); the frog/perforation voids ride TRUE-GRID `VoidCell` rows the `MasonryVoids` generator stations in the bed plane (a through-hole's bed-area fraction IS its volume fraction, so the net section `Curves`/`Forms` emit and the `MasonryVoids.Bucket` class agree by identity); `HeightMm`/`CourseHeightMm`/`SizeTolerance`/`SizeRange`/`SpecialShape` land in the seed-built `MasonryDetail` bag (`DetailLane.Realization` — the brief-sanctioned lane widening); `ToUnit` is subsumed by `ComponentUnit.Of` at the seed and `ToCoring`/`VoidFraction` by `MasonryVoids.Bucket` over the kept `FrogGeometry`/`Perforation` math; the `ActualLowMm`/`ActualHighMm` wrapper pair collapses onto `SizeTolerance.WorkEnvelopeMm` (the owning vocabulary).
+- [BED_PLANE_GRID]: REALIZED — the masonry section is the BED PLANE, cmu-congruent: `WidthMm` the through-wall thickness (the family cross nominal), `DepthMm` the along-wall length, so the section solver nets the TMS 402 mortar-bedded area. `MasonryVoids.Cells` lays the FULL `Perforation` `Columns × Rows` grid at its true stations (Columns along the length, Rows across the width — the US modular's 3 cores run along the 194 mm length; the prior cross-plane form stationed 3 impossible 38 mm holes across a 92 mm width and smeared rows into volume-scaled full-height slots, the rejected shape), each circular hole an area-equivalent `d·√π/2` square, the frog a centered pocket-footprint cell scaled by `DepthMm/H`; distinct row layouts now produce distinct cell placements and distinct moments, and the `CellularRectangle.Of` containment + disjointness gates fault a grid that cannot physically fit its unit.
 - [GENERATIVE_BOND_TRANSFORMS]: PRESERVED + CORRECTED — the `BondGeometry` `[UseDelegateFromConstructor]` course algebra (stack/flemish/herringbone/basketweave/pinwheel/diaper delegates emitting full `CourseTemplate` packing transforms) and the `UnitPlacement`/`CourseTemplate` currencies are untouched; `BondName.Fits` retypes from the deleted `MasonryUnit` to the preserved `ComponentUnit` (the owner-provided `LengthOverHeight` projection, same gate semantics). `Orientation` re-derives its run/rise/face columns as DEFINED multiples of the ideal `L=2W=3H` coordination module — the prior soldier/sailor full-slot advance double-counted the course (a vertical brick advances `H`/`W`, never `L`), the rowlock/shiner doubled rise overstated `W/H = 1.5`, and `FaceShown` normalizes onto the three real brick faces {`stretcher`, `header`, `bed`} (the prior {length, width, end, bed} spelled the header face two ways and mis-faced soldier/sailor). Consumer: the course fold at `Rasm.Generation` reads `CourseTemplate.Units` + `CourseOffsetFraction` and takes `Fits(ComponentUnit)`.
 - [MORTAR_GENERATED_ADMISSION]: REALIZED — `MortarJoint` is a `[ComplexValueObject]` whose generated `ValidateFactoryArguments` owns the positive-finite head/bed guard; the ONE railed `Of` lifts the generated `Validate` outcome onto `ComponentFault.Mortar` (RAIL_BRIDGE — no second construction path; `Standard(thicknessMm, key)` composes `Of` so the spec's coordinating-fallback thickness — caller data, zero for non-coursing families — rails instead of throwing through the generated `Create`). The recess vocabulary corrections stand: beaded NOT weather-tight, extruded/weeping collapsed into `Squeezed`, no ASTM C1314 prism case.
 - [ORDERED_KEY_COMPARERS]: REALIZED — every retained policy SmartEnum stacks `[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]` beside `[KeyMemberEqualityComparer<...>]`, matching the campaign `ComponentFamily` row convention for ordered key lookup.
 - [COVERAGE_ROWS]: EXTENDED — `masonry.us-norman` (ASTM C216 norman 92x57x295, the modular-series long format) and `masonry.uk-bullnose` (BS 4729 special over the UK work size) instantiate the previously dead `SpecialShape` vocabulary and the ASTM long-format series as data rows; the `BondName` catalogue gains the header-family classics as template DATA rows — `Header` (all-header alternating quarter offset), `EnglishGarden` (the 3-stretcher + 1-header English garden wall), `Monk` (the 2S+1H mixed course cell — the FIRST row exercising the multi-unit `CourseTemplate.Units` capability the template form always carried). A new region, shape, or template bond stays one row.
-- [DETAIL_SCHEMA_ROWS]: REALIZED — `MasonryDetail` composes `DetailSchema.SizeTolerance`/`SizeRange`/`SpecialShape`/`UnitLength`/`CourseHeight` `PropertyName` rows now declared on the seam `DetailSchema.Realization` vocabulary (Element `property#DETAIL_SCHEMA`); `Projection/component.md` `ProjectType` reads `c.Detail`, reconciled with the `component.md` `[COMPONENT_DETAIL]` relocation.
-- [FLEXURAL_TENSION_TABLE]: REALIZED — `MortarSystem` (4 ASTM C270 cementitious-system rows, `ReducedBond` the two-column-group discriminant) and `RuptureModulus` (8 rows × 4 MPa columns — the FULL TMS 402 Table `9.1.9.2`: normal-to-bed solid/hollow-ungrouted/hollow-grouted, parallel-to-bed running-bond solid/ungrouted/grouted, stack-bond continuous-grout 2.310 flat and other 0.0 flat; exact psi→MPa conversions of the printed 133/100/80/51 · 84/64/51/31 · 163/158/153/145 · 267/200/160/100 · 167/127/100/64 · 267/200/160/100 · 335 · 0, two-source verified against the TMS 402-16 print) close the URM flexural-tension feed the prior prose CLAIMED through `MortarType.FlexuralBondMpa` — a PHANTOM seam: the `MasonryCompression` record carried no mortar input, and ASTM C1072 unit-mortar bond (0.05-0.40 MPa) is NOT the Table `9.1.9.2` `fr` (~0.2-2.3 MPa), so the alias invitation is firewalled on both owners. `FrMpa(system, mortar)` dispatches the generated exhaustive `mortar.Switch` (M/S → the M-or-S column, N → the N column, O/K → 0.0 — outside the structural tables, any net tension governs outright); `PartialGrout(groutedCellFraction, system, mortar)` is the TMS footnote's linear interpolation between the two normal-hollow rows, the fraction `cmu#CMU_FAMILY` `CmuPhysics.GroutedCellFraction`. The widened `capacity#SECTION_CAPACITY` `SectionCapacity.Lift(CmuStrength, ComputedSection, double, RuptureModulus, MortarSystem, MortarType)` resolves `fr` on this table INSIDE the lift, and the `MasonryUtilisation` §`9.2.2` screen folds `σt = |My|/Sx + |Mz|/Sy + N/A` against `φ·fr`. Ripple counterparts: `capacity#SECTION_CAPACITY` (the `MasonryCompression.FrMpa` column + screen + widened lift) and `cmu#CMU_FAMILY` (the grout-fraction handoff).
+- [DETAIL_SCHEMA_ROWS]: REALIZED — `MasonryDetail` composes `DetailSchema.SizeTolerance`/`SizeRange`/`SpecialShape`/`UnitHeight`/`CourseHeight` `PropertyName` rows declared on the seam `DetailSchema.Realization` vocabulary (Element `property#DETAIL_SCHEMA` — `UnitHeight` the bed-plane counterpart row, the unit length now riding the profile); `Projection/component.md` `ProjectType` reads `c.Detail`, reconciled with the `component.md` `[COMPONENT_DETAIL]` relocation.
+- [FLEXURAL_TENSION_TABLE]: REALIZED — `MortarSystem` (4 ASTM C270 cementitious-system rows, `ReducedBond` the two-column-group discriminant) and `RuptureModulus` (8 rows × 4 MPa columns — the FULL TMS 402 Table `9.1.9.2`: normal-to-bed solid/hollow-ungrouted/hollow-grouted, parallel-to-bed running-bond solid/ungrouted/grouted, stack-bond continuous-grout 2.310 flat and other 0.0 flat; exact psi→MPa conversions of the printed 133/100/80/51 · 84/64/51/31 · 163/158/153/145 · 267/200/160/100 · 167/127/100/64 · 267/200/160/100 · 335 · 0, two-source verified against the TMS 402-16 print) close the URM flexural-tension feed the prior prose CLAIMED through `MortarType.FlexuralBondMpa` — a PHANTOM seam: the `MasonryCompression` record carried no mortar input, and ASTM C1072 unit-mortar bond (0.05-0.40 MPa) is NOT the Table `9.1.9.2` `fr` (~0.2-2.3 MPa), so the alias invitation is firewalled on both owners. `FrMpa(system, mortar)` dispatches the generated exhaustive `mortar.Switch` (M/S → the M-or-S column, N → the N column, O/K → 0.0 — outside the structural tables, any net tension governs outright); `PartialGrout(groutedCellFraction, system, mortar)` is the TMS footnote's linear interpolation between the two normal-hollow rows, the fraction `cmu#CMU_FAMILY` `CmuPhysics.GroutedCellFraction`. The `capacity#SECTION_CAPACITY` `SectionCapacity.Lift(CapacityReceipt)` `CapacityReceipt.Masonry(CmuStrength, ComputedSection, MasonryReduction, RuptureModulus, MortarSystem, MortarType)` case resolves `fr` on this table INSIDE the lift, and the `MasonryCompression` §`9.2.2` screen folds `σt = |My|/Sx + |Mz|/Sy + N/A` against `φ·fr`. Ripple counterparts: `capacity#SECTION_CAPACITY` (the `MasonryCompression` `fr` screen + the `CapacityReceipt.Masonry` lift case) and `cmu#CMU_FAMILY` (the grout-fraction handoff).

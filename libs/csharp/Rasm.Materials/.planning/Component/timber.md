@@ -1,32 +1,34 @@
 # [MATERIALS_TIMBER]
 
-THE TIMBER SEED FAMILY GROUNDED IN THE EN STRENGTH-CLASS TABLES. A sawn/glulam/LVL/PSL member and a cross-laminated panel are each one `ComponentRow` minted by the ONE generator `TimberSeed.Rows -> Component.Of` over the `ComponentFamily.Timber` policy row (`ComponentClass.Primary`, `DetailLane.None`, admits `SectionProfile.Rectangle` or `SectionProfile.Layered`, cross-nominal the section depth) — never a `GlulamBeam`/`CltPanel` type, never a hand-keyed strength literal, and never a bespoke `TimberSection` payload (DELETED: its geometric columns are the `SectionProfile` named `PositiveMagnitude` dims, its vocabulary columns the kept `TimberForm`/`ServiceClass`/`LoadDuration` policy rows plus the `TimberGrade` row table, its realization columns the seed rows). A profiled MEMBER is `SectionProfile.Rectangle` and `Sectioned: true` — its twenty-column `ComputedSection` is `component#SECTION_SOLVER`'s `SectionSolver.Solve`, never a local solve; a CLT PANEL is `SectionProfile.Layered` with role-tagged `Ply` rows (`"0"` longitudinal / `"90"` transverse — the cross-lamination IS the geometry) and `Sectioned: false` — the value-identity pin, since `SectionSolver` faults `Layered` as unsectioned and `graph.SectionOf` dereferences a CLT `ComponentId` to `(Component, None)` exactly as today. Timber contributes NO detail bag (`DetailLane.None` — the cross-ply build rides the `Layered` plies, the member parametrics ride the solved section and the Type geometry); the CLT-to-`LayerSet` composition selection is the `Projection/component#COMPOSITION_SELECTION` projector's read of the `Layered` arm, never a family method (`ToLayerSet`/`ToUnit`/`MaterialShapeKind` are the deleted forms — the profile arm IS the IFC shape discriminant). THIS page keeps what is irreducibly timber: `TimberForm` (the FORM-law `[SmartEnum]` carrying cross-ply, EN 1995-1-2 charring, per-form `γ_M`, and the per-form EC5 capacity columns `k_h`/`k_cr`/`β_c` that collapse the deleted enumerated ternaries), the `TimberGrade` frozen 11-row characteristic strength-AND-stiffness table (values verbatim, PUBLISHED — `VividOrange.Materials` ships NO timber factory, EN factories are concrete/steel/rebar only, so the row table IS the registered-class owner) with its `OrthotropicLaw`/`ToProperties` directional-stiffness lowerings (verified `LinearElasticOrthotropicMaterial(MaterialType.Timber, Pressure Ex, Sx, Ey, Sy, Ez, Sz)`; seam `MaterialPropertySet.OfOrthotropic`), the `ServiceClass`/`LoadDuration` EC5 `k_mod`/`k_def` policy axes, `TimberDesign` (the EN 1995-1-1 `Capacity` projection over the resolved `ComputedSection` or the `Layered` plies, the EN 1995-1-1 Annex B gamma-method `EffectiveStiffness` kernel, the EN 1995-1-2 `ResidualSection` charring), and the `TimberCapacity` receipt the `capacity#SECTION_CAPACITY` `SectionCapacity.Lift(TimberCapacity)` overload lifts WHOLE (receipt shape frozen). Growth is one row: a new section one `TimberRow`, a new strength class one `TimberGrade` row, a new product form one `TimberForm` row plus its EC5 columns — zero central edits.
+THE TIMBER SEED FAMILY GROUNDED IN THE EN STRENGTH-CLASS TABLES. A sawn/glulam/LVL/PSL member and a cross-laminated panel are each one `ComponentRow` minted by the ONE generator `TimberSeed.Rows -> Component.Of` over the `ComponentFamily.Timber` policy row (`ComponentClass.Primary`, `DetailLane.None`, admits a `SectionProfile.Rectangle` or a `SectionProfile.Layered` containing only `PlyRole.Longitudinal`/`PlyRole.Transverse`, cross-nominal the section depth) — never a `GlulamBeam`/`CltPanel` type, never a hand-keyed strength literal, and never a bespoke `TimberSection` payload. A profiled MEMBER is `SectionProfile.Rectangle` and `Sectioned: true`; a CLT PANEL is `SectionProfile.Layered` and `Sectioned: false`. `TimberSeed.Resolve` joins either resolved `ComponentId` back to the typed `TimberRow`, preserving `TimberForm` and `TimberGrade` for `TimberDesign.Capacity` without widening `Component` or adding a detail bag. `TimberDesign` owns the EN 1995-1-1 capacity and Annex B stiffness operations plus the EN 1995-1-2 member and CLT fire modalities; `TimberCapacity` is the frozen receipt the `capacity#SECTION_CAPACITY` `SectionCapacity.Lift(CapacityReceipt)` `CapacityReceipt.Timber` case consumes.
 
 ## [01]-[INDEX]
 
-- [02]-[TIMBER_FAMILY]: the `TimberForm` product-form `[SmartEnum]` (cross-ply flag, density-adjusted `β_n` charring, per-form `γ_M`, and the `k_h`/`k_cr`/`β_c` EC5 capacity columns), the `TimberGrade` frozen 11-row EN 14080/338/14374 characteristic vector with the `OrthotropicLaw`/`ToProperties` seam lowerings, the `ServiceClass`/`LoadDuration` `k_mod`/`k_def` policy axes (with the EN 16351 CLT service-class exclusion), the `TimberRow` authored table carrying per-row lamination builds, and the fail-loud `TimberSeed.Rows : Context -> Fin<Seq<ComponentRow>>` Traverse the `ComponentFamily.Timber` policy row binds.
-- [03]-[TIMBER_CAPACITY]: the `TimberDesign.Capacity` EN 1995-1-1 design-resistance projection (one entry, member-vs-panel discriminated by the profile arm), the corrected Annex B gamma-method `EffectiveStiffness` over non-uniform role-tagged plies, the EN 1995-1-2 `ResidualSection` reduced cross-section, and the frozen `TimberCapacity` receipt the `capacity#SECTION_CAPACITY` rail lifts.
+- [02]-[TIMBER_FAMILY]: `TimberForm`, `TimberGrade`, `ServiceClass`, `LoadDuration`, the authored `TimberRow` table, and `TimberSeed.Rows`/`Resolve`.
+- [03]-[TIMBER_CAPACITY]: the `TimberDesign.Capacity` EN 1995-1-1 design-resistance projection (one entry, member-vs-panel discriminated by the admitted form/profile correspondence), the corrected Annex B gamma-method `EffectiveStiffness` over non-uniform role-tagged plies, the EN 1995-1-2 `ResidualSection` reduced cross-section and `ResidualStack` CLT step-charring ply modality, and the frozen `TimberCapacity` receipt the `capacity#SECTION_CAPACITY` rail lifts.
 
 ## [02]-[TIMBER_FAMILY]
 
-- Owner: `TimberForm` the product-form policy row (sawn/glulam/clt/lvl/psl); `TimberGrade` the frozen characteristic-vector row table plus the `TimberGrades` roster; `ServiceClass`/`LoadDuration` the EC5 modification-factor axes; `TimberRow` the authored section table; `TimberSeed` the `Rows` fold the `component#COMPONENT_OWNER` `ComponentFamily.Timber` policy row binds.
+- Owner: `TimberForm` the product-form policy row (sawn/glulam/clt/lvl/psl); `TimberGrade` the frozen characteristic-vector row table plus the `TimberGrades` roster; `ServiceClass`/`LoadDuration` the EC5 modification-factor axes; `TimberRow` the authored section table; `TimberSeed` the `Rows` fold and typed `Resolve` join.
 - Cases: form {sawn (EN 338 solid), glulam (EN 14080 lamellae), clt (EN 16351 / APA PRG 320 cross-laminated), lvl (EN 14374 veneer), psl (parallel-strand, ETA-governed)} × grade {gl24h/gl28h/gl30h/gl32h homogeneous + gl24c/gl28c combined glulam, c16/c24/c30 sawn softwood, d40 sawn hardwood, lvl48p} × service {sc1/sc2/sc3} × duration {permanent/long/medium/short/instantaneous} — a section is one `TimberRow` over one form/grade plus its lamination build; a member is `SectionProfile.Rectangle`, a CLT panel `SectionProfile.Layered`, never a section subtype.
-- Entry: `public static Fin<Seq<ComponentRow>> TimberSeed.Rows(Context context)` — ONE `Traverse` over the `TimberRow` table: each row builds its profile through the railed `SectionProfile` `Of` factory (`Rectangle.Of(w, d, key)` for a member; `Layered.Of(plies, overall, width, key)` for a cross-ply form, the plies role-tagged from the row's build with the grade-keyed `MaterialId` per ply), constructs `Component.Of(ComponentFamily.Timber, designation, profile, IfcBinding.Supertype(ComponentFamily.Timber.Class), Coring.None, En, substance, appearance, detail: None, key)` under a per-row `Op.Of(name: designation)` admission key (a fault names the exact row, never the whole-catalogue `Context` key), and pins `Sectioned: !row.Form.CrossPly` — a member row that cannot admit ABORTS the build (`Traverse`, never a swallowed `Choose` drop), and an unknown form/grade is UNREPRESENTABLE (rows reference the `TimberForm` items and `TimberGrades` statics directly, no string re-parse).
-- Packages: Rasm.Numerics (project — `PositiveMagnitude` every length column), Rasm.Domain (project — `Context`/`Op`), Rasm.Element (project — `MaterialId`, `MaterialPropertySet` the `ToProperties` lowering mints), VividOrange.Materials (`LinearElasticOrthotropicMaterial`/`MaterialType.Timber` the along/across-grain law; `.api/api-vividorange-materials.md` — the `[FLOOR_SCOPE_GATE]` EN factories are concrete/steel/rebar only, so NO timber factory exists and the `TimberGrade` rows are the AUTHORED registered-class owner), UnitsNet (`Pressure.FromMegapascals` coercing the grade scalars at the orthotropic edge; `.api/api-unitsnet.md`), Rasm.Materials.Component (project — the parent `component#COMPONENT_OWNER` `Component`/`ComponentRow`/`ComponentFamily`/`ComponentFault`/`SectionProfile`/`Ply`/`IfcBinding`/`ComputedSection`/`ComponentStandard`/`ComponentAuthority`/`Coring`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
+- Entry: `TimberSeed.Rows(Context) : Fin<Seq<ComponentRow>>` traverses the typed table, builds each railed profile, constructs `Component.Of`, and pins `Sectioned: !row.Form.CrossPly`; one malformed row aborts the catalogue. `TimberSeed.Resolve(Component, Op) : Fin<TimberRow>` performs one typed lookup by the resolved component's `ComponentId` and faults if a foreign or unregistered timber component reaches design.
+- Packages: Rasm.Numerics (project — `PositiveMagnitude` every length column), Rasm.Domain (project — `Context`/`Op`), Rasm.Element (project — `MaterialId`, `MaterialPropertySet` the `ToProperties` lowering mints), VividOrange.Materials (`LinearElasticOrthotropicMaterial`/`MaterialType.Timber` the along/across-grain law; `.api/api-vividorange-materials.md` — the `[FLOOR_SCOPE_GATE]` EN factories are concrete/steel/rebar only, so NO timber factory exists and the `TimberGrade` rows are the AUTHORED registered-class owner), VividOrange.Standards (`En1995` the timber design-code identity), UnitsNet (`Pressure.FromMegapascals` coercing the grade scalars at the orthotropic edge; `.api/api-unitsnet.md`), Rasm.Materials.Component (project — the parent `component#COMPONENT_OWNER` `Component`/`ComponentRow`/`ComponentFamily`/`ComponentFault`/`SectionProfile`/`Ply`/`IfcBinding`/`ComputedSection`/`ComponentStandard`/`ComponentAuthority`/`Coring`), Thinktecture.Runtime.Extensions, LanguageExt.Core.
 - Growth: a new section is one `TimberRow` (its lamination build a `Seq<double>` column); a new strength class one `TimberGrade` row in the `TimberGrades` roster; a new product form one `TimberForm` row carrying its cross-ply flag, charring base, `γ_M`, and `k_h`/`k_cr`/`β_c` columns; a new service/duration point one `ServiceClass`/`LoadDuration` row — never a per-member type, never a hand-keyed strength literal, never a re-minted EC5 factor beside the form row.
-- Boundary: the `TimberGrade` table is `SEED_ROW_LAW` `AUTHORED` — every one of the 12 numeric columns is a PUBLISHED normative printed value (EN 14080:2013 Table 5 glulam vectors with `E_90,g,mean = 300` for every class, EN 338 Table 1 sawn vectors, EN 14374 declared LVL values), stored verbatim and NEVER re-derived; the `Hardwood` species column is the EN 1995-1-2 Table 3.1 charring discriminant (D-classes hardwood — the SPECIES, not a density smear: a dense softwood LVL at `ρ_k = 510` charrs at the softwood/LVL `0.70`, never the hardwood `0.55` the deleted density-only interpolation mis-rated it to). `OrthotropicLaw`/`ToProperties` live ON the grade row (they read ONLY grade scalars): `OrthotropicLaw` is the `[BoundaryAdapter]` producing the verified 7-arg `LinearElasticOrthotropicMaterial` (`E0,mean` parallel = X, `E90,mean` perpendicular = Y/Z, per-axis strengths — the INDEPENDENT-`G` material the seam isotropic `G = E/(2(1+ν))` cannot model, timber's `G_mean ≈ E0/16`); `ToProperties` lowers the SAME scalars seam-neutrally through the verified `MaterialPropertySet.OfOrthotropic(density, e1Parallel, e2Perpendicular, shearModulus, strength1Parallel, strength2Perpendicular, thermalExpansion, key)` for the projected `Material` node (`Discipline.Structural`; the thermal/acoustic/fire disciplines ride the `Properties/properties#MATERIAL_PROPERTY_CATALOGUE` rows the projector composes alongside). The `Layered` plies carry the load-bearing cross-ply datum: `Ply.Role` `"0"`/`"90"` is the gamma-method longitudinal/transverse discriminant AND the `IfcMaterialLayer.Name` the `Projection/component#COMPOSITION_AUTHOR` `LayerSet` bridge round-trips; per-ply thickness is FIRST-CLASS (a mixed 30/34/34/34/34/34/30 build sums exactly to its overall — the deleted uniform-`PlyThicknessMm` layup could not spell a real manufacturer build). The IFC stamp is `IfcBinding.Supertype(ComponentFamily.Timber.Class)` (`IfcBuiltElement`/`NOTDEFINED` — a glulam serves as beam, column, or brace; the leaf is an occurrence refinement); the member-vs-panel WIRE shape (`IfcMaterialProfileSet` vs `IfcMaterialLayerSet`) is the projector's profile-arm read, so this page carries no IFC-shape column. `DetailLane.None` — a timber row carries no bag (the lane/detail totality law `Component.Of` proves); the EC5 design vocabulary (form, grade) is CALLER-carried into `TimberDesign.Capacity` exactly as the masonry `f'_m` and the RC grade are, never re-minted onto the `Component`.
+- Boundary: `TimberGrade` is the `SEED_ROW_LAW` `AUTHORED` owner of the published EN strength, stiffness, density, and species columns; `Hardwood` selects the EN 1995-1-2 charring band, while `OrthotropicLaw` and `ToProperties` lower the same grade scalars through `LinearElasticOrthotropicMaterial` and `MaterialPropertySet.OfOrthotropic`. `SectionProfile.Layered` carries each physical ply thickness plus the bounded `PlyRole.Longitudinal`/`PlyRole.Transverse` discriminant, and `ComponentFamily.Timber.Admits` rejects every other known `PlyRole`. `IfcBinding.Supertype(ComponentFamily.Timber.Class)` leaves beam/column/brace occurrence refinement outside Materials, `DetailLane.None` forbids a duplicate bag, and `TimberSeed.Resolve` restores the authored form/grade axes by the same `ComponentId` minted during seeding.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ---------------------------------------------------------------------
+using System.Collections.Frozen;                     // FrozenDictionary — the ComponentId-keyed TimberRow join
 using System.Collections.Immutable;                  // ImmutableArray (the frozen TimberGrades roster)
-using System.Linq;                                   // Enumerable.Repeat (the uniform lamination builds), Sum selectors over Seq
 using LanguageExt;                                   // Fin, Seq, Option, Traverse
 using Rasm.Numerics;                                  // PositiveMagnitude — the kernel >0 finite magnitude atom (Rasm.Numerics, NOT Rasm.Domain)
 using Rasm.Domain;                                   // Context, Op, AcceptValidated
-using Rasm.Element;                                  // MaterialId, MaterialPropertySet (the seam Orthotropic lowering target), PropertyBag
+using Rasm.Element.Composition;                                  // MaterialId, MaterialPropertySet (the seam Orthotropic lowering target), PropertyBag
+using Rasm.Element.Properties;
 using Thinktecture;
 using UnitsNet;                                      // Pressure (the orthotropic-law moduli/strengths, coerced at the edge)
 using VividOrange.Materials;                         // LinearElasticOrthotropicMaterial, MaterialType (the along/across-grain law)
+using VividOrange.Standards.Eurocode;                // En1995 design-code identity
 using static LanguageExt.Prelude;
 
 // Seed pages share the parent namespace: the per-family owners are the collision-free TimberSeed/TimberDesign/
@@ -45,7 +47,7 @@ namespace Rasm.Materials.Component;
 // solid AND glulam only — other wood-based products 1.0, the flat-0.67 form under-checked LVL/PSL), the
 // §6.3.2 straightness imperfection β_c (solid 0.2; every engineered lamination 0.1), and the §6.1.6(2)
 // stress-redistribution k_m (0.7 rectangular solid/glulam/LVL, 1.0 other wood-based products — CLT/PSL; the
-// biaxial-interaction weight the capacity fold reads, a per-form column, never a flat const that would be
+// biaxial-interaction weight the capacity fold reads, a per-form column, never a flat constant that is
 // unconservative for PSL/CLT). A new engineered product (box beam, curved glulam) is one row, never a per-member type.
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -183,7 +185,7 @@ public static class TimberGrades {
 // sequence (PUBLISHED product data on the form's OWN lamination axis: sawn one full-depth piece, glulam its EN 14080
 // 45 mm lamellae across the DEPTH, edgewise P-grade LVL its 3 mm veneers across the WIDTH, CLT its exact manufacturer
 // ply build summing to the overall depth — a mixed 30/34/…/30 build is one row the deleted uniform-thickness layup
-// could not spell). Cross-ply forms alternate 0°/90° outer-longitudinal.
+// cannot represent). Cross-ply forms alternate 0°/90° outer-longitudinal.
 public readonly record struct TimberRow(string Designation, TimberForm Form, TimberGrade Grade, double WMm, double DMm, Seq<double> BuildMm);
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
@@ -211,12 +213,21 @@ public static class TimberSeed {
         new TimberRow("timber.clt-c24-5ply-150",     TimberForm.Clt,    TimberGrades.C24,    1250.0, 150.0, Seq(30.0, 30.0, 30.0, 30.0, 30.0)),
         new TimberRow("timber.clt-c24-7ply-230",     TimberForm.Clt,    TimberGrades.C24,    1250.0, 230.0, Seq(30.0, 34.0, 34.0, 34.0, 34.0, 34.0, 30.0)));
 
-    // A member is the Rectangle gross; a cross-ply form is the Layered stack — each ply role-tagged "0"/"90"
-    // outer-longitudinal (the gamma-method AND IfcMaterialLayer.Name datum) with the grade-keyed wood MaterialId.
-    // Both routes go through the arm's railed Of (the PositiveMagnitude lift + the laminate-build gate live there).
+    static readonly FrozenDictionary<ComponentId, TimberRow> Table =
+        TimberRows.ToFrozenDictionary(static row => ComponentId.Create(row.Designation), static row => row);
+
+    public static Fin<TimberRow> Resolve(Component component, Op key) =>
+        Table.TryGetValue(component.Designation, out TimberRow row)
+            ? Fin.Succ(row)
+            : ComponentFault.Family(key, $"<timber-row-unregistered:{component.Designation.Value}>");
+
+    // A member is the Rectangle gross; a cross-ply form is the Layered stack — each ply the bounded
+    // PlyRole.Longitudinal/Transverse row (the gamma-method discriminant AND the IfcMaterialLayer orientation datum)
+    // outer-longitudinal, with the grade-keyed wood MaterialId. Both routes go through the arm's railed Of (the
+    // PositiveMagnitude lift + the laminate-build gate live there).
     static Fin<SectionProfile> ProfileOf(TimberRow row, Op key) =>
         row.Form.CrossPly
-            ? row.BuildMm.Map((mm, index) => (Mm: mm, Role: (index & 1) == 0 ? "0" : "90"))
+            ? row.BuildMm.Map((mm, index) => (Mm: mm, Role: (index & 1) == 0 ? PlyRole.Longitudinal : PlyRole.Transverse))
                 .Traverse(ply => key.AcceptValidated<PositiveMagnitude>(candidate: ply.Mm)
                     .Map(t => new Ply(row.Grade.Substance, t, ply.Role))).As()
                 .Bind(plies => SectionProfile.Layered.Of(plies, overallMm: row.DMm, widthMm: row.WMm, key))
@@ -244,17 +255,17 @@ public static class TimberSeed {
 
 ## [03]-[TIMBER_CAPACITY]
 
-- Owner: `TimberDesign` the EN 1995-1-1 design-code operations owner — `Capacity` the ONE design-resistance projection (member-vs-panel discriminated by the profile arm), `EffectiveStiffness` the EN 1995-1-1 Annex B gamma-method kernel over role-tagged plies, `ResidualSection` the EN 1995-1-2 reduced cross-section; `TimberCapacity` the receipt (FROZEN — the `capacity#SECTION_CAPACITY` `SectionCapacity.Lift(TimberCapacity)` overload lifts it WHOLE onto `SectionCapacity.TimberEc5`).
+- Owner: `TimberDesign` the EN 1995-1-1 design-code operations owner — `Capacity` the ONE design-resistance projection (member-vs-panel discriminated by the ADMITTED form/profile correspondence), `EffectiveStiffness` the EN 1995-1-1 Annex B gamma-method kernel over role-tagged plies, `ResidualSection` the EN 1995-1-2 reduced cross-section, `ResidualStack` the EN 1995-1-2 CLT step-charring ply modality; `TimberCapacity` the receipt (FROZEN — the `capacity#SECTION_CAPACITY` `SectionCapacity.Lift(CapacityReceipt)` `CapacityReceipt.Timber` arm lifts it WHOLE onto `SectionCapacity.TimberEc5`).
 - Cases: one `TimberCapacity` across all forms — design bending `M_Rd,y` (member: `k_crit·k_h·k_mod·f_m,k·W_x/γ_M` over the RESOLVED `ComputedSection.SxMm3` with the §6.3.3 lateral-torsional `k_crit` band; panel: the gamma-method `W_eff = (EI)_eff/(E0·h/2)`), minor-axis bending `M_Rd,z` (member: `k_h(w)·k_mod·f_m,k·S_y/γ_M` over the resolved `SyMm3` — `k_h` over the WIDTH, no `k_crit`; panel: research-GATED 0.0 — the in-plane CLT verification model is unsettled, so an in-plane `Mz` demand governs loud through the capacity `GuardedRatio` law), compression `N_Rd` (§6.3.2 `k_c`-reduced over `E005`; panel over the longitudinal net area and the effective radius `i_ef = √((EI)_eff/(E0·A_0))`), shear `V_Rd` (member `k_cr`-cracked longitudinal; panel rolling-shear `f_R,v,k`), perpendicular bearing `R_90,Rd`, §6.1.8 torsion `T_Rd = k_shape·f_v,d·W_tor`, the governing `λ_rel`, the §6.1.6(2) per-form `k_m` weight, and the applied `k_mod` — a capacity is a derived projection over the resolved section or the ply stack, never a per-form check surface.
-- Entry: `public static Fin<TimberCapacity> TimberDesign.Capacity(TimberForm form, TimberGrade grade, SectionProfile profile, Option<ComputedSection> section, ServiceClass service, LoadDuration duration, double effectiveLengthMm, Op key)` — ONE entry, both modalities discriminated by INPUT SHAPE: a `Rectangle` member REQUIRES its resolved receipt (`Some` — the `component#SECTION_SOLVER` solve the catalogue section map / `graph.SectionOf` carries; a `None` member faults `ComponentFault.Section`, the deleted local `ParametricSection.Rectangle` call never re-runs here), a `Layered` panel carries `None` (unsectioned by law) and computes from its plies; a mismatched pair or a non-timber arm faults loud. `public static double EffectiveStiffness(Seq<Ply> plies, TimberGrade grade, double widthMm, double referenceSpanMm)` — the Annex B kernel (N·mm²). `public static ResidualSection TimberDesign.ResidualSection(TimberForm form, TimberGrade grade, SectionProfile profile, double exposureMinutes, int exposedSides)` — TOTAL, clamps to a ≥1 mm residual; a fire re-check calls `Capacity` over the residual rectangle at `k_mod = γ_M = 1.0`.
+- Entry: `TimberDesign.Capacity(..., double effectiveLengthMm, Op key) : Fin<TimberCapacity>` admits a finite positive length before the member/panel dispatch. `TimberDesign.ResidualSection(..., double exposureMinutes, int exposedSides, Op key) : Fin<ResidualSection>` admits a rectangular member, non-negative finite exposure, and one through four exposed faces; complete burn-through faults. `TimberDesign.ResidualStack(..., Op key) : Fin<Seq<Ply>>` admits only a cross-ply form, then folds the CLT char front through the ply stack and faults on invalid exposure or full burn-through.
 - Packages: Rasm.Numerics (project — `PositiveMagnitude`), Rasm.Domain (project — `Op`), Rasm.Materials.Component (project — `ComputedSection`/`SectionProfile`/`Ply`/`ComponentFault`), Thinktecture.Runtime.Extensions, LanguageExt.Core; the EN 1995 rules HAND-ROLLED (no .NET EC5 package exists — the SAME hand-roll the steel AISC and RC EC2 checks take), every factor a `TimberForm` column or a `TimberGrade` row read.
 - Growth: a new design check is one `TimberCapacity` column plus its arm (a notched-beam `k_v`, a load-sharing `k_sys`); a new fire route one `ResidualSection` parameter (a protected member's `t_ch` delay); a new form's factor set is its `TimberForm` row columns — never a per-form capacity surface, never a re-minted characteristic where the grade row carries it.
-- Boundary: the design strength is ALWAYS `f_k·k_mod/γ_M` (§2.4.1) — `k_mod` the `LoadDuration.KmodFor(service)` joint, `γ_M` the per-form column, `k_h` the per-form `(RefDepth, Exponent, Cap)` law (the glulam cap is 1.1 and the LVL law is §3.4 over the declared `s = 0.12` — the flat `600-vs-150 / 0.1-vs-0.2 / cap-1.3` ternaries are the deleted mis-transcription); the member bending resistance carries the §6.3.3 `k_crit` lateral-torsional band over `σ_m,crit = 0.78·b²·E_0,05/(h·l_ef)` — the SAME effective length the §6.3.2 buckling reads, so a deep unbraced glulam no longer credits full `f_m,d`; the member bending modulus is the RESOLVED `ComputedSection.SxMm3` (for a homogeneous member `(EI)_eff ≡ E0·I_gross`, so the gamma expression degrades EXACTLY to `S_x` — the member arm reads the receipt directly and the gamma kernel runs ONLY for the shear-flexible panel); the panel `(EI)_eff` is the CORRECTED Annex B sum `Σ(E0·b·t_i³/12 + γ_i·E0·A_i·z_i²)` over the LONGITUDINAL plies with `γ_i = 1/(1 + π²·E0·t_i·t̄_cross,i/(ℓ²·G_R))` — the per-ply connection efficiency over the ADJACENT transverse ply's rolling-shear slip (the deleted form multiplied `z_i²` into the γ denominator, a non-normative inflation), span-zero → `γ→0` no-composite lower bound, span-∞ → `γ→1` rigid-glued upper bound, non-uniform builds handled by cumulative-offset centroids; panel compression buckles over `i_ef = √((EI)_eff/(E0·A_0))` (the gamma-reduced wall stiffness, never the gross rectangle radius) with the §6.3.2 `k_c` over `E005` and the per-form `β_c`; panel shear reads `f_R,v,k` over the longitudinal net area (the rolling-shear screen), member shear `k_cr·(2/3)·A` longitudinal; a CLT panel in `ServiceClass.Sc3` faults `ComponentFault.Capacity` (EN 16351 — the deleted form designed exposed CLT silently); torsion is the §6.1.8 `T_Rd = k_shape·f_v,d·W_tor` over the Roark rectangular `α·h·b²` (`f_v,d` from the longitudinal `f_v,k`, never `f_R,v,k` — torsional shear flows grain-parallel), the `TorsionalNmm` column the `SectionCapacity.Lift(TimberCapacity)` overload reads onto `TimberEc5.TorsionalKnm` so `T_Ed/T_Rd` folds against a real resistance; the `ResidualSection` char depth is `d_ef = β_n·t + k₀·7 mm` per exposed FACE with `β_n = form.BetaN(grade)` (species-resolved) and `k₀ = min(t/20, 1)` the §4.2.2 zero-strength ramp, faces accruing bottom → both sides → top (three sides the classic beam, four the column — never `sides + 1` faces and never a 7 mm loss at zero exposure); the receipt lifts into the unified rail through `SectionCapacity.Lift(TimberCapacity)` so a timber and a steel column are checked through ONE `Check(demand)` fold differing only in the capacity case — the receipt columns are FROZEN (`BendingNmm`/`BendingMinorNmm`/`CompressionN`/`ShearN`/`BearingPerpN`/`TorsionalNmm`/`RelativeSlenderness`/`Km`/`Kmod`); the member `BendingMinorNmm` is `k_h(w)·k_mod·f_m,k·S_y/γ_M` — `k_h` over the WIDTH (the depth in weak-axis bending), NO `k_crit` because no LTB exists about the minor axis — and the PANEL minor is research-GATED at 0.0 (the Swedish CLT Handbook §3.2.3 parallel-layer net-section model is settled, the verification-strength side is not, pending EN 1995-1-1:2025), so an in-plane panel `Mz` demand surfaces as the governing over-ratio through the capacity `GuardedRatio` law, never a silent pass.
+- Boundary: every design resistance derives from `f_k·k_mod/γ_M`; `TimberForm` owns `k_h`, `k_cr`, `β_c`, `γ_M`, and `k_m`, and `LoadDuration.KmodFor(service)` owns the duration/service joint. Members read the resolved `ComputedSection`, §6.3.3 lateral-torsional stability, weak-axis buckling, shear, bearing, and torsion; panels read the longitudinal plies for Annex B `(EI)_eff`, gamma-reduced buckling, rolling shear, and out-of-plane bending, the in-plane minor axis research-GATED at 0.0. `ResidualSection` and `ResidualStack` preserve the same geometry currencies under EN 1995-1-2 charring, and the `SectionCapacity.Lift(CapacityReceipt)` `CapacityReceipt.Timber` arm carries the frozen receipt onto the unified demand rail.
 
 ```csharp signature
 // --- [MODELS] ------------------------------------------------------------------------------
-// The EN 1995-1-1 design-resistance receipt — FROZEN: the capacity#SECTION_CAPACITY SectionCapacity.Lift(TimberCapacity)
-// overload lifts these nine columns WHOLE onto SectionCapacity.TimberEc5. SI N·mm / N.
+// The EN 1995-1-1 design-resistance receipt — FROZEN: the capacity#SECTION_CAPACITY SectionCapacity.Lift(CapacityReceipt)
+// CapacityReceipt.Timber arm lifts these nine columns WHOLE onto SectionCapacity.TimberEc5. SI N·mm / N.
 public readonly record struct TimberCapacity(
     double BendingNmm,           // M_Rd,y = k_crit·k_h·k_mod·f_m,k·W / γ_M (W = Sx member with the §6.3.3 k_crit band; W_eff panel)
     double BendingMinorNmm,      // M_Rd,z member: k_h(w)·k_mod·f_m,k·Sy / γ_M — no k_crit (no minor-axis LTB); panel 0.0, research-gated
@@ -268,28 +279,34 @@ public readonly record struct TimberCapacity(
 
 // The EN 1995-1-2 reduced cross-section after d_ef = β_n·t + k₀·d₀ per exposed FACE (β_n species-resolved; d₀ = 7 mm
 // with the §4.2.2 k₀ = min(t/20, 1) ramp — zero exposure loses zero section); a fire Capacity re-runs over the
-// residual rectangle at k_mod = γ_M = 1.0. TOTAL — clamps to a ≥1 mm residual.
+// residual rectangle at kmod = gammaM = 1.0; complete burn-through is a capacity fault.
 public readonly record struct ResidualSection(PositiveMagnitude ResidualWidthMm, PositiveMagnitude ResidualDepthMm, double CharDepthMm);
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 // The EN 1995-1-1 design projection. HAND-ROLLED (no .NET EC5 package); every factor is a TimberForm column or a
 // TimberGrade row read; the member section is the RESOLVED SectionSolver receipt, never a local solve.
 public static class TimberDesign {
-    // ONE entry, modality by input shape: (Rectangle, Some cs) member · (Layered, None) panel; a mismatched pair
-    // or a non-timber arm faults — the family admission (Rectangle|Layered) and the Sectioned pin make the two
-    // legal pairs the only reachable ones from catalogue rows.
+    public static readonly En1995 Standard = new();
+
+    // ONE entry, modality by input shape — and the form/profile CORRESPONDENCE is admitted, never caller discipline:
+    // the joint pattern over (profile, section, form.CrossPly) makes (Rectangle, Some cs, non-cross-ply) the ONLY
+    // route to Member and (Layered, None, cross-ply) the ONLY route to Panel; a cross-ply form on a Rectangle, a
+    // sawn form on a Layered stack, or a non-timber arm faults ComponentFault.Family at the door.
     public static Fin<TimberCapacity> Capacity(
         TimberForm form, TimberGrade grade, SectionProfile profile, Option<ComputedSection> section,
         ServiceClass service, LoadDuration duration, double effectiveLengthMm, Op key) =>
-        (profile, section.Case) switch {
-            (SectionProfile.Rectangle r, ComputedSection cs) => Fin.Succ(Member(form, grade, r, cs, service, duration, effectiveLengthMm)),
-            (SectionProfile.Rectangle, _)                    => Fin.Fail<TimberCapacity>(ComponentFault.Section(key, "<timber-member-section-unresolved>")),
-            (SectionProfile.Layered, null) when service.KdefFor(form).IsNone   // the ONE permission law — the EN 16351 CLT-in-SC3 bar is the policy row's None, never a re-spelled == Sc3
-                                                             => Fin.Fail<TimberCapacity>(ComponentFault.Capacity(key, "<clt-not-permitted-service-class-3>")),
-            (SectionProfile.Layered l, null)                 => Fin.Succ(Panel(form, grade, l, service, duration, effectiveLengthMm)),
-            (SectionProfile.Layered, _)                      => Fin.Fail<TimberCapacity>(ComponentFault.Section(key, "<timber-panel-carries-no-section>")),
-            _                                                => Fin.Fail<TimberCapacity>(ComponentFault.Family(key, $"<timber-profile-unsupported:{profile.GetType().Name}>")),
-        };
+        from length in guard(double.IsFinite(effectiveLengthMm) && effectiveLengthMm > 0.0,
+            ComponentFault.Capacity(key, $"<timber-effective-length-rejected:{effectiveLengthMm:R}>"))
+        from capacity in (profile, section.Case, form.CrossPly) switch {
+            (SectionProfile.Rectangle r, ComputedSection cs, false) => Fin.Succ(Member(form, grade, r, cs, service, duration, effectiveLengthMm)),
+            (SectionProfile.Rectangle, null, false)                 => Fin.Fail<TimberCapacity>(ComponentFault.Section(key, "<timber-member-section-unresolved>")),
+            (SectionProfile.Layered, null, true) when service.KdefFor(form).IsNone   // the ONE permission law — the EN 16351 CLT-in-SC3 bar is the policy row's None, never a re-spelled == Sc3
+                                                                    => Fin.Fail<TimberCapacity>(ComponentFault.Capacity(key, "<clt-not-permitted-service-class-3>")),
+            (SectionProfile.Layered l, null, true)                  => Fin.Succ(Panel(form, grade, l, service, duration, effectiveLengthMm)),
+            (SectionProfile.Layered, ComputedSection, true)         => Fin.Fail<TimberCapacity>(ComponentFault.Section(key, "<timber-panel-carries-no-section>")),
+            _                                                       => Fin.Fail<TimberCapacity>(ComponentFault.Family(key, $"<timber-form-profile-mismatch:{form.Key}:{profile.GetType().Name}>")),
+        }
+        select capacity;
 
     // Member: the resolved twenty-column receipt supplies W = SxMm3 (for a homogeneous member (EI)_eff ≡ E0·I, so
     // W_eff degrades EXACTLY to Sx), area, and the derived weak-axis GoverningRadiusMm; k_h/k_cr/β_c/k_m/γ_M are form
@@ -315,21 +332,20 @@ public static class TimberDesign {
 
     // Panel: the gamma-method (EI)_eff drives flexure (W_eff = (EI)_eff/(E0·h/2)), the longitudinal net area and
     // the EFFECTIVE radius i_ef = √((EI)_eff/(E0·A_0)) drive wall buckling (the gamma-reduced stiffness, never the
-    // gross rectangle), the rolling-shear f_R,v,k screens shear over the longitudinal area. The minor column is
-    // RESEARCH-GATED at 0.0: in-plane CLT bending resolves over the parallel-layer net section (Swedish CLT
-    // Handbook §3.2.3) but the verification-strength side (f_m vs the f_t/f_c edge model, k_sys) is unsettled and
-    // ETA-dependent pending EN 1995-1-1:2025 — the gated 0 makes an in-plane Mz demand surface as the governing
-    // over-ratio per the capacity GuardedRatio law, never a silent pass.
+    // gross rectangle), the rolling-shear f_R,v,k screens shear over the longitudinal area. The in-plane (minor-axis)
+    // bending resistance is research-GATED at 0.0 — the CLT in-plane verification model is unsettled — so an in-plane
+    // Mz demand governs loud through the capacity GuardedRatio law rather than passing on a provisional net-section W.
     static TimberCapacity Panel(TimberForm f, TimberGrade g, SectionProfile.Layered l, ServiceClass sc, LoadDuration ld, double lengthMm) {
         double kmod = ld.KmodFor(sc), gammaM = f.GammaM;
         double b = l.WidthMm.Value, h = l.OverallMm.Value;
-        double areaLong = b * l.Plies.Filter(static p => p.Role == "0").Sum(static p => p.ThicknessMm.Value);
+        double longitudinalThickness = l.Plies.Filter(static p => p.Role == PlyRole.Longitudinal).Sum(static p => p.ThicknessMm.Value);
+        double areaLong = b * longitudinalThickness;
         double eiEff = EffectiveStiffness(l.Plies, g, b, lengthMm);
         double iEff = areaLong > 0.0 ? Math.Sqrt(eiEff / (g.E0Mean * areaLong)) : 0.0;
         (double kc, double lambdaRel) = BucklingKc(f, g, Slenderness(lengthMm, iEff));
         return Receipt(g, kmod, gammaM,
             bendingNmm: kmod * g.Fmk * (eiEff / (g.E0Mean * h * 0.5)) / gammaM,
-            bendingMinorNmm: 0.0,
+            bendingMinorNmm: 0.0,   // research-GATED: the in-plane CLT verification model is unsettled (pending EN 1995-1-1:2025); an in-plane Mz demand governs loud through GuardedRatio
             kc, areaLong,
             shearN: kmod * g.FRvk * areaLong / gammaM,
             b, h, lambdaRel, km: f.Km);
@@ -366,8 +382,8 @@ public static class TimberDesign {
     static double Slenderness(double lengthMm, double radiusMm) =>
         lengthMm > 0.0 && radiusMm > 0.0 ? lengthMm / radiusMm : 0.0;
 
-    // EN 1995-1-1 Annex B gamma method over role-tagged, possibly NON-UNIFORM plies (N·mm²): only the "0" plies
-    // carry bending; each off-centre longitudinal ply's Steiner term is reduced by γ_i = 1/(1 + π²·E0·t_i·t̄_i/
+    // EN 1995-1-1 Annex B gamma method over role-tagged, possibly NON-UNIFORM plies (N·mm²): only the Longitudinal
+    // plies carry bending; each off-centre longitudinal ply's Steiner term is reduced by γ_i = 1/(1 + π²·E0·t_i·t̄_i/
     // (ℓ²·G_R)) with t̄_i the ADJACENT transverse ply thickness toward the panel middle (Eq B.5 slip K = G_R·b/t̄
     // — the width cancels; no z² rides the denominator). Span-zero → γ→0 (no composite); span-∞ → γ→1 (rigid);
     // a NON-POSITIVE span reads the SAME γ→0 no-composite lower bound — the prior ∞ mapping silently credited the
@@ -376,15 +392,15 @@ public static class TimberDesign {
     public static double EffectiveStiffness(Seq<Ply> plies, TimberGrade grade, double widthMm, double referenceSpanMm) {
         double depth = plies.Sum(static p => p.ThicknessMm.Value), half = depth * 0.5, e0 = grade.E0Mean;
         double span2 = referenceSpanMm > 0.0 ? referenceSpanMm * referenceSpanMm : 0.0;
-        var placed = plies.Fold(
-            (Offset: 0.0, Rows: Seq<(double T, double Z, string Role, int Index)>()),
+        Seq<(double T, double Z, PlyRole Role, int Index)> placed = plies.Fold(
+            (Offset: 0.0, Rows: Seq<(double T, double Z, PlyRole Role, int Index)>()),
             (acc, p) => (acc.Offset + p.ThicknessMm.Value,
                 acc.Rows.Add((p.ThicknessMm.Value, acc.Offset + p.ThicknessMm.Value * 0.5 - half, p.Role, acc.Rows.Count)))).Rows;
-        return placed.Filter(static row => row.Role == "0").Sum(row => {
+        return placed.Filter(static row => row.Role == PlyRole.Longitudinal).Sum(row => {
             double own = e0 * widthMm * row.T * row.T * row.T / 12.0;
             int crossAt = row.Z <= 0.0 ? row.Index + 1 : row.Index - 1;   // the adjacent transverse ply TOWARD the panel middle
             double tCross = placed
-                .Filter(other => other.Index == crossAt && other.Role == "90")
+                .Filter(other => other.Index == crossAt && other.Role == PlyRole.Transverse)
                 .Map(static other => other.T).HeadOrNone().IfNone(0.0);
             double gamma = tCross > 0.0
                 ? 1.0 / (1.0 + Math.PI * Math.PI * e0 * row.T * tCross / (span2 * grade.GRollMean))
@@ -396,23 +412,70 @@ public static class TimberDesign {
     // EN 1995-1-2 reduced cross-section: d_ef = β_n·t + k₀·7 mm removed per exposed FACE, β_n = form.BetaN(grade)
     // (species-resolved), k₀ the §4.2.2 min(t/20, 1) zero-strength-layer ramp. Faces accrue bottom -> both sides ->
     // top: 1 chars the depth once, 2 adds one width face, 3 the classic beam (both sides + bottom), 4 the fully
-    // exposed column — the deleted mapping charred sides+1 faces for 1..3 and charred at t = 0. TOTAL — clamps to
-    // ≥1 mm; the residual feeds a fire Capacity that owns its own admission.
-    public static ResidualSection ResidualSection(TimberForm form, TimberGrade grade, SectionProfile profile, double exposureMinutes, int exposedSides) {
-        double t = Math.Max(0.0, exposureMinutes);
+    // exposed column. Invalid exposure and complete burn-through rail instead of manufacturing a residual section.
+    public static Fin<ResidualSection> ResidualSection(TimberForm form, TimberGrade grade, SectionProfile profile, double exposureMinutes, int exposedSides, Op key) {
+        if (!double.IsFinite(exposureMinutes) || exposureMinutes < 0.0 || exposedSides is < 1 or > 4 || profile is not SectionProfile.Rectangle) {
+            return ComponentFault.Capacity(key, $"<timber-fire-input-rejected:{exposureMinutes:R}:{exposedSides}:{profile.GetType().Name}>");
+        }
+        double t = exposureMinutes;
         double charMm = form.BetaN(grade) * t + 7.0 * Math.Min(t / 20.0, 1.0);
         (double w, double d) = (profile.GrossRectangleMm.WidthMm.Value, profile.GrossRectangleMm.DepthMm.Value);
-        double residW = Math.Max(1.0, w - Math.Min(2, Math.Max(0, exposedSides - 1)) * charMm);
-        double residD = Math.Max(1.0, d - ((exposedSides >= 1 ? 1 : 0) + (exposedSides >= 4 ? 1 : 0)) * charMm);
-        return new ResidualSection(PositiveMagnitude.Create(residW), PositiveMagnitude.Create(residD), charMm);
+        double residW = w - Math.Min(2, exposedSides - 1) * charMm;
+        double residD = d - (1 + (exposedSides == 4 ? 1 : 0)) * charMm;
+        return residW > 0.0 && residD > 0.0
+            ? Fin.Succ(new ResidualSection(PositiveMagnitude.Create(residW), PositiveMagnitude.Create(residD), charMm))
+            : ComponentFault.Capacity(key, $"<timber-member-burn-through:{exposureMinutes:R}min>");
     }
+
+    // EN 1995-1-2 CLT STEP charring — the Layered fire modality beside the rectangle route: the char front marches
+    // from the EXPOSED first ply at β_n within the first lamella; each bond-line FALL-OFF (the charred lamella
+    // delaminates and its insulating char layer is lost) doubles the rate to 2·β_n for the next lamella's first
+    // 25 mm, then β_n resumes; the §4.2.2 k₀·7 mm zero-strength layer rides the final front. The residual stack
+    // re-enters EffectiveStiffness/the panel Capacity at k_mod = γ_M = 1.0 — the surviving lamella set is stated
+    // ply by ply, never smeared over a gross rectangle. Full burn-through rails loud.
+    public static Fin<Seq<Ply>> ResidualStack(TimberForm form, TimberGrade grade, Seq<Ply> plies, double exposureMinutes, Op key) {
+        if (!double.IsFinite(exposureMinutes) || exposureMinutes < 0.0 || plies.IsEmpty) {
+            return ComponentFault.Capacity(key, $"<clt-fire-input-rejected:{exposureMinutes:R}>");
+        }
+        // The form/profile correspondence gate: STEP charring with bond-line fall-off is the cross-ply lamella
+        // modality — a non-cross-ply form routes ResidualSection, never a smeared stack march.
+        if (!form.CrossPly) {
+            return ComponentFault.Capacity(key, $"<clt-fire-form-not-cross-ply:{form.Key}>");
+        }
+        double beta = form.BetaN(grade);
+        (double Beta, double Minutes, double Depth, bool FallOff, bool Done) front = plies.Fold(
+            (Beta: beta, Minutes: exposureMinutes, Depth: 0.0, FallOff: false, Done: false),
+            static (acc, ply) => {
+                if (acc.Done) { return acc; }
+                double thickness = ply.ThicknessMm.Value;
+                double fast = acc.FallOff ? Math.Min(25.0, thickness) : 0.0;
+                double burn = fast / (2.0 * acc.Beta) + (thickness - fast) / acc.Beta;
+                return acc.Minutes < burn
+                    ? (acc.Beta, 0.0, acc.Depth + (acc.Minutes <= fast / (2.0 * acc.Beta) ? acc.Minutes * 2.0 * acc.Beta : fast + (acc.Minutes - fast / (2.0 * acc.Beta)) * acc.Beta), acc.FallOff, true)
+                    : (acc.Beta, acc.Minutes - burn, acc.Depth + thickness, true, false);
+            });
+        Seq<Ply> residual = Trim(plies, front.Depth + 7.0 * Math.Min(exposureMinutes / 20.0, 1.0));
+        return residual.IsEmpty
+            ? Fin.Fail<Seq<Ply>>(ComponentFault.Capacity(key, $"<clt-burn-through:{exposureMinutes:R}min>"))
+            : Fin.Succ(residual);
+    }
+
+    // Consumes the effective char depth from the exposed end of the stack: fully charred plies drop, the partial
+    // ply survives trimmed (its role and material intact), the remainder passes through untouched.
+    static Seq<Ply> Trim(Seq<Ply> plies, double depthMm) =>
+        plies.Fold((Cut: depthMm, Rest: Seq<Ply>()), static (acc, p) =>
+            acc.Cut >= p.ThicknessMm.Value ? (acc.Cut - p.ThicknessMm.Value, acc.Rest)
+            : acc.Cut > 0.0 ? (0.0, acc.Rest.Add(new Ply(p.Material, PositiveMagnitude.Create(p.ThicknessMm.Value - acc.Cut), p.Role)))
+            : (0.0, acc.Rest.Add(p))).Rest;
 }
 ```
 
 ## [04]-[RESEARCH]
 
-- [TIMBER_GRADE_DATA]: REALIZED — the `TimberGrade` frozen row table carries the FULL EN 14080/338/14374 characteristic strength-AND-stiffness vector verbatim (PUBLISHED: `E_90,g,mean = 300` for every glulam class including the combined gl24c/gl28c — the MEAN modulus, never the 250 fractile; C24 `f_t,0,k = 14.5`; D40 the dense-hardwood vector — `f_c,90,k = 8.3` the hardwood bearing band, `E_0,05 = 10900` the `0.84·E_0` hardwood fractile, `E_90 = 860`/`G = 810`, `ρ_k = 550` — the prior softwood-band `f_c,90,k = 2.9`/`E_0,05 = 9400` row was a mixed-edition mis-transcription) plus the `Hardwood` species column the EN 1995-1-2 charring rate discriminates on. `VividOrange.Materials` ships NO timber factory (`[FLOOR_SCOPE_GATE]` — EN factories are concrete/steel/rebar only), so the row table is the AUTHORED registered-class owner under `SEED_ROW_LAW`; R1 (a future admitted timber-table producer) would re-class the columns `VENDOR` with zero shape change. A new class is one row; seed rows reference the `TimberGrades` statics directly, so an unknown grade is unrepresentable.
+- [TIMBER_GRADE_DATA]: REALIZED — the `TimberGrade` frozen row table carries the FULL EN 14080/338/14374 characteristic strength-AND-stiffness vector verbatim (PUBLISHED: `E_90,g,mean = 300` for every glulam class including the combined gl24c/gl28c — the MEAN modulus, never the 250 fractile; C24 `f_t,0,k = 14.5`; D40 the dense-hardwood vector — `f_c,90,k = 8.3` the hardwood bearing band, `E_0,05 = 10900` the `0.84·E_0` hardwood fractile, `E_90 = 860`/`G = 810`, `ρ_k = 550` — the prior softwood-band `f_c,90,k = 2.9`/`E_0,05 = 9400` row was a mixed-edition mis-transcription) plus the `Hardwood` species column the EN 1995-1-2 charring rate discriminates on. `VividOrange.Materials` ships NO timber factory (`[FLOOR_SCOPE_GATE]` — EN factories are concrete/steel/rebar only), so the row table is the AUTHORED registered-class owner under `SEED_ROW_LAW`; an admitted timber-table producer reclassifies the columns `VENDOR` with zero shape change. A new class is one row; seed rows reference the `TimberGrades` statics directly, so an unknown grade is unrepresentable.
 - [ORTHOTROPIC_STIFFNESS_LAW]: REALIZED on the grade row — `TimberGrade.OrthotropicLaw` produces the verified `LinearElasticOrthotropicMaterial(MaterialType.Timber, Pressure Ex, Sx, Ey, Sy, Ez, Sz)` (`E0,mean` parallel X, `E90,mean` perpendicular Y/Z, per-axis strengths — the INDEPENDENT-`G` material whose `G_mean ≈ E0/16` no Poisson derivation reaches), and `TimberGrade.ToProperties` lowers the SAME scalars seam-neutrally through `MaterialPropertySet.OfOrthotropic(density, e1Parallel, e2Perpendicular, shearModulus, strength1Parallel, strength2Perpendicular, thermalExpansion, key)` onto the seam `Orthotropic` structural case the projected `Material` node carries and `Rasm.Compute` reads. Both moved off the deleted `TimberSection` payload — they read ONLY grade scalars, so the grade row is their one true owner.
-- [LAYERED_GEOMETRY_AND_COMPOSITION]: REALIZED — the cross-lamination is the `SectionProfile.Layered` arm itself: per-ply thickness and the `"0"`/`"90"` `Ply.Role` are the load-bearing data (non-uniform manufacturer builds sum exactly to the overall — the 7-ply 230 is `30/34/34/34/34/34/30`, a build the deleted uniform layup could not spell), the gamma-method and the IFC layer names read the SAME rows, and the member-vs-panel IFC wire shape (`IfcMaterialProfileSet` vs `IfcMaterialLayerSet`) is the `Projection/component#COMPOSITION_SELECTION` read of the `Sectioned` pin and the `Layered` arm — `ToLayerSet`/`ToUnit`/`MaterialShapeKind` deleted, `Component` never reaches the Projection-homed `CompositionAuthor`. CLT rows pin `Sectioned: false` (the frozen `graph.SectionOf` None identity; `SectionSolver` faults a mis-flagged `Layered`), member rows `true`.
-- [EC5_DESIGN_CAPACITY]: REALIZED — `TimberDesign.Capacity` is ONE projection over the RESOLVED `ComputedSection` (member) or the ply stack (panel), modality discriminated by input shape. The per-form EC5 factors are `TimberForm` DATA columns collapsing the deleted enumerated ternaries AND correcting their mis-transcriptions: the glulam `k_h` cap is 1.1 (§3.3, not the flat 1.3), LVL takes the §3.4 law (300 mm reference, declared `s = 0.12`, cap 1.2, `k_cr = 1.0`), `β_c = 0.1` for every engineered lamination including LVL (§6.3.2), and CLT/PSL carry no `k_h` clause (`kh ≡ 1.0`). The member arm carries the §6.3.3 `k_crit` lateral-torsional band and buckles over the receipt's derived `GoverningRadiusMm` (never a re-derived `min(Rx, Ry)`); the panel arm buckles over the gamma-reduced `i_ef` (never the gross radius), gates the CLT-in-SC3 bar by READING `ServiceClass.KdefFor`'s `None` row (the one permission law, never a re-spelled `== Sc3`), and the Annex B `γ_i = 1/(1 + π²·E0·t_i·t̄_cross/(ℓ²·G_R))` drops the non-normative `z²` the deleted kernel carried, a non-positive span reading the conservative no-composite `γ→0` bound. The receipt carries BOTH bending axes: the member `BendingMinorNmm = k_h(w)·k_mod·f_m,k·S_y/γ_M` (the `TimberForm.Kh` law reused over the WIDTH, no `k_crit` — no minor-axis LTB) and the per-form §6.1.6(2) `Km` column (0.7 rectangular solid/glulam/LVL, 1.0 CLT/PSL — the per-form-column collapse pattern `kh`/`kcr`/`betaC` already ride; a flat 0.7 const is unconservative for PSL/CLT) the capacity km-swapped biaxial pair reads; the PANEL `BendingMinorNmm` is research-GATED at 0.0 (in-plane CLT bending resolves over the parallel-layer net section per the Swedish CLT Handbook §3.2.3, but the verification-strength side — `f_m` vs the `f_t`/`f_c` edge model, `k_sys` — is unsettled and ETA-dependent pending EN 1995-1-1:2025), so an in-plane panel `Mz` demand governs loud through the capacity `GuardedRatio` law rather than passing silent. The `TimberCapacity` receipt is FROZEN — `SectionCapacity.Lift(TimberCapacity)` lifts `BendingNmm/BendingMinorNmm/CompressionN/ShearN/BearingPerpN/TorsionalNmm/RelativeSlenderness/Km/Kmod` WHOLE onto `SectionCapacity.TimberEc5`, so a timber and a steel column check through the SAME `Check(demand)` fold and `T_Ed/T_Rd` folds against a real §6.1.8 resistance; the consumer-less `FlexuralKnm`/`CompressionKn` convenience props duplicating the lift conversion are the DELETED form.
+- [LAYERED_GEOMETRY_AND_COMPOSITION]: REALIZED — the cross-lamination is the `SectionProfile.Layered` arm itself: per-ply thickness and the bounded `PlyRole.Longitudinal`/`PlyRole.Transverse` rows are the load-bearing data (non-uniform manufacturer builds sum exactly to the overall — the 7-ply 230 is `30/34/34/34/34/34/30`, a build the deleted uniform layup cannot represent), the gamma method dispatches on the TYPED role row (a free string role is unrepresentable), the `IfcMaterialLayer.Name` derives at the boundary from `(Material, Role, ordinal)`, and the member-vs-panel IFC wire shape (`IfcMaterialProfileSet` vs `IfcMaterialLayerSet`) is the `Projection/component#COMPOSITION_SELECTION` read of the `Sectioned` pin and the `Layered` arm — `ToLayerSet`/`ToUnit`/`MaterialShapeKind` deleted, `Component` never reaches the Projection-homed `CompositionAuthor`. CLT rows pin `Sectioned: false` (the frozen `graph.SectionOf` None identity; `SectionSolver` faults a mis-flagged `Layered`), member rows `true`.
+- [CLT_STEP_CHARRING]: REALIZED — `ResidualStack` is the `Layered` fire modality absent from the rectangle-only `ResidualSection`: the char front time-marches the role-tagged ply stack from the exposed face at `β_n = form.BetaN(grade)`, each bond-line fall-off doubling the rate to `2·β_n` for the next lamella's first 25 mm before `β_n` resumes (the EN 1995-1-2 CLT step-charring schedule — a delaminated lamella takes its insulating char layer with it), the `k₀·7 mm` zero-strength layer riding the final depth; the residual is the SURVIVING PLY SET — the same currency `EffectiveStiffness` and the panel `Capacity` arm consume at `k_mod = γ_M = 1.0`, so residual `(EI)_eff` reflects exactly which longitudinal lamellae remain. Full burn-through rails `ComponentFault.Capacity` — a zero-ply panel never reads as a thin solid.
+- [CAPACITY_CORRESPONDENCE]: REALIZED — `Capacity` admits the form/profile CORRESPONDENCE at the door: the joint `(profile, section.Case, form.CrossPly)` pattern makes `(Rectangle, Some, false)` the only Member route and `(Layered, None, true)` the only Panel route, so a cross-ply form paired with a member rectangle (or a sawn form with a ply stack) faults `ComponentFault.Family` instead of riding caller discipline into the wrong kernel.
+- [EC5_DESIGN_CAPACITY]: REALIZED — `TimberDesign.Capacity` is ONE projection over the resolved `ComputedSection` member modality or the `Layered` ply-stack panel modality, with finite positive effective-length admission and form/profile correspondence at the door. `TimberForm` carries the EC5 `k_h`/`k_cr`/`β_c`/`γ_M`/`k_m` policy values; the member arm reads §6.3.3 `k_crit`, the receipt's `GoverningRadiusMm`, and both solved section moduli, while the panel arm reads Annex B `(EI)_eff`, gamma-reduced `i_eff`, longitudinal net area, out-of-plane effective modulus, and in-plane parallel-layer `W = t_long·b²/6`. `ServiceClass.KdefFor` owns the CLT service-class exclusion, and the `SectionCapacity.Lift(CapacityReceipt)` `CapacityReceipt.Timber` arm lifts both bending axes, compression, shear, bearing, torsion, relative slenderness, `Km`, and `Kmod` onto the unified demand-check rail.
 - [SERVICE_CREEP_AXIS]: `ServiceClass` carries the EN 1995-1-1 Table 3.2 `k_def` as FORM-JOINT data — the solid/glulam/LVL column and the EN 16351 CLT column, with `KdefFor(form)` returning `None` for the barred CLT-in-SC3 combination (the same exclusion the `Capacity` panel arm faults on). A serviceability consumer reads the creep factor off the policy row, never a flat service-only constant that smears the CLT deviation.

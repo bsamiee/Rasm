@@ -11,6 +11,9 @@ The reviewable surface is a design corpus — markdown planning pages whose embe
 - A reviewer reports and demands, never edits. Every finding carries the file, the anchor, the defect, and the stronger form demanded — precise enough that a fixer agent lands the repair without re-deriving the analysis.
 - Cross-surface coupling is standing duty: `docs/laws/topology.md` maps which surfaces obligate which counterparts, and a diff editing a listed SURFACE without its obligated counterparts in the same change is a finding naming the missing counterpart. `docs/laws/scars.md` laws are standing review duty.
 - Suppressions and gate bypasses are the finding, never the mechanics the gates already own: a true positive is architecture pressure to fix the shape, a false positive is rule pressure to refine the rule, and a suppression directive is neither.
+- A fence member whose body is a placeholder comment (`=> /* ... */ ;` or an empty braced body carrying only prose) is an illusory implementation — reject it before deeper review, because the surrounding prose asserts capability no route materializes.
+- Prose signatures byte-match their fence declarations: an Entry/Auto row whose parameter list, rail, or return drifts from the fence is a wrong contract a downstream composer builds against, and a fence signature edit ripples its prose rows in the same diff.
+- In a closed dispatch family folding one shared request shape, every column is consumed or loudly refused by every arm — an axis some arms read and others silently ignore converts an unrepresentable check into a silent pass.
 
 ## [02]-[SEVERITY]
 

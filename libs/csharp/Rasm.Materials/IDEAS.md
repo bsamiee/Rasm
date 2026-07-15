@@ -16,7 +16,12 @@ OPEN contains `ACTIVE` work and `QUEUED` next-up work in logical sequence; `BLOC
 - Ripple: <origin/counterpart card this entry pairs with across folders, as `pkg` `[SLUG]`; present only on a cross-folder ripple counterpart card>.
 -->
 
-(none)
+[CMU_SUBTYPE_CARRIER]-[BLOCKED]: Carry the CMU occupancy-derived IFC profile subtype as graph DATA the `Rasm.Bim` egress reads, never a cross-package call.
+- Capability: the `cmu#CMU_FAMILY` `CmuPhysics.IfcSubtypeOf` occupancy derivation (`IfcArbitraryProfileDefWithVoids` iff any ungrouted cell, `IfcRectangleProfileDef` solid/fully-grouted) resolves at the Bim egress without Bim referencing any AEC peer.
+- Shape: the derived subtype token rides as a seed column or realization-bag row the egress profile store reads — the derivation stays this package's, the wire spelling the carried datum.
+- Unlocks: a grouted-lattice unit emits its true voided profile on export with zero Bim→Materials coupling.
+- Anchors: `CmuPhysics.IfcSubtypeOf` landed; the realization-bag lane already carries seed-computed IFC-facing rows the Bim reader consumes.
+- Tension: blocked on the carrier ruling — the choice between a seed column and a realization-bag row spans the Materials seed law and the Bim profile-store lane; a cross-package campaign owns it.
 
 ## [02]-[CLOSED]
 

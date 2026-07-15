@@ -327,12 +327,13 @@ public static partial class EnergySimulation {
                    from build in BuildModel(graph, request, geometry, scratch)
                    from sqlPath in RunSubprocess(binary, build.IdfPath, request, scratch)
                    from facts in ReadResults(sqlPath, graph, request)
+                   from tabular in TabularFacts(sqlPath)
                    // The heavy artifact lands through the AssessmentSink egress before the scratch bracket
                    // deletes it: the eplusout.sql bytes content-address onto the Persistence blob lane
                    // (ArtifactIndexRow.Admit under ArtifactKind.Assessment) and the key rides ResultBlob.
                    from blob in sink.Store(File.ReadAllBytes(sqlPath))
                    select AssessmentResult.Of(request.Route,
-                       facts + TabularFacts(sqlPath) + build.TranslatorLog + EnergyToolchain.VersionGuard(binary, request.Policy.Toolchain),
+                       facts + tabular + build.TranslatorLog + EnergyToolchain.VersionGuard(binary, request.Policy.Toolchain),
                        GoverningEui(facts, request.Policy),
                        new Provenance("EnergySimulation", request.Route.Standard, $"EnergyPlus {request.Policy.Toolchain.ExpectedVersion}", clocks.Now),
                        Some(blob));
@@ -379,16 +380,19 @@ public static partial class EnergySimulation {
                 // The EUI intensity exists only over a POSITIVE conditioned floor area: a zero-area target set emits NO
                 // eui/source-eui fact, GoverningEui reads NaN, and the verdict bands NotApplicable — a fabricated
                 // 0.0-EUI over no denominator banded a misleading Satisfied, the deleted form.
-                Seq<AssessmentFact> intensity = floorAreaM2 > 0.0
-                    ? Seq(
-                        AssessmentFact.Measure("eui", MeasureValue.OfSi(EuiDim, Joules(siteGj) / floorAreaM2)),
-                        AssessmentFact.Measure("source-eui", MeasureValue.OfSi(EuiDim, Joules(sourceGj) / floorAreaM2)))
-                    : Seq<AssessmentFact>();
-                return Fin.Succ(Seq(
-                    AssessmentFact.Measure("total-site-energy", MeasureValue.OfSi(EnergyDim, Joules(siteGj))),
-                    AssessmentFact.Measure("total-source-energy", MeasureValue.OfSi(EnergyDim, Joules(sourceGj))),
-                    AssessmentFact.Measure("net-source-energy", MeasureValue.OfSi(EnergyDim, Joules(Lower(sql.netSourceEnergy()).IfNone(0.0)))))
-                    + intensity + EndUseFacts(sql) + ValidityFacts(sql));
+                Fin<Seq<AssessmentFact>> intensity = floorAreaM2 > 0.0
+                    ? AssessmentFact.Rows(
+                        AssessmentFact.Measure("eui", EuiDim, Joules(siteGj) / floorAreaM2),
+                        AssessmentFact.Measure("source-eui", EuiDim, Joules(sourceGj) / floorAreaM2))
+                    : FinSucc(Seq<AssessmentFact>());
+                return from head in AssessmentFact.Rows(
+                        AssessmentFact.Measure("total-site-energy", EnergyDim, Joules(siteGj)),
+                        AssessmentFact.Measure("total-source-energy", EnergyDim, Joules(sourceGj)),
+                        AssessmentFact.Measure("net-source-energy", EnergyDim, Joules(Lower(sql.netSourceEnergy()).IfNone(0.0))))
+                    from perArea in intensity
+                    from uses in EndUseFacts(sql)
+                    from validity in ValidityFacts(sql)
+                    select head + perArea + uses + validity;
             },
             None: () => Fin.Fail<Seq<AssessmentFact>>(new ComputeFault.AnalysisFailed(SolvePhase.Extraction, FailureKind.Foreign, "<energyplus-sql-no-total-site-energy>")));
     }
@@ -401,13 +405,13 @@ public static partial class EnergySimulation {
     // energy) and is the one fuel excluded from the GJ sum (getEndUse returns the category-fuel cell in GJ). The index-loop +
     // per-element `using` is the SWIG native-handle disposal boundary (the vector indexer returns a disposable handle per
     // EndUseCategoryType/EndUseFuelType) — the same marshaling exemption Vertices takes.
-    static Seq<AssessmentFact> EndUseFacts(OpenStudio.SqlFile sql) {
+    static Fin<Seq<AssessmentFact>> EndUseFacts(OpenStudio.SqlFile sql) {
         using OpenStudio.OptionalEndUses optional = sql.endUses();
-        if (!optional.is_initialized()) { return Seq<AssessmentFact>(); }
+        if (!optional.is_initialized()) { return FinSucc(Seq<AssessmentFact>()); }
         using OpenStudio.EndUses uses = optional.get();
         using OpenStudio.EndUseCategoryTypeVector categories = OpenStudio.EndUses.categories();
         using OpenStudio.EndUseFuelTypeVector fuels = OpenStudio.EndUses.fuelTypes();
-        List<AssessmentFact> facts = new(categories.Count);
+        List<Fin<AssessmentFact>> facts = new(categories.Count);
         for (int c = 0; c < categories.Count; c++) {
             using OpenStudio.EndUseCategoryType category = categories[c];
             double categoryGj = 0.0;
@@ -415,9 +419,9 @@ public static partial class EnergySimulation {
                 using OpenStudio.EndUseFuelType fuel = fuels[f];
                 if (fuel.valueName() != WaterFuel) { categoryGj += uses.getEndUse(fuel, category); }
             }
-            facts.Add(AssessmentFact.Measure($"end-use:{Slug(category.valueName())}", MeasureValue.OfSi(EnergyDim, Joules(categoryGj))));
+            facts.Add(AssessmentFact.Measure($"end-use:{Slug(category.valueName())}", EnergyDim, Joules(categoryGj)));
         }
-        return toSeq(facts);
+        return toSeq(facts).TraverseM(identity).As();
     }
 
     // The model-validity fact: the EnergyPlus annual hours actually simulated (SqlFile.hoursSimulated — the ONE hours
@@ -425,8 +429,10 @@ public static partial class EnergySimulation {
     // terminated early, so the reported energy is a partial-year artifact a downstream verdict must reject — a more
     // fundamental validity gate than any single output's absence (an absent hoursSimulated simply contributes no fact,
     // never a fabricated zero).
-    static Seq<AssessmentFact> ValidityFacts(OpenStudio.SqlFile sql) =>
-        Lower(sql.hoursSimulated()).Map(static h => HoursFact("hours-simulated", h)).ToSeq();
+    static Fin<Seq<AssessmentFact>> ValidityFacts(OpenStudio.SqlFile sql) =>
+        Lower(sql.hoursSimulated()).Match(
+            Some: static h => HoursFact("hours-simulated", h).Map(static fact => Seq(fact)),
+            None: static () => FinSucc(Seq<AssessmentFact>()));
 
     // The eplusout.sql TABULAR reader — the centrally-pinned Microsoft.Data.Sqlite over the bracketed scratch
     // artifact, read-only and never pooled so the connection neither mutates nor locks the solver's file nor
@@ -436,13 +442,14 @@ public static partial class EnergySimulation {
     // ONE tabular query family, parameterized on (report, table, row, column), never a per-metric method
     // ladder; a missing/malformed table stays (Extraction, Foreign)-railed as an absent fact, never a
     // fabricated zero.
-    static Seq<AssessmentFact> TabularFacts(string sqlPath) {
+    static Fin<Seq<AssessmentFact>> TabularFacts(string sqlPath) {
         using Microsoft.Data.Sqlite.SqliteConnection connection = new($"Data Source={sqlPath};Mode=ReadOnly;Pooling=False;");
         connection.Open();
         return Seq(
                 ("time-setpoint-not-met-heating", "AnnualBuildingUtilityPerformanceSummary", "Comfort and Setpoint Not Met Summary", "Time Setpoint Not Met During Occupied Heating"),
                 ("time-setpoint-not-met-cooling", "AnnualBuildingUtilityPerformanceSummary", "Comfort and Setpoint Not Met Summary", "Time Setpoint Not Met During Occupied Cooling"))
-            .Choose(row => Tabular(connection, row.Item2, row.Item3, row.Item4).Map(hours => HoursFact(row.Item1, hours)));
+            .Choose(row => Tabular(connection, row.Item2, row.Item3, row.Item4).Map(hours => HoursFact(row.Item1, hours)))
+            .TraverseM(identity).As();
     }
 
     static Option<double> Tabular(Microsoft.Data.Sqlite.SqliteConnection connection, string report, string table, string row) {
@@ -454,8 +461,8 @@ public static partial class EnergySimulation {
         return Optional(command.ExecuteScalar()).Bind(static value => double.TryParse($"{value}", System.Globalization.CultureInfo.InvariantCulture, out double parsed) ? Some(parsed) : None);
     }
 
-    static AssessmentFact HoursFact(string name, double hours) =>
-        AssessmentFact.Measure(name, MeasureValue.OfSi(Dimension.DurationDim, UnitsNet.Duration.FromHours(hours).Seconds));
+    static Fin<AssessmentFact> HoursFact(string name, double hours) =>
+        AssessmentFact.Measure(name, Dimension.DurationDim, UnitsNet.Duration.FromHours(hours).Seconds);
 
     // The governing ratio is the SITE EUI (read back from the emitted fact, one source) against the policy target in
     // kWh.m^-2.a^-1; with NO target (or no eui fact) the ratio is double.NaN so AssessmentVerdict.FromRatio bands it
@@ -642,10 +649,11 @@ public static partial class EnergySimulation {
                     : new ComputeFault.AnalysisFailed(SolvePhase.Solve, FailureKind.Foreign, $"<pollination-run:{Tail(error.Message)}>")))
                 .Bind(static fin => fin)
                 .Bind(sqlPath => ReadResults(sqlPath, graph, request)
-                    .Bind(facts => sink.Store(File.ReadAllBytes(sqlPath))
-                        .Map(blob => AssessmentResult.Of(request.Route, facts + TabularFacts(sqlPath), GoverningEui(facts, request.Policy),
-                            new Provenance("EnergySimulation", request.Route.Standard, $"Pollination {route.Owner}/{route.Project}", clocks.Now),
-                            Some(blob)))));
+                    .Bind(facts => TabularFacts(sqlPath)
+                        .Bind(tabular => sink.Store(File.ReadAllBytes(sqlPath))
+                            .Map(blob => AssessmentResult.Of(request.Route, facts + tabular, GoverningEui(facts, request.Policy),
+                                new Provenance("EnergySimulation", request.Route.Standard, $"Pollination {route.Owner}/{route.Project}", clocks.Now),
+                                Some(blob))))));
         }
         finally { if (scratch.Length > 0) { try { Directory.Delete(scratch, recursive: true); } catch (IOException) { } } }
     }

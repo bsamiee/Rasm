@@ -166,8 +166,8 @@ public static class ViewBoundary {
 
 [SUBSCRIPTION_VALUE]:
 - Use: events, callbacks, observers, waits, notifications, and foreign lifecycle hooks.
-- Law: a subscription is the disposable detacher returned by attach, holding the exact delegate identity attach used; the callback borrows every touched handle for the whole subscription window, and detach completes before any borrowed handle can be disposed.
-- Law: the borrow taken before wiring rides every exit — a throwing attach releases the ref it took before re-raising, because the detacher that would release it never reaches the caller, so the success path alone defers release to detach.
+- Law: a subscription is the disposable detacher returned by attach, holding the exact delegate identity attach used; the callback borrows every touched handle for the whole subscription window, and detach completes before any borrowed handle is disposed.
+- Law: the borrow taken before wiring rides every exit — a throwing attach releases the ref it took before re-raising, because the detacher that releases it never reaches the caller, so the success path alone defers release to detach.
 - Law: the subscription set is the scope — reactivation constructs a fresh set, never appends to a retained one, and the set dies with the live state that owns it.
 - Exemption: the add-ref open, the throwing-attach release, the attach/detach `+=`/`-=` wiring, and the posted-callback body are the named platform-forced statement seam.
 - Reject: inline lambdas that cannot detach, finalizer-owned unsubscribe, split attach/detach owners, or host-bus deregistration assumed rather than probed.
@@ -301,6 +301,7 @@ public static class DrainBoundary {
 - Law: wire shapes stay protocol-shaped at the edge — the converter is the only site where protocol and interior schemas meet, and interior owners carry no codec attributes, serializer options, or transport objects.
 - Law: a pure owner↔DTO field rename is a generated `[Mapper]` partial with `[MapProperty]` rows, never a hand-written field-by-field projection; only a discriminant-resolving or value-transforming crossing earns the hand-written `JsonConverter<T>`, so the rename path stays a definition-time aspect and the codec path owns the irreducible transform.
 - Law: inner envelopes reject drift — duplicate keys, unknown inner members, null-token drift, and depth excess fail before admission — while outer wrappers tolerate only declared extension material; read and write depth limits differ, so a tree that writes cleanly can fail its own round-trip.
+- Law: the strict `RequiredMappingStrategy` stays strict — a member the envelope owns and a payload mapping intentionally omits is pinned `[MapperIgnoreSource]` on that mapping, declaring the exclusion where it holds so the unmapped-member build break keeps guarding every other member; relaxing the strategy to discharge one exclusion is the deleted form.
 - Reject: last-write-wins or best-effort parse for owned protocol shapes; a hand-rolled rename mapper where `[Mapper]` generates it.
 
 [CONTRACT_SURFACE]:

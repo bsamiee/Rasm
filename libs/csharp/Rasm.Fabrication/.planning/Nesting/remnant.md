@@ -30,7 +30,7 @@ using LanguageExt;
 using LanguageExt.Common;
 using NodaTime;
 using Rasm.Domain;
-using Rasm.Element;
+using Rasm.Element.Composition;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Process;
 using Rhino.Geometry;

@@ -24,9 +24,10 @@ using System.IO.Hashing;
 using System.Text;
 using GeometryGym.Ifc;
 using LanguageExt;
+using Rasm.Bim.Model;
 using NodaTime;
 using NodaTime.Text;
-using Rasm.Element;
+using Rasm.Element.Graph;
 using Thinktecture;
 using Op = Rasm.Domain.Op;                            // the kernel operation key each typed BimFault case carries
 using static LanguageExt.Prelude;
@@ -332,8 +333,8 @@ public static class ConstructionState {
         var assigned = toHashSet(network.Assignments
             .Filter(assignment => active.Contains(assignment.TaskGlobalId))
             .Bind(static assignment => assignment.ElementGlobalIds)).ToSeq();
-        return ElementSet.Query(graph, ElementQuery.Of(
-            new ElementPredicate.ByAttribute(ObjectAttribute.GlobalId, new ValueMatch.OneOf(assigned))));
+        return ElementSet.Query(graph,
+            new ElementPredicate.ByAttribute(ObjectAttribute.GlobalId, new ValueMatch.OneOf(assigned)));
     }
 }
 ```

@@ -29,7 +29,7 @@ using CSMath;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;
-using Rasm.Element;
+using Rasm.Element.Graph;
 using Rasm.Fabrication.Process;
 using Rasm.Meshing;
 using Rhino.Geometry;

@@ -32,15 +32,18 @@ using LanguageExt;
 using LanguageExt.Common;
 using QuikGraph;
 using QuikGraph.Algorithms;
-using Rasm.Element;
+using Rasm.Element.Graph;
+using Rasm.Element.Projection;
+using Rasm.Element.Properties;
+using Rasm.Element.Relations;
 using Rasm.Fabrication.Fixturing;
 using Rasm.Fabrication.Geometry2D;
 using Rasm.Fabrication.Kinematics;
 using Rasm.Fabrication.Spec;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using QuantityBag = Rasm.Element.ValueBag<Rasm.Element.MeasureValue>;
-using PropertyBag = Rasm.Element.ValueBag<Rasm.Element.PropertyValue>;
+using QuantityBag = Rasm.Element.Properties.ValueBag<Rasm.Element.Properties.MeasureValue>;
+using PropertyBag = Rasm.Element.Properties.ValueBag<Rasm.Element.Properties.PropertyValue>;
 
 namespace Rasm.Fabrication.Process;
 
@@ -474,16 +477,16 @@ public sealed class FabricationProjector(Seq<(NodeId Element, FabricationResult 
         placement: static (state, nest) => nest.Remnants
             .Traverse(static remnant => ArcAlgebra.ArcArea(remnant.Boundary).Map(static area => Math.Abs(area)))
             .As()
-            .Map(areas => Author(state.Element, new Node.QuantitySet(NodeId.Content(ReadOnlySpan<byte>.Empty),
+            .Bind(areas => MeasureValue.OfSi(Dimension.Create(2, 0, 0, 0, 0, 0, 0), areas.Sum() / 1e6)
+                .Map(waste => Author(state.Element, new Node.QuantitySet(NodeId.Content(ReadOnlySpan<byte>.Empty),
                     QuantityBag.Empty("Rasm_Fabrication_Nest", InheritanceMode.OccurrenceWins, PropertySource.Derived)
-                        .With(PropertyName.Create("NestWasteArea"), MeasureValue.OfSi(
-                            Dimension.Create(2, 0, 0, 0, 0, 0, 0), areas.Sum() / 1e6))), state.Tolerance)
+                        .With(PropertyName.Create("NestWasteArea"), waste)), state.Tolerance)
                 .Merge(Properties(state.Element, "Rasm_Fabrication_Placement", Seq(
                     ("Parts", nest.Parts.Count.ToString(CultureInfo.InvariantCulture)),
                     ("Utilization", Decimal(nest.Utilization)),
                     ("Unplaced", nest.Unplaced.ToString(CultureInfo.InvariantCulture)),
                     ("Remnants", nest.Remnants.Count.ToString(CultureInfo.InvariantCulture)),
-                    ("Key", Key(nest.Key))), state.Tolerance))),
+                    ("Key", Key(nest.Key))), state.Tolerance)))),
         additiveResult: static (state, additive) => Fin.Succ(Properties(state.Element, "Rasm_Fabrication_Additive", Seq(
             ("Moves", additive.Moves.Count.ToString(CultureInfo.InvariantCulture)),
             ("Layers", additive.Layers.ToString(CultureInfo.InvariantCulture)),

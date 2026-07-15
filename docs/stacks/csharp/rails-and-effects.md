@@ -102,7 +102,7 @@ public static Fin<Seq<Receipt>> TraverseRaw(Seq<string> raw) =>
 
 [PRELUDE_GUARDS]:
 - Use: `guard`/`guardnot` in a query expression as the idiomatic ingress for boolean invariants at pipeline head; the payload-free `guard<F>(bool)` form yields any alternative-capable carrier.
-- Law: `guard` returns `Guard<Error,Unit>` bound through per-rail `SelectMany`, never a return type — it always exits as the destination monad.
+- Law: `guard` returns `Guard<Error,Unit>` bound through per-rail `SelectMany`, never a return type — it always exits as the destination monad; `Guard` carries no functor `Map`, so in method position the rail projection — `guard(...).ToFin()` — precedes any combinator, and a bare `guard(...)` arm or `guard(...).Map(...)` is a compile fiction.
 - Use: `Optional(x).ToFin(error)` at a nullable boundary to admit absence as failure.
 - Reject: boolean success/failure factories that duplicate `guard(...).ToFin()`.
 

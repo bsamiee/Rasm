@@ -29,7 +29,12 @@ using LanguageExt.Traits;
 using NodaTime;
 using Rasm;
 using Rasm.Domain;
-using Rasm.Element;
+using Rasm.Element.Classification;
+using Rasm.Element.Composition;
+using Rasm.Element.Graph;
+using Rasm.Element.Projection;
+using Rasm.Element.Properties;
+using Rasm.Element.Relations;
 using static LanguageExt.Prelude;
 using Df = DragonflySchema;      // boundary-only aliases: the DTO namespaces never escape this file
 using Hb = HoneybeeSchema;
@@ -211,10 +216,11 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                 None: () => { warnings++; return Success<Error, Option<(Node.Material, MaterialLayer)>>(None); },
                 Some: m => MaterialPropertySet
                     .OfThermal(m.Conductivity, m.SpecificHeat, m.Conductivity / m.Thickness, 1.0, ctx.Key)
+                    .Bind(thermal => MeasureValue.OfSi(Dimension.LengthDim, m.Thickness).Map(thickness => (thermal, thickness)))
                     .ToValidation()
-                    .Map(thermal => Some((
-                        Mint(m.Identifier, MaterialComposition.OfSingle(MaterialId.Create(m.Identifier)), Seq(thermal), ctx.Header.Tolerance),
-                        new MaterialLayer(MaterialId.Create(m.Identifier), MeasureValue.OfSi(Dimension.LengthDim, m.Thickness), m.Identifier)))));
+                    .Map(pair => Some((
+                        Mint(m.Identifier, MaterialComposition.OfSingle(MaterialId.Create(m.Identifier)), Seq(pair.thermal), ctx.Header.Tolerance),
+                        new MaterialLayer(MaterialId.Create(m.Identifier), pair.thickness, m.Identifier)))));
 
     // The glazing counterpart: EnergyWindowMaterialGlazing -> the seam Optical nine-fraction case ONLY — an
     // OfThermal with a fabricated specific heat is the rejected fabricated-physics form (the Compute glazing
@@ -229,10 +235,11 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                         g.VisibleTransmittance, g.VisibleReflectance, Alt(g.VisibleReflectanceBack, g.VisibleReflectance),
                         g.SolarTransmittance, g.SolarReflectance, Alt(g.SolarReflectanceBack, g.SolarReflectance),
                         g.InfraredTransmittance, g.Emissivity, g.EmissivityBack, ctx.Key)
+                    .Bind(optical => MeasureValue.OfSi(Dimension.LengthDim, g.Thickness).Map(thickness => (optical, thickness)))
                     .ToValidation()
-                    .Map(optical => Some((
-                        Mint(g.Identifier, MaterialComposition.OfSingle(MaterialId.Create(g.Identifier)), Seq(optical), ctx.Header.Tolerance),
-                        new MaterialLayer(MaterialId.Create(g.Identifier), MeasureValue.OfSi(Dimension.LengthDim, g.Thickness), g.Identifier)))));
+                    .Map(pair => Some((
+                        Mint(g.Identifier, MaterialComposition.OfSingle(MaterialId.Create(g.Identifier)), Seq(pair.optical), ctx.Header.Tolerance),
+                        new MaterialLayer(MaterialId.Create(g.Identifier), pair.thickness, g.Identifier)))));
 
     // The AnyOf<Autocalculate,double> back-reflectance sentinel resolves to the front value — the honeybee
     // autocalculate semantic, never a zero read.
@@ -263,20 +270,22 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
     Fin<GraphDelta> RaiseBuilding(EnergyLibrary library, Df.Building building, ProjectionContext ctx) {
         NodeId buildingId = NodeId.Rooted();
         var seed = GraphDelta.Empty.Put(Element(buildingId, IfcClass.Building, "", building.Identifier));
-        Fin<GraphDelta> massing = toSeq(building.UniqueStories ?? []).Fold(Fin.Succ(seed), (acc, story) => acc.Map(delta => {
+        Fin<GraphDelta> massing = toSeq(building.UniqueStories ?? []).Fold(Fin.Succ(seed), (acc, story) => acc.Bind(delta => {
             NodeId storeyId = NodeId.Rooted();
-            var d = delta.Put(Element(storeyId, IfcClass.BuildingStorey, "", story.Identifier))
-                .Link(new Relationship.Compose(buildingId, storeyId, ComposeKind.Aggregate));
-            d = story.Multiplier > 1 ? Assigned(d, storeyId, MultiplierEvidence(story.Multiplier, ctx.Header.Tolerance)) : d;
-            return toSeq(story.Room2ds ?? []).Fold(d, (dd, room) => {
+            Fin<GraphDelta> d = Fin.Succ(delta.Put(Element(storeyId, IfcClass.BuildingStorey, "", story.Identifier))
+                .Link(new Relationship.Compose(buildingId, storeyId, ComposeKind.Aggregate)));
+            d = story.Multiplier > 1
+                ? d.Bind(x => MultiplierEvidence(story.Multiplier, ctx.Header.Tolerance).Map(evidence => Assigned(x, storeyId, evidence)))
+                : d;
+            return toSeq(story.Room2ds ?? []).Fold(d, (dd, room) => dd.Bind(x => {
                 NodeId spaceId = NodeId.Rooted();
                 spaces++;
                 UInt128 plate = Footprint(PlateRing(room), ctx.Header.Tolerance);
-                return Assigned(
-                    dd.Put(Element(spaceId, IfcClass.Space, "", room.Identifier, plate))
+                return HeightQuantity(room.FloorToCeilingHeight, ctx.Header.Tolerance).Map(height => Assigned(
+                    x.Put(Element(spaceId, IfcClass.Space, "", room.Identifier, plate))
                         .Link(new Relationship.Compose(storeyId, spaceId, ComposeKind.Contain)),
-                    spaceId, HeightQuantity(room.FloorToCeilingHeight, ctx.Header.Tolerance));
-            });
+                    spaceId, height));
+            }));
         }));
         return toSeq(building.Room3ds ?? []).Fold(massing,
             (acc, room) => acc.Bind(delta => RaiseRoom(library, room, ctx, Some(buildingId)).Map(delta.Merge)));
@@ -287,23 +296,26 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
 
     // The dragonfly space height landed as the SAME Qto_SpaceBaseQuantities Height quantity the derive's massing
     // lower reads back — a DFJSON round trip that fell to the 3.0 m policy default was the deleted round-trip hole.
-    static Node.QuantitySet HeightQuantity(double floorToCeiling, double tolerance) {
-        QuantityBag bag = new("Qto_SpaceBaseQuantities",
-            Map((PropertyName.Create("Height"), MeasureValue.OfSi(Dimension.LengthDim, floorToCeiling))),
-            InheritanceMode.OccurrenceWins, PropertySource.Import);
-        Node.QuantitySet probe = new(NodeId.Content([]), bag);
-        return new(NodeId.Content(probe.ToCanonicalBytes(tolerance).Span), bag);
-    }
+    // Fin: a non-finite source height rails the seam OfSi finite gate rather than entering the canonical bytes.
+    static Fin<Node.QuantitySet> HeightQuantity(double floorToCeiling, double tolerance) =>
+        MeasureValue.OfSi(Dimension.LengthDim, floorToCeiling).Map(height => {
+            QuantityBag bag = new("Qto_SpaceBaseQuantities",
+                Map((PropertyName.Create("Height"), height)),
+                InheritanceMode.OccurrenceWins, PropertySource.Import);
+            Node.QuantitySet probe = new(NodeId.Content([]), bag);
+            return new Node.QuantitySet(NodeId.Content(probe.ToCanonicalBytes(tolerance).Span), bag);
+        });
 
     // Story.Multiplier is SOURCE data (unique stories x vertical repeat) — dropped, the derive re-emits
     // multiplier-1 stories and the energy model under-counts by the repeat factor; read back onto Story(multiplier:).
-    static Node.PropertySet MultiplierEvidence(int multiplier, double tolerance) {
-        PropertyBag bag = new("Pset_EnergyModel",
-            Map((StoryMultiplier, (PropertyValue)new PropertyValue.Measure(MeasureValue.OfSi(Dimension.Dimensionless, multiplier)))),
-            InheritanceMode.OccurrenceWins, PropertySource.Import);
-        Node.PropertySet probe = new(NodeId.Content([]), bag);
-        return new(NodeId.Content(probe.ToCanonicalBytes(tolerance).Span), bag);
-    }
+    static Fin<Node.PropertySet> MultiplierEvidence(int multiplier, double tolerance) =>
+        MeasureValue.OfSi(Dimension.Dimensionless, multiplier).Map(value => {
+            PropertyBag bag = new("Pset_EnergyModel",
+                Map((StoryMultiplier, (PropertyValue)new PropertyValue.Measure(value))),
+                InheritanceMode.OccurrenceWins, PropertySource.Import);
+            Node.PropertySet probe = new(NodeId.Content([]), bag);
+            return new Node.PropertySet(NodeId.Content(probe.ToCanonicalBytes(tolerance).Span), bag);
+        });
 
     // --- [OSM_ARM]
     // Three decode arms, one raise fold. loadModelFromString upgrades any older .osm in-string; the gbXML/IDF
@@ -443,9 +455,9 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
             using Os.StandardOpaqueMaterial m = opaque.get();
             return MaterialPropertySet
                 .OfThermal(m.conductivity(), m.specificHeat(), m.conductivity() / m.thickness(), 1.0, ctx.Key)
-                .Map(thermal => (
+                .Bind(thermal => MeasureValue.OfSi(Dimension.LengthDim, m.thickness()).Map(thickness => (
                     Mint(m.nameString(), MaterialComposition.OfSingle(MaterialId.Create(m.nameString())), Seq(thermal), ctx.Header.Tolerance),
-                    new MaterialLayer(MaterialId.Create(m.nameString()), MeasureValue.OfSi(Dimension.LengthDim, m.thickness()), m.nameString())))
+                    new MaterialLayer(MaterialId.Create(m.nameString()), thickness, m.nameString()))))
                 .ToOption();
         }
         using Os.OptionalStandardGlazing glass = model.getStandardGlazing(element.handle());
@@ -459,9 +471,9 @@ public sealed class EnergyProjector(EnergyDoc doc) : IElementProjection {
                 vt, rvf, rvb, st, rsf, rsb,
                 g.infraredTransmittanceatNormalIncidence(), g.frontSideInfraredHemisphericalEmissivity(), g.backSideInfraredHemisphericalEmissivity(), ctx.Key))
             .As().Bind(static fin => fin.ToOption())
-            .Map(optical => (
+            .Bind(optical => MeasureValue.OfSi(Dimension.LengthDim, g.thickness()).ToOption().Map(thickness => (
                 Mint(g.nameString(), MaterialComposition.OfSingle(MaterialId.Create(g.nameString())), Seq(optical), ctx.Header.Tolerance),
-                new MaterialLayer(MaterialId.Create(g.nameString()), MeasureValue.OfSi(Dimension.LengthDim, g.thickness()), g.nameString())));
+                new MaterialLayer(MaterialId.Create(g.nameString()), thickness, g.nameString()))));
     }
 
     // Read a SWIG OptionalDouble onto the K-KINDED Option slot and DISPOSE the native handle (the getter's optional

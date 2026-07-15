@@ -26,7 +26,8 @@ using System.Text.Json.Serialization;
 using LanguageExt;                             // Fin, Option, Seq, HashMap, Try — the projection and capture rails
 using MessagePack;
 using MessagePack.Resolvers;
-using Rasm.Element;                            // MaterialId (seam identity), AppearanceSummary + its seam-owned .Of content-key factory
+using Rasm.Element.Composition;      // MaterialId (seam identity)
+using Rasm.Element.Graph;            // AppearanceSummary + its seam-owned .Of content-key factory
 using Rasm.Materials.Appearance;               // Provenance, CaptureMethod — the acquisition receipt the wire projects
 using Rasm.Materials.Appearance.Bsdf;          // RgbSpectrum — the lobe reflectance carrier the wire color fields read
 using Rasm.Materials.Appearance.Surface;       // OpenPbrSurface, SubsurfaceRadius source paths, ConductorMetal

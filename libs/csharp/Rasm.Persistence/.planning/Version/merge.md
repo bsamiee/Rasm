@@ -28,7 +28,9 @@ using Generator.Equals;
 using LanguageExt;
 using Microsoft.AspNetCore.JsonPatch.SystemTextJson;
 using NodaTime;
-using Rasm.Element;
+using Rasm.Element.Graph;
+using Rasm.Element.Projection;
+using Rasm.Element.Relations;
 using Rasm.Persistence.Element;                    // ElementJson.Options — the ONE codec STJ converter graph
 using System.IO.Hashing;
 using Thinktecture;

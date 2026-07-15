@@ -138,7 +138,7 @@ The instance and module indexed maps take their lambda arguments in OPPOSITE ord
 
 [RAIL_TOPOLOGY]:
 - one result rail: domain operations return `Fin<A>`; `Fin.Succ`/`Fin.Fail` are the only success/failure spellings, and `Error` (usually a domain `Fault` record deriving it) is the only failure payload
-- accumulation is a mode switch, not a second rail: independent gates lift `.ToValidation`, fan in through the tuple `.Apply(...)`, and exit `.ToFin` — `Validation<Error, A>` exists exactly between those two conversions
+- accumulation is a mode switch, not a second rail: independent gates lift `.ToValidation`, fan in through the tuple `.Apply(...)`, and exit `.ToFin` — `Validation<Error, A>` exists exactly between those two conversions; every tuple leg must be K-KINDED (`K<Validation<Error>, A>`) because the tuple `Apply` extensions bind only on `(K<F,A>, …)` receivers — a concrete-`Validation` tuple neither infers nor converts at the extension receiver, so gate helpers declare the K return and `.As()` re-anchors after the join
 - deferral tiers: `Try.lift(...).Run()` traps a throwing boundary into `Fin<A>` synchronously; `Eff`/`IO` defer the same shape for composed/async execution and land on `Fin<A>` at `Run()` — the tier is chosen by WHEN the effect runs, never by which failure type it carries
 - `Guard<Error, Unit>` is the predicate form: `guard(condition, error).ToFin()` replaces `condition ? Succ: Fail` ternaries at admission gates
 - `Match` argument order is per-rail law: `Fin.Match(Succ, Fail)` but `Validation.Match(Fail, Succ)` — named lambdas (`Succ:`, `Fail:`) make the transposition impossible
@@ -157,7 +157,7 @@ The instance and module indexed maps take their lambda arguments in OPPOSITE ord
 [STACK]:
 - boundary trap → rail: `Try.lift(() => hostCall()).Run()` is the one spelling that moves a throwing host/native call onto `Fin<A>`; catching and re-wrapping by hand is the deleted form
 - null-gate: `Optional(candidate).ToFin(error)` admits a nullable in one expression — `candidate is null ? Fin.Fail...: Fin.Succ...` is its re-derivation
-- accumulate-then-exit: `(gateA.ToValidation(), gateB.ToValidation()).Apply(static (a, b) => shape(a, b)).As().ToFin()` reports every failed gate in one verdict, then rejoins the short-circuit rail
+- accumulate-then-exit: K-kinded slots (`static K<Validation<Error>, A> GateA(...)`) fan in through `(GateA(...), GateB(...)).Apply(static (a, b) => shape(a, b)).As().ToFin()`, reporting every failed gate in one verdict before rejoining the short-circuit rail — a `(x.ToValidation(), y.ToValidation())` concrete tuple does not bind the receiver, so the `.ToValidation()` lift lands inside the K-returning slot helper
 - enumerate-and-lift: `source.AsIterable().ToSeq().Traverse(item => Gate(item)).As()` gates every element and inverts to `Fin<Seq<A>>` — index-aware bodies use the instance `Map((value, index) =>...)` before the traverse
 - alternatives: `Fin`'s `operator \|` takes the first success (fallback chains); `Validation`'s `operator \|` accumulates — pick by whether the failures must survive
 

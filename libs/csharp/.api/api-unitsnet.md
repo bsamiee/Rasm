@@ -260,14 +260,15 @@ Each row binds one `QuantityInfo.Name` to its `BaseUnit` and physical concern. `
 |  [26]   | `Quantity.GetUnitInfo(Enum)`                                                                     | unit metadata lookup        |
 |  [27]   | `Quantity.GetQuantitiesWithBaseDimensions(BaseDimensions)`                                       | dimension-based discovery   |
 |  [28]   | `QuantityInfo.GetUnitInfoFor(BaseUnits)`                                                         | policy unit lookup          |
-|  [29]   | `QuantityInfo.UnitInfos`                                                                         | unit metadata projection    |
-|  [30]   | `QuantityInfo.BaseUnitInfo`                                                                      | base-unit projection        |
-|  [31]   | `QuantityInfo.ValueType`                                                                         | scalar-type projection      |
-|  [32]   | `QuantityInfo.BaseDimensions`                                                                    | dimension projection        |
-|  [33]   | `UnitSystem.SI`                                                                                  | SI policy                   |
-|  [34]   | `new UnitSystem(BaseUnits)`                                                                      | custom policy               |
-|  [35]   | `UnitsNetSetup.Default`                                                                          | configured service root     |
-|  [36]   | `QuantityFormatter.Format<TUnit>(IQuantity<TUnit>, string?, IFormatProvider?)`                   | explicit quantity rendering |
+|  [29]   | `QuantityInfo.GetUnitInfosFor(BaseUnits)`                                                        | policy unit enumeration     |
+|  [30]   | `QuantityInfo.UnitInfos`                                                                         | unit metadata projection    |
+|  [31]   | `QuantityInfo.BaseUnitInfo`                                                                      | base-unit projection        |
+|  [32]   | `QuantityInfo.ValueType`                                                                         | scalar-type projection      |
+|  [33]   | `QuantityInfo.BaseDimensions`                                                                    | dimension projection        |
+|  [34]   | `UnitSystem.SI`                                                                                  | SI policy                   |
+|  [35]   | `new UnitSystem(BaseUnits)`                                                                      | custom policy               |
+|  [36]   | `UnitsNetSetup.Default`                                                                          | configured service root     |
+|  [37]   | `QuantityFormatter.Format<TUnit>(IQuantity<TUnit>, string?, IFormatProvider?)`                   | explicit quantity rendering |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

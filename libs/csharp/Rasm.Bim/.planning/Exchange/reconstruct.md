@@ -27,10 +27,14 @@ using GeometryGym.Ifc;
 using LanguageExt;
 using Rasm;
 using Rasm.Domain;
-using Rasm.Element;
+using Rasm.Element.Classification;
+using Rasm.Element.Graph;
+using Rasm.Element.Projection;
+using Rasm.Element.Properties;
+using Rasm.Element.Relations;
 using Thinktecture;
 using static LanguageExt.Prelude;
-using ReleaseVersion = Rasm.Element.ReleaseVersion;   // the seam schema currency the Header carries — disambiguated
+using ReleaseVersion = Rasm.Element.Graph.ReleaseVersion;   // the seam schema currency the Header carries — disambiguated
                                                       // from GeometryGym.Ifc.ReleaseVersion (the IFC-text codec leg),
                                                       // which this projection never touches.
 
@@ -327,46 +331,51 @@ public sealed class ReconstructionProjector(Seq<SegmentedCloud> segments, Recons
             ? Fin.Fail<GraphDelta>(new BimFault.CapabilityMiss(ctx.Key, $"recon-unregistered:{segment.SegmentId}"))
             : Fin.Succ(ReconstructionPrimitive.Of(segment, context)).Bind(primitive =>
                 ElementClassifier.Classify(primitive, segment, context, ctx.Header.Schema, ctx.Key)
-                    .Map(row => Build(primitive, segment, row, ctx)));
+                    .Bind(row => Build(primitive, segment, row, ctx)));
 
-    GraphDelta Build(ReconstructionPrimitive primitive, SegmentedCloud segment, (IfcClass Class, PredefinedType Predefined) row, ProjectionContext ctx) {
-        NodeId objectId = NodeId.Rooted();
-        Node.PropertySet bag = ReconstructionPset(primitive, segment, ctx.Header.Tolerance);
-        Node.Object element = new(
-            Id:              objectId,
-            Kind:            ObjectKind.Occurrence,
-            ExternalId:      Some(ParserIfc.HashGlobalID($"recon:{primitive.Lineage.Value:X32}")),
-            Classification:  Classification.Create("ifc", row.Class.Key, "", None, None, None),
-            PredefinedType:  row.Predefined,
-            Name:            $"{row.Class.Key}-recon-{segment.SegmentId.ToString(CultureInfo.InvariantCulture)}",
-            Tag:             segment.SegmentId.ToString(CultureInfo.InvariantCulture),
-            Representations: primitive.Keys(ctx.Header.Tolerance),
-            History:         None,
-            Span:            SchemaSpan.From(ctx.Header.Schema));
-        return GraphDelta.Empty.Put(element).Put(bag)
-            .Link(new Relationship.Assign(objectId, bag.Id, AssignKind.PropertyDefinition));
-    }
+    Fin<GraphDelta> Build(ReconstructionPrimitive primitive, SegmentedCloud segment, (IfcClass Class, PredefinedType Predefined) row, ProjectionContext ctx) =>
+        ReconstructionPset(primitive, segment, ctx.Header.Tolerance).Map(bag => {
+            NodeId objectId = NodeId.Rooted();
+            Node.Object element = new(
+                Id:              objectId,
+                Kind:            ObjectKind.Occurrence,
+                ExternalId:      Some(ParserIfc.HashGlobalID($"recon:{primitive.Lineage.Value:X32}")),
+                Classification:  Classification.Create("ifc", row.Class.Key, "", None, None, None),
+                PredefinedType:  row.Predefined,
+                Name:            $"{row.Class.Key}-recon-{segment.SegmentId.ToString(CultureInfo.InvariantCulture)}",
+                Tag:             segment.SegmentId.ToString(CultureInfo.InvariantCulture),
+                Representations: primitive.Keys(ctx.Header.Tolerance),
+                History:         None,
+                Span:            SchemaSpan.From(ctx.Header.Schema));
+            return GraphDelta.Empty.Put(element).Put(bag)
+                .Link(new Relationship.Assign(objectId, bag.Id, AssignKind.PropertyDefinition));
+        });
 
     // The typed Pset_Reconstruction bag NODE: the fit evidence as PropertyValue/MeasureValue, never the retired stringly
     // PropertyBinding; PropertySource.Derived because the rows are computed fit evidence (the seam ValueBag 4-column
     // shape — SetName/Values/Inheritance/Source). AsprsClass records the modal class the BiasOf policy keyed on, the
     // classification provenance a review reads. The non-rooted id is the kernel content hash over the bag's canonical
     // bytes (the id is EXCLUDED from ToCanonicalBytes, so the empty-probe id is overwritten) so an identical bag dedups.
-    Node.PropertySet ReconstructionPset(ReconstructionPrimitive primitive, SegmentedCloud segment, double tolerance) {
-        PropertyBag bag = new("Pset_Reconstruction", Map<PropertyName, PropertyValue>(
-            (PropertyName.Create("FitConfidence"),  new PropertyValue.Measure(MeasureValue.OfSi(Dimension.Dimensionless, primitive.Confidence.Value))),
-            (PropertyName.Create("Residual"),       new PropertyValue.Measure(MeasureValue.OfSi(Dimension.Dimensionless, segment.Residual))),
-            (PropertyName.Create("Inliers"),        new PropertyValue.Measure(MeasureValue.OfSi(Dimension.Dimensionless, segment.Inliers))),
-            (PropertyName.Create("Total"),          new PropertyValue.Measure(MeasureValue.OfSi(Dimension.Dimensionless, segment.Total))),
-            (PropertyName.Create("AsprsClass"),     new PropertyValue.Measure(MeasureValue.OfSi(Dimension.Dimensionless, segment.DominantClass))),
+    // The five fit-evidence mints ride the seam OfSi finite gate first-fault — a NaN residual rails, never hashes.
+    Fin<Node.PropertySet> ReconstructionPset(ReconstructionPrimitive primitive, SegmentedCloud segment, double tolerance) =>
+        from confidence in MeasureValue.OfSi(Dimension.Dimensionless, primitive.Confidence.Value)
+        from residual in MeasureValue.OfSi(Dimension.Dimensionless, segment.Residual)
+        from inliers in MeasureValue.OfSi(Dimension.Dimensionless, segment.Inliers)
+        from total in MeasureValue.OfSi(Dimension.Dimensionless, segment.Total)
+        from asprs in MeasureValue.OfSi(Dimension.Dimensionless, segment.DominantClass)
+        let bag = new PropertyBag("Pset_Reconstruction", Map<PropertyName, PropertyValue>(
+            (PropertyName.Create("FitConfidence"),  new PropertyValue.Measure(confidence)),
+            (PropertyName.Create("Residual"),       new PropertyValue.Measure(residual)),
+            (PropertyName.Create("Inliers"),        new PropertyValue.Measure(inliers)),
+            (PropertyName.Create("Total"),          new PropertyValue.Measure(total)),
+            (PropertyName.Create("AsprsClass"),     new PropertyValue.Measure(asprs)),
             (PropertyName.Create("NeedsReview"),    new PropertyValue.Boolean(primitive.Confidence.IsBelow(context.ConfidenceFloor))),
             (PropertyName.Create("PrimitiveShape"), new PropertyValue.Enumerated(Seq(primitive.Shape.Key), PrimitiveShape.Items.AsIterable().Map(static s => s.Key).ToSeq())),
             (PropertyName.Create("SourceSegment"),  new PropertyValue.Text(segment.SegmentId.ToString(CultureInfo.InvariantCulture))),
             (PropertyName.Create("SourceCloud"),    new PropertyValue.Text(primitive.Lineage.Value.ToString("X32", CultureInfo.InvariantCulture)))),
-            InheritanceMode.OccurrenceWins, PropertySource.Derived);
-        Node.PropertySet probe = new(NodeId.Content([]), bag);
-        return probe with { Id = NodeId.Content(probe.ToCanonicalBytes(tolerance).Span) };
-    }
+            InheritanceMode.OccurrenceWins, PropertySource.Derived)
+        let probe = new Node.PropertySet(NodeId.Content([]), bag)
+        select probe with { Id = NodeId.Content(probe.ToCanonicalBytes(tolerance).Span) };
 }
 ```
 
@@ -391,7 +400,11 @@ using LASzip.Net;
 using MathNet.Numerics.LinearAlgebra;
 using NodaTime;
 using Rasm.Domain;
-using Rasm.Element;
+using Rasm.Element.Classification;
+using Rasm.Element.Graph;
+using Rasm.Element.Projection;
+using Rasm.Element.Properties;
+using Rasm.Element.Relations;
 using Themis.Las;
 using Thinktecture;
 using static LanguageExt.Prelude;

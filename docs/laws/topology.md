@@ -15,5 +15,6 @@ The coupling map: editing a `[SURFACE]` obligates its `[OBLIGATED_COUNTERPARTS]`
 |  [07]   | `.config/dotnet-tools.json` tool row  | `tools/assay` decompile rails                    | manifest tools are assay runtime deps        |
 |  [08]   | workflow codex-lane dispatch shape    | `workflow-creator` + `codex` lane references     | the skill owns the canon; land there first   |
 |  [09]   | folder `.api/` catalog member         | planning fences citing the member                | fences prove spelling, accessibility, arity  |
+|  [10]   | planning-fence seam member            | every foreign fence composing the member         | no compiler exists; the sweep is the build   |
 
-The central manifests are `Directory.Packages.props` (whose row also obligates the consuming `.csproj`), `pyproject.toml`, and `pnpm-workspace.yaml`.
+The central manifests are `Directory.Packages.props` (whose row also obligates the consuming `.csproj`), `pyproject.toml`, and `pnpm-workspace.yaml`. A composing fence binds the seam member's current landed declaration — spelling, accessibility, arity, rail shape, and owning namespace with its prelude `using` — never name presence, so a member edit on any of those axes sweeps every composing fence repo-wide in the same change.

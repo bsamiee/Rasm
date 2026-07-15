@@ -160,11 +160,11 @@ public static partial class LifecycleAssessment {
                 from composition in graph.CompositionOf(id).ToFin((Error)new ComputeFault.AssessmentInputMissing($"<carbon-element-missing-composition:{id.Value}>"))
                 from geometry in graph.TakeoffOf(id)
                 from lifecycle in AssemblyAggregator.AggregateEnvironmental(composition, Resolver(graph), Seq<PlyQuantity>(), geometry)
-                select (Facts: state.Facts
-                        .Add(DomainMeasure($"{id.Value}/whole-life-gwp", lifecycle.WholeLifeGwpKgCo2e, "kgCO2e"))
-                        .Add(DomainMeasure($"{id.Value}/embodied-carbon-intensity", lifecycle.EmbodiedCarbonIntensityKgCo2eM2, "kgCO2e/m²"))
-                        .Add(AssessmentFact.Ratio($"{id.Value}/recycled-content", lifecycle.RecycledContentFraction))
-                        + StageFacts(id, lifecycle.StageGwp),
+                from whole in DomainMeasure($"{id.Value}/whole-life-gwp", lifecycle.WholeLifeGwpKgCo2e, "kgCO2e")
+                from intensity in DomainMeasure($"{id.Value}/embodied-carbon-intensity", lifecycle.EmbodiedCarbonIntensityKgCo2eM2, "kgCO2e/m²")
+                from recycled in AssessmentFact.Ratio($"{id.Value}/recycled-content", lifecycle.RecycledContentFraction)
+                from stages in StageFacts(id, lifecycle.StageGwp)
+                select (Facts: state.Facts.Add(whole).Add(intensity).Add(recycled) + stages,
                     Total: state.Total + lifecycle.WholeLifeGwpKgCo2e)))
             .Map(state => AssessmentResult.Of(request.Route, state.Facts,
                 request.Query.TargetKgCo2e > 0.0 ? state.Total / request.Query.TargetKgCo2e : double.NaN,
@@ -293,17 +293,17 @@ public static partial class LifecycleAssessment {
     // un-declared indicator row zeroed (an EC3/openEPD declaration is carbon-only, the seam's partial-EPD invariant), so
     // this ingress never re-spells the offset arithmetic the seam owns; a future EC3 method exposing the full EN 15804+A2
     // indicator set passes its matrix to OfEnvironmental directly, bypassing the carbon-row convenience.
-    static Seq<AssessmentFact> StageFacts(NodeId id, ImmutableArray<double> stageGwp) =>
-        LifecycleStage.Items.ToSeq().Map(stage => DomainMeasure($"{id.Value}/gwp-{stage.Module}", stageGwp[stage.Index], "kgCO2e"));
+    static Fin<Seq<AssessmentFact>> StageFacts(NodeId id, ImmutableArray<double> stageGwp) =>
+        LifecycleStage.Items.ToSeq().TraverseM(stage => DomainMeasure($"{id.Value}/gwp-{stage.Module}", stageGwp[stage.Index], "kgCO2e")).As();
 
     // GWP and in-place cost are DOMAIN-BASIS scalars (kgCO2e, kgCO2e/m², a currency code), NOT UnitsNet quantities — a
     // dimensionless MeasureValue carrying the domain unit label, never the abbreviation-resolving MeasureValue.Of (which
     // would reject kgCO2e). The fact name carries the semantic; the label carries the basis the wire consumer reads flat.
-    // The seam MeasureValue is the 4-arg (QuantityType, Dimension, Si, CanonicalUnit) record: a domain scalar carries the
-    // Scalar dimension-anonymous QuantityType (the MeasureValue.Zero identity) so the kgCO2e label rides CanonicalUnit
-    // while the Type/Dimension keep it untyped-but-dimensionless — never a QTO accessor false-match, never the phantom 3-arg ctor.
-    static AssessmentFact DomainMeasure(string name, double si, string unit) =>
-        AssessmentFact.Measure(name, new MeasureValue(QuantityType.Scalar, Dimension.Dimensionless, si, unit));
+    // The mint is the seam's LABELED registry-less OfSi (the record ctor is private): the Scalar QuantityType keeps the
+    // value untyped-but-dimensionless (never a QTO accessor false-match) while the kgCO2e label rides CanonicalUnit,
+    // Fin because a NaN aggregate rails at the seam finite gate rather than entering the fact stream.
+    static Fin<AssessmentFact> DomainMeasure(string name, double si, string unit) =>
+        MeasureValue.OfSi(QuantityType.Scalar, Dimension.Dimensionless, si, unit).Map(value => AssessmentFact.Measure(name, value));
 }
 
 // The element geometric takeoff the GWP/cost folds distribute per ply — a Compute-owned ElementGraph extension reading
@@ -364,10 +364,10 @@ public static partial class LifecycleAssessment {
                 from _ in cost.Currency.Key == request.Currency
                     ? Fin.Succ(unit)
                     : Fin.Fail<Unit>((Error)new ComputeFault.AssessmentInputMissing($"<cost-currency-mismatch:{cost.Currency.Key}<>{request.Currency}>"))
-                select (Facts: state.Facts
-                        .Add(DomainMeasure($"{id.Value}/supply-total", cost.SupplyTotal, cost.Currency.Key))
-                        .Add(DomainMeasure($"{id.Value}/install-total", cost.InstallTotal, cost.Currency.Key))
-                        .Add(DomainMeasure($"{id.Value}/in-place-total", cost.TotalInPlace, cost.Currency.Key)),
+                from supply in DomainMeasure($"{id.Value}/supply-total", cost.SupplyTotal, cost.Currency.Key)
+                from install in DomainMeasure($"{id.Value}/install-total", cost.InstallTotal, cost.Currency.Key)
+                from inPlace in DomainMeasure($"{id.Value}/in-place-total", cost.TotalInPlace, cost.Currency.Key)
+                select (Facts: state.Facts.Add(supply).Add(install).Add(inPlace),
                     InPlace: state.InPlace + cost.TotalInPlace)))
             .Map(state => AssessmentResult.Of(request.Route, state.Facts, double.NaN,
                 new Provenance("LifecycleAssessment", request.Route.Standard, "n/a", clocks.Now)));

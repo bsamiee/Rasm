@@ -28,7 +28,11 @@ using System.Text.Json.Serialization;
 using Generator.Equals;
 using LanguageExt;
 using Rasm;
-using Rasm.Element;
+using Rasm.Element.Classification;
+using Rasm.Element.Graph;
+using Rasm.Element.Projection;
+using Rasm.Element.Properties;
+using Rasm.Element.Relations;
 using Thinktecture;
 using Thinktecture.Text.Json.Serialization;
 using static LanguageExt.Prelude;
@@ -284,7 +288,11 @@ public sealed record ModelDiff(Seq<ElementChange> Changes, int UnchangedCount) {
 // --- [RUNTIME_PRELUDE] --------------------------------------------------------------------
 using LanguageExt;
 using NodaTime;
-using Rasm.Element;
+using Rasm.Element.Classification;
+using Rasm.Element.Graph;
+using Rasm.Element.Projection;
+using Rasm.Element.Properties;
+using Rasm.Element.Relations;
 using static LanguageExt.Prelude;
 
 namespace Rasm.Bim;

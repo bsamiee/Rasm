@@ -27,7 +27,8 @@ using LanguageExt;
 using NodaTime;
 using Rasm;
 using Rasm.Domain;
-using Rasm.Element;
+using Rasm.Element.Graph;
+using Rasm.Element.Projection;
 using Thinktecture;
 using static LanguageExt.Prelude;
 
@@ -119,7 +120,8 @@ public static class EnergyExchange {
             var projector = new EnergyProjector(r.Source);
             return EnergyProjector.Serves(r.Source.Format)
                 ? ProjectionAssembly.Assemble(
-                        Seq<IElementProjection>(projector), Seq<IGraphConstraint>(new IfcLegality()), r.Seed, r.Ctx)
+                        ProjectionSuite.Of(Seq<IElementProjection>(projector), Seq<IGraphConstraint>(new IfcLegality())),
+                        r.Seed, r.Ctx)
                     .Map(result => (EnergyOutcome)new EnergyOutcome.Raised(
                         result.Graph, result.Delta, projector.Footprints, projector.Receipt(r.Ctx.At)))
                 : Fin.Fail<EnergyOutcome>(new BimFault.CodecReject(r.Ctx.Key, $"energy-form-miss:{r.Source.Format.Key}"));

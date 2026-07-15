@@ -25,7 +25,7 @@ Wire posture: HOST-LOCAL. `FabricationFault` rides the `Fin<T>` rail every fabri
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------------------------------------------------------
 using LanguageExt;
 using LanguageExt.Common;
-using Rasm.Element;
+using Rasm.Element.Projection;
 using Rasm.Fabrication.Additive;
 using Rasm.Fabrication.Fixturing;
 using Rasm.Fabrication.Joining;

@@ -24,9 +24,9 @@ using LanguageExt;
 using LanguageExt.Common;            // Error — the Validation slot the applicative environmental×cost join accumulates
 using NodaTime;                      // LocalDate — the EPD validity expiry PropertyEvidence.Declaration carries
 using Rasm.Domain;                   // Op
-using Rasm.Element;                  // MaterialId, MaterialPropertySet (Environmental|Cost), Environmental.CarbonMatrix,
-                                     // LifecycleStage, ImpactCategory, Currency, MeasurementBasis, PropertyEvidence,
-                                     // Classification (the seam (system, code) value-object the classification column resolves to),
+using Rasm.Element.Classification;   // Classification — the seam value-object the classification column resolves to
+using Rasm.Element.Composition;      // MaterialId, MaterialPropertySet (Environmental|Cost), Environmental.CarbonMatrix,
+using Rasm.Element.Projection;       // LifecycleStage, ImpactCategory, Currency, MeasurementBasis, PropertyEvidence (Composition); FaultBand (Projection)
                                      // ElementFault (the seam value-admission band 2500 every lowering fault lifts on)
 using static LanguageExt.Prelude;
 
@@ -337,7 +337,7 @@ public static class SustainabilityCatalogue {
     public static Fin<Option<Classification>> Classification(MaterialId id, Op key) =>
         Rows.TryGetValue(id, out SustainabilityRow? row)
             ? row!.Classification.Match(
-                Some: c => global::Rasm.Element.Classification.Of(c.System, c.Code, key).Map(Some),
+                Some: c => global::Rasm.Element.Classification.Classification.Of(c.System, c.Code, key).Map(Some),
                 None: () => Fin.Succ(Option<Classification>.None))
             : Fin.Succ(Option<Classification>.None);
 }

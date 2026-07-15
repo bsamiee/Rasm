@@ -29,7 +29,9 @@ using LanguageExt;
 using NodaMoney;
 using NodaMoney.Context;
 using NodaMoney.Exchange;
-using Rasm.Element;
+using Rasm.Element.Composition;
+using Rasm.Element.Graph;
+using Rasm.Element.Properties;
 using Thinktecture;
 using static LanguageExt.Prelude;
 using Op = Rasm.Domain.Op;
@@ -411,10 +413,11 @@ public static class CostProjection {
     // Assign.TypeDefinition type→occurrence inheritance), so a priced occurrence reads its standardized takeoff once
     // off the deduped Type rather than the cost owner re-resolving the type bag — one Bake, never a second join.
     static Fin<MeasureValue> QuantityOf(IfcCostItem item, Seq<NodeId> priced, ElementGraph graph, Op key) =>
-        Measures(item.CostQuantities.AsIterable().ToSeq()) is { IsEmpty: false } explicitQuantities
-            ? Dominant(explicitQuantities, key)
-            : priced.TraverseM(id => graph.Bake(id, key)).As()
-                .Bind(elements => Dominant(elements.Bind(static e => e.Quantities).Bind(static b => b.Quantities.Values.ToSeq()), key));
+        Measures(item.CostQuantities.AsIterable().ToSeq(), key).Bind(explicitQuantities =>
+            explicitQuantities.IsEmpty
+                ? priced.TraverseM(id => graph.Bake(id, key)).As()
+                    .Bind(elements => Dominant(elements.Bind(static e => e.Quantities).Bind(static b => b.Quantities.Values.ToSeq()), key))
+                : Dominant(explicitQuantities, key));
 
     static readonly Seq<Dimension> PricingRank =
         Seq(Dimension.VolumeDim, Dimension.AreaDim, Dimension.LengthDim, Dimension.MassDim, Dimension.DurationDim);
@@ -422,10 +425,12 @@ public static class CostProjection {
     static Fin<MeasureValue> Dominant(Seq<MeasureValue> measures, Op key) =>
         PricingRank.Choose(d => measures.Filter(m => m.Dimension == d) is { IsEmpty: false } same ? Some(same) : None)
             .Head
-            .Match(Some: same => MeasureValue.Sum(same, key), None: () => Fin.Succ(MeasureValue.OfSi(Dimension.Dimensionless, 1d)));
+            .Match(Some: same => MeasureValue.Sum(same, key), None: () => MeasureValue.OfSi(Dimension.Dimensionless, 1d));
 
-    static Seq<MeasureValue> Measures(Seq<IfcPhysicalQuantity> quantities) =>
-        quantities.Choose(MeasureOf);
+    static Fin<Seq<MeasureValue>> Measures(Seq<IfcPhysicalQuantity> quantities, Op key) =>
+        quantities.Choose(static quantity => quantity as IfcPhysicalSimpleQuantity)
+            .TraverseM(simple => PropertyLowering.Measure(simple, simple.Database is { } db ? UnitScale.Of(db) : UnitScale.Si, key))
+            .As();
 
     // The IfcPhysicalSimpleQuantity -> seam MeasureValue decode is OWNED by Projection/semantic#VALUE_NARROWING
     // PropertyLowering.Measure (type-pattern dispatch over the six subtype value accessors LengthValue/AreaValue/
@@ -433,11 +438,6 @@ public static class CostProjection {
     // cost-schedule quantities carry the SAME mm-trap the [UNIT_COERCION] law names, resolved off the entity's
     // public Database context); the cost read COMPOSES that one Bim-internal owner — a parallel GetType().Name
     // dimension switch reading the base IfcMeasureValue accessor is the duplicate form deleted here.
-    static Option<MeasureValue> MeasureOf(IfcPhysicalQuantity? quantity) =>
-        quantity is IfcPhysicalSimpleQuantity simple
-            ? Some(PropertyLowering.Measure(simple, simple.Database is { } db ? UnitScale.Of(db) : UnitScale.Si))
-            : None;
-
     // ONE resource fold reading each IfcConstructionResource by runtime subtype onto a ConstructionResource row —
     // the ResourceKind discriminant, the BaseQuantity MeasureValue, the RAILED BaseCosts Money (a currency fault
     // lifts BimFault.CodecReject typed, never an Option-swallowed cost), the Skill/Material per modality, the
