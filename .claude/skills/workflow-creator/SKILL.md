@@ -26,7 +26,7 @@ A workflow is a runnable JavaScript orchestrator for Claude Code's `Workflow` to
 - [03]-[THROUGHPUT](references/throughput.md): concurrency economics and cross-run law.
 - [04]-[RECOVERY](references/recovery.md): resume, transplant, and reconstruction.
 - [05]-[EXTERNAL_LANES](references/codex-lanes.md): external-model lane composition — codex (gpt-5.6) work lanes, the agy (Gemini) read-only review lane.
-- [06]-[EXECUTION_STANDARD](references/execution-standard.md): the stage-prompt demand bar — hostile stance, the writer's ground-up/absorption law, reviewers as rebuilders, the mapping-lane burden-reduction contract with unit-granularity mapping, the two-lane ideation split, and the own-pass-first consumption ladder.
+- [06]-[EXECUTION_STANDARD](references/execution-standard.md): the stage-prompt demand bar — hostile stance with the floor and exemplar-seed laws, the writer's ground-up/absorption law, reviewers as rebuilders, the mapping-lane burden-reduction contract with unit-granularity mapping, the two-lane ideation split, and the own-pass-first consumption ladder.
 
 [TEMPLATES]:
 - [01]-[SKELETONS](assets/templates/): starter skeletons — fan-out, loop, pipeline, and `run-ledger.template.md`.

@@ -9,7 +9,7 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const STALL = 480000;
-const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
+const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const CODEX = true; // survey/strata + deep research lanes run on gpt-5.6-terra via the codex wrapper; false restores native lanes
 const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane (the author): the count bounds spend, the backoff buys recovery time
 const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
@@ -32,7 +32,8 @@ const LANG = {
         tiers: 'libs/csharp/.api/ (shared substrate) + the package .api/ (domain)',
         manifest: 'Directory.Packages.props (hand-edited, label-grouped; never dotnet add) + the target .csproj',
         verify:
-            'uv run python -m tools.assay api over restored assemblies (member truth, verified-local wins) + the nuget MCP (feed truth) + two ' +
+            'UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api over restored assemblies (member truth, verified-local wins; the cache prefix ' +
+            'is load-bearing in a codex sandbox, where the default uv cache sits outside the workspace) + the nuget MCP (feed truth) + two ' +
             'corroborating web sources; license gate enforced (OSS or free-for-OSS commercial; pay-tiered/seat-licensed/proprietary-gated REJECTED)',
         law:
             'the WORKSPACE_LAW strata govern placement: KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP, depending strictly upward; ' +
@@ -465,14 +466,14 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. ' +
+            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side' +
             (o.writes
-                ? 'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane writes ' +
-                  "its report and dossier as its final act — run step (3)'s verification first, and a valid report proceeds to step (4) " +
-                  'as success. Only a missing or invalid report earns ONE identical retry (a second writer over the same paths is the ' +
-                  'last resort); a failed retry with no valid report returns the error through step (4).'
-                : 'If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the error through ' +
-                  'step (4).'),
+                ? ' and writes its own report and dossier — do NOT re-dispatch (a retry mints a duplicate concurrent writer on ' +
+                  'the same paths): poll `jq -e . <report path>` with Bash every 120s for up to 40 minutes; the report appearing ' +
+                  "IS completion — proceed through step (3)'s dossier check to step (4). Only a NON-timeout error retries the " +
+                  'identical call ONCE.'
+                : ' but its product is lost to this wrapper — retry the identical call ONCE, as with any other error.') +
+            ' If the retry errors, skip step (3) and return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         // writes lanes author both the JSON report (final act) and the markdown dossier; the wrapper only verifies both landed.
         'TASK:\n\n' +

@@ -12,12 +12,14 @@ description: >-
     workflow, writing a `.claude/agents/` definition, designing a fan-out or review pipeline,
     or when a delegation stalls, over-prompts for permission, or returns weak results.
     Authoring runnable workflow scripts belongs to workflow-creator; gpt-5.6 offload belongs
-    to the codex skill and Gemini offload to agy; harness configuration belongs to harness-config.
+    to the codex skill and Gemini offload to agy; harness configuration belongs to harness-steering.
 ---
 
 # [AGENT_DISPATCH]
 
 Dispatch is three decisions taken in order: placement — which execution surface holds the work; contract — what the worker receives and what it returns; topology — how many workers run and how their results flow back.
+
+Official platform facts riding any dispatch — prompting surfaces, model behavior, memory, limits, official values — resolve live, never from recall: anything Claude routes through the claudeCodeDocs MCP (`mcp__claudeCodeDocs__search_claude_code_docs`, `mcp__claudeCodeDocs__query_docs_filesystem_claude_code_docs`), anything OpenAI or Codex through the openaiDeveloperDocs MCP (`mcp__openaiDeveloperDocs__search_openai_docs`, `mcp__openaiDeveloperDocs__fetch_openai_doc`, `mcp__openaiDeveloperDocs__list_openai_docs`, `mcp__openaiDeveloperDocs__list_api_endpoints`, `mcp__openaiDeveloperDocs__get_openapi_spec`).
 
 ## [01]-[ROUTING]
 
@@ -73,5 +75,5 @@ Workers run in the background by default and drop to the foreground only when th
 - Offload to gpt-5.6 (terra workhorse, sol flagship) through the `codex` MCP tool or `codex exec` belongs to the codex skill; this skill's placement table names the trigger.
 - Hook construction for `SubagentStart`, `SubagentStop`, `TeammateIdle`, and task gates belongs to hooks-builder; this skill names where a gate pays for itself.
 - Recurring machine work — launchd rows and the signed webhook inbox — belongs to the estate machine owner; the placement table names when work leaves agent surfaces entirely.
-- Memory files, rules, settings, model and effort defaults, and headless lanes belong to harness-config; a subagent definition's frontmatter stays here.
-- A delegation smell, orchestration error, or superior pattern surfaced mid-run is codified into its owning skill — codex for offload mechanics, workflow-creator for script shapes, this skill for placement and contract law, harness-config for settings and hooks — in the same session, then propagated byte-identical to every project, reviewer configs included; a lesson left as session knowledge is a regression.
+- Memory files, rules, settings, model and effort defaults, and headless lanes belong to harness-steering; a subagent definition's frontmatter stays here.
+- A delegation smell, orchestration error, or superior pattern surfaced mid-run is codified into its owning skill — codex for offload mechanics, workflow-creator for script shapes, this skill for placement and contract law, harness-steering for settings and hooks — in the same session, then propagated byte-identical to every project, reviewer configs included; a lesson left as session knowledge is a regression.

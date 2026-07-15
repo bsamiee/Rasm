@@ -23,8 +23,7 @@ const IMPL_FAN = 3; // max implement agents fanned per folder, and only over dis
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the no-shrinkage progress gate (no remaining shrinkage -> stop) is the real bound
-const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
-const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
+const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const ROOT = 'libs/typescript';
 const SHARED_API = 'libs/typescript/.api';
 const CENTRAL = 'pnpm-workspace.yaml';
@@ -384,8 +383,9 @@ const LAW = [
         'shapes, surfaces-and-dispatch, rails-and-effects, services-and-layers, concurrency, streams, boundaries — author TypeScript as dense, ' +
         'type-safe, and rich as that bar admits; the doctrine is the FLOOR the work pushes past, never the ceiling. READ every page and conform exactly. ' +
         'Cite ONLY real members of admitted ' +
-        'packages, cross-checked against the published types in node_modules; verify a member via `uv run python -m tools.assay api` over the ' +
-        'node_modules declarations — and when assay is unavailable (it is under concurrent construction), the published `.d.ts` read directly, ' +
+        'packages, cross-checked against the published types in node_modules; verify a member via `UV_CACHE_DIR=.cache/uv uv run python -m ' +
+        'tools.assay api` over the node_modules declarations (the cache prefix is load-bearing in a codex sandbox, where the default uv cache sits ' +
+        'outside the workspace) — and when assay is blocked (a read-only sandbox), the published `.d.ts` read directly, ' +
         'BOTH `.api` tiers, and Context7/exa/tavily against the official package docs are the verification rail, never memory.',
     'This is IMPLEMENT, not the in-isolation api-stacking rebuild: realize the area SPECIFIC open IDEAS/TASKLOG cards into deep design-page FENCES. ' +
         'A FENCE is a markdown fenced code block inside a `.planning` design page — the work product itself, NEVER a `.ts`/`.tsx` source file. SCOPE ' +
@@ -428,14 +428,14 @@ const CARD = [
         "`libs/python`, `libs/typescript/.planning`, `libs/.planning` — outside this TypeScript-only run's language rail; land your half stating the " +
         'wire contract, and the card stays open unless it is complete on your half alone).',
     'PROBE FREELY (nothing gates probing): EVERY agent in EVERY phase may — and should — probe to verify reality at any time, for ANY card or design ' +
-        'decision, not only `[BLOCKED]` ones — read the published types in `node_modules` and/or `uv run python -m tools.assay api` over the ' +
-        'node_modules declarations to confirm any member or type (assay unavailable: the direct `.d.ts` read + both `.api` tiers + Context7/exa/' +
+        'decision, not only `[BLOCKED]` ones — read the published types in `node_modules` and/or `UV_CACHE_DIR=.cache/uv uv run python -m ' +
+        'tools.assay api` over the node_modules declarations to confirm any member or type (assay unavailable: the direct `.d.ts` read + both `.api` tiers + Context7/exa/' +
         'tavily own the proof); Rhino WIP (never Rhino 8) via the rhino-mcp skill or tools/rhino-bridge if a live ' +
         'host fact is needed. A `[BLOCKED]` card is REALIZED this turn whenever a probe resolves its blocker OR its gating work is in scope (a ' +
         'sibling-area contract resolves at the seam); a blocker is genuinely legitimate ONLY when it depends on work outside this run.',
     'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): do the folder-local parts NOW — add the package to the ' +
-        'correct group in the target `README.md` and author the target `.api/<package>.md` from the published types via `uv run python -m ' +
-        'tools.assay api` (or the package `.d.ts` in node_modules plus Context7/exa/tavily docs when assay is unavailable). The central ' +
+        'correct group in the target `README.md` and author the target `.api/<package>.md` from the published types via `UV_CACHE_DIR=.cache/uv ' +
+        'uv run python -m tools.assay api` (or the package `.d.ts` in node_modules plus Context7/exa/tavily docs when assay is unavailable). The central ' +
         '`' +
         CENTRAL +
         "` catalog and the owning manifest's `catalog:` row (`libs/typescript/package.json` or the root `package.json`) have exactly " +
@@ -675,14 +675,13 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. ' +
+            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side' +
             (o.writes
-                ? 'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane writes ' +
-                  "its report as its final act — run step (3)'s verification first, and a valid report proceeds to step (4) as success. " +
-                  'Only a missing or invalid report earns ONE identical retry (a second writer over the same pages is the last resort); ' +
-                  'a failed retry with no valid report returns the error through step (4).'
-                : 'If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the error through ' +
-                  'step (4).'),
+                ? ' and writes its own report — do NOT re-dispatch (a retry mints a duplicate concurrent writer on the same ' +
+                  'files): poll `jq -e . <report path>` with Bash every 120s for up to 40 minutes; the report appearing IS ' +
+                  'completion — proceed to step (4) from its content. Only a NON-timeout error retries the identical call ONCE.'
+                : ' but its product is lost to this wrapper — retry the identical call ONCE, as with any other error.') +
+            ' If the retry errors, skip step (3) and return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         // writes lanes author their own report (final act) — the sandbox admits it; the wrapper only verifies.
         'TASK:\n\n' +
@@ -789,7 +788,7 @@ const solLane = (task, o) => {
                   model: 'sonnet',
                   effort: 'low',
                   schema: LANE_RECEIPT,
-                  stallMs: SOL_STALL,
+                  stallMs: CODEX_STALL,
               }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
             : nativeLane(task, opts)
     )
@@ -905,7 +904,7 @@ const discoverPrompt = (folder) =>
             'seam surface, so the writers reach every counterpart hot instead of cold-hunting it): {page, files: every file (the page, its cited ' +
             "catalogs, its seam counterparts) the implementer must open for this row, anchors: exact coordinates backing the row's facts per the ROW " +
             'FORM law, members: the exact verified member spellings backing underutilized, each verified against the published types in node_modules ' +
-            'and its owning `.api` catalog — verify a member via `uv run python -m tools.assay api` over the node_modules declarations (assay ' +
+            'and its owning `.api` catalog — verify a member via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` over the node_modules declarations (assay ' +
             'unavailable: the `.d.ts` directly + both `.api` tiers + Context7/exa/tavily, never memory); verified members ONLY — a member you cannot ' +
             'verify is a phantom and is NEVER listed; exact spellings and locations, never judgment wording, composed: the capability the page ' +
             'already composes, underutilized: catalog-anchored member FACTS the page does not yet compose, seams: the contextual cross-page/' +
@@ -953,8 +952,8 @@ const implementPrompt = (folder, rpt, seq, note, ownpass) =>
             '/*.md` AND the area `' +
             folder +
             '/.api/*.md` (stack them, the shared ' +
-            'Effect/Schema rails layered onto the area packages) — cross-checked against the published types in node_modules; verify a member via `uv ' +
-            'run python -m tools.assay api` (assay unavailable: the `.d.ts` directly + both `.api` tiers + Context7/exa/tavily, never memory). ' +
+            'Effect/Schema rails layered onto the area packages) — cross-checked against the published types in node_modules; verify a member via ' +
+            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` (assay unavailable: the `.d.ts` directly + both `.api` tiers + Context7/exa/tavily, never memory). ' +
             'Realize EVERY card in `order` (all tasks incl. Atomic, then the ideas) into deep fences in the `' +
             folder +
             '` design pages, in LIFECYCLE ' +
@@ -1123,7 +1122,7 @@ const redteamPrompt = (folder, seq, report, critOk, critReport, ownpass) =>
             "`'s LAST stage and the SOLE owner of its card status. For EVERY card in scope this run, re-read its " +
             'FULL body and the realized fences on CURRENT disk, then ADVERSARIALLY VERIFY — the fences are naive until they survive your attack, a prior ' +
             'pass verdict a rejected self-assessment — that they genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the published types ' +
-            '(verify a member via `uv run python -m tools.assay api`; assay unavailable — the published `.d.ts` + both `.api` tiers + ' +
+            '(verify a member via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`; assay unavailable — the published `.d.ts` + both `.api` tiers + ' +
             'Context7/exa/tavily). FINAL-remediate any weak or partial realization in place NOW, then assign each card a strength: `strong` (every ' +
             'charter clause delivered, fences transcription-complete and fully type-safe against the published types), `partial` (most delivered, a ' +
             'clause still thin), `weak` (charter not met). CLOSE only `strong` cards per the CARD CLOSURE law; a ripple card whose seam you cannot ' +
@@ -1181,7 +1180,7 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
                 pins.length
                     ? '(3) PINS: apply each reported catalog pin + `catalog:` row below exactly once, preserving the existing group/order and ' +
                       'deduping semantically identical rows; verify each package + version against the published registry (Context7/exa/tavily ' +
-                      'against the official package docs; `uv run python -m tools.assay api` over node_modules once installed) before applying; ' +
+                      'against the official package docs; `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` over node_modules once installed) before applying; ' +
                       'confirm the area README group and `.api/<package>.md` catalog landed, repairing a missing folder-local part in place: ' +
                       JSON.stringify(pins, null, 1) +
                       '.'

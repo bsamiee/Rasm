@@ -1,7 +1,7 @@
 # [CLAUDE_MANIFEST]
 
 The project is in a long-term planning phase, working strictly within design/spec-sheets, not code files. List all files in `libs/.planning` for all guidance:
-- All spec sheet docs in `libs/` are meant to be aggressively rebuilt ground-up, every pass is an opportunity to make improvements, changes in direction, and adjustments prior to code implementation. NEVER hesistate to do considerable rebuilding of content within `libs/` while all content is still being planned.
+- All spec sheet docs in `libs/` are meant to be aggressively rebuilt ground-up, every pass is an opportunity to make improvements, changes in direction, and adjustments prior to code implementation. NEVER hesitate to do considerable rebuilding of content within `libs/` while all content is still being planned.
 - Each `lib/<language>/` has an `.api/` folder, each sub-folder within a language lib has one as well; all work MUST fully stack as much external lib capabilities from BOTH altitudes where possible. External libs reduce handrolling, they ALSO enable new functionality, capabilities, as well as extending existing code capabilities, use them as guidance for ideation on new code features.
 
 ## [01]-[REQUIRED_STANDARDS]
@@ -19,7 +19,7 @@ Use the route-owned standard for the file being edited:
 |  [07]   | Mermaid fences             | `mermaid-diagramming`    |
 |  [08]   | HTML artifacts (`.html`)   | `html-studio`            |
 
-- Work in `libs/<language>/` requires a FULL reading of ALL files in the root of `docs/stacks/<langauge>/`, for csharp, the `domain/` folder is case by case.
+- Work in `libs/<language>/` requires a FULL reading of ALL files in the root of `docs/stacks/<language>/`, for csharp, the `domain/` folder is case by case.
 - `docs/laws/` is the repo-wide maintenance-law corpus, durable lessons land ONLY at the end of a session of large work when justified.
 
 [NAMING_SCHEMA]:
@@ -30,7 +30,7 @@ Use the route-owned standard for the file being edited:
 |  [02]   | `libs/python`     | `snake_case`        |
 |  [03]   | `libs/typescript` | `camelCase`         |
 
-## [03]-[IMPLEMENTATION_STANDARDS]
+## [02]-[IMPLEMENTATION_STANDARDS]
 
 [CRITICAL]:
 - [NEVER] add comments that carry task, session, subagent, review-label, proof, history, or process narration.
@@ -48,8 +48,6 @@ Use the route-owned standard for the file being edited:
 - [ALWAYS] collapse repeated mutation/status/count construction into one fact stream with slot/kind metadata when three or more buckets share construction.
 - [ALWAYS] keep typed algorithm receipts when fields carry route, status, sampling, solver, spectral, mesh, extraction, benchmark, or host evidence.
 - [ALWAYS] treat analyzer diagnostics as architecture pressure: fix true positives, refine false positives, and never use suppressions.
-
-[IMPORTANT]:
 - [ALWAYS] treat planned future consumers as real design pressure. Zero current consumers never reduces the capability bar.
 - [ALWAYS] ASSUME 10X THE COMPLEXITY/DEMANDS ON CODE, NEVER SETTLING FOR SIMPLE/NAIVE SOLUTIONS, NEVER TOLERATE SURFACE LEVEL FUNCTIONALITY. A class carrying 4 fields for a concept that admits 12+ is extended to the full concept in anticipation of all the needs NOW, not later; object proliferation is never the answer.
 - [ALWAYS] aggressively rebuild code and planning docs GROUND/ROOT-UP, tear apart any existing patterns to achieve the optimized code surface density without losing functionality; new functionality is always made as if it was there from the start, never as tacked-on/flat-code spam.
@@ -61,7 +59,7 @@ Use the route-owned standard for the file being edited:
 - [NEVER] preserve stale APIs, wrappers, aliases, or old-baseline caveats when a root-up collapse improves the system.
 - [NEVER] create operation families such as `Get`, `GetMany`, `GetBy<Key>`, `List`, or `Search` for one concept when one polymorphic operation can discriminate by input value.
 
-## [04]-[DEPENDENCY_POLICY]
+## [03]-[DEPENDENCY_POLICY]
 
 [IMPORTANT] - External libraries, manifests, and host APIs are implementation surfaces:
 - [ALWAYS] treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, project files, lockfiles, and equivalent manifests as first-class material.
@@ -76,30 +74,31 @@ Use the route-owned standard for the file being edited:
 - [NEVER] create thin wrappers that rename, forward, or partially expose external APIs without adding domain value.
 - [NEVER] encode package versions, provider caveats, or command catalogs outside the owning manifest, package charter, README, or tool owner.
 
-## [05]-[OWNER_ROUTING]
+## [04]-[OWNER_ROUTING]
 
 [IMPORTANT]:
 - [ALWAYS] resolve external library, framework, SDK, or host-API usage through `Context7` before internalizing into a canonical owner.
 - [ALWAYS] use `nuget` MCP to validate the existence of a package and newest version available.
+- [ALWAYS] open the memory index at `~/.claude/projects/-Users-bardiasamiee-Documents-99-Github-Rasm/memory/MEMORY.md` before RhinoCommon, GH2, Eto, LanguageExt, Thinktecture, or assay work — `reference_*` memories carry verified traps the `.api` catalogs omit, and dispatched agents reach them only through this route.
 - [ALWAYS] read `tests/README.md` before touching any testing surface.
 
-## [06]-[FILE_ORGANIZATION]
+## [05]-[FILE_ORGANIZATION]
 
 Section separators: language comment marker + space + `---` + bracketed UPPERCASE snake label with no internal spaces + dash fill to the established language width.
 
-```typescript
+```typescript conceptual
 // --- [TYPES] ---------------------------------------------------------------------------
 
 // --- [SUBSECTION]
 ```
 
-```python
+```python conceptual
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 # --- [SUBSECTION]
 ```
 
-```csharp
+```csharp conceptual
 // --- [SERVICES] ------------------------------------------------------------------------
 
 // --- [SUBSECTION]
@@ -137,9 +136,9 @@ Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` ->
 - [NEVER] use alias or drift labels that merely rename core categories or hide complexity: `SCHEMA`, `FUNCTIONS`, `LAYERS`, `IMPORTS`, `INTERFACES`, `ENUMS`, `DTO`, `QUERIES`, `HELPERS`, `UTILS`, `COMMON`, `MISC`.
 
 Language overlays refine the canonical order by runtime semantics:
-- [C#]: `[Union]`, `[SmartEnum]`, `[ValueObject]`, generated case families, static entries, delegate partials, validation partials, factories, and projections stay inside the declaring owner block. Preserve generated-case and smart-enum semantic order, with one generated case or static entry per physical declaration line unless a generator or runtime contract requires grouping. Static construction order inside a type is semantic when later fields derive from earlier fields. Static kernels, projectors, acceptors, and extension folds are `[OPERATIONS]` unless they own an actual dependency or service boundary. Inside a section, prefer attributes/delegates/marker types, enums/smart enums, readonly structs/records/value objects, records/classes/services, then owner-local private types when all earlier ordering constraints are equal. Inside a C# owner block, prefer generated/static dependency entries, fields/state, constructors/factories, properties, public operations, explicit boundary adapters, internal operations, then private kernels/implementation details.
+- [CSHARP]: `[Union]`, `[SmartEnum]`, `[ValueObject]`, generated case families, static entries, delegate partials, validation partials, factories, and projections stay inside the declaring owner block. Preserve generated-case and smart-enum semantic order, with one generated case or static entry per physical declaration line unless a generator or runtime contract requires grouping. Static construction order inside a type is semantic when later fields derive from earlier fields. Static kernels, projectors, acceptors, and extension folds are `[OPERATIONS]` unless they own an actual dependency or service boundary. Inside a section, prefer attributes/delegates/marker types, enums/smart enums, readonly structs/records/value objects, records/classes/services, then owner-local private types when all earlier ordering constraints are equal. Inside a C# owner block, prefer generated/static dependency entries, fields/state, constructors/factories, properties, public operations, explicit boundary adapters, internal operations, then private kernels/implementation details.
 - [PYTHON]: imports, `TYPE_CHECKING`, and import-time gates precede ordinary sections. Runtime decoders, encoders, registries, and tables follow the models/functions they inspect because module-level assignments execute immediately and runtime annotation consumers such as `msgspec` and `beartype` resolve real objects. `Annotated` validator functions may use `[BOUNDARIES]` between immutable constants and dependent aliases when the aliases must reference the real validator object.
 - [TYPESCRIPT]: side-effect/value imports preserve runtime order, and `import type`/`export type` stay explicit. Runtime schemas/classes are `[MODELS]`, `Effect.Service` owners are `[SERVICES]`, `Layer`/runtime wiring is `[COMPOSITION]`, and catalog or registry rows that reference functions/classes stay after their referenced owners.
 - [BASH]: shebang, ShellCheck directives, `set`/`shopt`, and environment/path gates are `[RUNTIME_PRELUDE]`; `readonly` values are `[CONSTANTS]`; `declare -Ar` maps are `[TABLES]`; traps, dispatch, source guards, and `_main` are late `[COMPOSITION]` or `[ENTRY]`.
 - [PO_SQL]: extensions, schemas, and search-path guards are `[RUNTIME_PRELUDE]`; domains and types are `[TYPES]`; tables, constraints, generated columns, and partitions are `[MODELS]`; functions split by service boundary or query operation; indexes, triggers, row-level security, and policies are `[COMPOSITION]`; grants and comments are late `[EXPORTS]`.
-- [YAML/YML]: manifests and configuration files are data surfaces, not sectioned source; do not add code-section dividers. Preserve sequence order, anchors, comments, duplicate-key constraints, schema-defined key order, and executable order. Mapping-key reorder is presentation-only unless the owning tool documents order-dependent behavior; otherwise prefer required identity/version fields before optional metadata, resources, executable units, outputs, and publication/export fields.
+- [YAML]: manifests and configuration files are data surfaces, not sectioned source; do not add code-section dividers. Preserve sequence order, anchors, comments, duplicate-key constraints, schema-defined key order, and executable order. Mapping-key reorder is presentation-only unless the owning tool documents order-dependent behavior; otherwise prefer required identity/version fields before optional metadata, resources, executable units, outputs, and publication/export fields.

@@ -29,7 +29,7 @@ export const meta = {
 const SLICE_SIZE = 4;
 const MAX_SLICES = 8;
 const STALL = 300000;
-const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
+const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const CODEX = true;
 
 // --- [INPUTS] --------------------------------------------------------------------------
@@ -333,8 +333,9 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
-            'error through step (4).',
+            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side but its product ' +
+            'is lost to this wrapper — retry the identical call ONCE, as with any other error. If the retry errors, skip step (3) ' +
+            'and return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' + task,
         '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +

@@ -128,6 +128,8 @@ TEACHING = frozenset({"templates", "examples", "assets"})
 PRUNED = frozenset({".git", "node_modules", ".venv", ".cache", ".direnv", "result", "dist", "coverage", ".archive", ".history"})
 # Routing is a file class: only these filenames carry file links; a relative link anywhere else is coupling.
 ROUTING_FILES = frozenset({"README.md", "SKILL.md", "CLAUDE.md", "AGENTS.md", "MEMORY.md"})
+# Instruction files weight constraints with the closed invocation-marker family; the leader is legal there and nowhere else.
+INSTRUCTION_FILES = frozenset({"CLAUDE.md", "CLAUDE.local.md", "AGENTS.md"})
 APP = App(help="Gate and format durable markdown prose.")
 ENCODER = msgspec.json.Encoder()
 
@@ -170,6 +172,8 @@ HEADER_CELL = re.compile(r"^\[[A-Z][A-Z0-9_]*\]$")
 HEADING = re.compile(r"^(?P<level>#{1,6})\s+(?P<title>.+?)\s*$")
 LIST_ITEM = re.compile(r"^(?P<indent>\s*)(?P<mark>[-+*]|\d+[.)])\s+(?P<body>\S.*)$")
 LIST_LEADER = re.compile(r"^\s*(?:[-+*]|\d+[.)])\s+\[(?:\d{2}(?:\.\d+)?(?:-[A-Z0-9_]+)?|[A-Z0-9_]+|[OX!~ ])\](?:\s+[—-]|[-:]\s*|:)")
+# The invocation-marker leader weights the imperative that follows it directly — no colon, no dash — per the formatting standard's closed family.
+INVOCATION_LEADER = re.compile(r"^\s*[-+*]\s+\[(?:ALWAYS|NEVER|IMPORTANT|CRITICAL)\]\s+\S")
 # A `- Field: value` record field answers to the earned-field law at card altitude; the entry budget binds peer bullets.
 FIELD_LINE = re.compile(r"^[A-Z][A-Za-z-]*(?: [A-Za-z-]+){0,2}: \S")
 # Hard-wrap detection: a flush-left prose line whose predecessor is also flush-left prose; structural leads are excluded.
@@ -817,12 +821,19 @@ def prose_rows(doc: Document) -> tuple[Row, ...]:
 def list_rows(doc: Document) -> tuple[Row, ...]:
     if doc.template:
         return ()
+    parts = Path(doc.path).parts
+    instruction = Path(doc.path).name in INSTRUCTION_FILES or "rules" in parts
     rows: list[Row] = []
     for entry in doc.lists:
         card = ROUTER_CARD.match(f"- {entry.text}")
         if card is not None and f"- {entry.text}" != carded(card):
             rows.append(row(doc.path, entry.line, Check.LIST_LEADER, "fail", f"router card deviates from - [NN]-[TOKEN](path): {entry.text[:50]}"))
-        elif entry.text.startswith("[") and not CHECKBOX.match(entry.text) and not LIST_LEADER.match(f"- {entry.text}"):
+        elif (
+            entry.text.startswith("[")
+            and not CHECKBOX.match(entry.text)
+            and not LIST_LEADER.match(f"- {entry.text}")
+            and not (instruction and INVOCATION_LEADER.match(f"- {entry.text}"))
+        ):
             rows.append(row(doc.path, entry.line, Check.LIST_LEADER, "fail", entry.text.split(":", 1)[0]))
         if entry.span_share < ROSTER_SPAN_SHARE and not entry.text.startswith("`") and FIELD_LINE.match(entry.text) is None:
             sentences = len(SENTENCE_END.findall(entry.prose))

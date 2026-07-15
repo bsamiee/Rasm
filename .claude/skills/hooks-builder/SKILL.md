@@ -7,7 +7,7 @@ description: >-
     injection, Stop or SubagentStop continuation, PreCompact extraction, async guardrails,
     telemetry transmitters, a Codex hooks.json or config.toml adapter, or any deterministic
     blocking and non-blocking agent control — and when porting one canonical hook body across both
-    providers. Where an instruction lives — memory, rule, setting, or hook — belongs to harness-config.
+    providers. Where an instruction lives — memory, rule, setting, or hook — belongs to harness-steering.
 ---
 
 # [HOOKS_BUILDER]

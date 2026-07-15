@@ -62,6 +62,7 @@ A review stage mid-chain (a critique between an implement and a red-team) can it
 - The NEXT Claude stage receives the fixlog as a report PATH framed as unverified prior claims ([20] handoff law), reads it in full from disk, and carries the FOLD-FORWARD DUTY: the fixlog's surviving `deferred`/`indexRows` rows are re-verified and folded into that stage's own return — the chain's terminal stage returns the unit's consolidated record, because the orchestrator cannot read the disk product itself.
 - A chain whose terminal stage dies leaves an ORPHANED fixlog: the orchestrator collects `{critReport, rtLanded}` per unit and hands orphaned report paths to the run's terminal fixer to drain — a fold-forward contract with no orphan drain silently loses every row a dead stage was carrying.
 - Write scopes stay disjoint by construction (the lane edits only its unit's pages); cross-unit needs ride the deferral rows, never a foreign edit.
+- The stage prompt orders the lane's work per item, edits landing as derived: a review lane whose read ladder (law corpus + unit pages + catalogs) exceeds the codex window compacts mid-run, and a batch fully materialized before its first edit forfeits its earliest findings — the stable law reads once first, then each page closes before the next opens (the codex skill's write-lane cadence block is the lane-side twin).
 
 ## [06]-[GEMINI_REVIEW_LANE]
 

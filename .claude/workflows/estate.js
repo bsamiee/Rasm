@@ -24,7 +24,7 @@ export const meta = {
 
 const CORE_PAGES = 4;
 const STALL = 300000;
-const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
+const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const CODEX = true; // recon lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
 const TRACKS = {
@@ -194,9 +194,11 @@ const MODEL_LAW =
     '(Bash: codex exec -s read-only --skip-git-repo-check --ignore-user-config -m gpt-5.6-terra -c model_reasoning_effort=high ' +
     '-c project_doc_max_bytes=65536 ' +
     '"<self-contained scoped question>" </dev/null 2>/dev/null — synchronous, ' +
-    'one bounded question per leg) and opus subagents (Agent tool, model opus, explicit READ-ONLY mandate; fall back to codex if Agent is unavailable). ' +
-    'Recon returns facts, locations, inventories, and verified member lists — never instructions, prescriptions, or edits; recon agents use exa/tavily, ' +
-    'the nuget MCP, Context7, uv run python -m tools.assay, and fd/rg/loc/tree.';
+    'one bounded question per leg) and opus subagents (Agent tool, model opus, explicit READ-ONLY mandate). ' +
+    'Recon returns facts, locations, inventories, and verified member lists — never instructions, prescriptions, or edits. Tooling routes each leg: ' +
+    'codex legs own repo-local facts (fd/rg/loc/tree, file reads); opus legs own exa/tavily, the nuget MCP, Context7, and uv run python -m tools.assay ' +
+    '— a read-only codex sandbox cannot run uv, so assay evidence never rides a codex leg. When the Agent tool is unavailable, codex absorbs the ' +
+    'repo-local legs and you gather the uv/MCP evidence in your own shell.';
 
 const GUARDRAILS =
     'HARD GUARDRAILS: never modify any IDEAS.md or TASKLOG.md; never redesign code-fence interiors in libs planning pages (fence comments may tighten per ' +
@@ -208,7 +210,7 @@ const ADMISSION =
     'ADMISSION PROCEDURE (any new tool/package you add): the admission lands COMPLETE in this pass — central manifest row hand-edited ' +
     '(Directory.Packages.props / pyproject.toml / pnpm-workspace.yaml catalog + package.json), consumer wiring (csproj row for C#), a folder README ' +
     'registry row, and a full .api catalog at the correct tier (language-shared tier only for 2+ consumers, folder tier otherwise, tests/<lang>/.api for ' +
-    'test-stack tooling). Gather the catalog facts through ONE delegated read-only recon agent mining verified members (assay api, installed ' +
+    'test-stack tooling). Gather the catalog facts through ONE delegated read-only opus recon subagent mining verified members (assay api, installed ' +
     'distributions, nuget MCP, type declarations); author the file yourself per the docgen api-catalog template ' +
     '(.claude/skills/docgen/templates/api-catalog.template.md); the restore/lock gate proves the admission. Surgical prose updates only — touch the rows ' +
     'the admission changes, nothing else.';
@@ -335,7 +337,9 @@ const laneLaw = (schema, o) =>
     'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
     (o.calls || 60) +
     ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
-    'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
+    'territory into one command - tool output truncates and the data is lost.\nTooling: uv-backed probes (uv run python -m ' +
+    'tools.assay ...) run prefixed UV_CACHE_DIR=.cache/uv - the default uv cache sits outside this workspace.\n' +
+    'Stop as soon as the product is complete. ' +
     'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
     'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
     'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +

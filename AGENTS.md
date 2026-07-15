@@ -4,6 +4,7 @@
 
 [REQUIRED]:
 - List all files in `docs/stacks/<language>/` for each language the task touches, sub-folders included — an awareness pass of the standards inventory, not a reading pass; an untouched language's doctrine is never loaded.
+- Open the memory index at `~/.claude/projects/-Users-bardiasamiee-Documents-99-Github-Rasm/memory/MEMORY.md` before RhinoCommon, GH2, Eto, LanguageExt, Thinktecture, or assay work — `reference_*` memories carry decompile-verified traps the `.api` catalogs omit.
 - When working on files (code or code fences in a `.md`) in a language, read `docs/stacks/<language>/README.md` as grounding and the FULL root of `docs/stacks/<language>/` before authoring, and follow every standard there; `docs/stacks/csharp/domain/` is conditional — read only the shards the work touches. Cross-language work grounds each touched language the same way.
 - `fmt <target...>` formats any file set or mixed-language tree under repo law (biome.json, pyproject.toml, .editorconfig always win); `fmt --check` is the read-only gate. `loc`/`tree` and the shell verb table are global law, not restated here.
 

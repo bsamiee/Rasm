@@ -13,7 +13,7 @@ The description is built in fixed order because truncation eats from the tail:
 
 The loader admits a `when_to_use` field appended to the description under one shared cap; the utterance and boundary clauses fold into the single description instead, so one budgeted surface carries the whole trigger and the tail-truncation law governs it undivided.
 
-Third person throughout; a voiced description breaks the selection register beside its siblings. The name is the directory name: a lowercase hyphenated noun or gerund phrase naming the deliverable, never a vague stem such as helper, utils, or tools, and never a loader's reserved words.
+Third person throughout; a voiced description breaks the selection register beside its siblings. The name is the directory name: a lowercase hyphenated noun or gerund phrase of at most 64 characters naming the deliverable, never a vague stem such as helper, utils, or tools, and never a loader's reserved words.
 
 Selection gates on task substance as well as description quality: the model consults a skill only for work it cannot readily complete unaided, so a trivial one-step request bypasses even a perfectly discriminated skill. A non-fire on a thin query is task triviality, never a starved trigger; the discriminant is repaired only when a substantive multi-step task inside the skill's own domain misses.
 

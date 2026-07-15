@@ -23,8 +23,7 @@ const IMPL_FAN = 3; // max implement agents fanned per folder, and only over dis
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the no-shrinkage progress gate (no remaining shrinkage -> stop) is the real bound
-const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
-const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
+const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const ROOT = 'libs/csharp';
 const ROOT_DIR = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute checkout root — the resolution anchor every native + codex lane pins
 const SHARED_API = 'libs/csharp/.api';
@@ -426,8 +425,9 @@ const LAW = [
         'relevant to the page concern (compute, concurrency, data-interchange, diagnostics, durability, interaction, persistence, postgres, ' +
         'resilience, runtime, transport, validation, visuals), then PUSH PAST it to the objectively strongest form the doctrine admits. READ the ' +
         'relevant shard(s) and conform exactly — a hard gate enforced by the `tools/cs-analyzer` compiled-doctrine gate (a true positive is ' +
-        'architecture pressure, fix the shape; a false positive is rule pressure, never a suppression). Cite only host/NuGet members confirmed via `uv ' +
-        'run python -m tools.assay api`' +
+        'architecture pressure, fix the shape; a false positive is rule pressure, never a suppression). Cite only host/NuGet members confirmed via ' +
+        '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` — the cache prefix is load-bearing in a codex sandbox, where the default uv ' +
+        'cache sits outside the workspace' +
         FB +
         '; back bridge claims with EvidenceCertificate + reviewed ReferenceEvidence.',
     'This is IMPLEMENT, not an untied page rebuild: realize the folder SPECIFIC open IDEAS/TASKLOG cards into deep design-page FENCES. A FENCE is a ' +
@@ -464,8 +464,9 @@ const CARD = [
         "`libs/python` — outside this C#-only run's language rail; land your half stating the wire contract, and the card stays open unless it is " +
         'complete on your half alone).',
     'PROBE FREELY (nothing gates probing): EVERY agent in EVERY phase may — and should — probe to verify reality at any time, for ANY card or design ' +
-        'decision, not only `[BLOCKED]` ones — `uv run python -m tools.assay api resolve|query` over host DLLs / NuGet to confirm any member or ' +
-        'signature; Rhino WIP (never Rhino 8) via the rhino-mcp skill or tools/rhino-bridge for live host/GH behavior; `uv run python -m tools.assay ' +
+        'decision, not only `[BLOCKED]` ones — `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api resolve|query` over host DLLs / NuGet to ' +
+        'confirm any member or signature; Rhino WIP (never Rhino 8) via the rhino-mcp skill or tools/rhino-bridge for live host/GH behavior; ' +
+        '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay ' +
         'provision check` (+ tools/assay/README.md) for a native/scientific/database/provisioning band. tools/assay is under concurrent construction: ' +
         'when an assay invocation fails, the probe obligation stands and reroutes — the `.api` catalogs, the `nuget` MCP for feed truth, ' +
         'Context7/exa/tavily for the official surface — and a blocker provable ONLY through downed assay is a legitimate out-of-run blocker, never a ' +
@@ -473,7 +474,7 @@ const CARD = [
         'is genuinely legitimate ONLY when it depends on work outside this run.',
     'PACKAGE ADMISSION (only when a card genuinely needs a not-yet-admitted package): do the folder-local parts NOW — add `<PackageReference ' +
         'Include="..."/>` WITHOUT a version to `<pkg>/<pkg>.csproj`, add the package to the correct group in `<pkg>/README.md`, and author ' +
-        '`<pkg>/.api/api-<pkg>.md` from `uv run python -m tools.assay api`' +
+        '`<pkg>/.api/api-<pkg>.md` from `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
         FB +
         '. The central repo-root `' +
         CENTRAL +
@@ -545,7 +546,7 @@ const ULTRA = [
         'package + catalog member into single dense owners woven as ONE rail (source-generated owners, `Fold` algebra, data tables), ALWAYS layering ' +
         'the universal Thinktecture/LanguageExt rails onto the domain packages, NOT flat one-shot per-API uses. Use the DEEPEST ' +
         'operator/combinator/generated surface each package itself reaches (LIBRARY_DEPTH); an admitted capability the concept admits but no owner ' +
-        'exploits is a DEFECT you close, and a cited member you cannot verify via `uv run python -m tools.assay api`' +
+        'exploits is a DEFECT you close, and a cited member you cannot verify via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
         FB +
         ' is a PHANTOM you delete or ' +
         'correct, never leave standing; reject surface-level subsets, BCL-first reflexes, and thin rename wrappers.',
@@ -727,14 +728,13 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. ' +
+            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side' +
             (o.writes
-                ? 'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane writes ' +
-                  "its report as its final act — run step (3)'s verification first, and a valid report proceeds to step (4) as success. " +
-                  'Only a missing or invalid report earns ONE identical retry (a second writer over the same pages is the last resort); ' +
-                  'a failed retry with no valid report returns the error through step (4).'
-                : 'If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the error through ' +
-                  'step (4).'),
+                ? ' and writes its own report — do NOT re-dispatch (a retry mints a duplicate concurrent writer on the same ' +
+                  'files): poll `jq -e . <report path>` with Bash every 120s for up to 40 minutes; the report appearing IS ' +
+                  'completion — proceed to step (4) from its content. Only a NON-timeout error retries the identical call ONCE.'
+                : ' but its product is lost to this wrapper — retry the identical call ONCE, as with any other error.') +
+            ' If the retry errors, skip step (3) and return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         // writes lanes author their own report (final act) — the sandbox admits it; the wrapper only verifies.
         'TASK:\n\n' +
@@ -843,7 +843,7 @@ const solLane = (task, o) => {
                   model: 'sonnet',
                   effort: 'low',
                   schema: LANE_RECEIPT,
-                  stallMs: SOL_STALL,
+                  stallMs: CODEX_STALL,
               }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
             : nativeLane(task, opts)
     )
@@ -1003,7 +1003,7 @@ const implementPrompt = (folder, seq, report, note, ownpass) =>
             '/` + `' +
             folder +
             '/.api/api-*.md`, enumerated by real listing, never memory — plus ' +
-            'the admitted packages; and verify any novel host/NuGet member via `uv run python -m tools.assay api`' +
+            'the admitted packages; and verify any novel host/NuGet member via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
             FB +
             '. Realize EVERY card in `order` ' +
             '(all tasks incl. Atomic, then the ideas) into deep fences in the `' +
@@ -1099,7 +1099,7 @@ const critiquePrompt = (folder, seq, report, ownpass) =>
             'in domain logic, NO mutable accumulation.',
         '(6) STRATA/MEMBERS/MODERN — strata correctness (depend strictly upward; NO downward dependency, NO host-type leak into a host-neutral owner; ' +
             'geometry/mesh/IFC meet at the wire with one owner per runtime); cite ONLY host/NuGet members confirmed in a `.api` catalog (verify novel ' +
-            'members via `uv run python -m tools.assay api`' +
+            'members via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
             FB +
             '; an unverifiable cited member is a PHANTOM — delete or correct it); latest modern C# 14 on ' +
             'net10 (primary ctors, collection expressions, `params` collections, list/relational/logical patterns, switch expressions, `required` ' +
@@ -1199,7 +1199,7 @@ const redteamPrompt = (folder, seq, report, critReport, critOk, ownpass) =>
             "`'s LAST stage and the SOLE owner of its card status. For EVERY card in scope this run, re-read its " +
             'FULL body and the realized fences on CURRENT disk, then ADVERSARIALLY VERIFY — the fences are naive until they survive your attack, a prior ' +
             'pass verdict a rejected self-assessment — that they genuinely fulfill the card `Capability`/`Shape`/`Unlocks` against the verified `.api` ' +
-            '(verify novel members via `uv run python -m tools.assay api`' +
+            '(verify novel members via `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
             FB +
             '). FINAL-remediate any weak or partial realization in place NOW, then ' +
             'assign each card a strength: `strong` (every charter clause delivered, fences transcription-complete against the verified `.api`), `partial` ' +
@@ -1242,7 +1242,7 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
                 pins.length
                     ? '(1) PINS: apply each reported row exactly once — hand-edit the grouped manifest at the SYMBOL anchor (never a line number), ' +
                       'preserving label-group and alphabetical order, deduping semantically identical rows; verify each package + version via the ' +
-                      '`nuget` MCP or `uv run python -m tools.assay api`' +
+                      '`nuget` MCP or `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api`' +
                       FB +
                       ' before applying; confirm the owning `<pkg>.csproj` carries the versionless `<PackageReference/>` and the folder README/.api ' +
                       'rows landed, repairing a missing folder-local part in place: ' +

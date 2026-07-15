@@ -46,7 +46,7 @@ const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const EXEC_STALL = 480000;
-const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
+const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const MAP_SLICE = 5; // planning pages per mapper
 const CATALOG_BATCH = 2; // admitted packages per catalog writer
 const CODEX = true; // scout/research/map lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
@@ -392,7 +392,7 @@ const LANG = {
             '`Directory.Packages.props` (central pins, label-grouped, one-line maintenance comments) + `Directory.Build.props` (net10.0 floor, osx-arm64)',
         registry: 'the owning `.csproj` PackageReference rows and the folder README package sections',
         gate:
-            '`uv run --frozen python -m tools.assay static --project <csproj>` (one JSON Envelope on stdout); assay unavailable: `dotnet restore` + ' +
+            '`UV_CACHE_DIR=.cache/uv uv run --frozen python -m tools.assay static --project <csproj>` (one JSON Envelope on stdout); assay unavailable: `dotnet restore` + ' +
             '`dotnet build` at the same green criterion',
         runtime:
             'PLATFORM: osx-arm64 on net10.0 — managed AnyCPU, an osx-arm64 native asset, or a Forge-provisioned native substrate; reject ' +
@@ -532,8 +532,9 @@ const codexSteps = (label, task, schema, o, step4) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
-            'error through step (4).',
+            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side but its product ' +
+            'is lost to this wrapper — retry the identical call ONCE, as with any other error. If the retry errors, skip step (3) ' +
+            'and return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' + task,
         // read-only lanes: the wrapper writes the product; a jq gate catches a dropped tail before the receipt asserts ok.
@@ -655,8 +656,9 @@ const CTX = (t, L) =>
     'process narration, no hedges. Never run git commit.';
 
 const MEMBER_TRUTH = (L) =>
-    'MEMBER TRUTH — verify external members via `uv run --frozen python -m tools.assay api` ' +
-    '(decompile/reflection); when the assay rail is unavailable or errors, truth routes through the fallback tier: both .api tiers, ' +
+    'MEMBER TRUTH — verify external members via `UV_CACHE_DIR=.cache/uv uv run --frozen python -m tools.assay api` ' +
+    '(decompile/reflection; the cache prefix is load-bearing in a codex sandbox, where the default uv cache sits outside the ' +
+    'workspace); when the assay rail is unavailable or errors, truth routes through the fallback tier: both .api tiers, ' +
     'the nuget MCP (feed truth: newest version, license, TFMs, deprecation), Context7 for the official surface, exa/tavily source ' +
     'reads. A package, version, or member no tier can verify is a PHANTOM: never survey it, never cite it, never admit it. ' +
     L.runtime;

@@ -33,7 +33,7 @@ export const meta = {
 const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 480000;
-const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
+const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const UNIT_MAX = 8; // unit segmentation ceiling — map and critique lanes stay page-congruent on any folder size
 const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend, the backoff buys recovery time
 const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
@@ -316,7 +316,10 @@ const LANG = {
         root: 'libs/csharp',
         shared: 'libs/csharp/.api',
         manifest: 'the package `.csproj` and the central `Directory.Packages.props` block for this package',
-        verify: '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs + the nuget MCP for feed truth + Context7/exa/tavily own the fallback)',
+        verify:
+            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` — the cache prefix is load-bearing in a codex sandbox, where the default ' +
+            'uv cache sits outside the workspace (assay blocked or unavailable: the `.api` catalogs + the nuget MCP for feed truth + ' +
+            'Context7/exa/tavily own the fallback)',
         stackLaw:
             'the docs/stacks/csharp ROOT pages ONLY — enumerate the root with a real ls and read EVERY root `.md` in full; the ' +
             'domain/ sub-folder enters only for the shards your pages touch, chosen from its router README',
@@ -326,7 +329,9 @@ const LANG = {
         root: 'libs/python',
         shared: 'libs/python/.api',
         manifest: 'the root `pyproject.toml` rows this package consumes',
-        verify: '`uv run python -m tools.assay api resolve <pkg>` (blocked or gated: the `.api` catalogs + PyPI feed truth + Context7/exa/tavily own the fallback)',
+        verify:
+            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api resolve <pkg>` — the cache prefix is load-bearing in a codex sandbox, where ' +
+            'the default uv cache sits outside the workspace (blocked or gated: the `.api` catalogs + PyPI feed truth + Context7/exa/tavily own the fallback)',
         stackLaw:
             'the docs/stacks/python ROOT pages ONLY — enumerate the root with a real ls and read EVERY root `.md` in full in the ' +
             'README [01]-[ATLAS] order; the domain/ and numerics/ sub-folders enter only where a page concern touches them',
@@ -336,7 +341,9 @@ const LANG = {
         root: 'libs/typescript',
         shared: 'libs/typescript/.api',
         manifest: 'the `pnpm-workspace.yaml` / package manifest rows this area consumes',
-        verify: 'the published types in node_modules (`uv run python -m tools.assay api` over node_modules declarations where a member is novel)',
+        verify:
+            'the published types in node_modules (`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` over node_modules declarations where ' +
+            'a member is novel; the cache prefix keeps uv runnable in a codex sandbox)',
         stackLaw: 'the docs/stacks/typescript ROOT pages ONLY — enumerate the root with a real ls and read EVERY root `.md` in full',
     },
 };
@@ -533,11 +540,13 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(ROOT_DIR) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below VERBATIM. ' +
+            'If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side' +
             (o.writes
-                ? 'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane writes its ' +
-                  "report as its final act — run step (3)'s verification first, and a valid report proceeds to step (4) as success. Only a " +
-                  'missing or invalid report earns ONE identical retry; a failed retry with no valid report returns the error through step (4).'
-                : 'If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the error through step (4).'),
+                ? ' and writes its own report — do NOT re-dispatch (a retry mints a duplicate concurrent writer on the same files): ' +
+                  'poll `jq -e . <report path>` with Bash every 120s for up to 40 minutes; the report appearing IS completion — proceed ' +
+                  'to step (4) from its content. Only a NON-timeout error retries the identical call ONCE.'
+                : ' but its product is lost to this wrapper — retry the identical call ONCE, as with any other error.') +
+            ' If the retry errors, skip step (3) and return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' +
             task +

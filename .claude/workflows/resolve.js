@@ -35,8 +35,7 @@ const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this ma
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
-const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
-const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
+const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const CENSUS_PAGES = 10; // pages per census lane; a folder past it splits so each lane returns a bounded entry set on the wire
 const CODEX = true; // census + catalog/doc verify lanes run on gpt-5.6-terra via the codex wrapper; false restores native lanes
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root; every disk path a prompt names resolves here
@@ -363,7 +362,8 @@ const LANG = {
             'collections, QuikGraph, Mapperly and siblings) AND the folder catalogs `<package>/.api/*.md`, always layering the universal ' +
             'Thinktecture/LanguageExt rails onto the domain packages, never the folder set alone.',
         verify:
-            '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for feed truth, and ' +
+            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` — the cache prefix is load-bearing in a codex sandbox, where the default ' +
+            'uv cache sits outside the workspace (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for feed truth, and ' +
             'Context7/exa/tavily for the official surface own the fallback)',
         vocab: '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject]`/`Fold`/the rails)',
         slur: 'naive, surface-level code dressed in the right vocabulary',
@@ -389,8 +389,9 @@ const LANG = {
             'structlog, stamina, numpy, psutil, opentelemetry-*) AND the folder catalogs `<package>/.api/*.md`, always layering the shared/universal ' +
             'rails ON TOP OF the folder-specific domain packages, never the folder set alone.',
         verify:
-            '`uv run --frozen python -m tools.assay api resolve <pkg>` (a gated/uninstalled package, or a blocked/unavailable assay, falls back to ' +
-            'its catalog/official surface)',
+            '`UV_CACHE_DIR=.cache/uv uv run --frozen python -m tools.assay api resolve <pkg>` — the cache prefix is load-bearing in a codex ' +
+            'sandbox, where the default uv cache sits outside the workspace (a gated/uninstalled package, or a blocked/unavailable assay, falls ' +
+            'back to its catalog/official surface)',
         vocab: '(`@tagged_union`/`frozendict`/`Result`/`Option`/the rails)',
         slur: 'naive, surface-level, old-style Python dressed in the right vocabulary',
         illusion: 'a `.api` member cited but never verified',
@@ -413,7 +414,9 @@ const LANG = {
             'the SHARED/universal `libs/typescript/.api/*.md` Effect substrate rails AND the folder catalogs `<folder>/.api/*.md`, cross-checked ' +
             'against the published types in node_modules, always layering the shared Effect ecosystem end-to-end ON TOP OF the area-specific packages, ' +
             'never the folder set alone.',
-        verify: 'the published types in node_modules (`uv run python -m tools.assay api` over node_modules declarations where a member is novel)',
+        verify:
+            'the published types in node_modules (`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` over node_modules declarations where ' +
+            'a member is novel; the cache prefix keeps uv runnable in a codex sandbox)',
         vocab: '(`Schema.Class`/`TaggedClass` families, tagged unions, `Effect`/`Layer`, value-derived vocabulary tables)',
         slur: 'naive JavaScript-in-TypeScript dressed in the right vocabulary',
         illusion: '`any`/unsafe `as`/non-null `!` smuggled under a confident surface; a member cited but unverifiable against node_modules',
@@ -508,14 +511,13 @@ const codexPrompt = (label, task, schema, o) => {
             ', cwd=' +
             JSON.stringify(root) +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. ' +
+            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side' +
             (o.writes
-                ? 'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane ' +
-                  "writes its report as its final act — run step (3)'s verification first, and a valid report proceeds to step " +
-                  '(4) as success. Only a missing or invalid report earns ONE identical retry (a second writer over the same ' +
-                  'pages is the last resort); a failed retry with no valid report returns the error through step (4).'
-                : 'If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the error ' +
-                  'through step (4).'),
+                ? ' and writes its own report — do NOT re-dispatch (a retry mints a duplicate concurrent writer on the same ' +
+                  'files): poll `jq -e . <report path>` with Bash every 120s for up to 40 minutes; the report appearing IS ' +
+                  'completion — proceed to step (4) from its content. Only a NON-timeout error retries the identical call ONCE.'
+                : ' but its product is lost to this wrapper — retry the identical call ONCE, as with any other error.') +
+            ' If the retry errors, skip step (3) and return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' +
             task +
@@ -622,8 +624,9 @@ const censusCodexPrompt = (label, task, o) => {
             '", sandbox="read-only", cwd=' +
             JSON.stringify(root) +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
-            'empty product through step (4).',
+            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side but its product ' +
+            'is lost to this wrapper — retry the identical call ONCE, as with any other error. If the retry errors, skip step (3) ' +
+            'and return the empty product through step (4).',
         'LANE LAW:\n\n' + laneLaw(CENSUS_WIRE, o),
         'TASK:\n\n' + task,
         '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
@@ -1317,7 +1320,7 @@ const built = (
                         fix: true,
                         model: 'gpt-5.6-sol',
                         nativeModel: 'fable',
-                        stallMs: SOL_STALL,
+                        stallMs: CODEX_STALL,
                         scope: [...new Set(folderEntries.map((e) => e.page))],
                         hl: { arr: 'files' },
                     }),

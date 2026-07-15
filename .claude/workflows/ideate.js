@@ -23,8 +23,7 @@ const CAP = 14;
 const SURVEY_PAGE_CAP = 12;
 const STAGGER_MS = 1500;
 const STALL = 300000;
-const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
-const SOL_STALL = 1500000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
+const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const CODEX = true; // survey + critique lanes ride codex wrappers (terra; sol for critique); false restores native lanes
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root; codex cwd + native terminal lanes resolve relative scratch paths against it
 const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane (ideate, redteam, drain); the count bounds spend, the backoff buys recovery time
@@ -362,14 +361,13 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. ' +
+            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side' +
             (o.writes
-                ? 'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane ' +
-                  "writes its report as its final act — run step (3)'s verification first, and a valid report proceeds to step " +
-                  '(4) as success. Only a missing or invalid report earns ONE identical retry (a second writer over the same ' +
-                  'cards is the last resort); a failed retry with no valid report returns the error through step (4).'
-                : 'If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the error ' +
-                  'through step (4).'),
+                ? ' and writes its own report — do NOT re-dispatch (a retry mints a duplicate concurrent writer on the same ' +
+                  'files): poll `jq -e . <report path>` with Bash every 120s for up to 40 minutes; the report appearing IS ' +
+                  'completion — proceed to step (4) from its content. Only a NON-timeout error retries the identical call ONCE.'
+                : ' but its product is lost to this wrapper — retry the identical call ONCE, as with any other error.') +
+            ' If the retry errors, skip step (3) and return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         // writes lanes (sol critique) author their own report (final act) — the sandbox admits it; the wrapper only verifies.
         'TASK:\n\n' +
@@ -648,7 +646,7 @@ const ideateFolder = async (u) => {
             fix: true,
             model: 'gpt-5.6-sol',
             nativeModel: 'fable',
-            stallMs: SOL_STALL,
+            stallMs: CODEX_STALL,
             scope: [folder],
             hl: { arr: 'files', group: '' },
         }),

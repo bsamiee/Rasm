@@ -22,56 +22,7 @@ The whole space is built from five primitives: `pipeline` (streaming stages, no 
 - Debate: disagreement exposes blind spots a lone view misses.
 - Self-repair: machine-checkable means types, tests, or lint.
 
-Selection rules that sit on top of the map: sectioning defaults to `pipeline`, never `parallel` — reach for the barrier only when a stage needs the ENTIRE previous result set at once. The evaluator is always a separate `agent()` from the generator — self-grading finds nothing. A verdict that a command measures belongs to self-repair or an eval gate, never to a model judge. The discrimination order runs as one dispatch — every edge is a shape answer, every leaf the owning section:
-
-```mermaid
----
-config:
-  theme: base
-  look: classic
-  layout: elk
-  flowchart:
-    curve: linear
-    padding: 25
-  themeVariables:
-    darkMode: true
-    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
-    useGradient: false
-    dropShadow: "none"
-    background: "#282A36"
-    primaryColor: "#44475A"
-    primaryTextColor: "#F8F8F2"
-    primaryBorderColor: "#BD93F9"
-    lineColor: "#FF79C6"
-    textColor: "#F8F8F2"
-    edgeLabelBackground: "#21222C"
-    labelBackgroundColor: "#21222C"
-  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
----
-flowchart LR
-    accTitle: Topology selection dispatch
-    accDescr: Task shape discriminating through deliverable kind, count, barrier need, stop signal, and judgment field into the owning pattern section.
-    In([Task shape]) --> Kind{Deliverable?}
-    Kind -->|"transformed items"| N{Count?}
-    Kind -->|"one contested verdict"| V{Command-checkable?}
-    N -->|"known list"| S{Stage needs ALL results?}
-    N -->|"unknown"| L{Stop signal?}
-    S -->|"no"| PL["pipeline — 04"]
-    S -->|"yes"| BA["barrier — 05"]
-    L -->|"command green"| SR["self-repair — 09"]
-    L -->|"count, token, or dry target"| LO["loop family — 16"]
-    V -->|"yes"| SK["skeptic vote — 11"]
-    V -->|"no"| F{Field?}
-    F -->|"shallow"| PA["panel — 12"]
-    F -->|"wide or close"| TO["tournament — 13"]
-    F -->|"ambiguous stakes"| DE["debate — 14"]
-    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
-    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
-    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
-    class Kind,N,V,S,L,F primary
-    class PL,BA,SR,LO,SK,PA,TO,DE success
-    class In boundary
-```
+Selection rules that sit on top of the map: sectioning defaults to `pipeline`, never `parallel` — reach for the barrier only when a stage needs the ENTIRE previous result set at once. The evaluator is always a separate `agent()` from the generator — self-grading finds nothing. A verdict that a command measures belongs to self-repair or an eval gate, never to a model judge. The discrimination order runs as one dispatch, deliverable kind first: transformed items branch on count — a known list rides `pipeline` [04] unless a stage needs ALL results at once (the barrier, [05]), an unknown count branches on the stop signal — command-green takes self-repair [09], a count, token, or dry target takes the loop family [16]; one contested verdict that a command can check takes the skeptic vote [11], and otherwise the judgment field picks — shallow takes the panel [12], wide or close takes the tournament [13], ambiguous stakes take the debate [14].
 
 The delegation contract — objective, territory, exclusions, output contract, success criteria — is the agent-dispatch skill's prompting law and rides every `agent()` prompt here unchanged. The workflow-specific residue: the output contract is a `schema` wherever a later line reads a field, and mid-run clarification does not exist — a subagent left needing to ask was dispatched vaguely. A write-station's prompt also pins authorship: the writing is the agent's own — a nested delegate may fetch information, never author the deliverable, so the model tier the orchestrator paid for is the tier that writes.
 
@@ -714,6 +665,8 @@ return { hard: pending }; // still-open: log LOUDLY + return, never drop
 
 (1) a fix that touched no file (or returned `clean`) has nothing to verify — skip the verify and drop the cluster; (2) the cumulative `seen` set (key `sorted-files|claim`) stops a fixer that re-surfaces the same residual from feeding the loop forever; (3) a round that changes no file never will, so break — `MAX_ROUNDS` is a runaway backstop, never the exit. The no-defer guarantee holds: a genuinely-open residual is still surfaced, never dropped.
 
+The same no-silent-loss law binds the ADVISORY artifact class — ideation pools, ambition worklists, suggestion dossiers a downstream writer consumes at its own discretion (decline is legal; entries are options, never obligations). Discretion at consumption never licenses evaporation at close: a terminal disposition stage reads every advisory entry and returns exactly one outcome per entry — realized (verified on current disk), salvaged into the durable pool that outlives the run (the owning backlog or ideas surface), or rejected with a recorded reason — under a one-row-per-entry schema, the same completeness proof as the verifier's one-verdict-per-claim. The disposition re-derives every judgment from current disk (the advisory artifact is a pre-run snapshot; its anchors are stale) and salvages ambition AS ambition — capability and ground, never the producer's prescription — so the salvage neither anchors the next run nor ratifies the advisor.
+
 ## [18]-[NEST]
 
 Canonical: composition — a topology as a worker inside a larger one. Primitive: `workflow()`. Guards: re-inlining a self-contained sub-job by hand. Cost: the child spends from this run's shared caps and budget — nesting isolates state, never spend. `workflow()` runs a saved workflow inline and returns its result; nesting is one level deep.
@@ -828,7 +781,7 @@ Give sequential review stages genuinely different objectives (a clause-by-clause
 
 A review stage carries the WRITER'S full authority: scope rows bound where the reviewer looks FIRST, never what it may fix — every defect it finds is fixed at its root in the same pass regardless of scope, and deferral is reserved for territory a LIVE sibling currently owns, never for "outside my unit". Residuals drain at the nearest subsequent stage as they surface; a run that accumulates them toward one terminal mega-reconcile has mispriced every stage before it.
 
-The same anchoring law binds the orchestrator's own prompt authorship: a judgment stage handed a pre-ruled example outcome (a named split, a sample verdict, a worked disposition) inherits the example as a ruling — state the criteria and the pressures on both sides, never an example resolution.
+The same anchoring law binds the orchestrator's own prompt authorship: an exemplar in a stage prompt is a seed the run grows, reproduced downstream with the force of the law it rides (the exemplar law: execution-standard reference) — so a judgment stage handed a pre-ruled example outcome (a named split, a sample verdict, a worked disposition) inherits the example as a ruling. State the criteria and the pressures on both sides, never an example resolution.
 
 ## [21]-[REPORTS]
 
@@ -871,6 +824,8 @@ const SCRATCH =
 
 Dual schema: the PRODUCT schema types the on-disk file; the RECEIPT types the wire. Both strict — every object `additionalProperties: false` with every property required — so one shape serves AJV lanes and codex `--output-schema` alike.
 
+ONE REPRESENTATION PER FACT: a lane authors each fact once. A content lane whose product is a prose dossier returns a thin INDEX receipt (per-scope-key pointers into the dossier's sections plus coverage) — a wire product restating the dossier's content is double-authoring the consumer never reads, and transcript evidence shows consumers pick one twin and orphan the other. The same law binds hand-authored disk twins: a coordination ledger row and its wire `seamsTouched` fold are ONE authored row in two transports, never two derivations. A streaming coordination surface appends per event with an ordering prefix (`seq | origin | stage | TYPE | payload`) — a file written once at the end has failed its coordination purpose, and a consumer of a columnless concurrent file cannot order or trust its rows.
+
 ```js conceptual
 // One anchor = one fact at one coordinate; interpretation never lives in an anchor row. `note` is the shortest literal witness under 20 words,
 // or empty when path+line suffice; an `absence` anchor names where the expected thing was searched and not found.
@@ -901,7 +856,7 @@ const PRODUCT = {
                 additionalProperties: false,
                 required: ["claimKey", "target", "files", "class", "severity", "claim", "anchors", "mechanism", "owner", "reject", "acceptance"],
                 properties: {
-                    claimKey: { type: "string" }, // <class>|<owner>|<primary symbol or absence route> — stable across lanes, never lane wording
+                    claimKey: { type: "string", pattern: "^[a-z0-9_-]+(\\|[a-z0-9_-]+){2}$" }, // <class>|<owner>|<primary symbol or absence route> — schema-enforced; free-text keys fracture per lane
                     target: { type: "string" }, // short display label
                     files: { type: "array", items: { type: "string" } }, // What the reader must open or edit first
                     class: { type: "string", enum: ["missing", "wrong", "faked", "naive", "drift", "phantom"] },
@@ -1000,7 +955,7 @@ Laws that ride the shape:
 
 Receipts are thin and mechanical. `report` is the product path; `entries` is jq-counted from the product's primary array; `headline` is jq-built (per-class tallies, top file) — never the lane's own judgment or a lifted summary sentence, so the terminal reader meets every product cold. A failed lane returns `{ok: false, report: '', entries: 0, headline: '', failure: <stderr tail, one line>}` — failure lives in the envelope, never as sentinel values inside data rows; downstream filters on `ok`, never string-matches magic values. And `scope` is ORCHESTRATOR-OWNED: the dispatch helper's `.then()` attaches what the orchestrator ASSIGNED at construction — never the lane's self-report — so a lane that dies before writing anything still names its territory exactly.
 
-The producer prompt carries the evidence law for defect-shaped products: the lane delivers TRUTH, never an implementation — `claim` states the observed defect and `mechanism` states why it fails as fact, with add/replace/implement/promote/delete never written as instruction; the reader owns the design, the lane owns the constraint boundary (`owner`, `reject`, `acceptance`). Output bounds: an ordinary scope yields 3-8 retained findings; 0 only after a mandatory second-pass self-verify (re-open every cited anchor, delete what fails re-confirmation) returns empty, with `summary` naming the probes that produced nothing. `coverage` is part of the product — an honest skip beats a silent one, and a lane whose PRIMARY verification route is unavailable verifies through its named fallback and records the substitution in `coverage.unverified`, so the consumer reads coverage before weighting members.
+The producer prompt carries the evidence law for defect-shaped products: the lane delivers TRUTH, never an implementation — `claim` states the observed defect and `mechanism` states why it fails as fact, with add/replace/implement/promote/delete never written as instruction; the reader owns the design, the lane owns the constraint boundary (`owner`, `reject`, `acceptance`). A cross-lane dedupe key is schema-enforced with a `pattern`, never prose-specified alone — free-text keys fracture into incompatible per-lane formats, and corroboration of one defect across lanes then never collides into one key. Output bounds: an ordinary scope yields 3-8 retained findings; 0 only after a mandatory second-pass self-verify (re-open every cited anchor, delete what fails re-confirmation) returns empty, with `summary` naming the probes that produced nothing. `coverage` is part of the product — an honest skip beats a silent one, and a lane whose PRIMARY verification route is unavailable verifies through its named fallback and records the substitution in `coverage.unverified`, so the consumer reads coverage before weighting members.
 
 Anchors must survive the run's own mutations: an anchor into a file a LATER stage deletes, moves, or wholesale-rewrites (a source swap, a scaffold teardown) is valid only when the consumer instruction names the recovery route beside the re-open mandate — `git show <pre-swap-hash>:<path>` for a swapped source, the move target for a relocation; a bare "re-open every anchor" over vanished files silently voids the verification law.
 

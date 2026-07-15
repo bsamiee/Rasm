@@ -3,29 +3,27 @@ export const meta = {
     whenToUse:
         'The standing hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it maps every .planning sub-folder, ideates per package, hostile-rebuilds every page batch concurrently at the owning-language doctrine bar, and closes with a finder fan plus one terminal fixer.',
     description:
-        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan (opus) expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one opus deep-map lane and one gpt-5.6-terra two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (opus, the non-binding fix addendum) and a bigger-ideas worklist (fable, new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a terra doctrine-bar lens, then fable implement, gpt-5.6-sol critique (workspace-write, fixlog to disk), and fable redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Close: a read-only terra finder fan plus one governance finder per language, then ONE terminal fable fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then a doctrine lander adjudicating pooled harvest nominations. Stage law lives in the prompt blocks; CODEX=false restores native lanes throughout.',
+        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one deep-map lane and one two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (the non-binding fix addendum) and a bigger-ideas worklist (new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a doctrine-bar lens, then implement, critique (workspace-write, fixlog to disk), and redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. The spine is per-package pipelined: each package advances Map -> Ideate -> Build the moment its own inputs land, never waiting on the slowest sibling package, and Close is the one whole-run barrier. Close: a read-only finder fan plus one governance finder per language, then ONE terminal fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas dossier entry exactly one outcome (realized on disk, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations. Stage law lives in the prompt blocks; CODEX=false restores native lanes throughout.',
     phases: [
         {
             title: 'Plan',
             detail: 'targets expand to the dependency-ordered, seam-cohesion-adjacent page list under each owning-package charter: existing pages rebuild, charter-demanded absences new, settled pages skip',
-            model: 'opus',
         },
         {
             title: 'Map',
-            detail: 'per sub-folder unit segment: an opus deep-map lane (ownership, seams, cross-folder relevance, domain gaps — information, never code) beside a terra two-tier .api inventory lane, each writing the per-unit dossier the batches reuse',
-            model: 'opus',
+            detail: 'per sub-folder unit segment: a deep-map lane (ownership, seams, cross-folder relevance, domain gaps — information, never code) beside a two-tier .api inventory lane, each writing the per-unit dossier the batches reuse',
         },
         {
             title: 'Ideate',
-            detail: 'per package, two disjoint lanes: the corrections census (opus, the deduped disk-verified fix addendum) and the bigger-ideas worklist (fable, new capability beyond correction under the value bar)',
+            detail: 'per package, two disjoint lanes fired the moment that package map lanes land: the corrections census (the deduped disk-verified fix addendum) and the bigger-ideas worklist (new capability beyond correction under the value bar, mining and transplanting the standing IDEAS.md open pool only after its own pass)',
         },
         {
             title: 'Build',
-            detail: 'sub-folder-packed batches, all concurrent: per batch a terra doctrine-bar lens, then fable implement, sol critique (fixlog to disk), fable redteam folding the critique forward — every writer on the own-pass-first ladder with bounded libs-wide ripple authority and seam-ledger coordination',
+            detail: 'sub-folder-packed batches, all concurrent, each package starting on its own ideate rather than the run-wide fan: per batch a doctrine-bar lens, then implement, critique (fixlog to disk), redteam folding the critique forward — every writer on the own-pass-first ladder with bounded libs-wide ripple authority and seam-ledger coordination',
         },
         {
             title: 'Close',
-            detail: 'a read-only terra finder fan plus one governance finder per language over the landed corpus and seam ledger; ONE terminal fable fixer drains findings, backlog, and unclaimed census rows; a doctrine lander adjudicates pooled harvest nominations',
+            detail: 'a read-only finder fan plus one governance finder per language over the landed corpus and seam ledger; ONE terminal fixer drains findings, backlog, and unclaimed census rows; then two concurrent terminals — an ideas-disposition writer giving every bigger-ideas entry one outcome (realized, carded into the owning IDEAS.md, or rejected with reason) and a doctrine lander adjudicating pooled harvest nominations',
         },
     ],
 };
@@ -36,11 +34,10 @@ const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
-const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
-const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
+const CODEX_STALL = 7500000; // wrapper stall sits ABOVE the client MCP ceiling (fleet codex.toolTimeoutSec = 7200s): the client aborts a wedged call first; this guards only a dead wrapper
 const BATCH_MAX = 8; // unit-segment + batch-packing ceiling; per-segment maps + census legwork carry the navigation, so a writer holds a full dense batch
 const FINDER_PAGES = 8; // landed pages per close-phase finder
-const CODEX = true; // recon/finder lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
+const CODEX = true; // recon lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -441,6 +438,32 @@ const DOCTRINE_SCHEMA = {
     },
 };
 
+// One row per bigger-ideas dossier entry — the total-disposition attestation: an idea the run never
+// realized either lands as an IDEAS.md card or dies with a recorded reason, never with the scratch dir.
+const IDEAS_DISP_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['entries', 'files', 'summary'],
+    properties: {
+        entries: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['idea', 'outcome', 'where', 'reason'],
+                properties: {
+                    idea: S, // the dossier entry slug/leader
+                    outcome: { type: 'string', enum: ['realized', 'carded', 'rejected'] },
+                    where: S, // realized: the landing page anchor; carded: the IDEAS.md (or existing card) that carries it
+                    reason: S, // rejected only; empty otherwise
+                },
+            },
+        },
+        files: { type: 'array', items: S },
+        summary: S,
+    },
+};
+
 // --- [DOCTRINE] ------------------------------------------------------------------------
 
 const LANG = {
@@ -464,8 +487,9 @@ const LANG = {
             'rails/effects/schedules/immutable collections, QuikGraph, Mapperly and siblings) AND the folder catalogs ' +
             '`<package>/.api/*.md` — the universal Thinktecture/LanguageExt rails layered onto the domain packages, never the folder set alone.',
         verify:
-            '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for feed ' +
-            'truth, and Context7/exa/tavily for the official surface own the fallback)',
+            '`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` — the cache prefix is load-bearing in a codex sandbox, ' +
+            'where the default uv cache sits outside the workspace (assay blocked or a read-only sandbox: the `.api` catalogs, ' +
+            'the nuget MCP for feed truth, and Context7/exa/tavily for the official surface own the fallback)',
         vocab: '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject]`/`Fold`/the rails)',
         slur: 'naive, surface-level code dressed in the right vocabulary',
         illusion: 'a `.api`/host member cited but never verified',
@@ -509,8 +533,9 @@ const LANG = {
             'pydantic-settings, beartype, structlog, stamina, numpy, psutil, opentelemetry-*) AND the folder catalogs ' +
             '`<package>/.api/*.md` — the shared rails layered ON TOP OF the folder domain packages, never the folder set alone.',
         verify:
-            '`uv run --frozen python -m tools.assay api resolve <pkg>` (a gated/uninstalled package, or a blocked/unavailable ' +
-            'assay, falls back to its catalog/official surface)',
+            '`UV_CACHE_DIR=.cache/uv uv run --frozen python -m tools.assay api resolve <pkg>` — the cache prefix is ' +
+            'load-bearing in a codex sandbox, where the default uv cache sits outside the workspace (a gated/uninstalled ' +
+            'package, a read-only sandbox, or a blocked assay falls back to its catalog/official surface)',
         vocab: '(`@tagged_union`/`frozendict`/`Result`/`Option`/the rails)',
         slur: 'naive, surface-level, old-style Python dressed in the right vocabulary',
         illusion: 'a `.api` member cited but never verified',
@@ -556,7 +581,9 @@ const LANG = {
             'the SHARED/universal `libs/typescript/.api/*.md` Effect substrate rails AND the folder catalogs ' +
             '`<folder>/.api/*.md`, cross-checked against the published node_modules types — the shared Effect ecosystem layered ' +
             'ON TOP OF the area packages, never the folder set alone.',
-        verify: 'the published types in node_modules (`uv run python -m tools.assay api` over node_modules declarations where a member is novel)',
+        verify:
+            'the published types in node_modules (`UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api` over node_modules ' +
+            'declarations where a member is novel; the cache prefix keeps uv runnable in a codex sandbox)',
         vocab: '(`Schema.Class`/`TaggedClass` families, tagged unions, `Effect`/`Layer`, value-derived vocabulary tables)',
         slur: 'naive JavaScript-in-TypeScript dressed in the right vocabulary',
         illusion: '`any`/unsafe `as`/non-null `!` smuggled under a confident surface; a member cited but unverifiable against node_modules',
@@ -630,11 +657,15 @@ const laneLaw = (schema, o) =>
     (o.fix
         ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
           'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
-          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
+          'admits none.\n</persistence>\n\n<work_cadence>\nRead the stable law corpus once, first; then work ITEM BY ITEM — ' +
+          "derive one item's findings, land its edits, advance. Edits land as derived and never pool toward the end: a batch " +
+          'fully materialized before its first edit forfeits its earliest findings to context compaction.\n</work_cadence>' +
+          '\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
           'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
         : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it; ' +
-          'instruction files (.claude/, CLAUDE.md, AGENTS.md) are always out of scope, while a skill of your own matching an ' +
-          'artifact-authoring task is in-contract.\nBudget: at most ' +
+          'instruction files (.claude/, CLAUDE.md, AGENTS.md) and skill bundles are always out of scope for a read/review ' +
+          'lane, and discovery commands stay scoped to the territory — never `rg --files` or `tree` from the repo root.' +
+          '\nBudget: at most ' +
           (o.calls || 60) +
           ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
           'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
@@ -665,8 +696,13 @@ const codexPrompt = (label, task, schema, o) => {
             JSON.stringify(root) +
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
-            'error through step (4).',
+            'VERBATIM. If the call errors with a TIMEOUT or idle abort, the codex session CONTINUES server-side' +
+            (o.writes
+                ? ' and writes its own report — do NOT re-dispatch (a retry mints a duplicate concurrent writer on the same ' +
+                  'files): poll `jq -e . <report path>` with Bash every 120s for up to 40 minutes; the report appearing IS ' +
+                  'completion — proceed to step (4) from its content. Only a NON-timeout error retries the identical call ONCE.'
+                : ' but its product is lost to this wrapper — retry the identical call ONCE, as with any other error.') +
+            ' If the retry errors, skip step (3) and return the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' +
             task +
@@ -917,7 +953,9 @@ const BODY = (L) =>
 const VERIFY = (L) =>
     'VERIFY — cite only members confirmed via ' +
     L.verify +
-    '; a member you cannot verify is a phantom to delete. Mine BOTH .api tiers to operator depth: ' +
+    '; a member you cannot verify is a phantom to delete, and a page-attested member that VERIFIES but has no catalog row ' +
+    'lands as an appended row in the owning `.api` catalog in the same pass — the catalog is the estate verification surface, ' +
+    'and a page-only attestation re-litigates the same member every future run. Mine BOTH .api tiers to operator depth: ' +
     L.apiTiers +
     ' An admitted capability the concept admits that no owner exploits is a defect to close.';
 
@@ -1135,6 +1173,9 @@ const planPrompt = () =>
         'EMIT `pages` IN DEPENDENCY + COHESION ORDER — grouped by sub-folder, foundations before consumers, pages sharing an ' +
             'owner, seam, or wire contract ADJACENT within their group (the engine batches contiguous runs of your order, so ' +
             'adjacency keeps coupled pages inside one writer); alphabetical only as the final tiebreak. The engine never re-sorts.',
+        'TOOLCHAIN WARM-UP (before returning): run `UV_CACHE_DIR=.cache/uv uv run python -m tools.assay api --help` once — ' +
+            "it builds the workspace uv cache every downstream lane's member-verification rail rides, so no lane pays the cold " +
+            'env stall or misreads it as a broken rail.',
     ].join('\n\n');
 
 const correctionsPrompt = (L, pkg, mapIndex, dossier) =>
@@ -1168,11 +1209,11 @@ const ideasPrompt = (L, pkg, mapIndex, dossier) =>
             pkg +
             '` — read-only over the corpus; you WRITE exactly one file, the ideas dossier. The Map phase produced per-SUB-FOLDER ' +
             'deep-map and two-tier .api inventory dossiers; read EVERY dossier listed here IN FULL, then the package charter ' +
-            '(ARCHITECTURE.md + README.md + IDEAS.md) and the pages your ideas grow on: ' +
+            '(ARCHITECTURE.md + README.md — NOT IDEAS.md, which enters only at POOL MINING below) and the pages your ideas grow on: ' +
             JSON.stringify(mapIndex),
         'AUTHOR `' +
             dossier +
-            '` — one markdown dossier, a section per sub-folder plus a terminal CROSS-FOLDER section. Every entry is a NEW ' +
+            '` — one markdown dossier, a section per sub-folder plus terminal CROSS-FOLDER and POOL-DISPOSITION sections. Every entry is a NEW ' +
             'capability the domain admits and the corpus lacks — a new dimension, modality, family, case class, operation ' +
             'family, generator over an enumerated space, or cross-boundary enablement that widens what the package IS — ' +
             'grounded in real domain demand (' +
@@ -1183,6 +1224,15 @@ const ideasPrompt = (L, pkg, mapIndex, dossier) =>
             'PRODUCT, not a defect in the prose. Name the owner it grows on, the domain or catalog ground, the anchor, and WHY ' +
             'it widens the package — never the resulting code, a fence sketch, or a ruled shape. CROSS-FOLDER: an idea whose ' +
             'value crosses the package boundary names BOTH ends and the seam it rides.',
+        'POOL MINING (only AFTER every own entry is authored — the standing pool never scopes, seeds, or caps your own ' +
+            'ideation, and no IDEAS.md is opened before this step): read the owning package IDEAS.md `[1]-[OPEN]` plus the ' +
+            'branch `.planning/IDEAS.md` open cards naming this package, and TRANSPLANT each still-valid card whose owner ' +
+            "intersects the run's target pages into the dossier as a full entry in its owning section — re-derived against " +
+            'current disk and restated in the entry form (owner, ground, anchor, why), never copied verbatim — ADDITIVE to your ' +
+            'own entries, never displacing one. A card current disk already realizes, or whose value you can refute, is NOT ' +
+            'transplanted: record it in the terminal POOL-DISPOSITION section as one fact row (card leader, verdict ' +
+            'realized|refuted, disk anchor) for the close-phase disposition writer. A card outside the target pages stays ' +
+            'untouched and unrecorded. The pool files are READ here, never edited — card closure is the disposition writer\'s.',
         "SECOND-PASS CULL (before returning): re-open every entry's anchor on disk; delete any entry disk already realizes, " +
             'any correction in disguise, and any entry whose value you cannot state as a concrete new capability of a named ' +
             'owner. Boldness is never the cull criterion — the cull removes false and small entries, never ambitious ones; few ' +
@@ -1263,7 +1313,8 @@ const barLensPrompt = (L, batch, reg) =>
             batch.map((p) => p.page + ' [' + p.kind + ']').join(', ') +
             '. Enumerate `' +
             L.stack +
-            '/` with a real `ls` and read the README and EVERY root page it routes IN FULL' +
+            '/` with a real `ls` and read the README and EVERY root page it routes IN FULL — never a partial, skim, grep-jump, ' +
+            'section-sample, or line-count-as-read; a grep-sampled doctrine is a skipped read your coverage must report' +
             (L.key === 'cs' ? ' (and the domain/ shards these pages touch)' : '') +
             '; then read each target page IN FULL and ' +
             REG[reg].barAttack(L) +
@@ -1314,8 +1365,10 @@ const critiquePrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, na
             GIT_GROUND,
             REG[reg].audit +
                 batch.map((p) => p.page).join(', ') +
-                '. FORM YOUR OWN DEFECT LIST FIRST — read each page cold from CURRENT disk and derive your findings before ' +
-                'consulting NAVIGATION; then use the navigation to reach every touched seam fast. Audit every fence against the ' +
+                '. FORM YOUR OWN VERDICT FIRST and work PAGE BY PAGE: cold-read a page from CURRENT disk, derive its defects, ' +
+                'repair them in place, then advance — pooled unlanded findings degrade at context compaction, so a page closes ' +
+                'before the next opens; consult NAVIGATION only after your own pass on a page, to reach its touched seams fast. ' +
+                'Audit every fence against the ' +
                 'doctrine read at source, never a summary; repair every hit now — a fix, never a ledger note; a cross-file hit is ' +
                 'yours per RIPPLE LAW. Your mandate is PREDICATE-POSITIVE: verify each required law holds, cite the clause, ' +
                 'repair every miss.\n' +
@@ -1466,6 +1519,9 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
                 )
                 .join('\n'),
         HUNT,
+        'CATALOG-APPEND LAW — a page-attested member that verifies against the real surface but lacks a row in the owning ' +
+            '`.api` catalog closes by appending the catalog row; stripping a TRUE page attestation to match a lagging catalog ' +
+            'is the rejected form.',
         GIT_GROUND,
         "TASK: TERMINAL FIX (WRITER — the run's LAST agent, nothing follows you): full write authority over the landed corpus, " +
             'libs-wide ripple authority with the expand-form bound LIFTED (collapse, rename, and contract are yours now that no ' +
@@ -1523,6 +1579,36 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
         .filter(Boolean)
         .join('\n\n');
 
+const dispositionPrompt = (sets, pages) =>
+    [
+        ROOT_LAW,
+        'Rasm monorepo — the libs/ planning corpora. The run just landed a hostile rebuild over these pages: ' + JSON.stringify(pages) + '.',
+        'TASK: IDEAS DISPOSITION (WRITER — the sole IDEAS.md author at this point of the run). The Ideate phase produced one ' +
+            'bigger-ideas dossier per package — ambition worklists the batch writers realized at their own discretion. Read every ' +
+            'dossier IN FULL: ' +
+            JSON.stringify(sets) +
+            '. Every entry ends in exactly ONE outcome; a silently dropped idea is the defect this stage exists to prevent. The ' +
+            'dossiers are PRE-RUN snapshots — their anchors are stale; every judgment and every landed claim re-derives from ' +
+            'CURRENT disk, never from the snapshot.',
+        '(1) REALIZED — open the owner pages the entry names on CURRENT disk; the run landed the capability (fully, or partially ' +
+            'in a form at least as strong as the entry points toward): record outcome realized with the landing anchor.',
+        '(2) REJECTED — current disk supersedes the entry, the doctrine or an architecture boundary forbids it, or its value ' +
+            'claim does not survive re-derivation against the landed corpus: record outcome rejected with the reason.',
+        '(3) CARDED — the entry remains genuinely valuable and unrealized: author it as a fully-formed card in the owning ' +
+            "surface's `[1]-[OPEN]`, deduped against the cards already there (an existing card covering it is outcome carded " +
+            'with `where` naming that card). A folder-owned idea lands in the owning package IDEAS.md; an idea coupling two ' +
+            'same-language packages lands in the branch `libs/<lang>/.planning/IDEAS.md`; a cross-language idea lands in ' +
+            '`libs/.planning/IDEAS.md`. Card form per the authoring standard: a bracketed slug leader plus bullets carrying the ' +
+            'capability, what it unlocks, and the gap or technique it draws on — ambition and information, never a prescription, ' +
+            'a fence sketch, or a ruled design.',
+        "(4) POOL CLOSURE — each dossier's POOL-DISPOSITION rows are signals, re-verified on current disk: reconcile each " +
+            "target package's IDEAS.md (and the branch pool cards naming it) so the OPEN section ends the run carrying exactly " +
+            'the still-live ambition. A card the run realized moves to `[2]-[CLOSED]` with a one-line disposition; a refuted ' +
+            'card moves to `[2]-[CLOSED]` with the reason; a transplanted-but-unrealized card stays OPEN, refreshed where ' +
+            'current disk staled it; no realized, refuted, or duplicate card remains OPEN.',
+        'Return entries (one row per dossier entry — the disposition is TOTAL), files (every IDEAS.md edited), summary.',
+    ].join('\n\n');
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 if (REJECTED.length) log('Rejected targets outside libs/{csharp,python,typescript}: ' + REJECTED.join(', '));
@@ -1556,10 +1642,8 @@ if (!PAGES.length) {
     return { targets: TARGETS, total: 0 };
 }
 
-phase('Map');
-// Corpus map ONCE per SUB-FOLDER unit, reused by every batch touching that unit: an opus deep-map lane (context/seams, native)
-// beside a terra two-tier .api inventory lane (codex) PER `.planning/<sub>` — package-level mapping dilutes depth on a large
-// package and starves the batches of per-page grounding. Products are per-unit dossiers + reports on disk; receipts on the wire.
+// Static run topology — the unit split, batch packing, and cross-batch scope ledger derive from page paths
+// alone, before any lane runs, so every package chain launches against the full SCOPES map.
 const PKGS = [...new Set(PAGES.map((p) => pkgOf(p.page)))];
 // An oversize sub-folder splits into ceiling-bounded SEGMENTS here, once — map lanes and batches both consume the segmented
 // units, so every batch's dossiers cover exactly its pages and the mapper fan scales with the writer fan on any folder size.
@@ -1574,87 +1658,9 @@ const UNITS = PKGS.flatMap((pkg) => {
         });
     });
 });
-const unitMap = {};
-await Promise.all(
-    UNITS.map(async (u) => {
-        const L = Lof(u.pkg);
-        const unitPages = u.pages.map((p) => Object.assign({}, p, { i: 0 }));
-        const scope = unitPages.map((p) => p.page);
-        const tag = u.tag;
-        const ctxDossier = dossierPath('map:ctx:' + tag);
-        const apiDossier = dossierPath('map:api:' + tag);
-        const [ctx, api] = await Promise.all([
-            slot(() =>
-                recon(
-                    (reg) => ctxLensPrompt(L, unitPages, ctxDossier, reg),
-                    ropts(
-                        'map:ctx:' + tag,
-                        'Map',
-                        CTX_SCHEMA,
-                        scope,
-                        { arr: 'worklist', group: 'kind' },
-                        { native: true, nativeModel: 'opus', stallMs: STALL },
-                    ),
-                ),
-            ),
-            slot(() =>
-                recon(
-                    (reg) => apiLensPrompt(L, unitPages, apiDossier, reg),
-                    ropts('map:api:' + tag, 'Map', API_SCHEMA, scope, { arr: 'worklist' }, { writes: true }),
-                ),
-            ),
-        ]);
-        unitMap[u.key] = { ctx, api, ctxDossier, apiDossier };
-    }),
-);
-const mapOk = Object.values(unitMap).filter((m) => (m.ctx && m.ctx.ok) || (m.api && m.api.ok)).length;
-log('Map: ' + UNITS.length + ' unit segment(s) across ' + PKGS.length + ' package(s) mapped; ' + mapOk + ' with a live dossier');
-
-phase('Ideate');
-// TWO lanes per owning package with disjoint charters: a corrections census (opus — the fix addendum the batches land as rung 3)
-// and a bigger-ideas worklist (fable — the capability ambition, rung 4). One merged log regresses to a fixlog and the ambition dies.
-// Either lane absent (dead map or dead ideate), the executors run without that rung.
-const pkgIdeate = {};
-await Promise.all(
-    PKGS.map(async (pkg) => {
-        const L = Lof(pkg);
-        const tag = pkg.split('/').pop();
-        const mapIndex = UNITS.filter((u) => u.pkg === pkg)
-            .map((u) => ({
-                sub: u.name,
-                deepMap: (unitMap[u.key].ctx?.ok && unitMap[u.key].ctxDossier) || null,
-                inventory: (unitMap[u.key].api?.ok && unitMap[u.key].apiDossier) || null,
-            }))
-            .filter((r) => r.deepMap || r.inventory);
-        if (!mapIndex.length) {
-            pkgIdeate[pkg] = { fix: '', idea: '' };
-            return;
-        }
-        const fixDossier = dossierPath('ideate:fix:' + tag);
-        const ideaDossier = dossierPath('ideate:idea:' + tag);
-        const [fix, idea] = await Promise.all([
-            slot(() => agent(correctionsPrompt(L, pkg, mapIndex, fixDossier), wopts('ideate:fix:' + tag, 'Ideate', 'opus', RECEIPT))),
-            slot(() => agent(ideasPrompt(L, pkg, mapIndex, ideaDossier), wopts('ideate:idea:' + tag, 'Ideate', 'fable', RECEIPT))),
-        ]);
-        pkgIdeate[pkg] = { fix: (fix && fix.ok && fixDossier) || '', idea: (idea && idea.ok && ideaDossier) || '' };
-        log(
-            'Ideate ' +
-                tag +
-                ': ' +
-                (pkgIdeate[pkg].fix ? (fix.entries || 0) + ' correction(s)' : 'no census') +
-                ' + ' +
-                (pkgIdeate[pkg].idea ? (idea.entries || 0) + ' bigger-idea(s)' : 'no ideas'),
-        );
-    }),
-);
-const CENSUS_PATHS = PKGS.map((pkg) => pkgIdeate[pkg] && pkgIdeate[pkg].fix).filter(Boolean);
-
-phase('Build');
 // Batch composition packs WHOLE sub-folder units (in plan order) up to BATCH_MAX, splitting only an oversize unit — a batch's
-// ownership seam then aligns with its map dossiers instead of slicing across sub-folders. Nothing serializes on the lanes;
-// the agent-level slot scheduler is the only governor.
-// Packs WHOLE unit segments (each already ceiling-bounded) into batches; a batch carries its source units so its dossier
-// roster is exact, never re-derived from page paths.
+// ownership seam then aligns with its map dossiers instead of slicing across sub-folders; a batch carries its source units so
+// its dossier roster is exact, never re-derived from page paths.
 const packBatches = (units, max) => {
     const out = [];
     let cur = [];
@@ -1678,75 +1684,181 @@ const BATCHES = PKGS.flatMap((pkg) =>
     ).map((units, i) => ({ pkg, i, units, pages: units.flatMap((u) => u.pages) })),
 );
 const SCOPES = JSON.stringify(BATCHES.map((b) => ({ batch: b.pkg.split('/').pop() + ':b' + b.i, pages: b.pages.map((p) => p.page) })));
+
+phase('Map');
+phase('Ideate');
+phase('Build');
+// PER-PACKAGE PIPELINE — Map, Ideate, and Build are package-local stages, never run barriers: a package's
+// ideate fires the moment ITS unit lanes land and its batch chains the moment its ideate lands, so no
+// package waits on a sibling's slowest lane. Every agent carries its explicit phase label, the slot
+// scheduler is the only cross-package governor, SCOPES + the seam ledger own cross-batch coordination,
+// and Close is the one whole-run barrier.
+// Corpus map ONCE per SUB-FOLDER unit, reused by every batch touching that unit: an opus deep-map lane (context/seams, native)
+// beside a terra two-tier .api inventory lane (codex) PER `.planning/<sub>` — package-level mapping dilutes depth on a large
+// package and starves the batches of per-page grounding. Products are per-unit dossiers + reports on disk; receipts on the wire.
+const unitMap = {};
+const mapUnit = async (u) => {
+    const L = Lof(u.pkg);
+    const unitPages = u.pages.map((p) => Object.assign({}, p, { i: 0 }));
+    const scope = unitPages.map((p) => p.page);
+    const tag = u.tag;
+    const ctxDossier = dossierPath('map:ctx:' + tag);
+    const apiDossier = dossierPath('map:api:' + tag);
+    const [ctx, api] = await Promise.all([
+        slot(() =>
+            recon(
+                (reg) => ctxLensPrompt(L, unitPages, ctxDossier, reg),
+                ropts(
+                    'map:ctx:' + tag,
+                    'Map',
+                    CTX_SCHEMA,
+                    scope,
+                    { arr: 'worklist', group: 'kind' },
+                    { native: true, nativeModel: 'opus', stallMs: STALL },
+                ),
+            ),
+        ),
+        slot(() =>
+            recon(
+                (reg) => apiLensPrompt(L, unitPages, apiDossier, reg),
+                ropts('map:api:' + tag, 'Map', API_SCHEMA, scope, { arr: 'worklist' }, { writes: true }),
+            ),
+        ),
+    ]);
+    unitMap[u.key] = { ctx, api, ctxDossier, apiDossier };
+};
+// TWO lanes per owning package with disjoint charters: a corrections census (opus — the fix addendum the batches land as rung 3)
+// and a bigger-ideas worklist (fable — the capability ambition, rung 4). One merged log regresses to a fixlog and the ambition dies.
+// Either lane absent (dead map or dead ideate), the executors run without that rung.
+const pkgIdeate = {};
+const ideatePkg = async (pkg) => {
+    const L = Lof(pkg);
+    const tag = pkg.split('/').pop();
+    const mapIndex = UNITS.filter((u) => u.pkg === pkg)
+        .map((u) => ({
+            sub: u.name,
+            deepMap: (unitMap[u.key].ctx?.ok && unitMap[u.key].ctxDossier) || null,
+            inventory: (unitMap[u.key].api?.ok && unitMap[u.key].apiDossier) || null,
+        }))
+        .filter((r) => r.deepMap || r.inventory);
+    if (!mapIndex.length) {
+        pkgIdeate[pkg] = { fix: '', idea: '' };
+        return;
+    }
+    const fixDossier = dossierPath('ideate:fix:' + tag);
+    const ideaDossier = dossierPath('ideate:idea:' + tag);
+    const [fix, idea] = await Promise.all([
+        slot(() => agent(correctionsPrompt(L, pkg, mapIndex, fixDossier), wopts('ideate:fix:' + tag, 'Ideate', 'opus', RECEIPT))),
+        slot(() => agent(ideasPrompt(L, pkg, mapIndex, ideaDossier), wopts('ideate:idea:' + tag, 'Ideate', 'fable', RECEIPT))),
+    ]);
+    pkgIdeate[pkg] = { fix: (fix && fix.ok && fixDossier) || '', idea: (idea && idea.ok && ideaDossier) || '' };
+    log(
+        'Ideate ' +
+            tag +
+            ': ' +
+            (pkgIdeate[pkg].fix ? (fix.entries || 0) + ' correction(s)' : 'no census') +
+            ' + ' +
+            (pkgIdeate[pkg].idea ? (idea.entries || 0) + ' bigger-idea(s)' : 'no ideas'),
+    );
+};
+
+// Per batch, the chain: page-scoped terra bar lens, fable implement, sol critique, fable redteam — ctx/api
+// grounding reused from the owning unit dossiers.
+const runBatch = async (b) => {
+    const tag = b.pkg.split('/').pop() + ':b' + b.i;
+    const L = Lof(b.pkg);
+    const batch = b.pages.map((p) => Object.assign({}, p, { i: b.i }));
+    const pageScope = batch.map((p) => p.page);
+    // ctx + api grounding come from the Map lanes (per-unit-segment, reused); only the page-scoped bar lens runs per batch.
+    const pms = b.units.map((u) => unitMap[u.key]).filter(Boolean);
+    const bar = await slot(() =>
+        recon(
+            (reg) => barLensPrompt(L, batch, reg),
+            ropts('recon:bar:' + tag, 'Build', BAR_SCHEMA, pageScope, { arr: 'findings', group: 'severity' }),
+        ),
+    );
+    const roster = pms
+        .flatMap((m) => [m.ctx, m.api])
+        .concat([bar])
+        .filter(Boolean);
+    // A failed Map lane carries its WHOLE unit as scope; intersect with this batch so cold-read stays on its own pages.
+    const unmapped = roster
+        .filter((r) => !r.ok)
+        .flatMap((r) => (r.scope || []).filter((sc) => pageScope.includes(sc)).map((sc) => ({ lane: r.lane, scope: sc })));
+    if (unmapped.length)
+        log(
+            tag +
+                ' — FAILED lens(es): ' +
+                roster
+                    .filter((r) => !r.ok)
+                    .map((r) => r.lane)
+                    .join(', '),
+        );
+    const dossiers = pms
+        .flatMap((m) => [m.ctx && m.ctx.ok && m.ctxDossier, m.api && m.api.ok && m.apiDossier])
+        .filter(Boolean)
+        .join('`, `');
+    const ideate = pkgIdeate[b.pkg] || { fix: '', idea: '' };
+    const fix = await slot(() =>
+        agent(implementPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped), wopts('impl:' + tag, 'Build', 'fable', FIXLOG_SCHEMA)),
+    );
+    if (!fix) return { pkg: b.pkg, pages: b.pages, fix: null, crit: null, rt: null }; // failure isolation: a dead implement skips its reviews
+    // Sol critique: a workspace-write codex lane running the full conformance audit in place;
+    // fixlog to disk, receipt on the wire; the redteam reads the fixlog from disk and folds its rows forward.
+    // The critique preamble drops the IDEAS rung (idea: '') — an in-place conformance audit consumes the census,
+    // never the ambition worklist; ambition realization is the implement's rung 4 and the redteam's mandate (G).
+    const crit = await slot(() =>
+        recon(
+            (reg) => critiquePrompt(L, batch, dossiers, { fix: ideate.fix, idea: '' }, SCOPES, roster, unmapped, navOf([fix]), reg),
+            ropts(
+                'crit:' + tag,
+                'Build',
+                REVIEW_SCHEMA,
+                pageScope,
+                { arr: 'files' },
+                { writes: true, fix: true, model: 'gpt-5.6-sol', nativeModel: 'fable', stallMs: CODEX_STALL },
+            ),
+        ),
+    );
+    const critR = crit && crit.ok ? crit : null;
+    const rt = await slot(() =>
+        agent(
+            redteamPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped, navOf([fix]), critR),
+            wopts('rt:' + tag, 'Build', 'fable', REVIEW_SCHEMA),
+        ),
+    );
+    return { pkg: b.pkg, pages: b.pages, fix, crit: critR, rt };
+};
 const built = (
     await Promise.all(
-        BATCHES.map(async (b) => {
-            const tag = b.pkg.split('/').pop() + ':b' + b.i;
-            const L = Lof(b.pkg);
-            const batch = b.pages.map((p) => Object.assign({}, p, { i: b.i }));
-            const pageScope = batch.map((p) => p.page);
-            // ctx + api grounding come from the Map phase (per-unit-segment, reused); only the page-scoped bar lens runs per batch.
-            const pms = b.units.map((u) => unitMap[u.key]).filter(Boolean);
-            const bar = await slot(() =>
-                recon(
-                    (reg) => barLensPrompt(L, batch, reg),
-                    ropts('recon:bar:' + tag, 'Build', BAR_SCHEMA, pageScope, { arr: 'findings', group: 'severity' }),
-                ),
-            );
-            const roster = pms
-                .flatMap((m) => [m.ctx, m.api])
-                .concat([bar])
-                .filter(Boolean);
-            // A failed Map lane carries its WHOLE unit as scope; intersect with this batch so cold-read stays on its own pages.
-            const unmapped = roster
-                .filter((r) => !r.ok)
-                .flatMap((r) => (r.scope || []).filter((sc) => pageScope.includes(sc)).map((sc) => ({ lane: r.lane, scope: sc })));
-            if (unmapped.length)
-                log(
-                    tag +
-                        ' — FAILED lens(es): ' +
-                        roster
-                            .filter((r) => !r.ok)
-                            .map((r) => r.lane)
-                            .join(', '),
-                );
-            const dossiers = pms
-                .flatMap((m) => [m.ctx && m.ctx.ok && m.ctxDossier, m.api && m.api.ok && m.apiDossier])
-                .filter(Boolean)
-                .join('`, `');
-            const ideate = pkgIdeate[b.pkg] || { fix: '', idea: '' };
-            const fix = await slot(() =>
-                agent(implementPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped), wopts('impl:' + tag, 'Build', 'fable', FIXLOG_SCHEMA)),
-            );
-            if (!fix) return { pkg: b.pkg, pages: b.pages, fix: null, crit: null, rt: null }; // failure isolation: a dead implement skips its reviews
-            // Sol critique: a workspace-write codex lane running the full conformance audit in place;
-            // fixlog to disk, receipt on the wire; the redteam reads the fixlog from disk and folds its rows forward.
-            const crit = await slot(() =>
-                recon(
-                    (reg) => critiquePrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped, navOf([fix]), reg),
-                    ropts(
-                        'crit:' + tag,
-                        'Build',
-                        REVIEW_SCHEMA,
-                        pageScope,
-                        { arr: 'files' },
-                        { writes: true, fix: true, model: 'gpt-5.6-sol', nativeModel: 'fable', stallMs: SOL_STALL },
-                    ),
-                ),
-            );
-            const critR = crit && crit.ok ? crit : null;
-            const rt = await slot(() =>
-                agent(
-                    redteamPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped, navOf([fix]), critR),
-                    wopts('rt:' + tag, 'Build', 'fable', REVIEW_SCHEMA),
-                ),
-            );
-            return { pkg: b.pkg, pages: b.pages, fix, crit: critR, rt };
-        }).map((p) => p.catch(() => null)),
+        PKGS.map(async (pkg) => {
+            try {
+                const pkgUnits = UNITS.filter((u) => u.pkg === pkg);
+                await Promise.all(pkgUnits.map(mapUnit));
+                const live = pkgUnits.filter((u) => {
+                    const m = unitMap[u.key] || {};
+                    return (m.ctx && m.ctx.ok) || (m.api && m.api.ok);
+                }).length;
+                log('Map ' + pkg.split('/').pop() + ': ' + pkgUnits.length + ' unit segment(s) mapped; ' + live + ' with a live dossier');
+                await ideatePkg(pkg);
+                return (
+                    await Promise.all(
+                        BATCHES.filter((b) => b.pkg === pkg)
+                            .map(runBatch)
+                            .map((p) => p.catch(() => null)),
+                    )
+                ).filter(Boolean);
+            } catch (e) {
+                log('Package chain FAILED (' + pkg + '): ' + ((e && e.message) || e));
+                return [];
+            }
+        }),
     )
-).filter(Boolean);
-const FAILED = built.filter((d) => !d.fix).flatMap((d) => d.pages.map((p) => p.page));
+).flat();
+const CENSUS_PATHS = PKGS.map((pkg) => pkgIdeate[pkg] && pkgIdeate[pkg].fix).filter(Boolean);
 const LANDED = built.filter((d) => d.fix).flatMap((d) => d.pages.map((p) => p.page));
+// FAILED covers both a dead implement (a batch entry with no fix) and a dead package chain (pages in no entry).
+const FAILED = PAGES.map((p) => p.page).filter((pg) => !LANDED.includes(pg));
 // The critique fixlog lives on disk; the redteam folds its rows into its own return, so aggregation
 // reads fix + rt only. A batch whose redteam died leaves the critique fixlog ORPHANED for the fixer.
 const ROWS = built.flatMap((d) => ((d.fix && d.fix.indexRows) || []).concat((d.rt && d.rt.indexRows) || []));
@@ -1785,14 +1897,22 @@ const found = (
     await Promise.all(
         finderTasks.map((t) =>
             slot(() =>
+                // Finders are terminal-consumed (the fixer re-verifies anchors but never re-hunts the coverage),
+                // so the fan runs one tier up at a judgment-weighted effort.
                 t.gov
                     ? recon(
                           (reg) => govFinderPrompt(LANG[t.lang], t.pkgs, t.pages, ROWS, reg),
-                          ropts('finder:gov:' + t.lang, 'Close', FINDINGS_SCHEMA, t.pkgs, { arr: 'findings', group: 'class' }),
+                          ropts('finder:gov:' + t.lang, 'Close', FINDINGS_SCHEMA, t.pkgs, { arr: 'findings', group: 'class' }, {
+                              model: 'gpt-5.6-sol',
+                              codexEffort: 'medium',
+                          }),
                       )
                     : recon(
                           (reg) => finderPrompt(LANG[t.lang], t.pages, t.i, t.seams, reg),
-                          ropts('finder:' + t.lang + ':s' + t.i, 'Close', FINDINGS_SCHEMA, t.pages, { arr: 'findings', group: 'class' }),
+                          ropts('finder:' + t.lang + ':s' + t.i, 'Close', FINDINGS_SCHEMA, t.pages, { arr: 'findings', group: 'class' }, {
+                              model: 'gpt-5.6-sol',
+                              codexEffort: 'medium',
+                          }),
                       ),
             ).catch(() => null),
         ),
@@ -1855,12 +1975,21 @@ for (let round = 0; round < DRAIN_ROUNDS; round++) {
     if (!open.length || open.length >= lastOpen) break;
     lastOpen = open.length;
 }
-// DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations adjudicated against
-// the live doctrine surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws.
+// TERMINAL PAIR — two disjoint-surface writers run concurrently after the drain loop closes.
+// IDEAS DISPOSITION (the sole IDEAS.md author now that the fixer is done) gives every bigger-ideas dossier
+// entry exactly one outcome — realized on disk, carded into the owning IDEAS.md, or rejected with reason —
+// so no idea silently evaporates with the scratch dir. DOCTRINE LANDER is the run's durable-learning
+// terminal — pooled harvest nominations adjudicated against the live doctrine surfaces; refutation-first,
+// land-nothing legal, admission law owned by docs/laws.
+const IDEA_SETS = PKGS.map((pkg) => ({ pkg, path: (pkgIdeate[pkg] && pkgIdeate[pkg].idea) || '' })).filter((r) => r.path);
 const HARVEST_ROWS = built.flatMap((d) => ((d.fix && d.fix.harvest) || []).concat((d.rt && d.rt.harvest) || [])).concat(fixerHarvest);
-const doctrine = HARVEST_ROWS.length
-    ? await slot(() =>
-          agent(
+const [ideas, doctrine] = await Promise.all([
+    IDEA_SETS.length
+        ? slot(() => agent(dispositionPrompt(IDEA_SETS, LANDED), wopts('ideas:disposition', 'Close', 'fable', IDEAS_DISP_SCHEMA)))
+        : null,
+    HARVEST_ROWS.length
+        ? slot(() =>
+              agent(
               'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` ' +
                   'FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. Load ' +
                   'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
@@ -1872,17 +2001,26 @@ const doctrine = HARVEST_ROWS.length
                   'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
                   'whose coupling no longer holds, land a coupling this run proved.\n' +
                   'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
-                  'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-              wopts('doctrine', 'Close', 'fable', DOCTRINE_SCHEMA),
-          ),
-      )
-    : null;
+                      'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
+                  wopts('doctrine', 'Close', 'fable', DOCTRINE_SCHEMA),
+              ),
+          )
+        : null,
+]);
 return {
     targets: TARGETS,
     languages: LANDED_LANGS,
     batches: BATCHES.length,
     landed: LANDED.length,
     failed: FAILED,
+    ideas: ideas && {
+        entries: (ideas.entries || []).length,
+        realized: (ideas.entries || []).filter((e) => e.outcome === 'realized').length,
+        carded: (ideas.entries || []).filter((e) => e.outcome === 'carded').length,
+        rejected: (ideas.entries || []).filter((e) => e.outcome === 'rejected').length,
+        files: ideas.files || [],
+        summary: ideas.summary,
+    },
     seamRows: SEAM_ROWS.length,
     backlog: BACKLOG.length,
     findings: FOUND,

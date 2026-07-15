@@ -10,7 +10,7 @@ description: >-
     overflow, and forks. Prose register and the deterministic prose gate belong to the
     docgen skill; codex-native format and discovery mechanics belong to the codex skill;
     runnable orchestration scripts belong to workflow-creator; placement across memory files,
-    rules, settings, and hooks belongs to harness-config.
+    rules, settings, and hooks belongs to harness-steering.
 ---
 
 # [SKILL_WRITER]
