@@ -4,7 +4,13 @@ Claude Code's `Workflow` tool runs one author-written JavaScript file that deter
 
 ## [01]-[MODEL]
 
-A script runs in a sandbox → every `agent()` call spawns a fresh subagent with its own clean context window → the script collects results with ordinary JavaScript → the return value comes back as the tool result. The loops, conditionals, fan-out, and retries are plain deterministic JavaScript spending zero tokens and behaving identically every run; the model does only the leaf work inside each `agent()` call, each in a discarded fresh context, so agents cannot contaminate each other and the job touches far more material than one window holds.
+A workflow is a JavaScript program that orchestrates subagents. The author writes one file; the `Workflow` tool runs it in a sandbox.
+
+The word that matters is deterministic. In a normal session, Claude decides the next step — reads a result, thinks, picks a tool — and that control flow varies run to run. A workflow inverts it: the loops, the conditionals, the fan-out, the retries are plain JavaScript. The model does only the leaf work inside each `agent()` call. The orchestration spends zero tokens and behaves identically every run.
+
+The one-sentence model: a script runs in a sandbox → every `agent()` call spawns a fresh subagent with its own clean context window → the script collects results with ordinary JavaScript → the return value comes back as the tool result.
+
+Fresh context windows are the point. A single session has one context window; a big multi-step job fills it with every file and every intermediate thought. In a workflow each `agent()` gets a brand-new empty context, does its one job, returns only its result, and its context is discarded. The main conversation barely grows, agents cannot contaminate each other, and the job touches far more material than one window holds.
 
 ## [02]-[INVOCATION]
 
@@ -26,7 +32,14 @@ Placement and precedence:
 - In a monorepo, project workflows load from every `.claude/workflows/` between the working directory and the repo root; the closest definition of a name wins, and a save lands in the closest existing `.claude/workflows/` directory.
 - The `name` inside `meta` — not the filename — is the workflow's name.
 
-User-side entry points: a saved or bundled command (`/deep-research …`); the `ultracode` keyword in a prompt (a plain-words "use a workflow" works identically); or `/effort ultracode`, which makes Claude plan a workflow for every substantive task in the session. Saving a good run is `s` in `/workflows`. A run that schedules more than 25 agents or projects past 1.5 million tokens raises an advisory large-workflow warning in the task panel; the operator-side posture knobs (workflow-size aim, off switches, launch-prompt consent) are advisory or off-switches that never change script semantics.
+User-side entry points: a saved or bundled command (`/deep-research …`); the `ultracode` keyword in a prompt (a plain-words "use a workflow" works identically); or `/effort ultracode`, which makes Claude plan a workflow for every substantive task in the session. Saving a good run is `s` in `/workflows`.
+
+Runtime posture knobs, all advisory or off-switches — none change script semantics:
+
+- The workflow-size setting (`/config` → Dynamic workflow size) sends Claude an agent-count aim per script it writes: `unrestricted` (default), `small` under 5, `medium` under 15, `large` under 50. Guidance only; the runtime caps still govern.
+- A run that schedules more than 25 agents or projects past 1.5 million tokens raises an advisory large-workflow warning in the task panel; a set size guideline replaces the 25-agent threshold, and ultracode sessions suppress the warning.
+- Off switches: the `/config` toggle, `"disableWorkflows": true` in settings, or `CLAUDE_CODE_DISABLE_WORKFLOWS=1` at startup. Disabling removes bundled commands, the keyword trigger, and the ultracode effort tier.
+- The launch prompt shows the planned phases with run / remember-approval / view-raw-script / cancel; in auto permission mode consent is recorded on first launch. Bypass-permissions and headless runs start without prompting.
 
 ## [03]-[ANATOMY]
 
@@ -153,7 +166,7 @@ Without `schema`, `agent()` returns the subagent's final text verbatim. With `sc
 |  [05]   | `effort`    | string       | Reasoning tier `'low'`…`'max'`, independent of `model`; not in the cache key                       |
 |  [06]   | `isolation` | `'worktree'` | Fresh git worktree per agent; expensive — only when parallel agents mutate the same files          |
 |  [07]   | `agentType` | string       | Run as a registered subagent type; validated against the live registry                             |
-|  [08]   | `stallMs`   | number       | Between-call stall override (default 180000 ms); in-call time is invisible to it; not cache-keyed  |
+|  [08]   | `stallMs`   | number       | Per-agent stall override (default 180000 ms); raise for a slow agent; not in the cache key         |
 
 `schema`, `model`, `isolation`, and `agentType` are the four options baked into the resume cache key, and the prompt text is hashed into it too — change any and that call re-runs. `label`, `phase`, `effort`, and `stallMs` never invalidate a cached result.
 
@@ -233,7 +246,7 @@ Non-reproducible calls throw — they break resume:
 |  [02]   | `Date.now()`                    | Pass timestamps in via `args`; stamp results after the run returns |
 |  [03]   | argless `new Date()` / `Date()` | `new Date(specificValue)` still works                              |
 
-No host access: the orchestrator has no filesystem and no Node.js APIs — no `require`, `fs`, `process`, network. File and shell work belongs inside an `agent()`; the subagent has the normal tools, the orchestrator does not.
+No host access: the orchestrator has no filesystem and no Node.js APIs — no `require`, `fs`, `process`, network. File and shell work belongs inside an `agent()`; the subagent has the normal tools, the orchestrator does not. This is not a restriction to fight — it is the contract that makes resume work.
 
 Subagents run in `acceptEdits` mode and inherit the session tool allowlist regardless of the session's own permission mode. File edits are auto-approved, but a shell, web, or MCP call outside the allowlist still raises a mid-run permission prompt — which stalls a long parallel run until answered. Grant those permissions before launching.
 
@@ -261,11 +274,8 @@ It re-hosts the unmodified file inside the same `new Function`-wrapped, injected
 - `deterministic` — both runs produced an identical trace; `false` is a hidden non-deterministic escape, which breaks resume.
 - `perPhase` + `totalAgents` — a phase spawning far beyond the mental model is a fan-out bug; a phase MISSING from the sequence means a truthiness guard (`if (!x)`) dropped the minimal fixture — supply real shapes with `--fixtures` keyed by agent label.
 - `maxConcurrentObserved` against 16 (queuing, a warning) and the 1000-agent lifetime cap (a throw, a real bug).
-- Agent counts against the pre-edit baseline: a body-level try/catch (per-unit failure isolation) swallows a runtime `ReferenceError` inside its stage helpers, so `ran=true deterministic=true` still prints while every unit dies to `null` — the ONLY visible symptom is an agent count silently dropping against the last known-good run. After any dispatch-helper edit, diff `perPhase` against the committed baseline; a drop to zero in a fanning phase is a swallowed throw, not a guard. The baseline is an artifact with a home: `dry-run.mjs <file> > <file>.baseline.txt` captured beside the workflow at its last known-good state, so the diff is executable across sessions instead of resting on memory.
-- Race semantics in simulation: timers run on a VIRTUAL clock — a `setTimeout` callback fires in ms-order only after pending microtask cascades drain — so a `Promise.race` between an agent and a sleep-backed watchdog resolves to the AGENT branch for every lane that resolves, matching production. A watchdog-carrying workflow dry-runs BOTH branches: the default run proves the live-lane path, and a `--fixtures` value of `"__HANG__"` for a lane's label makes that agent never resolve (its slot stays held), so the race falls to the timer and the dead-lane path executes.
+- Agent counts against the pre-edit baseline: a body-level try/catch (per-unit failure isolation) swallows a runtime `ReferenceError` inside its stage helpers, so `ran=true deterministic=true` still prints while every unit dies to `null` — the ONLY visible symptom is an agent count silently dropping against the last known-good run. After any dispatch-helper edit, diff `perPhase` against the committed baseline; a drop to zero in a phase that should fan is a swallowed throw, not a guard.
 
 Fixtures are MINIMAL by design (non-empty strings, one-element arrays), so counts are REPRESENTATIVE, not exact production. Exercise every loop down BOTH a converging and a permanently-stuck input, so the hard stop and the fixpoint break both fire.
 
 A green simulation validates the machine, not the meaning — it is blind to prompt quality, to whether a schema's `required` set matches what the model produces, and to effort-tier fit. Close that gap with a narrow real run: execute the UNMODIFIED file on one tiny scope, `Workflow({ scriptPath, args: '<one small unit>' })`, scoped by `args` and never by rewriting calls — `dry-run.mjs --mode real --scope <path>` prints that exact invocation plus the projected count and spawns nothing; the operator authorizes the spend. A narrow real run is the only check that surfaces structured-output conformance, a permission-prompt stall, host-singleton serialization, and stall-timeout adequacy, and it legitimately seeds the resume cache for the full run. For a cheaper real run, set `CLAUDE_CODE_SUBAGENT_MODEL` in the environment — it overrides every per-call `model` with no source edit; forcing a cheap model from inside the script is a dead end, because `model` is a cache-key field and a rewritten run seeds nothing.
-
-The narrow run judges the reasoning path, not only the products: after it lands, read the lane transcripts themselves (`/workflows` raw view), because a schema-valid receipt hides premature exits, wrong-tool selection, and over-verbose queries that only the transcript shows. A DURABLE workflow — one rerun across sessions — additionally earns a small fixed eval set: ~15-20 representative `args` inputs spanning the target space's shape classes, with a rubric-scoped judge pass over the products (the rubric names the per-product acceptance predicates, never a vibe grade). Rerun the set after any prompt or schema edit — the dry-run cannot see a meaning regression, and the narrow run sees only one input.

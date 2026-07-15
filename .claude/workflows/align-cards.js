@@ -21,8 +21,9 @@ export const meta = {
 
 const CAP = 14;
 const STAGGER_MS = 1500;
-const STALL = 300000; // native-lane wedge bound — every lane is a native agent(), so stallMs observes it directly; no live blocking MCP call masks a stall here
-const RETRY_BACKOFFS = [60000, 1800000]; // agent() returns null causeless, so the ladder covers both death classes: a fast first attempt catches a transient transport death, the long second waits out a usage-limit window
+const STALL = 300000;
+const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical writer; the count bounds spend, the backoff buys recovery time
+const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -111,29 +112,13 @@ const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 // Bounded re-dispatch for a dead CRITICAL writer (usage-limit or transport death, agent() returned null): attempt-counted with a
 // backoff before each; the final death returns null — the pool collects it and .filter(Boolean) drops it, so the lane isolates, never the chain.
 const retryLane = async (fn) => {
-    for (const backoff of RETRY_BACKOFFS) {
-        await sleep(backoff);
+    for (let a = 0; a < RETRY_ATTEMPTS; a++) {
+        await sleep(RETRY_BACKOFF);
         const r = await fn();
         if (r) return r;
     }
     return null;
 };
-// Run telemetry: every lane brackets itself on ONE shared ledger — one O_APPEND line per event, `<utc-iso> | <label> | <event>[ | <verdict> | <count>]`.
-// The ledger is the workflow-agnostic observability seam a watcher tails for phase/stall/failure signals; native lanes self-stamp through the `run`
-// dispatch owner. align-cards carries no codex wrapper, so there is no codex-start/codex-end bracket — every lane here is native.
-const SCRATCH_DIR = '.claude/scratch/align-cards-' + SWEEP.replace(/[^A-Za-z0-9]+/g, '-');
-const LEDGER_LOG = SCRATCH_DIR + '/run-telemetry.log';
-const TLM = (label) =>
-    'TELEMETRY (mechanical): FIRST act — one Bash append of one line to `' +
-    LEDGER_LOG +
-    '` (`mkdir -p ' +
-    SCRATCH_DIR +
-    '` once, then shell `>>` with `date -u +%FT%TZ`; never rewrite the file): `<utc-iso> | ' +
-    label +
-    ' | start`. FINAL act before returning — append the matching `<utc-iso> | ' +
-    label +
-    ' | end | <one-word verdict> | <primary entry count>`. A lane that cannot finish appends `| fail | <reason slug>` instead of `end`.';
-const run = (prompt, opts) => agent(prompt + '\n\n' + TLM(opts.label), opts);
 const pool = async (items, cap, worker) => {
     const out = new Array(items.length);
     let next = 0;
@@ -142,21 +127,21 @@ const pool = async (items, cap, worker) => {
         gate = gate.then(() => sleep(STAGGER_MS));
         return gate;
     };
-    const drain = async () => {
+    const run = async () => {
         while (next < items.length) {
             const i = next++;
             await launch();
             out[i] = await worker(items[i], i);
         }
     };
-    await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => drain()));
+    await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()));
     return out;
 };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 phase('Cards-Discover');
-const inv = await run(
+const inv = await agent(
     'DISCOVERY: enumerate every card file under ' +
         SWEEP +
         ' — files named exactly IDEAS.md or TASKLOG.md, at BOTH tiers: ' +
@@ -200,7 +185,7 @@ const aligned = (
         const base = 'align:' + u.folder.split('/').slice(-2).join('/');
         const opt = (suffix) => ({ label: base + suffix, phase: 'Cards-Align', schema: FIXLOG_SCHEMA, effort: 'high', stallMs: STALL });
         // CRITICAL WRITER: a dead align lane loses its folder's density realignment with no downstream re-drain — a final death isolates the lane.
-        return (await run(prompt, opt(''))) || (await retryLane(() => run(prompt, opt(':r1'))));
+        return (await agent(prompt, opt(''))) || (await retryLane(() => agent(prompt, opt(':r1'))));
     })
 ).filter(Boolean);
 log('Cards aligned across ' + aligned.length + ' folders');
@@ -234,7 +219,7 @@ const verify = (
                     effort: 'high',
                     stallMs: STALL,
                 });
-                return (await run(prompt, opt(''))) || (await retryLane(() => run(prompt, opt(':r1'))));
+                return (await agent(prompt, opt(''))) || (await retryLane(() => agent(prompt, opt(':r1'))));
             },
             async () => {
                 const prompt = [
@@ -255,7 +240,7 @@ const verify = (
                     effort: 'high',
                     stallMs: STALL,
                 });
-                return (await run(prompt, opt(''))) || (await retryLane(() => run(prompt, opt(':r1'))));
+                return (await agent(prompt, opt(''))) || (await retryLane(() => agent(prompt, opt(':r1'))));
             },
         ],
         CAP,

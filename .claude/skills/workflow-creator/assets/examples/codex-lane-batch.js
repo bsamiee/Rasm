@@ -47,18 +47,16 @@ const SCRATCH =
 // --- [MODELS] --------------------------------------------------------------------------
 
 // Thin wire receipt — the lane's product stays on disk at `report`; STRICT: every property required.
-// `thread` is the codex threadId — the rollout-store join key and the dead-lane resume handle; empty on native lanes.
 const RECEIPT = {
     type: 'object',
     additionalProperties: false,
-    required: ['ok', 'report', 'entries', 'headline', 'failure', 'thread'],
+    required: ['ok', 'report', 'entries', 'headline', 'failure'],
     properties: {
         ok: { type: 'boolean' },
         report: { type: 'string' },
         entries: { type: 'integer' },
         headline: { type: 'string' },
         failure: { type: 'string' }, // the tool error text; empty on success
-        thread: { type: 'string' },
     },
 };
 
@@ -84,9 +82,7 @@ const LAW =
     '(a handful of files per command, line-capped); never concatenate the whole territory into one command - tool output ' +
     'truncates and the data is lost.\nStop as soon as the product is complete; residual uncertainty becomes a severity "minor" ' +
     'finding, never a re-read.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited file:line ' +
-    'anchors a real coordinate; drop anything unconfirmed.\n</verification>\n\n<tool_bounds>\nA nested MCP tool call is bounded: ' +
-    'prefer the lightest variant that answers the question, hold each call to a hard time budget, and land an unresolved ' +
-    'dependency as a gap row - never an unbounded wait.\n</tool_bounds>\n\n<output_contract>\nYour final message is a ' +
+    'anchors a real coordinate; drop anything unconfirmed.\n</verification>\n\n<output_contract>\nYour final message is a ' +
     'single JSON object with exactly one key "findings": an array of {claim, file, line, severity: "blocker"|"major"|"minor"} ' +
     'rows.\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Use null for a value you could not ' +
     'determine and [] for an empty list; never guess.\n</output_contract>';
@@ -94,24 +90,20 @@ const LAW =
 const auditTask = (scope) =>
     'Audit ' + scope + ' for drifted docs, phantom members, and dead references. Read every file under it; verify each claim on disk.';
 
-const probeTaskOf = (f) => 'Probe ' + f + ': verify every path, version, and member it cites against disk.';
-
 // One wrapper, one blocking codex call, envelope CONTENT written unmodified, thin receipt back — never
 // re-judging the work. Effort inherits the operator default; no config clause without a real deviation.
 const lanePrompt = (label, task) =>
     'DISPATCH ROLE: gpt-5.6-terra performs the complete TASK below through one blocking codex MCP call; never perform, edit, judge, or relay ' +
-    'the work yourself. (1) Load the codex skill via the Skill tool, then ToolSearch "select:mcp__codex__codex,mcp__codex__codex-reply". ' +
-    '(2) Call mcp__codex__codex ONCE with ' +
+    'the work yourself. (1) ToolSearch "select:mcp__codex__codex". (2) Call mcp__codex__codex ONCE with ' +
     'model="gpt-5.6-terra", sandbox="read-only", cwd set to the repo root, "developer-instructions" = the LANE LAW block below VERBATIM, ' +
-    "prompt = the TASK block below VERBATIM. On any call error run the codex skill's blocking-caller recovery ladder — this is a " +
-    'read-only lane, so its first rung is the reply re-emission on the captured threadId. (3) The tool result is a JSON envelope ' +
+    'prompt = the TASK block below VERBATIM. On a tool error retry the identical call ONCE. (3) The tool result is a JSON envelope ' +
     '{threadId, content}; Write the CONTENT text (never the envelope) unmodified to ' +
     SCRATCH +
     '/' +
     label +
     '-report.json (a repo-relative path — resolve it against the repo root for the Write tool; delete any leftover file there first). ' +
-    '(4) Return ok, report path, entries = the findings count parsed from the content, headline = per-severity tallies, failure empty, ' +
-    'thread = the envelope threadId — or ok=false with the error text VERBATIM and any threadId preserved after a failed ladder.\n\nLANE LAW:\n\n' +
+    '(4) Return ok, report path, entries = the findings count parsed from the content, headline = per-severity tallies, failure empty — ' +
+    'or ok=false with the error text VERBATIM after a failed retry.\n\nLANE LAW:\n\n' +
     LAW +
     '\n\nTASK:\n\n' +
     task;
@@ -121,41 +113,26 @@ const lanePrompt = (label, task) =>
 const batchPrompt = (label, files) =>
     'DISPATCH ROLE: run ' +
     files.length +
-    ' SEQUENTIAL blocking codex MCP calls, one per probe task below, each with model="gpt-5.6-terra", sandbox="read-only", cwd at the repo ' +
+    ' SEQUENTIAL blocking codex MCP calls, one per probe file below, each with model="gpt-5.6-terra", sandbox="read-only", cwd at the repo ' +
     'root, config={"model_reasoning_effort":"medium"}, "developer-instructions" = the LANE LAW block below VERBATIM, and prompt = ' +
-    'the matching PROBE TASK below VERBATIM. ' +
-    '(1) Load the codex skill via the Skill tool, then ToolSearch "select:mcp__codex__codex,mcp__codex__codex-reply" once. (2) Call per ' +
-    "probe; on a call error run the codex skill's blocking-caller recovery ladder for that probe (read-only lane — reply re-emission " +
-    'first), then record it failed and continue. Each tool result is a JSON envelope {threadId, content}; content holds the probe ' +
-    'findings JSON. (3) Merge every findings ' +
+    '"Probe <file>: verify every path, version, and member it cites against disk." ' +
+    '(1) ToolSearch "select:mcp__codex__codex" once. (2) Call per probe; on a tool error retry that probe ONCE, then record it failed and ' +
+    'continue. Each tool result is a JSON envelope {threadId, content}; content holds the probe findings JSON. (3) Merge every findings ' +
     'array from the CONTENT texts and Write the merged JSON to ' +
     SCRATCH +
     '/' +
     label +
     '-report.json (repo-relative — resolve against the repo root; delete any leftover file first). (4) Return ok = at least one ' +
     'probe succeeded, the report path, entries = merged findings count, headline = "<n> probes | <tallies>", failure = the failed probe ' +
-    "names or empty, thread = the last call's threadId.\n\nLANE LAW:\n\n" +
+    'names or empty.\n\nLANE LAW:\n\n' +
     LAW +
-    '\n\nPROBE TASKS: ' +
-    JSON.stringify(files.map(probeTaskOf));
+    '\n\nPROBES: ' +
+    JSON.stringify(files);
 
 // Orchestrator-owned scope rides the receipt so a lane that dies before writing still names its territory.
 // QUOTA FALLBACK: usage exhaustion fails the call loudly; the CALLER re-dispatches the same task natively at
-// the role's Claude twin (terra->opus) — the sonnet wrapper never becomes the implicit executor.
-// TIMING: stallMs guards only out-of-call wrapper wedges (a stall window never observes a live blocking MCP
-// call); the binding bound on a wedged call is the wall-clock race below — no cancel exists, the raced-out
-// agent runs on as a harmless zombie, the race frees the SLOT and the codex session stays thread-recoverable.
-const WRAPPER_STALL = 1500000;
-const LANE_CLOCK = 2700000; // ~2.5x the observed peer-median lane time
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const DEAD = () => ({
-    ok: false,
-    report: '',
-    entries: 0,
-    headline: '',
-    failure: 'watchdog: wall-clock ceiling — call abandoned, slot freed; session recoverable via the rollout store',
-    thread: '',
-});
+// the role's Claude twin (terra->opus) — the sonnet wrapper never becomes the implicit executor. The wrapper
+// stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting.
 const shape = (label, scope) => (r) => ({
     lane: label,
     scope,
@@ -164,15 +141,9 @@ const shape = (label, scope) => (r) => ({
     entries: (r && r.entries) || 0,
     headline: (r && r.headline) || '',
     failure: (r && r.failure) || (r ? '' : 'lane died'),
-    thread: (r && r.thread) || '',
 });
-// `clockMs` sizes the watchdog per LANE CLASS: a batched wrapper runs N sequential codex calls, so the
-// single-lane clock over it kills legitimate work — the batch lane passes a call-count-scaled clock.
-const lane = (prompt, label, scope, nativeTask, clockMs) =>
-    Promise.race([
-        agent(prompt, { label: 'terra:' + label, phase: 'Audit', model: 'sonnet', effort: 'low', schema: RECEIPT, stallMs: WRAPPER_STALL }),
-        sleep(clockMs || LANE_CLOCK).then(DEAD),
-    ])
+const lane = (prompt, label, scope, nativeTask) =>
+    agent(prompt, { label: 'terra:' + label, phase: 'Audit', model: 'sonnet', effort: 'low', schema: RECEIPT, stallMs: 1500000 })
         .then((r) =>
             r && !r.ok && /usage|quota|limit/i.test(r.failure || '')
                 ? agent(
@@ -182,7 +153,7 @@ const lane = (prompt, label, scope, nativeTask, clockMs) =>
                           '/' +
                           label +
                           '-report.json (Write tool, path resolved against the repo root), then return ONLY the thin receipt: ok, report ' +
-                          'path, entries count, one-line headline, failure empty, thread empty.',
+                          'path, entries count, one-line headline, failure empty.',
                       { label, phase: 'Audit', model: 'opus', effort: 'high', schema: RECEIPT },
                   )
                 : r,
@@ -192,13 +163,10 @@ const lane = (prompt, label, scope, nativeTask, clockMs) =>
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 phase('Audit');
-// Every call site hands lane() the native task too — the quota fallback re-dispatches THAT task, and a
-// missing one would send the fallback agent a prompt with no work in it.
-const probesTask = 'Probe each file against disk and merge the findings into one JSON: ' + JSON.stringify(probes.map(probeTaskOf));
 const roster = (
     await parallel([
-        ...scopes.map((s, i) => () => lane(lanePrompt('scope-' + i, auditTask(s)), 'scope-' + i, [s], auditTask(s))),
-        () => lane(batchPrompt('probes', probes), 'probes', probes, probesTask, LANE_CLOCK * Math.max(1, probes.length)),
+        ...scopes.map((s, i) => () => lane(lanePrompt('scope-' + i, auditTask(s)), 'scope-' + i, [s])),
+        () => lane(batchPrompt('probes', probes), 'probes', probes),
     ])
 ).filter(Boolean);
 

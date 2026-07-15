@@ -2,16 +2,16 @@ export const meta = {
     name: 'implement-py',
     whenToUse: 'Realize open IDEAS and TASKLOG cards into design-page code fences across the Python target folders.',
     description:
-        "Realize every open IDEAS/TASKLOG card across the Python target set (libs/python/artifacts, compute, data, geometry, runtime) into deep design-page code FENCES at the docs/stacks/python bar (with docs/stacks/csharp as the ambition floor), repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified members, seam targets) and never verdicts; it runs read-only on gpt-5.6-terra dispatched through a sonnet codex wrapper (CODEX flag; false restores the native opus lane), lands its full navigation-facts product as one JSON report on disk under the workflow scratch dir, and returns only a thin receipt plus the jq-cut structural skeleton (order, pages, ripples, gates) inline; downstream stages read the report IN FULL from disk, and when the skeleton proves page-disjoint card groups, the implement stage fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope same-language counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central pyproject.toml pin row + band marker and the target ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal fable writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest — each stage's rows ride its own return, the critique lane's swept from its fixlog on disk by the doctrine lander (nomination transport never rides a living fold); the terminal stage is a DRAIN LOOP over the pooled deferred backlog plus every critique fixlog (the redteam fold-forward is lossy even when it lands) that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one opus doctrine lander adjudicates the pooled harvest plus every critique fixlog harvest array from disk against the docs/laws admission bar (land-nothing legal) before the run closes. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of the rebuild engine. Python-only. args = a target path string, an array of paths, or empty for the defaults. The language-wide libs/python/.planning is out of scope.",
+        "Realize every open IDEAS/TASKLOG card across the Python target set (libs/python/artifacts, compute, data, geometry, runtime) into deep design-page code FENCES at the docs/stacks/python bar (with docs/stacks/csharp as the ambition floor), repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified members, seam targets) and never verdicts; it runs read-only on gpt-5.6-terra dispatched through a sonnet codex wrapper (CODEX flag; false restores the native opus lane), lands its full navigation-facts product as one JSON report on disk under the workflow scratch dir, and returns only a thin receipt plus the jq-cut structural skeleton (order, pages, ripples, gates) inline; downstream stages read the report IN FULL from disk, and when the skeleton proves page-disjoint card groups, the implement stage fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope same-language counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central pyproject.toml pin row + band marker and the target ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal opus writer applies them serially. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest — each stage's rows ride its own return, the critique lane's swept from its fixlog on disk by the doctrine lander (nomination transport never rides a living fold); the terminal stage is a DRAIN LOOP over the pooled deferred backlog plus every critique fixlog (the redteam fold-forward is lossy even when it lands) that also applies the central pins and ARCHITECTURE seam rows and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate, then one fable doctrine lander adjudicates the pooled harvest plus every critique fixlog harvest array from disk against the docs/laws admission bar (land-nothing legal) before the run closes. Card-driven (it implements ideas/tasks), NOT the in-isolation api-stacking of the rebuild engine. Python-only. args = a target path string, an array of paths, or empty for the defaults. The language-wide libs/python/.planning is out of scope.",
     phases: [
         {
             title: 'Realize',
-            detail: 'all folder chains concurrent under one pooled cap: discover(gpt-5.6-terra via codex wrapper, read-only; product to disk, thin receipt + structural skeleton inline) -> implement(opus; reads the discovery report from disk, fans over skeleton-proven page-disjoint card groups) -> critique(ONE gpt-5.6-sol codex lane, workspace-write; fixlog to disk, receipt on the wire) -> redteam(opus, terminal close; reads the critique fixlog from disk as refutation targets and folds its surviving ripples/pins/seams/deferred rows into its own return); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [02]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
+            detail: 'all folder chains concurrent under one pooled cap: discover(gpt-5.6-terra via codex wrapper, read-only; product to disk, thin receipt + structural skeleton inline) -> implement(fable; reads the discovery report from disk, fans over skeleton-proven page-disjoint card groups) -> critique(ONE gpt-5.6-sol codex lane, workspace-write; fixlog to disk, receipt on the wire) -> redteam(fable, terminal close; reads the critique fixlog from disk as refutation targets and folds its surviving ripples/pins/seams/deferred rows into its own return); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [02]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
         },
         {
             title: 'Pins',
-            detail: 'a terminal DRAIN LOOP: one serial fable single-writer per round applies every reported central pyproject.toml pin row + band marker and every reported ARCHITECTURE.md [02]-[SEAMS] row, drains every critique fixlog (the redteam fold-forward is lossy even when it lands) and the pooled deferred backlog against live disk, and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate; then one opus doctrine lander adjudicates the pooled harvest nominations against the docs/laws admission bar (land-nothing legal). Runs only when pins, seams, orphans, backlog, or harvest exist',
-            model: 'fable',
+            detail: 'a terminal DRAIN LOOP: one serial opus single-writer per round applies every reported central pyproject.toml pin row + band marker and every reported ARCHITECTURE.md [02]-[SEAMS] row, drains every critique fixlog (the redteam fold-forward is lossy even when it lands) and the pooled deferred backlog against live disk, and re-feeds the still-open remainder under a round cap + no-shrinkage progress gate; then one fable doctrine lander adjudicates the pooled harvest nominations against the docs/laws admission bar (land-nothing legal). Runs only when pins, seams, orphans, backlog, or harvest exist',
+            model: 'opus',
         },
     ],
 };
@@ -23,11 +23,10 @@ const IMPL_FAN = 3; // max implement agents fanned per folder, and only over dis
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the no-shrinkage progress gate (no remaining shrinkage -> stop) is the real bound
-const RETRY_BACKOFFS = [60000, 1800000]; // agent() returns null causeless, so the ladder covers both death classes: a fast first attempt catches transient transport deaths, the long second waits out a usage-limit window
-const WRAPPER_STALL = 1500000; // stallMs never observes a live blocking MCP call (run-proven: a 43-min blocked wrapper under a 25-min stall survived) — this guards only out-of-call wrapper wedges; the watchdog clocks below are the binding bound
-const LANE_CLOCK = 2700000; // codex-lane wall-clock watchdog (~2.5x observed peer median): a nested-call wedge inside codex otherwise holds the slot to the session MCP ceiling
-const CRIT_CLOCK = 5400000; // sol critique watchdog (operator-default tier): a dense-batch conformance pass legitimately runs long; the ceiling exists for wedges, never depth
-const ROOT_DIR = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical writer; the count bounds spend, the backoff buys recovery time
+const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
+const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
+const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
 const ROOT = 'libs/python';
 const SHARED_API = 'libs/python/.api';
 const CENTRAL = 'pyproject.toml';
@@ -183,19 +182,16 @@ const DISCOVERY_SCHEMA = {
 // the per-page navigation map, anchors, coverage) stays on disk at `report`; only status + count + headline
 // plus the structural rows the orchestrator fans and seams over (order/cards/gates/ripples/malformed)
 // travel inline. `cards` = {slug, pages} per open card — the page-disjointness proof, nothing more.
-// `thread` is the codex MCP threadId — the rollout-file key under ~/.codex/sessions/ AND the `codex exec
-// resume` handle, so a dead codex lane stays joinable and recoverable; native lanes return ''.
 const RECEIPT = {
     type: 'object',
     additionalProperties: false,
-    required: ['ok', 'report', 'entries', 'headline', 'failure', 'thread', 'order', 'cards', 'gates', 'ripples', 'malformed'],
+    required: ['ok', 'report', 'entries', 'headline', 'failure', 'order', 'cards', 'gates', 'ripples', 'malformed'],
     properties: {
         ok: { type: 'boolean' },
         report: { type: 'string' },
         entries: { type: 'integer' },
         headline: { type: 'string' },
         failure: { type: 'string' },
-        thread: { type: 'string' },
         order: { type: 'array', items: { type: 'string' } },
         cards: { type: 'array', items: CARD_REF },
         gates: { type: 'array', items: GATE_ROW },
@@ -204,19 +200,17 @@ const RECEIPT = {
     },
 };
 
-// Thin wire receipt for the sol critique lane: its FIXLOG product stays on disk at `report`; `thread` carries
-// the codex MCP threadId (rollout-store key + resume handle), native twin returns ''.
+// Thin wire receipt for the sol critique lane: its FIXLOG product stays on disk at `report`.
 const LANE_RECEIPT = {
     type: 'object',
     additionalProperties: false,
-    required: ['ok', 'report', 'entries', 'headline', 'failure', 'thread'],
+    required: ['ok', 'report', 'entries', 'headline', 'failure'],
     properties: {
         ok: { type: 'boolean' },
         report: { type: 'string' },
         entries: { type: 'integer' },
         headline: { type: 'string' },
         failure: { type: 'string' },
-        thread: { type: 'string' },
     },
 };
 
@@ -368,9 +362,7 @@ const DOCTRINE_SCHEMA = {
 // --- [DOCTRINE] ------------------------------------------------------------------------
 
 const FB =
-    ' (the `.api` catalogs, Context7/exa/tavily for the official surface, and the `nuget` MCP for NuGet-side members — ' +
-    'version/deprecation lookups only, `get_latest_package_version`-class calls, never a full `get_package_context` dump on a ' +
-    'large package — own the fallback when assay is unavailable)';
+    ' (the `.api` catalogs, Context7/exa/tavily for the official surface, and the `nuget` MCP for NuGet-side members own the fallback when assay is unavailable)';
 
 const LAW = [
     'Rasm monorepo, libs/python planning corpus (markdown specs of intended Python module designs). CLAUDE.md manifest + WORKSPACE_LAW strata ' +
@@ -481,7 +473,7 @@ const BARHUNT = [
         'spelling, or enumerable family an algebra, table, fold, or generator can own is a collapse target you find yourself.',
 ].join('\n');
 
-// Native-only hostile stance — composed by the opus implement + red-team prompts, NEVER by the sol codex critique lane (the estate
+// Native-only hostile stance — composed by the fable implement + red-team prompts, NEVER by the sol codex critique lane (the estate
 // hostile register makes a codex lane over-probe out of territory; the critique carries its de-conflicted register in developer-instructions).
 const STANCE =
     'STANCE — hold every fence naive, shallow, or illusory until it survives a real attack; the burden of proof is on the code, never on ' +
@@ -657,32 +649,16 @@ const pool = async (items, cap, worker) => {
     await Promise.all(Array.from({ length: Math.min(cap, items.length) }, () => run()));
     return out;
 };
-// Bounded re-dispatch for a dead CRITICAL writer: attempt-counted with a per-attempt backoff (fast first for a transient
-// death, long second for a usage-limit window); the final death isolates the lane but NEVER the chain — every downstream
-// stage still runs against current disk.
+// Bounded re-dispatch for a dead CRITICAL writer (usage-limit or transport death): attempt-counted, backoff before each attempt;
+// the final death isolates the lane but NEVER the chain — every downstream stage still runs against current disk.
 const retryLane = async (fn) => {
-    for (const backoff of RETRY_BACKOFFS) {
-        await sleep(backoff);
+    for (let a = 0; a < RETRY_ATTEMPTS; a++) {
+        await sleep(RETRY_BACKOFF);
         const r = await fn();
         if (r) return r;
     }
     return null;
 };
-
-// Run telemetry: every lane brackets itself on ONE shared ledger — one O_APPEND line per event, `<utc-iso> | <label> | <event>[ | <verdict> | <count>]`.
-// The ledger is the workflow-agnostic observability seam a watcher tails for phase/stall/failure signals; native lanes self-stamp through the `run`
-// dispatch owner, codex lanes are stamped by their sonnet wrapper around the blocking MCP call so the bracket times the codex call itself.
-const LEDGER_LOG = ROOT_DIR + '/' + SCRATCH + '/run-telemetry.log';
-const TLM = (label) =>
-    'TELEMETRY (mechanical): FIRST act — one Bash append of one line to `' +
-    LEDGER_LOG +
-    '`: `<utc-iso> | ' +
-    label +
-    ' | start` (shell `>>` with `date -u +%FT%TZ`; never rewrite the file). FINAL act before returning — append the matching ' +
-    '`<utc-iso> | ' +
-    label +
-    ' | end | <one-word verdict> | <primary entry count>`. A lane that cannot finish appends `| fail | <reason slug>` instead of `end`.';
-const run = (prompt, opts) => agent(prompt + '\n\n' + TLM(opts.label), opts);
 
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
@@ -707,16 +683,13 @@ const laneLaw = (schema, o) =>
           'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
           'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
           '</verification>') +
-    '\n\n<tool_bounds>\nA nested MCP tool call is bounded: prefer the lightest variant that answers the question (a version ' +
-    'lookup over a full package-context dump), give every such call a hard time budget, and when a call does not settle ' +
-    'promptly, record the item as a gap/unverified row and move on — an unbounded wait on one lookup never stalls the task.\n' +
-    '</tool_bounds>\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
+    '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
-    const root = ROOT_DIR;
+    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
     const report = root + '/' + base + '-report.json';
     const model = o.model || 'gpt-5.6-terra';
     return [
@@ -724,12 +697,7 @@ const codexPrompt = (label, task, schema, o) => {
             model +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Load the `codex` skill via the Skill tool FIRST — its [09] sessions and recovery law governs this call. Then call ' +
-            'ToolSearch with query "select:mcp__codex__codex,mcp__codex__codex-reply", and append one Bash line to `' +
-            LEDGER_LOG +
-            '`: `<utc-iso> | ' +
-            label +
-            ' | codex-start` (shell `>>` with `date -u +%FT%TZ`; never rewrite the file).',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
             '", sandbox=' +
@@ -740,14 +708,12 @@ const codexPrompt = (label, task, schema, o) => {
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
             'VERBATIM. ' +
             (o.writes
-                ? "On any call error run the codex skill's blocking-caller recovery ladder with this lane's disk product at " +
-                  report +
-                  ' — verify it FIRST (the lane writes it as its final act; a valid report proceeds to step (4) as success); the ' +
-                  'reply nudge tells the session to finish the TASK and write the report file as specified; a fresh identical call ' +
-                  'is the last resort (a second writer over the same pages).'
-                : "On any call error run the codex skill's blocking-caller recovery ladder — this lane writes no product itself, so " +
-                  'the reply re-emission of the complete final-message JSON is the first rung and one identical retry the second; a ' +
-                  'failed ladder skips step (3) and returns through step (4).'),
+                ? 'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane writes ' +
+                  "its report as its final act — run step (3)'s verification first, and a valid report proceeds to step (4) as success. " +
+                  'Only a missing or invalid report earns ONE identical retry (a second writer over the same pages is the last resort); ' +
+                  'a failed retry with no valid report returns the error through step (4).'
+                : 'If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the error through ' +
+                  'step (4).'),
         'LANE LAW:\n\n' + laneLaw(schema, o),
         // writes lanes author their own report (final act) — the sandbox admits it; the wrapper only verifies.
         'TASK:\n\n' +
@@ -769,12 +735,12 @@ const codexPrompt = (label, task, schema, o) => {
               report +
               ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
               'failure returns through step (4) with the error.',
-        o.receipt(base, label),
+        o.receipt(base),
     ].join('\n\n');
 };
-const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus'); // native fallback twins; fable's ONE seat is the terminal drain reconciler, never a fallback
+const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
-    run(task + o.nativeTail(SCRATCH + '/' + fileTag(o.label) + '-report.json'), {
+    agent(task + o.nativeTail(SCRATCH + '/' + fileTag(o.label) + '-report.json'), {
         label: o.label,
         phase: o.phase,
         model: o.nativeModel || twinOf(o.model),
@@ -784,49 +750,34 @@ const nativeLane = (task, o) =>
     });
 // The discovery lane routes here: gpt-5.6-terra wrapper when CODEX (a read-only mapping lane — recon law,
 // never fix), the native twin otherwise. The row carries `scope` from the ORCHESTRATOR (never the lane's
-// self-report) so a failed lane's territory is exact even when the lane died before writing anything. The
-// codex call races a wall-clock watchdog: the ceiling frees the slot with the standard dead-lane shape while
-// the abandoned call runs on harness-side as an ignored zombie and the codex session stays recoverable via the rollout store.
-const discoveryReceipt = (base, label) =>
-    '(4) One Bash append of one line to the same ledger: `<utc-iso> | ' +
-    label +
-    ' | codex-end | <ok or fail> | <entries> | <threadId from the result envelope>` — the threadId keys the codex-side session ' +
-    'record, so it is never omitted. Then parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
+// self-report) so a failed lane's territory is exact even when the lane died before writing anything.
+const discoveryReceipt = (base) =>
+    '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
     base +
-    '-report.json, entries=(tasks.length + ideas.length), headline="<entries> open cards | <status tallies>", failure empty, ' +
-    'thread=the threadId from the result envelope, and copy ' +
+    '-report.json, entries=(tasks.length + ideas.length), headline="<entries> open cards | <status tallies>", failure empty, and copy ' +
     'order, cards=(tasks + ideas projected to {slug,pages}), gates, ripples, and malformed from malformed_ripples verbatim from the ' +
-    'result. On a second tool error return ok=false, entries=0, report and headline empty, every structural array empty, ' +
-    'thread=the threadId if any envelope returned one else empty, and failure equal to the error text VERBATIM.';
+    'result. On a second tool error return ok=false, entries=0, report and headline empty, every structural array empty, and failure ' +
+    'equal to the error text VERBATIM.';
 const discoveryTail = (report) =>
     '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
     report +
     ' (Write tool, absolute path under the repo root): ' +
     JSON.stringify(DISCOVERY_SCHEMA) +
     ' — then return ONLY the receipt: ok, report path, entries = open tasks + ideas count, ' +
-    'one-line mechanical headline (card count + status counts), failure empty, thread empty, plus order, cards ({slug, pages} per open ' +
+    'one-line mechanical headline (card count + status counts), failure empty, plus order, cards ({slug, pages} per open ' +
     'card), gates, ripples, and malformed (= malformed_ripples) transcribed exactly from the product.';
 const recon = (task, o) => {
     const opts = { ...o, writes: !!o.writes, receipt: discoveryReceipt, nativeTail: discoveryTail, wire: RECEIPT };
     return (
         CODEX
-            ? Promise.race([
-                  agent(codexPrompt(o.label, task, DISCOVERY_SCHEMA, opts), {
-                      label: 'terra:' + o.label,
-                      phase: o.phase,
-                      model: 'sonnet',
-                      effort: 'low',
-                      schema: RECEIPT,
-                      stallMs: o.stallMs || WRAPPER_STALL,
-                  }),
-                  sleep(o.clockMs || LANE_CLOCK).then(() => ({
-                      ok: false,
-                      report: '',
-                      entries: 0,
-                      headline: '',
-                      failure: 'watchdog: wall-clock ceiling — call abandoned, slot freed; session recoverable via the rollout store',
-                  })),
-              ]).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
+            ? agent(codexPrompt(o.label, task, DISCOVERY_SCHEMA, opts), {
+                  label: 'terra:' + o.label,
+                  phase: o.phase,
+                  model: 'sonnet',
+                  effort: 'low',
+                  schema: RECEIPT,
+                  stallMs: o.stallMs || CODEX_STALL,
+              }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
             : nativeLane(task, opts)
     ).then((r) => ({
         lane: o.label,
@@ -836,7 +787,6 @@ const recon = (task, o) => {
         entries: (r && r.entries) || 0,
         headline: (r && r.headline) || '',
         failure: (r && r.failure) || (r ? '' : 'lane died'),
-        thread: (r && r.thread) || '',
         order: (r && r.order) || [],
         cards: (r && r.cards) || [],
         gates: (r && r.gates) || [],
@@ -848,44 +798,30 @@ const folderName = (p) => p.split('/').filter(Boolean).pop() || p;
 
 // Sol critique lane: one blocking Codex MCP call at the operator-default tier in a workspace-write sandbox — a FIX lane
 // (persistence + post-edit verification law), FIXLOG product to disk, thin receipt on the wire; CODEX=false (or a quota
-// fallback) restores the native opus twin writing the same product to the same path.
-const critiqueReceipt = (base, label) =>
-    '(4) One Bash append of one line to the same ledger: `<utc-iso> | ' +
-    label +
-    ' | codex-end | <ok or fail> | <entries> | <threadId from the result envelope>` — the threadId keys the codex-side session ' +
-    'record, so it is never omitted. Then parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
+// fallback) restores the native fable twin writing the same product to the same path.
+const critiqueReceipt = (base) =>
+    '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
     base +
-    '-report.json, entries=the length of result["realized"], headline="<entries> realized | verdict <verdict>", ' +
-    'thread=the threadId from the result envelope, and failure ' +
-    'empty. On a second tool error return ok=false, entries=0, report and headline empty, thread=the threadId if any envelope ' +
-    'returned one else empty, and failure equal to the error text VERBATIM.';
+    '-report.json, entries=the length of result["realized"], headline="<entries> realized | verdict <verdict>", and failure ' +
+    'empty. On a second tool error return ok=false, entries=0, report and headline empty, and failure equal to the error text VERBATIM.';
 const critiqueTail = (report) =>
     '\n\nPRODUCT TO DISK: write your COMPLETE fix-log as one JSON file matching this schema at ' +
     report +
     ' (Write tool, absolute path under the repo root): ' +
     JSON.stringify(FIXLOG_SCHEMA) +
-    ' — then return ONLY the receipt: ok, report path, entries = realized count, one-line mechanical headline, failure empty, thread empty.';
+    ' — then return ONLY the receipt: ok, report path, entries = realized count, one-line mechanical headline, failure empty.';
 const solLane = (task, o) => {
     const opts = { ...o, model: 'gpt-5.6-sol', writes: true, fix: true, receipt: critiqueReceipt, nativeTail: critiqueTail, wire: LANE_RECEIPT };
     return (
         CODEX
-            ? Promise.race([
-                  agent(codexPrompt(o.label, task, FIXLOG_SCHEMA, opts), {
-                      label: 'sol:' + o.label,
-                      phase: o.phase,
-                      model: 'sonnet',
-                      effort: 'low',
-                      schema: LANE_RECEIPT,
-                      stallMs: WRAPPER_STALL,
-                  }),
-                  sleep(o.clockMs || CRIT_CLOCK).then(() => ({
-                      ok: false,
-                      report: '',
-                      entries: 0,
-                      headline: '',
-                      failure: 'watchdog: wall-clock ceiling — call abandoned, slot freed; session recoverable via the rollout store',
-                  })),
-              ]).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
+            ? agent(codexPrompt(o.label, task, FIXLOG_SCHEMA, opts), {
+                  label: 'sol:' + o.label,
+                  phase: o.phase,
+                  model: 'sonnet',
+                  effort: 'low',
+                  schema: LANE_RECEIPT,
+                  stallMs: SOL_STALL,
+              }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
             : nativeLane(task, opts)
     )
         .then((r) => ({
@@ -894,9 +830,8 @@ const solLane = (task, o) => {
             entries: (r && r.entries) || 0,
             headline: (r && r.headline) || '',
             failure: (r && r.failure) || (r ? '' : 'lane died'),
-            thread: (r && r.thread) || '',
         }))
-        .catch(() => ({ ok: false, report: '', entries: 0, headline: '', failure: 'lane died', thread: '' }));
+        .catch(() => ({ ok: false, report: '', entries: 0, headline: '', failure: 'lane died' }));
 };
 
 // Page-disjointness is PROVEN, never assumed: every ordered card must carry >=1 verified page, gate pairs merge, and
@@ -1086,7 +1021,7 @@ const implementPrompt = (folder, seq, note, report, ownpass) =>
             (note ? '\n' + note : ''),
     ].join('\n');
 
-// critiquePrompt feeds the sol codex lane (+ native opus twin): neutral stance — hostile register degrades
+// critiquePrompt feeds the sol codex lane (+ native fable twin): neutral stance — hostile register degrades
 // codex, safe for the twin; the hostile pass is redteam (native).
 const critiquePrompt = (folder, seq, report, ownpass) =>
     [
@@ -1366,25 +1301,28 @@ const runFolder = async (target) => {
                     groups.map((g, gi) => async () => {
                         await stagger();
                         const fire = (suffix) =>
-                            run(implementPrompt(target, groupSeq(t, g), GROUPNOTE, t.report, SCRATCH + '/ownpass-impl-' + tag + '-g' + gi + '.md'), {
-                                label: 'implement:' + tag + ':g' + gi + suffix,
-                                phase: 'Realize',
-                                schema: FIXLOG_SCHEMA,
-                                model: 'opus',
-                                effort: 'high',
-                                stallMs: STALL,
-                            });
+                            agent(
+                                implementPrompt(target, groupSeq(t, g), GROUPNOTE, t.report, SCRATCH + '/ownpass-impl-' + tag + '-g' + gi + '.md'),
+                                {
+                                    label: 'implement:' + tag + ':g' + gi + suffix,
+                                    phase: 'Realize',
+                                    schema: FIXLOG_SCHEMA,
+                                    model: 'fable',
+                                    effort: 'high',
+                                    stallMs: STALL,
+                                },
+                            );
                         return (await fire('')) || (await retryLane(() => fire(':r1')));
                     }),
                 )
             ).filter(Boolean);
         } else {
             const fire = (suffix) =>
-                run(implementPrompt(target, seq, '', t.report, SCRATCH + '/ownpass-impl-' + tag + '.md'), {
+                agent(implementPrompt(target, seq, '', t.report, SCRATCH + '/ownpass-impl-' + tag + '.md'), {
                     label: 'implement:' + tag + suffix,
                     phase: 'Realize',
                     schema: FIXLOG_SCHEMA,
-                    model: 'opus',
+                    model: 'fable',
                     effort: 'high',
                     stallMs: STALL,
                 });
@@ -1406,11 +1344,11 @@ const runFolder = async (target) => {
         const critOk = !!(crit && crit.ok);
         await stagger();
         const fireRt = (suffix) =>
-            run(redteamPrompt(target, seq, t.report, critReport, critOk, SCRATCH + '/ownpass-rt-' + tag + '.md'), {
+            agent(redteamPrompt(target, seq, t.report, critReport, critOk, SCRATCH + '/ownpass-rt-' + tag + '.md'), {
                 label: 'redteam:' + tag + suffix,
                 phase: 'Realize',
                 schema: REDTEAM_SCHEMA,
-                model: 'opus',
+                model: 'fable',
                 effort: 'high',
                 stallMs: STALL,
             });
@@ -1485,7 +1423,7 @@ log(
 const ORPHANS = done.map((r) => r.critReport || '').filter(Boolean);
 // The deferred cards a folder chain could not realize become the drain backlog in {files, claim} form.
 const BACKLOG = deferred.map((d) => ({ files: [], claim: d.folder + ' [' + d.slug + ']: ' + d.reason }));
-// Terminal DRAIN LOOP: the run's ONE fable seat — one serial full-repo single-writer per round (every folder-chain lane rides opus/sol). Every round re-receives the FULL tranche set (pins, seam rows,
+// Terminal DRAIN LOOP: one serial opus single-writer per round. Every round re-receives the FULL tranche set (pins, seam rows,
 // every critique fixlog, the still-open backlog) — the disk checkpoint ledger is the consumption truth, so a receipted tranche
 // skips and a dead/partial round loses nothing; only the backlog narrows round over round. The lane is CRITICAL (a dead terminal
 // loses the pin apply + backlog drain), so it earns retryLane; a round cap + no-shrinkage progress gate bound the loop.
@@ -1498,11 +1436,11 @@ if (PINS_NEEDED) {
     phase('Pins');
     for (let round = 0; round < DRAIN_ROUNDS; round++) {
         const fire = (suffix) =>
-            run(pinPrompt(pinsReported, seamsReported, ORPHANS, residuals, round), {
+            agent(pinPrompt(pinsReported, seamsReported, ORPHANS, residuals, round), {
                 label: (round ? 'pins:r' + round : 'pins') + suffix,
                 phase: 'Pins',
                 schema: PIN_SCHEMA,
-                model: 'fable',
+                model: 'opus',
                 effort: 'high',
                 stallMs: STALL,
             });
@@ -1523,11 +1461,11 @@ const HARVEST_ROWS = done.flatMap((r) => r.logs.flatMap((l) => l.harvest || []))
 let doctrine = null;
 if (HARVEST_ROWS.length || ORPHANS.length || (PINS_NEEDED && !pinlog)) {
     phase('Pins');
-    doctrine = await run(doctrinePrompt(HARVEST_ROWS, ORPHANS), {
+    doctrine = await agent(doctrinePrompt(HARVEST_ROWS, ORPHANS), {
         label: 'doctrine',
         phase: 'Pins',
         schema: DOCTRINE_SCHEMA,
-        model: 'opus',
+        model: 'fable',
         effort: 'high',
         stallMs: STALL,
     });

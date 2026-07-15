@@ -22,8 +22,7 @@ const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this ma
 const BATCH = 4; // .api files per agent — deep enough per file, many agents for parallelism
 const STAGGER_MS = 1500;
 const STALL = 300000;
-const WRAPPER_STALL = 1500000; // stallMs never observes a live blocking MCP call (run-proven: a 43-min blocked wrapper under a 25-min stall survived) — this guards only out-of-call wrapper wedges; the watchdog clock below is the binding bound
-const LANE_CLOCK = 2700000; // codex-lane wall-clock watchdog (~2.5x the catalog-batch lane's observed median): a nested-call wedge inside codex otherwise holds the slot to the session MCP ceiling
+const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
 const CODEX = true; // catalog rebuild batch lanes run on gpt-5.6-terra via the codex wrapper (workspace-write); false restores native opus lanes
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root: native products mint absolute here, codex lanes take it as cwd
 
@@ -75,19 +74,16 @@ const FIXLOG_SCHEMA = {
 };
 
 // Thin wire receipt: the batch PRODUCT is the edited catalogs on disk plus the fix-log at `report`; only status + count + headline travel inline.
-// `thread` is the codex MCP threadId — the rollout-file key under ~/.codex/sessions/ AND the `codex exec resume` handle, so a dead codex lane
-// stays joinable and recoverable; native lanes return ''.
 const RECEIPT = {
     type: 'object',
     additionalProperties: false,
-    required: ['ok', 'report', 'entries', 'headline', 'failure', 'thread'],
+    required: ['ok', 'report', 'entries', 'headline', 'failure'],
     properties: {
         ok: { type: 'boolean' },
         report: { type: 'string' },
         entries: { type: 'integer' },
         headline: { type: 'string' },
         failure: { type: 'string' },
-        thread: { type: 'string' },
     },
 };
 
@@ -103,9 +99,7 @@ const LAW = [
         'note. NO provenance/process narration, NO freshness tails. Cite REAL members only — verify via `uv run --frozen python -m tools.assay api ' +
         'resolve <pkg>` (assay api owns external-artifact reflection over host DLLs, NuGet, installed Python distributions, and node_modules ' +
         'declarations per CLAUDE.md OWNER_ROUTING); when reflection is blocked or assay is unavailable, verify through the fallback tier instead ' +
-        '— the nuget MCP for NuGet feed truth (version/deprecation lookups only — `get_latest_package_version`-class calls, never a full ' +
-        '`get_package_context` dump on a large package; a member-surface question routes to Context7 or the source tier), Context7 for official ' +
-        'API docs, exa/tavily for the package source/official surface — never from ' +
+        '— the nuget MCP for NuGet feed truth, Context7 for official API docs, exa/tavily for the package source/official surface — never from ' +
         'memory. Before driving assay, READ tools/assay/README.md for the api-arm contract (its resolve/decompile/reflection invocation, ' +
         'supported artifact kinds, and JSON output shape) so you drive it correctly rather than guessing flags.',
     'LAWS — read `docs/laws/` before any durable edit (README + topology + patterns + scars; short registry pages): a topology row ' +
@@ -174,21 +168,6 @@ const chunk = (arr, n) => {
     return o;
 };
 
-// Run telemetry: every lane brackets itself on ONE shared ledger — one O_APPEND line per event, `<utc-iso> | <label> | <event>[ | <verdict> | <count>]`.
-// The ledger is the workflow-agnostic observability seam a watcher tails for phase/stall/failure signals; native lanes self-stamp through the `run`
-// dispatch owner, codex lanes are stamped by their sonnet wrapper around the blocking MCP call so the bracket times the codex call itself.
-const LEDGER_LOG = ROOT + '/' + SCRATCH + '/run-telemetry.log';
-const TLM = (label) =>
-    'TELEMETRY (mechanical): FIRST act — one Bash append of one line to `' +
-    LEDGER_LOG +
-    '`: `<utc-iso> | ' +
-    label +
-    ' | start` (shell `>>` with `date -u +%FT%TZ`; never rewrite the file). FINAL act before returning — append the matching ' +
-    '`<utc-iso> | ' +
-    label +
-    ' | end | <one-word verdict> | <primary entry count>`. A lane that cannot finish appends `| fail | <reason slug>` instead of `end`.';
-const run = (prompt, opts) => agent(prompt + '\n\n' + TLM(opts.label), opts);
-
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
 // (role split); the prompt carries only the task; the output contract sits LAST. Every batch EDITS .api
@@ -204,10 +183,6 @@ const laneLaw = (schema) =>
     'deliverable instead.\n</completion_bar>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is ' +
     'coherent and nothing it carried was lost. Fix what fails before yielding; a check you did not run is never claimed as ' +
     'run.\n</verification>' +
-    '\n\n<tool_bounds>\nMember verification is nested-tool-bounded: prefer the lightest variant that answers the question (a ' +
-    'version or member lookup over a full package-context dump), give every such call a hard time budget, and when a call does ' +
-    'not settle promptly, record the member as a gap/unverified row and move on — an unbounded wait on one reflection or feed ' +
-    'lookup never stalls the batch.\n</tool_bounds>' +
     '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
@@ -222,12 +197,7 @@ const codexPrompt = (label, task, schema, o) => {
             model +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Load the `codex` skill via the Skill tool FIRST — its [09] sessions and recovery law governs this call. Then call ' +
-            'ToolSearch with query "select:mcp__codex__codex,mcp__codex__codex-reply", and append one Bash line to `' +
-            LEDGER_LOG +
-            '`: `<utc-iso> | ' +
-            label +
-            ' | codex-start` (shell `>>` with `date -u +%FT%TZ`; never rewrite the file).',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
             '", sandbox="workspace-write", cwd=' +
@@ -235,11 +205,10 @@ const codexPrompt = (label, task, schema, o) => {
             (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
             'VERBATIM. ' +
-            "On any call error run the codex skill's blocking-caller recovery ladder with this lane's disk product at " +
-            report +
-            ' — verify it FIRST (the workspace-write lane writes it as its final act; a valid report proceeds to step (4) as ' +
-            'success); the reply nudge tells the session to finish the TASK and write the report file as specified; a fresh ' +
-            'identical call is the last resort (a second writer over the same catalogs).',
+            'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane writes ' +
+            "its report as its final act — run step (3)'s verification first, and a valid report proceeds to step (4) as success. " +
+            'Only a missing or invalid report earns ONE identical retry (a second writer over the same catalogs is the last ' +
+            'resort); a failed retry with no valid report returns the error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema),
         // batch lanes are workspace-write and author their own report (final act); the wrapper only verifies.
         'TASK:\n\n' +
@@ -251,29 +220,24 @@ const codexPrompt = (label, task, schema, o) => {
             report +
             ' >/dev/null. If the file is missing or invalid, extract the CONTENT text from the tool result envelope {threadId, content} ' +
             'and Write it to that path verbatim (the product JSON, never the envelope), then re-verify.',
-        '(4) One Bash append of one line to the same ledger: `<utc-iso> | ' +
-            label +
-            ' | codex-end | <ok or fail> | <entries> | <threadId from the result envelope>` — the threadId keys the ' +
-            'codex-side session record, so it is never omitted. Then parse the tool result text only for mechanical orchestration ' +
-            'data. Return ok=true, report=' +
+        '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
             base +
             '-report.json, entries=the length of result["' +
             o.hl.arr +
-            '"], headline="<entries> catalogs | verdict:<verdict> | +<beyondBatch.length> beyond", thread=the threadId from the ' +
-            'result envelope, and failure empty. On a second tool error return ok=false, entries=0, report and headline empty, ' +
-            'thread=the threadId if any envelope returned one else empty, and failure equal to the error text VERBATIM.',
+            '"], headline="<entries> catalogs | verdict:<verdict> | +<beyondBatch.length> beyond", and failure empty. On a ' +
+            'second tool error return ok=false, entries=0, report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
 // Every catalog rebuild batch routes here: terra by default, native opus when CODEX=false. QUOTA FALLBACK: a codex receipt whose failure matches
 // usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus) — the caller owns the re-dispatch, the sonnet
 // wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (the batch's assigned files) so
 // a failed lane's territory is exact even when it died.
-const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus'); // native fallback twins; fable is never a fallback
+const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) => {
     // Path authority: a native lane may not follow the session cwd, so the product mints ABSOLUTE under ROOT while the
     // receipt returns the repo-relative form codex lanes report — the aggregation reads one consistent `report` shape.
     const report = SCRATCH + '/' + fileTag(o.label) + '-report.json';
-    return run(
+    return agent(
         task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
             ROOT +
@@ -283,8 +247,7 @@ const nativeLane = (task, o) => {
             JSON.stringify(o.schema) +
             ' — then return ONLY the receipt: ok, report = ' +
             report +
-            ' (this repo-relative form, matching codex-lane receipts), entries count, one-line mechanical headline, failure ' +
-            'empty, thread empty.',
+            ' (this repo-relative form, matching codex-lane receipts), entries count, one-line mechanical headline, failure empty.',
         {
             label: o.label,
             phase: o.phase,
@@ -295,31 +258,17 @@ const nativeLane = (task, o) => {
         },
     );
 };
-const recon = (task, o) => {
-    const wrapper = {
-        label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
-        phase: o.phase,
-        model: 'sonnet',
-        effort: 'low',
-        schema: RECEIPT,
-        stallMs: o.stallMs || WRAPPER_STALL,
-    };
-    // WATCHDOG: the race frees the slot and hands the chain the standard dead-lane shape at the wall-clock ceiling; the abandoned
-    // call keeps running harness-side as an ignored zombie (a late report in scratch is harmless), and the codex session stays
-    // recoverable through the rollout store. Cancellation does not exist on this surface — slot recovery is the whole point.
-    return (
-        CODEX
-            ? Promise.race([
-                  agent(codexPrompt(o.label, task, o.schema, o), wrapper),
-                  sleep(o.clockMs || LANE_CLOCK).then(() => ({
-                      ok: false,
-                      report: '',
-                      entries: 0,
-                      headline: '',
-                      failure: 'watchdog: wall-clock ceiling — call abandoned, slot freed; session recoverable via the rollout store',
-                  })),
-              ]).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
-            : nativeLane(task, o)
+const recon = (task, o) =>
+    (CODEX
+        ? agent(codexPrompt(o.label, task, o.schema, o), {
+              label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
+              phase: o.phase,
+              model: 'sonnet',
+              effort: 'low',
+              schema: RECEIPT,
+              stallMs: o.stallMs || CODEX_STALL,
+          }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        : nativeLane(task, o)
     ).then((r) => ({
         lane: o.label,
         scope: o.scope || [],
@@ -327,10 +276,8 @@ const recon = (task, o) => {
         report: (r && r.report) || '',
         entries: (r && r.entries) || 0,
         headline: (r && r.headline) || '',
-        thread: (r && r.thread) || '',
         failure: (r && r.failure) || (r ? '' : 'lane died'),
     }));
-};
 const rel = (f) => {
     const i = String(f).indexOf('libs/');
     return i > 0 ? String(f).slice(i) : String(f);
@@ -432,7 +379,7 @@ const runLane = async (l) => {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 phase('API-Discover');
-const inv = await run(
+const inv = await agent(
     'Enumerate every .api catalog file under ' +
         SWEEP +
         ' from REAL disk state — one find listing over */.api/*.md (and any ' +

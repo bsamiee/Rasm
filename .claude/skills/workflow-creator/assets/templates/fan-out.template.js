@@ -19,8 +19,8 @@ const items = Array.isArray(args) && args.length ? args : ['TODO item one', 'TOD
 // Structured output — the subagent is forced to return an object matching this.
 const ITEM_SCHEMA = {
     type: 'object',
-    additionalProperties: false, // STRICT profile: false here + every property in required (conditional = required-but-empty) — the same shape serves codex --output-schema unchanged
-    required: ['summary', 'points'],
+    additionalProperties: false, // STRICT: required must list every property — codex --output-schema rejects anything less
+    required: ['summary', 'points'], // STRICT: every property listed in required (conditional = required-but-empty) — codex --output-schema 400s otherwise
     properties: {
         summary: { type: 'string' },
         points: { type: 'array', items: { type: 'string' } },

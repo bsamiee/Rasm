@@ -2,7 +2,7 @@ export const meta = {
     name: 'stack-cs',
     whenToUse: 'Harden the docs/stacks/csharp code doctrine in place to the dense per-file bar.',
     description:
-        "Focused full HARDENING of the docs/stacks/csharp code doctrine — every core page AND every domain/ shard, improved in place to the same 13/10, ultra-dense, page-craft-conformant bar the python doctrine holds. The csharp set is the historical FLOOR/reference; this pass pulls it UP to that rigor: page-craft grammar (narrow index table -> deep family cards -> one agnostic snippet per region, zero duplicated demonstrations), the soft LOC density signal, extreme ADT collapse ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] + source-generated case families), two-weave AOP (definition-time source-gen aspects + composition-time effect transformers), LanguageExt Fin/Validation/Option/Eff rails, full parameterization/polymorphism, C# 14 on net10 to the metal. Carries the bounded interface/graph/mapping LAW extension (cross-stratum seam, graph-as-closed-family, generated mapping/equality aspects, QuikGraph/Riok.Mapperly/Generator.Equals as admitted core substrate) hardened into existing owners, plus a default-off gated new-core-page valve; restructure-free at heart — a hostile per-file harden. Inventory rules the ordered file set and the Gate rules the page roster BEFORE per-file work — true data dependence, kept. Then each FILE runs its own initial -> critique -> redteam pipeline, ALL files concurrent under one pool cap — the chain is the file's own stage dependence, never a corpus barrier. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal fable corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep. Every per-file stage and the corpus sweep carry a required-but-usually-empty harvest attestation RESTRICTED to reviewer/laws/constitution altitudes (the run authors docs/stacks/csharp, so a stacks lesson is already owned and never nominated); when the pooled nominations are non-empty, ONE terminal opus doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal, never re-editing a docs/stacks/csharp page). Snippets agnostic (neutral names, no project anchor); every host/NuGet member verified via assay api with the .api-catalog/nuget-MCP/Context7/exa fallback; every edit scoped to docs/stacks/csharp (NEVER edit a python/typescript file). Takes no args.",
+        "Focused full HARDENING of the docs/stacks/csharp code doctrine — every core page AND every domain/ shard, improved in place to the same 13/10, ultra-dense, page-craft-conformant bar the python doctrine holds. The csharp set is the historical FLOOR/reference; this pass pulls it UP to that rigor: page-craft grammar (narrow index table -> deep family cards -> one agnostic snippet per region, zero duplicated demonstrations), the soft LOC density signal, extreme ADT collapse ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] + source-generated case families), two-weave AOP (definition-time source-gen aspects + composition-time effect transformers), LanguageExt Fin/Validation/Option/Eff rails, full parameterization/polymorphism, C# 14 on net10 to the metal. Carries the bounded interface/graph/mapping LAW extension (cross-stratum seam, graph-as-closed-family, generated mapping/equality aspects, QuikGraph/Riok.Mapperly/Generator.Equals as admitted core substrate) hardened into existing owners, plus a default-off gated new-core-page valve; restructure-free at heart — a hostile per-file harden. Inventory rules the ordered file set and the Gate rules the page roster BEFORE per-file work — true data dependence, kept. Then each FILE runs its own initial -> critique -> redteam pipeline, ALL files concurrent under one pool cap — the chain is the file's own stage dependence, never a corpus barrier. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal fable corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep. Every per-file stage and the corpus sweep carry a required-but-usually-empty harvest attestation RESTRICTED to reviewer/laws/constitution altitudes (the run authors docs/stacks/csharp, so a stacks lesson is already owned and never nominated); when the pooled nominations are non-empty, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal, never re-editing a docs/stacks/csharp page). Snippets agnostic (neutral names, no project anchor); every host/NuGet member verified via assay api with the .api-catalog/nuget-MCP/Context7/exa fallback; every edit scoped to docs/stacks/csharp (NEVER edit a python/typescript file). Takes no args.",
     phases: [
         {
             title: 'Inventory',
@@ -22,7 +22,7 @@ export const meta = {
         },
         {
             title: 'Doctrine',
-            detail: 'terminal doctrine lander (opus), fires only on non-empty pooled harvest RESTRICTED to reviewer/laws/constitution (the run owns docs/stacks/csharp); refutation-first, land-nothing legal',
+            detail: 'terminal doctrine lander (fable), fires only on non-empty pooled harvest RESTRICTED to reviewer/laws/constitution (the run owns docs/stacks/csharp); refutation-first, land-nothing legal',
         },
     ],
 };
@@ -31,10 +31,8 @@ export const meta = {
 
 const CAP = 14;
 const STAGGER_MS = 1500;
-const STALL = 300000; // native-lane idle-abort guard: every lane is a native Claude agent, so stallMs clocks real out-of-call work — no blocking-MCP-call caveat applies here
+const STALL = 300000;
 const ROOT = 'docs/stacks/csharp';
-const SCRATCH = '.claude/scratch/stack-cs'; // per-instance run scratch (no args -> one instance shape); homes the telemetry ledger
-const LEDGER_LOG = SCRATCH + '/run-telemetry.log';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -369,8 +367,7 @@ const CS_SUBSTRATE = [
         'its concern composes — and MINE them to OPERATOR DEPTH (read-only material; edits stay scoped to docs/stacks/csharp). The universals are ' +
         'Thinktecture.Runtime.Extensions (generated domain shape) + LanguageExt.Core ' +
         '(rails, effects, schedules, immutable collections; catalog-less — assay api is its evidence, and when assay is blocked or unavailable the ' +
-        'nuget MCP for version/deprecation truth (`get_latest_package_version`-class lookups only, never a full `get_package_context` dump on a large ' +
-        'package) + Context7/exa/tavily over the official LanguageExt surface own the fallback), with QuikGraph (graph traversal/topology + ' +
+        'nuget MCP `get_package_context` + Context7/exa/tavily over the official LanguageExt surface own the fallback), with QuikGraph (graph traversal/topology + ' +
         'graph algorithms), Riok.Mapperly (generated ' +
         'owner<->DTO/proto/wire mapping), and Generator.Equals (generated structural equality + content-key for shapes Thinktecture does not own, e.g. ' +
         'class-root `[Union]` node/edge types) as ADMITTED CORE substrate integrated ground-up the SAME way and NAMED in the README [02] LIBRARY_DEPTH ' +
@@ -381,8 +378,7 @@ const CS_SUBSTRATE = [
         'per-API uses. Use the DEEPEST operator/combinator/generated surface each library reaches (LIBRARY_DEPTH); an admitted capability the concept ' +
         'admits but NO owner exploits is a DEFECT this pass closes; reject surface-level subsets, BCL-first reflexes, and thin rename wrappers. Cite ' +
         'ONLY host/NuGet members confirmed via `uv run python -m tools.assay api` (verified-local beats any catalog line on conflict; assay blocked or ' +
-        'unavailable: the `.api` catalogs, the nuget MCP for feed truth (version/deprecation lookups only, never a `get_package_context` dump on a large ' +
-        'package), and Context7/exa/tavily for the official surface own the fallback) — a member ' +
+        'unavailable: the `.api` catalogs, the nuget MCP for feed truth, and Context7/exa/tavily for the official surface own the fallback) — a member ' +
         'you cannot verify through ANY of these rails is a phantom to delete.',
 ].join('\n');
 
@@ -523,22 +519,6 @@ const pool = async (items, cap, worker) => {
     return out;
 };
 const nameOf = (p) => (p.indexOf(ROOT + '/') === 0 ? p.slice(ROOT.length + 1) : p);
-
-// Run telemetry: every lane brackets itself on ONE shared ledger — one O_APPEND line per event, `<utc-iso> | <label> | <event>[ | <verdict> | <count>]`.
-// The ledger is the workflow-agnostic observability seam a watcher tails for phase/stall/failure signals; every native lane self-stamps through the
-// `run` dispatch owner, which appends the telemetry law to the lane prompt so the bracket times the lane's own agent call.
-const TLM = (label) =>
-    'TELEMETRY (mechanical): FIRST act — ensure the ledger dir exists (`mkdir -p ' +
-    SCRATCH +
-    '`), then one Bash append of one line to `' +
-    LEDGER_LOG +
-    '`: `<utc-iso> | ' +
-    label +
-    ' | start` (shell `>>` with `date -u +%FT%TZ`; never rewrite the file). FINAL act before returning — append the matching ' +
-    '`<utc-iso> | ' +
-    label +
-    ' | end | <one-word verdict> | <primary entry count>`. A lane that cannot finish appends `| fail | <reason slug>` instead of `end`.';
-const run = (prompt, opts) => agent(prompt + '\n\n' + TLM(opts.label), opts);
 
 const authorPrompt = (page) =>
     [
@@ -736,7 +716,7 @@ const seedPrompt = (page) =>
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 phase('Inventory');
-const inv = await run(
+const inv = await agent(
     'INVENTORY — pure mechanical enumeration, read-only. Resolve the ordered page set against REAL disk state, never ' +
         'memory: run a real find/ls listing of every page under ' +
         ROOT +
@@ -762,9 +742,9 @@ if (!ordered.length) {
 }
 
 phase('Gate');
-const gate = await run(gatePrompt(ordered), { label: 'gate', phase: 'Gate', schema: GATE_SCHEMA, effort: 'high', stallMs: STALL });
+const gate = await agent(gatePrompt(ordered), { label: 'gate', phase: 'Gate', schema: GATE_SCHEMA, effort: 'high', stallMs: STALL });
 if (gate && gate.verdict === 'new_page' && gate.page && gate.page.path) {
-    const seed = await run(seedPrompt(gate.page), {
+    const seed = await agent(seedPrompt(gate.page), {
         label: 'seed:' + nameOf(gate.page.path),
         phase: 'Gate',
         schema: SEED_SCHEMA,
@@ -786,7 +766,7 @@ if (gate && gate.verdict === 'new_page' && gate.page && gate.page.path) {
 phase('Harden');
 const results = (
     await pool(ordered, CAP, async (page) => {
-        const init = await run(authorPrompt(page), {
+        const init = await agent(authorPrompt(page), {
             label: 'initial:' + nameOf(page),
             phase: 'Harden',
             schema: FIXLOG_SCHEMA,
@@ -794,14 +774,14 @@ const results = (
             stallMs: STALL,
         });
         if (!init) return { page, failed: true, logs: [] }; // failure isolation: a dead initial skips its file's reviews; the run continues
-        const crit = await run(critiquePrompt(page), {
+        const crit = await agent(critiquePrompt(page), {
             label: 'critique:' + nameOf(page),
             phase: 'Harden',
             schema: FIXLOG_SCHEMA,
             effort: 'high',
             stallMs: STALL,
         });
-        const rt = await run(redteamPrompt(page), {
+        const rt = await agent(redteamPrompt(page), {
             label: 'redteam:' + nameOf(page),
             phase: 'Harden',
             schema: FIXLOG_SCHEMA,
@@ -832,7 +812,7 @@ log(
 );
 
 phase('Corpus');
-const corpus = await run(corpusPrompt(ordered, RESIDUALS, FAILED), {
+const corpus = await agent(corpusPrompt(ordered, RESIDUALS, FAILED), {
     label: 'corpus',
     phase: 'Corpus',
     model: 'fable',
@@ -846,7 +826,7 @@ const corpus = await run(corpusPrompt(ordered, RESIDUALS, FAILED), {
 phase('Doctrine');
 const HARVEST_ROWS = results.flatMap((r) => (r.logs || []).flatMap((l) => (l && l.harvest) || [])).concat((corpus && corpus.harvest) || []);
 const doctrine = HARVEST_ROWS.length
-    ? await run(
+    ? await agent(
           'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` ' +
               'FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. Load ' +
               'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
@@ -861,7 +841,7 @@ const doctrine = HARVEST_ROWS.length
               'whose coupling no longer holds, land a coupling this run proved.\n' +
               'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
               'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-          { label: 'doctrine', phase: 'Doctrine', model: 'opus', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+          { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
       )
     : null;
 

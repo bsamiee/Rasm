@@ -1,6 +1,8 @@
 # Run ledger — <workflow-name>
 
-Written the moment `Workflow` returns; updated on every resume or restart. Lives in the session scratchpad (harness temp dir), never the repo. Cache-key composition, resume verification, cross-session transplant, and ledger-vs-journal custody: recovery reference.
+Written the moment `Workflow` returns; updated on every resume or restart. Lives in the session scratchpad (harness temp dir), never the repo. A plain resume works only in the session that launched the run — a lost run ID means re-running the whole job; crossing a session boundary takes the journal transplant (recovery reference).
+
+This ledger is NOT the journal. The journal (`journal.jsonl`, in the transcript dir below) is the runtime's automatic cache of agent results — it does the resuming. This file is only the record of the run ID to pass to `resumeFromRunId`. Resume needs the run ID plus the launched `scriptPath` (both returned by the launch); the journal path is never built by hand.
 
 ## Run identity
 
@@ -9,12 +11,17 @@ Written the moment `Workflow` returns; updated on every resume or restart. Lives
 - Run ID: <wf\_...>
 - Launched scriptPath: <abs-path-to-the-.js-that-was-launched>
 - Transcript dir: <~/.claude/projects/.../subagents/workflows/wf\_<id>/ — holds journal.jsonl>
-- Run scratch: <.claude/scratch/<name>-<slug>-<hash>/ — the instance-minted dir from the launch log; lane report files live here>
+- Run scratch: <.claude/scratch/<workflow-name>/ — lane report files; a continuation script rebuilds completed stages from these plus the journal's `result` records>
 
-## Resume (same session only)
+## Resume / restart (same session only)
 
 - Resume: `Workflow({ scriptPath: "<launched scriptPath>", resumeFromRunId: "<wf_...>" })`
-- Do NOT edit the launched script while resumable; verify every resume immediately — fresh `started` records belong only to the next pending stage.
+- Resume replays every cached `agent()` call up to the first whose key changed; only that call onward re-runs live.
+- Cache key per call = `(prompt, schema, model, isolation, agentType)`. `label`, `phase`, `effort`, and `stallMs` are NOT in the key.
+- Do NOT edit the launched script while resumable — the resume becomes a full re-run from the edit.
+- Resume requires `resumeFromRunId` AND the same session; a bare re-invocation, or a new session, starts fresh from zero (cross-session: transplant the old `journal.jsonl` into the new session's `wf_<id>` directory BEFORE the first in-session read — recovery reference).
+- Verify every resume immediately: fresh `started` records belong only to the next pending stage; a burst of new `started` records for completed work is a key mismatch — stop and diff against the bytes that ran.
+- Ledger lost? The run ID is also in `/workflows` and is the `wf_<id>` directory name under the transcript dir — recover it there, then resume.
 
 ## Expected shape (sanity check on resume)
 

@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The standing RESEARCH-row resolution pass for any libs/ planning corpus: pass folder targets (sub-folder / package root, any number, any language mix); it censuses every research row as an epistemic-debt entry, clusters the debts by verification route, verifies each at its route, then bakes confirmed spellings and DELETES resolved rows, sharpens the unresolvable, and closes with a critique/red-team chain, a deferred drain, and one doctrine landing.',
     description:
-        'RESEARCH-row resolution engine over libs/{csharp,python,typescript} planning corpora. args = a folder target, an array of folder paths, or a targets object; empty = no-op. A research row is a writer epistemic debt — an exact question plus its verification route, recorded instead of a guessed member spelling. Census (terra codex, read-only) reads every page under the targets and extracts each research row (the C# [NN]-[RESEARCH] section entries, the inline RESEARCH re-verify rows, and the version-blocked capability rows) as an anchored {page, anchor, question, route, routeFamily, routeKey, symbols} entry with coverage; one lane per folder, large folders split by page count. Cluster (plain orchestrator code, no agent) groups the entries by verification route family — same host DLL, package, .api catalog, or doc source. Verify runs one lane per cluster, the route deciding the lane: assay-decompile clusters run NATIVE (a read-only codex sandbox cannot run uv/tools.assay, so they are native by construction); .api catalog and doc-file clusters ride terra codex lanes reading the catalogs; external-doc clusters run a native Context7 lane; each writes {question, page, anchor, verdict, evidence, spelling} verdicts to disk. Apply (one opus writer per folder, pipelined) reads the folder verdicts plus the pages, bakes each confirmed spelling into its fence, corrects each refuted assumption at its root, DELETES each resolved research row entirely (no tombstones, no resolved notes), and SHARPENS each unresolvable row in place with a better question and route; docgen loads before durable prose edits, the prose gate returns zero FAILs, and the fixlog carries harvest. A sol critique (codex, fix, opus twin) then an opus red-team fold-forward per the chain law attack a baked spelling not actually verified, a deleted row whose fact never landed in the fence, and a surviving row that verification already answered. Close: a fable drain loop — the one fable seat of the run, full-repo authority absorbing every residual — over the pooled deferred backlog and orphaned critique fixlogs, then one opus doctrine lander over the pooled harvest.',
+        'RESEARCH-row resolution engine over libs/{csharp,python,typescript} planning corpora. args = a folder target, an array of folder paths, or a targets object; empty = no-op. A research row is a writer epistemic debt — an exact question plus its verification route, recorded instead of a guessed member spelling. Census (terra codex, read-only) reads every page under the targets and extracts each research row (the C# [NN]-[RESEARCH] section entries, the inline RESEARCH re-verify rows, and the version-blocked capability rows) as an anchored {page, anchor, question, route, routeFamily, routeKey, symbols} entry with coverage; one lane per folder, large folders split by page count. Cluster (plain orchestrator code, no agent) groups the entries by verification route family — same host DLL, package, .api catalog, or doc source. Verify runs one lane per cluster, the route deciding the lane: assay-decompile clusters run NATIVE (a read-only codex sandbox cannot run uv/tools.assay, so they are native by construction); .api catalog and doc-file clusters ride terra codex lanes reading the catalogs; external-doc clusters run a native Context7 lane; each writes {question, page, anchor, verdict, evidence, spelling} verdicts to disk. Apply (one fable writer per folder, pipelined) reads the folder verdicts plus the pages, bakes each confirmed spelling into its fence, corrects each refuted assumption at its root, DELETES each resolved research row entirely (no tombstones, no resolved notes), and SHARPENS each unresolvable row in place with a better question and route; docgen loads before durable prose edits, the prose gate returns zero FAILs, and the fixlog carries harvest. A sol critique (codex, fix, fable twin) then a fable red-team fold-forward per the chain law attack a baked spelling not actually verified, a deleted row whose fact never landed in the fence, and a surviving row that verification already answered. Close: a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one doctrine lander over the pooled harvest.',
     phases: [
         {
             title: 'Discover',
@@ -20,11 +20,11 @@ export const meta = {
         },
         {
             title: 'Apply',
-            detail: 'per folder pipelined: opus bakes confirmed spellings, corrects refuted assumptions, DELETES resolved rows, sharpens the unresolvable; then a sol critique and an opus red-team fold-forward per the chain law',
+            detail: 'per folder pipelined: fable bakes confirmed spellings, corrects refuted assumptions, DELETES resolved rows, sharpens the unresolvable; then a sol critique and a fable red-team fold-forward per the chain law',
         },
         {
             title: 'Close',
-            detail: 'a fable drain loop (the one fable seat) over the pooled deferred backlog and orphaned critique fixlogs, then one opus doctrine lander over the pooled harvest',
+            detail: 'a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one fable doctrine lander over the pooled harvest',
         },
     ],
 };
@@ -35,13 +35,13 @@ const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this ma
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
-const WRAPPER_STALL = 1500000; // stallMs never observes a live blocking MCP call (run-proven: a 43-min blocked wrapper under a 25-min stall survived) — this guards only out-of-call wrapper wedges; the watchdog clocks below are the binding bound
-const LANE_CLOCK = 2700000; // codex-lane wall-clock watchdog (~2.5x observed peer median): a nested-call wedge inside codex otherwise holds the slot to the session MCP ceiling
-const CRIT_CLOCK = 5400000; // sol critique watchdog: a full conformance audit over a dense folder legitimately runs long; the ceiling exists for wedges, never depth
+const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
+const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
 const CENSUS_PAGES = 10; // pages per census lane; a folder past it splits so each lane returns a bounded entry set on the wire
 const CODEX = true; // census + catalog/doc verify lanes run on gpt-5.6-terra via the codex wrapper; false restores native lanes
 const ROOT = '/Users/bardiasamiee/Documents/99.Github/Rasm'; // absolute working root; every disk path a prompt names resolves here
-const RETRY_BACKOFFS = [60000, 1800000]; // agent() returns null causeless, so the ladder covers both death classes: a fast first attempt catches transient transport deaths, the long second waits out a usage-limit window
+const RETRY_ATTEMPTS = 2; // re-dispatches per dead critical lane; the count bounds spend, the backoff buys recovery time
+const RETRY_BACKOFF = 1800000; // usage-limit deaths clear on reset or an operator credit top-up; each attempt waits the window out first
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -164,19 +164,16 @@ const VERDICT_SCHEMA = {
 };
 
 // Thin wire receipt: a verify lane PRODUCT stays on disk at `report`; only status + count + headline travel inline.
-// `thread` is the codex MCP threadId — the rollout-file key under ~/.codex/sessions/ AND the `codex exec resume` handle,
-// so a dead codex lane stays joinable and recoverable; native lanes return ''.
 const RECEIPT = {
     type: 'object',
     additionalProperties: false,
-    required: ['ok', 'report', 'entries', 'headline', 'failure', 'thread'],
+    required: ['ok', 'report', 'entries', 'headline', 'failure'],
     properties: {
         ok: { type: 'boolean' },
         report: { type: 'string' },
         entries: { type: 'integer' },
         headline: { type: 'string' },
         failure: { type: 'string' },
-        thread: { type: 'string' },
     },
 };
 
@@ -366,9 +363,8 @@ const LANG = {
             'collections, QuikGraph, Mapperly and siblings) AND the folder catalogs `<package>/.api/*.md`, always layering the universal ' +
             'Thinktecture/LanguageExt rails onto the domain packages, never the folder set alone.',
         verify:
-            '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for feed truth — ' +
-            'version/deprecation lookups only, `get_latest_package_version`-class calls, never a full `get_package_context` dump on a ' +
-            'large package — and Context7/exa/tavily for the official surface own the fallback)',
+            '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for feed truth, and ' +
+            'Context7/exa/tavily for the official surface own the fallback)',
         vocab: '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject]`/`Fold`/the rails)',
         slur: 'naive, surface-level code dressed in the right vocabulary',
         illusion: 'a `.api`/host member cited but never verified',
@@ -457,31 +453,16 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(CAP);
-// Bounded re-dispatch for a dead CRITICAL lane: attempt-counted with a per-attempt backoff; the final death isolates the lane
-// but NEVER the chain — every downstream stage still runs against current disk.
+// Bounded re-dispatch for a dead CRITICAL lane (usage-limit or transport death): attempt-counted with a backoff before each; the
+// final death isolates the lane but NEVER the chain — every downstream stage still runs against current disk.
 const retryLane = async (fn) => {
-    for (const backoff of RETRY_BACKOFFS) {
-        await sleep(backoff);
+    for (let a = 0; a < RETRY_ATTEMPTS; a++) {
+        await sleep(RETRY_BACKOFF);
         const r = await fn();
         if (r) return r;
     }
     return null;
 };
-
-// Run telemetry: every native lane brackets itself on ONE shared ledger — one O_APPEND line per event, `<utc-iso> | <label> | <event>[ | <verdict> | <count>]`.
-// The ledger is the workflow-agnostic observability seam a watcher tails for phase/stall/failure signals; native lanes self-stamp through the `run`
-// dispatch owner, codex lanes are stamped by their sonnet wrapper around the blocking MCP call so the bracket times the codex call itself.
-const LEDGER_LOG = ROOT + '/' + SCRATCH + '/run-telemetry.log';
-const TLM = (label) =>
-    'TELEMETRY (mechanical): FIRST act — one Bash append of one line to `' +
-    LEDGER_LOG +
-    '`: `<utc-iso> | ' +
-    label +
-    ' | start` (shell `>>` with `date -u +%FT%TZ`; never rewrite the file). FINAL act before returning — append the matching ' +
-    '`<utc-iso> | ' +
-    label +
-    ' | end | <one-word verdict> | <primary entry count>`. A lane that cannot finish appends `| fail | <reason slug>` instead of `end`.';
-const run = (prompt, opts) => agent(prompt + '\n\n' + TLM(opts.label), opts);
 
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope content to the lane report, and returns mechanical
 // orchestration data. Lane law rides developer-instructions; the prompt carries only the task; the output contract sits LAST.
@@ -505,10 +486,7 @@ const laneLaw = (schema, o) =>
           'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
           'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
           '</verification>') +
-    '\n\n<tool_bounds>\nA nested MCP tool call is bounded: prefer the lightest variant that answers the question (a version ' +
-    'lookup over a full package-context dump), give every such call a hard time budget, and when a call does not settle ' +
-    'promptly, record the item as a gap/unverified row and move on — an unbounded wait on one lookup never stalls the task.\n' +
-    '</tool_bounds>\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
+    '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
@@ -522,12 +500,7 @@ const codexPrompt = (label, task, schema, o) => {
             model +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Load the `codex` skill via the Skill tool FIRST — its [09] sessions and recovery law governs this call. Then call ' +
-            'ToolSearch with query "select:mcp__codex__codex,mcp__codex__codex-reply", and append one Bash line to `' +
-            LEDGER_LOG +
-            '`: `<utc-iso> | ' +
-            label +
-            ' | codex-start` (shell `>>` with `date -u +%FT%TZ`; never rewrite the file).',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
             '", sandbox=' +
@@ -537,14 +510,12 @@ const codexPrompt = (label, task, schema, o) => {
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
             'VERBATIM. ' +
             (o.writes
-                ? "On any call error run the codex skill's blocking-caller recovery ladder with this lane's disk product at " +
-                  report +
-                  ' — verify it FIRST (the lane writes it as its final act; a valid report proceeds to step (4) as success); the ' +
-                  'reply nudge tells the session to finish the TASK and write the report file as specified; a fresh identical call ' +
-                  'is the last resort (a second writer over the same pages).'
-                : "On any call error run the codex skill's blocking-caller recovery ladder — this lane writes no product itself, so " +
-                  'the reply re-emission of the complete final-message JSON is the first rung and one identical retry the second; a ' +
-                  'failed ladder skips step (3) and returns through step (4).'),
+                ? 'If the call errors, do NOT immediately retry: an abandoned call usually completes server-side and the lane ' +
+                  "writes its report as its final act — run step (3)'s verification first, and a valid report proceeds to step " +
+                  '(4) as success. Only a missing or invalid report earns ONE identical retry (a second writer over the same ' +
+                  'pages is the last resort); a failed retry with no valid report returns the error through step (4).'
+                : 'If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the error ' +
+                  'through step (4).'),
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' +
             task +
@@ -565,28 +536,24 @@ const codexPrompt = (label, task, schema, o) => {
               report +
               ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
               'failure returns through step (4) with the error.',
-        '(4) One Bash append of one line to the same ledger: `<utc-iso> | ' +
-            label +
-            ' | codex-end | <ok or fail> | <entries> | <threadId from the result envelope>` — the threadId keys the codex-side ' +
-            'session record, so it is never omitted. Then parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
+        '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
             base +
             '-report.json, entries=the length of result["' +
             o.hl.arr +
             '"], headline="<entries> ' +
             o.hl.arr +
             (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
-            ' | top: <most frequent first file or none>", thread=the threadId from the result envelope, and failure empty. On a ' +
-            'second tool error return ok=false, entries=0, report and headline empty, thread=the threadId if any envelope ' +
-            'returned one else empty, and failure equal to the error text VERBATIM.',
+            ' | top: <most frequent first file or none>", and failure empty. On a second tool error return ok=false, entries=0, ' +
+            'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
 // Every codex-dispatched receipt lane routes here: terra by default, sol where o.model says so; CODEX=false restores
 // a fully native run. QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME
-// task natively at the role Claude twin (terra->opus, sol->opus, luna->sonnet). The roster row carries `scope` from
+// task natively at the role Claude twin (terra->opus, sol->fable, luna->sonnet). The roster row carries `scope` from
 // the ORCHESTRATOR so a failed lane unmapped territory is exact even when the lane died before writing anything.
-const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus'); // native fallback twins; fable's ONE seat is the terminal fixer, never a fallback
+const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) =>
-    run(
+    agent(
         task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
             SCRATCH +
@@ -594,7 +561,7 @@ const nativeLane = (task, o) =>
             fileTag(o.label) +
             '-report.json (Write tool, absolute path under the repo root): ' +
             JSON.stringify(o.schema) +
-            ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty, thread empty.',
+            ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
         {
             label: o.label,
             phase: o.phase,
@@ -604,28 +571,16 @@ const nativeLane = (task, o) =>
             stallMs: o.stallMs || STALL,
         },
     );
-// WATCHDOG: the race frees the slot and hands the chain the standard dead-lane shape at the wall-clock ceiling; the abandoned
-// call keeps running harness-side as an ignored zombie (a late report in scratch is harmless), and the codex session stays
-// recoverable through the rollout store. Cancellation does not exist on this surface — slot recovery is the whole point.
 const recon = (task, o) =>
     (CODEX
-        ? Promise.race([
-              agent(codexPrompt(o.label, task, o.schema, o), {
-                  label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
-                  phase: o.phase,
-                  model: 'sonnet',
-                  effort: 'low',
-                  schema: RECEIPT,
-                  stallMs: o.stallMs || WRAPPER_STALL,
-              }),
-              sleep(o.clockMs || LANE_CLOCK).then(() => ({
-                  ok: false,
-                  report: '',
-                  entries: 0,
-                  headline: '',
-                  failure: 'watchdog: wall-clock ceiling — call abandoned, slot freed; session recoverable via the rollout store',
-              })),
-          ]).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        ? agent(codexPrompt(o.label, task, o.schema, o), {
+              label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
+              phase: o.phase,
+              model: 'sonnet',
+              effort: 'low',
+              schema: RECEIPT,
+              stallMs: o.stallMs || CODEX_STALL,
+          }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
         : nativeLane(task, o)
     ).then((r) => ({
         lane: o.label,
@@ -634,7 +589,6 @@ const recon = (task, o) =>
         report: (r && r.report) || '',
         entries: (r && r.entries) || 0,
         headline: (r && r.headline) || '',
-        thread: (r && r.thread) || '',
         failure: (r && r.failure) || (r ? '' : 'lane died'),
     }));
 // Native receipt lane (assay/extdoc verify): normalized into the recon roster shape so a NATIVE cluster and a codex cluster read identically downstream.
@@ -646,7 +600,6 @@ const asLane = (label, scope, p) =>
         report: (r && r.report) || '',
         entries: (r && r.entries) || 0,
         headline: (r && r.headline) || '',
-        thread: (r && r.thread) || '',
         failure: (r && r.failure) || (r ? '' : 'lane died'),
     }));
 
@@ -663,20 +616,14 @@ const censusCodexPrompt = (label, task, o) => {
             model +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Load the `codex` skill via the Skill tool FIRST — its [09] sessions and recovery law governs this call. Then call ' +
-            'ToolSearch with query "select:mcp__codex__codex,mcp__codex__codex-reply", and append one Bash line to `' +
-            LEDGER_LOG +
-            '`: `<utc-iso> | ' +
-            label +
-            ' | codex-start` (shell `>>` with `date -u +%FT%TZ`; never rewrite the file).',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
             '", sandbox="read-only", cwd=' +
             JSON.stringify(root) +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            "VERBATIM. On any call error run the codex skill's blocking-caller recovery ladder — this lane writes no product " +
-            'itself, so the reply re-emission of the complete final-message JSON is the first rung and one identical retry the ' +
-            'second; a failed ladder skips step (3) and returns the empty product through step (4).',
+            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
+            'empty product through step (4).',
         'LANE LAW:\n\n' + laneLaw(CENSUS_WIRE, o),
         'TASK:\n\n' + task,
         '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
@@ -686,33 +633,23 @@ const censusCodexPrompt = (label, task, o) => {
             report +
             ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
             'failure returns the empty product through step (4).',
-        '(4) One Bash append of one line to the same ledger: `<utc-iso> | ' +
-            label +
-            ' | codex-end | <ok or fail> | <entry count> | <threadId from the result envelope>` (never rewrite the file). Then ' +
-            'parse the tool result content JSON and return it VERBATIM as YOUR final message — the object with keys ' +
+        '(4) Parse the tool result content JSON and return it VERBATIM as YOUR final message — the object with keys ' +
             'entries, coverage, summary matching the output schema. On a second tool error return entries [], an empty coverage ' +
             '(all four arrays []), and summary equal to the error text VERBATIM.',
     ].join('\n\n');
 };
 const census = (task, o) =>
     (CODEX
-        ? Promise.race([
-              agent(censusCodexPrompt('terra:' + o.label, task, o), {
-                  label: 'terra:' + o.label,
-                  phase: 'Census',
-                  model: 'sonnet',
-                  effort: 'low',
-                  schema: CENSUS_WIRE,
-                  stallMs: WRAPPER_STALL,
-              }),
-              sleep(LANE_CLOCK).then(() => ({
-                  entries: [],
-                  coverage: null,
-                  summary: 'watchdog: wall-clock ceiling — census call abandoned, slot freed; session recoverable via the rollout store',
-              })),
-          ]).then((r) =>
+        ? agent(censusCodexPrompt('terra:' + o.label, task, o), {
+              label: 'terra:' + o.label,
+              phase: 'Census',
+              model: 'sonnet',
+              effort: 'low',
+              schema: CENSUS_WIRE,
+              stallMs: CODEX_STALL,
+          }).then((r) =>
               r && (!r.entries || !r.entries.length) && /usage|quota|limit/i.test((r && r.summary) || '')
-                  ? run(
+                  ? agent(
                         task +
                             '\n\nPRODUCT TO DISK: also write your COMPLETE product to ' +
                             SCRATCH +
@@ -723,7 +660,7 @@ const census = (task, o) =>
                     )
                   : r,
           )
-        : run(
+        : agent(
               task +
                   '\n\nPRODUCT TO DISK: also write your COMPLETE product to ' +
                   SCRATCH +
@@ -1018,7 +955,7 @@ const verifyPrompt = (L, cluster, reg) =>
             'confirmed without the route output in `evidence`; an unrun route is `unresolvable`, never an optimistic confirm.',
     ].join('\n\n');
 
-// reg selects STANCE by the EXECUTING model: apply + red-team run native opus ('claude'), the sol critique runs codex ('codex').
+// reg selects STANCE by the EXECUTING model: apply + red-team run native fable ('claude'), the sol critique runs codex ('codex').
 const applyPreamble = (L, folder, scopes, reg) => [
     CONTEXT(L),
     STANCE(L, reg),
@@ -1243,7 +1180,7 @@ if (!TARGETS.length) {
 
 phase('Discover');
 const disc = await slot(() =>
-    run(discoverPrompt(), { label: 'discover', phase: 'Discover', model: 'sonnet', effort: 'low', schema: DISCOVER_SCHEMA, stallMs: STALL }),
+    agent(discoverPrompt(), { label: 'discover', phase: 'Discover', model: 'sonnet', effort: 'low', schema: DISCOVER_SCHEMA, stallMs: STALL }),
 );
 // Guard the model-emitted page roster: a discover-emitted path outside a valid libs/{cs,py,ts} route would route as cs by
 // Lof's fallback and dispatch census/apply on a wrong-language page — drop it before any lane fires.
@@ -1360,14 +1297,14 @@ const built = (
                 const applyOpts = (suffix) => ({
                     label: 'apply:' + tag + suffix,
                     phase: 'Apply',
-                    model: 'opus',
+                    model: 'fable',
                     effort: 'high',
                     schema: FIXLOG_SCHEMA,
                     stallMs: STALL,
                 });
                 const apply =
-                    (await slot(() => run(applyPrompt(L, folder, folderEntries, verdictReports, SCOPES), applyOpts('')))) ||
-                    (await retryLane(() => slot(() => run(applyPrompt(L, folder, folderEntries, verdictReports, SCOPES), applyOpts(':a1')))));
+                    (await slot(() => agent(applyPrompt(L, folder, folderEntries, verdictReports, SCOPES), applyOpts('')))) ||
+                    (await retryLane(() => slot(() => agent(applyPrompt(L, folder, folderEntries, verdictReports, SCOPES), applyOpts(':a1')))));
                 // CHAIN CONTINUATION: a dead apply never blocks the reviews — the critique's conformance audit and the red-team's
                 // pre-mortem still improve the pages as they stand on disk; navigation simply arrives empty.
                 const nav = navOf(apply ? [apply] : []);
@@ -1379,8 +1316,8 @@ const built = (
                         writes: true,
                         fix: true,
                         model: 'gpt-5.6-sol',
-                        nativeModel: 'opus',
-                        clockMs: CRIT_CLOCK,
+                        nativeModel: 'fable',
+                        stallMs: SOL_STALL,
                         scope: [...new Set(folderEntries.map((e) => e.page))],
                         hl: { arr: 'files' },
                     }),
@@ -1393,12 +1330,12 @@ const built = (
                 const rtOpts = (suffix) => ({
                     label: 'rt:' + tag + suffix,
                     phase: 'Apply',
-                    model: 'opus',
+                    model: 'fable',
                     effort: 'high',
                     schema: REVIEW_SCHEMA,
                     stallMs: STALL,
                 });
-                const rt = (await slot(() => run(rtArgs, rtOpts('')))) || (await retryLane(() => slot(() => run(rtArgs, rtOpts(':a1')))));
+                const rt = (await slot(() => agent(rtArgs, rtOpts('')))) || (await retryLane(() => slot(() => agent(rtArgs, rtOpts(':a1')))));
                 return { folder, entries: folderEntries, apply, crit: critR, critReport, rt };
             })
             .map((p) => p.catch(() => null)),
@@ -1440,9 +1377,7 @@ if (!RESOLVED.length) {
 
 phase('Close');
 const RESOLVED_LANGS = [...new Set(RESOLVED.map((f) => langOf(f)).filter(Boolean))];
-// Terminal DRAIN LOOP: the run's ONE fable seat — full-repo authority absorbs every residual, so the premium judgment spend
-// concentrates where scope is widest; every apply, critique, and red-team lane rides opus/sol. One serial fable closer per
-// round verifies every row against live disk, fixes at root, loops until
+// Terminal DRAIN LOOP: one serial fable closer per round verifies every row against live disk, fixes at root, loops until
 // empty; a round without shrinkage stops with the blocked set final. Every round re-receives the FULL tranche set — index
 // rows, orphan fixlogs, and the residual backlog — because the checkpoint ledger receipts consumption, so a dead or partial
 // round loses nothing and a live one skips what it already landed; only the backlog narrows round over round.
@@ -1453,7 +1388,7 @@ let lastOpen = Infinity;
 for (let round = 0; round < DRAIN_ROUNDS; round++) {
     const fire = (suffix) =>
         slot(() =>
-            run(fixerPrompt(RESOLVED_LANGS, ROWS, residuals, RESOLVED, ORPHANS, round), {
+            agent(fixerPrompt(RESOLVED_LANGS, ROWS, residuals, RESOLVED, ORPHANS, round), {
                 label: (round ? 'fixer:r' + round : 'fixer') + suffix,
                 phase: 'Close',
                 model: 'fable',
@@ -1478,7 +1413,7 @@ const POOLED_HARVEST = HARVEST_ROWS.concat(fixerHarvest);
 const doctrine =
     POOLED_HARVEST.length || ORPHANS.length || !fixer
         ? await slot(() =>
-              run(
+              agent(
                   ROOT_LAW +
                       '\n\nTASK: DOCTRINE LANDER — the durable-learning terminal of a research-resolution run. Read ' +
                       '`docs/laws/README.md` FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. ' +
@@ -1500,7 +1435,7 @@ const doctrine =
                       'whose coupling no longer holds, land a coupling this run proved.\n' +
                       'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
                       'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
-                  { label: 'doctrine', phase: 'Close', model: 'opus', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+                  { label: 'doctrine', phase: 'Close', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
               ),
           )
         : null;

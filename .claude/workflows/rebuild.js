@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The standing hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it maps every .planning sub-folder, ideates per package, hostile-rebuilds every page batch concurrently at the owning-language doctrine bar, and closes with a finder fan plus one terminal fixer.',
     description:
-        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan (opus) expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one opus deep-map lane and one gpt-5.6-terra full-source .api + manifest inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — plus one ctx+api feeder pair per strata-legal upstream package (planner-derived from the branch architecture, kernel always present) projecting feeder depth onto the targets; every lane writes a dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (opus, the non-binding fix addendum) and a bigger-ideas worklist (opus, new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a gpt-5.6-sol doctrine-bar lens, then opus implement, gpt-5.6-sol critique (workspace-write, fixlog to disk), and opus redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Close: a read-only gpt-5.6-sol (medium) finder fan plus one governance finder per language, opus slice drains, then ONE terminal fable fixer draining findings, the deferred backlog, and unclaimed census and idea rows in a fixpoint loop whose finishing round also lands the doctrine adjudication (pooled harvest nominations plus every critique fixlog harvest array from disk); a standalone opus lander fires only as the dead-fixer fallback. Stage law lives in the prompt blocks; CODEX=false restores native lanes throughout.',
+        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan (opus) expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one opus deep-map lane and one gpt-5.6-terra two-tier .api inventory lane per .planning sub-folder unit — an oversize sub-folder splits into ceiling-bounded segments, so map and batch seams stay congruent — each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (opus, the non-binding fix addendum) and a bigger-ideas worklist (fable, new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a terra doctrine-bar lens, then fable implement, gpt-5.6-sol critique (workspace-write, fixlog to disk), and fable redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Close: a read-only terra finder fan plus one governance finder per language, then ONE terminal fable fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then a doctrine lander adjudicating pooled harvest nominations. Stage law lives in the prompt blocks; CODEX=false restores native lanes throughout.',
     phases: [
         {
             title: 'Plan',
@@ -12,7 +12,7 @@ export const meta = {
         },
         {
             title: 'Map',
-            detail: 'per sub-folder unit segment: an opus deep-map lane (ownership, seams, cross-folder relevance, domain gaps — information, never code) beside a terra full-source .api + manifest inventory lane, each writing the per-unit dossier the batches reuse; plus one ctx+api feeder pair per strata-legal upstream package, projecting kernel and sibling depth onto the targets',
+            detail: 'per sub-folder unit segment: an opus deep-map lane (ownership, seams, cross-folder relevance, domain gaps — information, never code) beside a terra two-tier .api inventory lane, each writing the per-unit dossier the batches reuse',
             model: 'opus',
         },
         {
@@ -21,11 +21,11 @@ export const meta = {
         },
         {
             title: 'Build',
-            detail: 'sub-folder-packed batches, all concurrent: per batch a terra doctrine-bar lens, then opus implement, sol critique (fixlog to disk), opus redteam folding the critique forward — every writer on the own-pass-first ladder with bounded libs-wide ripple authority and seam-ledger coordination',
+            detail: 'sub-folder-packed batches, all concurrent: per batch a terra doctrine-bar lens, then fable implement, sol critique (fixlog to disk), fable redteam folding the critique forward — every writer on the own-pass-first ladder with bounded libs-wide ripple authority and seam-ledger coordination',
         },
         {
             title: 'Close',
-            detail: 'a read-only sol finder fan plus one governance finder per language over the landed corpus and seam ledger; opus slice drains; ONE terminal fable fixer drains findings, backlog, and unclaimed census and idea rows, its finishing round landing the doctrine adjudication (standalone opus lander only as dead-fixer fallback)',
+            detail: 'a read-only terra finder fan plus one governance finder per language over the landed corpus and seam ledger; ONE terminal fable fixer drains findings, backlog, and unclaimed census rows; a doctrine lander adjudicates pooled harvest nominations',
         },
     ],
 };
@@ -36,14 +36,11 @@ const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
-const WRAPPER_STALL = 1500000; // stallMs never observes a live blocking MCP call (run-proven: a 43-min blocked wrapper under a 25-min stall survived) — this guards only out-of-call wrapper wedges; the watchdog clocks below are the binding bound
-const LANE_CLOCK = 2700000; // codex-lane wall-clock watchdog (~2.5x observed peer median): a nested-call wedge inside codex otherwise holds the slot to the session MCP ceiling
-const CRIT_CLOCK = 7500000; // sol critique watchdog: ABOVE the 2h MCP tool ceiling, so the MCP error — not the race — is the normal death path (the conditioned
-// recovery ladder then verifies the checkpointed fixlog on disk); a lower race turned naturally-finishing 87-110 min lanes into zombie writers overlapping the
-// chained redteam on the same pages. The watchdog now catches only wrappers wedged past the ceiling; it exists for wedges, never depth.
+const CODEX_STALL = 1500000; // wrapper stall sits above the codex effort tier's blocking-call ceiling: a silent live MCP call is legal waiting, never a stall
+const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
 const BATCH_MAX = 8; // unit-segment + batch-packing ceiling; per-segment maps + census legwork carry the navigation, so a writer holds a full dense batch
 const FINDER_PAGES = 8; // landed pages per close-phase finder
-const CODEX = true; // recon lanes ride the codex wrapper (terra maps, sol-medium finders, sol critique); false restores native lanes
+const CODEX = true; // recon/finder lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
 // --- [INPUTS] --------------------------------------------------------------------------
 
@@ -81,27 +78,23 @@ const SCRATCH =
 // --- [MODELS] --------------------------------------------------------------------------
 
 const S = { type: 'string' };
+const UNDERUTIL = {
+    type: 'array',
+    items: { type: 'object', additionalProperties: false, required: ['catalog', 'capability'], properties: { catalog: S, capability: S } },
+};
 
 const PLAN_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['packages', 'pages', 'vocabularyOwners', 'unresolved'],
+    required: ['packages', 'pages', 'unresolved'],
     properties: {
         packages: {
             type: 'array',
             items: {
                 type: 'object',
                 additionalProperties: false,
-                required: ['name', 'root', 'planning', 'api', 'note', 'feeders'],
-                properties: {
-                    name: S,
-                    root: S,
-                    planning: S,
-                    api: S,
-                    note: S,
-                    // Strata-legal upstream package roots (branch-architecture dependency direction), referenced or not; the kernel always rides first.
-                    feeders: { type: 'array', items: S },
-                },
+                required: ['name', 'root', 'planning', 'api', 'note'],
+                properties: { name: S, root: S, planning: S, api: S, note: S },
             },
         },
         pages: {
@@ -113,28 +106,30 @@ const PLAN_SCHEMA = {
                 properties: { page: S, kind: { type: 'string', enum: ['new', 'rebuild'] } },
             },
         }, // ARRAY ORDER IS DEPENDENCY + COHESION ORDER — the engine never re-sorts
-        // Corpus-wide registry/vocabulary pages every sibling cites (fault bands, token tiers): downstream lanes cite the owner instead of re-deriving it.
-        vocabularyOwners: {
-            type: 'array',
-            items: { type: 'object', additionalProperties: false, required: ['page', 'ownsVocabulary'], properties: { page: S, ownsVocabulary: S } },
-        },
         unresolved: { type: 'array', items: S },
     },
 };
 
-const ANCHOR_DEFECT = {
-    // One anchor = one fact at one coordinate; interpretation never lives in an anchor row. Concurrent lanes move lines
-    // constantly, so a bare line number is stale by consumption time: `symbol` (the nearest enclosing heading, member, or
-    // fence identifier) is the identity handle joins and dedupe key on, and `quote` (a short verbatim snippet at the
-    // coordinate) is the content address a consumer greps to re-find the exact fact after drift.
+const ANCHOR_INFO = {
+    // One anchor = one fact at one coordinate; interpretation never lives in an anchor row.
     type: 'object',
     additionalProperties: false,
-    required: ['path', 'line', 'symbol', 'quote', 'role', 'note'],
+    required: ['path', 'line', 'role', 'note'],
     properties: {
         path: S,
         line: { type: 'integer' },
-        symbol: S,
-        quote: S,
+        role: { type: 'string', enum: ['state', 'ruling', 'catalog', 'counterpart', 'absence'] },
+        note: S,
+    },
+};
+
+const ANCHOR_DEFECT = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['path', 'line', 'role', 'note'],
+    properties: {
+        path: S,
+        line: { type: 'integer' },
         role: { type: 'string', enum: ['defect', 'ruling', 'catalog', 'counterpart', 'absence'] },
         note: S,
     },
@@ -152,20 +147,52 @@ const COVERAGE = {
     },
 };
 
-// Map lanes author ONE content artifact — the dossier — and return only this thin receipt: the per-page jump index into it plus
-// coverage attestation. A second full-content representation on the wire or in a report file is double-authoring nobody reads.
-const MAP_SCHEMA = {
+const CTX_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['index', 'coverage', 'summary'],
+    required: ['worklist', 'coverage', 'summary'],
     properties: {
-        index: {
+        worklist: {
             type: 'array',
             items: {
                 type: 'object',
                 additionalProperties: false,
-                required: ['page', 'sections'],
-                properties: { page: S, sections: { type: 'array', items: S } }, // sections = the dossier headers grounding this page
+                required: ['page', 'kind', 'owns', 'contextNote', 'seams', 'files', 'anchors'],
+                properties: {
+                    page: S,
+                    kind: { type: 'string', enum: ['new', 'rebuild'] },
+                    owns: S,
+                    contextNote: S,
+                    seams: { type: 'array', items: S },
+                    files: { type: 'array', items: S }, // files the consumer must open for this entry
+                    anchors: { type: 'array', items: ANCHOR_INFO },
+                },
+            },
+        },
+        coverage: COVERAGE,
+        summary: S,
+    },
+};
+
+const API_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['worklist', 'coverage', 'summary'],
+    properties: {
+        worklist: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['page', 'apiUsed', 'apiUnderutilized', 'stackingInventory', 'files', 'anchors'],
+                properties: {
+                    page: S,
+                    apiUsed: { type: 'array', items: S },
+                    apiUnderutilized: UNDERUTIL,
+                    stackingInventory: S, // capability inventory as fact — catalog members + admitting concepts, never a prescribed design
+                    files: { type: 'array', items: S },
+                    anchors: { type: 'array', items: ANCHOR_INFO },
+                },
             },
         },
         coverage: COVERAGE,
@@ -207,12 +234,10 @@ const BAR_SCHEMA = {
 
 const RECEIPT = {
     // Thin wire receipt: the lane's PRODUCT stays on disk at `report`; only status + count + headline travel inline.
-    // `thread` is the codex MCP threadId — the rollout-file key under ~/.codex/sessions/ AND the `codex exec resume` handle,
-    // so a dead codex lane stays joinable and recoverable; native lanes return ''.
     type: 'object',
     additionalProperties: false,
-    required: ['ok', 'report', 'entries', 'headline', 'failure', 'thread'],
-    properties: { ok: { type: 'boolean' }, report: S, entries: { type: 'integer' }, headline: S, failure: S, thread: S },
+    required: ['ok', 'report', 'entries', 'headline', 'failure'],
+    properties: { ok: { type: 'boolean' }, report: S, entries: { type: 'integer' }, headline: S, failure: S },
 };
 
 const SEAMS = {
@@ -226,39 +251,19 @@ const SEAMS = {
 };
 
 const DELTAS = {
-    // navigation facts: what moved, as data, zero adjectives; `key` (<concern>|<owner>|<primary symbol>, stable across lanes,
-    // never lane wording) is the handle downstream stages close the row against in `dispositions` — a row continuing an
-    // upstream claim REUSES that claim's existing key, never re-mints one.
+    // navigation facts: what moved, as data, zero adjectives
     type: 'array',
-    items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['key', 'symbol', 'change'],
-        properties: { key: S, symbol: S, change: S },
-    },
+    items: { type: 'object', additionalProperties: false, required: ['symbol', 'change'], properties: { symbol: S, change: S } },
 };
 
 const DEFERRED = {
-    // the counted backlog: second-order + live-batch-scope ripples; `key` follows the DELTAS grammar
+    // the counted backlog: second-order + live-batch-scope ripples
     type: 'array',
     items: {
         type: 'object',
         additionalProperties: false,
-        required: ['key', 'files', 'claim'],
-        properties: { key: S, files: { type: 'array', items: S }, claim: S },
-    },
-};
-
-const DISPOSITIONS = {
-    // The closing rail for upstream rows a stage is OBLIGATED to land — census rows, covering ideas, prior-claim delta and
-    // deferred keys — each closed BY KEY with the disk fact grounding its fate, so silence and prose-only dispositions are
-    // unspellable. Empty attests the stage had no upstream rows to close.
-    type: 'array',
-    items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['key', 'fate', 'fact'],
-        properties: { key: S, fate: { type: 'string', enum: ['landed', 'refuted', 'declined', 'deferred'] }, fact: S },
+        required: ['files', 'claim'],
+        properties: { files: { type: 'array', items: S }, claim: S },
     },
 };
 
@@ -289,35 +294,58 @@ const HARVEST = {
     },
 }; // doctrine nominations — generalizable lessons only; the terminal doctrine lander adjudicates every row
 
-// Required-but-empty arrays are attestations: forced seamsTouched/beyondMap/indexRows/deltas/deferred/dispositions/dossierPhantoms
-// make "read fully / exceed the reports / repair both ends / record the backlog / close every obligated row" structurally
-// checkable, never wishful prose. ONE fix-log core serves every writing stage; a stage adds only the keys its charter earns —
-// twin literals drift, one owner never does.
-const LOG_CORE = {
-    files: { type: 'array', items: S },
-    summary: S,
-    seamsTouched: SEAMS,
-    deltas: DELTAS,
-    deferred: DEFERRED,
-    dispositions: DISPOSITIONS,
-    beyondMap: BEYOND,
-    indexRows: INDEXROWS,
-    harvest: HARVEST,
-};
-const logSchema = (extra) => ({
+// Required-but-empty arrays are attestations: forced seamsTouched/beyondMap/indexRows/deltas/deferred/dossierPhantoms
+// make "read fully / exceed the reports / repair both ends / record the backlog" structurally checkable, never wishful prose.
+const FIXLOG_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: Object.keys(LOG_CORE).concat(Object.keys(extra)),
-    properties: Object.assign({}, LOG_CORE, extra),
-});
-// Self-grade verdicts never travel: no downstream stage consumes one, and a "fixed" self-assessment riding the disk
-// fixlog into a later reviewer is pure anchoring surface — facts, deltas, and dispositions are the record.
-const FIXLOG_SCHEMA = logSchema({
-    collapsed: S,
-    extended: S,
-    dossierPhantoms: { type: 'array', items: S },
-});
-const REVIEW_SCHEMA = logSchema({ extended: S });
+    required: [
+        'files',
+        'verdict',
+        'summary',
+        'seamsTouched',
+        'deltas',
+        'deferred',
+        'beyondMap',
+        'indexRows',
+        'harvest',
+        'dossierPhantoms',
+        'collapsed',
+        'extended',
+    ],
+    properties: {
+        files: { type: 'array', items: S },
+        verdict: { type: 'string', enum: ['authored', 'rebuilt', 'refined', 'clean'] },
+        collapsed: S,
+        extended: S,
+        summary: S,
+        seamsTouched: SEAMS,
+        deltas: DELTAS,
+        deferred: DEFERRED,
+        beyondMap: BEYOND,
+        indexRows: INDEXROWS,
+        harvest: HARVEST,
+        dossierPhantoms: { type: 'array', items: S },
+    },
+};
+
+const REVIEW_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['files', 'verdict', 'summary', 'seamsTouched', 'deltas', 'deferred', 'beyondMap', 'indexRows', 'harvest', 'extended'],
+    properties: {
+        files: { type: 'array', items: S },
+        verdict: { type: 'string', enum: ['fixed', 'clean'] },
+        extended: S,
+        summary: S,
+        seamsTouched: SEAMS,
+        deltas: DELTAS,
+        deferred: DEFERRED,
+        beyondMap: BEYOND,
+        indexRows: INDEXROWS,
+        harvest: HARVEST,
+    },
+};
 
 const FINDINGS_SCHEMA = {
     type: 'object',
@@ -329,16 +357,26 @@ const FINDINGS_SCHEMA = {
             items: {
                 type: 'object',
                 additionalProperties: false,
-                required: ['claimKey', 'target', 'files', 'class', 'severity', 'claim', 'anchors', 'mechanism', 'owner', 'reject', 'acceptance'],
+                required: [
+                    'claimKey',
+                    'target',
+                    'files',
+                    'class',
+                    'grade',
+                    'severity',
+                    'claim',
+                    'anchors',
+                    'mechanism',
+                    'owner',
+                    'reject',
+                    'acceptance',
+                ],
                 properties: {
-                    // Schema-enforced key grammar: prose alone fractured into 4+ formats across one run's lanes, defeating cross-lane
-                    // dedupe; segments derive from the owning CODE SYMBOL and defect class, never the page, slice, or lane wording —
-                    // symbol-derived keys are how two finders hitting one defect mint one key (run-proven: page-derived owner segments
-                    // minted 6+ divergent keys for identical cross-slice defects and exact-key dedupe collapsed none).
-                    claimKey: { type: 'string', pattern: '^[a-z0-9_-]+(\\.[a-z0-9_-]+){3}$' },
+                    claimKey: S, // <class>|<owner>|<primary symbol or absence route> — stable across lanes, never lane wording
                     target: S, // short display label for the defect
                     files: { type: 'array', items: S }, // files the fixer must open or edit first
                     class: { type: 'string', enum: ['missing', 'wrong', 'faked', 'naive', 'drift', 'phantom'] },
+                    grade: { type: 'string', enum: ['substantive', 'hypothetical'] }, // substantive = concrete on-disk defect; hypothetical = requires an invented implausible input
                     severity: { type: 'string', enum: ['blocker', 'major', 'minor'] }, // bound to consequence, never prose confidence
                     claim: S, // the observed defect as fact
                     anchors: { type: 'array', items: ANCHOR_DEFECT },
@@ -358,51 +396,10 @@ const FIXER_SCHEMA = {
     // Required-but-possibly-empty `beyond` is an attestation: the fixer's own hunt ran, not only the signal list.
     type: 'object',
     additionalProperties: false,
-    required: [
-        'files',
-        'indexApplied',
-        'resolved',
-        'backlogDrained',
-        'beyond',
-        'rejected',
-        'remaining',
-        'harvest',
-        'tranches',
-        'ideaLedger',
-        'doctrine',
-        'summary',
-    ],
+    required: ['files', 'indexApplied', 'resolved', 'backlogDrained', 'beyond', 'rejected', 'remaining', 'harvest', 'summary'],
     properties: {
         files: { type: 'array', items: S },
         harvest: HARVEST,
-        doctrine: {
-            // Terminal-round product: performed=true ONLY on the round that empties `remaining` and executes the doctrine
-            // landing as its final act; every other round returns performed=false with empty arrays, and a performed=true
-            // return is what stands down the fallback lander.
-            type: 'object',
-            additionalProperties: false,
-            required: ['performed', 'landed', 'refined', 'rejected'],
-            properties: {
-                performed: { type: 'boolean' },
-                landed: { type: 'array', items: S },
-                refined: { type: 'array', items: S },
-                rejected: {
-                    type: 'array',
-                    items: { type: 'object', additionalProperties: false, required: ['claim', 'reason'], properties: { claim: S, reason: S } },
-                },
-            },
-        },
-        tranches: { type: 'array', items: S }, // one checkpoint receipt line per tranche fed this round — a fed tranche absent here is unconsumed
-        ideaLedger: {
-            // One row per dossier idea — a prose-only silent-drop prohibition has dropped silently; the required ledger makes every fate visible.
-            type: 'array',
-            items: {
-                type: 'object',
-                additionalProperties: false,
-                required: ['idea', 'fate', 'note'],
-                properties: { idea: S, fate: { type: 'string', enum: ['landed', 'carded', 'declined'] }, note: S },
-            },
-        },
         indexApplied: {
             type: 'array',
             items: { type: 'object', additionalProperties: false, required: ['doc', 'action'], properties: { doc: S, action: S } },
@@ -468,8 +465,7 @@ const LANG = {
             '`<package>/.api/*.md` — the universal Thinktecture/LanguageExt rails layered onto the domain packages, never the folder set alone.',
         verify:
             '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for feed ' +
-            'truth — version/deprecation lookups only, `get_latest_package_version`-class calls, never a full ' +
-            '`get_package_context` dump on a large package — and Context7/exa/tavily for the official surface own the fallback)',
+            'truth, and Context7/exa/tavily for the official surface own the fallback)',
         vocab: '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject]`/`Fold`/the rails)',
         slur: 'naive, surface-level code dressed in the right vocabulary',
         illusion: 'a `.api`/host member cited but never verified',
@@ -625,55 +621,17 @@ const makeSlots = (cap) => {
     };
 };
 const slot = makeSlots(CAP);
-const RETRY_BACKOFFS = [60000, 1800000]; // agent() returns null causeless, so the ladder covers both death classes: a fast first attempt catches transient transport deaths, the long second waits out a usage-limit window
-// Bounded re-dispatch for a dead CRITICAL lane: attempt-counted with a per-attempt backoff; the final death isolates the lane
-// but NEVER the chain — every downstream stage still runs against current disk.
-const retryLane = async (fn) => {
-    for (const backoff of RETRY_BACKOFFS) {
-        await sleep(backoff);
-        const r = await fn();
-        if (r) return r;
-    }
-    return null;
-};
 const wopts = (label, phase, model, schema, over) => Object.assign({ label, phase, model, effort: 'high', schema, stallMs: STALL }, over);
 const ropts = (label, phase, schema, scope, hl, over) => Object.assign({ label, phase, schema, scope, hl }, over);
-
-// Run telemetry: every lane brackets itself on ONE shared ledger — one O_APPEND line per event, `<utc-iso> | <label> | <event>[ | <verdict> | <count>]`.
-// The ledger is the workflow-agnostic observability seam a watcher tails for phase/stall/failure signals; native lanes self-stamp through the `run`
-// dispatch owner, codex lanes are stamped by their sonnet wrapper around the blocking MCP call so the bracket times the codex call itself.
-const LEDGER_LOG = ROOT_DIR + '/' + SCRATCH + '/run-telemetry.log';
-const TLM = (label) =>
-    'TELEMETRY (mechanical): FIRST act — one Bash append of one line to `' +
-    LEDGER_LOG +
-    '`: `<utc-iso> | ' +
-    label +
-    ' | start` (shell `>>` with `date -u +%FT%TZ`; never rewrite the file). FINAL act before returning — append the matching ' +
-    '`<utc-iso> | ' +
-    label +
-    ' | end | <one-word verdict> | <primary entry count>`. A lane that cannot finish appends `| fail | <reason slug>` instead of `end`.';
-const run = (prompt, opts) => agent(prompt + '\n\n' + TLM(opts.label), opts);
 
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
 const laneLaw = (schema, o) =>
     (o.fix
-        ? '<completion_bar>\nDone is every page in your named scope worked to its full depth with its product entry written — proof-complete, ' +
-          'never effort-spent, never early. A page is DONE the moment its named checks pass and its row is checkpointed to the report file; ' +
-          'the run is done when the last page row is written — that write is the terminal act, and no global re-verification sweep, ' +
-          'freshness re-check, or post-patch inspection follows it. Complete every named move before yielding; do not stop at analysis or a ' +
-          'partial edit. If the chosen approach resists, pick the next-best one and proceed; a move the territory genuinely admits no edit ' +
-          'for returns as a deferred row naming its blocker. Your layer is review-and-repair of the named scope; out-of-scope findings ' +
-          "follow RIPPLE LAW's four bounds — a first-order ripple your own edit opens is repaired both ends now, everything past it lands " +
-          "as a typed deferred/index row. Consolidate a page's edits into the fewest coherent apply_patch blocks — a stream of tiny " +
-          'patches re-feeds the whole working context each turn and buys no correctness. Re-verifying unchanged work or re-reading covered ' +
-          'territory adds no evidence; a fence that passes its named checks is attested and you move to the next deliverable.' +
-          '\n</completion_bar>\n\n<verification>\nVerification is per-page and inline, never a phase: confirm an edit at its changed region ' +
-          'once as you make it, confirm nothing the page carried is lost, checkpoint the page row, and move to the next page. A check you ' +
-          'did not run is never claimed as run. Once the last page row is written the lane is done — no batch-level freshness re-check, ' +
-          'post-patch inspection, or deferred-state re-verification follows; repeat validation of attested work produces no evidence and ' +
-          'only spends the lane toward the ceiling. Cross-page freshness and deferred drain belong to the downstream stages.\n' +
-          '</verification>'
+        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
+          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
+          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
+          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
         : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it; ' +
           'instruction files (.claude/, CLAUDE.md, AGENTS.md) are always out of scope, while a skill of your own matching an ' +
           'artifact-authoring task is in-contract.\nBudget: at most ' +
@@ -684,10 +642,7 @@ const laneLaw = (schema, o) =>
           'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
           'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
           '</verification>') +
-    '\n\n<tool_bounds>\nA nested MCP tool call is bounded: prefer the lightest variant that answers the question (a version ' +
-    'lookup over a full package-context dump), give every such call a hard time budget, and when a call does not settle ' +
-    'promptly, record the item as a gap/unverified row and move on — an unbounded wait on one lookup never stalls the task.\n' +
-    '</tool_bounds>\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
+    '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
     JSON.stringify(schema) +
     '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
     '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
@@ -701,43 +656,24 @@ const codexPrompt = (label, task, schema, o) => {
             model +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Load the `codex` skill via the Skill tool FIRST — its [09] sessions and recovery law governs this call. Then call ' +
-            'ToolSearch with query "select:mcp__codex__codex,mcp__codex__codex-reply", and append one Bash line to `' +
-            (ROOT_DIR + '/' + SCRATCH + '/run-telemetry.log') +
-            '`: `<utc-iso> | ' +
-            label +
-            ' | codex-start` (shell `>>` with `date -u +%FT%TZ`; never rewrite the file).',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
             '", sandbox=' +
             (o.writes ? '"workspace-write"' : '"read-only"') +
             ', cwd=' +
             JSON.stringify(root) +
-            ', config=' +
-            JSON.stringify(Object.assign({ features: { multi_agent: false } }, o.codexEffort ? { model_reasoning_effort: o.codexEffort } : {})) +
+            (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
             ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
-            'VERBATIM. ' +
-            (o.writes
-                ? "On any call error run the codex skill's blocking-caller recovery ladder with this lane's disk product at " +
-                  report +
-                  ' — verify it FIRST (the lane checkpoints it per page; a valid report proceeds to step (4) as success); the ' +
-                  'reply nudge tells the session to finish the TASK and write the report file as specified. A fresh identical call ' +
-                  'is legal ONLY when the failed call died EARLY — a transport-class error well under this lane' +
-                  "'s wall clock; a full-duration ceiling kill means the session did real work and its edits hold the disk, so " +
-                  'after the disk verify you return ok=false with the threadId, NEVER a second writer over the same pages.'
-                : "On any call error run the codex skill's blocking-caller recovery ladder — this lane writes no product itself, so " +
-                  'the reply re-emission of the complete final-message JSON is the first rung and one identical retry the second; a ' +
-                  'failed ladder skips step (3) and returns through step (4).'),
+            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
+            'error through step (4).',
         'LANE LAW:\n\n' + laneLaw(schema, o),
         'TASK:\n\n' +
             task +
             (o.writes
-                ? '\n\nREPORT FILE (running deliverable, never a terminal dump): ' +
+                ? '\n\nREPORT FILE (final act): before returning your final message, write that COMPLETE final-message JSON verbatim to ' +
                   report +
-                  ' is your product. The moment a page closes its audit-and-repair, rewrite that file with the COMPLETE current ' +
-                  'fixlog JSON — every finished page row so far, a whole-object rewrite each time, never an append fragment, so the ' +
-                  'file is valid JSON at every checkpoint and a run cut short still leaves every closed page on disk. Your final ' +
-                  'message is that same JSON after the last page row lands — a confirming rewrite, never the first write.'
+                  ' yourself.'
                 : ''),
         o.writes
             ? '(3) The lane wrote the report itself. Verify with one Bash call: jq -e . ' +
@@ -751,29 +687,25 @@ const codexPrompt = (label, task, schema, o) => {
               report +
               ' >/dev/null — a Write that drops the tail mints invalid JSON; on failure rewrite once from the tool result, and a second ' +
               'failure returns through step (4) with the error.',
-        '(4) One Bash append of one line to the same ledger: `<utc-iso> | ' +
-            label +
-            ' | codex-end | <ok or fail> | <entries> | <threadId from the result envelope>` — the threadId keys the codex-side ' +
-            'session record, so it is never omitted. Then parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
+        '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
             base +
             '-report.json, entries=the length of result["' +
             o.hl.arr +
             '"], headline="<entries> ' +
             o.hl.arr +
             (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
-            ' | top: <most frequent first file or none>", thread=the threadId from the result envelope, and failure empty. On a ' +
-            'second tool error return ok=false, entries=0, report and headline empty, thread=the threadId if any envelope ' +
-            'returned one else empty, and failure equal to the error text VERBATIM.',
+            ' | top: <most frequent first file or none>", and failure empty. On a second tool error return ok=false, entries=0, ' +
+            'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
 
 // QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin (terra->opus,
 // sol->fable, luna->sonnet) — the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The roster row carries `scope` from the
 // ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
-const twinOf = (m) => (/-luna/.test(m || '') ? 'sonnet' : 'opus'); // native fallback twins; fable's ONE seat is the terminal fixer, never a fallback
+const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
 const nativeLane = (task, o) => {
     const report = SCRATCH + '/' + fileTag(o.label) + '-report.json';
-    return run(
+    return agent(
         task +
             '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
             (ROOT_DIR + '/' + report) +
@@ -781,8 +713,7 @@ const nativeLane = (task, o) => {
             JSON.stringify(o.schema) +
             ' — then return ONLY the receipt: ok, report = ' +
             report +
-            ' (this repo-relative form, matching codex-lane receipts), entries count, one-line mechanical headline, failure ' +
-            'empty, thread empty.',
+            ' (this repo-relative form, matching codex-lane receipts), entries count, one-line mechanical headline, failure empty.',
         { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT, stallMs: o.stallMs || STALL },
     );
 };
@@ -796,23 +727,13 @@ const recon = (taskOf, o) => {
         model: 'sonnet',
         effort: 'low',
         schema: RECEIPT,
-        stallMs: o.stallMs || WRAPPER_STALL,
+        stallMs: o.stallMs || CODEX_STALL,
     };
-    // WATCHDOG: the race frees the slot and hands the chain the standard dead-lane shape at the wall-clock ceiling; the abandoned
-    // call keeps running harness-side as an ignored zombie (a late report in scratch is harmless), and the codex session stays
-    // recoverable through the rollout store. Cancellation does not exist on this surface — slot recovery is the whole point.
     return (
         CODEX && !o.native
-            ? Promise.race([
-                  agent(codexPrompt(o.label, task('codex'), o.schema, o), wrapper),
-                  sleep(o.clockMs || LANE_CLOCK).then(() => ({
-                      ok: false,
-                      report: '',
-                      entries: 0,
-                      headline: '',
-                      failure: 'watchdog: wall-clock ceiling — call abandoned, slot freed; session recoverable via the rollout store',
-                  })),
-              ]).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task('claude'), o) : r))
+            ? agent(codexPrompt(o.label, task('codex'), o.schema, o), wrapper).then((r) =>
+                  r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task('claude'), o) : r,
+              )
             : nativeLane(task('claude'), o)
     ).then((r) => ({
         lane: o.label,
@@ -822,7 +743,6 @@ const recon = (taskOf, o) => {
         entries: (r && r.entries) || 0,
         headline: (r && r.headline) || '',
         failure: (r && r.failure) || (r ? '' : 'lane died'),
-        thread: (r && r.thread) || '',
     }));
 };
 const chunk = (arr, n) => {
@@ -855,15 +775,13 @@ const normalizePages = (pl) => {
 };
 
 const navOf = (logs) => {
-    // Navigation handoff: FACTS ONLY — files, symbol deltas, seam rows, backlog, dispositions (each a refutation target for
-    // the reviews: a closed row's grounding fact is attackable evidence, not a settled verdict). Never verdicts or adjectives.
+    // Navigation handoff: FACTS ONLY — files, symbol deltas, seam rows, backlog. Never verdicts, summaries, or adjectives.
     const rows = logs.filter(Boolean);
     return {
         files: [...new Set(rows.flatMap((r) => r.files || []))],
         deltas: rows.flatMap((r) => r.deltas || []),
         seams: rows.flatMap((r) => r.seamsTouched || []),
         deferred: rows.flatMap((r) => r.deferred || []),
-        dispositions: rows.flatMap((r) => r.dispositions || []),
     };
 };
 
@@ -876,16 +794,7 @@ const ROOT_LAW =
     ROOT_DIR +
     ' — every relative repo path in this brief resolves against this absolute root; read, write, and edit ONLY under it, never ' +
     'another checkout of the repository.';
-const CONTEXT = (L) =>
-    ROOT_LAW +
-    '\n\nRasm monorepo — ' +
-    L.corpus +
-    '. ' +
-    L.strata +
-    ' ' +
-    L.stackFloor +
-    ' Markdown moves through read-and-rewrite edits alone: a scripted transform (`python`, `sed`, `awk`, regex) writing any ' +
-    '`.planning` or `.api` file is a defect regardless of output correctness — correct bytes from a banned tool still fail.';
+const CONTEXT = (L) => ROOT_LAW + '\n\nRasm monorepo — ' + L.corpus + '. ' + L.strata + ' ' + L.stackFloor;
 
 // Register table — one row set per EXECUTING model, keyed by recon()'s dispatch branch. Substance is identical across rows (burden of proof on the
 // work, both naivety axes, illusion hunting, no-churn, second-pass self-verify, findings-never-designs); only phrasing forks: claude carries the
@@ -896,10 +805,8 @@ const SELF_CHECK =
     'SELF-VERIFY (second pass, before returning): re-derive every entry from disk — re-open each cited anchor and confirm it ' +
     'states what the entry claims, re-verify each member spelling against its catalog, trace each seam to both endpoints. ' +
     'Correct or delete any entry that fails re-confirmation; never return a guess, an assumption, a skimmed summary, or a ' +
-    'vague/hedged entry. An absence claim is bounded by what you actually read: full-file coverage grounds a file-wide ' +
-    'absence; a partial read grounds only the range read, stated as that range (`<file>:1-NNN searched`), never a whole-file ' +
-    'or corpus-wide assertion. Completeness is part of correctness: after the re-read, hunt once more for what the first pass ' +
-    'missed — an omitted load-bearing fact is as wrong as a false one.';
+    'vague/hedged entry. Completeness is part of correctness: after the re-read, hunt once more for what the first pass missed ' +
+    '— an omitted load-bearing fact is as wrong as a false one.';
 const ANTI_ANCHOR = (L) =>
     'ANTI-ANCHOR LAW: your report and dossier carry FINDINGS, never designs — quality defects graded against the doctrine read at source (name the law and the ' +
     L.stack +
@@ -955,7 +862,7 @@ const REG = {
             'not evidence. NAIVETY is a defect on two orthogonal axes: COVERAGE — the owner models a thin slice of its concept ' +
             '(a 2-case family for a 20-case domain, three fields where the concept carries fifteen); APPROACH — an enumerated ' +
             'roster where one parameterized generator should GENERATE the space (the roster demotes to seed DATA over named ' +
-            'parameters). Dense, confident, package-fluent code is the prime suspect for hollowness. ILLUSORY code is the primary target: doctrine vocabulary ' +
+            'parameters). ILLUSORY code is the primary target: doctrine vocabulary ' +
             L.vocab +
             ', cited packages, confident prose, hollow body — a phantom (' +
             L.illusion +
@@ -971,14 +878,9 @@ const REG = {
             'claim; check every admitted catalog (both tiers) for the members, combinators, generated surfaces, and native ' +
             'pipelines the concept ADMITS but no fence exploits',
         bar: (n) => 'TASK: read-only DOCTRINE-BAR review over these ' + n + ' pages (investigate, do NOT edit): ',
-        barAttack: () =>
-            'assess its quality against the doctrine AT SOURCE — the page is presumed below the bar until your review proves ' +
-            'otherwise: the burden of proof sits on the page, never on you, and a finding-free verdict is earned only by a ' +
-            'review that checked every applicable law and found nothing. Report',
+        barAttack: () => 'assess its quality against the doctrine AT SOURCE — treat the page as unproven until verified. Report',
         finder: (i) => 'TASK: read-only FINDER, slice ' + i + ' (investigate, do NOT edit).',
-        finderStance:
-            'The landed corpus is presumed to carry residual defects until your independent verification finds none; what the ' +
-            'run reports about itself is unproven. ',
+        finderStance: 'Verify the landed corpus independently; treat what the run reports about itself as unproven. ',
         gov: 'TASK: read-only GOVERNANCE FINDER (investigate, do NOT edit).',
         audit: 'TASK: DOCTRINAL-CONFORMANCE + CAPABILITY AUDIT; fix EACH page in place: ',
     },
@@ -1012,17 +914,11 @@ const BODY = (L) =>
     'expression-shaped, and reads as one algebra — the admitted combinator surface is the material, never hand-rolled ' +
     'control flow, nesting, or extraction to loose helpers.';
 
-// Review stages CONSUME the api-lens dossier instead of re-mining both tiers — the map lane already paid that census.
-const VERIFY = (L, consume) =>
+const VERIFY = (L) =>
     'VERIFY — cite only members confirmed via ' +
     L.verify +
-    '; a member you cannot verify is a phantom to delete. ' +
-    (consume
-        ? "The api-lens dossier already enumerated both tiers' `apiUsed` and `apiUnderutilized` for these pages: verify each " +
-          'cited member at its anchor and stack every `apiUnderutilized` row into its owner. Hunt past the dossier only where ' +
-          'it attests incompleteness (`beyondMap`) or a fence cites a member absent from it — never a blanket re-mine of ' +
-          'catalogs the dossier already covered.'
-        : 'Mine BOTH .api tiers to operator depth: ' + L.apiTiers) +
+    '; a member you cannot verify is a phantom to delete. Mine BOTH .api tiers to operator depth: ' +
+    L.apiTiers +
     ' An admitted capability the concept admits that no owner exploits is a defect to close.';
 
 const RIPPLE_LAW =
@@ -1053,16 +949,13 @@ const CURRENT_STATE =
 const LEDGER = (base, scopes) =>
     'SEAM LEDGER — cross-batch coordination is typed fact rows on disk, never prose. Your batch ledger is `' +
     base +
-    '-seams.md`: append one row PER EVENT AS IT LANDS (a shell `>>` append the moment the edit commits — a ledger written once ' +
-    'at the end is invisible to every concurrent sibling and has failed its purpose), each row ' +
-    '`<seq> | <batch> | <stage> | <TYPE> | <files> | <fact>` — seq your running counter, stage impl|crit|rt, TYPE one of ' +
-    '`SEAM_CHANGED` (a shared name, signature, or contract you own moves: old -> new), `RIPPLE_REPAIRED` (you repaired a ' +
-    'counterpart, so no sibling redoes it), `SEAM_CONFLICT` (collision with a landed sibling row; resolve to the stronger form ' +
-    'per CURRENT STATE). Before ANY edit outside your batch pages, `ls` `' +
+    '-seams.md`: append one row per cross-file event as you work — `SEAM_CHANGED | <files> | <symbol/wire fact, old -> new>` ' +
+    'when a shared name, signature, or contract you own moves; `RIPPLE_REPAIRED | <files> | <fact>` when you repair a ' +
+    'counterpart, so no sibling redoes it; `SEAM_CONFLICT | <files> | <both values>` on collision with a landed sibling row ' +
+    '(resolve to the stronger form per CURRENT STATE). Before ANY edit outside your batch pages, `ls` `' +
     SCRATCH +
     '/` and read every sibling `*-seams.md` row whose files intersect yours — a RIPPLE_REPAIRED row is work you do NOT redo, a ' +
-    'SEAM_CHANGED row a contract you compose. Rows are facts, zero adjectives, authored ONCE: your returned `seamsTouched` ' +
-    'rows are these ledger rows verbatim, never a second derivation. CONCURRENT BATCH SCOPES (a counterpart inside ' +
+    'SEAM_CHANGED row a contract you compose. Rows are facts, zero adjectives. CONCURRENT BATCH SCOPES (a counterpart inside ' +
     "another live batch's scope is recorded in `deferred`, never edited): " +
     scopes;
 
@@ -1083,104 +976,70 @@ const INFO_LAW =
     'names what it proves; `note` is the shortest literal witness under 20 words, or empty when path+line suffice; an ' +
     '`absence` anchor names where the expected thing was searched and not found); `files` lists what the consumer must open. ' +
     'An underutilized-capability entry is INVENTORY: verified members, usage anchors, the admitting concept — composition is ' +
-    "the implement agent's call. DOSSIER ANCHOR FORM — in the dossier body an anchor is ONE inline token, `<path>:NNN` " +
-    '(a range only when the fact truly spans lines), carried inside its fact row: ' +
-    '`- <owner-symbol> omits the <axis> arm the concept admits — <page>.md:NNN | catalog <api-file>.md:NNN` — never a ' +
-    'multi-line key/value block per anchor and never a repeated files list per entry; the keyed anchor object exists only in ' +
-    'the returned wire JSON. VERIFIED-CORRECT is first-class dossier content: per page, one attestation row per seam or ' +
-    'member spelling you re-confirmed correct — the writer spends its re-open budget on flagged rows first; an attestation ' +
-    'never waives the consumer re-open behind an edit. COVERAGE is part of the product: `requested` = assigned scope, ' +
-    '`read` = actually full-read, `skipped`/`unverified` = not reached — an honest skip beats a silent one.';
+    "the implement agent's call. COVERAGE is part of the product: `requested` = assigned scope, `read` = actually full-read, " +
+    '`skipped`/`unverified` = not reached — an honest skip beats a silent one.';
 
 const EVIDENCE_LAW =
     'FINDING FORM — you deliver TRUTH, never an implementation: `claim` states the observed defect; `mechanism` states WHY it ' +
     'fails the law as fact; `anchors` carry one coordinate per row (role names what it proves; `note` is the shortest literal ' +
     'witness under 20 words, or empty when path+line suffice; an `absence` anchor names where the expected thing was searched ' +
-    'and not found); a `defect` anchor lands ON the line implementing the mechanism — a nearby declaration or a blank line ' +
-    'taxes the consumer, whose re-open of every anchor is mandatory — and every anchor path resolves on current disk at emit: ' +
-    'a phantom or doubled-segment path is a dead read the consumer inherits; `owner` names the canonical owner that must ' +
-    'absorb the resolution (the owning axis, roster, registry, or ' +
+    'and not found); `owner` names the canonical owner that must absorb the resolution (the owning axis, roster, registry, or ' +
     'seam vocabulary — never a new local shape); `reject` lists forms the repair must not take; `acceptance` the signals ' +
     'proving resolution. NEVER write add/replace/implement/promote/delete as instruction — the writer owns the design, you the ' +
-    'constraint boundary. `claimKey` follows one mechanical grammar — <package>.<page-stem>.<owner>.<defect-slug>, exactly ' +
-    'four dot-separated lowercase segments (e.g. `appui.dashboards.lttb.unwired-decimator`) — so the same defect keys ' +
-    'identically from any lane by construction, and cross-lane corroboration of one defect surfaces as one key. BODY PROOF: a claim of ' +
-    'inert/discarded/not-emitted/erased behavior anchors the IMPLEMENTING body (the generated partial, delegate, or extension ' +
-    'body where the behavior would live), never the call site alone — a call-site-only inertness claim is unverified. ' +
-    '`severity` binds to consequence (blocker = run-blocking, major = corpus correctness, minor = local cleanup), never prose ' +
-    'confidence — grade honestly across all three; a sweep returning no minors attests none exist, never that minors were ' +
-    'promoted. OUTPUT BOUNDS: retention scales with the scope — keep every finding that survives the second hostile pass, ' +
-    'lead with the strongest, and 0 is legal only when that pass returns empty, `summary` then naming the probes that produced ' +
-    'nothing; never manufacture a finding, never delete a confirmed one. COVERAGE is part of the product: `requested` = ' +
-    'assigned scope, `read` = actually full-read, `skipped`/`unverified` = not reached or unconfirmed — an honest skip beats a ' +
-    'silent one, and a page read but yielding no finding is still attested in `read`.';
+    'constraint boundary. `claimKey` is identical for the same defect regardless of lane or wording. `severity` binds to ' +
+    'consequence (blocker = run-blocking, major = corpus correctness, minor = local cleanup), never prose confidence. OUTPUT ' +
+    'BOUNDS: an ordinary scope yields 3-8 retained findings; 0 only when the second hostile pass returns empty, `summary` then ' +
+    'naming the probes that produced nothing; never manufacture a finding to fill the range, never delete a confirmed one to ' +
+    'stay inside it. COVERAGE is part of the product: `requested` = assigned scope, `read` = actually full-read, ' +
+    '`skipped`/`unverified` = not reached or unconfirmed — an honest skip beats a silent one.';
 
 const HARVEST_LAW =
     'HARVEST (required key, usually empty): nominate ONLY findings that generalize beyond this batch — a collapse pattern ' +
     'reusable across folders, a naivety class no doctrine clause names, a review rule that catches the defect BEFORE review, a ' +
     'hard-won cross-surface coupling. Each row: altitude (stacks|reviewer|constitution|planning|readme|laws), lang, claim (the ' +
-    'generalized law, one sentence, SYMBOL-FREE — every concrete spelling lives in anchors, so the lander adjudicates the law ' +
-    'without re-deriving its locality), anchors (file:line evidence), existingClause (the exact clause it hardens, quoted with ' +
-    'its path — or "absent" plus the surfaces searched). A batch-local fix never nominates; an empty array is the normal ' +
-    'verdict — the doctrine lander refutes weak rows, so nominate substance, never volume.';
+    'generalized law, one sentence), anchors (file:line evidence), existingClause (the exact clause it hardens, quoted with its ' +
+    'path — or "absent" plus the surfaces searched). A batch-local fix never nominates; an empty array is the normal verdict — ' +
+    'the doctrine lander refutes weak rows, so nominate substance, never volume.';
 
-const OWN_PASS = (artifact) =>
-    'WORK ORDER — binding, in order: (1) the doctrine and `.api` reads per READ FIRST below; (2) cold-read every target page ' +
-    'from CURRENT disk and WRITE your own defect-and-ambition list to `' +
-    artifact +
-    '` — collapse targets, naivety kills, body rebuilds, design rulings, and every capability the page names or its prose ' +
-    'promises but the body omits — the PRIMARY product, a DISK ARTIFACT, not a reading step; (3) the map dossiers, ' +
-    'corrections census, bigger-ideas worklist, and every upstream review artifact (a critique fixlog, a crit own-pass, a ' +
-    'prior-attempt record) GROUND and widen that list, never scope, substitute for, or cap it; (4) audit and repair. Rung ' +
-    '(2) precedes every rung-3 read — upstream review material is rung-3-class, so opening it before your list is written is ' +
-    'the same failed rung as skipping the list — and rung-3 sources may only ADD rows to the artifact, each tagged [recon]. ' +
-    'Every artifact row is a finding GROUNDED at writing time; an imperative, TODO, or deferred-verification note is not a ' +
-    'row — what you cannot ground now you either verify now or omit.';
+const OWN_PASS =
+    'OWN PASS FIRST — the input ladder is binding, in order: (1) your own blind hostile pass, (2) the map dossiers, (3) the ' +
+    'corrections census, (4) the bigger-ideas worklist. Rung (1) is the PRIMARY product: cold-read every target page from ' +
+    'CURRENT disk and derive your own defect list, collapse targets, naivety kills, body rebuilds, and design rulings BEFORE ' +
+    'opening any recon report, census, or worklist. Rungs (2)-(4) ground, extend, and widen YOUR pass — they never scope, ' +
+    'substitute for, or cap it. TRIPWIRE: a pass whose diff maps one-to-one onto the recon rows has failed — the recon covers a ' +
+    'MINORITY of what the rebuild demands, and the majority of your edits must come from your own attack.';
 
 const CORRECTIONS = (path) =>
-    'CORRECTIONS CENSUS (ladder rung 3) — `' +
-    path +
-    '` carries the folder-wide fix census consolidated from the map lanes, sectioned per sub-folder: drift, phantoms, ' +
-    'catalog-true spelling repairs, seam and wire mismatches, wiring gaps. ADDITIONAL, never the plan: after your own pass, ' +
-    'land every row that intersects your pages (re-verified on disk — a row disk already resolves is dropped) and leave ' +
-    'foreign rows alone; the terminal fixer drains the remainder. A pass that only lands census rows has failed OWN PASS FIRST.';
+    path
+        ? 'CORRECTIONS CENSUS (ladder rung 3) — `' +
+          path +
+          '` carries the folder-wide fix census consolidated from the map lanes, sectioned per sub-folder: drift, phantoms, ' +
+          'catalog-true spelling repairs, seam and wire mismatches, wiring gaps. ADDITIONAL, never the plan: after your own pass, ' +
+          'land every row that intersects your pages (re-verified on disk — a row disk already resolves is dropped) and leave ' +
+          'foreign rows alone; the terminal fixer drains the remainder. A pass that only lands census rows has failed OWN PASS FIRST.'
+        : '';
 
 const IDEAS = (path) =>
-    'BIGGER-IDEAS WORKLIST (ladder rung 4) — `' +
-    path +
-    '` carries per-sub-folder capability AMBITIONS: new dimensions, modalities, families, and operations the domain admits ' +
-    'BEYOND correction. Read the entries covering your pages IN FULL and close EVERY covering idea in `dispositions` by its ' +
-    'entry ID: a writer lands it at the strongest form disk admits or declines it with the forbidding disk fact or doctrine ' +
-    'law; a reviewer re-verifies each upstream `landed` claim holds at FULL strength on current disk — a thin or partial ' +
-    'landing is an attack surface you finish, and a covering idea no prior stage closed is yours to close now. An idea ' +
-    'neither landed nor justified-declined is a silent loss the next stage charges back. Ambition and information, never a ' +
-    'prescription, a design, or a ceiling.';
+    path
+        ? 'BIGGER-IDEAS WORKLIST (ladder rung 4) — `' +
+          path +
+          '` carries per-sub-folder capability AMBITIONS: new dimensions, modalities, families, and operations the domain admits ' +
+          'BEYOND correction. Read the entries covering your pages IN FULL, spot-verify each against current disk, and build the ' +
+          'STRONGEST form it points toward or a stronger one you see. An idea disk already realizes, or the doctrine forbids, is ' +
+          'dropped; an idea you decline is not a defect. Ambition and information, never a prescription, a design, or a ceiling.'
+        : '';
 
-const readFirst = (L, pkg, dossiers, scoped) =>
+const readFirst = (L, pkg, dossiers) =>
     [
         'READ FIRST, IN ORDER, BEFORE ANY EDIT — no fence is judged before this read lands.',
-        scoped
-            ? // Review-stage doctrine scope: every APPLIED law still reads in full at source; only unexercised remainder drops to
-              // on-demand — the blanket full-roster preload overflowed the review window and forced compaction thrash (run-proven).
-              '(1) DOCTRINE — enumerate `' +
-              L.stack +
-              '/` with a real `ls` (never memory), then read the README IN FULL. The audit runs a named law set — the README ' +
-              '[02]-[DOCTRINE] laws, the [03]-[COLLAPSE_SCAN] table, OWNER_CHOOSER (`shapes.md` [01]), RAIL_CHOOSER ' +
-              '(`rails-and-effects.md` [01]), and the aspect two-weave (`surfaces-and-dispatch.md` AND `rails-and-effects.md`) ' +
-              '— read each IN FULL at its source, hold it as fact, conform every fence to it; a summary never substitutes for ' +
-              "the read. The exercised set extends mechanically: every doctrine page a bar finding's `law` cites, every page " +
-              'a census row cites, and every further root page the README routes that a fence in this batch exercises is read ' +
-              'IN FULL at source the moment it enters the set; a page nothing exercises needs no full read this pass — scope ' +
-              'is by what the fences exercise, never a fidelity cut on any law you apply, and no law is ever applied from ' +
-              'memory.'
-            : '(1) DOCTRINE — enumerate `' +
-              L.stack +
-              '/` with a real `ls` (never memory), then read the README and EVERY root page it routes IN FULL in the README ' +
-              '[01]-[ATLAS] order — never a partial, skim, grep-jump, or section-sample; a root page absent from the atlas is ' +
-              'still mandatory law. The README [02]-[DOCTRINE] laws, the [03]-[COLLAPSE_SCAN] table, OWNER_CHOOSER (`shapes.md` ' +
-              '[01]), RAIL_CHOOSER (`rails-and-effects.md` [01]), and the aspect two-weave (`surfaces-and-dispatch.md` AND ' +
-              '`rails-and-effects.md`) are binding law AT THE SOURCE — read it there, hold it as fact, conform every fence to it; ' +
-              'a summary never substitutes for the read.',
+        '(1) DOCTRINE — enumerate `' +
+            L.stack +
+            '/` with a real `ls` (never memory), then read the README and EVERY root page it routes IN FULL in the README ' +
+            '[01]-[ATLAS] order — never a partial, skim, grep-jump, or section-sample; a root page absent from the atlas is ' +
+            'still mandatory law. The README [02]-[DOCTRINE] laws, the [03]-[COLLAPSE_SCAN] table, OWNER_CHOOSER (`shapes.md` ' +
+            '[01]), RAIL_CHOOSER (`rails-and-effects.md` [01]), and the aspect two-weave (`surfaces-and-dispatch.md` AND ' +
+            '`rails-and-effects.md`) are binding law AT THE SOURCE — read it there, hold it as fact, conform every fence to it; ' +
+            'a summary never substitutes for the read.',
         L.key === 'cs'
             ? '(1b) Enumerate `docs/stacks/csharp/domain/` with a real `ls` through its router README, then read every shard ' +
               'the page concerns touch — chosen from the enumerated set, never from memory; shard conformance is a hard gate.'
@@ -1214,19 +1073,15 @@ const readFirst = (L, pkg, dossiers, scoped) =>
         .join('\n');
 
 const reconBlock = (roster, unmapped) =>
-    'RECON REPORTS (ladder rung 2) — the map DOSSIERS are the read product (Tier-1 quoted anchors, Tier-2 pointers); each map ' +
-    "report.json is that dossier's per-page INDEX — open it to find your pages' entries, then read those dossier sections, " +
-    'never the whole artifact. The bar report IS its own product. The receipts below are navigation, ' +
+    'RECON REPORTS (ladder rung 2) — the lens products are ON DISK as JSON report files; the receipts below are navigation, ' +
     'never the product. CONSUMPTION, after your own cold pass per OWN PASS FIRST: (a) UNMAPPED territory below (a dead lens) ' +
-    'gets your own cold read — that lens dimension over your pages is yours to derive; (b) read the bar report IN FULL from ' +
-    'disk and the dossier sections your pages own, grounding lenses before the bar defect lens; (c) anchors are jump coordinates — re-open ' +
+    'gets your own cold read — that lens dimension over your pages is yours to derive; (b) read every ok report IN FULL from ' +
+    'disk, grounding lenses before the bar defect lens, clustering entries by page; (c) anchors are jump coordinates — re-open ' +
     "every anchor behind an edit (MANDATORY); navigation-only entries re-verify only when touched; (d) a bar finding's " +
     '`mechanism`/`owner`/`reject`/`acceptance` are its constraint boundary — honor the owner and rejected forms, but the ' +
     'DESIGN is yours. The reports POINT; you VERIFY and EXCEED them: compose every `apiUsed` catalog at full operator depth, ' +
-    'stack every `apiUnderutilized` {catalog, capability} INTO the owning page as a case, row, field, or operation, and close ' +
-    "every bar finding at its law. Confirm coverage against the catalogs your batch's fences cite plus the dossier's " +
-    'enumerated set — a fence citing a member outside that set triggers a targeted catalog read, never a blind sweep of every ' +
-    'tier. Members ' +
+    'stack every `apiUnderutilized` {catalog, capability} INTO the owning page as a case, row, field, or operation, close ' +
+    'every bar finding at its law, and independently confirm no other admitted catalog (either tier) is missing. Members ' +
     'composed beyond the reports are enumerated in `beyondMap` — an empty `beyondMap` attests the reports were genuinely ' +
     'complete, never a license to treat them as a ceiling.\nROSTER: ' +
     JSON.stringify(roster) +
@@ -1244,27 +1099,15 @@ const HUNT =
     'the fence body omits, a name promising capability the body lacks), naive (a thin slice of the concept, an underutilized ' +
     'admitted package, either naivety axis), drift (two landed surfaces disagreeing — page vs sibling vs index doc vs manifest ' +
     'vs .api), phantom (a cited member, page, or anchor that does not exist). Every finding carries a file anchor, names the ' +
-    'law or catalog member it violates, and is CONCRETE on current disk — a defect real only under an invented, implausible ' +
-    'input is not a finding and is never reported. `claimKey` segments derive from the owning code symbol and defect class, ' +
-    'never from your slice, page name, or wording: two lanes hitting the same defect MUST mint the identical key — the fixer ' +
-    'dedupes on it exactly. Verify cited external members against the .api catalogs; never trust page prose ' +
+    'law or catalog member it violates, and is graded `substantive` (concrete on current disk) or `hypothetical` (real only ' +
+    'under an invented, implausible input). Verify cited external members against the .api catalogs; never trust page prose ' +
     'about itself.';
 
-const preamble = (L, batch, dossiers, ideate, scopes, roster, unmapped, reg, stage) =>
-    [
-        CONTEXT(L),
-        REG[reg].stance(L),
-        OWN_PASS(scratchBase(pkgOf(batch[0].page), batch[0].i || 0) + '-' + (stage || 'impl') + '-ownpass.md'),
-        BUILD_LAW(L),
-        BODY(L),
-        VERIFY(L, stage === 'crit' || stage === 'rt'),
-        RIPPLE_LAW,
-        CURRENT_STATE,
-        PROSE_COMMENTS(L),
-    ]
+const preamble = (L, batch, dossiers, ideate, scopes, roster, unmapped, reg) =>
+    [CONTEXT(L), REG[reg].stance(L), OWN_PASS, BUILD_LAW(L), BODY(L), VERIFY(L), RIPPLE_LAW, CURRENT_STATE, PROSE_COMMENTS(L)]
         .concat(L.mechanics ? [L.mechanics] : [])
         .concat([
-            readFirst(L, pkgOf(batch[0].page), dossiers, stage === 'crit'),
+            readFirst(L, pkgOf(batch[0].page), dossiers),
             LEDGER(scratchBase(pkgOf(batch[0].page), batch[0].i || 0), scopes),
             reconBlock(roster, unmapped),
         ])
@@ -1283,13 +1126,7 @@ const planPrompt = () =>
             '— run find <target-or-its-.planning-tree> -name *.md; a design page lives INSIDE the .planning tree, so a ' +
             'package-root ls alone NEVER proves an empty page set. Validate against `libs/.planning/planning-targets.md` (a ' +
             'mis-scoped or renamed target is reported in `unresolved`; a deliberately page-less target skips silently). Return ' +
-            '`packages` (one entry per owning package: {name, root, planning, api, feeders}). FEEDERS: read the owning ' +
-            "branch's `libs/<language>/.planning/` architecture pages (the strata/dependency law) and emit each package's " +
-            'strata-legal upstream feeder roots — every package the target may compose under the dependency direction, the ' +
-            "branch kernel FIRST, whether or not the target's manifest references it today; a feeder is a package root path, " +
-            'never a target of this run. VOCABULARY OWNERS: emit `vocabularyOwners` — the pages owning a corpus-wide registry ' +
-            'or vocabulary every sibling cites (a fault-band registry, a token tier), each with its one-line `ownsVocabulary` ' +
-            'fact — so downstream lanes cite the owner instead of re-deriving it. PAGES: expand each target — a ROOT to ' +
+            '`packages` (one entry per owning package: {name, root, planning, api}). PAGES: expand each target — a ROOT to ' +
             'every design page under its planning tree, a SUB-FOLDER to every page under it, a FILE to itself; union + dedup; ' +
             'exclude IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md.',
         'SCOPE LAW — the owning-package charter (ARCHITECTURE.md + README.md + IDEAS.md) owns scope: every existing design ' +
@@ -1297,53 +1134,41 @@ const planPrompt = () =>
             'charter-settled page is SKIPPED, never re-litigated.',
         'EMIT `pages` IN DEPENDENCY + COHESION ORDER — grouped by sub-folder, foundations before consumers, pages sharing an ' +
             'owner, seam, or wire contract ADJACENT within their group (the engine batches contiguous runs of your order, so ' +
-            'adjacency keeps coupled pages inside one writer); alphabetical only as the final tiebreak. DEPENDENCY DOMINATES ' +
-            'COHESION for cross-cutting owners: a sub-folder owning a registry or vocabulary cited ACROSS sub-folders ranks as ' +
-            'a foundation ahead of its consumers, even when same-folder cohesion would place it later — cohesion orders peers, ' +
-            'never buries a shared foundation. The engine never re-sorts.',
+            'adjacency keeps coupled pages inside one writer); alphabetical only as the final tiebreak. The engine never re-sorts.',
     ].join('\n\n');
 
 const correctionsPrompt = (L, pkg, mapIndex, dossier) =>
     [
+        ROOT_LAW,
         CONTEXT(L),
         'TASK: CORRECTIONS CENSUS AUTHOR for `' +
             pkg +
             '` — read-only over the corpus; you WRITE exactly one file, the census dossier. The Map phase produced per-SUB-FOLDER ' +
-            'deep-map and two-tier .api inventory dossiers; read EVERY dossier listed here IN FULL. Each row carries its ' +
-            "sub-folder's complete `pages` roster — the page tree is settled, never re-derived with tree/fd/ls: " +
+            'deep-map and two-tier .api inventory dossiers; read EVERY dossier listed here IN FULL: ' +
             JSON.stringify(mapIndex),
         'AUTHOR `' +
             dossier +
             '` — one markdown census, a section per sub-folder. Consolidate every CORRECTION the map lanes surfaced or your own ' +
             'verification finds: drift between surfaces (page vs sibling vs index doc vs manifest vs .api), phantom members, ' +
             'catalog-true spelling repairs, seam and wire mismatches, contradicted analyzer law, and WIRING GAPS (an uncomposed ' +
-            'admitted member the page concept plainly demands). ONE ROW GRAMMAR for hit and miss alike: every sub-folder ' +
-            'section is a table `[PAGE] | [ANCHOR] | [DEFECT] | [PROOF]`, each row ID-keyed, every defect-site `[ANCHOR]` a ' +
-            '`path:line` — never a bare symbol; a defect spanning pages is ONE row whose `[PAGE]` cell lists every site, ' +
-            'never a copy per folder; an empty section carries one ' +
-            'reserved `[NONE-VERIFIED]` row naming the checks run with their anchors — a bare [NONE] is a lazy miss, never an ' +
-            'earned one. CORPUS INVARIANTS live once in a leading sweep section (registry closure, conventions, anchor ' +
-            'resolution — checks that hold across all pages); a row carrying a page-specific defect anchor NEVER lands in the ' +
-            "sweep — it belongs to its owning folder section, so a batch writer's folder-indexed read is COMPLETE for its " +
-            'pages; folder sections assert only folder-local closure and never ' +
-            'restate the sweep. DEDUPE across dossiers; VERIFY each row on ' +
+            'admitted member the page concept plainly demands). Each row: the owning page, the exact `file:line` anchor, the ' +
+            'defect as fact, and the catalog or doctrine coordinate proving it. DEDUPE across dossiers; VERIFY each row on ' +
             'current disk before writing it — a row disk already resolves is dropped. FORBIDDEN: new-capability ambitions (the ' +
             'ideas lane owns them — a row that widens what the package IS is dropped here, not diluted into a fix), ' +
-            'prescriptions, fence sketches, removal framing, process or self-verification narration, self-counts in headers.',
+            'prescriptions, fence sketches, removal framing.',
         REG.claude.selfCheck,
         'Return ONLY the receipt: ok, report = the census path (repo-relative), entries = the row count, a one-line headline, failure empty.',
     ].join('\n\n');
 
 const ideasPrompt = (L, pkg, mapIndex, dossier) =>
     [
+        ROOT_LAW,
         CONTEXT(L),
         'TASK: BIGGER-IDEAS AUTHOR for `' +
             pkg +
             '` — read-only over the corpus; you WRITE exactly one file, the ideas dossier. The Map phase produced per-SUB-FOLDER ' +
             'deep-map and two-tier .api inventory dossiers; read EVERY dossier listed here IN FULL, then the package charter ' +
-            '(ARCHITECTURE.md + README.md + IDEAS.md) and the pages your ideas grow on — dossiers FIRST, then charter, then ' +
-            "pages; each row carries its sub-folder's complete `pages` roster, so the page tree is settled, never re-derived " +
-            'with tree/fd/ls: ' +
+            '(ARCHITECTURE.md + README.md + IDEAS.md) and the pages your ideas grow on: ' +
             JSON.stringify(mapIndex),
         'AUTHOR `' +
             dossier +
@@ -1355,15 +1180,9 @@ const ideasPrompt = (L, pkg, mapIndex, dossier) =>
             ') and the admitted two-tier package depth. VALUE BAR — the census/ideas partition is severity of imagination, not ' +
             'anchor quality: a stale label, wrong spelling, dropped wire column, or single uncomposed member is a CORRECTION ' +
             'and drops here; an entry earns its row by naming capability whose absence a domain expert would call a gap in the ' +
-            "PRODUCT, not a defect in the prose; an entry whose ground reuses another entry's owner and catalog member with no " +
-            'new modality MERGES into that entry — size governs by collapse, never by count. Every entry OPENS with one ' +
-            'structured lead line — `owner-page | ground | anchors | size (S|M|L) | counterpartState (landed | must-build, ' +
-            'per end)` — then the WHY prose: why it widens the package — never the resulting code, a fence sketch, or a ruled ' +
-            'shape; the lead line lets the batch writer triage build-vs-decline at a glance, and each anchor states whether ' +
-            'its counterpart is landed on disk or must be built. CROSS-FOLDER: an idea whose ' +
-            'value crosses a sub-folder or package boundary names BOTH ends and the seam it rides in the terminal CROSS-FOLDER table, AND ' +
-            'carries a one-line back-reference in its own sub-folder entry — a batch writer discovers its cross-folder ' +
-            'obligations inside its own section, never by scanning the terminal table.',
+            'PRODUCT, not a defect in the prose. Name the owner it grows on, the domain or catalog ground, the anchor, and WHY ' +
+            'it widens the package — never the resulting code, a fence sketch, or a ruled shape. CROSS-FOLDER: an idea whose ' +
+            'value crosses the package boundary names BOTH ends and the seam it rides.',
         "SECOND-PASS CULL (before returning): re-open every entry's anchor on disk; delete any entry disk already realizes, " +
             'any correction in disguise, and any entry whose value you cannot state as a concrete new capability of a named ' +
             'owner. Boldness is never the cull criterion — the cull removes false and small entries, never ambitious ones; few ' +
@@ -1384,24 +1203,19 @@ const ctxLensPrompt = (L, batch, dossier, reg) =>
             batch.map((p) => p.page + ' [' + p.kind + ']').join(', ') +
             '. For a rebuild page read the page IN FULL; for a `new` page read its concept in the owning-package charter plus ' +
             'its nearest siblings. Read the folder at large — the sibling pages each composes and the index docs — as full-file ' +
-            'reads. THE DOSSIER IS YOUR SOLE CONTENT ARTIFACT — write `' +
-            dossier +
-            '` with one `## <page>` section per page carrying: `owns` (the ONE ownership boundary sentence — which ' +
-            'owner/vocabulary/concern THIS page owns versus its siblings, so no two concurrent writers author the same ' +
-            'polymorphic surface), `contextNote` (sibling owners/seams composed, folder position, folder-wide gaps routed here, ' +
-            'plus DOMAIN gaps — attributes, sub-kinds, states, relationships, operations the real concept demands that the page ' +
-            'omits, as named gaps), `seams` (every cross-page and cross-package symbol/wire/consumer edge, both endpoints ' +
-            'named, each row carrying a STATUS verdict — realized-both-ends | one-end-open | unverified — so the writer ' +
-            'partitions its re-open budget), each fact per the ENTRY FORM with typed anchors. CROSS-PACKAGE RELEVANCE: also mine ' +
+            'reads. For EACH page return: `owns` (the ONE ownership boundary sentence — which owner/vocabulary/concern THIS page ' +
+            'owns versus its siblings, so no two concurrent writers author the same polymorphic surface), `contextNote` (sibling ' +
+            'owners/seams composed, folder position, folder-wide gaps routed here, plus DOMAIN gaps — attributes, sub-kinds, ' +
+            'states, relationships, operations the real concept demands that the page omits, as named gaps), `seams` (every ' +
+            'cross-page and cross-package symbol/wire/consumer edge, both endpoints named). CROSS-PACKAGE RELEVANCE: also mine ' +
             'what the OTHER packages hold that is relevant to each page — kernel and sibling-package owners it composes or its ' +
-            'concept plainly touches, imports, consumer sites, ripple targets both ends — as verified anchored seam facts, so a ' +
-            'writer NAVIGATES (trust, then verify at the anchor) instead of exploring; relevance is fact, never a suggested ' +
-            'change. Ground the sections in Tier-1 quoted evidence — the branch ARCHITECTURE.md [02]-[SEAMS] rows covering ' +
-            'these pages verbatim with `file:line` anchors, folder-context and charter-intent anchors — with Tier-2 pointer ' +
-            'rows (path + one line) for every sibling page composed. FORBIDDEN: doctrine digests, removal framing, unanchored ' +
-            'claims, prescriptive designs. Return ONLY `index` (each page mapped to the dossier section headers grounding it — ' +
-            'the consumer jumps by page, never walks the artifact) + coverage + summary; content lives in the dossier alone, ' +
-            'never restated on the wire.',
+            'concept plainly touches, imports, consumer sites, ripple targets both ends — as verified anchors in ' +
+            '`seams`/`anchors`, so a writer NAVIGATES (trust, then verify at the anchor) instead of exploring; relevance is ' +
+            'fact, never a suggested change. Each entry also carries `files` and typed `anchors` per the entry form. GROUNDING DOSSIER: write `' +
+            dossier +
+            '` — Tier-1: the branch ARCHITECTURE.md [02]-[SEAMS] rows covering these pages quoted verbatim with `file:line` ' +
+            'anchors, folder-context and charter-intent anchors; Tier-2: pointer rows (path + one line) for every sibling page ' +
+            'composed. FORBIDDEN: doctrine digests, removal framing, unanchored claims, prescriptive designs. Return worklist + coverage.',
     ].join('\n\n');
 
 const apiLensPrompt = (L, batch, dossier, reg) =>
@@ -1414,93 +1228,28 @@ const apiLensPrompt = (L, batch, dossier, reg) =>
         REG[reg].antiAnchor(L),
         REG[reg].api(batch.length) +
             batch.map((p) => p.page + ' [' + p.kind + ']').join(', ') +
-            '. THE CENSUS IS EVERYTHING THESE PAGES CAN CONSUME, never the two nearest directories: `ls` BOTH catalog tiers in ' +
-            'full — the shared substrate `' +
+            '. `ls` BOTH catalog tiers in full — the shared substrate `' +
             L.root +
             '/.api/` AND the folder `' +
             pkgOf(batch[0].page) +
-            "/.api/` — then read the folder's own manifest IN FULL (every referenced package is a source, catalog or not — an " +
-            'admitted package with no catalog still censuses via ' +
-            L.verify +
-            ') and DIFF the central package manifest against it: a central-manifest package absent from the folder manifest ' +
-            'whose domain fits these pages is a CANDIDATE row — {catalog, capability} with the package name, the domain fit, ' +
-            'and each admitting page; the writers own the adoption call, never you. Read every catalog relevant to these pages ' +
-            'and DIFF the complete admitted inventory against the whole folder: ' +
+            '/.api/` — read every catalog relevant to these pages and DIFF the complete admitted inventory against the whole folder: ' +
             REG[reg].apiVerify +
             ' — a capability no page exploits is a named integration gap ROUTED to EVERY page whose concept admits it, never ' +
-            'one "best" owner alone; a member FAMILY no page in the folder touches at all is the HIGHEST-value row — an ' +
-            'extension seed for capability the concept admits but the folder never built, graded equally with corrections ' +
-            '(seed the API surface, never the design). SINGLE-CONSUMER EXPANSION: a package with a catalog at ANY tier ' +
-            'consumed by only ONE page is expansion pressure on its siblings — name the package, its unexploited members in ' +
-            'exact spellings, and each candidate page. Discovery has ZERO removal authority: an underutilized catalog is ' +
-            'always a buildout target, never removal evidence. DEPTH GRADING: a composed member counts as underutilized when ' +
-            'the usage is shallow — one call where the surface carries a family, a default-arg call where the policy axis ' +
-            'matters, a scalar use of a batch/stream-capable member; grade used-but-shallow with the same {catalog, ' +
-            'capability} rows as unused. THE DOSSIER IS YOUR SOLE CONTENT ARTIFACT — write `' +
-            dossier +
-            '` with one `## <page>` section per page carrying `apiUsed`, `apiUnderutilized` ({catalog, capability}: exact ' +
-            'catalog-anchored spelling + integration shape as fact), the candidate rows, and `stackingInventory` (capability ' +
-            "names + the doctrine patterns the page's concept admits, as inventory fact — never a prescribed design), each " +
-            'fact per the ENTRY FORM with typed anchors; verify every cited member via ' +
+            'one "best" owner alone. SINGLE-CONSUMER EXPANSION: a package with a catalog at ANY tier consumed by only ONE page ' +
+            'is expansion pressure on its siblings — name the package, its unexploited members in exact spellings, and each ' +
+            'candidate page. Discovery has ZERO removal authority: an underutilized catalog is always a buildout target, never ' +
+            'removal evidence. DEPTH GRADING: a composed member counts as underutilized when the usage is shallow — one call ' +
+            'where the surface carries a family, a default-arg call where the policy axis matters, a scalar use of a ' +
+            'batch/stream-capable member; grade used-but-shallow with the same {catalog, capability} rows as unused. For EACH ' +
+            'page return `apiUsed`, `apiUnderutilized` ({catalog, capability}: exact catalog-anchored spelling + integration ' +
+            "shape as fact), `stackingInventory` (capability names + the doctrine patterns the page's concept admits, as " +
+            'inventory fact — never a prescribed design), plus `files` and typed `anchors` per the entry form. Verify every cited member via ' +
             L.verify +
-            ' — never list a phantom, and RAIL HONESTY binds every verification claim: when the member-verification rail is ' +
-            'unavailable in your sandbox, mark affected rows catalog-anchored-only, never verified — a member confirmed only ' +
-            'against catalog prose has not been verified. A page section with zero `apiUnderutilized` rows carries the checks ' +
-            'that earned the emptiness (catalogs read, families diffed) — a silent empty is a lazy miss, never an earned one. ' +
-            'Ground the sections in Tier-1 quoted `.api` member blocks with `file:line` anchors for ' +
-            'every cited member plus the manifest rows read, with Tier-2 pointer rows carrying CAPABILITY SCOPE (catalog path ' +
-            '+ the capability cluster it holds for these pages), never a bare filename inventory — a "not cited by these ' +
-            'pages" dismissal row is a FAILED entry; a catalog with genuinely zero bearing is silence. FORBIDDEN: doctrine ' +
-            'digests, unanchored claims, prescriptive designs, `ls`-dump listings. Return ONLY `index` (each page mapped to ' +
-            'the dossier section headers grounding it — the consumer jumps by page, never walks the artifact) + coverage + ' +
-            'summary; content lives in the dossier alone, never restated on the wire.',
-    ].join('\n\n');
-
-// Feeder lanes map an UPSTREAM package's surface projected onto the run targets: what the targets hand-roll that the feeder owns, what feeder
-// depth could extend them, and where each target's manifest stands. Dossier sections and index rows key on the TARGET package root, never a page.
-const feederLensPrompt = (L, feeder, targets, dossier, reg, lane) =>
-    [
-        CONTEXT(L),
-        REG[reg].stance(L),
-        VERIFY(L),
-        INFO_LAW,
-        REG[reg].selfCheck,
-        'TASK: FEEDER ' +
-            (lane === 'ctx' ? 'DEEP MAP' : 'API INVENTORY') +
-            ' of upstream package `' +
-            feeder +
-            '` PROJECTED onto the run targets ' +
-            JSON.stringify(targets) +
-            '. Ground in the branch architecture first: read `' +
-            L.root +
-            "/.planning/` (README + ARCHITECTURE — the strata and dependency law) so the projection follows the branch's " +
-            'feed direction. ' +
-            (lane === 'ctx'
-                ? 'Read the feeder charter (README + ARCHITECTURE) and its .planning page roster; per TARGET package author a ' +
-                  'dossier section keyed by the target root: `owns` = the feeder owner surface, `contextNote` = the relevance ' +
-                  'FACT — a target concept the feeder already owns (hand-rolled duplication pressure), a feeder owner the ' +
-                  'target could compose to extend or deepen a concept, or a wire shape both must honor — and `seams` naming ' +
-                  'both endpoints. Relevance is verified fact with anchors, never a suggested change; a feeder surface with no ' +
-                  'plausible bearing on any target is silence, not a section.'
-                : 'Census the feeder API surface COMPLETELY: `ls` the feeder `.api/` catalogs and the shared substrate tier `' +
-                  L.root +
-                  "/.api/`, read every catalog whose domain touches a target concept, and read each target's folder manifest " +
-                  'plus the central manifest — per TARGET package author a dossier section keyed by the target root: `apiUsed` ' +
-                  '= feeder members the target pages already compose, `apiUnderutilized` = {catalog, capability} rows for deep ' +
-                  'members the target does not exploit (correction pressure AND extension seed — capability the target ' +
-                  'concept admits for NEW functionality counts equally), `stackingInventory` = the capability clusters + ' +
-                  'manifest status as fact (referenced in the target manifest, or available in the central manifest only — ' +
-                  'name the missing reference row; the writers own the adoption call, never you). Verify every cited ' +
-                  'member via ' +
-                  L.verify +
-                  '; never list a phantom.') +
-            ' THE DOSSIER IS YOUR SOLE CONTENT ARTIFACT — write `' +
+            '; never list a phantom. GROUNDING DOSSIER: write `' +
             dossier +
-            '` — Tier-1: quoted anchor blocks with `file:line` for every cited surface; Tier-2: pointer rows (path + one-line ' +
-            'scope) for the remainder, sectioned per target package. FORBIDDEN: doctrine digests, unanchored claims, ' +
-            'prescriptive designs, bare package listings (a list without member depth and target bearing is a failed lane). ' +
-            'Return ONLY `index` (each target root mapped to its dossier section headers) + coverage + summary; content lives ' +
-            'in the dossier alone, never restated on the wire.',
+            '` — Tier-1: quoted `.api` member blocks with `file:line` anchors for every cited member plus the real `ls` ' +
+            'inventories of both tiers; Tier-2: pointer rows (catalog path + one-line scope) for the remainder. FORBIDDEN: ' +
+            'doctrine digests, unanchored claims, prescriptive designs. Return worklist + coverage.',
     ].join('\n\n');
 
 const barLensPrompt = (L, batch, reg) =>
@@ -1520,15 +1269,12 @@ const barLensPrompt = (L, batch, reg) =>
             REG[reg].barAttack(L) +
             ' where doctrine is not followed AND where a doctrine law applies more deeply for a stronger form: collapse signals ' +
             'ungathered, owner forms weaker than the discriminants demand, rails split or dual-paradigm, knobs where policy ' +
-            'values belong, naive bodies below the admitted combinator surface, declared-but-unread columns (a schema column, ' +
-            'field, or policy row no fence reads is illusory capability), ' +
+            'values belong, naive bodies below the admitted combinator surface, ' +
             L.docBloat +
-            ' bloat, file-organization drift, both naivety axes. Return per-page `findings` in the FINDING FORM, EMITTED IN ' +
-            'PAGE ORDER — `law` names the doctrine law at its source, `claimKey` = <law>|<owner>|<primary symbol>, typed ' +
-            '`anchors` at exact coordinates — and `weak` (pages whose overall verdict is weak). Grade `severity` across the ' +
-            'full scale: a compile-break or phantom member is a blocker, a genuinely page-local cleanup is minor — a report ' +
-            'whose every finding shares one grade has averaged, not graded. Findings name the law and the defect, NEVER the ' +
-            'resulting code — the implement agent rules every design.',
+            ' bloat, file-organization drift, both naivety axes. Return per-page `findings` in the FINDING FORM — `law` names ' +
+            'the doctrine law at its source, `claimKey` = <law>|<owner>|<primary symbol>, typed `anchors` at exact coordinates — ' +
+            'and `weak` (pages whose overall verdict is weak). Findings name the law and the defect, NEVER the resulting code — ' +
+            'the implement agent rules every design.',
     ].join('\n\n');
 
 const implementPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped) =>
@@ -1546,30 +1292,21 @@ const implementPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped) =
                 'against that restatement. Construct in LIFECYCLE order — admit raw once, canonical owner by OWNER_CHOOSER, ' +
                 'stacked rail/aspect over a thin pure core, projection, egress, BOTH ingress and egress parameterized; collapse parallel shapes into ' +
                 L.collapseInto +
-                '; one polymorphic entrypoint per modality. CAPABILITY-COMPLETENESS IS MANDATORY, NOT OPTIONAL: for every owner ' +
-                'you author, the body implements what its names and prose promise — a named-but-omitted capability is a defect ' +
-                'you close NOW, at the same bar as a bar finding, and the BIGGER-IDEAS entries your pages own resolve at the ' +
-                'strongest form disk admits or close as `declined` in `dispositions` with the forbidding fact (rung 4 is an ' +
-                "obligation with a typed ledger, never a tail you may skip). COMPOSE the map DOSSIERS' `apiUsed` sections at full operator " +
-                'depth, STACK every dossier `apiUnderutilized` row into the owner (the wire reports carry only indexes — the ' +
-                'dossier sections are the API channel), CLOSE every bar finding at its law, CONFIRM no other admitted catalog is ' +
-                'missing, CLOSE the concept capability gaps per BUILD LAW, and land every CORRECTIONS CENSUS row intersecting ' +
-                'your pages — each intersecting row closed in `dispositions` BY ITS KEY (landed | refuted with the disk fact | ' +
-                'deferred to its concurrent owner), so no row goes silent. ' +
+                "; one polymorphic entrypoint per modality. COMPOSE the reports' `apiUsed` at full operator depth, STACK every " +
+                '`apiUnderutilized` into the owner, CLOSE every bar finding at its law, CONFIRM no other admitted catalog is ' +
+                'missing, and CLOSE the concept capability gaps per BUILD LAW. Then the remaining ladder rungs: land every ' +
+                'CORRECTIONS CENSUS row intersecting your pages, and realize the BIGGER-IDEAS entries your pages own at the strongest form disk admits. ' +
                 L.modern +
                 '; ' +
                 L.fileOrg +
-                '; high-signal all-backticked prose. Write the complete fix-log JSON to `' +
-                scratchBase(pkgOf(batch[0].page), batch[0].i || 0) +
-                '-impl-fixlog.json` as your final act, then return the SAME fix-log — one authored record, two transports; ' +
-                '`deltas` carries every moved symbol/wire as data, ' +
+                '; high-signal all-backticked prose. Return the fix-log — `deltas` carries every moved symbol/wire as data, ' +
                 '`deferred` the backlog rows, both exact. ' +
                 HARVEST_LAW,
         ])
         .join('\n\n');
 
 const critiquePrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, nav, reg) =>
-    preamble(L, batch, dossiers, ideate, scopes, roster, unmapped, reg, 'crit')
+    preamble(L, batch, dossiers, ideate, scopes, roster, unmapped, reg)
         .concat([
             'NAVIGATION (facts from the pass that landed these pages — locations only, no assessments; it changes where you look ' +
                 'FIRST, never what you conclude): ' +
@@ -1577,8 +1314,8 @@ const critiquePrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, na
             GIT_GROUND,
             REG[reg].audit +
                 batch.map((p) => p.page).join(', ') +
-                '. Your own-pass artifact (OWN PASS FIRST above) precedes NAVIGATION; then use the navigation to reach every ' +
-                'touched seam fast. Audit every fence against the ' +
+                '. FORM YOUR OWN DEFECT LIST FIRST — read each page cold from CURRENT disk and derive your findings before ' +
+                'consulting NAVIGATION; then use the navigation to reach every touched seam fast. Audit every fence against the ' +
                 'doctrine read at source, never a summary; repair every hit now — a fix, never a ledger note; a cross-file hit is ' +
                 'yours per RIPPLE LAW. Your mandate is PREDICATE-POSITIVE: verify each required law holds, cite the clause, ' +
                 'repair every miss.\n' +
@@ -1602,56 +1339,36 @@ const critiquePrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, na
                 'resolves to the stronger form, never a revert.\n' +
                 '- CAPABILITY-COMPLETENESS + ILLUSION: verify the body implements what names and prose promise; close any ' +
                 'admitted capability the owner omits per BUILD LAW; attack both naivety axes.\n' +
-                'Return the batched fix-log — `deltas` and `deferred` exact, `dispositions` closing every census row, covering ' +
-                'idea, and prior-claim key you were obligated to land. HARVEST (required key, usually empty): only ' +
-                'findings that generalize beyond this batch, per the fixlog schema row grammar — substance, never volume; the ' +
-                'red-team is the standing harvest author, so nominate only what its pass would otherwise lose.',
+                'Return the batched fix-log — `deltas` and `deferred` exact. ' +
+                HARVEST_LAW,
         ])
         .join('\n\n');
 
-const redteamPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, nav, critOk, critReport) =>
-    preamble(L, batch, dossiers, ideate, scopes, roster, unmapped, 'claude', 'rt')
+const redteamPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, nav, crit) =>
+    preamble(L, batch, dossiers, ideate, scopes, roster, unmapped, 'claude')
         .concat([
             'NAVIGATION (locations only, no assessments): ' + JSON.stringify(nav),
-            'PRIOR CLAIMS (UNVERIFIED): the sol critique fixlog at ' +
-                critReport +
-                (critOk
-                    ? ''
-                    : ' (its wrapper receipt died; the checkpointed fixlog holds every page closed before death — check the path ' +
-                      "FIRST. Absent, unparseable, or short of this batch's roster, the critique's own-pass at `" +
-                      scratchBase(pkgOf(batch[0].page), batch[0].i || 0) +
-                      '-crit-ownpass.md` is the surviving claims set for the uncovered pages: mine it as an unlanded-work ' +
-                      'CHECKLIST — every finding it raises for your pages is a prior claim you verify landed or land yourself — ' +
-                      'and route its harvest-grade findings through YOUR `harvest` with each claim prefixed `rescued:`, the one ' +
-                      'transport a dead fixlog leaves; with neither file on disk your cold attack is the only review this batch ' +
-                      'gets: judge from CURRENT disk alone)') +
-                ' — read it IN FULL; its edits and verdicts are refutation targets judged against CURRENT disk, never a ' +
-                'settled record. FOLD-FORWARD DUTY: its surviving `seamsTouched`, `deltas`, `deferred`, `beyondMap`, and ' +
-                '`indexRows` rows fold into YOUR return AND your seam-ledger file as TYPED ROWS, each re-stamped with its key ' +
-                'and crit provenance — a surviving row rendered as prose is Close-invisible and a FAILED fold — re-verified ' +
-                'against current disk and deduped, and every prior-claim row closes in `dispositions` BY ITS KEY — your ' +
-                "fix-log is the batch's consolidated record. Its `harvest` rows are NOT yours to fold: the doctrine lander " +
-                'sweeps every critique fixlog from disk directly — nomination transport never rides a living fold.',
+            crit && crit.ok
+                ? 'PRIOR CLAIMS (UNVERIFIED): the sol critique fixlog is ON DISK at ' +
+                  crit.report +
+                  ' — read it IN FULL; its edits and verdicts are refutation targets judged against CURRENT disk, never a ' +
+                  'settled record. FOLD-FORWARD DUTY: its surviving `seamsTouched`, `deltas`, `deferred`, `beyondMap`, ' +
+                  '`indexRows`, and `harvest` rows fold into YOUR return, re-verified against current disk and deduped — your ' +
+                  "fix-log is the batch's consolidated record; a dropped critique row is a silent loss."
+                : 'PRIOR CLAIMS: the critique lane did not land — your cold attack is the only review this batch gets; judge ' +
+                  'from CURRENT disk alone.',
             GIT_GROUND,
             'TASK: ADVERSARIAL ARCHITECT RED-TEAM; fix EACH page in place: ' +
                 batch.map((p) => p.page).join(', ') +
-                '. Assume the author and critique missed things and their claims are wrong until disk proves them. Your own-pass ' +
-                'attack artifact (OWN PASS FIRST above) precedes the claims. Your mandate is ' +
+                '. Assume the author and critique missed things and their claims are wrong until disk proves them. FORM YOUR ' +
+                'OWN ATTACK FIRST — cold-read each page from CURRENT disk before consulting the claims. Your mandate is ' +
                 'PREDICATE-NEGATIVE — a pre-mortem, never a second conformance audit:\n' +
-                '(A) COUNTERFACTUAL on the core owner/algebra/dispatch — a counterfactual REBUILDS the design with its central ' +
-                'assumption removed, never merely questions it: name the assumption the current shape stands on (the chosen ' +
-                'owner kind, the hand-enumerated space, the call-site dispatch, the hand-rolled kernel), derive the form the ' +
-                'page takes WITHOUT it — a denser owner (' +
+                '(A) COUNTERFACTUAL on the core owner/algebra/dispatch — does a denser owner (' +
                 L.collapseInto +
-                '), a derived table, a parameterized generator over the enumerated space, a deeper admitted-package primitive (' +
+                '), a derived table, a parameterized generator over the enumerated space, or a deeper admitted-package ' +
+                'primitive (' +
                 L.deepPkgs +
-                ') — and where the rebuilt form is stronger, BUILD IT IN PLACE; a stronger design once seen is never defended ' +
-                'against, and "the current shape also works" is not a refutation. The counterfactual extends to every ' +
-                'COMPOSITION decision: re-derive each import and admitted-package choice — an overlooked lower-stratum owner ' +
-                'or catalog capability that elevates a functionality or deletes hand-rolling is a rebuild you take; collapse ' +
-                'consumer overhead by internalizing orchestration behind the entry point (policy resolution, routing, ' +
-                'lifecycle automatic — never pushed onto callers, never at capability cost); pressure every owner against ' +
-                'growth — parameterization, downstream consumers, entry-point shape — at the 5x-demand future. ' +
+                ') collapse the whole fence? A fundamentally stronger design is built, never defended against. ' +
                 '(B) ANTICIPATORY_COLLAPSE — compute the diff of the next feature: the next case/dimension/modality lands as ' +
                 'one row with every consumer untouched or loudly broken (' +
                 L.exhaust +
@@ -1662,8 +1379,7 @@ const redteamPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, nav
                 'coupling to a sibling interior is fixed both ends per RIPPLE LAW. (E) SPRAWL + PHANTOMS — hand-re-derived ' +
                 'package capability, flat code below the operator depth the packages reach, a phantom member (delete), a thin ' +
                 'wrapper; and the inverse: an edit this run made that ADDED surface where doctrine demands collapse is ' +
-                'regression you rebuild denser; a verified `beyondMap` member absent from its owning `.api` table is catalog ' +
-                'DRIFT you patch in-pass, never a report-only row. (F) CAPABILITY-COMPLETENESS + ILLUSION per STANCE and BUILD LAW. ' +
+                'regression you rebuild denser. (F) CAPABILITY-COMPLETENESS + ILLUSION per STANCE and BUILD LAW. ' +
                 "(G) GENERATIVE — the capability this batch's work opens at other levels or languages per RIPPLE LAW: realize " +
                 'owner-grammar openings now, land new-owner openings as fully-specified IDEAS rows via `indexRows`. Then a FULL ' +
                 'COLD RE-REVIEW of every conformance dimension by name — COLLAPSE_SCAN, OWNER_CHOOSER, KNOB_TEST, ASPECTS, ' +
@@ -1671,11 +1387,9 @@ const redteamPrompt = (L, batch, dossiers, ideate, scopes, roster, unmapped, nav
                 L.modern +
                 ', ' +
                 L.fileOrg +
-                ', both-tier .api maximization, prose + comment hygiene — each judged against CURRENT disk, with the doctrine ' +
-                'as the FLOOR, never the ceiling: a fence that merely conforms is unfinished where a stronger form exists. ' +
-                'VERIFY every PRIOR ' +
+                ', both-tier .api maximization, prose + comment hygiene — each judged against CURRENT disk. VERIFY every PRIOR ' +
                 'CLAIMS seam landed BOTH ends; make any missed repair yourself. Return the batched fix-log — `deltas` and ' +
-                '`deferred` exact, `dispositions` closing every prior-claim key and covering idea. ' +
+                '`deferred` exact. ' +
                 HARVEST_LAW,
         ])
         .join('\n\n');
@@ -1705,7 +1419,7 @@ const finderPrompt = (L, pages, i, seams, reg) =>
             'anchored graded findings.',
     ].join('\n\n');
 
-const govFinderPrompt = (L, pkgs, pages, rows, seams, backlog, reg) =>
+const govFinderPrompt = (L, pkgs, pages, rows, reg) =>
     [
         CONTEXT(L),
         HUNT,
@@ -1717,80 +1431,22 @@ const govFinderPrompt = (L, pkgs, pages, rows, seams, backlog, reg) =>
             " — each package's README.md and ARCHITECTURE.md (at the path before `/.planning/`), its central manifest rows, and " +
             'its `.api/` anchors — against the landed page set: ' +
             JSON.stringify(pages) +
-            '. REQUIRED PROBE — the manifest triangle: README package claims, the folder project manifest rows, and the central ' +
-            'package manifest are cross-checked THREE ways (a README-advertised package missing from the folder manifest, a ' +
-            'folder row absent from the central manifest, a central version with no consumer in the folder) — every leg walked, ' +
-            'never sampled. A disagreement between any two surfaces is a `drift` finding; a claim about a landed page is verified against the ' +
-            'page on CURRENT disk, never against the claim. REQUIRED PROBE — the seam registry: cross-check each package ' +
-            'ARCHITECTURE.md seam map against the branch `' +
-            L.root +
-            '/.planning/ARCHITECTURE.md` [02]-[SEAMS] registry — a cross-package edge present in one and absent from the other ' +
-            'is a `drift` finding. REQUIRED PROBE — foreign counterparts: for every row below whose file or counterpart lies ' +
-            'OUTSIDE the audited packages, read that foreign page on CURRENT disk and grade the obligation — already satisfied ' +
-            "(drop), real and open (a finding at the owning end), or MIS-FRAMED because it contradicts the foreign owner's " +
-            "standing ruling (a `wrong` finding at the row's origin page, never a demand on the foreign owner). SEAMS: " +
-            JSON.stringify(seams) +
-            ' DEFERRED: ' +
-            JSON.stringify(backlog) +
-            '. PENDING INDEX ROWS — the terminal fixer applies these after you; a ' +
+            '. A disagreement between any two surfaces is a `drift` finding; a claim about a landed page is verified against the ' +
+            'page on CURRENT disk, never against the claim. PENDING INDEX ROWS — the terminal fixer applies these after you; a ' +
             'gap these rows already close is DROPPED, not reported: ' +
             JSON.stringify(rows) +
             '. Return typed anchored graded findings.',
     ].join('\n\n');
 
-// Slice drain: one writer per ok page-slice finder report — page-disjoint by construction, so the drains run concurrent; index
-// docs, manifests, and cross-slice territory stay the terminal reconciler's alone and reach it as deferred/index rows.
-const drainPrompt = (L, f) =>
-    [
-        CONTEXT(L),
-        GIT_GROUND,
-        'TASK: SLICE DRAIN (WRITER) — drain every finding in the finder report at `' +
-            f.report +
-            '` (read it IN FULL from disk; a missing or invalid file returns a clean fixlog noting it in `summary` and nothing ' +
-            'else). Your slice pages: ' +
-            JSON.stringify(f.scope) +
-            ' — full write authority over them and same-package ripple their repairs demand; an edit to any index doc, central ' +
-            'manifest, or foreign-slice page is FORBIDDEN — route it as a `deferred` or `indexRows` row for the terminal ' +
-            'reconciler, the sole writer of those surfaces. CONSUMPTION: group findings by `owner` then file, blockers first ' +
-            '(`claimKey` is the dedupe key — one grammar, so the same key is ONE defect); each finding is a SIGNAL, not law — ' +
-            're-open its anchors before editing (MANDATORY), honor `mechanism`/`owner`/`reject`/`acceptance` as the constraint ' +
-            'boundary, and implement the STRONGEST resolution the boundary admits, never a single-point patch; a finding with a ' +
-            'dead anchor, already resolved on disk, or graded hypothetical with no substantive re-derivation is rejected with ' +
-            'its reason in `summary`. Return the fixlog — `deltas` exact, `deferred` and `indexRows` carrying every routed row. ' +
-            HARVEST_LAW,
-    ].join('\n\n');
-
-// One doctrine charter, two carriers: the fixer's terminal round is the primary transport, the standalone lander only the
-// dead-fixer/blocked-loop fallback — twin literals would drift, one owner never does.
-const doctrineCharter = (nominations, orphans) =>
-    'Read `docs/laws/README.md` FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. Load ' +
-    'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load `mermaid-diagramming` ' +
-    'before touching any diagram. ' +
-    "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
-    JSON.stringify(nominations) +
-    '\nAlso sweep `' +
-    SCRATCH +
-    '/fixer-harvest.jsonl` (absent = none): rows there missing from NOMINATIONS are nominations too — a killed fixer round ' +
-    'reaches the landing only through that file.\nAlso read the `harvest` array of every critique fixlog at these ' +
-    'deterministic paths (an absent or invalid file skips; no other agent transports these rows): ' +
-    JSON.stringify(orphans) +
-    ' — dedupe them against NOMINATIONS and adjudicate them identically.\n' +
-    'ADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on CURRENT disk; ' +
-    'LAND NOTHING is a first-class verdict.\n' +
-    'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row whose ' +
-    'coupling no longer holds, land a coupling this run proved.\n' +
-    'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs.';
-
-const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orphans, census, ideas, harvest, round) =>
+const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orphans, census, round) =>
     [
         ROOT_LAW,
         round
             ? 'DRAIN ROUND ' +
               round +
-              ' — the backlog rows below were verified STILL-OPEN by the prior round; fix each at its root NOW, and a row you ' +
-              'genuinely cannot land carries its named blocker and owner in `remaining`. Every other tranche re-arrives in full ' +
-              'so a dead or partial prior round loses nothing — the checkpoint ledger is the consumption truth: skip every ' +
-              'tranche it receipts, drain the rest.'
+              ' — every backlog row below was verified STILL-OPEN by the prior round; the index rows, finder reports, and orphan ' +
+              'fixlogs are already consumed. Fix each row at its root NOW; a row you genuinely cannot land carries its named ' +
+              'blocker and owner in `remaining`.'
             : '',
         'Rasm monorepo — the libs/ planning corpora. Per-language doctrine bars:\n' +
             langs
@@ -1811,107 +1467,58 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
                 .join('\n'),
         HUNT,
         GIT_GROUND,
-        'CHECKPOINT LEDGER: `' +
-            SCRATCH +
-            '/fixer-checkpoint.md` — read it FIRST and skip every tranche it already receipts (an interrupted drain re-enters, ' +
-            'never restarts); append one line per tranche AS EACH COMPLETES (each report drained, the backlog block, each ' +
-            'census and ideas dossier, the index-row apply, the own hunt). HARVEST FILE: append each `harvest` nomination to `' +
-            SCRATCH +
-            '/fixer-harvest.jsonl` (one JSON row per line) the moment it is minted — the terminal doctrine landing (5) sweeps the file, so a ' +
-            'killed round loses no nomination; your returned `harvest` carries the same rows. Your returned `tranches` lists ' +
-            'the checkpoint receipt line of every tranche fed this round — a fed tranche absent from that list is unconsumed, ' +
-            'and the round has failed its mandate.',
         "TASK: TERMINAL FIX (WRITER — the run's LAST agent, nothing follows you): full write authority over the landed corpus, " +
             'libs-wide ripple authority with the expand-form bound LIFTED (collapse, rename, and contract are yours now that no ' +
             "sibling writer runs), and the run's SOLE writer for the owning-package index docs (ARCHITECTURE.md + README.md), " +
             'IDEAS.md, and the central manifests. Landed pages: ' +
             JSON.stringify(pages) +
-            '.\nTRANCHE ORDER IS EXECUTION ORDER — the capability tranches (2c, 2d) precede the finder roster (3) by design; ' +
-            'never demote them behind mechanical page fixes.\n' +
-            [
-                rows.length
-                    ? '(1) INDEX ROWS: apply every reported row to its owning doc exactly once — dedupe semantically identical rows, keep ' +
-                      "each doc's section grammar, verify every landed page is truthfully reflected; a central-manifest row hand-edits the " +
-                      'grouped manifest at the SYMBOL anchor (never a line number), preserving label-group order; an IDEAS row lands as a ' +
-                      'fully-specified card in the named IDEAS.md: ' +
-                      JSON.stringify(rows) +
-                      '.'
-                    : '',
-                backlog.length
-                    ? '(2) DEFERRED BACKLOG (second-order and cross-batch ripples — re-verify each {files, claim} on current disk, fix ' +
-                      'what holds, reject what disk already resolved): ' +
-                      JSON.stringify(backlog) +
-                      '.'
-                    : '',
-                orphans.length
-                    ? '(2b) CRITIQUE FIXLOGS — every batch critique, folded-forward or orphaned (a live redteam folds judgment-lossy and a ' +
-                      'dead one folds nothing); the paths are deterministic, so one absent on disk is skipped with a one-line note in ' +
-                      '`summary`, never an error — read each present file IN FULL and drain the seam/deferred/index rows still open under ' +
-                      'the same law (a row a redteam already landed disk-resolves and drops); the fixlog `harvest` arrays are DOCTRINE ' +
-                      'NOMINATIONS for stage (5), never rows to fold into corpus fixes here: ' +
-                      JSON.stringify(orphans) +
-                      '.'
-                    : '',
-                census.length
-                    ? '(2c) CORRECTIONS CENSUS dossiers (the writers landed only the rows intersecting their own pages — read each IN ' +
-                      'FULL; every row NOT already resolved on current disk is yours: land it at its root or reject with reason): ' +
-                      JSON.stringify(census) +
-                      '.'
-                    : '',
-                ideas.length
-                    ? '(2d) IDEAS WORKLIST dossiers (read each IN FULL; cross-check every idea against current disk — a dead batch stage ' +
-                      'leaves ideas unclaimed or landed at one end of a cross-folder seam only): an unclaimed or half-landed idea is ' +
-                      'yours — land it at its owner to full depth, finish the missing seam end, or reject with reason; an idea whose ' +
-                      'remaining work genuinely exceeds a terminal pass returns as a fully-specified card in the owning IDEAS.md, never ' +
-                      'a silent drop. Your returned `ideaLedger` carries one row PER DOSSIER IDEA — fate landed|carded|declined with ' +
-                      'the landing page, the card, or the forbidding disk fact in `note`; a dossier idea absent from the ledger is the ' +
-                      'silent drop the ledger exists to kill: ' +
-                      JSON.stringify(ideas) +
-                      '.'
-                    : '',
-                roster.length || unmapped.length
-                    ? '(3) FINDER REPORTS — products ON DISK as JSON report files; the ROSTER receipts are navigation, never the product. ' +
-                      'The roster carries the governance finders plus any slice whose drain lane died undrained — drained slices already ' +
-                      'landed and reach you only as routed rows. CONSUMPTION, in order: (a) UNMAPPED scope is your direct-hunt queue — a ' +
-                      "failed finder's territory gets your own cold read first; (b) read every roster report IN FULL from disk, " +
-                      'governance before page slices — group findings by `owner` then file, blockers first (`claimKey` is the dedupe key: ' +
-                      'one grammar, so the same key across lanes is ONE defect with corroborating evidence; shared owners and registries ' +
-                      'before consumers, cross-folder seams before local prose); (c) each ' +
-                      'finding is a SIGNAL, not law: re-open its anchors before editing — anchors behind an edit, cited members, seams, ' +
-                      'and manifest rows re-verify MANDATORY; (d) `mechanism`/`owner`/`reject`/`acceptance` are the constraint boundary — ' +
-                      'honor the owner and rejected forms, but the DESIGN is yours: implement the STRONGEST resolution the boundary ' +
-                      'admits, never a single-point patch, landing the denser root-level reconstruction where the implied fix is weak; a ' +
-                      'finding with a dead anchor or already resolved on disk is ' +
-                      'rejected with reason. UNMAPPED: ' +
-                      JSON.stringify(unmapped) +
-                      ' ROSTER: ' +
-                      JSON.stringify(roster) +
-                      '.'
-                    : '',
-                '(4) OWN HUNT: hunt PAST the signal list — the hunt classes over the landed pages and governance surface — and fix ' +
-                    'what the finders missed; `beyond` enumerates those fixes, and an empty `beyond` attests the hunt found nothing, ' +
-                    'never that it did not run.',
-                '(5) DOCTRINE LANDING — the durable-learning terminal, YOURS only on the round that fully drains the residual set: ' +
-                    'when your `remaining` returns empty, execute it as your FINAL act and return `doctrine.performed=true` with its ' +
-                    'landed/refined/rejected rows; a round ending with a non-empty `remaining` returns `doctrine.performed=false` ' +
-                    '(empty arrays) and leaves the landing to the finishing round. Your own `harvest` rows minted this round are ' +
-                    'nominations too, adjudicated under the same refute-by-default bar. ' +
-                    doctrineCharter(harvest, orphans),
-                'Every ripple an edit exposes is YOURS in the same pass — seam counterparts both ends, consumer sites, index docs, ' +
-                    "manifest rows, .api anchors; wire-canonical names stay frozen; a foreign-language repair holds that branch's " +
-                    'doctrine bar.' +
-                    (failed.length
-                        ? ' FAILED PAGES (reported, not landed — never author them here; correct any claim that pretends they landed): ' +
-                          JSON.stringify(failed) +
-                          '.'
-                        : '') +
-                    ' Return the final fixlog — `remaining` carries ONLY rows verified still-open and genuinely blocked, each naming ' +
-                    'its blocker and owner; a row disk already resolved is culled with proof in `rejected`, and an empty `remaining` ' +
-                    'attests the drain closed. ' +
-                    HARVEST_LAW,
-            ]
-                .filter(Boolean)
-                .join('\n'),
+            '.\n' +
+            '(1) INDEX ROWS: apply every reported row to its owning doc exactly once — dedupe semantically identical rows, keep ' +
+            "each doc's section grammar, verify every landed page is truthfully reflected; a central-manifest row hand-edits the " +
+            'grouped manifest at the SYMBOL anchor (never a line number), preserving label-group order; an IDEAS row lands as a ' +
+            'fully-specified card in the named IDEAS.md: ' +
+            JSON.stringify(rows) +
+            '.\n' +
+            '(2) DEFERRED BACKLOG (second-order and cross-batch ripples — re-verify each {files, claim} on current disk, fix ' +
+            'what holds, reject what disk already resolved): ' +
+            JSON.stringify(backlog) +
+            '.\n' +
+            '(2b) ORPHANED CRITIQUE FIXLOGS (batches whose redteam never landed, so these rows were never folded forward — read ' +
+            "each IN FULL from disk, drain the seam/deferred/index rows under the same law, and fold each fixlog's surviving " +
+            'harvest rows into your own `harvest` return, re-verified and deduped): ' +
+            JSON.stringify(orphans) +
+            '.\n' +
+            '(2c) CORRECTIONS CENSUS dossiers (the writers landed only the rows intersecting their own pages — read each IN ' +
+            'FULL; every row NOT already resolved on current disk is yours: land it at its root or reject with reason): ' +
+            JSON.stringify(census) +
+            '.\n' +
+            '(3) FINDER REPORTS — products ON DISK as JSON report files; the ROSTER receipts are navigation, never the product. ' +
+            "CONSUMPTION, in order: (a) UNMAPPED scope is your direct-hunt queue — a failed finder's territory gets your own " +
+            'cold read first; (b) read every ok report IN FULL from disk, governance finders before page slices — group findings ' +
+            'by `claimKey` (the same key across lanes is ONE defect with corroborating evidence) and order work by `severity` ' +
+            'then `owner` (shared owners and registries before consumers, cross-folder seams before local prose); (c) each ' +
+            'finding is a SIGNAL, not law: re-open its anchors before editing — anchors behind an edit, cited members, seams, ' +
+            'and manifest rows re-verify MANDATORY; (d) `mechanism`/`owner`/`reject`/`acceptance` are the constraint boundary — ' +
+            'honor the owner and rejected forms, but the DESIGN is yours: implement the STRONGEST resolution the boundary ' +
+            'admits, never a single-point patch, landing the denser root-level reconstruction where the implied fix is weak; a ' +
+            'finding with a dead anchor, already resolved on disk, or graded `hypothetical` with no substantive re-derivation is ' +
+            'rejected with reason. UNMAPPED: ' +
+            JSON.stringify(unmapped) +
+            ' ROSTER: ' +
+            JSON.stringify(roster) +
+            '.\n' +
+            '(4) OWN HUNT: hunt PAST the signal list — the hunt classes over the landed pages and governance surface — and fix ' +
+            'what the finders missed; `beyond` enumerates those fixes, and an empty `beyond` attests the hunt found nothing, ' +
+            'never that it did not run.\n' +
+            'Every ripple an edit exposes is YOURS in the same pass — seam counterparts both ends, consumer sites, index docs, ' +
+            "manifest rows, .api anchors; wire-canonical names stay frozen; a foreign-language repair holds that branch's " +
+            'doctrine bar. FAILED PAGES (reported, not landed — never author them here; correct any claim that pretends they ' +
+            'landed): ' +
+            JSON.stringify(failed) +
+            '. Return the final fixlog — `remaining` carries ONLY rows verified still-open and genuinely blocked, each naming ' +
+            'its blocker and owner; a row disk already resolved is culled with proof in `rejected`, and an empty `remaining` ' +
+            'attests the drain closed. ' +
+            HARVEST_LAW,
     ]
         .filter(Boolean)
         .join('\n\n');
@@ -1925,7 +1532,7 @@ if (!TARGETS.length) {
 }
 
 phase('Plan');
-const plan = await slot(() => run(planPrompt(), wopts('plan', 'Plan', 'opus', PLAN_SCHEMA)));
+const plan = await slot(() => agent(planPrompt(), wopts('plan', 'Plan', 'opus', PLAN_SCHEMA)));
 const PAGES = normalizePages(plan);
 const UNRESOLVED = (plan && plan.unresolved) || [];
 if (UNRESOLVED.length) log('Unresolved targets (mis-scoped or renamed): ' + UNRESOLVED.join(', '));
@@ -1968,15 +1575,10 @@ const UNITS = PKGS.flatMap((pkg) => {
     });
 });
 const unitMap = {};
-// Feeder fan: one ctx+api pair per strata-legal upstream package (planner-derived, kernel always present), projected onto the
-// same-language run targets. FEEDERS derive from the Plan product alone — no unit-map data feeds them — so the feeder fan and
-// the unit fan run in ONE concurrent pool; a barrier between them holds feeder lanes hostage to the slowest unit lane.
-const FEEDERS = [...new Set(((plan && plan.packages) || []).flatMap((p) => p.feeders || []))].filter((f) => langOf(f) && !PKGS.includes(f));
-const feederMap = {};
-await Promise.all([
-    ...UNITS.map(async (u) => {
+await Promise.all(
+    UNITS.map(async (u) => {
         const L = Lof(u.pkg);
-        const unitPages = u.pages;
+        const unitPages = u.pages.map((p) => Object.assign({}, p, { i: 0 }));
         const scope = unitPages.map((p) => p.page);
         const tag = u.tag;
         const ctxDossier = dossierPath('map:ctx:' + tag);
@@ -1985,89 +1587,44 @@ await Promise.all([
             slot(() =>
                 recon(
                     (reg) => ctxLensPrompt(L, unitPages, ctxDossier, reg),
-                    ropts('map:ctx:' + tag, 'Map', MAP_SCHEMA, scope, { arr: 'index' }, { native: true, nativeModel: 'opus', stallMs: STALL }),
-                ),
-            ),
-            slot(() =>
-                recon(
-                    (reg) => apiLensPrompt(L, unitPages, apiDossier, reg),
-                    ropts('map:api:' + tag, 'Map', MAP_SCHEMA, scope, { arr: 'index' }, { writes: true }),
-                ),
-            ),
-        ]);
-        unitMap[u.key] = { ctx, api, ctxDossier, apiDossier };
-    }),
-    ...FEEDERS.map(async (feeder) => {
-        const L = Lof(feeder);
-        const targets = PKGS.filter((p) => Lof(p).key === L.key);
-        if (!targets.length) return;
-        const name = feeder.split('/').pop();
-        const ctxDossier = dossierPath('map:feeder-ctx:' + name);
-        const apiDossier = dossierPath('map:feeder-api:' + name);
-        const [ctx, api] = await Promise.all([
-            slot(() =>
-                recon(
-                    (reg) => feederLensPrompt(L, feeder, targets, ctxDossier, reg, 'ctx'),
                     ropts(
-                        'map:feeder-ctx:' + name,
+                        'map:ctx:' + tag,
                         'Map',
-                        MAP_SCHEMA,
-                        targets,
-                        { arr: 'index' },
+                        CTX_SCHEMA,
+                        scope,
+                        { arr: 'worklist', group: 'kind' },
                         { native: true, nativeModel: 'opus', stallMs: STALL },
                     ),
                 ),
             ),
             slot(() =>
                 recon(
-                    (reg) => feederLensPrompt(L, feeder, targets, apiDossier, reg, 'api'),
-                    ropts('map:feeder-api:' + name, 'Map', MAP_SCHEMA, targets, { arr: 'index' }, { writes: true }),
+                    (reg) => apiLensPrompt(L, unitPages, apiDossier, reg),
+                    ropts('map:api:' + tag, 'Map', API_SCHEMA, scope, { arr: 'worklist' }, { writes: true }),
                 ),
             ),
         ]);
-        feederMap[feeder] = { ctx, api, ctxDossier, apiDossier };
+        unitMap[u.key] = { ctx, api, ctxDossier, apiDossier };
     }),
-]);
-const mapOk = Object.values(unitMap).filter((m) => (m.ctx && m.ctx.ok) || (m.api && m.api.ok)).length;
-const FEEDER_DOSSIERS = Object.values(feederMap)
-    .flatMap((m) => [m.ctx && m.ctx.ok && m.ctxDossier, m.api && m.api.ok && m.apiDossier])
-    .filter(Boolean);
-log(
-    'Map: ' +
-        UNITS.length +
-        ' unit segment(s) across ' +
-        PKGS.length +
-        ' package(s) mapped; ' +
-        mapOk +
-        ' with a live dossier; ' +
-        FEEDERS.length +
-        ' feeder package(s) projected',
 );
+const mapOk = Object.values(unitMap).filter((m) => (m.ctx && m.ctx.ok) || (m.api && m.api.ok)).length;
+log('Map: ' + UNITS.length + ' unit segment(s) across ' + PKGS.length + ' package(s) mapped; ' + mapOk + ' with a live dossier');
 
 phase('Ideate');
 // TWO lanes per owning package with disjoint charters: a corrections census (opus — the fix addendum the batches land as rung 3)
-// and a bigger-ideas worklist (opus — the capability ambition, rung 4). One merged log regresses to a fixlog and the ambition dies.
+// and a bigger-ideas worklist (fable — the capability ambition, rung 4). One merged log regresses to a fixlog and the ambition dies.
 // Either lane absent (dead map or dead ideate), the executors run without that rung.
 const pkgIdeate = {};
 await Promise.all(
     PKGS.map(async (pkg) => {
         const L = Lof(pkg);
         const tag = pkg.split('/').pop();
-        // Each row carries its unit's page roster — engine-held data the lanes otherwise re-derive with tree/fd (run-proven waste).
         const mapIndex = UNITS.filter((u) => u.pkg === pkg)
             .map((u) => ({
                 sub: u.name,
-                pages: u.pages.map((p) => p.page),
                 deepMap: (unitMap[u.key].ctx?.ok && unitMap[u.key].ctxDossier) || null,
                 inventory: (unitMap[u.key].api?.ok && unitMap[u.key].apiDossier) || null,
             }))
-            .concat(
-                FEEDERS.filter((f) => feederMap[f] && Lof(f).key === L.key).map((f) => ({
-                    sub: 'feeder:' + f.split('/').pop(),
-                    deepMap: (feederMap[f].ctx?.ok && feederMap[f].ctxDossier) || null,
-                    inventory: (feederMap[f].api?.ok && feederMap[f].apiDossier) || null,
-                })),
-            )
             .filter((r) => r.deepMap || r.inventory);
         if (!mapIndex.length) {
             pkgIdeate[pkg] = { fix: '', idea: '' };
@@ -2076,8 +1633,8 @@ await Promise.all(
         const fixDossier = dossierPath('ideate:fix:' + tag);
         const ideaDossier = dossierPath('ideate:idea:' + tag);
         const [fix, idea] = await Promise.all([
-            slot(() => run(correctionsPrompt(L, pkg, mapIndex, fixDossier), wopts('ideate:fix:' + tag, 'Ideate', 'opus', RECEIPT))),
-            slot(() => run(ideasPrompt(L, pkg, mapIndex, ideaDossier), wopts('ideate:idea:' + tag, 'Ideate', 'opus', RECEIPT))),
+            slot(() => agent(correctionsPrompt(L, pkg, mapIndex, fixDossier), wopts('ideate:fix:' + tag, 'Ideate', 'opus', RECEIPT))),
+            slot(() => agent(ideasPrompt(L, pkg, mapIndex, ideaDossier), wopts('ideate:idea:' + tag, 'Ideate', 'fable', RECEIPT))),
         ]);
         pkgIdeate[pkg] = { fix: (fix && fix.ok && fixDossier) || '', idea: (idea && idea.ok && ideaDossier) || '' };
         log(
@@ -2091,7 +1648,6 @@ await Promise.all(
     }),
 );
 const CENSUS_PATHS = PKGS.map((pkg) => pkgIdeate[pkg] && pkgIdeate[pkg].fix).filter(Boolean);
-const IDEA_PATHS = PKGS.map((pkg) => pkgIdeate[pkg] && pkgIdeate[pkg].idea).filter(Boolean);
 
 phase('Build');
 // Batch composition packs WHOLE sub-folder units (in plan order) up to BATCH_MAX, splitting only an oversize unit — a batch's
@@ -2131,19 +1687,10 @@ const built = (
             const pageScope = batch.map((p) => p.page);
             // ctx + api grounding come from the Map phase (per-unit-segment, reused); only the page-scoped bar lens runs per batch.
             const pms = b.units.map((u) => unitMap[u.key]).filter(Boolean);
-            // Bar is doctrine JUDGMENT feeding the implementer's mandatory close-every-finding rung — sol over the terra
-            // inventory default, pinned medium: the operator default effort is high, and an unpinned lane inherits it.
             const bar = await slot(() =>
                 recon(
                     (reg) => barLensPrompt(L, batch, reg),
-                    ropts(
-                        'recon:bar:' + tag,
-                        'Build',
-                        BAR_SCHEMA,
-                        pageScope,
-                        { arr: 'findings', group: 'severity' },
-                        { model: 'gpt-5.6-sol', codexEffort: 'medium' },
-                    ),
+                    ropts('recon:bar:' + tag, 'Build', BAR_SCHEMA, pageScope, { arr: 'findings', group: 'severity' }),
                 ),
             );
             const roster = pms
@@ -2166,65 +1713,35 @@ const built = (
             const dossiers = pms
                 .flatMap((m) => [m.ctx && m.ctx.ok && m.ctxDossier, m.api && m.api.ok && m.apiDossier])
                 .filter(Boolean)
-                .concat(FEEDER_DOSSIERS)
                 .join('`, `');
             const ideate = pkgIdeate[b.pkg] || { fix: '', idea: '' };
-            const fix =
-                (await slot(() =>
-                    run(implementPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped), wopts('impl:' + tag, 'Build', 'opus', FIXLOG_SCHEMA)),
-                )) ||
-                (await retryLane(() =>
-                    slot(() =>
-                        run(
-                            implementPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped),
-                            wopts('impl:' + tag + ':r1', 'Build', 'opus', FIXLOG_SCHEMA),
-                        ),
-                    ),
-                ));
-            // CHAIN CONTINUATION: a dead implement never blocks the reviews — the critique's conformance audit and the redteam's
-            // pre-mortem still improve the pages as they stand on disk; navigation simply arrives empty.
-            const nav = navOf(fix ? [fix] : []);
-            // Sol critique: a workspace-write codex lane running the full conformance audit in place; fixlog to disk, receipt on the
-            // wire. The report path is DETERMINISTIC and the lane CHECKPOINTS it per closed page, so a dead receipt never severs the
-            // fold — a ceiling-killed lane still leaves every closed page's row, and downstream consumers verify the path on disk
-            // instead of trusting ok.
-            const critReport = SCRATCH + '/' + fileTag('crit:' + tag) + '-report.json';
+            const fix = await slot(() =>
+                agent(implementPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped), wopts('impl:' + tag, 'Build', 'fable', FIXLOG_SCHEMA)),
+            );
+            if (!fix) return { pkg: b.pkg, pages: b.pages, fix: null, crit: null, rt: null }; // failure isolation: a dead implement skips its reviews
+            // Sol critique: a workspace-write codex lane running the full conformance audit in place;
+            // fixlog to disk, receipt on the wire; the redteam reads the fixlog from disk and folds its rows forward.
             const crit = await slot(() =>
                 recon(
-                    (reg) => critiquePrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped, nav, reg),
+                    (reg) => critiquePrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped, navOf([fix]), reg),
                     ropts(
                         'crit:' + tag,
                         'Build',
                         REVIEW_SCHEMA,
                         pageScope,
                         { arr: 'files' },
-                        {
-                            writes: true,
-                            fix: true,
-                            model: 'gpt-5.6-sol',
-                            nativeModel: 'opus',
-                            clockMs: CRIT_CLOCK,
-                        },
+                        { writes: true, fix: true, model: 'gpt-5.6-sol', nativeModel: 'fable', stallMs: SOL_STALL },
                     ),
                 ),
             );
-            const critOk = !!(crit && crit.ok);
-            const rt =
-                (await slot(() =>
-                    run(
-                        redteamPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped, nav, critOk, critReport),
-                        wopts('rt:' + tag, 'Build', 'opus', REVIEW_SCHEMA),
-                    ),
-                )) ||
-                (await retryLane(() =>
-                    slot(() =>
-                        run(
-                            redteamPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped, nav, critOk, critReport),
-                            wopts('rt:' + tag + ':r1', 'Build', 'opus', REVIEW_SCHEMA),
-                        ),
-                    ),
-                ));
-            return { pkg: b.pkg, pages: b.pages, fix, critReport, rt };
+            const critR = crit && crit.ok ? crit : null;
+            const rt = await slot(() =>
+                agent(
+                    redteamPrompt(L, batch, dossiers, ideate, SCOPES, roster, unmapped, navOf([fix]), critR),
+                    wopts('rt:' + tag, 'Build', 'fable', REVIEW_SCHEMA),
+                ),
+            );
+            return { pkg: b.pkg, pages: b.pages, fix, crit: critR, rt };
         }).map((p) => p.catch(() => null)),
     )
 ).filter(Boolean);
@@ -2235,10 +1752,7 @@ const LANDED = built.filter((d) => d.fix).flatMap((d) => d.pages.map((p) => p.pa
 const ROWS = built.flatMap((d) => ((d.fix && d.fix.indexRows) || []).concat((d.rt && d.rt.indexRows) || []));
 const SEAM_ROWS = built.flatMap((d) => ((d.fix && d.fix.seamsTouched) || []).concat((d.rt && d.rt.seamsTouched) || []));
 const BACKLOG = built.flatMap((d) => ((d.fix && d.fix.deferred) || []).concat((d.rt && d.rt.deferred) || []));
-// EVERY critique fixlog reaches the fixer (operational rows) AND the doctrine lander (harvest arrays) — keyed on the
-// DETERMINISTIC path, never the receipt: nomination transport never rides a living agent's fold; a live folder has returned
-// zero of a fixlog's nomination rows under an explicit mechanical mandate, so the adjudicator reads the disk artifact itself.
-const ORPHANS = built.filter((d) => d.critReport).map((d) => d.critReport);
+const ORPHANS = built.filter((d) => d.crit && !d.rt).map((d) => d.crit.report);
 log(
     'Build: ' +
         LANDED.length +
@@ -2263,12 +1777,9 @@ const LANDED_LANGS = [...new Set(LANDED.map((p) => langOf(p)).filter(Boolean))];
 const finderTasks = LANDED_LANGS.flatMap((k) => {
     const langPages = LANDED.filter((p) => langOf(p) === k);
     const langSeams = SEAM_ROWS.filter((s) => langOf(s.file) === k || langOf(s.counterpart) === k);
-    const langBacklog = BACKLOG.filter((r) => (r.files || []).some((f) => langOf(f) === k));
-    // evenChunk over chunk: fixed-size chunking leaves a runt tail slice whose finder over-mines its few pages while the full
-    // slices dilute — balanced slices keep per-finding depth uniform across the fan.
-    return evenChunk(langPages, FINDER_PAGES)
+    return chunk(langPages, FINDER_PAGES)
         .map((pages, i) => ({ gov: false, lang: k, pages, seams: langSeams, i }))
-        .concat([{ gov: true, lang: k, pkgs: [...new Set(langPages.map(pkgOf))], pages: langPages, seams: langSeams, backlog: langBacklog }]);
+        .concat([{ gov: true, lang: k, pkgs: [...new Set(langPages.map(pkgOf))], pages: langPages }]);
 });
 const found = (
     await Promise.all(
@@ -2276,26 +1787,12 @@ const found = (
             slot(() =>
                 t.gov
                     ? recon(
-                          (reg) => govFinderPrompt(LANG[t.lang], t.pkgs, t.pages, ROWS, t.seams, t.backlog, reg),
-                          ropts(
-                              'finder:gov:' + t.lang,
-                              'Close',
-                              FINDINGS_SCHEMA,
-                              t.pkgs,
-                              { arr: 'findings', group: 'class' },
-                              { model: 'gpt-5.6-sol', codexEffort: 'medium' },
-                          ),
+                          (reg) => govFinderPrompt(LANG[t.lang], t.pkgs, t.pages, ROWS, reg),
+                          ropts('finder:gov:' + t.lang, 'Close', FINDINGS_SCHEMA, t.pkgs, { arr: 'findings', group: 'class' }),
                       )
                     : recon(
                           (reg) => finderPrompt(LANG[t.lang], t.pages, t.i, t.seams, reg),
-                          ropts(
-                              'finder:' + t.lang + ':s' + t.i,
-                              'Close',
-                              FINDINGS_SCHEMA,
-                              t.pages,
-                              { arr: 'findings', group: 'class' },
-                              { model: 'gpt-5.6-sol', codexEffort: 'medium' },
-                          ),
+                          ropts('finder:' + t.lang + ':s' + t.i, 'Close', FINDINGS_SCHEMA, t.pages, { arr: 'findings', group: 'class' }),
                       ),
             ).catch(() => null),
         ),
@@ -2324,85 +1821,62 @@ log(
         BACKLOG.length +
         ' backlog row(s) pending',
 );
-// SLICE DRAINS: one concurrent opus writer per ok page-slice finder report — page-disjoint by construction; their deferred and
-// index rows fold into the terminal reconciler, and a dead drain hands its report back to the reconciler roster undrained.
-const sliceFinders = found.filter((f) => f.ok && f.lane.indexOf(':gov:') < 0);
-const drainPairs = await Promise.all(
-    sliceFinders.map(async (f) => {
-        const L = LANG[f.lane.split(':')[1]] || LANG[LANDED_LANGS[0]];
-        const d = await slot(() => run(drainPrompt(L, f), wopts('drain:' + f.lane.replace('finder:', ''), 'Close', 'opus', REVIEW_SCHEMA)));
-        return { f, d };
-    }),
-);
-const drained = drainPairs.filter((x) => x.d);
-const fixerRoster = found.filter((f) => !f.ok || f.lane.indexOf(':gov:') >= 0).concat(drainPairs.filter((x) => !x.d).map((x) => x.f));
-const DRAIN_ROWS = drained.flatMap((x) => x.d.indexRows || []);
-const DRAIN_BACKLOG = drained.flatMap((x) => x.d.deferred || []);
-log('Close: ' + drained.length + '/' + sliceFinders.length + ' slice drain(s) landed; ' + DRAIN_BACKLOG.length + ' routed row(s) to the reconciler');
-
-// Terminal DRAIN LOOP: the run's ONE fable seat — full-repo authority absorbs every residual, so the premium judgment spend
-// concentrates where scope is widest; every batch and slice lane rides opus/sol. One serial reconciler per round takes the
-// residual set — governance findings, undrained slice
-// reports, routed rows, the fixlog sweep — verifies every row against live disk (freshness is its duty — sole writer of index
-// docs and manifests, no collisions), fixes at root, and loops until empty; a round without shrinkage stops with the blocked set final.
-// Every round re-receives the FULL tranche set: the checkpoint ledger receipts consumption, so a dead or partial round loses
-// nothing and a live one skips what it already landed — only the backlog narrows round over round.
+// Terminal DRAIN LOOP: one serial fable closer per round takes the full residual set, verifies every
+// row against live disk (freshness is its duty — no concurrent writers, no collisions), fixes at root,
+// and loops until the set is empty; a round without shrinkage stops the loop with the blocked set final.
 let fixer = null;
-let fixerHarvest = drained.flatMap((x) => x.d.harvest || []);
-let residuals = BACKLOG.concat(DRAIN_BACKLOG);
-const ALL_ROWS = ROWS.concat(DRAIN_ROWS);
-// Build-stage nominations are engine-known before the loop; the terminal round adjudicates them plus the jsonl sweep plus its
-// own rows, so the finishing fixer holds the complete pool without a second agent.
-const BUILT_HARVEST = built.flatMap((d) => ((d.fix && d.fix.harvest) || []).concat((d.rt && d.rt.harvest) || []));
+let fixerHarvest = [];
+let residuals = BACKLOG;
+let orphanQueue = ORPHANS;
 let lastOpen = Infinity;
 for (let round = 0; round < DRAIN_ROUNDS; round++) {
-    const fire = (suffix) =>
-        slot(() =>
-            run(
-                fixerPrompt(
-                    LANDED_LANGS,
-                    fixerRoster,
-                    UNMAPPED,
-                    ALL_ROWS,
-                    residuals,
-                    FAILED,
-                    LANDED,
-                    ORPHANS,
-                    CENSUS_PATHS,
-                    IDEA_PATHS,
-                    BUILT_HARVEST,
-                    round,
-                ),
-                wopts((round ? 'fixer:r' + round : 'fixer') + suffix, 'Close', 'fable', FIXER_SCHEMA),
+    fixer = await slot(() =>
+        agent(
+            fixerPrompt(
+                LANDED_LANGS,
+                round ? [] : found,
+                round ? [] : UNMAPPED,
+                round ? [] : ROWS,
+                residuals,
+                FAILED,
+                LANDED,
+                orphanQueue,
+                round ? [] : CENSUS_PATHS,
+                round,
             ),
-        );
-    fixer = (await fire('')) || (await retryLane(() => fire(':a1')));
-    if (!fixer) break; // dead round after retries: the residual set survives to the run return, and every disk tranche stays checkpoint-re-enterable
+            wopts(round ? 'fixer:r' + round : 'fixer', 'Close', 'fable', FIXER_SCHEMA),
+        ),
+    );
+    if (!fixer) break; // dead round: the fed-in residual and orphan sets survive to the run return, never zeroed by a lost closer
     fixerHarvest = fixerHarvest.concat(fixer.harvest || []);
     const open = fixer.remaining || [];
+    orphanQueue = [];
     residuals = open;
     if (!open.length || open.length >= lastOpen) break;
     lastOpen = open.length;
 }
-// DOCTRINE FALLBACK: the terminal fixer round is the doctrine landing's primary carrier; this standalone lander fires ONLY
-// when no round performed it — a dead fixer (its nominations live in the incremental harvest file) or a loop that ended
-// blocked without draining. Refutation-first, land-nothing legal, admission law owned by docs/laws.
-const HARVEST_ROWS = BUILT_HARVEST.concat(fixerHarvest);
-const doctrinePerformed = !!(fixer && fixer.doctrine && fixer.doctrine.performed);
-const doctrine = doctrinePerformed
-    ? fixer.doctrine
-    : HARVEST_ROWS.length || ORPHANS.length || !fixer
-      ? await slot(() =>
-            run(
-                ROOT_LAW +
-                    '\n\nTASK: DOCTRINE LANDER — the durable-learning terminal of this run (the fixer loop ended without ' +
-                    'performing the landing, so it falls to you). ' +
-                    doctrineCharter(HARVEST_ROWS, ORPHANS) +
-                    '\nReturn landed/refined/rejected (each rejection with its reason)/files/summary.',
-                wopts('doctrine', 'Close', 'opus', DOCTRINE_SCHEMA),
-            ),
-        )
-      : null;
+// DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations adjudicated against
+// the live doctrine surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws.
+const HARVEST_ROWS = built.flatMap((d) => ((d.fix && d.fix.harvest) || []).concat((d.rt && d.rt.harvest) || [])).concat(fixerHarvest);
+const doctrine = HARVEST_ROWS.length
+    ? await slot(() =>
+          agent(
+              'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` ' +
+                  'FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. Load ' +
+                  'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
+                  '`mermaid-diagramming` before touching any diagram. ' +
+                  "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
+                  JSON.stringify(HARVEST_ROWS) +
+                  '\nADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on ' +
+                  'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
+                  'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
+                  'whose coupling no longer holds, land a coupling this run proved.\n' +
+                  'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
+                  'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
+              wopts('doctrine', 'Close', 'fable', DOCTRINE_SCHEMA),
+          ),
+      )
+    : null;
 return {
     targets: TARGETS,
     languages: LANDED_LANGS,

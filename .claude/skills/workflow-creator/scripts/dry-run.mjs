@@ -30,15 +30,10 @@
 // error. A SYNCHRONOUS infinite loop (`while(true){}`) cannot be interrupted in-process by
 // any single-threaded JS runner — wrap the call in your shell's `timeout` for that one.
 //
-// Race semantics: timers run on a VIRTUAL clock — a setTimeout callback fires in ms-order
-// only after every pending microtask cascade drains, so an agent that resolves (all mocked
-// agents do) beats a longer sleep-backed watchdog exactly as a live lane does in production.
-// Exercise the watchdog's DEAD branch with a `--fixtures` value of "__HANG__" for that
-// label: the agent never resolves (its slot stays held, mirroring a wedged lane) and the
-// race falls to the timer. Two more fixture facts: agent() otherwise ALWAYS returns a
-// fixture — the runtime's "user skipped the agent → null" path is modeled only by an
-// explicit `--fixtures` null for that label — and fixture keys match labels exact-first,
-// then by prefix.
+// Honest limitation: agent() ALWAYS returns a fixture here — it never models the
+// runtime's "user skipped the agent → null" path. A `.filter(Boolean)` branch that
+// only triggers on a skipped agent is therefore not exercised; force it with a
+// `--fixtures` override mapping that label to `null` if that branch is load-bearing.
 
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -158,10 +153,11 @@ const makeGlobals = (rec, absFile) => {
                 `exceeded the ${MAX_AGENTS}-agent lifetime cap — the runtime throws WorkflowAgentCapError; add a counter or budget guard to the loop`,
             );
         await Promise.resolve();
-        const fx = fixtureFor(opts);
-        if (fx === '__HANG__') return new Promise(() => {}); // wedge sentinel: never resolves, slot stays held — a raced watchdog exercises its dead branch
-        inflight--;
-        return fx;
+        try {
+            return fixtureFor(opts);
+        } finally {
+            inflight--;
+        }
     };
     const parallel = async (thunks) =>
         Promise.all(
@@ -217,17 +213,13 @@ const makeGlobals = (rec, absFile) => {
             rec.depth--;
         }
     };
-    // Virtual clock: timers queue with their ms and fire in (at, id) order from the pump in driveClock, one per real macrotask,
-    // only when the body's microtask cascades have drained — so `Promise.race([agent, sleep(N)])` resolves to the AGENT branch
-    // for every lane that resolves, and to the timer branch only for a lane pinned "__HANG__". Node's extra-args contract holds.
-    const setTimeoutMock = (fn, ms = 0, ...rest) => {
-        const id = ++rec.tid;
-        if (typeof fn === 'function') rec.timers.push({ id, at: rec.vnow + (Number(ms) || 0), fn, rest });
-        return id;
-    };
-    const clearTimeoutMock = (id) => {
-        const i = rec.timers.findIndex((t) => t.id === id);
-        if (i >= 0) rec.timers.splice(i, 1);
+    const setTimeoutMock = (fn, _ms, ...rest) => {
+        try {
+            typeof fn === 'function' && fn(...rest);
+        } catch {
+            /* fire immediately with Node's setTimeout(fn, ms, ...args) extra-args contract; a throwing timer must not crash the trace */
+        }
+        return 0;
     };
     const con = new Proxy(console, {
         get:
@@ -275,7 +267,7 @@ const makeGlobals = (rec, absFile) => {
         budget,
         workflow,
         setTimeout: setTimeoutMock,
-        clearTimeout: clearTimeoutMock,
+        clearTimeout: () => {},
         console: con,
         Math: banMath,
         Date: banDate,
@@ -315,36 +307,7 @@ const freshRecorder = () => ({
     nested: [],
     console: [],
     warnings: new Set(),
-    timers: [], // virtual-clock queue, shared with nested bodies; driveClock is the one pump
-    tid: 0,
-    vnow: 0,
 });
-
-// The pump: fire one due virtual timer per REAL macrotask tick, so each timer's microtask cascade completes before the next
-// timer — earlier ms always land first, and a body awaiting only its own resolved promises settles before any timer fires.
-// The deadline mirrors withTimeout so a hung body never leaves the pump spinning.
-const driveClock = (p, rec) => {
-    let settled = false;
-    const done = p.finally(() => {
-        settled = true;
-    });
-    (async () => {
-        const deadline = Date.now() + BODY_TIMEOUT_MS + 250;
-        while (!settled && Date.now() < deadline) {
-            await new Promise((r) => setTimeout(r, 0));
-            if (settled || !rec.timers.length) continue;
-            rec.timers.sort((a, b) => a.at - b.at || a.id - b.id);
-            const t = rec.timers.shift();
-            rec.vnow = t.at;
-            try {
-                t.fn(...t.rest);
-            } catch {
-                /* a throwing timer must not crash the pump */
-            }
-        }
-    })();
-    return done;
-};
 const traceOf = (rec, result) =>
     JSON.stringify({
         agents: rec.agents.map((a) => ({
@@ -403,7 +366,7 @@ const simulate = async (absFile, args) => {
         let result,
             err = null;
         try {
-            result = await withTimeout(driveClock(runBody(src, args, rec, absFile), rec));
+            result = await withTimeout(runBody(src, args, rec, absFile));
         } catch (e) {
             if (e instanceof SyntaxError) throw e;
             err = e.message;

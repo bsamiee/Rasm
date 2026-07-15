@@ -17,7 +17,7 @@ const items = Array.isArray(args) && args.length ? args : ['TODO item one', 'TOD
 // --- [MODELS] --------------------------------------------------------------------------
 const STAGE1_SCHEMA = {
     type: 'object',
-    additionalProperties: false, // STRICT profile: false here + every property in required — the same shape serves codex --output-schema unchanged
+    additionalProperties: false, // STRICT: required must list every property — codex --output-schema rejects anything less
     required: ['result'],
     properties: { result: { type: 'string' } },
 };
