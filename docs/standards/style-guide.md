@@ -21,6 +21,8 @@ When owners conflict, choose the repo-local term only when a current route or co
 
 Durable prose is law for agents that read it with no memory of why it was written. Every sentence is either law an agent must obey or a defect that anchors, drifts, or wastes tokens.
 
+[REBUILD_TEST] — One admission test rules every prose sentence: it stays true, unchanged, across any doctrine-conforming rebuild of the surfaces it accompanies. Prose couples to intent — charter, invariant, boundary, ruling, trap; the fence couples to shape — cases, members, signatures, mechanism. A sentence whose truth depends on the current fence body drifts the moment the fence improves, and a sentence that names the current shape walls the next rebuild inside today's design; drift and anchoring are one defect — shape-coupled prose — read from opposite directions, and both cure the same way: state what the rebuild must preserve, and let the fence own the shape. A page passes when a stronger fence body lands with zero prose edits.
+
 [REGENERATION_TEST] — Runs sentence by sentence: delete the sentence. A fresh agent regenerating the fact from disk plus the document's stated invariants proves it a mirror — delete it, or demote it to a fenced representation when structure must be shown. A fact that cannot be regenerated is law kept at the altitude that owns it, still answerable to every defect class — surviving regeneration rules out the mirror alone, never a freeze, hedge, or ledger the catalog deletes. Fences and diagrams are exempt: a representation is declared regenerable, verified by tooling, and never paraphrased back into prose.
 
 [FACT_CLASSES] — Every fact in a durable doc is exactly one of:

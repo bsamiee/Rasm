@@ -28,6 +28,7 @@ Choose the lifecycle role before adding an owner, construct, rail, or projection
 - Law: each validator enforces only its own metadata — `msgspec.Meta(...)` on the wire, a `pydantic` `Field(min_length=..., ge=...)` (or its constrained-type) at ingress, `beartype.vale.Is[...]` at the owner factory — and no validator reads a foreign one's marker, so the policy is declared once as the numeric edge plus the predicate and each stage projects the slice it enforces: the shared edge derives the wire and ingress markers from one constant pair, the predicate rides the owner alias alone, and no mixed alias serves all three; the policy is the single edit site, zero parallel constraint values.
 - Law: `beartype.vale.Is[...]` and `msgspec.Meta(...)` never share one `Annotated` on a `@beartype` factory hint, in either order — `[Is, Meta]` raises `BeartypeDecorHintPep593Exception` at decoration (rejecting the agnostic `Meta` as "not beartype validator"), and `[Meta, Is]` is worse, decorating cleanly while silently dropping the `Is` so an unrefined value passes the contract — so the owner alias carries the predicate-as-`Is` alone (the numeric edge is already wire-proven before the factory) while `msgspec.Meta` rides the wire alias and the pydantic `Field` constraint rides the ingress field, each marker landing on the validator that reads it.
 - Law: admission maps a contract violation onto the seam's fault, never an exception into the interior — `ConfigDict(extra="forbid", strict=True)` on the ingress model rejects drift, `BeartypeConf(violation_type=...)` redirects a boundary violation to a domain exception the seam catches, and the interior receives only the admitted owner.
+- Law: a floating-point bound is closed over the non-finite domain — a finiteness predicate (`math.isfinite`, the validator's own finiteness marker) precedes every range check on a float-bearing field, scalar and tuple member alike — because an infinity satisfies a bare inequality and admits unbounded material past a positivity check.
 - Exemption: `delivered` is the measured admission kernel — one `try` whose `except ValidationError` drift arm precedes its `except ValueError` refusal arm because pydantic's `ValidationError` subclasses `ValueError`, so the most-specific raise maps to `<drift>` and the `@beartype` refusal to `<refused>`; this ordered-capture seam is the named platform-forced statement site, and every interior signature past it is expression-shaped over the admitted owner.
 - Reject: a mixed `Is[...]` + `msgspec.Meta(...)` alias on a beartype factory; a validator's bound expressed in a foreign validator's marker that the validator silently ignores; re-validating an admitted owner in the interior; a `try`/`except` wrapping an interior rail transform.
 
@@ -89,7 +90,7 @@ def delivered(raw: object, /) -> Result[Shape, AdmitFault]:
 
 ## [02]-[OWNER_CHOOSER]
 
-Choose the invariant owner before choosing a package-backed model, wrapper, protocol, rail, enum, or immutable collection. Five discriminants make the choice mechanical, and every misplaced shape traces to one mis-answered discriminant: admission (is the material trusted, or does it cross an untrusted edge), identity regime (is equality by value, by tag, by key, or by reference), variant arity (one shape, a closed family, or an open extension set), payload timing (is the shape fixed at definition or admitted at runtime), and openness (is the family closed to the program, semi-closed at a versioned wire, or open to foreign code). The OWNER_INDEX rows below are keyed on the answer to these discriminants.
+Choose the invariant owner before choosing a package-backed model, wrapper, protocol, rail, enum, or immutable collection. Five discriminants make the choice mechanical, and every misplaced shape traces to one mis-answered discriminant: admission (is the material trusted, or does it cross an untrusted edge), identity regime (is equality by value, by tag, by key, or by reference), variant arity (one shape, a closed family, or an open extension set), payload timing (is the shape fixed at definition or admitted at runtime), and openness (is the family closed to the program, semi-closed at a versioned wire, or open to foreign code). OWNER_INDEX rows below key on the answer to these discriminants.
 
 [OWNER_INDEX]:
 
@@ -126,7 +127,7 @@ Choose the invariant owner before choosing a package-backed model, wrapper, prot
 
 ## [03]-[PAYLOAD_AND_MATERIALIZATION]
 
-A typed payload is the one shape that lives between the wire and the canonical owner: admitted exactly once and never forwarded inward. The closed `TypedDict` payload type form — exact-key closure, the typed `extra_items` band, per-key presence and read-only evidence, and the `Unpack[TypedDict]` root signature — is the language page's settled contract; this page owns the value lifecycle it sheds, where a module-level `TypeAdapter` is the runtime admission gate that materializes the payload into the owner and the extension band condenses into one `frozendict` of evidence.
+A typed payload is the one shape that lives between the wire and the canonical owner: admitted exactly once and never forwarded inward. A closed `TypedDict` payload type form — exact-key closure, the typed `extra_items` band, per-key presence and read-only evidence, and the `Unpack[TypedDict]` root signature — is the language page's settled contract; this page owns the value lifecycle it sheds, where a module-level `TypeAdapter` is the runtime admission gate that materializes the payload into the owner and the extension band condenses into one `frozendict` of evidence.
 
 [TYPED_PAYLOADS]:
 - Law: the payload admits exactly once through one module-level `TypeAdapter`, and its type appears only at the `Unpack` root signature — never in a domain interior, because materialization hands the interior the canonical owner; per-request `TypeAdapter` construction and a forwarded payload kwarg are the two leaks this forbids.
@@ -187,7 +188,7 @@ def accepted(**raw: Unpack[ShapePayload]) -> Result[Shape, PayloadFault]:
 
 ## [04]-[CANONICAL_OWNERS]
 
-The canonical owner is the first durable frozen shape domain logic accepts, and it owns the invariants, lifecycle transitions, folds, and projections that no boundary owns. Owner-type selection follows OWNER_INDEX rows [04]-[06]; a canonical owner never imports a boundary engine unless that engine is itself the durable owner.
+A canonical owner is the first durable frozen shape domain logic accepts, and it owns the invariants, lifecycle transitions, folds, and projections that no boundary owns. Owner-type selection follows OWNER_INDEX rows [04]-[06]; a canonical owner never imports a boundary engine unless that engine is itself the durable owner.
 
 [CANONICAL_OWNER_LAW]:
 - Law: domain invariants and the failable transition graph live on the owner — a transition that can fail returns `Result[Self, E]` so the successor re-proves the invariant, and an absence-bearing field is `Option[T]`, never `None`; the transition is an owner method, never a free function reconstructing the invariant outside the owner.
@@ -236,10 +237,11 @@ class Shape:
 
 ## [05]-[VOCABULARY_ABSENCE_AND_VARIANTS]
 
-One vocabulary owner feeds ingress discriminants, canonical tags, wire tags, registry rows, and schema enum arms; absence is a closed axis, not a scatter of nullable fields; and a variant family is one owner namespace under a total `match`. The three concerns share one rule: a bounded set of states is one closed owner, never parallel module-level types or boolean flags.
+One vocabulary owner feeds ingress discriminants, canonical tags, wire tags, registry rows, and schema enum arms; absence is a closed axis, not a scatter of nullable fields; and a variant family is one owner namespace under a total `match`. All three concerns share one rule: a bounded set of states is one closed owner, never parallel module-level types or boolean flags.
 
 [VOCABULARY]:
 - Use: `StrEnum` for runtime token identity, iteration, registry keys, settings, CLI, or wire values; `Literal` when static proof suffices and no runtime vocabulary behavior is needed; verified `Flag` only when bit composition is the contract.
+- Law: an owned enum mirroring a provider vocabulary admits the provider's full member roster — the interior mirror construction `EnumType(foreign_value)` over a stored foreign value raises `ValueError` on every member economy dropped, so coverage of a mirrored vocabulary is a totality obligation, never a styling choice.
 - Reject: routing on `.value` strings in domain code; duplicating a token band across enums, literals, schemas, fixtures, and handler maps.
 
 [ABSENCE]:
@@ -416,7 +418,7 @@ class Shape:
 
 ## [07]-[IMMUTABLE_REPLACEMENT]
 
-A durable owner is frozen after materialization, and state change is a transition that returns a successor, never a mutation. The replacement lane splits by trust: a same-process trusted swap runs the owner kernel directly, and an untrusted, computed, or wire-sourced delta starts from a closed patch payload validated at the boundary and returns through the owner rail.
+A durable owner is frozen after materialization, and state change is a transition that returns a successor, never a mutation. Replacement lanes split by trust: a same-process trusted swap runs the owner kernel directly, and an untrusted, computed, or wire-sourced delta starts from a closed patch payload validated at the boundary and returns through the owner rail.
 
 [IMMUTABLE_REPLACEMENT_LAW]:
 - Law: durable collections are `tuple`, `frozenset`, `frozendict`, `Map`, `Block`, or another admitted immutable owner; a transition returns `Self`, `Result[Self, E]`, or a closed successor union.
